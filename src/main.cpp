@@ -813,7 +813,7 @@ int64_t CheckLockTime(const CTransaction &tx, int flags)
     // and there aren't timestamp applications where it matters.
     int64_t nBlockTime = GetAdjustedTime();
     if (flags & LOCKTIME_MEDIAN_TIME_PAST)
-        nBlockTime -= ((CBlockIndex::nMedianTimeSpan + 1) >> 1) * Params().GetConsensus().nPowTargetSpacing;
+        nBlockTime -= ((CBlockIndex::nMedianTimeSpan + 1) >> 1) * Params().TargetSpacing();
 
     return LockTime(tx, flags, pCoinsView, nBlockHeight, nBlockTime);
 }
