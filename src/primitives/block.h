@@ -13,6 +13,42 @@
 /** The maximum allowed size for a serialized block, in bytes (network rule) */
 static const unsigned int MAX_BLOCK_SIZE = 1000000;
 
+class CProof
+{
+public:
+    uint32_t nBits;
+    uint32_t nNonce;
+
+    CProof()
+    {
+        SetNull();
+    }    
+    CProof(uint32_t nBitsIn, uint32_t nNonceIn) : 
+        nBits(nBitsIn), nNonce(nNonceIn) {}  
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(nBits);
+        READWRITE(nNonce);
+    }
+
+    void SetNull()
+    {
+        nBits = 0;
+        nNonce = 0;
+    }
+
+    bool IsNull() const
+    {
+        return (nBits == 0);
+    }
+
+    std::string ToString() const;
+};
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -29,8 +65,7 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
-    uint32_t nBits;
-    uint32_t nNonce;
+    CProof proof;
 
     CBlockHeader()
     {
@@ -46,8 +81,7 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(proof);
     }
 
     void SetNull()
@@ -56,13 +90,12 @@ public:
         hashPrevBlock = 0;
         hashMerkleRoot = 0;
         nTime = 0;
-        nBits = 0;
-        nNonce = 0;
+        proof.SetNull();
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        return proof.IsNull();
     }
 
     uint256 GetHash() const;
@@ -115,9 +148,8 @@ public:
         block.nVersion       = nVersion;
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
-        block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
+        block.nTime = nTime;
+        block.proof = proof;
         return block;
     }
 

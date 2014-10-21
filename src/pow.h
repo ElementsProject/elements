@@ -11,6 +11,7 @@
 
 class CBlockHeader;
 class CBlockIndex;
+class CProof;
 class uint256;
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
