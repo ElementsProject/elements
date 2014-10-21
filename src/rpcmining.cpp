@@ -177,7 +177,7 @@ Value setgenerate(const Array& params, bool fHelp)
             do {
                 LOCK(cs_main);
                 IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
-            } while (!GenerateProof(pblock) && !CheckProofOfWork(pblock->GetHash(), pblock->nBits));
+            } while (!(GenerateProof(pblock) && CheckProof(*pblock)));
             CValidationState state;
             if (!ProcessNewBlock(state, NULL, pblock))
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
