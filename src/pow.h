@@ -21,4 +21,7 @@ bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast);
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast);
 uint256 GetBlockProof(const CBlockIndex& block);
 
+/** Avoid using these functions when possible */
+double GetChallengeDifficulty(const CBlockIndex* blockindex);
+
 #endif // BITCOIN_POW_H
