@@ -328,7 +328,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
         UpdateTime(pblock, pindexPrev);
         ResetChallenge(*pblock, *pindexPrev);
-        pblock->nNonce         = 0;
+        ResetProof(*pblock);
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 
         CValidationState state;
@@ -452,7 +452,7 @@ void static BitcoinMiner(CWallet *pwallet)
             // Search
             //
             int64_t nStart = GetTime();
-            pblock->nNonce = 0;
+            ResetProof(*pblock);
             for (int i=0; i < 1000; i++) {
                 // Check if something found
                 if (GenerateProof(pblock)) {

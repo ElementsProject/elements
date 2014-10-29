@@ -498,7 +498,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
 
     // Update nTime
     UpdateTime(pblock, pindexPrev);
-    pblock->nNonce = 0;
+    ResetProof(*pblock);
 
     static const Array aCaps = boost::assign::list_of("proposal");
 

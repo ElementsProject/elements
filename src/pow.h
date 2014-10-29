@@ -16,6 +16,7 @@ class uint256;
 bool CheckProof(const CBlockHeader& block);
 /** Scans nonces looking for a hash with at least some zero bits */
 bool GenerateProof(CBlockHeader* pblock);
+void ResetProof(CBlockHeader& block);
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast);
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast);
 uint256 GetBlockProof(const CBlockIndex& block);
