@@ -114,6 +114,7 @@ BITCOIN_CORE_H = \
   rpcclient.h \
   rpcprotocol.h \
   rpcserver.h \
+  script/generic.hpp \
   script/interpreter.h \
   script/script.h \
   script/sigcache.h \
