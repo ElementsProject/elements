@@ -7,6 +7,7 @@
 #define BITCOIN_POW_H
 
 #include <stdint.h>
+#include <string>
 
 class CBlockHeader;
 class CBlockIndex;
@@ -23,5 +24,6 @@ uint256 GetBlockProof(const CBlockIndex& block);
 
 /** Avoid using these functions when possible */
 double GetChallengeDifficulty(const CBlockIndex* blockindex);
+std::string GetChallengeStr(const CBlockIndex& block);
 
 #endif // BITCOIN_POW_H
