@@ -11,8 +11,8 @@
 
 std::string CProof::ToString() const
 {
-    return strprintf("CProof(nBits=%08x, nNonce=%u)",
-                     nBits, nNonce);
+    return strprintf("CProof(challenge=%08x, solution=%u)",
+                     challenge, solution);
 }
 
 uint256 CBlockHeader::GetHash() const

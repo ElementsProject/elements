@@ -15,35 +15,36 @@ static const unsigned int MAX_BLOCK_SIZE = 1000000;
 
 class CProof
 {
+protected:
+    uint32_t challenge;
+    uint32_t solution;
 public:
-    uint32_t nBits;
-    uint32_t nNonce;
 
     CProof()
     {
         SetNull();
     }    
-    CProof(uint32_t nBitsIn, uint32_t nNonceIn) : 
-        nBits(nBitsIn), nNonce(nNonceIn) {}  
+    CProof(uint32_t challengeIn, uint32_t solutionIn) : 
+        challenge(challengeIn), solution(solutionIn) {}
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(challenge);
+        READWRITE(solution);
     }
 
     void SetNull()
     {
-        nBits = 0;
-        nNonce = 0;
+        challenge = 0;
+        solution = 0;
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        return (challenge == 0);
     }
 
     std::string ToString() const;
