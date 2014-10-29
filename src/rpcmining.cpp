@@ -151,9 +151,8 @@ Value setgenerate(const Array& params, bool fHelp)
             fGenerate = false;
     }
 
-    // -regtest mode: don't return until nGenProcLimit blocks are generated
-    if (fGenerate && Params().MineBlocksOnDemand())
-    {
+    // private chain: don't return until nGenProcLimit blocks are generated
+    if (fGenerate) {
         int nHeightStart = 0;
         int nHeightEnd = 0;
         int nHeight = 0;
@@ -177,7 +176,7 @@ Value setgenerate(const Array& params, bool fHelp)
             do {
                 LOCK(cs_main);
                 IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
-            } while (!(GenerateProof(pblock) && CheckProof(*pblock)));
+            } while (!(GenerateProof(pblock, pwalletMain) && CheckProof(*pblock)));
             CValidationState state;
             if (!ProcessNewBlock(state, NULL, pblock))
                 throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
@@ -185,12 +184,6 @@ Value setgenerate(const Array& params, bool fHelp)
             blockHashes.push_back(pblock->GetHash().GetHex());
         }
         return blockHashes;
-    }
-    else // Not -regtest: start generate thread, return immediately
-    {
-        mapArgs["-gen"] = (fGenerate ? "1" : "0");
-        mapArgs ["-genproclimit"] = itostr(nGenProcLimit);
-        GenerateBitcoins(fGenerate, pwalletMain, nGenProcLimit);
     }
 
     return Value::null;

@@ -15,6 +15,7 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #ifdef ENABLE_WALLET
+#include "init.h"
 #include "wallet.h"
 #endif
 
@@ -467,9 +468,10 @@ void static BitcoinMiner(CWallet *pwallet)
             //
             int64_t nStart = GetTime();
             ResetProof(*pblock);
+#ifdef ENABLE_WALLET
             for (int i=0; i < 1000; i++) {
                 // Check if something found
-                if (GenerateProof(pblock)) {
+                if (GenerateProof(pblock, pwalletMain)) {
 
                     SetThreadPriority(THREAD_PRIORITY_NORMAL);
                     LogPrintf("BitcoinMiner:\n proof-of-work found\n");
@@ -499,6 +501,7 @@ void static BitcoinMiner(CWallet *pwallet)
                 if (UpdateTime(pblock, pindexPrev) < 0)
                     break;
             }
+#endif
         }
     }
     catch (boost::thread_interrupted)
