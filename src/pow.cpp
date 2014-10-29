@@ -7,7 +7,10 @@
 
 #include "chain.h"
 #include "chainparams.h"
+#include "hash.h"
 #include "primitives/block.h"
+#include "serialize.h"
+#include "streams.h"
 #include "uint256.h"
 #include "util.h"
 
@@ -95,6 +98,40 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits)
         return error("CheckProofOfWork() : hash doesn't match nBits");
 
     return true;
+}
+
+bool GenerateProof(CBlockHeader *pblock)
+{
+    // Write the first 76 bytes of the block header to a double-SHA256 state.
+    uint256 hash;
+    CHash256 hasher;
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    ss << *pblock;
+    assert(ss.size() == 80);
+    hasher.Write((unsigned char*)&ss[0], 76);
+
+    while (true) {
+        pblock->nNonce++;
+
+        // Write the last 4 bytes of the block header (the nonce) to a copy of
+        // the double-SHA256 state, and compute the result.
+        CHash256(hasher).Write((unsigned char*)&pblock->nNonce, 4).Finalize((unsigned char*)&hash);
+
+        // Check if the hash has at least some zero bits,
+        if (((uint16_t*)&hash)[15] == 0) {
+            // then check if it has enough to reach the target
+            uint256 hashTarget = uint256().SetCompact(pblock->nBits);
+            if (hash <= hashTarget) {
+                assert(hash == pblock->GetHash());
+                LogPrintf("hash: %s  \ntarget: %s\n", hash.GetHex(), hashTarget.GetHex());
+                return true;
+            }
+        }
+
+        // If nothing found after trying for a while, return -1
+        if ((pblock->nNonce & 0xfff) == 0)
+            return false;
+    }
 }
 
 uint256 GetBlockProof(const CBlockIndex& block)
