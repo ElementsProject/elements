@@ -127,8 +127,7 @@ public:
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
         genesis.nVersion = 1;
         genesis.nTime    = 1231006505;
-        genesis.nBits    = 0x1d00ffff;
-        genesis.nNonce   = 2083236893;
+        genesis.proof = CProof(0x1d00ffff, 2083236893);
 
         hashGenesisBlock = genesis.GetHash();
         mapCheckpoints[0] = hashGenesisBlock;
@@ -187,7 +186,7 @@ public:
 
         //! Modify the testnet genesis block so the timestamp is valid for a later start.
         genesis.nTime = 1296688602;
-        genesis.nNonce = 414098458;
+        genesis.proof = CProof(0x1d00ffff, 414098458);
 
         hashGenesisBlock = genesis.GetHash();
         mapCheckpointsTestnet[0] = hashGenesisBlock;
@@ -243,8 +242,7 @@ public:
         nTargetSpacing = 10 * 60;
         bnProofOfWorkLimit = ~uint256(0) >> 1;
         genesis.nTime = 1296688602;
-        genesis.nBits = 0x207fffff;
-        genesis.nNonce = 2;
+        genesis.proof = CProof(0x207fffff, 2);
         nDefaultPort = 18444;
 
         hashGenesisBlock = genesis.GetHash();
