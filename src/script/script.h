@@ -15,6 +15,9 @@
 #include <string>
 #include <vector>
 
+class uint256;
+class COutPoint;
+
 static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 520; // bytes
 
 // Threshold for nLockTime: below this value it is interpreted as block number,
@@ -161,13 +164,14 @@ enum opcodetype
     OP_NOP3 = 0xb2,
     OP_CHECKSEQUENCEVERIFY = OP_NOP3,
     OP_NOP4 = 0xb3,
+    OP_WITHDRAWPROOFVERIFY = OP_NOP4,
     OP_NOP5 = 0xb4,
+    OP_REORGPROOFVERIFY = OP_NOP5,
     OP_NOP6 = 0xb5,
     OP_NOP7 = 0xb6,
     OP_NOP8 = 0xb7,
     OP_NOP9 = 0xb8,
     OP_NOP10 = 0xb9,
-
 
     // template matching params
     OP_SMALLDATA = 0xf9,
@@ -594,6 +598,28 @@ public:
     unsigned int GetSigOpCount(const CScript& scriptSig) const;
 
     bool IsPayToScriptHash() const;
+    bool IsWithdrawProof() const;
+    bool IsWithdrawOutput() const;
+    /**
+     * Returns true if this is a withdraw-lock scriptPubKey.
+     * Note that a withdraw-lock could be a post-reorg-proof output *or* a
+     * x-chain transfer lock.
+     * Note that hashGenesisBlock only need be set if (fRequireToUs)
+     */
+    bool IsWithdrawLock(const uint256 hashGenesisBlock, bool fRequireDestination=false, bool fRequireToUs=false) const;
+
+    /** Get the withdraw output spent, asserting IsWithdrawProof first */
+    COutPoint GetWithdrawSpent() const;
+
+    /** Get the genesis hash locked to, asserting IsWithdrawLock first */
+    uint256 GetWithdrawLockGenesisHash() const;
+
+    /**
+     * Gets the fraud bounty value from a withdraw output, asserint IsWithdrawOutput first
+     * (This function is NOT consensus-critical)
+     */
+    int64_t GetFraudBounty() const;
+    //TODO: Rejigger amount.h so that it doesnt pull in serialize.h and then include CAmount for above
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly() const;
