@@ -77,6 +77,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "fundrawtransaction", 1 },
     { "gettxout", 1 },
     { "gettxout", 2 },
+    { "gettxoutproof", 0 },
     { "lockunspent", 0 },
     { "lockunspent", 1 },
     { "importprivkey", 2 },
