@@ -90,8 +90,7 @@ void SelectBaseParams(CBaseChainParams::Network network)
         pCurrentBaseParams = &unitTestParams;
         break;
     default:
-        assert(false && "Unimplemented network");
-        return;
+        throw std::runtime_error("Unknown network\n");
     }
 }
 
@@ -101,22 +100,28 @@ CBaseChainParams::Network NetworkIdFromCommandLine()
     bool fTestNet = GetBoolArg("-testnet", false);
 
     if (fTestNet && fRegTest)
-        return CBaseChainParams::MAX_NETWORK_TYPES;
+        throw std::runtime_error("Invalid combination of -regtest and -testnet.\n");
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
-    return CBaseChainParams::MAIN;
+
+    std::string network = GetArg("-network", "main");
+    if (network == "main")
+        return CBaseChainParams::MAIN;
+    if (network == "test")
+        return CBaseChainParams::TESTNET;
+    if (network == "regtest")
+        return CBaseChainParams::REGTEST;
+    if (network == "unittest")
+        return CBaseChainParams::UNITTEST;
+    throw std::runtime_error("Unknown network " + network + "\n");
 }
 
-bool SelectBaseParamsFromCommandLine()
+void SelectBaseParamsFromCommandLine()
 {
     CBaseChainParams::Network network = NetworkIdFromCommandLine();
-    if (network == CBaseChainParams::MAX_NETWORK_TYPES)
-        return false;
-
     SelectBaseParams(network);
-    return true;
 }
 
 bool AreBaseParamsConfigured()

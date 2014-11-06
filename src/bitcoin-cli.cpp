@@ -90,9 +90,11 @@ static bool AppInitRPC(int argc, char* argv[])
         fprintf(stderr,"Error reading configuration file: %s\n", e.what());
         return false;
     }
-    // Check for -testnet or -regtest parameter (BaseParams() calls are only valid after this clause)
-    if (!SelectBaseParamsFromCommandLine()) {
-        fprintf(stderr, "Error: Invalid combination of -regtest and -testnet.\n");
+    // Check for -network, -testnet or -regtest parameter (BaseParams() calls are only valid after this clause)
+    try {
+        SelectBaseParamsFromCommandLine();
+    } catch(std::exception &e) {
+        fprintf(stderr, "Error: %s\n", e.what());
         return false;
     }
     return true;

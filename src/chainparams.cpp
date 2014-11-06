@@ -341,8 +341,7 @@ CChainParams &Params(CBaseChainParams::Network network) {
         case CBaseChainParams::UNITTEST:
             return unitTestParams;
         default:
-            assert(false && "Unimplemented network");
-            return mainParams;
+            throw std::runtime_error("Unknown network\n");
     }
 }
 
@@ -351,12 +350,7 @@ void SelectParams(CBaseChainParams::Network network) {
     pCurrentParams = &Params(network);
 }
 
-bool SelectParamsFromCommandLine()
+void SelectParamsFromCommandLine()
 {
-    CBaseChainParams::Network network = NetworkIdFromCommandLine();
-    if (network == CBaseChainParams::MAX_NETWORK_TYPES)
-        return false;
-
-    SelectParams(network);
-    return true;
+    SelectParams(NetworkIdFromCommandLine());
 }
