@@ -30,6 +30,8 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
+    case TX_WITHDRAW_LOCK: return "withdraw";
+    case TX_WITHDRAW_OUT: return "withdrawout";
     }
     return NULL;
 }
@@ -65,6 +67,18 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         typeRet = TX_SCRIPTHASH;
         vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
         vSolutionsRet.push_back(hashBytes);
+        return true;
+    }
+
+    if (scriptPubKey.IsWithdrawLock(0))
+    {
+        typeRet = TX_WITHDRAW_LOCK;
+        return true;
+    }
+
+    if (scriptPubKey.IsWithdrawOutput())
+    {
+        typeRet = TX_WITHDRAW_OUT;
         return true;
     }
 
@@ -165,6 +179,8 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
+    case TX_WITHDRAW_LOCK:
+    case TX_WITHDRAW_OUT:
         return -1;
     case TX_PUBKEY:
         return 1;
@@ -237,7 +253,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    if (typeRet == TX_NULL_DATA){
+    if (typeRet == TX_NULL_DATA || typeRet == TX_WITHDRAW_LOCK || typeRet == TX_WITHDRAW_OUT){
         // This is data, not addresses
         return false;
     }

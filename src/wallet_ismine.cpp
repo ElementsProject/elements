@@ -49,6 +49,8 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
+    case TX_WITHDRAW_LOCK:
+    case TX_WITHDRAW_OUT:
         break;
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();

@@ -65,6 +65,8 @@ enum txnouttype
     TX_SCRIPTHASH,
     TX_MULTISIG,
     TX_NULL_DATA,
+    TX_WITHDRAW_LOCK,
+    TX_WITHDRAW_OUT,
 };
 
 class CNoDestination {
