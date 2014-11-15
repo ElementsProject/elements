@@ -5,7 +5,10 @@
 
 #include "chainparams.h"
 
+#include "key.h"
+#include "pubkey.h"
 #include "random.h"
+#include "script/standard.h"
 #include "util.h"
 #include "utilstrencodings.h"
 
@@ -113,6 +116,9 @@ static const Checkpoints::CCheckpointData dataRegtest = {
         0,
         0
     };
+
+static Checkpoints::MapCheckpoints mapCheckpointsPrivate;
+static Checkpoints::CCheckpointData dataPrivate;
 
 class CMainParams : public CChainParams {
 public:
@@ -331,6 +337,85 @@ public:
 };
 static CUnitTestParams unitTestParams;
 
+//
+// Private mode with signed blocks
+//
+class CPrivateParams : public CChainParams {
+public:
+    CPrivateParams()
+    {
+        strNetworkID = GetArg("-privchain", "");
+        // if (strNetworkID.empty()) { // TODO find a way to default to an address in the wallet 
+        //     extern CWallet* pwalletMain;
+        //     strNetworkID = pwalletMain->GenerateNewKey().GetID().ToString(); 
+        // }
+
+        // The message start string is designed to be unlikely to occur in normal data.
+        // The characters are rarely used upper ASCII, not valid as UTF-8, and produce
+        // a large 4-byte int at any alignment.
+        pchMessageStart[0] = 0xf9;
+        pchMessageStart[1] = 0xbe;
+        pchMessageStart[2] = 0xb4;
+        pchMessageStart[3] = 0xd9;
+        // vAlertPubKey = ParseHex("04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284");
+        nDefaultPort = 18446;
+        bnProofOfWorkLimit = ~uint256(0) >> 32;
+        nSubsidyHalvingInterval = 210000;
+        nEnforceBlockUpgradeMajority = 750;
+        nRejectBlockOutdatedMajority = 950;
+        nToCheckBlockUpgradeMajority = 1000;
+        nMinerThreads = 0;
+        // nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        // nTargetSpacing = 10 * 60;
+
+        CScript firstChallenge = GetScriptForDestination(CKeyID(uint160(strNetworkID)));
+        CScript firstSolution = CScript() << OP_TRUE;
+
+        const char* pszTimestamp = "Not relevant here";
+        CMutableTransaction txNew;
+        txNew.vin.resize(1);
+        txNew.vout.resize(1);
+        txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+        txNew.vout[0].nValue = 21000000 * COIN;
+        txNew.vout[0].scriptPubKey = firstChallenge;
+        genesis.proof = CProof(firstChallenge, firstSolution);
+                genesis.vtx.push_back(txNew);
+        genesis.hashPrevBlock = 0;
+        genesis.hashMerkleRoot = genesis.BuildMerkleTree();
+        genesis.nVersion = 1;
+        genesis.nTime    = 1231006505;
+
+        hashGenesisBlock = genesis.GetHash();
+        
+        chainIdsMap[strNetworkID] = hashGenesisBlock;
+        assert(hashGenesisBlock == ChainId(strNetworkID)); // Always true
+
+        mapCheckpointsPrivate[0] = hashGenesisBlock;
+        dataPrivate = {
+            &mapCheckpointsPrivate,
+            0,
+            0,
+            0
+        };
+
+        vFixedSeeds.clear(); // Private mode doesn't have any fixed seeds.
+        vSeeds.clear();  // Private mode doesn't have any DNS seeds.
+
+        fRequireRPCPassword = true;
+        fMiningRequiresPeers = true;
+        fAllowMinDifficultyBlocks = false;
+        fRequireStandard = true;
+        fMineBlocksOnDemand = false;
+        fSkipProofOfWorkCheck = false;
+        fTestnetToBeDeprecatedFieldRPC = false;
+    }
+
+    const Checkpoints::CCheckpointData& Checkpoints() const 
+    {
+        return dataPrivate;
+    }
+};
+static CPrivateParams privateParams;
 
 static CChainParams *pCurrentParams = 0;
 
