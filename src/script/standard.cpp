@@ -33,6 +33,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_NULL_DATA: return "nulldata";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
+    case TX_WITHDRAW_LOCK: return "withdraw";
     }
     return NULL;
 }
@@ -91,6 +92,12 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     // script.
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_NULL_DATA;
+        return true;
+    }
+
+    if (scriptPubKey.IsWithdrawLock())
+    {
+        typeRet = TX_WITHDRAW_LOCK;
         return true;
     }
 
@@ -216,7 +223,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    if (typeRet == TX_NULL_DATA){
+    if (typeRet == TX_NULL_DATA || typeRet == TX_WITHDRAW_LOCK){
         // This is data, not addresses
         return false;
     }
