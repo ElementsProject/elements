@@ -148,15 +148,14 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn, CAssetID assetIDIn) 
+    : nValue(valueIn), assetID(assetIDIn), scriptPubKey(scriptPubKeyIn)
 {
-    nValue = valueIn;
-    scriptPubKey = scriptPubKeyIn;
 }
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), scriptPubKey.ToString().substr(0,30));
+    return strprintf("CTxOut(nValue=%s, assetID=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), assetID.ToString(), scriptPubKey.ToString().substr(0,30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
