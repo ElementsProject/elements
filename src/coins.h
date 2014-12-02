@@ -88,6 +88,14 @@ public:
     void FromTx(const CTransaction &tx, int nHeightIn) {
         fCoinBase = tx.IsCoinBase();
         vout = tx.vout;
+        // Within an asset definition transaction, the asset being defined is identified with a 0.
+        if (tx.IsAssetDefinition()) {
+            const CAssetID assetID = CAssetID(tx.GetHash());
+            BOOST_FOREACH(CTxOut& txout, vout)
+                if (txout.assetID.IsNull())
+                    txout.assetID = assetID;
+        }
+
         nHeight = nHeightIn;
         nVersion = tx.nVersion;
         ClearUnspendable();
