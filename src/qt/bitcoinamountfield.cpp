@@ -25,7 +25,7 @@ public:
     explicit AmountSpinBox(QWidget *parent):
         QAbstractSpinBox(parent),
         currentUnit(BitcoinUnits::BTC),
-        singleStep(100000) // satoshis
+        singleStep(0)
     {
         setAlignment(Qt::AlignRight);
 
@@ -68,6 +68,10 @@ public:
     {
         bool valid = false;
         CAmount val = value(&valid);
+        CAmount currentSingleStep = singleStep;
+        if (!currentSingleStep) {
+            currentSingleStep = 100000;  // satoshis
+        }
         val = val + steps * singleStep;
         val = qMin(qMax(val, CAmount(0)), BitcoinUnits::maxMoney());
         setValue(val);
