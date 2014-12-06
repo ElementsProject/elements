@@ -76,6 +76,7 @@ BITCOIN_CORE_H = \
   amount.h \
   base58.h \
   bloom.h \
+  callrpc.h \
   chain.h \
   chainparams.h \
   chainparamsbase.h \
@@ -261,6 +262,7 @@ libbitcoin_common_a_SOURCES = \
 # backward-compatibility objects and their sanity checks are linked.
 libbitcoin_util_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_util_a_SOURCES = \
+  callrpc.cpp \
   compat/strnlen.cpp \
   compat/glibc_sanity.cpp \
   compat/glibcxx_sanity.cpp \
