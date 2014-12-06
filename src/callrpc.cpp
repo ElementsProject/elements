@@ -43,10 +43,11 @@ static void http_request_done(struct evhttp_request *req, void *ctx)
     }
 }
 
-UniValue CallRPC(const string& strMethod, const UniValue& params)
+UniValue CallRPC(const string& strMethod, const UniValue& params, int port)
 {
     std::string host = GetArg("-rpcconnect", DEFAULT_RPCCONNECT);
-    int port = GetArg("-rpcport", BaseParams().RPCPort());
+    if (port < 0)
+        port = GetArg("-rpcport", BaseParams().RPCPort());
 
     // Create event base
     struct event_base *base = event_base_new(); // TODO RAII
@@ -119,4 +120,38 @@ UniValue CallRPC(const string& strMethod, const UniValue& params)
         throw runtime_error("expected reply to have result, error and id properties");
 
     return reply;
+}
+
+bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, int nMinConfirmationDepth)
+{
+    try {
+        UniValue params(UniValue::VARR);
+        params.push_back(UniValue(0));
+        UniValue reply = CallRPC("getblockhash", params, GetArg("-rpcconnectport", 18332));
+        if (!find_value(reply, "error").isNull())
+            return false;
+        UniValue result = find_value(reply, "result");
+        if (!result.isStr())
+            return false;
+        if (result.get_str() != genesishash.GetHex())
+            return false;
+
+        params = UniValue(UniValue::VARR);
+        params.push_back(hash.GetHex());
+        reply = CallRPC("getblock", params, GetArg("-rpcconnectport", 18332));
+        if (!find_value(reply, "error").isNull())
+            return false;
+        result = find_value(reply, "result");
+        if (!result.isObject())
+            return false;
+        result = find_value(result.get_obj(), "confirmations");
+        return result.isNum() && result.get_int64() >= nMinConfirmationDepth;
+    } catch (CConnectionFailed& e) {
+        LogPrintf("ERROR: Lost connection to bitcoind RPC, you will want to restart after fixing this!\n");
+        return false;
+    } catch (...) {
+        LogPrintf("ERROR: Failure connecting to bitcoind RPC, you will want to restart after fixing this!\n");
+        return false;
+    }
+    return true;
 }

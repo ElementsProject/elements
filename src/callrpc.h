@@ -6,6 +6,10 @@
 #ifndef BITCOIN_CALLRPC_H
 #define BITCOIN_CALLRPC_H
 
+#include "rpc/client.h"
+#include "rpc/protocol.h"
+#include "uint256.h"
+
 #include <string>
 #include <stdexcept>
 
@@ -28,6 +32,7 @@ public:
 
 };
 
-UniValue CallRPC(const std::string& strMethod, const UniValue& params);
+UniValue CallRPC(const std::string& strMethod, const UniValue& params, int port=-1);
+bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, int nMinConfirmationDepth);
 
 #endif // BITCOIN_CALLRPC_H
