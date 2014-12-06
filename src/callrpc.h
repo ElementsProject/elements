@@ -8,6 +8,7 @@
 
 #include "rpcclient.h"
 #include "rpcprotocol.h"
+#include "uint256.h"
 
 #include <string>
 
@@ -25,6 +26,7 @@ public:
 
 };
 
-json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Array& params);
+json_spirit::Object CallRPC(const std::string& strMethod, const json_spirit::Array& params, std::string port="");
+bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth);
 
 #endif // BITCOIN_CALLRPC_H

@@ -8,6 +8,9 @@
 #include <secp256k1.h>
 
 #define FEDERATED_PEG_SIDECHAIN_ONLY
+#ifdef FEDERATED_PEG_SIDECHAIN_ONLY
+#include "callrpc.h"
+#endif
 
 #include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
@@ -23,6 +26,7 @@
 #include "streams.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
+#include "util.h"
 
 using namespace std;
 
@@ -1285,7 +1289,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_SECONDSCRIPT);
 
 #ifdef FEDERATED_PEG_SIDECHAIN_ONLY
-                                //TODO: Check that we're spending from a valid, buried bitcoin block
+                                if (!GetBoolArg("-blindtrust", true) && !checker.IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED))
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED);
 #endif
                             } catch (std::exception& e) {
                                 // Probably invalid encoding of something which was deserialized
@@ -1711,6 +1716,13 @@ CAmount TransactionSignatureChecker::GetValueInPrevIn() const
 {
     return nInMinusOneValue;
 }
+
+#ifdef FEDERATED_PEG_SIDECHAIN_ONLY
+bool TransactionSignatureChecker::IsConfirmedBitcoinBlock(const uint256& hash, bool fConservativeConfirmationRequirements) const
+{
+    return ::IsConfirmedBitcoinBlock(hash, fConservativeConfirmationRequirements ? 10 : 8);
+}
+#endif
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {
