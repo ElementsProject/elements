@@ -20,6 +20,11 @@
 #include "streams.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
+#include "util.h"
+
+#ifndef BITCOIN_SCRIPT_NO_CALLRPC
+#include "callrpc.h"
+#endif
 
 using namespace std;
 
@@ -1211,7 +1216,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (withdrawOutput.scriptPubKey != expectedWithdrawScriptPubKey)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
-                                //TODO: Check that we're spending from a valid, buried bitcoin block
+#ifndef BITCOIN_SCRIPT_NO_CALLRPC
+                                if (!GetBoolArg("-blindtrust", true) && !checker.IsConfirmedBitcoinBlock(genesishash, merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED))
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED);
+#endif
                             } catch (std::exception& e) {
                                 // Probably invalid encoding of something which was deserialized
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
@@ -1580,6 +1588,15 @@ CAmount TransactionSignatureChecker::GetValueIn() const
 CAmount TransactionSignatureChecker::GetValueInPrevIn() const
 {
     return amountPreviousInput;
+}
+
+bool TransactionSignatureChecker::IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements) const
+{
+#ifndef BITCOIN_SCRIPT_NO_CALLRPC
+    return ::IsConfirmedBitcoinBlock(genesishash, hash, fConservativeConfirmationRequirements ? 10 : 8);
+#else
+    return true;
+#endif
 }
 
 static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, const std::vector<unsigned char>& program, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
