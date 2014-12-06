@@ -9,8 +9,10 @@
 #include "core_io.h"
 #include "coins.h"
 #include "keystore.h"
+#include "merkleblock.h"
 #include "script/script.h"
 #include "script/sign.h"
+#include "streams.h"
 #include "ui_interface.h" // for _(...)
 #include "univalue/univalue.h"
 #include "util.h"
@@ -476,6 +478,77 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
     tx = mergedTx;
 }
 
+static CScript GetScriptFromValue(const UniValue& v, const string& name)
+{
+    if (v.isObject() && v[name].isStr()) {
+        string str = v[name].getValStr();
+        try {
+            return ParseScript(str);
+        } catch (std::exception& e) {}
+    }
+    throw runtime_error(name+" must be a script");
+}
+
+static void MutateTxWithdrawSign(CMutableTransaction& tx, const string& flagStr)
+{
+    if (!registers.count("withdrawkeys"))
+        throw runtime_error("withdrawkeys register variable must be set.");
+    UniValue keysObj = registers["withdrawkeys"];
+
+    if (!keysObj.isObject())
+        throw runtime_error("withdrawkeysObjs must be an object");
+    map<string,UniValue::VType> types = map_list_of("contract",UniValue::VSTR)("txoutproof",UniValue::VSTR)("tx",UniValue::VSTR)("nout",UniValue::VNUM)
+                                                   ("secondScriptSig",UniValue::VSTR)("secondScriptPubKey",UniValue::VSTR)("coinbase",UniValue::VSTR);
+    if (!keysObj.checkObject(types))
+        throw runtime_error("withdrawkeysObjs internal object typecheck fail");
+
+    vector<unsigned char> contractData(ParseHexUV(keysObj["contract"], "contract"));
+    vector<unsigned char> txoutproofData(ParseHexUV(keysObj["txoutproof"], "txoutproof"));
+    vector<unsigned char> txData(ParseHexUV(keysObj["tx"], "tx"));
+    vector<unsigned char> coinbaseTxData(ParseHexUV(keysObj["coinbase"], "coinbase"));
+    CScript secondScriptSig(GetScriptFromValue(keysObj, "secondScriptSig"));
+    CScript secondScriptPubKey(GetScriptFromValue(keysObj, "secondScriptPubKey"));
+    int nOut = atoi(keysObj["nout"].getValStr());
+
+    if (contractData.size() != 40)
+        throw runtime_error("contract must be 40 bytes");
+
+    CDataStream ssProof(txoutproofData, SER_NETWORK, PROTOCOL_VERSION);
+    CMerkleBlock merkleBlock;
+    ssProof >> merkleBlock;
+
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    CTransaction txBTC;
+    ssTx >> txBTC;
+
+    CDataStream ssCoinbaseTx(coinbaseTxData, SER_NETWORK, PROTOCOL_VERSION);
+    CTransaction coinbaseTxBTC;
+    ssCoinbaseTx >> coinbaseTxBTC;
+
+    vector<uint256> transactionHashes;
+    if (merkleBlock.txn.ExtractMatches(transactionHashes) != merkleBlock.header.hashMerkleRoot ||
+            transactionHashes.size() != 2 ||
+            transactionHashes[0] != coinbaseTxBTC.GetHash() ||
+            transactionHashes[1] != txBTC.GetHash())
+        throw runtime_error("txoutproof is invalid or did not match tx");
+
+    if (nOut < 0 || (unsigned int) nOut >= txBTC.vout.size())
+        throw runtime_error("nout must be >= 0, < txout count");
+
+    CScript scriptSig;
+    scriptSig << vector<unsigned char>(secondScriptPubKey.begin(), secondScriptPubKey.end()) << vector<unsigned char>(secondScriptSig.begin(), secondScriptSig.end()) << contractData;
+    scriptSig.PushWithdraw(txoutproofData);
+    scriptSig.PushWithdraw(txData);
+    scriptSig << nOut;
+    scriptSig.PushWithdraw(coinbaseTxData);
+
+    //TODO: Verify the withdraw proof
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        tx.vin[i].scriptSig = scriptSig;
+    }
+}
+
+
 static void MutateTx(CMutableTransaction& tx, const string& command,
                      const string& commandVal)
 {
@@ -498,6 +571,8 @@ static void MutateTx(CMutableTransaction& tx, const string& command,
 
     else if (command == "sign")
         MutateTxSign(tx, commandVal);
+    else if (command == "withdrawsign")
+        MutateTxWithdrawSign(tx, commandVal);
 
     else if (command == "load")
         RegisterLoad(commandVal);
