@@ -5,19 +5,40 @@
 
 #include "interpreter.h"
 
+#include <secp256k1.h>
+
 #include "primitives/transaction.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
+#include "crypto/hmac_sha256.h"
+#include "merkleblock.h"
+#include "pow.h"
 #include "pubkey.h"
 #include "script/script.h"
+#include "script/standard.h"
+#include "streams.h"
 #include "uint256.h"
+#include "utilstrencodings.h"
 
 using namespace std;
 
 typedef vector<unsigned char> valtype;
 
 namespace {
+
+static secp256k1_context *secp256k1_ctx;
+
+class CSecp256k1Init {
+public:
+    CSecp256k1Init() {
+        secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    }
+    ~CSecp256k1Init() {
+        secp256k1_context_destroy(secp256k1_ctx);
+    }
+};
+static CSecp256k1Init instance_of_csecp256k1;
 
 inline bool set_success(ScriptError* ret)
 {
@@ -245,6 +266,26 @@ bool static CheckMinimalPush(const valtype& data, opcodetype opcode) {
     return true;
 }
 
+bool static WithdrawProofReadStackItem(const vector<valtype>& stack, const bool fRequireMinimal, int *stackOffset, valtype& read)
+{
+    if (stack.size() < size_t(-(*stackOffset)))
+        return false;
+    int pushCount = CScriptNum(stacktop(*stackOffset), fRequireMinimal).getint();
+    if (pushCount < 0 || pushCount > 2000 || stack.size() < size_t(-(*stackOffset) + pushCount))
+        return false;
+    (*stackOffset)--;
+
+    read.reserve(pushCount > 1 ? pushCount * 520 : 0);
+    for (int i = pushCount - 1; i >= 0; i--) {
+        if (i != 0 && stacktop((*stackOffset) - i).size() != 520)
+            return false;
+        const valtype& stackElem = stacktop((*stackOffset) - i);
+        read.insert(read.end(), stackElem.begin(), stackElem.end());
+    }
+    (*stackOffset) -= pushCount;
+    return true;
+}
+
 bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptError* serror)
 {
     static const CScriptNum bnZero(0);
@@ -428,7 +469,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                 case OP_NOP1: case OP_NOP5:
                 case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9: case OP_NOP10:
-                case OP_WITHDRAWPROOFVERIFY:
                 {
                     if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
                         return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS);
@@ -1026,6 +1066,161 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 }
                 break;
 
+                case OP_WITHDRAWPROOFVERIFY:
+                {
+                    // In the make-withdraw case, reads the following from the stack:
+                    // 1. genesis block hash of the chain the withdraw is coming from
+                    // 2. the index within the locking tx's outputs we are claiming
+                    // 3. the locking tx itself (WithdrawProofReadStackItem)
+                    // 4. the merkle block structure which contains the block in which
+                    //    the locking transaction is present (WithdrawProofReadStackItem)
+                    // 5. The contract which we are expected to send coins to
+                    //
+                    // In the combine-outputs case, reads the following from the stack:
+                    // 1. genesis block hash of the chain the withdraw is coming from
+
+                    if (flags & SCRIPT_VERIFY_WITHDRAW) {
+                        if (stack.size() < 7 && stack.size() != 1)
+                            return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                        const valtype &vgenesisHash = stacktop(-1);
+                        if (vgenesisHash.size() != 32)
+                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
+
+                        assert(checker.GetValueIn() != -1); // Not using a NoWithdrawSignatureChecker
+
+                        CScript relockScript = CScript() << vgenesisHash << OP_WITHDRAWPROOFVERIFY;
+
+                        if (stack.size() == 1) { // increasing value of locked coins
+                            CAmount minValue = checker.GetValueIn();
+                            CTxOut newOutput = checker.GetOutputOffsetFromCurrent(0);
+                            if (newOutput.IsNull()) {
+                                newOutput = checker.GetOutputOffsetFromCurrent(-1);
+                                minValue += checker.GetValueInPrevIn();
+                            }
+                            if (newOutput.scriptPubKey != relockScript || newOutput.nValue < minValue)
+                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+                        } else { // stack.size() >= 7...ie regular withdraw
+                            int stackReadPos = -2;
+
+                            const valtype &vlockTxOutIndex = stacktop(stackReadPos--);
+
+                            valtype vlockTx;
+                            if (!WithdrawProofReadStackItem(stack, fRequireMinimal, &stackReadPos, vlockTx))
+                                return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                            valtype vmerkleBlock;
+                            if (!WithdrawProofReadStackItem(stack, fRequireMinimal, &stackReadPos, vmerkleBlock))
+                                return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                            if (stack.size() < size_t(-stackReadPos))
+                                return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                            valtype vcontract = std::vector<unsigned char>(stacktop(stackReadPos--));
+
+                            uint256 genesishash(vgenesisHash);
+
+                            try {
+                                CMerkleBlock merkleBlock;
+                                CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+                                merkleBlockStream >> merkleBlock;
+                                if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkleBlock.header))
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
+
+                                vector<uint256> txHashes;
+                                vector<unsigned int> txIndices;
+                                if (merkleBlock.txn.ExtractMatches(txHashes, txIndices) != merkleBlock.header.hashMerkleRoot || txHashes.size() != 1)
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
+
+                                // We disallow returns from the genesis block, allowing sidechains to
+                                // make genesis outputs spendable with a 21m initially-locked-to-btc
+                                // distributing transaction.
+                                if (merkleBlock.header.GetHash() == genesishash)
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
+
+                                CTransaction locktx;
+                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+                                locktxStream >> locktx;
+                                if (!locktxStream.empty())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
+
+                                int nlocktxOut = CScriptNum(vlockTxOutIndex, fRequireMinimal).getint();
+                                if (nlocktxOut < 0 || (unsigned int)nlocktxOut >= locktx.vout.size())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
+
+                                if (locktx.GetHash() != txHashes[0])
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
+
+                                if (vcontract.size() != 40)
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
+
+                                opcodetype opcodeTmp;
+                                CScript scriptDestination(CScript() << OP_1 << ParseHex("03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd") << OP_1 << OP_CHECKMULTISIG);
+                                {
+                                    CScript::iterator sdpc = scriptDestination.begin();
+                                    vector<unsigned char> vch;
+                                    while (scriptDestination.GetOp(sdpc, opcodeTmp, vch))
+                                    {
+                                        assert((vch.size() == 33 && opcodeTmp < OP_PUSHDATA4) ||
+                                               (opcodeTmp <= OP_16 && opcodeTmp >= OP_1) || opcodeTmp == OP_CHECKMULTISIG);
+                                        if (vch.size() == 33)
+                                        {
+                                            unsigned char tweak[32];
+                                            size_t pub_len = 33;
+                                            unsigned char *pub_start = &(*(sdpc - pub_len));
+                                            CHMAC_SHA256(pub_start, pub_len).Write(&vcontract[0], 40).Finalize(tweak);
+                                            secp256k1_pubkey pubkey;
+                                            assert(secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey, pub_start, pub_len) == 1);
+                                            // If someone creates a tweak that makes this fail, they broke SHA256
+                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &pubkey, tweak) == 1);
+                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &pubkey, SECP256K1_EC_COMPRESSED) == 1);
+                                            assert(pub_len == 33);
+                                        }
+                                    }
+                                }
+
+                                CScriptID expectedP2SH(scriptDestination);
+                                if (locktx.vout[nlocktxOut].scriptPubKey != GetScriptForDestination(expectedP2SH))
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+
+                                vcontract.erase(vcontract.begin() + 4, vcontract.begin() + 20); // Remove the nonce from the contract before further processing
+                                assert(vcontract.size() == 24);
+
+                                // We check values by doing the following:
+                                // * Tx must relock at least <unlocked coins> - <locked-on-bitcoin coins>
+                                // * Tx must send at least the withdraw value to its P2SH withdraw, but may send more
+                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
+                                CAmount lockValueRequired = checker.GetValueIn() - withdrawVal;
+                                if (lockValueRequired > 0) {
+                                    const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(1);
+                                    if (newLockOutput.IsNull() || newLockOutput.scriptPubKey != relockScript || newLockOutput.nValue < lockValueRequired)
+                                        return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+                                }
+
+                                const CTxOut withdrawOutput = checker.GetOutputOffsetFromCurrent(0);
+                                if (withdrawOutput.nValue < withdrawVal)
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+
+                                CScript expectedWithdrawScriptPubKey;
+                                if (vcontract[0] == 'P' && vcontract[1] == '2' && vcontract[2] == 'S' && vcontract[3] == 'H')
+                                    expectedWithdrawScriptPubKey = CScript() << OP_HASH160 << std::vector<unsigned char>(vcontract.begin() + 4, vcontract.begin() + 24) << OP_EQUAL;
+                                else if (vcontract[0] == 'P' && vcontract[1] == '2' && vcontract[2] == 'P' && vcontract[3] == 'H')
+                                    expectedWithdrawScriptPubKey = CScript() << OP_DUP << OP_HASH160 << std::vector<unsigned char>(vcontract.begin() + 4, vcontract.begin() + 24) << OP_EQUALVERIFY << OP_CHECKSIG;
+                                else
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
+
+                                if (withdrawOutput.scriptPubKey != expectedWithdrawScriptPubKey)
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+
+                                //TODO: Check that we're spending from a valid, buried bitcoin block
+                            } catch (std::exception& e) {
+                                // Probably invalid encoding of something which was deserialized
+                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
+                            }
+                        }
+                    } // else...OP_NOP3
+                }
+                break;
+
                 default:
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
             }
@@ -1454,6 +1649,18 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
         return set_error(serror, SCRIPT_ERR_SIG_PUSHONLY);
     }
 
+    // If the scriptPubKey is not in exactly the withdrawlock format we expect,
+    // we will not execute WITHDRAW-related opcodes (treating them as NOPs)
+    // Additionally, if the scriptPubKey is a withdraw lock, the scriptSig must
+    // be push only.
+    if ((flags & SCRIPT_VERIFY_WITHDRAW) != 0) {
+        if (scriptPubKey.IsWithdrawLock()) {
+            if (!scriptSig.IsPushOnly())
+                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
+        } else
+            flags &= ~SCRIPT_VERIFY_WITHDRAW;
+    }
+
     vector<vector<unsigned char> > stack, stackCopy;
     if (!EvalScript(stack, scriptSig, flags, checker, SIGVERSION_BASE, serror))
         // serror is set
@@ -1541,7 +1748,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
         // would be possible, which is not a softfork (and P2SH should be one).
         assert((flags & SCRIPT_VERIFY_P2SH) != 0);
         assert((flags & SCRIPT_VERIFY_WITNESS) != 0);
-        if (stack.size() != 1) {
+        if (stack.size() != 1 && (flags & SCRIPT_VERIFY_WITHDRAW) == 0) {
             return set_error(serror, SCRIPT_ERR_CLEANSTACK);
         }
     }

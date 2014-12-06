@@ -56,6 +56,7 @@ enum
     bitcoinconsensus_SCRIPT_FLAGS_VERIFY_CHECKLOCKTIMEVERIFY = (1U << 9), // enable CHECKLOCKTIMEVERIFY (BIP65)
     bitcoinconsensus_SCRIPT_FLAGS_VERIFY_CHECKSEQUENCEVERIFY = (1U << 10), // enable CHECKSEQUENCEVERIFY (BIP112)
     bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS             = (1U << 11), // enable WITNESS (BIP141)
+    bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITHDRAWS           = (1U << 13), // evaluate withdrawproof opcodes
 };
 
 /// Returns 1 if the input nIn of the serialized transaction pointed to by
@@ -67,7 +68,8 @@ EXPORT_SYMBOL int bitcoinconsensus_verify_script(const unsigned char *scriptPubK
                                                  unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err);
 
 // Use -1 for amountPreviousInput if there is no previous input (ie nIn == 0)
-EXPORT_SYMBOL int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, int64_t amount,
+EXPORT_SYMBOL int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, uint64_t amount,
+                                    uint64_t amountPreviousInput,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err);
 
