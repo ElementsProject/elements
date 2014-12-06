@@ -5,6 +5,7 @@
 
 #include "chainparams.h"
 
+#include "hash.h"
 #include "random.h"
 #include "util.h"
 #include "utilstrencodings.h"
@@ -117,8 +118,10 @@ public:
         txNew.vin.resize(1);
         txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-        txNew.vout[0].nValue = 50 * COIN;
-        txNew.vout[0].scriptPubKey = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
+        txNew.vout[0].nValue = MAX_MONEY;
+        uint256 bitcoinGenesisHash = uint256("0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
+        uint160 bitcoinSecondSPKHash = Hash160(CScript() << OP_DROP << CScriptNum(144) << OP_LESSTHANOREQUAL);
+        txNew.vout[0].scriptPubKey = CScript() << std::vector<unsigned char>(bitcoinGenesisHash.begin(), bitcoinGenesisHash.end()) << std::vector<unsigned char>(bitcoinSecondSPKHash.begin(), bitcoinSecondSPKHash.end()) << OP_WITHDRAWPROOFVERIFY;
         genesis.vtx.push_back(txNew);
         genesis.hashPrevBlock = 0;
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
