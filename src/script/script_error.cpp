@@ -67,6 +67,10 @@ const char* ScriptErrorString(const ScriptError serror)
             return "NOPx reserved for soft-fork upgrades";
         case SCRIPT_ERR_PUBKEYTYPE:
             return "Public key is neither compressed or uncompressed";
+        case SCRIPT_ERR_WITHDRAW_VERIFY:
+            return "Withdraw proof validation failed";
+        case SCRIPT_ERR_REORG_VERIFY:
+            return "Reorg/Fraud proof validation failed";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

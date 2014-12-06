@@ -13,10 +13,13 @@
 #include <stdint.h>
 #include <string>
 
+#include "amount.h"
+
 class CPubKey;
 class COutPoint;
 class CScript;
 class CTransaction;
+class CTxOut;
 class uint256;
 
 /** Signature hash types/flags */
@@ -75,7 +78,10 @@ enum
     SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1U << 9),
 
     // support CHECKSEQUENCEVERIFY opcode
-    SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1U << 10)
+    SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1U << 10),
+
+    // Execute sidechain-related opcodes instead of treating them as NOPs
+    SCRIPT_VERIFY_WITHDRAW = (1U << 11),
 };
 
 uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);

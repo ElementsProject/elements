@@ -163,17 +163,14 @@ libbitcoin_server_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS)
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   alert.cpp \
-  bloom.cpp \
   chain.cpp \
   checkpoints.cpp \
   init.cpp \
   leveldbwrapper.cpp \
   main.cpp \
-  merkleblock.cpp \
   miner.cpp \
   net.cpp \
   noui.cpp \
-  pow.cpp \
   rest.cpp \
   rpcblockchain.cpp \
   rpcmining.cpp \
@@ -234,6 +231,7 @@ libbitcoin_common_a_SOURCES = \
   allocators.cpp \
   amount.cpp \
   base58.cpp \
+  bloom.cpp \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
@@ -246,7 +244,9 @@ libbitcoin_common_a_SOURCES = \
   hash.cpp \
   key.cpp \
   keystore.cpp \
+  merkleblock.cpp \
   netbase.cpp \
+  pow.cpp \
   protocol.cpp \
   pubkey.cpp \
   script/interpreter.cpp \
