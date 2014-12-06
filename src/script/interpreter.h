@@ -111,6 +111,10 @@ enum
     // Execute sidechain-related opcodes instead of treating them as NOPs
     //
     SCRIPT_VERIFY_WITHDRAW = (1U << 16),
+
+    // Dirty hack to require a higher bar of bitcoin block confirmation in mempool
+    //
+    SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED = (1U << 17)
 };
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
@@ -161,6 +165,11 @@ public:
         return -1;
     }
 
+    virtual bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements) const
+    {
+        return false;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -203,6 +212,7 @@ public:
     COutPoint GetPrevOut() const;
     CAmount GetValueIn() const;
     CAmount GetValueInPrevIn() const;
+    bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements) const;
 };
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, SigVersion sigversion, ScriptError* error = NULL);
