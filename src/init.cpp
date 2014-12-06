@@ -745,6 +745,27 @@ bool AppInit2(boost::thread_group& threadGroup)
     fIsBareMultisigStd = GetArg("-permitbaremultisig", true) != 0;
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
 
+    if (mapMultiArgs.count("-tracksidechain"))
+    {
+        if (!GetBoolArg("-txindex", false))
+            return InitError(_("Cannot -tracksidechain without keeping a -txindex"));
+
+        BOOST_FOREACH(std::string& str, mapMultiArgs["-tracksidechain"])
+        {
+            if (str == "all")
+            {
+                sidechainWithdrawsTracked.clear();
+                sidechainWithdrawsTracked.insert(0);
+                break;
+            }
+            else if (IsHex(str) && str.length() == 64)
+                sidechainWithdrawsTracked.insert(uint256(str));
+            else
+                return InitError(strprintf(_("Invalid value to -tracksidechain: '%s' (must be a hex-encoded genesis block hash)"),
+                                           str));
+        }
+    }
+
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
     // Sanity check

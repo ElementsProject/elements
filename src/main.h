@@ -128,6 +128,9 @@ extern bool fCheckBlockIndex;
 extern unsigned int nCoinCacheSize;
 extern CFeeRate minRelayTxFee;
 
+/** Set of sidechains for which we will automatically create double-spend fraud proofs for */
+extern std::set<uint256> sidechainWithdrawsTracked;
+
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
 

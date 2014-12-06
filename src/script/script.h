@@ -608,6 +608,9 @@ public:
      */
     bool IsWithdrawLock(const uint256 hashGenesisBlock, bool fRequireDestination=false, bool fRequireToUs=false) const;
 
+    //! Push a vector with a length postfix (as used by withdraw proofs)
+    void PushWithdraw(const vector<unsigned char> push);
+
     /** Get the withdraw output spent, asserting IsWithdrawProof first */
     COutPoint GetWithdrawSpent() const;
 

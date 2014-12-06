@@ -54,6 +54,9 @@ bool fIsBareMultisigStd = true;
 bool fCheckBlockIndex = false;
 unsigned int nCoinCacheSize = 5000;
 
+//TODO: Require reindex if this changes
+std::set<uint256> sidechainWithdrawsTracked;
+
 
 /** Fees smaller than this (in satoshi) are considered zero fee (for relaying and mining) */
 CFeeRate minRelayTxFee = CFeeRate(1000);
@@ -1498,10 +1501,19 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
     // mark inputs spent
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
-        BOOST_FOREACH(const CTxIn &txin, tx.vin) {
+        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            const CTxIn &txin = tx.vin[i];
             txundo.vprevout.push_back(CTxInUndo());
-            bool ret = inputs.ModifyCoins(txin.prevout.hash)->Spend(txin.prevout, txundo.vprevout.back());
-            assert(ret);
+            CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
+            assert(coins->IsAvailable(txin.prevout.n));
+            //TODO: Check height is after softfork (for mainchain)
+            if (sidechainWithdrawsTracked.size() > 0 && coins->vout[txin.prevout.n].scriptPubKey.IsWithdrawLock(0)) {
+                assert(txin.scriptSig.IsWithdrawProof());
+                pair<uint256, COutPoint> outpoint = make_pair(coins->vout[txin.prevout.n].scriptPubKey.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
+                if (sidechainWithdrawsTracked.count(0) || sidechainWithdrawsTracked.count(outpoint.first))
+                    inputs.MaybeSetWithdrawSpent(outpoint, COutPoint(tx.GetHash(), i));
+            }
+            assert(coins->Spend(txin.prevout, txundo.vprevout.back()));
         }
     }
 
@@ -1695,6 +1707,21 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 if (coins->vout.size() < out.n+1)
                     coins->vout.resize(out.n+1);
                 coins->vout[out.n] = undo.txout;
+
+                if (undo.txout.scriptPubKey.IsWithdrawLock(0)) { //TODO: Check height is after softfork (for mainchain)
+                    if (!tx.vin[j].scriptSig.IsWithdrawProof())
+                        fClean = fClean && error("DisconnectBlock() : lock spent by non-proof");
+                    else {
+                        pair<uint256, COutPoint> outpoint = make_pair(undo.txout.scriptPubKey.GetWithdrawLockGenesisHash(), tx.vin[j].scriptSig.GetWithdrawSpent());
+                        if (sidechainWithdrawsTracked.count(0) || sidechainWithdrawsTracked.count(outpoint.first)) {
+                            COutPoint spender = view.GetWithdrawSpent(outpoint);
+                            if (spender.IsNull())
+                                fClean = fClean && error("DisconnectBlock() : withdraw not marked spent");
+                            else if (spender == COutPoint(tx.GetHash(), i))
+                                view.MaybeSetWithdrawSpent(outpoint, COutPoint());
+                        }
+                    }
+                }
             }
         }
     }
@@ -1853,6 +1880,112 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, false, nScriptCheckThreads ? &vChecks : NULL))
                 return false;
             control.Add(vChecks);
+
+            // Auto-generate double-spend withdraw proofs (if neccessary)
+            if (sidechainWithdrawsTracked.size() > 0) {
+                for (unsigned int j = 0; j < tx.vin.size(); j++) {
+                    const CTxIn &txin = tx.vin[j];
+
+                    const CCoins* coins = view.AccessCoins(txin.prevout.hash);
+                    const CScript &withdrawLockScript = coins->vout[txin.prevout.n].scriptPubKey;
+                    if (withdrawLockScript.IsWithdrawLock(0)) { //TODO: Check height is after softfork (for mainchain)
+                        assert(txin.scriptSig.IsWithdrawProof());
+                        pair<uint256, COutPoint> outpoint = make_pair(withdrawLockScript.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
+                        if (sidechainWithdrawsTracked.count(0) || sidechainWithdrawsTracked.count(outpoint.first)) {
+                            COutPoint doubleSpent = view.GetWithdrawSpent(outpoint);
+                            if (!doubleSpent.IsNull()) {
+                                LogPrintf("Found double-spend of %s in transaction %s! Creating fraud proof.\n", doubleSpent.hash.ToString(), tx.GetHash().ToString());
+                                CTransaction dsTx;
+                                uint256 dsBlockHash;
+                                CBlock dsBlock;
+                                set<uint256> txSet;
+                                txSet.insert(tx.GetHash());
+                                set<uint256> dsTxSet;
+
+                                if (!GetTransaction(doubleSpent.hash, dsTx, dsBlockHash, false) || dsBlockHash == 0 || !mapBlockIndex.count(dsBlockHash)) {
+                                    // Same block...find the transaction
+                                    bool fTxFound = false;
+                                    for (unsigned int k = 0; k < i; k++) {
+                                        if (block.vtx[k].GetHash() == doubleSpent.hash) {
+                                            fTxFound = true;
+                                            dsTx = block.vtx[k];
+                                            break;
+                                        }
+                                    }
+                                    assert(fTxFound);
+
+                                    dsBlock = block;
+                                    dsBlockHash = block.GetHash();
+                                    txSet.insert(doubleSpent.hash);
+                                } else {
+                                    assert(ReadBlockFromDisk(dsBlock, mapBlockIndex[dsBlockHash]));
+                                    dsTxSet.insert(doubleSpent.hash);
+                                }
+
+                                CMerkleBlock dsMerkleBlock(dsBlock, dsTxSet);
+
+                                assert(doubleSpent.n < dsTx.vin.size());
+                                const COutPoint &doubleSpentInpoint = dsTx.vin[doubleSpent.n].prevout;
+                                CTransaction dsInputTx;
+                                uint256 dsInputTxBlockHash;
+                                if (!GetTransaction(doubleSpentInpoint.hash, dsInputTx, dsInputTxBlockHash, false) || dsInputTxBlockHash == 0 || !mapBlockIndex.count(dsInputTxBlockHash)) {
+                                    // Same block...find the transaction
+                                    bool fTxFound = false;
+                                    for (unsigned int k = 0; k < i; k++) {
+                                        if (block.vtx[k].GetHash() == doubleSpentInpoint.hash) {
+                                            fTxFound = true;
+                                            dsInputTx = block.vtx[k];
+                                            break;
+                                        }
+                                    }
+                                    assert(fTxFound);
+                                }
+
+                                assert(tx.vout.size() > j);
+                                CMutableTransaction proofTx;
+                                proofTx.vin.push_back(CTxIn(COutPoint(tx.GetHash(), j)));
+                                CScript &scriptSig = proofTx.vin[0].scriptSig;
+                                if (!dsTxSet.empty()) {
+                                    CDataStream mb(SER_NETWORK, PROTOCOL_VERSION);
+                                    mb << (CMerkleBlock(dsBlock, dsTxSet));
+                                    scriptSig.PushWithdraw(std::vector<unsigned char>(mb.begin(), mb.end()));
+                                }
+
+                                CDataStream dsInputTxDS(SER_NETWORK, PROTOCOL_VERSION);
+                                dsInputTxDS << dsInputTx;
+                                scriptSig.PushWithdraw(std::vector<unsigned char>(dsInputTxDS.begin(), dsInputTxDS.end()));
+
+                                scriptSig << doubleSpent.n;
+
+                                CDataStream dsTxDS(SER_NETWORK, PROTOCOL_VERSION);
+                                dsTxDS << dsTx;
+                                scriptSig.PushWithdraw(std::vector<unsigned char>(dsTxDS.begin(), dsTxDS.end()));
+
+                                CDataStream dsMerkleBlockDS(SER_NETWORK, PROTOCOL_VERSION);
+                                dsMerkleBlockDS << (CMerkleBlock(block, txSet));
+                                scriptSig.PushWithdraw(std::vector<unsigned char>(dsMerkleBlockDS.begin(), dsMerkleBlockDS.end()));
+
+                                scriptSig << OP_1 << OP_1;
+
+                                proofTx.vout.push_back(CTxOut(0, CScript()));
+                                proofTx.vout[0].scriptPubKey << std::vector<unsigned char>(outpoint.first.begin(), outpoint.first.end()) << std::vector<unsigned char>(withdrawLockScript.end() - 21, withdrawLockScript.end() - 1) << OP_WITHDRAWPROOFVERIFY;
+                                // Because miners can take it anyway, we just devote the whole fraud bounty to miner fee
+                                const CScript &withdrawOutputScript = tx.vout[j].scriptPubKey;
+                                assert(withdrawOutputScript.IsWithdrawOutput());
+                                proofTx.vout[0].nValue = tx.vout[j].nValue - withdrawOutputScript.GetFraudBounty();
+
+                                //TODO: Add to mempool
+                                CDataStream proofDS(SER_NETWORK, PROTOCOL_VERSION);
+                                proofDS << proofTx;
+                                fprintf(stderr, "DOUBLE-SPEND PROOF TX:\n");
+                                for (CDataStream::iterator it = proofDS.begin(); it != proofDS.end(); it++)
+                                    fprintf(stderr, "%02x", (unsigned char)*it);
+                                fprintf(stderr, "\n");
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         CTxUndo undoDummy;
