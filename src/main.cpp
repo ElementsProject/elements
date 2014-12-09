@@ -1354,6 +1354,7 @@ CAmount GetBlockValue(int nHeight, const CAmount& nFees)
 
 bool IsInitialBlockDownload()
 {
+    return false;
     if (GetBoolArg("-forceibdcomplete", false))
         return false;
     LOCK(cs_main);
