@@ -812,17 +812,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
                          REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values
-    CAmount nValueOut = 0;
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
-    {
-        if (txout.nValue < 0)
-            return state.DoS(100, error("CheckTransaction(): txout.nValue negative"),
-                             REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue > MAX_MONEY)
-            return state.DoS(100, error("CheckTransaction(): txout.nValue too high"),
-                             REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut))
+    std::map<CAssetID, CAmount> valuesOut;
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        if (!MoneyRange(tx.vout[i].nValue))
+            return state.DoS(100, error("CheckTransaction(): txout.nValue out of range"),
+                             REJECT_INVALID, "bad-txns-vout-outofrange");
+        const CAssetID& assetID = tx.vout[i].assetID;
+        valuesOut[assetID] += tx.vout[i].nValue;
+        if (!MoneyRange(valuesOut[assetID]))
             return state.DoS(100, error("CheckTransaction(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
@@ -842,11 +839,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, error("CheckTransaction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
-    }
-    else
-    {
-        BOOST_FOREACH(const CTxIn& txin, tx.vin)
-            if (txin.prevout.IsNull())
+    } else {
+        // The first input is null for asset definition transactions
+        for (unsigned int i = tx.IsAssetDefinition() ? 1 : 0; i < tx.vin.size(); i++)
+            if (tx.vin[i].prevout.IsNull())
                 return state.DoS(10, error("CheckTransaction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
     }
@@ -1414,8 +1410,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         // This is also true for mempool checks.
         CBlockIndex *pindexPrev = mapBlockIndex.find(inputs.GetBestBlock())->second;
         int nSpendHeight = pindexPrev->nHeight + 1;
-        CAmount nValueIn = 0;
-        CAmount nFees = 0;
+        std::map<CAssetID, CAmount> valuesIn;
         for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
             const COutPoint &prevout = tx.vin[i].prevout;
@@ -1430,28 +1425,30 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
             }
 
+            // Accumulate total input per asset
+            const CTxOut& prevTxOut = coins->vout[prevout.n];
+            CAssetID assetID = prevTxOut.assetID;
+            valuesIn[assetID] += prevTxOut.nValue;
             // Check for negative or overflow input values
-            nValueIn += coins->vout[prevout.n].nValue;
-            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+            if (!MoneyRange(prevTxOut.nValue) || !MoneyRange(valuesIn[assetID]))
                 return state.DoS(100, error("CheckInputs(): txin values out of range"),
                                  REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-
         }
 
-        if (nValueIn < tx.GetValueOut())
-            return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s)",
-                                        tx.GetHash().ToString(), FormatMoney(nValueIn), FormatMoney(tx.GetValueOut())),
-                             REJECT_INVALID, "bad-txns-in-belowout");
-
-        // Tally transaction fees
-        CAmount nTxFee = nValueIn - tx.GetValueOut();
-        if (nTxFee < 0)
-            return state.DoS(100, error("CheckInputs(): %s nTxFee < 0", tx.GetHash().ToString()),
-                             REJECT_INVALID, "bad-txns-fee-negative");
-        nFees += nTxFee;
-        if (!MoneyRange(nFees))
-            return state.DoS(100, error("CheckInputs(): nFees out of range"),
-                             REJECT_INVALID, "bad-txns-fee-outofrange");
+        // Check that no assets are being created. The defined asset can be created so we exclude it from valuesOut
+        std::map<CAssetID, CAmount> valuesOut = tx.GetMapValuesOut(false);
+        for(std::map<CAssetID, CAmount>::iterator it = valuesOut.begin(); it != valuesOut.end(); it++) {
+            const CAssetID& assetID = it->first;
+            const CAmount& nValueOut = it->second;
+            CAmount nValueIn = valuesIn.count(assetID) > 0 ? valuesIn[assetID] : 0;
+            CAmount nTxFee = nValueIn - nValueOut;
+            if (!MoneyRange(nTxFee))
+                return state.DoS(100, error("CheckInputs(): nFees out of range"), 
+                                 REJECT_INVALID, strprintf("bad-txns-fee-outofrange (%s < %s [assetID %s])", 
+                                                           FormatMoney(nValueIn), 
+                                                           FormatMoney(nValueOut), 
+                                                           assetID.ToString()));   
+        }
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -1840,7 +1837,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
     int64_t nTimeStart = GetTimeMicros();
-    CAmount nFees = 0;
+    CAmountMap blockReward;
     int nInputs = 0;
     unsigned int nSigOps = 0;
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
@@ -1874,7 +1871,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-blk-sigops");
             }
 
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            blockReward += view.GetValuesIn(tx);
+            blockReward -= tx.GetMapValuesOut();
 
             std::vector<CScriptCheck> vChecks;
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, false, nScriptCheckThreads ? &vChecks : NULL))
@@ -1894,12 +1892,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
-    if (block.vtx[0].GetValueOut() > blockReward)
-        return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               block.vtx[0].GetValueOut(), blockReward),
-                               REJECT_INVALID, "bad-cb-amount");
+    blockReward[chainparams.GetConsensus().hashGenesisBlock] += GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
+    // Don't include newly issued assets on the coinbase reward
+    if (blockReward < block.vtx[0].GetMapValuesOut(false))
+        return state.DoS(100, error("ConnectBlock(): coinbase pays too much", REJECT_INVALID, "bad-cb-amount"));
 
     if (!control.Wait())
         return state.DoS(100, false);
