@@ -125,6 +125,28 @@ CAmount CTransaction::GetValueOut(const CAssetID& _assetID) const
     return nValueOut;
 }
 
+CAmountMap CTransaction::GetMapValuesOut(bool fIncludeIssued) const
+{
+    CAmountMap valuesOut;
+    const CAssetID newAssetID(this->GetHash());
+    for (std::vector<CTxOut>::const_iterator it(this->vout.begin()); it != this->vout.end(); ++it) {
+        const CAmount& nValue = it->nValue;
+        CAssetID assetID = it->assetID;
+
+        // Within an asset definition transaction, the asset being defined is identified with a 0
+        if (assetID.IsNull() && this->IsAssetDefinition())
+            assetID = newAssetID;
+
+        // Accumulate total output per asset
+        valuesOut[assetID] += nValue;
+    }
+    // The newly defined asset can be excluded optionally
+    if (!fIncludeIssued && this->IsAssetDefinition())
+        valuesOut.erase(newAssetID);
+
+    return valuesOut;
+}
+
 double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const
 {
     nTxSize = CalculateModifiedSize(nTxSize);
