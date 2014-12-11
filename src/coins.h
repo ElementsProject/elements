@@ -418,6 +418,7 @@ public:
     //! Calculate the size of the cache (in number of transactions)
     unsigned int GetCacheSize() const;
 
+    CAmountMap GetValuesIn(const CTransaction& tx) const;
     /** 
      * Amount of bitcoins coming in to a transaction of the type assetID
      * Note that lightweight clients may not know anything besides the hash of previous transactions,

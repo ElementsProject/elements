@@ -218,6 +218,21 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx, const CAssetID& asse
     return nResult;
 }
 
+CAmountMap CCoinsViewCache::GetValuesIn(const CTransaction& tx) const
+{
+    CAmountMap valuesIn;
+    if (tx.IsCoinBase())
+        return valuesIn;
+
+    // The first input is null for asset definition transactions
+    for (unsigned int i = tx.IsAssetDefinition() ? 1 : 0; i < tx.vin.size(); i++) {
+        const CTxOut& txOut = GetOutputFor(tx.vin[i]);
+        // Accumulate total input per asset
+        valuesIn[txOut.assetID] += txOut.nValue;
+    }
+    return valuesIn;
+}
+
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {
