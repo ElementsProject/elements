@@ -121,7 +121,7 @@ public:
 
         genesis = CreateGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
+        // assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
 
         vSeeds.push_back(CDNSSeedData("bitcoin.sipa.be", "seed.bitcoin.sipa.be")); // Pieter Wuille
         vSeeds.push_back(CDNSSeedData("bluematt.me", "dnsseed.bluematt.me")); // Matt Corallo
@@ -190,7 +190,7 @@ public:
 
         genesis = CreateGenesisBlock(1296688602, 414098458);
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
+        // assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -242,7 +242,7 @@ public:
         nMinerThreads = 1;
         genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff);
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
+        // assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
         nDefaultPort = 18444;
         nPruneAfterHeight = 1000;
 
