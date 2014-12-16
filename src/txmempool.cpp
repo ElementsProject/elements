@@ -5,8 +5,10 @@
 
 #include "txmempool.h"
 
+#include "chainparams.h"
 #include "clientversion.h"
 #include "main.h"
+#include "policy/fees.h"
 #include "streams.h"
 #include "util.h"
 #include "utilmoneystr.h"
@@ -40,7 +42,7 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTxMemPoolEntry& other)
 double
 CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
-    CAmount nValueIn = tx.GetValueOut()+nFee;
+    CAmount nValueIn = tx.GetValueOut(feeAssetID) + nFee;
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
     double dResult = dPriority + deltaPriority;
     return dResult;
