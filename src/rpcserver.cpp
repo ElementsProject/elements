@@ -293,7 +293,10 @@ static const CRPCCommand vRPCCommands[] =
     { "rawtransactions",    "getrawtransaction",      &getrawtransaction,      true,      false,      false },
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false,     false,      false },
     { "rawtransactions",    "signrawtransaction",     &signrawtransaction,     false,     false,      false }, /* uses wallet if enabled */
-
+#ifdef ENABLE_WALLET
+    { "rawtransactions",    "fundrawtransaction",     &fundrawtransaction,     false,     false,      true },
+#endif
+    
     /* Utility functions */
     { "util",               "createmultisig",         &createmultisig,         true,      true ,      false },
     { "util",               "validateaddress",        &validateaddress,        true,      false,      false }, /* uses wallet if enabled */
