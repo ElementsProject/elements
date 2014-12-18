@@ -11,6 +11,7 @@
 #include "hash.h"
 #include "main.h"
 #include "net.h"
+#include "policy/fees.h"
 #include "pow.h"
 #include "timedata.h"
 #include "util.h"
@@ -88,21 +89,27 @@ void UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock);
 }
 
-inline CMutableTransaction CreateCoinbaseTransaction(const CScript& scriptPubKeyIn, const int nHeight, const CAmount& blockReward)
+inline CMutableTransaction CreateCoinbaseTransaction(const CScript& scriptPubKeyIn, const int nHeight, const CAmountMap& blockReward)
 {
     // Create and Compute final coinbase transaction.
     CMutableTransaction txNew;
     txNew.vin.resize(1);
     txNew.vin[0].prevout.SetNull();
     txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
-    txNew.vout.resize(1);
-    txNew.vout[0].scriptPubKey = scriptPubKeyIn;
-    txNew.vout[0].nValue = blockReward;
+    txNew.vout.resize(blockReward.size());
+    int i = 0;
+    for(std::map<CAssetID, CAmount>::const_iterator it = blockReward.begin(); it != blockReward.end(); ++it) {
+        txNew.vout[i].scriptPubKey = scriptPubKeyIn;
+        txNew.vout[i].nValue = it->second;
+        txNew.vout[i].assetID = it->first;
+        ++i;
+    }
     return txNew;
 }
 
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 {
+    const CChainParams& chainparams = Params();
     // Create new block
     auto_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
     if(!pblocktemplate.get())
@@ -133,9 +140,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     // until there are no more or the block reaches this size:
     unsigned int nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
-
-    // Collect memory pool transactions into the block
-    CAmount nFees = 0;
 
     {
         LOCK2(cs_main, mempool.cs);
@@ -189,13 +193,15 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                     }
                     mapDependers[txin.prevout.hash].push_back(porphan);
                     porphan->setDependsOn.insert(txin.prevout.hash);
-                    nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
+                    const CTxOut& txOut = mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n];
+                    if (txOut.assetID == feeAssetID)
+                        nTotalIn += txOut.nValue;
                     continue;
                 }
                 const CCoins* coins = view.AccessCoins(txin.prevout.hash);
                 assert(coins);
 
-                CAmount nValueIn = coins->vout[txin.prevout.n].nValue;
+                CAmount nValueIn = coins->vout[txin.prevout.n].assetID == feeAssetID ? coins->vout[txin.prevout.n].nValue : 0;
                 nTotalIn += nValueIn;
 
                 int nConf = nHeight - coins->nHeight;
@@ -211,7 +217,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             uint256 hash = tx.GetHash();
             mempool.ApplyDeltas(hash, dPriority, nTotalIn);
 
-            CFeeRate feeRate(nTotalIn-tx.GetValueOut(), nTxSize);
+            CFeeRate feeRate(nTotalIn - tx.GetValueOut(feeAssetID), nTxSize);
 
             if (porphan)
             {
@@ -222,7 +228,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->second.GetTx()));
         }
 
-        // Collect transactions into block
+        // Collect memory pool transactions into the block
+        CAmountMap blockReward;
         uint64_t nBlockSize = 1000;
         uint64_t nBlockTx = 0;
         int nBlockSigOps = 100;
@@ -272,8 +279,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             if (!view.HaveInputs(tx))
                 continue;
 
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
-
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
@@ -285,17 +290,21 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             if (!CheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true))
                 continue;
 
+            CAmountMap txFeesMap;
+            txFeesMap += view.GetValuesIn(tx);
+            txFeesMap -= tx.GetMapValuesOut();
+
             CTxUndo txundo;
             UpdateCoins(tx, state, view, txundo, nHeight);
 
             // Added
             pblock->vtx.push_back(tx);
-            pblocktemplate->vTxFees.push_back(nTxFees);
+            pblocktemplate->vTxFees.push_back(txFeesMap[feeAssetID]);
             pblocktemplate->vTxSigOps.push_back(nTxSigOps);
             nBlockSize += nTxSize;
             ++nBlockTx;
             nBlockSigOps += nTxSigOps;
-            nFees += nTxFees;
+            blockReward += txFeesMap;
 
             if (fPrintPriority)
             {
@@ -325,8 +334,11 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         nLastBlockSize = nBlockSize;
         LogPrintf("CreateNewBlock(): total size %u\n", nBlockSize);
 
-        pblock->vtx[0] = CreateCoinbaseTransaction(scriptPubKeyIn, nHeight, GetBlockValue(nHeight, nFees));
-        pblocktemplate->vTxFees[0] = -nFees;
+        // Add subsidy to rewards map (hostcoin ID = hash genesis block)
+        blockReward[chainparams.HashGenesisBlock()] += GetBlockValue(nHeight, 0);
+        pblock->vtx[0] = CreateCoinbaseTransaction(scriptPubKeyIn, nHeight, blockReward);
+        // Only count the feecoin's fees in vTxFees 
+        pblocktemplate->vTxFees[0] = -blockReward[feeAssetID];
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
