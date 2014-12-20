@@ -114,15 +114,14 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     return *this;
 }
 
-CAmount CTransaction::GetValueOut() const
+CAmount CTransaction::GetValueOut(const CAssetID& _assetID) const
 {
+    // Within an asset definition transaction, the asset being defined is identified with a 0
+    const CAssetID& assetID = this->IsAssetDefinition() && _assetID == CAssetID(this->GetHash()) ? CAssetID() : _assetID;
     CAmount nValueOut = 0;
     for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
-    {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
-    }
+        if (it->assetID == assetID)
+            nValueOut += it->nValue;
     return nValueOut;
 }
 
