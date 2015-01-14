@@ -87,6 +87,33 @@ bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
     return !(a == b);
 }
 
+bool operator<(const CAmountMap& a, const CAmountMap& b)
+{
+    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it) {
+        if (a.count(it->first) == 0 || a.find(it->first)->second < it->second)
+            return true;
+    }
+    return false;
+}
+
+CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b)
+{
+    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it)
+        a[it->first] += it->second;
+    return a;
+}
+
+CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b)
+{
+    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it) {
+        if (a.count(it->first) > 0)
+            a[it->first] -= it->second;
+        else
+            throw std::runtime_error(strprintf("%s : asset %s is not contained in this map", __func__, it->first.ToString()));
+    }
+    return a;
+}
+
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);

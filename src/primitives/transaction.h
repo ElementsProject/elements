@@ -155,6 +155,23 @@ public:
     std::string ToString() const;
 };
 
+/**
+ *  Native Asset Issuance
+ *
+ *  An asset identifier tag, a 256 bits serialized hash (sha256) of the asset
+ *  definition transaction from which the output’s coins are derived. Each output contains
+ *  coins from a single asset/currency. For the host currency, the similarly-calculated
+ *  hash of the chain’s genesis block is used instead. Within an asset
+ *  definition transaction, the asset being defined is identified with 0 as a hash.
+ */
+typedef uint256 CAssetID;
+
+typedef std::map<CAssetID, CAmount> CAmountMap;
+
+bool operator<(const CAmountMap& a, const CAmountMap& b);
+CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b);
+CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b);
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
