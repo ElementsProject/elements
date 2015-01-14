@@ -21,6 +21,13 @@ void static BatchWriteCoins(CLevelDBBatch &batch, const uint256 &hash, const CCo
         batch.Write(make_pair('c', hash), coins);
 }
 
+void static BatchWriteWithdraw(CLevelDBBatch &batch, const pair<uint256, COutPoint> &outpoint, const COutPoint& spender) {
+    if (!spender.IsNull())
+        batch.Write(make_pair('w', outpoint), spender);
+    else
+        batch.Erase(make_pair('w', outpoint));
+}
+
 void static BatchWriteHashBestChain(CLevelDBBatch &batch, const uint256 &hash) {
     batch.Write('B', hash);
 }
@@ -36,6 +43,13 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair('c', txid));
 }
 
+COutPoint CCoinsViewDB::GetWithdrawSpent(const pair<uint256, COutPoint> &outpoint) const {
+    COutPoint spender;
+    if (!db.Read(make_pair('w', outpoint), spender))
+        return COutPoint();
+    return spender;
+}
+
 uint256 CCoinsViewDB::GetBestBlock() const {
     uint256 hashBestChain;
     if (!db.Read('B', hashBestChain))
@@ -49,7 +63,10 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            BatchWriteCoins(batch, it->first, it->second.coins);
+            if (it->second.flags & CCoinsCacheEntry::WITHDRAW)
+                BatchWriteWithdraw(batch, it->first, it->second.withdrawSpent);
+            else
+                BatchWriteCoins(batch, it->first.first, it->second.coins);
             changed++;
         }
         count++;

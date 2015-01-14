@@ -44,10 +44,10 @@ public:
     bool BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock)
     {
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
-            map_[it->first] = it->second.coins;
+            map_[it->first.first] = it->second.coins;
             if (it->second.coins.IsPruned() && insecure_rand() % 3 == 0) {
                 // Randomly delete empty entries on write.
-                map_.erase(it->first);
+                map_.erase(it->first.first);
             }
             mapCoins.erase(it++);
         }
