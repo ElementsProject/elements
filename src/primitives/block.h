@@ -7,6 +7,7 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include "primitives/transaction.h"
+#include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
 
@@ -15,17 +16,15 @@ static const unsigned int MAX_BLOCK_SIZE = 1000000;
 
 class CProof
 {
-protected:
-    uint32_t challenge;
-    uint32_t solution;
 public:
+    CScript challenge;
+    CScript solution;
 
     CProof()
     {
         SetNull();
     }    
-    CProof(uint32_t challengeIn, uint32_t solutionIn) : 
-        challenge(challengeIn), solution(solutionIn) {}
+    CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
 
     ADD_SERIALIZE_METHODS;
 
@@ -38,13 +37,13 @@ public:
 
     void SetNull()
     {
-        challenge = 0;
-        solution = 0;
+        challenge.clear();
+        solution.clear();
     }
 
     bool IsNull() const
     {
-        return (challenge == 0);
+        return challenge.empty();
     }
 
     std::string ToString() const;
