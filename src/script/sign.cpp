@@ -67,8 +67,15 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
     case TX_WITHDRAW_LOCK:
-    case TX_WITHDRAW_OUT:
         return false;
+    case TX_WITHDRAW_OUT:
+        {
+        scriptSigRet.clear();
+        CScript scriptPubKey2(scriptPubKey.end() - 2 - 20 - 2, scriptPubKey.end() - 1);
+        assert(Solver(scriptPubKey2, whichTypeRet, vSolutions) && whichTypeRet == TX_SCRIPTHASH);
+        whichTypeRet = TX_WITHDRAW_OUT;
+        return keystore.GetCScript(uint160(vSolutions[0]), scriptSigRet);
+        }
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();
         return Sign1(keyID, keystore, hash, nHashType, scriptSigRet);
@@ -106,7 +113,7 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutabl
     if (!Solver(keystore, fromPubKey, hash, nHashType, txin.scriptSig, whichType))
         return false;
 
-    if (whichType == TX_SCRIPTHASH)
+    if (whichType == TX_SCRIPTHASH || whichType == TX_WITHDRAW_OUT)
     {
         // Solver returns the subscript that need to be evaluated;
         // the final scriptSig is the signatures from that
@@ -121,6 +128,8 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutabl
             Solver(keystore, subscript, hash2, nHashType, txin.scriptSig, subType) && subType != TX_SCRIPTHASH;
         // Append serialized subscript whether or not it is completely signed:
         txin.scriptSig << static_cast<valtype>(subscript);
+        if (whichType == TX_WITHDRAW_OUT)
+            txin.scriptSig << OP_0;
         if (!fSolved) return false;
     }
 
@@ -210,7 +219,6 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const CTransaction
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
     case TX_WITHDRAW_LOCK:
-    case TX_WITHDRAW_OUT:
         // Don't know anything about this, assume bigger one is correct:
         if (sigs1.size() >= sigs2.size())
             return PushAll(sigs1);
@@ -221,14 +229,21 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const CTransaction
         if (sigs1.empty() || sigs1[0].empty())
             return PushAll(sigs2);
         return PushAll(sigs1);
+    case TX_WITHDRAW_OUT:
     case TX_SCRIPTHASH:
-        if (sigs1.empty() || sigs1.back().empty())
+        if (sigs1.empty())
             return PushAll(sigs2);
         else if (sigs2.empty() || sigs2.back().empty())
             return PushAll(sigs1);
+        else if (sigs1.back().empty())
+            return PushAll(sigs2);
         else
         {
             // Recur to combine:
+            if (txType == TX_WITHDRAW_OUT) {
+                sigs1.pop_back();
+                sigs2.pop_back();
+            }
             valtype spk = sigs1.back();
             CScript pubKey2(spk.begin(), spk.end());
 
@@ -239,6 +254,8 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const CTransaction
             sigs2.pop_back();
             CScript result = CombineSignatures(pubKey2, txTo, nIn, txType2, vSolutions2, sigs1, sigs2);
             result << spk;
+            if (txType == TX_WITHDRAW_OUT)
+                result << OP_0;
             return result;
         }
     case TX_MULTISIG:
