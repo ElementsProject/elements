@@ -287,7 +287,12 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
         assert(coins);
         if (!coins->IsAvailable(txin.prevout.n)) continue;
         if (coins->nHeight < nHeight) {
-            dResult += coins->vout[txin.prevout.n].nValue * (nHeight-coins->nHeight);
+            int nHeightOffset = 0;
+            if (coins->vout[txin.prevout.n].scriptPubKey.IsWithdrawOutput() && txin.scriptSig.IsPushOnly() && txin.scriptSig.size() > 1 && txin.scriptSig.back() == OP_1) {
+                // Fraud/reorg proofs get a priority bump
+                nHeightOffset = 100000;
+            }
+            dResult += coins->vout[txin.prevout.n].nValue * (nHeight - coins->nHeight + nHeightOffset);
         }
     }
     return tx.ComputePriority(dResult);

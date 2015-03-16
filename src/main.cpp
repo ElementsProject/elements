@@ -1775,7 +1775,7 @@ static int64_t nTimeIndex = 0;
 static int64_t nTimeCallbacks = 0;
 static int64_t nTimeTotal = 0;
 
-bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck)
+bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck, vector<CTransaction> *pvProofTxn)
 {
     AssertLockHeld(cs_main);
     // Check it again in case a previous version let a bad block in
@@ -1882,7 +1882,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
 
             // Auto-generate double-spend withdraw proofs (if neccessary)
-            if (sidechainWithdrawsTracked.size() > 0) {
+            if (pvProofTxn && sidechainWithdrawsTracked.size() > 0) {
                 for (unsigned int j = 0; j < tx.vin.size(); j++) {
                     const CTxIn &txin = tx.vin[j];
 
@@ -1974,13 +1974,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                 assert(withdrawOutputScript.IsWithdrawOutput());
                                 proofTx.vout[0].nValue = tx.vout[j].nValue - withdrawOutputScript.GetFraudBounty();
 
-                                //TODO: Add to mempool
-                                CDataStream proofDS(SER_NETWORK, PROTOCOL_VERSION);
-                                proofDS << proofTx;
-                                fprintf(stderr, "DOUBLE-SPEND PROOF TX:\n");
-                                for (CDataStream::iterator it = proofDS.begin(); it != proofDS.end(); it++)
-                                    fprintf(stderr, "%02x", (unsigned char)*it);
-                                fprintf(stderr, "\n");
+                                pvProofTxn->push_back(proofTx);
                             }
                         }
                     }
@@ -2205,6 +2199,7 @@ static int64_t nTimeConnectTotal = 0;
 static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
+static int64_t nTimeProofTxn = 0;
 
 /** 
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
@@ -2225,10 +2220,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
+    vector<CTransaction> vProofTxn;
     {
         CCoinsViewCache view(pcoinsTip);
         CInv inv(MSG_BLOCK, pindexNew->GetBlockHash());
-        bool rv = ConnectBlock(*pblock, state, pindexNew, view);
+        bool rv = ConnectBlock(*pblock, state, pindexNew, view, false, &vProofTxn);
         g_signals.BlockChecked(*pblock, state);
         if (!rv) {
             if (state.IsInvalid())
@@ -2263,8 +2259,27 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
         SyncWithWallets(tx, pblock);
     }
 
-    int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
+    int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5;
     LogPrint("bench", "  - Connect postprocess: %.2fms [%.2fs]\n", (nTime6 - nTime5) * 0.001, nTimePostConnect * 0.000001);
+
+    BOOST_FOREACH(CTransaction& proofTx, vProofTxn) {
+        CValidationState proofTxState;
+        if (!AcceptToMemoryPool(mempool, proofTxState, proofTx, false, NULL, false)) {
+            LogPrintf("ERROR: Failed to insert fraud proof transaction into the mempool (%i: %s)\n", proofTxState.GetRejectCode(), proofTxState.GetRejectReason());
+
+            CDataStream proofDS(SER_NETWORK, PROTOCOL_VERSION);
+            proofDS << proofTx;
+            LogPrintf("Generated proof transaction was (in hex):\n");
+            string strHex;
+            for (CDataStream::iterator it = proofDS.begin(); it != proofDS.end(); it++)
+                strHex += strprintf("%02x", (unsigned char)*it);
+            LogPrintf("%s\n", strHex);
+        } else
+            RelayTransaction(proofTx);
+    }
+
+    int64_t nTime7 = GetTimeMicros(); nTimePostConnect += nTime7 - nTime6; nTimeTotal += nTime7 - nTime1;
+    LogPrint("bench", "  - Connect proof tx add: %.2fms [%.2fs]\n", (nTime7 - nTime6) * 0.001, nTimeProofTxn * 0.000001);
     LogPrint("bench", "- Connect block: %.2fms [%.2fs]\n", (nTime6 - nTime1) * 0.001, nTimeTotal * 0.000001);
     return true;
 }
