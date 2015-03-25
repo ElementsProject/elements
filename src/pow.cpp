@@ -81,7 +81,7 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits)
     bool fOverflow;
     uint256 bnTarget;
 
-    if (Params().SkipProofOfWorkCheck())
+    if (Params().SkipProofOfWorkCheck() || hash == Params().HashGenesisBlock())
        return true;
 
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
