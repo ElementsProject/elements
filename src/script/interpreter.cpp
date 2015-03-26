@@ -1068,10 +1068,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                         const valtype &vsecondScriptPubKeyHash = stacktop(-1);
                         if (vsecondScriptPubKeyHash.size() != 20)
-                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
                         const valtype &vgenesisHash = stacktop(-2);
                         if (vgenesisHash.size() != 32)
-                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
                         assert(checker.GetValueIn() != -1); // Not using a NoWithdrawSignatureChecker
 
@@ -1083,7 +1083,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 minValue += checker.GetValueInPrevIn();
                             }
                             if (newOutput.scriptPubKey != script || newOutput.nValue < minValue)
-                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                         } else { // stack.size() == 10...ie regular withdraw
                             int stackReadPos = -3;
 #ifndef FEDERATED_PEG_SIDECHAIN_ONLY
@@ -1126,17 +1126,17 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION);
                                 merkleBlockStream >> merkleBlock;
                                 if (!merkleBlockStream.empty() || !CheckProofOfWork(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
                                 vector<uint256> txHashes;
                                 if (merkleBlock.txn.ExtractMatches(txHashes) != merkleBlock.header.hashMerkleRoot || txHashes.size() != 2)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
                                 // We disallow returns from the genesis block, allowing sidechains to
                                 // make genesis outputs spendable with a 21m initially-locked-to-btc
                                 // distributing transaction.
                                 if (merkleBlock.header.GetHash() == genesishash)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
 #ifndef FEDERATED_PEG_SIDECHAIN_ONLY
                                 //TODO: Check the SPV proof here (must point to genesishash, contain merkleBlock.header.GetHash())
@@ -1146,33 +1146,33 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION);
                                 locktxStream >> locktx;
                                 if (!locktxStream.empty())
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
                                 int nlocktxOut = CScriptNum(vlockTxOutIndex, fRequireMinimal).getint();
                                 if (nlocktxOut < 0 || (unsigned int)nlocktxOut >= locktx.vout.size())
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
                                 if (locktx.GetHash() != txHashes[1])
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
                                 CTransaction coinbasetx;
                                 CDataStream coinbasetxStream(vlockCoinbaseTx, SER_NETWORK, PROTOCOL_VERSION);
                                 coinbasetxStream >> coinbasetx;
                                 if (!coinbasetxStream.empty())
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
                                 if (coinbasetx.GetHash() != txHashes[0] || !coinbasetx.IsCoinBase())
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
                                 valtype vcoinbaseHeight;
                                 CScript::const_iterator coinbasepc = coinbasetx.vin[0].scriptSig.begin();
                                 opcodetype opcodeTmp;
                                 if (!coinbasetx.vin[0].scriptSig.GetOp(coinbasepc, opcodeTmp, vcoinbaseHeight) || vcoinbaseHeight.size() < 1)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
                                 int nLockHeight = CScriptNum(vcoinbaseHeight, fRequireMinimal).getint();
 
 #ifdef FEDERATED_PEG_SIDECHAIN_ONLY
                                 if (vcontract.size() != 40)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
                                 CScript scriptDestination(CScript() << OP_1 << ParseHex("03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd") << OP_1 << OP_CHECKMULTISIG);
                                 {
@@ -1187,40 +1187,40 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                             unsigned char tweak[32];
                                             unsigned char *pub_start = &(*(sdpc - 33));
                                             CHMAC_SHA256(pub_start, 33).Write(&vcontract[0], 40).Finalize(tweak);
-                                            if (secp256k1_ec_pubkey_tweak_add(pub_start, 33, tweak) == 0)
-                                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                            // If someone creates a tweak that makes this fail, they broke SHA256
+                                            assert(secp256k1_ec_pubkey_tweak_add(pub_start, 33, tweak) != 0);
                                         }
                                     }
                                 }
 
                                 CScriptID expectedP2SH(scriptDestination);
                                 if (locktx.vout[nlocktxOut].scriptPubKey != GetScriptForDestination(expectedP2SH))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 vcontract.erase(vcontract.begin() + 4, vcontract.begin() + 20); // Remove the nonce from the contract before further processing
 #else
                                 const CScript &lockingScriptPubKey = locktx.vout[nlocktxOut].scriptPubKey;
                                 //TODO: Make script checker expose GenesisBlockHash
                                 if (!lockingScriptPubKey.IsWithdrawLock(checker.GenesisBlockHash(), true, true))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
                                 valtype vcontract;
                                 CScript::const_iterator locktxpc = lockingScriptPubKey.begin();
                                 assert(lockingScriptPubKey.GetOp(locktxpc, opcodeTmp, vcontract));
                                 if (vcontract.size() != 24)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 #endif
                                 assert(vcontract.size() == 24);
                                 if (vcontract[0] != 'P' || vcontract[1] != '2' || vcontract[2] != 'S' || vcontract[3] != 'H')
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
                                 CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
                                 const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(1);
                                 if (newLockOutput.scriptPubKey != script || newLockOutput.nValue < checker.GetValueIn() - withdrawVal)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 const CTxOut withdrawOutput = checker.GetOutputOffsetFromCurrent(0);
                                 if (withdrawOutput.nValue < withdrawVal)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 uint256 locktxHash = locktx.GetHash();
                                 std::vector<unsigned char> vlocktxHash(locktxHash.begin(), locktxHash.end());
@@ -1235,38 +1235,38 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 // << std::vector<unsigned char>(vcontract.begin() + 4, vcontract.begin() + 24) << OP_EQUAL << OP_ENDIF;
                                 if (withdrawOutput.scriptPubKey.size() < expectedWithdrawScriptPubKeyStart.size() ||
                                         memcmp(&withdrawOutput.scriptPubKey[0], &expectedWithdrawScriptPubKeyStart[0], expectedWithdrawScriptPubKeyStart.size()) != 0)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 CScript::const_iterator withdrawOutputpc = withdrawOutput.scriptPubKey.begin() + expectedWithdrawScriptPubKeyStart.size();
                                 valtype vlockTime;
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 int nWithdrawLockTime = CScriptNum(vlockTime, fRequireMinimal).getint();
                                 if ((unsigned int)nWithdrawLockTime >= LOCKTIME_THRESHOLD || nWithdrawLockTime < 1)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTIME);
 
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime) || opcodeTmp != OP_CHECKSEQUENCEVERIFY)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime) || opcodeTmp != OP_DROP)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime) || opcodeTmp != OP_HASH160)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime) || vlockTime != std::vector<unsigned char>(vcontract.begin() + 4, vcontract.begin() + 24))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime) || opcodeTmp != OP_EQUAL)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 if (!withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime) || opcodeTmp != OP_ENDIF)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                                 if (withdrawOutput.scriptPubKey.GetOp(withdrawOutputpc, opcodeTmp, vlockTime))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 valtype vsecondScriptPubKeyHashCmp(20);
                                 CHash160().Write(begin_ptr(vsecondScriptPubKey), vsecondScriptPubKey.size()).Finalize(begin_ptr(vsecondScriptPubKeyHashCmp));
                                 if (vsecondScriptPubKeyHash.size() != 20 || vsecondScriptPubKeyHashCmp != vsecondScriptPubKeyHash)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
                                 vector<vector<unsigned char> > withdrawStack;
                                 if (!EvalScript(withdrawStack, CScript(vsecondScriptSig), flags & ~SCRIPT_VERIFY_WITHDRAW, checker, serror))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_SECONDSCRIPT);
                                 // Push:
                                 // 1. fee of this transaction (int64)
                                 // 2. Fraud bounty (int64)
@@ -1280,16 +1280,16 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 //TODO: Push a bunch of other info onto the withdrawStack about the SPV proof
 #endif
                                 if (!EvalScript(withdrawStack, CScript(vsecondScriptPubKey), flags & ~SCRIPT_VERIFY_WITHDRAW, checker, serror))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_SECONDSCRIPT);
                                 if (withdrawStack.empty() || CastToBool(withdrawStack.back()) == false)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_SECONDSCRIPT);
 
 #ifdef FEDERATED_PEG_SIDECHAIN_ONLY
                                 //TODO: Check that we're spending from a valid, buried bitcoin block
 #endif
                             } catch (std::exception& e) {
                                 // Probably invalid encoding of something which was deserialized
-                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
                             }
                         }
                     } // else...OP_NOP3
@@ -1318,11 +1318,11 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                         const valtype &vgenesisHash = stacktop(stackReadPos--);
                         if (vgenesisHash.size() != 32)
-                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                            return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FORMAT);
 
                         const valtype &vsecondScriptPubKeyHash = stacktop(stackReadPos--);
                         if (vsecondScriptPubKeyHash.size() != 20)
-                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                            return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FORMAT);
 
                         const valtype &vfraudBountyValue = stacktop(stackReadPos--);
 #ifndef FEDERATED_PEG_SIDECHAIN_ONLY
@@ -1331,7 +1331,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         int nlockTxOutIndex = CScriptNum(stacktop(stackReadPos--), fRequireMinimal).getint();
                         const valtype &vlockTxHashStack = stacktop(stackReadPos--);
                         if (vlockTxHashStack.size() != 32)
-                            return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                            return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FORMAT);
                         valtype vlockTxHash;
                         vlockTxHash.resize(32);
                         std::reverse_copy(vlockTxHashStack.begin(), vlockTxHashStack.end(), vlockTxHash.begin());
@@ -1367,22 +1367,22 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 CDataStream merkleBlockInputTxStream(vmerkleBlockInputTx, SER_NETWORK, PROTOCOL_VERSION);
                                 merkleBlockInputTxStream >> merkleBlockInputTx;
                                 if (!merkleBlockInputTxStream.empty() || !CheckProofOfWork(merkleBlockInputTx.header.GetHash(), merkleBlockInputTx.header.nBits))
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 vector<uint256> inputTxHashes;
                                 if (merkleBlockInputTx.txn.ExtractMatches(inputTxHashes) != merkleBlockInputTx.header.hashMerkleRoot)
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
                                 if (inputTxHashes.size() != 1 && inputTxHashes.size() != 2)
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 if (inputTxHashes[0] != checker.GetPrevOut().hash)
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 CTransaction originalWithdrawTx;
                                 CDataStream originalWithdrawTxStream(voriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION);
                                 originalWithdrawTxStream >> originalWithdrawTx;
                                 if (!originalWithdrawTxStream.empty())
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX);
 
                                 CMerkleBlock merkleBlockOriginalWithdrawTx;
                                 vector<uint256> originalWithdrawHashes;
@@ -1394,21 +1394,21 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     CDataStream merkleBlockOriginalWithdrawTxStream(vmerkleBlockOriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION);
                                     merkleBlockOriginalWithdrawTxStream >> merkleBlockOriginalWithdrawTx;
                                     if (!merkleBlockOriginalWithdrawTxStream.empty() || !CheckProofOfWork(merkleBlockOriginalWithdrawTx.header.GetHash(), merkleBlockOriginalWithdrawTx.header.nBits))
-                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
 
                                     if (merkleBlockOriginalWithdrawTx.txn.ExtractMatches(originalWithdrawHashes) != merkleBlockOriginalWithdrawTx.header.hashMerkleRoot)
-                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
                                     if (originalWithdrawHashes.size() != 1 || merkleBlockOriginalWithdrawTx.header.GetHash() == merkleBlockInputTx.header.GetHash())
-                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
 
                                     if (originalWithdrawHashes[0] != originalWithdrawTx.GetHash())
-                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                        return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
                                 } else if (inputTxHashes[1] != originalWithdrawTx.GetHash())
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 int noriginalWithdrawTxIn = CScriptNum(voriginalWithdrawTxInIndex, fRequireMinimal).getint();
                                 if (noriginalWithdrawTxIn < 0 || (unsigned int)noriginalWithdrawTxIn >= originalWithdrawTx.vin.size())
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX);
 
                                 const CTxIn& originalWithdrawTxInput = originalWithdrawTx.vin[noriginalWithdrawTxIn];
 
@@ -1416,31 +1416,31 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 CDataStream originalWithdrawOutputTxStream(voriginalWithdrawOutputTx, SER_NETWORK, PROTOCOL_VERSION);
                                 originalWithdrawOutputTxStream >> originalWithdrawOutputTx;
                                 if (!originalWithdrawOutputTxStream.empty() || originalWithdrawTxInput.prevout.hash != originalWithdrawOutputTx.GetHash())
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX);
                                 if (originalWithdrawOutputTx.vout.size() <= originalWithdrawTxInput.prevout.n)
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX);
 
                                 const CTxOut& originalWithdrawOutputTxOut = originalWithdrawOutputTx.vout[originalWithdrawTxInput.prevout.n];
 
                                 if (!originalWithdrawOutputTxOut.scriptPubKey.IsWithdrawLock(0) || !originalWithdrawTxInput.scriptSig.IsWithdrawProof())
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX);
 
                                 COutPoint withdrawSpent = originalWithdrawTxInput.scriptSig.GetWithdrawSpent();
                                 uint256 withdrawGenesisHash = originalWithdrawOutputTxOut.scriptPubKey.GetWithdrawLockGenesisHash();
                                 if (withdrawGenesisHash != uint256(vgenesisHash) || withdrawSpent.hash != uint256(vlockTxHash) || withdrawSpent.n != uint32_t(nlockTxOutIndex) || nlockTxOutIndex < 0)
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX);
 
                                 const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(0);
                                 if (newLockOutput.scriptPubKey != (CScript() << vgenesisHash << vsecondScriptPubKeyHash << OP_WITHDRAWPROOFVERIFY))
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_OUTPUT);
                                 CAmount fraudBounty = CScriptNum(vfraudBountyValue, fRequireMinimal, 8).getint64();
                                 if (newLockOutput.nValue < checker.GetValueIn() - fraudBounty)
-                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_OUTPUT);
 
                                 //TODO: if (!checker.IsInBlockTreeAboveMe(merkleBlock.header.GetHash()))
                                 //TODO:     return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
                             } catch (std::exception& e) {
-                                return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                                return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FORMAT);
                             }
 #ifndef FEDERATED_PEG_SIDECHAIN_ONLY
                         } else if (proofType == 2) { // Longer SPV chain
@@ -1451,7 +1451,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                             //TODO
 #endif
                         } else
-                            return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
+                            return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FORMAT);
                     } // else...OP_NOP4
                 }
                 break;
@@ -1729,7 +1729,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigne
     if ((flags & SCRIPT_VERIFY_WITHDRAW) != 0) {
         if (scriptPubKey.IsWithdrawLock(0)) {
             if (!scriptSig.IsWithdrawProof())
-                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
+                return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
         } else if (!scriptPubKey.IsWithdrawOutput())
             flags &= ~SCRIPT_VERIFY_WITHDRAW;
     }

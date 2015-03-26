@@ -67,10 +67,28 @@ const char* ScriptErrorString(const ScriptError serror)
             return "NOPx reserved for soft-fork upgrades";
         case SCRIPT_ERR_PUBKEYTYPE:
             return "Public key is neither compressed or uncompressed";
-        case SCRIPT_ERR_WITHDRAW_VERIFY:
-            return "Withdraw proof validation failed";
-        case SCRIPT_ERR_REORG_VERIFY:
-            return "Reorg/Fraud proof validation failed";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT:
+            return "Withdraw proof validation failed - invalid proof format";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK:
+            return "Withdraw proof validation failed - SPV proof/block coinbase invalid";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX:
+            return "Withdraw proof validation failed - locking transaction misformatted";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT:
+            return "Withdraw proof validation failed - output does not match expected";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTIME:
+            return "Withdraw proof validation failed - locktime was not set correctly";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_SECONDSCRIPT:
+            return "Withdraw proof validation failed - second script validation failed";
+        case SCRIPT_ERR_REORG_VERIFY_FORMAT:
+            return "Reorg/Fraud proof validation failed - invalid proof format";
+        case SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK:
+            return "Fraud proof validation failed - bad SPV proof for tx being spent by fraud proof";
+        case SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK:
+            return "Fraud proof validation failed - bad SPV proof for original withdraw tx";
+        case SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_TX:
+            return "Fraud proof validation failed - bad or unmatched original withdraw tx";
+        case SCRIPT_ERR_REORG_VERIFY_FRAUD_OUTPUT:
+            return "Fraud proof validation failed - output does not match expected";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;
