@@ -11,6 +11,12 @@
 #include "crypto/common.h"
 #include "core_io.h"
 
+std::string CBitcoinProof::ToString() const
+{
+    return strprintf("CBitcoinProof(challenge=%08x, solution=%u)",
+                     challenge, solution);
+}
+
 std::string CProof::ToString() const
 {
     return strprintf("CProof(challenge=%s, solution=%s)",
