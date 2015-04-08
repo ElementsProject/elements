@@ -11,6 +11,43 @@
 #include "serialize.h"
 #include "uint256.h"
 
+class CBitcoinProof
+{
+public:
+    uint32_t challenge;
+    uint32_t solution;
+
+    CBitcoinProof()
+    {
+        SetNull();
+    }
+    CBitcoinProof(uint32_t challengeIn, uint32_t solutionIn) :
+        challenge(challengeIn), solution(solutionIn) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(challenge);
+        READWRITE(solution);
+    }
+
+    void SetNull()
+    {
+        challenge = 0;
+        solution = 0;
+    }
+
+    bool IsNull() const
+    {
+        return (challenge == 0);
+    }
+
+    std::string ToString() const;
+};
+
+
 class CProof
 {
 public:
@@ -62,6 +99,7 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
+    CBitcoinProof bitcoinproof;
     CProof proof;
 
     CBlockHeader()
@@ -77,7 +115,10 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(proof);
+        if (IsBitcoinBlock() || (nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX))
+            READWRITE(bitcoinproof);
+        else
+            READWRITE(proof);
     }
 
     void SetNull()
@@ -86,12 +127,13 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
+        bitcoinproof.SetNull();
         proof.SetNull();
     }
 
     bool IsNull() const
     {
-        return proof.IsNull();
+        return proof.IsNull() && bitcoinproof.IsNull();
     }
 
     uint256 GetHash() const;
@@ -99,6 +141,11 @@ public:
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
+    }
+
+    bool IsBitcoinBlock() const
+    {
+        return !bitcoinproof.IsNull();
     }
 };
 
@@ -145,6 +192,7 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
+        block.bitcoinproof   = bitcoinproof;
         block.proof          = proof;
         return block;
     }

@@ -12,6 +12,7 @@
 #include "uint256.h"
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
+static const int SERIALIZE_BITCOIN_BLOCK_OR_TX = 0x20000000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
 
