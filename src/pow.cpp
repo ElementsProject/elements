@@ -33,6 +33,26 @@ void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast)
     block.proof.challenge = indexLast.proof.challenge;
 }
 
+
+bool CheckBitcoinProof(const CBlockHeader& block)
+{
+    bool fNegative;
+    bool fOverflow;
+    uint256 bnTarget;
+
+    bnTarget.SetCompact(block.bitcoinproof.challenge, &fNegative, &fOverflow);
+
+    // Check range
+    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > Params().ProofOfWorkLimit())
+        return error("%s : nBits below minimum work", __func__);
+
+    // Check proof of work matches claimed amount
+    if (block.GetHash() > bnTarget)
+        return error("%s : hash doesn't match nBits", __func__);
+
+    return true;
+}
+
 bool CheckProof(const CBlockHeader& block)
 {
     if (block.GetHash() == Params().HashGenesisBlock())

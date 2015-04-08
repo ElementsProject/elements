@@ -515,6 +515,7 @@ static void MutateTxWithdrawSign(CMutableTransaction& tx, const string& flagStr)
 
     CDataStream ssProof(txoutproofData, SER_NETWORK, PROTOCOL_VERSION);
     CMerkleBlock merkleBlock;
+    merkleBlock.header.SetBitcoinBlock();
     ssProof >> merkleBlock;
 
     CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);

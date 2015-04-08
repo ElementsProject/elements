@@ -1127,9 +1127,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                             try {
                                 CMerkleBlock merkleBlock;
+                                merkleBlock.header.SetBitcoinBlock();
                                 CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION);
                                 merkleBlockStream >> merkleBlock;
-                                if (!merkleBlockStream.empty() || !CheckProofOfWork(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
+                                if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkleBlock.header))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
                                 vector<uint256> txHashes;
@@ -1371,7 +1372,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 CMerkleBlock merkleBlockInputTx;
                                 CDataStream merkleBlockInputTxStream(vmerkleBlockInputTx, SER_NETWORK, PROTOCOL_VERSION);
                                 merkleBlockInputTxStream >> merkleBlockInputTx;
-                                if (!merkleBlockInputTxStream.empty() || !CheckProofOfWork(merkleBlockInputTx.header.GetHash(), merkleBlockInputTx.header.nBits))
+                                if (!merkleBlockInputTxStream.empty() || !CheckProof(merkleBlockInputTx.header))
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 vector<uint256> inputTxHashes;
@@ -1398,7 +1399,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                                     CDataStream merkleBlockOriginalWithdrawTxStream(vmerkleBlockOriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION);
                                     merkleBlockOriginalWithdrawTxStream >> merkleBlockOriginalWithdrawTx;
-                                    if (!merkleBlockOriginalWithdrawTxStream.empty() || !CheckProofOfWork(merkleBlockOriginalWithdrawTx.header.GetHash(), merkleBlockOriginalWithdrawTx.header.nBits))
+                                    if (!merkleBlockOriginalWithdrawTxStream.empty() || !CheckProof(merkleBlockOriginalWithdrawTx.header))
                                         return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
 
                                     if (merkleBlockOriginalWithdrawTx.txn.ExtractMatches(originalWithdrawHashes) != merkleBlockOriginalWithdrawTx.header.hashMerkleRoot)
