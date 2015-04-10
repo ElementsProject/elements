@@ -27,6 +27,7 @@ extern std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::strin
 extern std::string FormatScript(const CScript& script);
 extern std::string EncodeHexTx(const CTransaction& tx);
 extern void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
+extern std::string EncodeHexBlock(const CBlock& block);
 extern void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry);
 
 #endif // BITCOIN_CORE_IO_H
