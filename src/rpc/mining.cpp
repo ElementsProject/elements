@@ -100,6 +100,83 @@ UniValue generate(const UniValue& params, bool fHelp)
     throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used in private chain mode");
 }
 
+UniValue getnewblockhex(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getnewblockhex\n"
+            "\nGets hex representation of a proposed, unmined new block\n"
+            "\nResult\n"
+            "blockhex      (hex) The block hex\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getnewblockhex", "")
+        );
+
+    CScript coinbaseDest(Params().CoinbaseDestination());
+    if (coinbaseDest == CScript())
+        coinbaseDest = CScript() << OP_TRUE;
+
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseDest));
+    if (!pblocktemplate.get())
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
+    {
+        // IncrementExtraNonce sets coinbase flags and builds merkle tree
+        LOCK(cs_main);
+        unsigned int nExtraNonce = 0;
+        IncrementExtraNonce(&pblocktemplate->block, chainActive.Tip(), nExtraNonce);
+    }
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << pblocktemplate->block;
+    return HexStr(ssBlock.begin(), ssBlock.end());
+}
+
+UniValue combineblocksigs(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "combineblocksigs \"blockhex\" [\"signature\",...]\n"
+            "\nMerges signatures on a block proposal\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
+            "2. \"signatures\"     (string) A json array of signatures\n"
+            "    [\n"
+            "      \"signature\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
+            "      ,...\n"
+            "    ]\n"
+            "\nResult\n"
+            "{\n"
+            "  \"hex\": \"value\",   (string) The signed block\n"
+            "  \"complete\": n       (numeric) if block is complete \n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("combineblocksigs", "")
+        );
+
+    CBlock block;
+    if (!DecodeHexBlk(block, params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+
+    UniValue result(UniValue::VOBJ);
+    const UniValue& sigs = params[1].get_array();
+    for (unsigned int i = 0; i < sigs.size(); i++) {
+        const std::string& sig = sigs[i].get_str();
+        if (!IsHex(sig))
+            continue;
+        std::vector<unsigned char> vchScript = ParseHex(sig);
+        block.proof.solution = CombineBlockSignatures(block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
+        if (CheckProof(block, Params().GetConsensus())) {
+            result.push_back(Pair("hex", EncodeHexBlock(block)));
+            result.push_back(Pair("complete", true));
+            return result;
+        }
+    }
+
+    result.push_back(Pair("hex", EncodeHexBlock(block)));
+    result.push_back(Pair("complete", false));
+    return result;
+}
+
 UniValue getmininginfo(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -800,6 +877,8 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       true  },
     { "mining",             "submitblock",            &submitblock,            true  },
 
+    { "generating",         "combineblocksigs",       &combineblocksigs,       true  },
+    { "generating",         "getnewblockhex",         &getnewblockhex,         true  },
     { "generating",         "generate",               &generate,               true  },
 
     { "util",               "estimatefee",            &estimatefee,            true  },
