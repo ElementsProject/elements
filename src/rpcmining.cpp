@@ -189,6 +189,123 @@ Value setgenerate(const Array& params, bool fHelp)
     return Value::null;
 }
 
+Value getnewblockhex(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getnewblockhex\n"
+            "\nGets hex representation of a proposed, unmined new block\n"
+            "\nResult\n"
+            "blockhex      (hex) The block hex\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getnewblockhex", "")
+        );
+
+    if (pwalletMain == NULL)
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found (disabled)");
+
+    CReserveKey reservekey(pwalletMain);
+
+    Array blockHashes;
+    auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlockWithKey(reservekey));
+    if (!pblocktemplate.get())
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
+    pblocktemplate->block.hashMerkleRoot = pblocktemplate->block.BuildMerkleTree();
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << pblocktemplate->block;
+    return HexStr(ssBlock.begin(), ssBlock.end());
+}
+
+
+Value combineblocksigs(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "combineblocksigs \"blockhex\" [\"signature\",...]\n"
+            "\nMerges signatures on a block proposal\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
+            "3. \"signatures\"     (string) A json array of signatures\n"
+            "    [\n"
+            "      \"signature\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
+            "      ,...\n"
+            "    ]\n"
+            "\nResult\n"
+            "{\n"
+            "  \"hex\": \"value\",   (string) The signed block\n"
+            "  \"complete\": n       (numeric) if block is complete \n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("combineblocksigs", "")
+        );
+
+    CBlock block;
+    if (!DecodeHexBlk(block, params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+
+    Object result;
+    Array sigs = params[1].get_array();
+    BOOST_FOREACH(Value& sig, sigs) {
+        if (!IsHex(sig.get_str()))
+            continue;
+        std::vector<unsigned char> vchScript = ParseHex(sig.get_str());
+        block.proof.solution = CombineBlockSignatures(block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
+        if (CheckProof(block)) {
+            result.push_back(Pair("hex", EncodeHexBlock(block)));
+            result.push_back(Pair("complete", true));
+            return result;
+        }
+    }
+
+    result.push_back(Pair("hex", EncodeHexBlock(block)));
+    result.push_back(Pair("complete", false));
+    return result;
+}
+
+Value signblock(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "signblock \"blockhex\"\n"
+            "\nSigns a block proposal, checking that it would be accepted first\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
+            "\nResult\n"
+            " sig      (hex) The signature\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getnewblockhex", "")
+        );
+
+    if (pwalletMain == NULL)
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found (disabled)");
+
+    CBlock block;
+    if (!DecodeHexBlk(block, params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+
+    uint256 hash = block.GetHash();
+    BlockMap::iterator mi = mapBlockIndex.find(hash);
+    if (mi != mapBlockIndex.end())
+        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+
+    CBlockIndex* const pindexPrev = chainActive.Tip();
+    // TestBlockValidity only supports blocks built on the current Tip
+    if (block.hashPrevBlock != pindexPrev->GetBlockHash())
+        throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
+
+    CValidationState state;
+    if (!TestBlockValidity(state, block, pindexPrev, false, true) || !state.IsValid()) {
+        std::string strRejectReason = state.GetRejectReason();
+        if (strRejectReason.empty())
+            throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
+        throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+    }
+
+    block.proof.solution = CScript();
+    GenerateProof(&block, pwalletMain);
+    return HexStr(block.proof.solution.begin(), block.proof.solution.end());
+}
+
 #endif
 
 
