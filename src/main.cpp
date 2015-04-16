@@ -4641,7 +4641,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             }
         }
 
-        TRY_LOCK(cs_main, lockMain); // Acquire cs_main for IsInitialBlockDownload() and CNodeState()
+        TRY_LOCK(cs_main, lockMain); // Acquire cs_main for CNodeState()
         if (!lockMain)
             return true;
 
