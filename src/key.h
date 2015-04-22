@@ -124,8 +124,7 @@ public:
 
     /**
      * Create a DER-serialized signature.
-     * The test_case parameter tweaks the deterministic nonce, and is only for
-     * testing. It should be zero for normal use.
+     * The test_case parameter tweaks the deterministic nonce.
      */
     bool Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case = 0) const;
 
@@ -174,7 +173,13 @@ struct CExtKey {
     void SetMaster(const unsigned char* seed, unsigned int nSeedLen);
 };
 
-/** Check that required EC support is available at runtime */
+/** Initialize the elliptic curve support. May not be called twice without calling ECC_Stop first. */
+void ECC_Start(void);
+
+/** Deinitialize the elliptic curve support. No-op if ECC_Start wasn't called first. */
+void ECC_Stop(void);
+
+/** Check that required EC support is available at runtime. */
 bool ECC_InitSanityCheck(void);
 
 #endif // BITCOIN_KEY_H

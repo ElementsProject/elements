@@ -4,6 +4,7 @@
 
 #define BOOST_TEST_MODULE Bitcoin Test Suite
 
+#include "key.h"
 #include "main.h"
 #include "random.h"
 #include "txdb.h"
@@ -30,6 +31,7 @@ struct TestingSetup {
     boost::thread_group threadGroup;
 
     TestingSetup() {
+        ECC_Start();
         SetupEnvironment();
         fPrintToDebugLog = false; // don't want to write to debug.log file
         fCheckBlockIndex = true;
@@ -72,6 +74,7 @@ struct TestingSetup {
         bitdb.Flush(true);
 #endif
         boost::filesystem::remove_all(pathTemp);
+        ECC_Stop();
     }
 };
 
