@@ -13,6 +13,7 @@ class CCoinControl
 public:
     CTxDestination destChange;
     bool fAllowOtherInputs;
+    bool fAllowWatchOnly;
 
     CCoinControl()
     {
@@ -23,6 +24,7 @@ public:
     {
         destChange = CNoDestination();
         fAllowOtherInputs = false;
+        fAllowWatchOnly = false;
         setSelected.clear();
     }
 
