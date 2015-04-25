@@ -149,14 +149,15 @@ Value importaddress(const Array& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return Value::null;
     
-    if (fHelp || params.size() < 1 || params.size() > 3)
+    if (fHelp || params.size() < 1 || params.size() > 4)
         throw runtime_error(
-            "importaddress \"address\" ( \"label\" rescan )\n"
+            "importaddress \"address\" ( \"label\" rescan p2sh )\n"
             "\nAdds an address or script (in hex) that can be watched as if it were in your wallet but cannot be used to spend.\n"
             "\nArguments:\n"
             "1. \"address\"          (string, required) The address\n"
             "2. \"label\"            (string, optional, default=\"\") An optional label\n"
             "3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n"
+            "4. p2sh                 (boolean, optional, default=false) Add the P2SH version of the script as well\n"
             "\nNote: This call can take minutes to complete if rescan is true.\n"
             "\nExamples:\n"
             "\nImport an address with rescan\n"
@@ -190,6 +191,19 @@ Value importaddress(const Array& params, bool fHelp)
     if (params.size() > 2)
         fRescan = params[2].get_bool();
 
+    // Whether to perform rescan after import
+    bool fP2SH = false;
+    if (params.size() > 3)
+        fP2SH = params[3].get_bool();
+
+    CScript p2shScript;
+    if (fP2SH && address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Cannot use the p2sh flag with an address - use a script instead");
+    else if (fP2SH) {
+        address = CBitcoinAddress(CScriptID(script));
+        p2shScript = GetScriptForDestination(CScriptID(script));
+    }
+
     {
         if (::IsMine(*pwalletMain, script) == ISMINE_SPENDABLE)
             throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this address or script");
@@ -199,13 +213,19 @@ Value importaddress(const Array& params, bool fHelp)
             pwalletMain->SetAddressBook(address.Get(), strLabel, "receive");
 
         // Don't throw error in case an address is already there
-        if (pwalletMain->HaveWatchOnly(script))
+        if (pwalletMain->HaveWatchOnly(script) && (!fP2SH || (pwalletMain->HaveCScript(script) && pwalletMain->HaveWatchOnly(p2shScript))))
             return Value::null;
 
         pwalletMain->MarkDirty();
 
-        if (!pwalletMain->AddWatchOnly(script))
+        if (!pwalletMain->HaveWatchOnly(script) && !pwalletMain->AddWatchOnly(script))
             throw JSONRPCError(RPC_WALLET_ERROR, "Error adding address to wallet");
+
+        if (fP2SH) {
+            pwalletMain->AddCScript(script);
+            if (!pwalletMain->HaveWatchOnly(p2shScript) && !pwalletMain->AddWatchOnly(p2shScript))
+                throw JSONRPCError(RPC_WALLET_ERROR, "Error adding address to wallet");
+        }
 
         if (fRescan)
         {
