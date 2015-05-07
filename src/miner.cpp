@@ -144,6 +144,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         pblock->nTime = GetAdjustedTime();
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
         CCoinsViewCache view(pcoinsTip);
+        CCoinsViewMemPool viewMemPoolRaw(&view, mempool); // Used to run priority calculations only
+        CCoinsViewCache viewMemPool(&viewMemPoolRaw); // Used to run priority calculations only
 
         // Priority order to process transactions
         list<COrphan> vOrphan; // list memory doesn't move
@@ -170,7 +172,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 continue;
 
             COrphan* porphan = NULL;
-            double dPriority = 0;
             CAmount nTotalIn = 0;
             bool fMissingInputs = false;
             BOOST_FOREACH(const CTxIn& txin, tx.vin)
@@ -208,16 +209,12 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
                 CAmount nValueIn = coins->vout[txin.prevout.n].nValue;
                 nTotalIn += nValueIn;
-
-                int nConf = nHeight - coins->nHeight;
-
-                dPriority += (double)nValueIn * nConf;
             }
             if (fMissingInputs) continue;
 
             // Priority is sum(valuein * age) / modified_txsize
             unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-            dPriority = tx.ComputePriority(dPriority, nTxSize);
+            double dPriority = viewMemPool.GetPriority(tx, nHeight);
 
             uint256 hash = tx.GetHash();
             mempool.ApplyDeltas(hash, dPriority, nTotalIn);
