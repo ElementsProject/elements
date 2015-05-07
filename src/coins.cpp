@@ -286,14 +286,16 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
         const CCoins* coins = AccessCoins(txin.prevout.hash);
         assert(coins);
         if (!coins->IsAvailable(txin.prevout.n)) continue;
-        if (coins->nHeight < nHeight) {
-            int nHeightOffset = 0;
-            if (coins->vout[txin.prevout.n].scriptPubKey.IsWithdrawOutput() && txin.scriptSig.IsPushOnly() && txin.scriptSig.size() > 1 && txin.scriptSig.back() == OP_1) {
-                // Fraud/reorg proofs get a priority bump
-                nHeightOffset = 100000;
-            }
-            dResult += coins->vout[txin.prevout.n].nValue * (nHeight - coins->nHeight + nHeightOffset);
-        }
+        int nOffset = 0;
+        if (coins->vout[txin.prevout.n].scriptPubKey.IsWithdrawOutput() && txin.scriptSig.IsPushOnly() && txin.scriptSig.size() > 1 && txin.scriptSig.back() == OP_1) {
+            // Fraud/reorg proofs get a significant priority bump
+            nOffset = 10000;
+        } else if (coins->vout[txin.prevout.n].scriptPubKey.IsWithdrawLock(0))
+            // Coins moving to this chain get a priority bump
+            nOffset = 100;
+        int nCoinsHeight = coins->nHeight == 0x7fffffff ? nHeight + 1 : coins->nHeight;
+        if (nCoinsHeight < nHeight + nOffset)
+            dResult += (coins->vout[txin.prevout.n].nValue + nOffset) * (nHeight - nCoinsHeight + nOffset);
     }
     return tx.ComputePriority(dResult);
 }
