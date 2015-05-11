@@ -127,8 +127,6 @@ public:
         return (nValue == -1);
     }
 
-    uint256 GetHash() const;
-
     bool IsDust(CFeeRate minRelayTxFee) const
     {
         // "Dust" is defined in terms of CTransaction::minRelayTxFee,
