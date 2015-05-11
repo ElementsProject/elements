@@ -18,10 +18,7 @@ CTxOutValue::CTxOutValue()
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
 {
     vchCommitment.resize(nCommitmentSize);
-    assert(vchCommitment.size() > sizeof(nAmountIn) + 1);
-    memset(&vchCommitment[0], 0, vchCommitment.size() - sizeof(nAmountIn));
-    for (size_t i = 0; i < sizeof(nAmountIn); ++i)
-        vchCommitment[vchCommitment.size() - (i + 1)] = ((nAmountIn >> (i * 8)) & 0xff);
+    SetToAmount(nAmountIn);
 }
 
 CTxOutValue::CTxOutValue(const std::vector<unsigned char>& vchValueCommitmentIn, const std::vector<unsigned char>& vchRangeproofIn)
@@ -60,6 +57,14 @@ bool CTxOutValue::IsNull() const
 bool CTxOutValue::IsAmount() const
 {
     return !vchCommitment[0];
+}
+
+void CTxOutValue::SetToAmount(CAmount nAmount)
+{
+    assert(vchCommitment.size() > sizeof(nAmount) + 1);
+    memset(&vchCommitment[0], 0, vchCommitment.size() - sizeof(nAmount));
+    for (size_t i = 0; i < sizeof(nAmount); ++i)
+        vchCommitment[vchCommitment.size() - (i + 1)] = ((nAmount >> (i * 8)) & 0xff);
 }
 
 CAmount CTxOutValue::GetAmount() const
@@ -132,15 +137,36 @@ CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.n
 
 uint256 CMutableTransaction::GetHash() const
 {
-    return SerializeHash(*this);
+    if (IsCoinBase()) {
+        return SerializeHash(*this, SER_GETHASH, PROTOCOL_VERSION);
+    } else {
+        return SerializeHash(*this, SER_GETHASH, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_NO_WITNESS);
+    }
 }
 
 void CTransaction::UpdateHash() const
 {
-    *const_cast<uint256*>(&hash) = SerializeHash(*this);
+    bool maybeBitcoinTx = true;
+    for (unsigned int i = 0; i < vout.size(); i++)
+        if (!vout[i].nValue.IsAmount())
+            maybeBitcoinTx = false;
+    if (maybeBitcoinTx)
+        *const_cast<uint256*>(&hashBitcoin) = SerializeHash(*this, SER_GETHASH, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_BITCOIN_TX);
+
+    if (IsCoinBase()) {
+        *const_cast<uint256*>(&hash) = SerializeHash(*this, SER_GETHASH, PROTOCOL_VERSION);
+    } else {
+        *const_cast<uint256*>(&hash) = SerializeHash(*this, SER_GETHASH, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_NO_WITNESS);
+    }
+    *const_cast<uint256*>(&hashWitness) = SerializeHash(*this, SER_GETHASH, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_ONLY_WITNESS);
+    // Update full hash combining the normalized txid with the hash of the witness
+    CHash256 hasher;
+    hasher.Write((unsigned char*)&hash, hash.size());
+    hasher.Write((unsigned char*)&hashWitness, hashWitness.size());
+    hasher.Finalize((unsigned char*)&hashFull);
 }
 
-CTransaction::CTransaction() : hash(0), nVersion(CTransaction::CURRENT_VERSION), vin(), nTxFee(0), vout(), nLockTime(0) { }
+CTransaction::CTransaction() : hash(0), hashFull(0), nVersion(CTransaction::CURRENT_VERSION), vin(), nTxFee(0), vout(), nLockTime(0) { }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), nTxFee(tx.nTxFee), vout(tx.vout), nLockTime(tx.nLockTime) {
     UpdateHash();
@@ -153,6 +179,7 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
     *const_cast<uint256*>(&hash) = tx.hash;
+    *const_cast<uint256*>(&hashFull) = tx.hashFull;
     return *this;
 }
 

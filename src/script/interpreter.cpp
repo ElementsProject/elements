@@ -1416,7 +1416,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 #endif
 
                                 CTransaction locktx;
-                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION);
+                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_BITCOIN_TX);
                                 locktxStream >> locktx;
                                 if (!locktxStream.empty())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
@@ -1425,16 +1425,16 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (nlocktxOut < 0 || (unsigned int)nlocktxOut >= locktx.vout.size())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
-                                if (locktx.GetHash() != txHashes[1])
+                                if (locktx.GetBitcoinHash() != txHashes[1])
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
                                 CTransaction coinbasetx;
-                                CDataStream coinbasetxStream(vlockCoinbaseTx, SER_NETWORK, PROTOCOL_VERSION);
+                                CDataStream coinbasetxStream(vlockCoinbaseTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_BITCOIN_TX);
                                 coinbasetxStream >> coinbasetx;
                                 if (!coinbasetxStream.empty())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
-                                if (coinbasetx.GetHash() != txHashes[0] || !coinbasetx.IsCoinBase())
+                                if (coinbasetx.GetBitcoinHash() != txHashes[0] || !coinbasetx.IsCoinBase())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
                                 valtype vcoinbaseHeight;
                                 CScript::const_iterator coinbasepc = coinbasetx.vin[0].scriptSig.begin();
@@ -1501,7 +1501,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (withdrawOutput.nValue.GetAmount() < withdrawVal)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
-                                uint256 locktxHash = locktx.GetHash();
+                                uint256 locktxHash = locktx.GetBitcoinHash();
                                 std::vector<unsigned char> vlocktxHash(locktxHash.begin(), locktxHash.end());
                                 CScript expectedWithdrawScriptPubKeyStart = CScript() << OP_IF << nLockHeight
                                     << std::vector<unsigned char>(vlocktxHash.rbegin(), vlocktxHash.rend()) << nlocktxOut
@@ -1621,11 +1621,18 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         if (proofType == 1) { // Double-spent withdraw
                             // We need to have complete proof that two transactions double-spent each other:
                             // So we read the following from the stack:
-                            // 9. merkle block with tx we are proving against (ie our input tx)
-                            // 10. the full transaction of the original withdraw
-                            // 11. the input index in the transaction above which shows the double-spend
-                            // 12. the transaction which is spent in the above input
-                            // 13. merkle block containing the original withdraw tx, required only if they are not in the same block
+                            // 9. witness hash of the tx we are proving against (ie our input tx)
+                            // 10. merkle block with tx we are proving against (ie our input tx)
+                            // 11. the full transaction of the original withdraw
+                            // 12. the input index in the transaction above which shows the double-spend
+                            // 13. the transaction which is spent in the above input
+                            // 14. merkle block containing the original withdraw tx, required only if they are not in the same block
+                            if (stack.size() < size_t(-(stackReadPos)))
+                                return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                            valtype vInputTxWitnessHash = stacktop(stackReadPos--);
+                            if (vInputTxWitnessHash.size() != 32)
+                                return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FORMAT);
+
                             valtype vmerkleBlockInputTx;
                             if (!WithdrawProofReadStackItem(stack, fRequireMinimal, &stackReadPos, vmerkleBlockInputTx))
                                 return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
@@ -1655,7 +1662,14 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (inputTxHashes.size() != 1 && inputTxHashes.size() != 2)
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
-                                if (inputTxHashes[0] != checker.GetPrevOut().hash)
+                                uint256 inputTxWitnessHash(vInputTxWitnessHash);
+                                uint256 inputTxFullHash(checker.GetPrevOut().hash);
+                                CHash256 hasher;
+                                hasher.Write(inputTxFullHash.begin(), inputTxFullHash.size());
+                                hasher.Write(inputTxWitnessHash.begin(), inputTxWitnessHash.size());
+                                hasher.Finalize(inputTxFullHash.begin());
+
+                                if (inputTxHashes[0] != inputTxFullHash)
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 CTransaction originalWithdrawTx;
@@ -1681,9 +1695,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     if (originalWithdrawHashes.size() != 1 || merkleBlockOriginalWithdrawTx.header.GetHash() == merkleBlockInputTx.header.GetHash())
                                         return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
 
-                                    if (originalWithdrawHashes[0] != originalWithdrawTx.GetHash())
+                                    if (originalWithdrawHashes[0] != originalWithdrawTx.GetFullHash())
                                         return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_ORIG_BLOCK);
-                                } else if (inputTxHashes[1] != originalWithdrawTx.GetHash())
+                                } else if (inputTxHashes[1] != originalWithdrawTx.GetFullHash())
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK);
 
                                 int noriginalWithdrawTxIn = CScriptNum(voriginalWithdrawTxInIndex, fRequireMinimal).getint();
@@ -1830,9 +1844,9 @@ public:
     void SerializeOutput(S &s, unsigned int nOutput, int nType, int nVersion) const {
         if (fHashSingle && nOutput != nIn)
             // Do not lock-in the txout payee at other indices as txin
-            ::Serialize(s, CTxOut(), nType, nVersion);
+            ::Serialize(s, CTxOut(), nType, nVersion | SERIALIZE_VERSION_MASK_PREHASH);
         else
-            ::Serialize(s, txTo.vout[nOutput], nType, nVersion);
+            ::Serialize(s, txTo.vout[nOutput], nType, nVersion | SERIALIZE_VERSION_MASK_PREHASH);
     }
 
     /** Serialize txTo */

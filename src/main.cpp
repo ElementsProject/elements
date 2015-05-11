@@ -1971,6 +1971,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                 dsMerkleBlockDS << (CMerkleBlock(block, txSet));
                                 scriptSig.PushWithdraw(std::vector<unsigned char>(dsMerkleBlockDS.begin(), dsMerkleBlockDS.end()));
 
+                                uint256 witnessHash(dsTx.GetWitnessHash());
+                                scriptSig << std::vector<unsigned char>(witnessHash.begin(), witnessHash.end());
+
                                 scriptSig << OP_1 << OP_1;
 
                                 proofTx.vout.push_back(CTxOut(0, CScript()));

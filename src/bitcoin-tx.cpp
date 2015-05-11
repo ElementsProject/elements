@@ -585,19 +585,19 @@ static void MutateTxWithdrawSign(CMutableTransaction& tx, const string& flagStr)
     merkleBlock.header.SetBitcoinBlock();
     ssProof >> merkleBlock;
 
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_BITCOIN_TX);
     CTransaction txBTC;
     ssTx >> txBTC;
 
-    CDataStream ssCoinbaseTx(coinbaseTxData, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream ssCoinbaseTx(coinbaseTxData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_VERSION_MASK_BITCOIN_TX);
     CTransaction coinbaseTxBTC;
     ssCoinbaseTx >> coinbaseTxBTC;
 
     vector<uint256> transactionHashes;
     if (merkleBlock.txn.ExtractMatches(transactionHashes) != merkleBlock.header.hashMerkleRoot ||
             transactionHashes.size() != 2 ||
-            transactionHashes[0] != coinbaseTxBTC.GetHash() ||
-            transactionHashes[1] != txBTC.GetHash())
+            transactionHashes[0] != coinbaseTxBTC.GetBitcoinHash() ||
+            transactionHashes[1] != txBTC.GetBitcoinHash())
         throw runtime_error("txoutproof is invalid or did not match tx");
 
     if (nOut < 0 || (unsigned int) nOut >= txBTC.vout.size())
