@@ -29,8 +29,7 @@ public:
 
     base_uint()
     {
-        for (int i = 0; i < WIDTH; i++)
-            pn[i] = 0;
+        SetNull();
     }
 
     base_uint(const base_uint& b)
@@ -56,6 +55,20 @@ public:
 
     explicit base_uint(const std::string& str);
     explicit base_uint(const std::vector<unsigned char>& vch);
+
+    bool IsNull() const
+    {
+        for (int i = 0; i < WIDTH; i++)
+            if (pn[i] != 0)
+                return false;
+        return true;
+    }
+
+    void SetNull()
+    {
+        for (int i = 0; i < WIDTH; i++)
+            pn[i] = 0;
+    }
 
     bool operator!() const
     {
