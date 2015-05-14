@@ -725,18 +725,19 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
 bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
 {
     AssertLockHeld(cs_main);
-    // Time based nLockTime implemented in 0.1.6
-    if (tx.nLockTime == 0)
-        return true;
+
     if (nBlockHeight == 0)
         nBlockHeight = chainActive.Height();
     if (nBlockTime == 0)
         nBlockTime = GetAdjustedTime();
-    if ((int64_t)tx.nLockTime < ((int64_t)tx.nLockTime < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
-        return true;
+
+    bool fFinalized = true;
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
-        if (!txin.IsFinal())
-            return false;
+        fFinalized = fFinalized && txin.IsFinal();
+
+    if (!fFinalized && (int64_t)tx.nLockTime >= ((int64_t)tx.nLockTime < LOCKTIME_THRESHOLD ? (int64_t)nBlockHeight : nBlockTime))
+        return false;
+
     return true;
 }
 
