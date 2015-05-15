@@ -6,6 +6,7 @@
 
 #include "key.h"
 #include "main.h"
+#include "pubkey.h"
 #include "random.h"
 #include "txdb.h"
 #include "ui_interface.h"
@@ -31,6 +32,7 @@ struct TestingSetup {
     boost::thread_group threadGroup;
 
     TestingSetup() {
+        ECC_Verify_Start();
         ECC_Start();
         SetupEnvironment();
         fPrintToDebugLog = false; // don't want to write to debug.log file
@@ -75,6 +77,7 @@ struct TestingSetup {
 #endif
         boost::filesystem::remove_all(pathTemp);
         ECC_Stop();
+        ECC_Verify_Stop();
     }
 };
 

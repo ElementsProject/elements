@@ -17,6 +17,7 @@
 #include "main.h"
 #include "miner.h"
 #include "net.h"
+#include "pubkey.h"
 #include "rpcserver.h"
 #include "script/standard.h"
 #include "txdb.h"
@@ -196,6 +197,7 @@ void Shutdown()
     pwalletMain = NULL;
 #endif
     ECC_Stop();
+    ECC_Verify_Stop();
     LogPrintf("%s: done\n", __func__);
 }
 
@@ -770,6 +772,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
     // Initialize elliptic curve code
+    ECC_Verify_Start();
     ECC_Start();
 
     // Sanity check

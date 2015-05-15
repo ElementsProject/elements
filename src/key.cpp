@@ -12,7 +12,6 @@
 #include "random.h"
 
 #include <secp256k1.h>
-#include "ecwrapper.h"
 
 static secp256k1_context_t* secp256k1_context = NULL;
 
@@ -183,11 +182,6 @@ void CExtKey::Decode(const unsigned char code[74]) {
 }
 
 bool ECC_InitSanityCheck() {
-#if !defined(USE_SECP256K1)
-    if (!CECKey::SanityCheck()) {
-        return false;
-    }
-#endif
     CKey key;
     key.MakeNewKey(true);
     CPubKey pubkey = key.GetPubKey();
