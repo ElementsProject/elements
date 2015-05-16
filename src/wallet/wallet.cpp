@@ -12,6 +12,7 @@
 #include "consensus/validation.h"
 #include "main.h"
 #include "net.h"
+#include "policy/fees.h"
 #include "script/script.h"
 #include "script/sign.h"
 #include "timedata.h"
@@ -967,7 +968,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     CAmount nDebit = GetDebit(filter);
     if (nDebit > 0) // debit>0 means we signed/sent this transaction
     {
-        CAmount nValueOut = GetValueOut();
+        CAmount nValueOut = GetValueOut(feeAssetID);
         nFee = nDebit - nValueOut;
     }
 

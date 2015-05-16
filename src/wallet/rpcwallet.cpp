@@ -10,6 +10,7 @@
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
+#include "policy/fees.h"
 #include "rpcserver.h"
 #include "timedata.h"
 #include "util.h"
@@ -1715,7 +1716,7 @@ Value gettransaction(const Array& params, bool fHelp)
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.GetValueOut() - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.GetValueOut(feeAssetID) - nDebit : 0);
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
     if (wtx.IsFromMe(filter))
