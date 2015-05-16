@@ -159,7 +159,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
              mi != mempool.mapTx.end(); ++mi)
         {
             const CTransaction& tx = mi->second.GetTx();
-            if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, pblock->nTime))
+            if (tx.IsCoinBase() || LockTime(tx, 0, &view, nHeight, pblock->nTime))
                 continue;
 
             COrphan* porphan = NULL;

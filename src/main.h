@@ -328,18 +328,23 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state);
  */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
 
+enum {
+    /* Interpret sequence numbers as relative lock-time constraints. */
+    LOCKTIME_VERIFY_SEQUENCE = (1 << 0),
+};
+
 /**
  * Check if transaction is final and can be included in a block with the
  * specified height and time. Consensus critical.
  */
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime);
+int64_t LockTime(const CTransaction &tx, int flags, const CCoinsView* pCoinsView, int nBlockHeight, int64_t nBlockTime);
 
 /**
  * Check if transaction will be final in the next block to be created.
  *
- * Calls IsFinalTx() with current block height and appropriate block time.
+ * Calls LockTime() with data from the tip of the current active chain.
  */
-bool CheckFinalTx(const CTransaction &tx);
+int64_t CheckLockTime(const CTransaction &tx, int flags = -1);
 
 /** 
  * Closure representing one script verification
