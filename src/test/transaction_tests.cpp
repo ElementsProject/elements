@@ -6,12 +6,13 @@
 #include "data/tx_valid.json.h"
 
 #include "clientversion.h"
+#include "core_io.h"
 #include "key.h"
 #include "keystore.h"
 #include "main.h"
+#include "policy/fees.h"
 #include "script/script.h"
 #include "script/script_error.h"
-#include "core_io.h"
 
 #include <map>
 #include <string>
@@ -305,7 +306,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vout[0].scriptPubKey << OP_1;
 
     BOOST_CHECK(AreInputsStandard(t1, coins));
-    BOOST_CHECK_EQUAL(coins.GetValueIn(t1), (50+21+22)*CENT);
+    BOOST_CHECK_EQUAL(coins.GetValueIn(t1, feeAssetID), (50+21+22)*CENT);
 
     // Adding extra junk to the scriptSig should make it non-standard:
     t1.vin[0].scriptSig << OP_11;

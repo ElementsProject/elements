@@ -12,6 +12,7 @@
 #include "base58.h"
 #include "db.h"
 #include "main.h"
+#include "policy/fees.h"
 #include "script/script.h"
 #include "timedata.h"
 #include "ui_interface.h"
@@ -212,7 +213,7 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
                 strHTML += "<b>" + tr("Total credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
             }
 
-            CAmount nTxFee = nDebit - wtx.GetValueOut();
+            CAmount nTxFee = nDebit - wtx.GetValueOut(feeAssetID);
             if (nTxFee > 0)
                 strHTML += "<b>" + tr("Transaction fee") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
         }
