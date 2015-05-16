@@ -879,7 +879,7 @@ public:
     bool IsTrusted() const
     {
         // Quick answer in most cases
-        if (!IsFinalTx(*this))
+        if (CheckLockTime(*this))
             return false;
         int nDepth = GetDepthInMainChain();
         if (nDepth >= 1)

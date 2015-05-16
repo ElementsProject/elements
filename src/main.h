@@ -74,6 +74,8 @@ static const unsigned int UNDOFILE_CHUNK_SIZE = 0x100000; // 1 MiB
 static const int COINBASE_MATURITY = 100;
 /** Threshold for nLockTime: below this value it is interpreted as block number, otherwise as UNIX timestamp. */
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
+/** Threshold for inverted CTxIn::nSequence: below this value it is interpreted as a relative lock-time, otherwise ignored. */
+static const uint32_t SEQUENCE_THRESHOLD = (1 << 31);
 /** Maximum number of script-checking threads allowed */
 static const int MAX_SCRIPTCHECK_THREADS = 16;
 /** -par default (number of script-checking threads, 0 = auto) */
@@ -306,8 +308,6 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state);
  */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
 
-bool IsFinalTx(const CTransaction &tx, int nBlockHeight = 0, int64_t nBlockTime = 0);
-
 /** Undo information for a CBlock */
 class CBlockUndo
 {
@@ -325,6 +325,23 @@ public:
     bool ReadFromDisk(const CDiskBlockPos &pos, const uint256 &hashBlock);
 };
 
+enum {
+    /* Interpret sequence numbers as relative lock-time constraints. */
+    LOCKTIME_VERIFY_SEQUENCE = (1 << 0),
+};
+
+/**
+ * Check if transaction is final and can be included in a block with the
+ * specified height and time. Consensus critical.
+ */
+int64_t LockTime(const CTransaction &tx, int flags, const CCoinsView* pCoinsView, int nBlockHeight, int64_t nBlockTime);
+
+/**
+ * Check if transaction will be final in the next block to be created.
+ *
+ * Calls LockTime() with data from the tip of the current active chain.
+ */
+int64_t CheckLockTime(const CTransaction &tx, int flags = -1);
 
 /** 
  * Closure representing one script verification
