@@ -15,6 +15,9 @@
 class CAutoFile;
 class CFeeRate;
 class CTxMemPoolEntry;
+class uint256;
+
+extern uint256 feeAssetID;
 
 /** \class CBlockPolicyEstimator
  * The BlockPolicyEstimator is used for estimating the fee or priority needed

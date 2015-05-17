@@ -9,7 +9,10 @@
 #include "primitives/transaction.h"
 #include "streams.h"
 #include "txmempool.h"
+#include "uint256.h"
 #include "util.h"
+
+uint256 feeAssetID;
 
 void TxConfirmStats::Initialize(std::vector<double>& defaultBuckets,
                                 unsigned int maxConfirms, double _decay, std::string _dataTypeString)
