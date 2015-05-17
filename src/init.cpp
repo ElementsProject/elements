@@ -18,6 +18,7 @@
 #include "main.h"
 #include "miner.h"
 #include "net.h"
+#include "policy/fees.h"
 #include "pubkey.h"
 #include "rpcserver.h"
 #include "script/standard.h"
@@ -72,6 +73,11 @@ enum BindFlags {
 
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
 CClientUIInterface uiInterface;
+
+inline std::string DefaultFeeAssetIdStr()
+{
+    return CAssetID(Params().HashGenesisBlock()).GetHex();
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -358,6 +364,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += "  -maxsigcachesize=<n>   " + strprintf(_("Limit size of signature cache to <n> entries (default: %u)"), 50000) + "\n";
     }
     strUsage += "  -minrelaytxfee=<amt>   " + strprintf(_("Fees (in BTC/Kb) smaller than this are considered zero fee for relaying (default: %s)"), FormatMoney(::minRelayTxFee.GetFeePerK())) + "\n";
+    strUsage += "  -feeasset              " + strprintf(_("Asset id (in hex) used to compute fees in policy decisions (default: %u)"), DefaultFeeAssetIdStr()) + "\n";
     strUsage += "  -printtoconsole        " + _("Send trace/debug info to console instead of debug.log file") + "\n";
     if (GetBoolArg("-help-debug", false))
     {
@@ -708,6 +715,7 @@ bool AppInit2(boost::thread_group& threadGroup)
         else
             return InitError(strprintf(_("Invalid amount for -minrelaytxfee=<amount>: '%s'"), mapArgs["-minrelaytxfee"]));
     }
+    feeAssetID = uint256(GetArg("-feeasset", DefaultFeeAssetIdStr()));
 
 #ifdef ENABLE_WALLET
     if (mapArgs.count("-mintxfee"))
