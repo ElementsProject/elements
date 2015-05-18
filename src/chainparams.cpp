@@ -169,7 +169,7 @@ public:
         genesis.proof = CProof(0x1d00ffff, 2083236893);
 
         hashGenesisBlock = genesis.GetHash();
-        assert(hashGenesisBlock == ChainId(strNetworkID));
+        // assert(hashGenesisBlock == ChainId(strNetworkID));
         assert(genesis.hashMerkleRoot == uint256("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
 
         vSeeds.push_back(CDNSSeedData("bitcoin.sipa.be", "seed.bitcoin.sipa.be"));
@@ -227,7 +227,7 @@ public:
         genesis.nTime = 1296688602;
         genesis.proof = CProof(0x1d00ffff, 414098458);
         hashGenesisBlock = genesis.GetHash();
-        assert(hashGenesisBlock == ChainId(strNetworkID));
+        // assert(hashGenesisBlock == ChainId(strNetworkID));
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -282,7 +282,7 @@ public:
         genesis.proof = CProof(0x207fffff, 2);
         hashGenesisBlock = genesis.GetHash();
         nDefaultPort = 18444;
-        assert(hashGenesisBlock == ChainId(strNetworkID));
+        // assert(hashGenesisBlock == ChainId(strNetworkID));
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();  //! Regtest mode doesn't have any DNS seeds.
@@ -388,7 +388,7 @@ public:
         hashGenesisBlock = genesis.GetHash();
         
         chainIdsMap[strNetworkID] = hashGenesisBlock;
-        assert(hashGenesisBlock == ChainId(strNetworkID)); // Always true
+        // assert(hashGenesisBlock == ChainId(strNetworkID)); // Always true
 
         mapCheckpointsPrivate[0] = hashGenesisBlock;
         dataPrivate = {
