@@ -80,6 +80,9 @@ enum
     // Verify CHECKLOCKTIMEVERIFY (BIP65)
     //
     SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY = (1U << 9),
+
+    // support CHECKSEQUENCEVERIFY opcode
+    SCRIPT_VERIFY_CHECKSEQUENCEVERIFY = (1U << 10),
 };
 
 uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
@@ -92,7 +95,7 @@ public:
         return false;
     }
 
-    virtual bool CheckLockTime(const CScriptNum& nLockTime) const
+    virtual bool CheckLockTime(const CScriptNum& nLockTime, bool fSequence = false) const
     {
          return false;
     }
@@ -112,7 +115,7 @@ protected:
 public:
     TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn) : txTo(txToIn), nIn(nInIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
-    bool CheckLockTime(const CScriptNum& nLockTime) const;
+    bool CheckLockTime(const CScriptNum& nLockTime, bool fSequence = false) const;
 };
 
 class MutableTransactionSignatureChecker : public TransactionSignatureChecker
