@@ -1089,7 +1089,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         view.SetBackend(dummy);
         }
 
+        // Enforce sequnce numbers as relative lock-time
+        // only for tx.nVersion >= 2.
         int nLockTimeFlags = 0;
+        if (tx.nVersion >= 2)
+            nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
+
         int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
                                 ? chainActive.Tip()->GetMedianTimePast()
                                 : GetAdjustedTime();
