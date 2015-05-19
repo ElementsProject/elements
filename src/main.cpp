@@ -1051,10 +1051,16 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         view.SetBackend(dummy);
         }
 
+        // Enforce sequnce numbers as relative lock-time
+        // only for tx.nVersion >= 2.
+        int nLockTimeFlags = 0;
+        if (tx.nVersion >= 2)
+            nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
+
         // Only accept nLockTime-using transactions that can be mined in the next
         // block; we don't want our mempool filled up with transactions that can't
         // be mined yet.
-        if (LockTime(tx, 0, &view, chainActive.Height() + 1, GetAdjustedTime()))
+        if (LockTime(tx, nLockTimeFlags, &view, chainActive.Height() + 1, GetAdjustedTime()))
             return state.DoS(0, error("AcceptToMemoryPool: non-final"),
                              REJECT_NONSTANDARD, "non-final");
 

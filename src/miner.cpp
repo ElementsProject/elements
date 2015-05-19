@@ -159,7 +159,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
              mi != mempool.mapTx.end(); ++mi)
         {
             const CTransaction& tx = mi->second.GetTx();
-            if (tx.IsCoinBase() || LockTime(tx, 0, &view, nHeight, pblock->nTime))
+
+            // Enforce sequnce numbers as relative lock-time
+            // only for tx.nVersion >= 2.
+            int nLockTimeFlags = 0;
+            if (tx.nVersion >= 2)
+                nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
+
+            if (tx.IsCoinBase() || LockTime(tx, nLockTimeFlags, &view, nHeight, pblock->nTime))
                 continue;
 
             COrphan* porphan = NULL;

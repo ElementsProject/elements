@@ -257,17 +257,18 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
 
-    // None of the of the absolute height/time locked tx should have
-    // made it into the template.
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 3);
+    // None of the of the above height/time locked tx should have made
+    // it into the template.
+    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 1);
     delete pblocktemplate;
 
-    // However if we advance height and time by one, they will.
+    // However if we advance height and time by one, all except for
+    // possibly the relative time locked tx will.
     chainActive.Tip()->nHeight++;
     SetMockTime(chainActive.Tip()->GetMedianTimePast() + 2);
 
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5);
+    BOOST_CHECK(pblocktemplate->block.vtx.size() >= 4);
     delete pblocktemplate;
 
     chainActive.Tip()->nHeight--;
