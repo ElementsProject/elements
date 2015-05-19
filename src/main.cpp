@@ -754,11 +754,12 @@ int64_t CheckLockTime(const CTransaction &tx, int flags)
     AssertLockHeld(cs_main);
 
     // By convention a negative value for flags indicates that the
-    // current network-enforced consensus rules should be used. In
-    // a future soft-fork scenario that would mean an
-    // IsSuperMajority check against chainActive.Tip().
-    if (flags < 0)
+    // current network-enforced consensus rules should be used.
+    if (flags < 0) {
         flags = LOCKTIME_MEDIAN_TIME_PAST;
+        if (IsSuperMajority(4, chainActive.Tip(), Params().GetConsensus().nMajorityEnforceBlockUpgrade, Params().GetConsensus()))
+            flags |= LOCKTIME_VERIFY_SEQUENCE;
+    }
 
     // pcoinsTip contains the UTXO set for chainActive.Tip()
     const CCoinsView *pCoinsView = pcoinsTip;
@@ -1928,6 +1929,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         flags |= SCRIPT_VERIFY_DERSIG;
     }
 
+    // NOP2 is redefined as CHECKLOCKTIMEVERIFY, and
+    // NOP3 is redefined as CHECKSEQUENCEVERIFY in blocks with nVersion >= 4
+    //
+    // However the block.nVersion=4 rule is not enforced until 750 of the last
+    // 1,000 blocks are version 4 or greater (51/100 if testnet):
+    if (block.nVersion >= 4 && IsSuperMajority(4, pindex->pprev, chainparams.GetConsensus().nMajorityRejectBlockOutdated, chainparams.GetConsensus())) {
+        flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+        flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
+    }
+
     CBlockUndo blockundo;
 
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
@@ -2866,9 +2877,14 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     const int nHeight = pindexPrev == NULL ? 0 : pindexPrev->nHeight + 1;
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
+    bool fEnforceBIPXX = block.nVersion >= 4
+                      && IsSuperMajority(4, pindexPrev, consensusParams.nMajorityEnforceBlockUpgrade, consensusParams);
+
     // Check that all transactions are finalized
     BOOST_FOREACH(const CTransaction& tx, block.vtx) {
         int nLockTimeFlags = 0;
+        if (fEnforceBIPXX && tx.nVersion>=2)
+            nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
         int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
                                 ? pindexPrev->GetMedianTimePast()
                                 : block.GetBlockTime();
