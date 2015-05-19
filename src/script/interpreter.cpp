@@ -379,7 +379,47 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     break;
                 }
 
-                case OP_NOP1: case OP_NOP3: case OP_NOP4: case OP_NOP5:
+                case OP_CHECKSEQUENCEVERIFY:
+                {
+                    if (!(flags & SCRIPT_VERIFY_CHECKSEQUENCEVERIFY)) {
+                        // not enabled; treat as a NOP3
+                        if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS) {
+                            return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS);
+                        }
+                        break;
+                    }
+
+                    if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    // Note that unlike CHECKLOCKTIMEVERIFY we do not need to
+                    // accept 5-byte bignums since any value greater than or
+                    // equal to SEQUENCE_THRESHOLD (= 1 << 31) will be rejected
+                    // anyway. This limitation just happens to coincide with
+                    // CScriptNum's default 4-byte limit with an explicit sign
+                    // bit.
+                    //
+                    // This means there is a maximum relative lock time of 52
+                    // years, even though the nSequence field in transactions
+                    // themselves is uint32_t and could allow a relative lock
+                    // time of up to 120 years.
+                    const CScriptNum nInvSequence(stacktop(-1), fRequireMinimal);
+
+                    // In the rare event that the argument may be < 0 due to
+                    // some arithmetic being done first, you can always use
+                    // 0 MAX CHECKSEQUENCEVERIFY.
+                    if (nInvSequence < 0)
+                        return set_error(serror, SCRIPT_ERR_NEGATIVE_LOCKTIME);
+
+                    // Actually compare the specified inverse sequence number
+                    // with the input.
+                    if (!checker.CheckLockTime(nInvSequence, true))
+                        return set_error(serror, SCRIPT_ERR_UNSATISFIED_LOCKTIME);
+
+                    break;
+                }
+
+                case OP_NOP1: case OP_NOP4: case OP_NOP5:
                 case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9: case OP_NOP10:
                 {
                     if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
@@ -1126,8 +1166,30 @@ bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
     return true;
 }
 
-bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) const
+bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime, bool fSequence) const
 {
+    // Relative lock times are supported by comparing the passed
+    // in lock time to the sequence number of the input. All other
+    // logic is the same, all that differs is what we are comparing
+    // the lock time to.
+    int64_t txToLockTime;
+    if (fSequence) {
+        // Fail under all circumstances if the transaction's version
+        // number is not set high enough to enable enforced sequence
+        // number rules.
+        if (txTo->nVersion < 2)
+            return false;
+        // Sequence number must be inverted to convert it into a
+        // relative lock-time.
+        txToLockTime = (int64_t)~txTo->vin[nIn].nSequence;
+        // Sequence numbers under SEQUENCE_THRESHOLD are not consensus
+        // constrained.
+        if (txToLockTime >= SEQUENCE_THRESHOLD)
+            return false;
+    } else {
+        txToLockTime = (int64_t)txTo->nLockTime;
+    }
+
     // There are two types of nLockTime: lock-by-blockheight
     // and lock-by-blocktime, distinguished by whether
     // nLockTime < LOCKTIME_THRESHOLD.
@@ -1136,14 +1198,14 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // unless the type of nLockTime being tested is the same as
     // the nLockTime in the transaction.
     if (!(
-        (txTo->nLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
-        (txTo->nLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
+        (txToLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
+        (txToLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
     ))
         return false;
 
     // Now that we know we're comparing apples-to-apples, the
     // comparison is a simple numeric one.
-    if (nLockTime > (int64_t)txTo->nLockTime)
+    if (nLockTime > txToLockTime)
         return false;
 
     // Finally the nLockTime feature can be disabled and thus
@@ -1156,7 +1218,7 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime) con
     // prevent this condition. Alternatively we could test all
     // inputs, but testing just this input minimizes the data
     // required to prove correct CHECKLOCKTIMEVERIFY execution.
-    if (txTo->vin[nIn].IsFinal())
+    if (!fSequence && txTo->vin[nIn].IsFinal())
         return false;
 
     return true;
