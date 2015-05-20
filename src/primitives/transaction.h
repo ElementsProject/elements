@@ -11,6 +11,30 @@
 #include "serialize.h"
 #include "uint256.h"
 
+class CTxOutValue
+{
+    CAmount nAmount;
+public:
+    CTxOutValue();
+    CTxOutValue(CAmount);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nAmount);
+    }
+
+    bool IsValid() const;
+    bool IsNull() const;
+    bool IsAmount() const;
+
+    CAmount GetAmount() const;
+
+    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b);
+    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b);
+};
+
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
 {
@@ -98,7 +122,7 @@ public:
 class CTxOut
 {
 public:
-    CAmount nValue;
+    CTxOutValue nValue;
     CScript scriptPubKey;
 
     CTxOut()
@@ -106,7 +130,7 @@ public:
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
@@ -129,6 +153,9 @@ public:
 
     bool IsDust(CFeeRate minRelayTxFee) const
     {
+        if (!nValue.IsAmount())
+            return false;  // FIXME
+
         // "Dust" is defined in terms of CTransaction::minRelayTxFee,
         // which has units satoshis-per-kilobyte.
         // If you'd pay more than 1/3 in fees
@@ -138,7 +165,7 @@ public:
         // so dust is a txout less than 546 satoshis 
         // with default minRelayTxFee.
         size_t nSize = GetSerializeSize(SER_DISK,0)+148u;
-        return (nValue < 3*minRelayTxFee.GetFee(nSize));
+        return (nValue.GetAmount() < 3*minRelayTxFee.GetFee(nSize));
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)

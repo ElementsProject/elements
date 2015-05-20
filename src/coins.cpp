@@ -257,9 +257,35 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
 
     CAmount nResult = 0;
     for (unsigned int i = 0; i < tx.vin.size(); i++)
-        nResult += GetOutputFor(tx.vin[i]).nValue;
+    {
+        const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
+        assert(val.IsAmount());
+        nResult += val.GetAmount();
+    }
 
     return nResult;
+}
+
+CAmount CCoinsViewCache::GetValueInExcess(const CTransaction& tx) const
+{
+    const CAmount nValueIn = GetValueIn(tx);
+    const CAmount nValueOut = tx.GetValueOut();
+    return nValueIn - nValueOut;
+}
+
+bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
+{
+    CAmount nInAmount = GetValueIn(tx);
+    if (nInAmount < excess)
+        return false;
+    nInAmount -= excess;
+    return nInAmount == tx.GetValueOut();
+}
+
+bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx) const
+{
+    const CAmount excess = GetValueInExcess(tx);
+    return VerifyAmounts(tx, excess);
 }
 
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
@@ -294,8 +320,13 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
             // Coins moving to this chain get a priority bump
             nOffset = 100;
         int nCoinsHeight = coins->nHeight == 0x7fffffff ? nHeight + 1 : coins->nHeight;
-        if (nCoinsHeight < nHeight + nOffset)
-            dResult += (coins->vout[txin.prevout.n].nValue + nOffset) * (nHeight - nCoinsHeight + nOffset);
+        if (nCoinsHeight < nHeight + nOffset) {
+            const CTxOutValue& val = coins->vout[txin.prevout.n].nValue;
+            CAmount nAmount = COIN;
+            if (val.IsAmount())
+                nAmount = val.GetAmount();
+            dResult += (nAmount + nOffset) * (nHeight - nCoinsHeight + nOffset);
+        }
     }
     return tx.ComputePriority(dResult);
 }

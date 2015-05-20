@@ -9,6 +9,46 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
+CTxOutValue::CTxOutValue()
+: nAmount(-1)
+{
+}
+
+CTxOutValue::CTxOutValue(CAmount nAmountIn)
+: nAmount(nAmountIn)
+{
+}
+
+bool CTxOutValue::IsValid() const
+{
+    return nAmount >= 0;
+}
+
+bool CTxOutValue::IsNull() const
+{
+    return nAmount == -1;
+}
+
+bool CTxOutValue::IsAmount() const
+{
+    return nAmount != -1;
+}
+
+CAmount CTxOutValue::GetAmount() const
+{
+    assert(IsAmount());
+    return nAmount;
+}
+
+bool operator==(const CTxOutValue& a, const CTxOutValue& b)
+{
+    return a.nAmount == b.nAmount;
+}
+
+bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
+    return !(a == b);
+}
+
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
@@ -43,15 +83,15 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn)
 {
-    nValue = nValueIn;
+    nValue = valueIn;
     scriptPubKey = scriptPubKeyIn;
 }
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, scriptPubKey.ToString().substr(0,30));
+    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), scriptPubKey.ToString().substr(0,30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
@@ -87,8 +127,10 @@ CAmount CTransaction::GetValueOut() const
     CAmount nValueOut = 0;
     for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
     {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+        assert(it->nValue.IsAmount());
+        const CAmount nAmount = it->nValue.GetAmount();
+        nValueOut += nAmount;
+        if (!MoneyRange(nAmount) || !MoneyRange(nValueOut))
             throw std::runtime_error("CTransaction::GetValueOut() : value out of range");
     }
     return nValueOut;

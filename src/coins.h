@@ -304,9 +304,8 @@ struct CCoinsStats
     uint64_t nTransactionOutputs;
     uint64_t nSerializedSize;
     uint256 hashSerialized;
-    CAmount nTotalAmount;
 
-    CCoinsStats() : nHeight(0), hashBlock(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), hashSerialized(0), nTotalAmount(0) {}
+    CCoinsStats() : nHeight(0), hashBlock(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), hashSerialized(0) {}
 };
 
 
@@ -439,6 +438,18 @@ public:
      * @return	Sum of value of all inputs (scriptSigs)
      */
     CAmount GetValueIn(const CTransaction& tx) const;
+
+    CAmount GetValueInExcess(const CTransaction& tx) const;
+
+    /**
+     * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
+     *
+     * @param[in] tx    transaction for which we are checking totals
+     * @param[in] excess additional amount to consider (eg, fees)
+     * @return  True if totals are identical
+     */
+    bool VerifyAmounts(const CTransaction& tx, const CAmount& excess) const;
+    bool VerifyAmounts(const CTransaction& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransaction& tx) const;

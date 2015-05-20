@@ -42,10 +42,10 @@ class COrphan
 public:
     const CTransaction* ptx;
     set<uint256> setDependsOn;
-    CFeeRate feeRate;
-    double dPriority;
+    unsigned int nTxSize;
+    double dPriorityBeforeDelta;
 
-    COrphan(const CTransaction* ptxIn) : ptx(ptxIn), feeRate(0), dPriority(0)
+    COrphan(const CTransaction* ptxIn) : ptx(ptxIn), nTxSize(0), dPriorityBeforeDelta(0)
     {
     }
 };
@@ -92,6 +92,14 @@ int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
         ResetChallenge(*pblock, *pindexPrev);
 
     return nNewTime - nOldTime;
+}
+
+static CFeeRate CalculateSubjectiveFeeRateAndPriority(const CCoinsViewCache& view, const CTransaction& tx, const unsigned int& nTxSize, double& dPriority) {
+    const uint256& hash = tx.GetHash();
+    CAmount nTxFees = view.GetValueInExcess(tx);
+    mempool.ApplyDeltas(hash, dPriority, nTxFees);
+
+    return CFeeRate(nTxFees, nTxSize);
 }
 
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
@@ -172,7 +180,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 continue;
 
             COrphan* porphan = NULL;
-            CAmount nTotalIn = 0;
             bool fMissingInputs = false;
             BOOST_FOREACH(const CTxIn& txin, tx.vin)
             {
@@ -201,14 +208,10 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                     }
                     mapDependers[txin.prevout.hash].push_back(porphan);
                     porphan->setDependsOn.insert(txin.prevout.hash);
-                    nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
                     continue;
                 }
                 const CCoins* coins = view.AccessCoins(txin.prevout.hash);
                 assert(coins);
-
-                CAmount nValueIn = coins->vout[txin.prevout.n].nValue;
-                nTotalIn += nValueIn;
             }
             if (fMissingInputs) continue;
 
@@ -216,18 +219,16 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
             double dPriority = viewMemPool.GetPriority(tx, nHeight);
 
-            uint256 hash = tx.GetHash();
-            mempool.ApplyDeltas(hash, dPriority, nTotalIn);
-
-            CFeeRate feeRate(nTotalIn-tx.GetValueOut(), nTxSize);
-
             if (porphan)
             {
-                porphan->dPriority = dPriority;
-                porphan->feeRate = feeRate;
+                porphan->dPriorityBeforeDelta = dPriority;
+                porphan->nTxSize = nTxSize;
             }
             else
+            {
+                const CFeeRate feeRate = CalculateSubjectiveFeeRateAndPriority(view, tx, nTxSize, dPriority);
                 vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->second.GetTx()));
+            }
         }
 
         // Collect transactions into block
@@ -280,7 +281,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             if (!view.HaveInputs(tx))
                 continue;
 
-            CAmount nTxFees = view.GetValueIn(tx)-tx.GetValueOut();
+            CAmount nTxFees = view.GetValueInExcess(tx);
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
@@ -321,7 +322,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                         porphan->setDependsOn.erase(hash);
                         if (porphan->setDependsOn.empty())
                         {
-                            vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
+                            double dPriority = porphan->dPriorityBeforeDelta;
+                            const CFeeRate feeRate = CalculateSubjectiveFeeRateAndPriority(view, *porphan->ptx, porphan->nTxSize, dPriority);
+                            vecPriority.push_back(TxPriority(dPriority, feeRate, porphan->ptx));
                             std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
                         }
                     }
@@ -392,7 +395,7 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
 bool ProcessBlockFound(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 {
     LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
+    LogPrintf("generated\n");
 
     // Found a solution
     {

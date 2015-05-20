@@ -40,10 +40,15 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTxMemPoolEntry& other)
 double
 CTxMemPoolEntry::GetPriority(unsigned int currentHeight) const
 {
+#if 0  // FIXME
     CAmount nValueIn = tx.GetValueOut()+nFee;
     double deltaPriority = ((double)(currentHeight-nHeight)*nValueIn)/nModSize;
     double dResult = dPriority + deltaPriority;
     return dResult;
+#else
+    // I'm pretty sure this logic is broken anyway, so I'm not even going to try to fix it now
+    return dPriority;
+#endif
 }
 
 /**
