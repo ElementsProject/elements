@@ -354,8 +354,8 @@ private:
     CScript scriptPubKey;
     const CTransaction *ptxTo;
     unsigned int nIn;
-    CAmount nValueIn;
-    CAmount nValueInPreviousIn;
+    CTxOutValue nValueIn;
+    CTxOutValue nValueInPreviousIn;
     CAmount nTxFee;
     int nSpendHeight;
     unsigned int nFlags;
@@ -364,7 +364,7 @@ private:
 
 public:
     CScriptCheck(): ptxTo(0), nIn(0), nValueIn(-1), nValueInPreviousIn(-1), nTxFee(-1), nSpendHeight(-1), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, CAmount nValueInPreviousInIn, CAmount nTxFeeIn, int nSpendHeightIn, unsigned int nFlagsIn, bool cacheIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, CTxOutValue nValueInPreviousInIn, CAmount nTxFeeIn, int nSpendHeightIn, unsigned int nFlagsIn, bool cacheIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
         ptxTo(&txToIn), nIn(nInIn), nValueIn(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
         nValueInPreviousIn(nValueInPreviousInIn), nTxFee(nTxFeeIn), nSpendHeight(nSpendHeightIn),

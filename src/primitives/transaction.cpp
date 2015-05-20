@@ -10,39 +10,72 @@
 #include "utilstrencodings.h"
 
 CTxOutValue::CTxOutValue()
-: nAmount(-1)
 {
+    vchCommitment.resize(nCommitmentSize);
+    memset(&vchCommitment[0], 0xff, nCommitmentSize);
 }
 
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
-: nAmount(nAmountIn)
 {
+    vchCommitment.resize(nCommitmentSize);
+    assert(vchCommitment.size() > sizeof(nAmountIn) + 1);
+    memset(&vchCommitment[0], 0, vchCommitment.size() - sizeof(nAmountIn));
+    for (size_t i = 0; i < sizeof(nAmountIn); ++i)
+        vchCommitment[vchCommitment.size() - (i + 1)] = ((nAmountIn >> (i * 8)) & 0xff);
+}
+
+CTxOutValue::CTxOutValue(const std::vector<unsigned char>& vchValueCommitmentIn, const std::vector<unsigned char>& vchRangeproofIn)
+: vchCommitment(vchValueCommitmentIn), vchRangeproof(vchRangeproofIn)
+{
+    assert(vchCommitment.size() == nCommitmentSize);
+    assert(vchCommitment[0] == 2 || vchCommitment[0] == 3);
 }
 
 bool CTxOutValue::IsValid() const
 {
-    return nAmount >= 0;
+    switch (vchCommitment[0])
+    {
+        case 0:
+        {
+            // Ensure all but the last sizeof(CAmount) bytes are zero
+            for (size_t i = vchCommitment.size() - sizeof(CAmount); --i > 0; )
+                if (vchCommitment[i])
+                    return false;
+            return true;
+        }
+        case 2:
+        case 3:
+            // FIXME: Additional checks?
+            return true;
+        default:
+            return false;
+    }
 }
 
 bool CTxOutValue::IsNull() const
 {
-    return nAmount == -1;
+    return vchCommitment[0] == 0xff;
 }
 
 bool CTxOutValue::IsAmount() const
 {
-    return nAmount != -1;
+    return !vchCommitment[0];
 }
 
 CAmount CTxOutValue::GetAmount() const
 {
     assert(IsAmount());
+    CAmount nAmount = 0;
+    for (size_t i = 0; i < sizeof(nAmount); ++i)
+        nAmount |= CAmount(vchCommitment[vchCommitment.size() - (i + 1)]) << (i * 8);
     return nAmount;
 }
 
 bool operator==(const CTxOutValue& a, const CTxOutValue& b)
 {
-    return a.nAmount == b.nAmount;
+    return a.vchRangeproof == b.vchRangeproof &&
+           a.vchCommitment == b.vchCommitment &&
+           a.vchNonceCommitment == b.vchNonceCommitment;
 }
 
 bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
@@ -94,8 +127,8 @@ std::string CTxOut::ToString() const
     return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), scriptPubKey.ToString().substr(0,30));
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), nTxFee(tx.nTxFee), vout(tx.vout), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
 {
@@ -107,33 +140,20 @@ void CTransaction::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this);
 }
 
-CTransaction::CTransaction() : hash(0), nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) { }
+CTransaction::CTransaction() : hash(0), nVersion(CTransaction::CURRENT_VERSION), vin(), nTxFee(0), vout(), nLockTime(0) { }
 
-CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime) {
+CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), nTxFee(tx.nTxFee), vout(tx.vout), nLockTime(tx.nLockTime) {
     UpdateHash();
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
+    *const_cast<CAmount*>(&nTxFee) = tx.nTxFee;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
     *const_cast<uint256*>(&hash) = tx.hash;
     return *this;
-}
-
-CAmount CTransaction::GetValueOut() const
-{
-    CAmount nValueOut = 0;
-    for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
-    {
-        assert(it->nValue.IsAmount());
-        const CAmount nAmount = it->nValue.GetAmount();
-        nValueOut += nAmount;
-        if (!MoneyRange(nAmount) || !MoneyRange(nValueOut))
-            throw std::runtime_error("CTransaction::GetValueOut() : value out of range");
-    }
-    return nValueOut;
 }
 
 double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const

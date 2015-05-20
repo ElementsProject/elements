@@ -35,13 +35,26 @@ typedef vector<unsigned char> valtype;
 //! anonymous namespace
 namespace {
 
+static secp256k1_context_t* secp256k1_context = NULL;
+
 class CSecp256k1Init {
 public:
     CSecp256k1Init() {
-        secp256k1_start(SECP256K1_START_VERIFY);
+        assert(secp256k1_context == NULL);
+
+        secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        assert(ctx != NULL);
+
+        secp256k1_context = ctx;
     }
+
     ~CSecp256k1Init() {
-        secp256k1_stop();
+        secp256k1_context_t *ctx = secp256k1_context;
+        secp256k1_context = NULL;
+
+        if (ctx) {
+            secp256k1_context_destroy(ctx);
+        }
     }
 };
 static CSecp256k1Init instance_of_csecp256k1;
@@ -1703,7 +1716,7 @@ COutPoint TransactionSignatureChecker::GetPrevOut() const
     return txTo->vin[nIn].prevout;
 }
 
-CAmount TransactionSignatureChecker::GetValueIn() const
+CTxOutValue TransactionSignatureChecker::GetValueIn() const
 {
     return nInValue;
 }
@@ -1713,7 +1726,7 @@ CAmount TransactionSignatureChecker::GetTransactionFee() const
     return nTransactionFee;
 }
 
-CAmount TransactionSignatureChecker::GetValueInPrevIn() const
+CTxOutValue TransactionSignatureChecker::GetValueInPrevIn() const
 {
     return nInMinusOneValue;
 }

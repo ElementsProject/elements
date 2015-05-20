@@ -83,6 +83,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
         Object out;
         if (txout.nValue.IsAmount())
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
+        // TODO: Non-Amount values
         out.push_back(Pair("n", (int64_t)i));
         Object o;
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);

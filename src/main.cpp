@@ -1096,7 +1096,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Bring the best block into scope
         view.GetBestBlock();
 
-            nFees = view.GetValueInExcess(tx);
+            nFees = tx.nTxFee;
             if (!view.VerifyAmounts(tx, nFees))
                 return state.DoS(0,
                                  error("AcceptToMemoryPool : input amounts do not match output amounts %s",
@@ -1576,7 +1576,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             }
         }
 
-        const CAmount nTxFee = inputs.GetValueInExcess(tx);
+        const CAmount& nTxFee = tx.nTxFee;
         if (nTxFee < 0)
             return state.DoS(100, error("CheckInputs() : %s nTxFee < 0", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-fee-negative");
@@ -1598,7 +1598,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         // before the last block chain checkpoint. This is safe because block merkle hashes are
         // still computed and checked, and any change will be caught at the next checkpoint.
         if (fScriptChecks) {
-            CAmount prevValueIn = -1;
+            CTxOutValue prevValueIn = -1;
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const CCoins* coins = inputs.AccessCoins(prevout.hash);
@@ -1880,7 +1880,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-blk-sigops");
             }
 
-            nFees += view.GetValueInExcess(tx);
+            nFees += tx.nTxFee;
 
             std::vector<CScriptCheck> vChecks;
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, false, nScriptCheckThreads ? &vChecks : NULL))

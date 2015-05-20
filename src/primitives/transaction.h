@@ -13,16 +13,25 @@
 
 class CTxOutValue
 {
-    CAmount nAmount;
 public:
+    static const size_t nCommitmentSize = 33;
+
+    std::vector<unsigned char> vchCommitment;
+    std::vector<unsigned char> vchRangeproof;
+    std::vector<unsigned char> vchNonceCommitment;
+
     CTxOutValue();
     CTxOutValue(CAmount);
+    CTxOutValue(const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchRangeproofIn);
 
     ADD_SERIALIZE_METHODS;
 
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(nAmount);
+    template<typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(REF(CFlatData(&vchCommitment[0], &vchCommitment[nCommitmentSize])));
+        READWRITE(vchRangeproof);
+        READWRITE(vchNonceCommitment);
     }
 
     bool IsValid() const;
@@ -130,7 +139,7 @@ public:
         SetNull();
     }
 
-    CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
@@ -142,13 +151,13 @@ public:
 
     void SetNull()
     {
-        nValue = -1;
+        nValue = CTxOutValue();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return (nValue == -1);
+        return nValue.IsNull() && scriptPubKey.empty();
     }
 
     bool IsDust(CFeeRate minRelayTxFee) const
@@ -204,6 +213,7 @@ public:
     // structure, including the hash.
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
+    const CAmount nTxFee;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
 
@@ -222,6 +232,7 @@ public:
         READWRITE(*const_cast<int32_t*>(&this->nVersion));
         nVersion = this->nVersion;
         READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
+        READWRITE(*const_cast<CAmount*>(&nTxFee));
         READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (ser_action.ForRead())
@@ -235,11 +246,6 @@ public:
     const uint256& GetHash() const {
         return hash;
     }
-
-    // Return sum of txouts.
-    CAmount GetValueOut() const;
-    // GetValueIn() is a method on CCoinsViewCache, because
-    // inputs must be known to compute value in.
 
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
@@ -270,6 +276,7 @@ struct CMutableTransaction
 {
     int32_t nVersion;
     std::vector<CTxIn> vin;
+    CAmount nTxFee;
     std::vector<CTxOut> vout;
     uint32_t nLockTime;
 
@@ -283,6 +290,7 @@ struct CMutableTransaction
         READWRITE(this->nVersion);
         nVersion = this->nVersion;
         READWRITE(vin);
+        READWRITE(nTxFee);
         READWRITE(vout);
         READWRITE(nLockTime);
     }

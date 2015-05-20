@@ -8,6 +8,8 @@
 
 #include <assert.h>
 
+#include <secp256k1.h>
+
 /**
  * calculate number of bytes for the bitmask, and its number of non-zero bytes
  * each bit in the bitmask represents the availability of one output, but the
@@ -250,41 +252,78 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     return coins->vout[input.prevout.n];
 }
 
-CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
-{
-    if (tx.IsCoinBase())
-        return 0;
-
-    CAmount nResult = 0;
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-    {
-        const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
-        assert(val.IsAmount());
-        nResult += val.GetAmount();
-    }
-
-    return nResult;
-}
-
-CAmount CCoinsViewCache::GetValueInExcess(const CTransaction& tx) const
-{
-    const CAmount nValueIn = GetValueIn(tx);
-    const CAmount nValueOut = tx.GetValueOut();
-    return nValueIn - nValueOut;
-}
+extern secp256k1_context_t* secp256k1_bitcoin_verify_context;
 
 bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
 {
-    CAmount nInAmount = GetValueIn(tx);
-    if (nInAmount < excess)
+    CAmount nPlainAmount = excess;
+    std::vector<unsigned char> vchData;
+    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    bool fNullRangeproof = false;
+    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
+    unsigned char *p = vchData.data();
+    if (!tx.IsCoinBase())
+    {
+        for (size_t i = 0; i < tx.vin.size(); ++i)
+        {
+            const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
+            if (val.IsAmount())
+                nPlainAmount -= val.GetAmount();
+            else
+            {
+                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+                vpchCommitsIn.push_back(p);
+                p += CTxOutValue::nCommitmentSize;
+            }
+        }
+    }
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
+            return false;
+        if (val.IsAmount())
+            nPlainAmount += val.GetAmount();
+        else
+        {
+            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+            vpchCommitsOut.push_back(p);
+            p += CTxOutValue::nCommitmentSize;
+
+            if (val.vchRangeproof.empty())
+                fNullRangeproof = true;
+        }
+    }
+
+    // If there are no encrypted input or output values, we can do simple math
+    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
+        return (nPlainAmount == 0);
+
+    if (!secp256k1_pedersen_verify_tally(secp256k1_bitcoin_verify_context, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount))
         return false;
-    nInAmount -= excess;
-    return nInAmount == tx.GetValueOut();
+
+    // Rangeproof is optional in this case
+    if ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof)
+        return true;
+
+    uint64_t min_value, max_value;
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        if (val.IsAmount())
+            continue;
+        if (!secp256k1_rangeproof_verify(secp256k1_bitcoin_verify_context, &min_value, &max_value, &val.vchCommitment[0], val.vchRangeproof.data(), val.vchRangeproof.size()))
+            return false;
+    }
+
+    return true;
 }
 
 bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx) const
 {
-    const CAmount excess = GetValueInExcess(tx);
+    const CAmount& excess = tx.nTxFee;
     return VerifyAmounts(tx, excess);
 }
 
@@ -322,6 +361,7 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
         int nCoinsHeight = coins->nHeight == 0x7fffffff ? nHeight + 1 : coins->nHeight;
         if (nCoinsHeight < nHeight + nOffset) {
             const CTxOutValue& val = coins->vout[txin.prevout.n].nValue;
+            // FIXME: This assumes all blinded values are COIN
             CAmount nAmount = COIN;
             if (val.IsAmount())
                 nAmount = val.GetAmount();

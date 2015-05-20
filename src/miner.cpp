@@ -96,7 +96,7 @@ int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
 
 static CFeeRate CalculateSubjectiveFeeRateAndPriority(const CCoinsViewCache& view, const CTransaction& tx, const unsigned int& nTxSize, double& dPriority) {
     const uint256& hash = tx.GetHash();
-    CAmount nTxFees = view.GetValueInExcess(tx);
+    CAmount nTxFees = tx.nTxFee;
     mempool.ApplyDeltas(hash, dPriority, nTxFees);
 
     return CFeeRate(nTxFees, nTxSize);
@@ -281,7 +281,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             if (!view.HaveInputs(tx))
                 continue;
 
-            CAmount nTxFees = view.GetValueInExcess(tx);
+            const CAmount& nTxFees = tx.nTxFee;
 
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)

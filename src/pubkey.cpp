@@ -6,7 +6,8 @@
 
 #include <secp256k1.h>
 
-static secp256k1_context_t* secp256k1_context = NULL;
+secp256k1_context_t* secp256k1_bitcoin_verify_context = NULL;
+static secp256k1_context_t*& secp256k1_context = secp256k1_bitcoin_verify_context;
 
 bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
     if (!IsValid())
@@ -87,7 +88,7 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int nChild) const {
 void ECC_Verify_Start() {
     assert(secp256k1_context == NULL);
 
-    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_COMMIT | SECP256K1_CONTEXT_RANGEPROOF);
     assert(ctx != NULL);
 
     secp256k1_context = ctx;

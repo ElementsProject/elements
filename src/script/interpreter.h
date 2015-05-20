@@ -105,12 +105,12 @@ public:
     virtual CTxOut GetOutputOffsetFromCurrent(const int offset) const;
     virtual COutPoint GetPrevOut() const;
 
-    virtual CAmount GetValueIn() const
+    virtual CTxOutValue GetValueIn() const
     {
         return -1;
     }
 
-    virtual CAmount GetValueInPrevIn() const
+    virtual CTxOutValue GetValueInPrevIn() const
     {
         return -1;
     }
@@ -156,17 +156,17 @@ public:
 class TransactionSignatureChecker : public TransactionNoWithdrawsSignatureChecker
 {
 private:
-    const CAmount nInValue;
-    const CAmount nInMinusOneValue;
+    const CTxOutValue nInValue;
+    const CTxOutValue nInMinusOneValue;
     const CAmount nTransactionFee;
     const int nSpendHeight;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, CAmount nInValueIn, CAmount nInMinusOneValueIn, CAmount nTransactionFeeIn, int nSpendHeightIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn), nInValue(nInValueIn), nInMinusOneValue(nInMinusOneValueIn), nTransactionFee(nTransactionFeeIn), nSpendHeight(nSpendHeightIn) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, CTxOutValue nInValueIn, CTxOutValue nInMinusOneValueIn, CAmount nTransactionFeeIn, int nSpendHeightIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn), nInValue(nInValueIn), nInMinusOneValue(nInMinusOneValueIn), nTransactionFee(nTransactionFeeIn), nSpendHeight(nSpendHeightIn) {}
     CTxOut GetOutputOffsetFromCurrent(const int offset) const;
     COutPoint GetPrevOut() const;
-    CAmount GetValueIn() const;
-    CAmount GetValueInPrevIn() const;
+    CTxOutValue GetValueIn() const;
+    CTxOutValue GetValueInPrevIn() const;
     CAmount GetTransactionFee() const;
 #ifdef FEDERATED_PEG_SIDECHAIN_ONLY
     bool IsConfirmedBitcoinBlock(const uint256& hash, bool fConservativeConfirmationRequirements) const;
