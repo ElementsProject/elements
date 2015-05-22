@@ -203,6 +203,15 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     // Remove txid
     string strVout = strInput.substr(pos + 1, string::npos);
 
+    // extract and validate vout
+    int vout = atoi(strVout);
+    if ((vout < 0) || (vout > (int)maxVout))
+        throw runtime_error("invalid TX input vout");
+
+    // Remove vout
+    pos = strVout.find(':');
+    strVout = strVout.substr(pos + 1, string::npos);
+
     // extract and validate VALUE
     pos = strVout.find(':');
     if (pos == string::npos)
@@ -214,7 +223,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
 
     // extract and validate sequence number
     uint32_t nSequence = ~(uint32_t)0;
-    pos = strVout.find(':', pos + 1);
+    pos = strVout.find(':');
     if (pos != string::npos) {
         if ((pos == 0) || (pos == (strVout.size() - 1)))
             throw runtime_error("empty TX input field");
@@ -238,11 +247,6 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     } else {
         throw runtime_error("invalid TX input: sequence missing");
     }
-
-    // extract and validate vout
-    int vout = atoi(strVout);
-    if ((vout < 0) || (vout > (int)maxVout))
-        throw runtime_error("invalid TX input vout");
 
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequence);
@@ -280,6 +284,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
         CPubKey pubkey = addr.GetBlindingKey();
         txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
+    tx.nTxFee -= value;
     tx.vout.push_back(txout);
 }
 
@@ -471,7 +476,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             if (!prevOut.isObject())
                 throw runtime_error("expected prevtxs internal object");
 
-            map<string,UniValue::VType> types = map_list_of("txid", UniValue::VSTR)("vout",UniValue::VNUM)("scriptPubKey",UniValue::VSTR);
+            map<string,UniValue::VType> types = map_list_of("txid", UniValue::VSTR)("vout",UniValue::VNUM)("value",UniValue::VSTR)("scriptPubKey",UniValue::VSTR);
             if (!prevOut.checkObject(types))
                 throw runtime_error("prevtxs internal object typecheck fail");
 
@@ -480,6 +485,8 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             int nOut = atoi(prevOut["vout"].getValStr());
             if (nOut < 0)
                 throw runtime_error("vout must be positive");
+
+            CTxOutValue value(ParseHexUV(prevOut["value"], "value"), std::vector<unsigned char>());
 
             vector<unsigned char> pkData(ParseHexUV(prevOut["scriptPubKey"], "scriptPubKey"));
             CScript scriptPubKey(pkData.begin(), pkData.end());
@@ -495,7 +502,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
                 if ((unsigned int)nOut >= coins->vout.size())
                     coins->vout.resize(nOut+1);
                 coins->vout[nOut].scriptPubKey = scriptPubKey;
-                coins->vout[nOut].nValue = 0; // we don't know the actual output value
+                coins->vout[nOut].nValue = value;
             }
 
             // if redeemScript given and private keys given,
@@ -527,13 +534,13 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
         txin.scriptSig.clear();
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
-            SignSignature(keystore, prevPubKey, mergedTx, i, nHashType);
+            SignSignature(keystore, prevPubKey, coins->vout[txin.prevout.n].nValue, mergedTx, i, nHashType);
 
         // ... and merge in other signatures:
         BOOST_FOREACH(const CTransaction& txv, txVariants) {
-            txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, txin.scriptSig, txv.vin[i].scriptSig);
+            txin.scriptSig = CombineSignatures(prevPubKey, mergedTx, i, coins->vout[txin.prevout.n].nValue, txin.scriptSig, txv.vin[i].scriptSig);
         }
-        if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionNoWithdrawsSignatureChecker(&mergedTx, i)))
+        if (!VerifyScript(txin.scriptSig, prevPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionNoWithdrawsSignatureChecker(&mergedTx, i, coins->vout[txin.prevout.n].nValue)))
             fComplete = false;
     }
 

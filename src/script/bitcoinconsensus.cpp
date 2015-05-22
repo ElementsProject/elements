@@ -3,6 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <stdint.h>
+
 #include "bitcoinconsensus.h"
 
 #include "primitives/transaction.h"
@@ -69,17 +71,19 @@ int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned i
 {
     try {
         TxInputStream stream(SER_NETWORK, PROTOCOL_VERSION, txTo, txToLen);
-        CTransaction tx;
+        CMutableTransaction tx;
         stream >> tx;
         if (nIn >= tx.vin.size())
             return set_error(err, bitcoinconsensus_ERR_TX_INDEX);
         if (tx.GetSerializeSize(SER_NETWORK, PROTOCOL_VERSION) != txToLen)
             return set_error(err, bitcoinconsensus_ERR_TX_SIZE_MISMATCH);
 
-         // Regardless of the verification result, the tx did not error.
-         set_error(err, bitcoinconsensus_ERR_OK);
+        // Regardless of the verification result, the tx did not error.
+        set_error(err, bitcoinconsensus_ERR_OK);
 
-        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), flags, TransactionSignatureChecker(&tx, nIn, nInValue, nInMinusOneValue, nTxFee, nSpendHeight), NULL);
+        // Manually restore the value for signing, since it's signed but not in the serialized transaction format
+        CTransaction txCopy(tx);
+        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), flags, TransactionSignatureChecker(&txCopy, nIn, CTxOutValue(nInValue), CTxOutValue(nInMinusOneValue), nTxFee, nSpendHeight), NULL);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }

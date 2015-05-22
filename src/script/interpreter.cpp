@@ -1782,14 +1782,15 @@ class CTransactionSignatureSerializer {
 private:
     const CTransaction &txTo;  //! reference to the spending transaction (the one being serialized)
     const CScript &scriptCode; //! output script being consumed
+    const CTxOutValue &nValue; //! output value being spent
     const unsigned int nIn;    //! input index of txTo being signed
     const bool fAnyoneCanPay;  //! whether the hashtype has the SIGHASH_ANYONECANPAY flag set
     const bool fHashSingle;    //! whether the hashtype is SIGHASH_SINGLE
     const bool fHashNone;      //! whether the hashtype is SIGHASH_NONE
 
 public:
-    CTransactionSignatureSerializer(const CTransaction &txToIn, const CScript &scriptCodeIn, unsigned int nInIn, int nHashTypeIn) :
-        txTo(txToIn), scriptCode(scriptCodeIn), nIn(nInIn),
+    CTransactionSignatureSerializer(const CTransaction &txToIn, const CScript &scriptCodeIn, const CTxOutValue &nValueIn, unsigned int nInIn, int nHashTypeIn) :
+        txTo(txToIn), scriptCode(scriptCodeIn), nValue(nValueIn), nIn(nInIn),
         fAnyoneCanPay(!!(nHashTypeIn & SIGHASH_ANYONECANPAY)),
         fHashSingle((nHashTypeIn & 0x1f) == SIGHASH_SINGLE),
         fHashNone((nHashTypeIn & 0x1f) == SIGHASH_NONE) {}
@@ -1825,6 +1826,10 @@ public:
             nInput = nIn;
         // Serialize the prevout
         ::Serialize(s, txTo.vin[nInput].prevout, nType, nVersion);
+
+        // Serialize the output value
+        ::Serialize(s, nValue, nType, nVersion);
+
         // Serialize the script
         if (nInput != nIn)
             // Blank out other inputs' signatures
@@ -1871,7 +1876,7 @@ public:
 
 } // anon namespace
 
-uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType)
+uint256 SignatureHash(const CScript& scriptCode, const CTxOutValue& nAmount, const CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     if (nIn >= txTo.vin.size()) {
         //  nIn out of range
@@ -1887,7 +1892,7 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     }
 
     // Wrapper to serialize only the necessary parts of the transaction being signed
-    CTransactionSignatureSerializer txTmp(txTo, scriptCode, nIn, nHashType);
+    CTransactionSignatureSerializer txTmp(txTo, scriptCode, nAmount, nIn, nHashType);
 
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
@@ -1923,7 +1928,7 @@ bool TransactionNoWithdrawsSignatureChecker::CheckSig(const vector<unsigned char
     int nHashType = vchSig.back();
     vchSig.pop_back();
 
-    uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType);
+    uint256 sighash = SignatureHash(scriptCode, GetValueIn(), *txTo, nIn, nHashType);
 
     if (!VerifySignature(vchSig, pubkey, sighash))
         return false;
@@ -1993,7 +1998,7 @@ COutPoint TransactionSignatureChecker::GetPrevOut() const
     return txTo->vin[nIn].prevout;
 }
 
-CTxOutValue TransactionSignatureChecker::GetValueIn() const
+CTxOutValue TransactionNoWithdrawsSignatureChecker::GetValueIn() const
 {
     return nInValue;
 }

@@ -168,7 +168,7 @@ try:
 		out_scriptPubKey = "OP_IF %d 0x20%s %d 0 0x14%s 0x20%s OP_REORGPROOFVERIFY OP_ELSE 144 OP_NOP3 OP_DROP OP_HASH160 0x14%s OP_EQUAL OP_ENDIF" % (bitcoin_block["height"], sys.argv[4], nout, secondScriptPubKeyHash, inverse_bitcoin_genesis_hash, raw_dest)
 		relock_scriptPubKey = "0x20%s 0x14%s OP_WITHDRAWPROOFVERIFY" % (inverse_bitcoin_genesis_hash, secondScriptPubKeyHash)
 
-		cht = os.popen('%s -create \'set=%s\' in=%s:%d outscript=%s:"%s" outscript=%s:"%s" withdrawsign' % (sidechain_tx_path, withdrawkeys, in_txid, in_vout, str(value), out_scriptPubKey, str(in_value - value), relock_scriptPubKey))
+		cht = os.popen('%s -create \'set=%s\' in=%s:%d:%s:-1 outscript=%s:"%s" outscript=%s:"%s" withdrawsign' % (sidechain_tx_path, withdrawkeys, in_txid, in_vout, str(in_value), str(value), out_scriptPubKey, str(in_value - value), relock_scriptPubKey))
 		res_tx = cht.read().split("\n")[0]
 		assert(cht.close() == None)
 
@@ -192,11 +192,11 @@ try:
 
 		p2sh_res = sidechain.createmultisig(1, [sys.argv[3]])
 
-		cht = os.popen('%s %s -create in=%s:%d:%s outaddr=%s:"%s"' % (sidechain_tx_path, "-testnet" if is_testnet == 1 else "", sys.argv[2], 0, 0x100000000 - int(prev_script[9]) - 1, str(prev_out["value"]), sidechain.getnewaddress()))
+		cht = os.popen('%s %s -create in=%s:%d:%s:%d outaddr=%s:"%s"' % (sidechain_tx_path, "-testnet" if is_testnet == 1 else "", sys.argv[2], 0, str(prev_out["value"]), 0x100000000 - int(prev_script[9]) - 1, str(prev_out["value"]), sidechain.getnewaddress()))
 		tx_hex = cht.read().split("\n")[0]
 		assert(cht.close() == None)
 
-		tx_hex = sidechain.signrawtransaction(tx_hex, [{"txid": sys.argv[2], "vout": 0, "scriptPubKey": prev_out["scriptPubKey"]["hex"], "redeemScript": p2sh_res["redeemScript"]}], [sidechain.dumpprivkey(sys.argv[3])])
+		tx_hex = sidechain.signrawtransaction(tx_hex, [{"txid": sys.argv[2], "vout": 0, "scriptPubKey": prev_out["scriptPubKey"]["hex"], "redeemScript": p2sh_res["redeemScript"], "nValue": prev_out["serValue"]}], [sidechain.dumpprivkey(sys.argv[3])])
 		if tx_hex["complete"] != True:
 			print("Got incomplete transaction (signing failed to create spendable transaction):")
 			print(tx_hex["hex"])

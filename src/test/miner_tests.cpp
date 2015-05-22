@@ -104,6 +104,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_0 << OP_0 << OP_NOP << OP_CHECKMULTISIG << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vin[0].prevout.n = 0;
+    tx.vin[0].nValue = txFirst[0]->vout[0].nValue;
     tx.vout.resize(1);
     nAmount = 5000000000LL;
     for (unsigned int i = 0; i < 1001; ++i)
@@ -111,8 +112,11 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         nAmount -= 1000000;
         tx.vout[0].nValue = nAmount;
         hash = tx.GetHash();
+        CAmount value = tx.vout[0].nValue;
         mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
         tx.vin[0].prevout.hash = hash;
+        tx.vin[0].nValue = value;
+
     }
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
     delete pblocktemplate;
@@ -126,14 +130,17 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         tx.vin[0].scriptSig << vchData << OP_DROP;
     tx.vin[0].scriptSig << OP_1;
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
-    nAmount = 5000000000LL;
+    tx.vin[0].nValue = txFirst[0]->vout[0].nValue;
+    tx.vout[0].nValue = 5000000000LL;
     for (unsigned int i = 0; i < 128; ++i)
     {
         nAmount -= 10000000;
         tx.vout[0].nValue = nAmount;
         hash = tx.GetHash();
+        CAmount value = tx.vout[0].nValue;
         mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
         tx.vin[0].prevout.hash = hash;
+        tx.vin[0].nValue = value;
     }
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
     delete pblocktemplate;
@@ -149,6 +156,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // child with higher priority than parent
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].prevout.hash = txFirst[1]->GetHash();
+    tx.vin[0].nValue = txFirst[1]->vout[0].nValue;
     tx.vout[0].nValue = 4900000000LL;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
@@ -157,6 +165,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[1].scriptSig = CScript() << OP_1;
     tx.vin[1].prevout.hash = txFirst[0]->GetHash();
     tx.vin[1].prevout.n = 0;
+    tx.vin[1].nValue = txFirst[0]->vout[0].nValue;
     tx.vout[0].nValue = 5900000000LL;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
@@ -167,6 +176,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // coinbase in mempool
     tx.vin.resize(1);
     tx.vin[0].prevout.SetNull();
+    tx.vin[0].nValue.reset();
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_1;
     tx.vout[0].nValue = 0;
     hash = tx.GetHash();
@@ -178,6 +188,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     // invalid (pre-p2sh) txn in mempool
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
     tx.vin[0].prevout.n = 0;
+    tx.vin[0].nValue = txFirst[0]->vout[0].nValue;
     tx.vin[0].scriptSig = CScript() << OP_1;
     nAmount = 4900000000LL;
     tx.vout[0].nValue = nAmount;
@@ -186,6 +197,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
     tx.vin[0].prevout.hash = hash;
+    tx.vin[0].nValue = tx.vout[0].nValue;
     tx.vin[0].scriptSig = CScript() << (std::vector<unsigned char>)script;
     nAmount -= 1000000;
     tx.vout[0].nValue = nAmount;
@@ -197,6 +209,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
 
     // double spend txn pair in mempool
     tx.vin[0].prevout.hash = txFirst[0]->GetHash();
+    tx.vin[0].nValue = txFirst[0]->vout[0].nValue;
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vout[0].nValue = 4900000000LL;
     tx.vout[0].scriptPubKey = CScript() << OP_1;
@@ -227,6 +240,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin.resize(1);
     tx.vin[0].prevout.hash = txFirst[0]->GetHash(); // only 1 transaction
     tx.vin[0].prevout.n = 0;
+    tx.vin[0].nValue = txFirst[0]->vout[0].nValue;
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].nSequence = ~(uint32_t)(chainActive.Tip()->nHeight + 1); // txFirst[0] is the 2nd block
     tx.vout.resize(1);

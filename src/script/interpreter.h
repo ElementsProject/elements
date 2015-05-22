@@ -87,7 +87,7 @@ enum
     SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED = (1U << 12)
 };
 
-uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
+uint256 SignatureHash(const CScript &scriptCode, const CTxOutValue& nValue, const CTransaction& txTo, unsigned int nIn, int nHashType);
 
 class BaseSignatureChecker
 {
@@ -135,13 +135,15 @@ class TransactionNoWithdrawsSignatureChecker : public BaseSignatureChecker
 {
 protected:
     const CTransaction* txTo;
+    const CTxOutValue nInValue;
     const unsigned int nIn;
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn) : txTo(txToIn), nIn(nInIn) {}
+    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& nInValueIn) : txTo(txToIn), nInValue(nInValueIn), nIn(nInIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime, bool fSequence = false) const;
+    CTxOutValue GetValueIn() const;
 };
 
 class MutableTransactionNoWithdrawsSignatureChecker : public TransactionNoWithdrawsSignatureChecker
@@ -150,22 +152,20 @@ private:
     const CTransaction txTo;
 
 public:
-    MutableTransactionNoWithdrawsSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionNoWithdrawsSignatureChecker(&txTo, nInIn), txTo(*txToIn) {}
+    MutableTransactionNoWithdrawsSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CTxOutValue& nInValueIn) : TransactionNoWithdrawsSignatureChecker(&txTo, nInIn, nInValueIn), txTo(*txToIn) {}
 };
 
 class TransactionSignatureChecker : public TransactionNoWithdrawsSignatureChecker
 {
 private:
-    const CTxOutValue nInValue;
     const CTxOutValue nInMinusOneValue;
     const CAmount nTransactionFee;
     const int nSpendHeight;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, CTxOutValue nInValueIn, CTxOutValue nInMinusOneValueIn, CAmount nTransactionFeeIn, int nSpendHeightIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn), nInValue(nInValueIn), nInMinusOneValue(nInMinusOneValueIn), nTransactionFee(nTransactionFeeIn), nSpendHeight(nSpendHeightIn) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, CTxOutValue nInValueIn, CTxOutValue nInMinusOneValueIn, CAmount nTransactionFeeIn, int nSpendHeightIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn, nInValueIn), nInMinusOneValue(nInMinusOneValueIn), nTransactionFee(nTransactionFeeIn), nSpendHeight(nSpendHeightIn) {}
     CTxOut GetOutputOffsetFromCurrent(const int offset) const;
     COutPoint GetPrevOut() const;
-    CTxOutValue GetValueIn() const;
     CTxOutValue GetValueInPrevIn() const;
     CAmount GetTransactionFee() const;
 #ifdef FEDERATED_PEG_SIDECHAIN_ONLY
