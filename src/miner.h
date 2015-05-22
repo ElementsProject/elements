@@ -26,7 +26,7 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey);
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 /** Check mined block */
 bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey);
-void UpdateTime(CBlockHeader* block, const CBlockIndex* pindexPrev);
+int64_t UpdateTime(CBlockHeader* block, const CBlockIndex* pindexPrev);
 
 extern double dHashesPerSec;
 extern int64_t nHPSTimerStart;

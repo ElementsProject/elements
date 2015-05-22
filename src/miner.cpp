@@ -79,13 +79,19 @@ public:
     }
 };
 
-void UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
+int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
 {
-    pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
+    int64_t nOldTime = pblock->nTime;
+    int64_t nNewTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
+
+    if (nOldTime < nNewTime)
+        pblock->nTime = nNewTime;
 
     // Updating time can change work required on testnet:
     if (Params().AllowMinDifficultyBlocks())
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock);
+
+    return nNewTime - nOldTime;
 }
 
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
@@ -564,7 +570,9 @@ void static BitcoinMiner(CWallet *pwallet)
                     break;
 
                 // Update nTime every few seconds
-                UpdateTime(pblock, pindexPrev);
+                if (UpdateTime(pblock, pindexPrev) < 0)
+                    break; // Recreate the block if the clock has run backwards,
+                           // so that we can use the correct time.
                 if (Params().AllowMinDifficultyBlocks())
                 {
                     // Changing pblock->nTime can change work required on testnet:
