@@ -13,6 +13,7 @@
 #include <assert.h>
 
 #include <boost/assign/list_of.hpp>
+#include <boost/scoped_ptr.hpp>
 
 #include "chainparamsseeds.h"
 
@@ -158,7 +159,6 @@ public:
         };
     }
 };
-static CMainParams mainParams;
 
 /**
  * Testnet (v3)
@@ -238,7 +238,6 @@ public:
 
     }
 };
-static CTestNetParams testNetParams;
 
 /**
  * Regression test
@@ -311,35 +310,42 @@ public:
         consensus.vDeployments[d].nTimeout = nTimeout;
     }
 };
-static CRegTestParams regTestParams;
 
-static CChainParams *pCurrentParams = 0;
+static boost::scoped_ptr<CChainParams> globalChainParams;
+static boost::scoped_ptr<CChainParams> globalSwitchingChainParams;
 
 const CChainParams &Params() {
-    assert(pCurrentParams);
-    return *pCurrentParams;
+    assert(globalChainParams.get());
+    return *globalChainParams;
 }
 
-CChainParams& Params(const std::string& chain)
+CChainParams* CChainParams::Factory(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-            return mainParams;
+        return new CMainParams();
     else if (chain == CBaseChainParams::TESTNET)
-            return testNetParams;
+        return new CTestNetParams();
     else if (chain == CBaseChainParams::REGTEST)
-            return regTestParams;
+        return new CRegTestParams();
     else
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+}
+
+const CChainParams& Params(const std::string& chain)
+{
+    globalSwitchingChainParams.reset(CChainParams::Factory(chain));
+    return *globalSwitchingChainParams;
 }
 
 void SelectParams(const std::string& network)
 {
     SelectBaseParams(network);
-    pCurrentParams = &Params(network);
+    globalChainParams.reset(CChainParams::Factory(network));
 }
 
 void UpdateRegtestBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
 {
-    regTestParams.UpdateBIP9Parameters(d, nStartTime, nTimeout);
+    assert(globalChainParams.get());
+    (*globalChainParams).UpdateBIP9Parameters(d, nStartTime, nTimeout);
 }
  
