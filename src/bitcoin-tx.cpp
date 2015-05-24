@@ -33,7 +33,7 @@ static bool AppInitRawTx(int argc, char* argv[])
     //
     ParseParameters(argc, argv);
 
-    // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+    // Check for -chain, -testnet or -regtest parameter (cGlobalChainBaseParams.Get() calls are only valid after this clause)
     try {
         SelectParams(ChainNameFromCommandLine());
     } catch(std::exception &e) {
