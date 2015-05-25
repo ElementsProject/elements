@@ -85,7 +85,7 @@ CScript ParseScript(std::string s)
         }
         else
         {
-            throw runtime_error("script parse error");
+            throw runtime_error("script parse error: '" + s + "'");
         }
     }
 
