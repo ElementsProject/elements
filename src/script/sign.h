@@ -36,7 +36,7 @@ class TransactionSignatureCreator : public BaseSignatureCreator {
     unsigned int nIn;
     int nHashType;
     CAmount amount;
-    const TransactionSignatureChecker checker;
+    const TransactionNoWithdrawsSignatureChecker checker;
 
 public:
     TransactionSignatureCreator(const CKeyStore* keystoreIn, const CTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn=SIGHASH_ALL);
