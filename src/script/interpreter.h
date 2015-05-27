@@ -14,6 +14,7 @@
 #include <string>
 
 class CPubKey;
+class COutPoint;
 class CScript;
 class CTransaction;
 class uint256;
@@ -92,31 +93,64 @@ public:
          return false;
     }
 
+    virtual CTxOut GetOutputOffsetFromCurrent(const int offset) const;
+    virtual COutPoint GetPrevOut() const;
+
+    virtual CAmount GetValueIn() const
+    {
+        return -1;
+    }
+
+    virtual CAmount GetValueInPrevIn() const
+    {
+        return -1;
+    }
+
+    virtual CAmount GetTransactionFee() const
+    {
+        return -1;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
-class TransactionSignatureChecker : public BaseSignatureChecker
+class TransactionNoWithdrawsSignatureChecker : public BaseSignatureChecker
 {
-private:
-    const CTransaction* txTo;
-    unsigned int nIn;
-
 protected:
+    const CTransaction* txTo;
+    const unsigned int nIn;
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn) : txTo(txToIn), nIn(nInIn) {}
+    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn) : txTo(txToIn), nIn(nInIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const;
     bool CheckLockTime(const CScriptNum& nLockTime, bool fSequence = false) const;
 };
 
-class MutableTransactionSignatureChecker : public TransactionSignatureChecker
+class MutableTransactionNoWithdrawsSignatureChecker : public TransactionNoWithdrawsSignatureChecker
 {
 private:
     const CTransaction txTo;
 
 public:
-    MutableTransactionSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionSignatureChecker(&txTo, nInIn), txTo(*txToIn) {}
+    MutableTransactionNoWithdrawsSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn) : TransactionNoWithdrawsSignatureChecker(&txTo, nInIn), txTo(*txToIn) {}
+};
+
+class TransactionSignatureChecker : public TransactionNoWithdrawsSignatureChecker
+{
+private:
+    const CAmount nInValue;
+    const CAmount nInMinusOneValue;
+    const CAmount nTransactionFee;
+    const int nSpendHeight;
+
+public:
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, CAmount nInValueIn, CAmount nInMinusOneValueIn, CAmount nTransactionFeeIn, int nSpendHeightIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn), nInValue(nInValueIn), nInMinusOneValue(nInMinusOneValueIn), nTransactionFee(nTransactionFeeIn), nSpendHeight(nSpendHeightIn) {}
+    CTxOut GetOutputOffsetFromCurrent(const int offset) const;
+    COutPoint GetPrevOut() const;
+    CAmount GetValueIn() const;
+    CAmount GetValueInPrevIn() const;
+    CAmount GetTransactionFee() const;
 };
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* error = NULL);

@@ -1140,12 +1140,22 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
     return ss.GetHash();
 }
 
-bool TransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
+CTxOut BaseSignatureChecker::GetOutputOffsetFromCurrent(const int offset) const
+{
+    return CTxOut();
+}
+
+COutPoint BaseSignatureChecker::GetPrevOut() const
+{
+    return COutPoint();
+}
+
+bool TransactionNoWithdrawsSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     return pubkey.Verify(sighash, vchSig);
 }
 
-bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn, const vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
+bool TransactionNoWithdrawsSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn, const vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
 {
     CPubKey pubkey(vchPubKey);
     if (!pubkey.IsValid())
@@ -1166,7 +1176,7 @@ bool TransactionSignatureChecker::CheckSig(const vector<unsigned char>& vchSigIn
     return true;
 }
 
-bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime, bool fSequence) const
+bool TransactionNoWithdrawsSignatureChecker::CheckLockTime(const CScriptNum& nLockTime, bool fSequence) const
 {
     // Relative lock times are supported by comparing the passed
     // in lock time to the sequence number of the input. All other
@@ -1215,6 +1225,33 @@ bool TransactionSignatureChecker::CheckLockTime(const CScriptNum& nLockTime, boo
     return true;
 }
 
+CTxOut TransactionSignatureChecker::GetOutputOffsetFromCurrent(const int offset) const
+{
+    assert(int(nIn) >= 0 && int(txTo->vout.size()) > 0);
+    if (int(nIn) + offset < 0 || int(txTo->vout.size()) <= int(nIn) + offset)
+        return CTxOut();
+    return txTo->vout[int(nIn) + offset];
+}
+
+COutPoint TransactionSignatureChecker::GetPrevOut() const
+{
+    return txTo->vin[nIn].prevout;
+}
+
+CAmount TransactionSignatureChecker::GetValueIn() const
+{
+    return nInValue;
+}
+
+CAmount TransactionSignatureChecker::GetTransactionFee() const
+{
+    return nTransactionFee;
+}
+
+CAmount TransactionSignatureChecker::GetValueInPrevIn() const
+{
+    return nInMinusOneValue;
+}
 
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror)
 {

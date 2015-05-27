@@ -27,11 +27,13 @@
   #define EXPORT_SYMBOL
 #endif
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define BITCOINCONSENSUS_API_VER 0
+#define BITCOINCONSENSUS_API_VER 1
 
 typedef enum bitcoinconsensus_error_t
 {
@@ -54,8 +56,9 @@ enum
 /// the additional constraints specified by flags.
 /// If not NULL, err will contain an error/success code for the operation
 EXPORT_SYMBOL int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
-                                    const unsigned char *txTo        , unsigned int txToLen,
-                                    unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err);
+                                                 const unsigned char *txTo,         unsigned int txToLen,
+                                                 int64_t nInValue, int64_t nInMinusOneValue, int64_t nTxFee, int nSpendHeight,
+                                                 unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err);
 
 EXPORT_SYMBOL unsigned int bitcoinconsensus_version();
 
