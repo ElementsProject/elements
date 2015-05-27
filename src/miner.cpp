@@ -159,10 +159,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             const CTransaction& tx = mi->second.GetTx();
 
             // Enforce sequnce numbers as relative lock-time
-            // only for tx.nVersion >= 2.
-            int nLockTimeFlags = LOCKTIME_MEDIAN_TIME_PAST;
-            if (tx.nVersion >= 2)
-                nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
+            int nLockTimeFlags = LOCKTIME_VERIFY_SEQUENCE
+                               | LOCKTIME_MEDIAN_TIME_PAST;
 
             int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
                                     ? nMedianTimePast

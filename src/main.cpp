@@ -715,8 +715,7 @@ int64_t LockTime(const CTransaction &tx, int flags, const CCoinsView* pCoinsView
     CCoins coins;
     uint32_t nLockTime;
 
-    bool fEnforceBIPXX = tx.nVersion >= 2
-                      && flags & LOCKTIME_VERIFY_SEQUENCE;
+    bool fEnforceBIPXX = flags & LOCKTIME_VERIFY_SEQUENCE;
 
     // Will be set to the equivalent height- and time-based nLockTime
     // values that would be necessary to satisfy all relative lock-
@@ -796,7 +795,8 @@ int64_t CheckLockTime(const CTransaction &tx, int flags)
     // a future soft-fork scenario that would mean an
     // IsSuperMajority check against chainActive.Tip().
     if (flags < 0)
-        flags = LOCKTIME_MEDIAN_TIME_PAST;
+        flags = LOCKTIME_VERIFY_SEQUENCE
+              | LOCKTIME_MEDIAN_TIME_PAST;
 
     // pcoinsTip contains the UTXO set for chainActive.Tip()
     const CCoinsView *pCoinsView = pcoinsTip;
@@ -1091,10 +1091,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         // Enforce sequnce numbers as relative lock-time
-        // only for tx.nVersion >= 2.
-        int nLockTimeFlags = LOCKTIME_MEDIAN_TIME_PAST;
-        if (tx.nVersion >= 2)
-            nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
+        int nLockTimeFlags = LOCKTIME_VERIFY_SEQUENCE
+                           | LOCKTIME_MEDIAN_TIME_PAST;
 
         int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
                                 ? chainActive.Tip()->GetMedianTimePast()
@@ -1798,6 +1796,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (block.nVersion >= 3 && CBlockIndex::IsSuperMajority(3, pindex->pprev, Params().EnforceBlockUpgradeMajority())) {
         flags |= SCRIPT_VERIFY_DERSIG;
     }
+
+    // NOP2 is redefined as CHECKLOCKTIMEVERIFY, and
+    // NOP3 is redefined as CHECKSEQUENCEVERIFY
+    flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+    flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
 
     CBlockUndo blockundo;
 
@@ -2660,7 +2663,8 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
 
     // Check that all transactions are finalized
     BOOST_FOREACH(const CTransaction& tx, block.vtx) {
-        int nLockTimeFlags = 0;
+        int nLockTimeFlags = LOCKTIME_VERIFY_SEQUENCE
+                           | LOCKTIME_MEDIAN_TIME_PAST;
         int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
                                 ? pindexPrev->GetMedianTimePast()
                                 : block.GetBlockTime();
