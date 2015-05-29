@@ -1591,10 +1591,10 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                              REJECT_INVALID, "bad-txns-amount-mismatch");
 
         // The first loop above does all the inexpensive checks.
-        // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+        // Only if ALL inputs pass do we perform expensive signature checks.
         // Helps prevent CPU exhaustion attacks.
 
-        // Skip ECDSA signature verification when connecting blocks
+        // Skip signature verification when connecting blocks
         // before the last block chain checkpoint. This is safe because block merkle hashes are
         // still computed and checked, and any change will be caught at the next checkpoint.
         if (fScriptChecks) {

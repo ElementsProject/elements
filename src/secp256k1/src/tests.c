@@ -1441,6 +1441,47 @@ void test_point_times_order(const secp256k1_gej_t *point) {
     ge_equals_ge(&res3, &secp256k1_ge_const_g);
 }
 
+void test_ecmult_points_ecmult(void) {
+    secp256k1_scalar_t x[SECP256K1_SCHNORR_MAX_BATCH];
+    secp256k1_scalar_t t[SECP256K1_SCHNORR_MAX_BATCH], tall;
+    secp256k1_gej_t a[SECP256K1_SCHNORR_MAX_BATCH];
+    secp256k1_gej_t tmp, res1, res2;
+    int n, i;
+    n = 1 + (secp256k1_rand32() % (SECP256K1_SCHNORR_MAX_BATCH - 1));
+    for (i = 0; i < n; i++) {
+        random_scalar_order_test(&x[i]);
+        random_scalar_order_test(&t[i]);
+        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &a[(i + 1) % n], &t[i]);
+    }
+
+    /* Compute res1 = (x1*a1 + t1*g) + (x2*a2 + t2) + (x3*a3 + t3). */
+    secp256k1_ecmult(&ctx->ecmult_ctx, &res1, &a[0], &x[0], &t[0]);
+    for (i = 1; i < n; i++) {
+        secp256k1_ecmult(&ctx->ecmult_ctx, &tmp, &a[i], &x[i], &t[i]);
+        secp256k1_gej_add_var(&res1, &res1, &tmp, NULL);
+    }
+
+    /* Compute res2 = x1*a1 + x2*a2 + x3*a3 + (t1+t2+t3)*g. */
+    tall = t[0];
+    for (i = 1; i < n; i++) {
+        secp256k1_scalar_add(&tall, &tall, &t[i]);
+    }
+    secp256k1_ecmult_points(&ctx->ecmult_ctx, n, &res2, a, x, &tall);
+
+    /* Compare res1 == res2. */
+    secp256k1_gej_neg(&res2, &res2);
+    secp256k1_gej_add_var(&res2, &res2, &res1, NULL);
+    CHECK(secp256k1_gej_is_infinity(&res2));
+}
+
+void run_ecmult_points_ecmult(void) {
+    int i;
+    for (i = 0; i < 8 * count; i++) {
+        test_ecmult_points_ecmult();
+    }
+}
+
+
 void run_point_times_order(void) {
     int i;
     secp256k1_fe_t x = SECP256K1_FE_CONST(0, 0, 0, 0, 0, 0, 0, 2);
@@ -2252,6 +2293,67 @@ void run_ecdsa_edge_cases(void) {
     test_ecdsa_edge_cases();
 }
 
+/** Horribly broken hash function. Do not use for anything but tests. */
+void test_schnorr_hash(unsigned char *h32, const unsigned char *r32, const unsigned char *msg32) {
+    int i;
+    for (i = 0; i < 32; i++) {
+        h32[i] = r32[i] ^ msg32[i];
+    }
+}
+
+void test_schnorr_sign_verify(void) {
+    unsigned char msg32[32];
+    unsigned char sig64[3][64];
+    secp256k1_gej_t pubkeyj[3];
+    secp256k1_ge_t pubkey[3];
+    secp256k1_scalar_t nonce[3], key[3];
+    int i = 0;
+    int k;
+
+    secp256k1_rand256_test(msg32);
+
+    for (k = 0; k < 3; k++) {
+        random_scalar_order_test(&key[k]);
+
+        do {
+            random_scalar_order_test(&nonce[k]);
+            if (secp256k1_schnorr_sig_sign(&ctx->ecmult_gen_ctx, sig64[k], &key[k], &nonce[k], &test_schnorr_hash, msg32)) {
+                break;
+            }
+        } while(1);
+
+        secp256k1_ecmult_gen(&ctx->ecmult_gen_ctx, &pubkeyj[k], &key[k]);
+        secp256k1_ge_set_gej_var(&pubkey[k], &pubkeyj[k]);
+        CHECK(secp256k1_schnorr_sig_verify(&ctx->ecmult_ctx, sig64[k], &pubkey[k], &test_schnorr_hash, msg32));
+
+        for (i = 0; i < 4; i++) {
+            int pos = secp256k1_rand32() % 64;
+            int mod = 1 + (secp256k1_rand32() % 255);
+            sig64[k][pos] ^= mod;
+            CHECK(secp256k1_schnorr_sig_verify(&ctx->ecmult_ctx, sig64[k], &pubkey[k], &test_schnorr_hash, msg32) == 0);
+            sig64[k][pos] ^= mod;
+        }
+    }
+
+    CHECK(secp256k1_schnorr_sig_verify_batch(&ctx->ecmult_ctx, 3, sig64, pubkey, test_schnorr_hash, msg32));
+
+    for (i = 0; i < 4; i++) {
+        int pos = secp256k1_rand32() % 64;
+        int mod = 1 + (secp256k1_rand32() % 255);
+        k = secp256k1_rand32() % 3;
+        sig64[k][pos] ^= mod;
+        CHECK(secp256k1_schnorr_sig_verify_batch(&ctx->ecmult_ctx, 3, sig64, pubkey, &test_schnorr_hash, msg32) == 0);
+        sig64[k][pos] ^= mod;
+    }
+}
+
+void run_schnorr_sign_verify(void) {
+    int i;
+    for (i = 0; i < 32 * count; i++) {
+         test_schnorr_sign_verify();
+    }
+}
+
 #ifdef ENABLE_OPENSSL_TESTS
 EC_KEY *get_openssl_key(const secp256k1_scalar_t *key) {
     unsigned char privkey[300];
@@ -2669,6 +2771,7 @@ int main(int argc, char **argv) {
     run_ecmult_chain();
     run_ecmult_constants();
     run_ecmult_gen_blind();
+    run_ecmult_points_ecmult();
 
     /* ecdh tests */
     run_ecdh_tests();
@@ -2682,6 +2785,9 @@ int main(int argc, char **argv) {
 #ifdef ENABLE_OPENSSL_TESTS
     run_ecdsa_openssl();
 #endif
+
+    /* Schnorr tests */
+    run_schnorr_sign_verify();
 
     secp256k1_rand256(run32);
     printf("random run = %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n", run32[0], run32[1], run32[2], run32[3], run32[4], run32[5], run32[6], run32[7], run32[8], run32[9], run32[10], run32[11], run32[12], run32[13], run32[14], run32[15]);

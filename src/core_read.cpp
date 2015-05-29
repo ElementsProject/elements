@@ -32,7 +32,7 @@ CScript ParseScript(std::string s)
 
     if (mapOpNames.empty())
     {
-        for (int op = 0; op <= OP_NOP10; op++)
+        for (int op = 0; op < 0xff; op++)
         {
             // Allow OP_RESERVED to get into mapOpNames
             if (op < OP_NOP && op != OP_RESERVED)

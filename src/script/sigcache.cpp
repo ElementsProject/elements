@@ -16,7 +16,7 @@
 namespace {
 
 /**
- * Valid signature cache, to avoid doing expensive ECDSA signature checking
+ * Valid signature cache, to avoid doing expensive signature checking
  * twice for every transaction (once when accepted into memory pool, and
  * again when accepted into the block chain)
  */

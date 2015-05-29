@@ -361,6 +361,9 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_context_randomize(
   const unsigned char *seed32
 ) SECP256K1_ARG_NONNULL(1);
 
+int secp256k1_schnorr_sign(const secp256k1_context_t* ctx, const unsigned char *msg32, unsigned char *sig64, const unsigned char *seckey, secp256k1_nonce_function_t noncefp, const void* noncedata);
+int secp256k1_schnorr_verify(const secp256k1_context_t* ctx, const unsigned char *msg32, const unsigned char *sig64, const unsigned char *pubkey, int pubkeylen);
+int secp256k1_schnorr_verify_batch(const secp256k1_context_t* ctx, int n, const unsigned char *msg32, const unsigned char **sig64, const unsigned char **pubkey, const int *pubkeylen);
 
 /** Generate a pedersen commitment.
  *  Returns 1: commitment successfully created.

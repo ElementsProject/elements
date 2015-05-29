@@ -73,10 +73,10 @@ bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, uint32_
     if (!fValid)
         return false;
     vchSig.resize(72);
-    int nSigLen = 72;
+    int nSigLen = 64;
     unsigned char extra_entropy[32] = {0};
     WriteLE32(extra_entropy, test_case);
-    int ret = secp256k1_ecdsa_sign(secp256k1_context, hash.begin(), (unsigned char*)&vchSig[0], &nSigLen, begin(), secp256k1_nonce_function_rfc6979, test_case ? extra_entropy : NULL);
+    int ret = secp256k1_schnorr_sign(secp256k1_context, hash.begin(), (unsigned char*)&vchSig[0], begin(), secp256k1_nonce_function_rfc6979, test_case ? extra_entropy : NULL);
     assert(ret);
     vchSig.resize(nSigLen);
     return true;

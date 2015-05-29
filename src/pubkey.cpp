@@ -12,7 +12,9 @@ static secp256k1_context_t*& secp256k1_context = secp256k1_bitcoin_verify_contex
 bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
     if (!IsValid())
         return false;
-    if (secp256k1_ecdsa_verify(secp256k1_context, (const unsigned char*)&hash, &vchSig[0], vchSig.size(), begin(), size()) != 1)
+    if (vchSig.size() != 64)
+        return false;
+    if (secp256k1_schnorr_verify(secp256k1_context, (const unsigned char*)&hash, &vchSig[0], begin(), size()) != 1)
         return false;
     return true;
 }

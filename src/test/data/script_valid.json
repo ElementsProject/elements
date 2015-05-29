@@ -16,6 +16,114 @@
 ["1  2  ", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC"],
 ["  1  2  ", "2 EQUALVERIFY 1 EQUAL", "P2SH,STRICTENC"],
 
+["0x08 0x0102030405060708", "-1 7 SUBSTR_LAZY 0x07 0x01020304050607 EQUAL", ""],
+["0x08 0x0102030405060708", "1 -7 SUBSTR_LAZY 0x00 EQUAL", ""],
+["0x08 0x0102030405060708", "9 1 SUBSTR_LAZY 0x00 EQUAL", ""],
+["0x08 0x0102030405060708", "0 9 SUBSTR_LAZY 0x08 0x0102030405060708 EQUAL", ""],
+
+["0x46 0x304402204132026f43aa0726d9dd29fa05559da9edb0d8d2b3726381e35b544383a95436022028fc6523e52dfef11ad20cd67a756145a32ef37183b4765776055d9a22f78ce7", "0x03 0x776174 0x21 0x02bad332769f3de8858cbde38740d02d360bd0b493ad2dc4b40ddee2d976583ba2 CHECKSIGFROMSTACK", ""],
+
+["", "0x08 0xffffffffffffffff 0 0 DETERMINISTICRANDOM 0 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 2 DETERMINISTICRANDOM 0 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 3 DETERMINISTICRANDOM 0 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 5 DETERMINISTICRANDOM 0x01 0x03 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 7 DETERMINISTICRANDOM 0 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 11 DETERMINISTICRANDOM 0x01 0x02 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 13 DETERMINISTICRANDOM 0x01 0x01 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 17 DETERMINISTICRANDOM 0x01 0x0B EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 19 DETERMINISTICRANDOM 0x01 0x0C EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 23 DETERMINISTICRANDOM 0x01 0x04 EQUAL", ""],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 29 DETERMINISTICRANDOM 0x01 0x0E EQUAL", ""],
+
+["1", "4  LSHIFT 16 EQUAL", ""],
+
+["0x08 0x0102030405060708", "0  LSHIFT 0x08 0x0102030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "4  LSHIFT 0x09 0x1020304050607080 EQUAL", ""],
+["0x08 0x0102030405060708", "8  LSHIFT 0x09 0x000102030405060708 EQUAL", ""],
+
+["0x08 0x0102030405060708", "0  RSHIFT 0x08 0x0102030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "8  RSHIFT 0x07 0x02030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "16 RSHIFT 0x06 0x030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "24 RSHIFT 0x05 0x0405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "32 RSHIFT 0x04 0x05060708 EQUAL", ""],
+["0x08 0x0102030405060708", "40 RSHIFT 0x03 0x060708 EQUAL", ""],
+["0x08 0x0102030405060708", "48 RSHIFT 0x02 0x0708 EQUAL", ""],
+["0x08 0x0102030405060708", "56 RSHIFT 0x01 0x08 EQUAL", ""],
+["0x08 0x0102030405060708", "64 RSHIFT 0x00 EQUAL", ""],
+
+["0x08 0xffffffffffffffff", "0  RSHIFT 0x08 0xffffffffffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "4  RSHIFT 0x08 0xffffffffffffff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "8  RSHIFT 0x07 0xffffffffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "12 RSHIFT 0x07 0xffffffffffff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "16 RSHIFT 0x06 0xffffffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "20 RSHIFT 0x06 0xffffffffff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "24 RSHIFT 0x05 0xffffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "28 RSHIFT 0x05 0xffffffff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "32 RSHIFT 0x04 0xffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "36 RSHIFT 0x04 0xffffff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "40 RSHIFT 0x03 0xffffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "44 RSHIFT 0x03 0xffff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "48 RSHIFT 0x02 0xffff EQUAL", ""],
+["0x08 0xffffffffffffffff", "52 RSHIFT 0x02 0xff0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "56 RSHIFT 0x01 0xff EQUAL", ""],
+["0x08 0xffffffffffffffff", "60 RSHIFT 0x01 0x0f EQUAL", ""],
+["0x08 0xffffffffffffffff", "64 RSHIFT 0x00 EQUAL", ""],
+
+["0x08 0xffffffffffffff0f", "4  RSHIFT 0x08 0xffffffffffffff EQUAL", ""],
+["0x01 0x0f", "4  RSHIFT 0x00 EQUAL", ""],
+
+["0x08 0x0102030405060708", "0 RIGHT 0x08 0x0102030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "1 RIGHT 0x07 0x02030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "2 RIGHT 0x06 0x030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "3 RIGHT 0x05 0x0405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "4 RIGHT 0x04 0x05060708 EQUAL", ""],
+["0x08 0x0102030405060708", "5 RIGHT 0x03 0x060708 EQUAL", ""],
+["0x08 0x0102030405060708", "6 RIGHT 0x02 0x0708 EQUAL", ""],
+["0x08 0x0102030405060708", "7 RIGHT 0x01 0x08 EQUAL", ""],
+["0x08 0x0102030405060708", "8 RIGHT 0x00 EQUAL", ""],
+
+["0x08 0x0102030405060708", "8 LEFT 0x08 0x0102030405060708 EQUAL", ""],
+["0x08 0x0102030405060708", "7 LEFT 0x07 0x01020304050607 EQUAL", ""],
+["0x08 0x0102030405060708", "6 LEFT 0x06 0x010203040506 EQUAL", ""],
+["0x08 0x0102030405060708", "5 LEFT 0x05 0x0102030405 EQUAL", ""],
+["0x08 0x0102030405060708", "4 LEFT 0x04 0x01020304 EQUAL", ""],
+["0x08 0x0102030405060708", "3 LEFT 0x03 0x010203 EQUAL", ""],
+["0x08 0x0102030405060708", "2 LEFT 0x02 0x0102 EQUAL", ""],
+["0x08 0x0102030405060708", "1 LEFT 0x01 0x01 EQUAL", ""],
+["0x08 0x0102030405060708", "0 LEFT 0x00 EQUAL", ""],
+
+["0x08 0xffffffffffffffff 0x08 0x0000000000000001", "AND 0x08 0x0000000000000001 EQUAL", ""],
+["0x08 0xffffffffffffffff 0x08 0x0200000000000002", "AND 0x08 0x0200000000000002 EQUAL", ""],
+
+["0x08 0x0f0f0f0f0f0f0f0f 0x08 0xf0f0f0f0f0f0f0f0", "OR 0x08 0xffffffffffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff 0x08 0x0000000000000000", "OR 0x08 0xffffffffffffffff EQUAL", ""],
+
+["0x08 0x01ffffffffffffff", "0 8 SUBSTR 0x08 0x01ffffffffffffff EQUAL", ""],
+["0x08 0x01ffffffffffffff", "1 7 SUBSTR 0x07 0xffffffffffffff EQUAL", ""],
+
+["0x08 0x0000000000000000", "INVERT 0x08 0xffffffffffffff EQUAL", ""],
+
+["0x08 0xffffffffffffffff 0x08 0x0000000000000000", "CAT DEPTH 1 EQUALVERIFY 0x10 0xffffffffffffffff0000000000000000 EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP CAT DEPTH 1 EQUALVERIFY 0x10 0xffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x20 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x40 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x4c 0x80 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x4d 0x0001 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x4d 0x0002 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DEPTH 2 EQUALVERIFY 0x10 0xffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x20 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x40 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x4c 0x80 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x4d 0x0001 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x4d 0x0002 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT CAT DEPTH 1 EQUALVERIFY 0x4d 0x0802 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffff 0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT CAT DEPTH 1 EQUALVERIFY 0x4d 0x0802 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+
+["0 0","XOR 0 EQUAL", "STRICTENC"],
+["0x51 0x51","XOR 0x01 0x00 EQUAL", "STRICTENC"],
+["0x01 0x00 0x51","XOR 0x51 EQUAL", "STRICTENC"],
+["0x14 0x2595860bbba83109178f70419941302a3c2bf6eb 0x14 0x517051988cbe5bbcc1348b835694117138517800","XOR 0x14 0x74e5d79337166ab5d6bbfbc2cfd5215b047a8eeb EQUAL", "STRICTENC"],
+
 ["1", "", "P2SH,STRICTENC"],
 ["0x02 0x01 0x00", "", "P2SH,STRICTENC", "all bytes are significant, not only the last one"],
 ["0x09 0x00000000 0x00000000 0x10", "", "P2SH,STRICTENC", "equals zero when cast to Int64"],
@@ -660,41 +768,6 @@
 ["0 0 0x02 0x0000", "CHECKMULTISIGVERIFY 1", ""],
 ["0 0x02 0x0000 0", "CHECKMULTISIGVERIFY 1", ""],
 
-["While not really correctly DER encoded, the empty signature is allowed by"],
-["STRICTENC to provide a compact way to provide a delibrately invalid signature."],
-["0", "0x21 0x02865c40293a680cb9c020e7b1e106d8c1916d3cef99aa431a56d253e69256dac0 CHECKSIG NOT", "STRICTENC"],
-["0 0", "1 0x21 0x02865c40293a680cb9c020e7b1e106d8c1916d3cef99aa431a56d253e69256dac0 1 CHECKMULTISIG NOT", "STRICTENC"],
-
-["CHECKMULTISIG evaluation order tests. CHECKMULTISIG evaluates signatures and"],
-["pubkeys in a specific order, and will exit early if the number of signatures"],
-["left to check is greater than the number of keys left. As STRICTENC fails the"],
-["script when it reaches an invalidly encoded signature or pubkey, we can use it"],
-["to test the exact order in which signatures and pubkeys are evaluated by"],
-["distinguishing CHECKMULTISIG returning false on the stack and the script as a"],
-["whole failing."],
-["See also the corresponding inverted versions of these tests in script_invalid.json"],
-[
-    "0 0x47 0x3044022044dc17b0887c161bb67ba9635bf758735bdde503e4b0a0987f587f14a4e1143d022009a215772d49a85dae40d8ca03955af26ad3978a0ff965faa12915e9586249a501 0x47 0x3044022044dc17b0887c161bb67ba9635bf758735bdde503e4b0a0987f587f14a4e1143d022009a215772d49a85dae40d8ca03955af26ad3978a0ff965faa12915e9586249a501",
-    "2 0 0x21 0x02865c40293a680cb9c020e7b1e106d8c1916d3cef99aa431a56d253e69256dac0 2 CHECKMULTISIG NOT",
-    "STRICTENC",
-    "2-of-2 CHECKMULTISIG NOT with the second pubkey invalid, and both signatures validly encoded. Valid pubkey fails, and CHECKMULTISIG exits early, prior to evaluation of second invalid pubkey."
-],
-[
-    "0 0 0x47 0x3044022044dc17b0887c161bb67ba9635bf758735bdde503e4b0a0987f587f14a4e1143d022009a215772d49a85dae40d8ca03955af26ad3978a0ff965faa12915e9586249a501",
-    "2 0x21 0x02865c40293a680cb9c020e7b1e106d8c1916d3cef99aa431a56d253e69256dac0 0x21 0x02865c40293a680cb9c020e7b1e106d8c1916d3cef99aa431a56d253e69256dac0 2 CHECKMULTISIG NOT",
-    "STRICTENC",
-    "2-of-2 CHECKMULTISIG NOT with both pubkeys valid, but second signature invalid. Valid pubkey fails, and CHECKMULTISIG exits early, prior to evaluation of second invalid signature."
-],
-
-["Increase test coverage for DERSIG"],
-["0x4a 0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "0 CHECKSIG NOT", "", "Overly long signature is correctly encoded"],
-["0x25 0x30220220000000000000000000000000000000000000000000000000000000000000000000", "0 CHECKSIG NOT", "", "Missing S is correctly encoded"],
-["0x27 0x3024021077777777777777777777777777777777020a7777777777777777777777777777777701", "0 CHECKSIG NOT", "", "S with invalid S length is correctly encoded"],
-["0x27 0x302403107777777777777777777777777777777702107777777777777777777777777777777701", "0 CHECKSIG NOT", "", "Non-integer R is correctly encoded"],
-["0x27 0x302402107777777777777777777777777777777703107777777777777777777777777777777701", "0 CHECKSIG NOT", "", "Non-integer S is correctly encoded"],
-["0x17 0x3014020002107777777777777777777777777777777701", "0 CHECKSIG NOT", "", "Zero-length R is correctly encoded"],
-["0x17 0x3014021077777777777777777777777777777777020001", "0 CHECKSIG NOT", "", "Zero-length S is correctly encoded for DERSIG"],
-["0x27 0x302402107777777777777777777777777777777702108777777777777777777777777777777701", "0 CHECKSIG NOT", "", "Negative S is correctly encoded"],
 
 ["Automatically generated test cases"],
 [
@@ -758,58 +831,16 @@
     "P2PK with too little R padding but no DERSIG"
 ],
 [
-    "0x47 0x30440220005ece1335e7f757a1a1f476a7fb5bd90964e8a022489f890614a04acfb734c002206c12b8294a6513c7710e8c82d3c23d75cdbfe83200eb7efb495701958501a5d601",
-    "0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 CHECKSIG NOT",
-    "",
-    "P2PK NOT with bad sig with too much R padding but no DERSIG"
-],
-[
     "0x47 0x30440220d7a0417c3f6d1a15094d1cf2a3378ca0503eb8a57630953a9e2987e21ddd0a6502207a6266d686c99090920249991d3d42065b6d43eb70187b219c0db82e4f94d1a201",
     "0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 CHECKSIG",
     "",
     "BIP66 example 1, without DERSIG"
 ],
 [
-    "0",
-    "0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 CHECKSIG NOT",
-    "",
-    "BIP66 example 4, without DERSIG"
-],
-[
-    "0",
-    "0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 CHECKSIG NOT",
-    "DERSIG",
-    "BIP66 example 4, with DERSIG"
-],
-[
-    "1",
-    "0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 CHECKSIG NOT",
-    "",
-    "BIP66 example 6, without DERSIG"
-],
-[
-    "0 0x47 0x30440220cae00b1444babfbf6071b0ba8707f6bd373da3df494d6e74119b0430c5db810502205d5231b8c5939c8ff0c82242656d6e06edb073d42af336c99fe8837c36ea39d501 0x47 0x3044022027c2714269ca5aeecc4d70edc88ba5ee0e3da4986e9216028f489ab4f1b8efce022022bd545b4951215267e4c5ceabd4c5350331b2e4a0b6494c56f361fa5a57a1a201",
+    "0 0x47 0x30440220cae00b1444babfbf6071b0ba8707f6bd373da3df494d6e74119b0430c5db810502205d5231b8c5939c8ff0c82242656d6e06edb073d42af336c99fe8837c36ea39d501 0x47 0x304402200b3d0b0375bb15c14620afa4aa10ae90a0d6a046ce217bc20fe0bc1ced68c1b802204b550acab90ae6d3478057c9ad24f9df743815b799b6449dd7e7f6d3bc6e274c01",
     "2 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 2 CHECKMULTISIG",
     "",
     "BIP66 example 7, without DERSIG"
-],
-[
-    "0 0 0x47 0x30440220da6f441dc3b4b2c84cfa8db0cd5b34ed92c9e01686de5a800d40498b70c0dcac02207c2cf91b0c32b860c4cd4994be36cfb84caf8bb7c3a8e4d96a31b2022c5299c501",
-    "2 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 2 CHECKMULTISIG NOT",
-    "",
-    "BIP66 example 10, without DERSIG"
-],
-[
-    "0 0x47 0x30440220b119d67d389315308d1745f734a51ff3ec72e06081e84e236fdf9dc2f5d2a64802204b04e3bc38674c4422ea317231d642b56dc09d214a1ecbbf16ecca01ed996e2201 0",
-    "2 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 2 CHECKMULTISIG NOT",
-    "",
-    "BIP66 example 12, without DERSIG"
-],
-[
-    "0 0x47 0x30440220b119d67d389315308d1745f734a51ff3ec72e06081e84e236fdf9dc2f5d2a64802204b04e3bc38674c4422ea317231d642b56dc09d214a1ecbbf16ecca01ed996e2201 0",
-    "2 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 2 CHECKMULTISIG NOT",
-    "DERSIG",
-    "BIP66 example 12, with DERSIG"
 ],
 [
     "0x49 0x304502203e4516da7253cf068effec6b95c41221c0cf3a8e6ccb8cbf1725b562e9afde2c022100ab1e3da73d67e32045a20e0b999e049978ea8d6ee5480d485fcf2ce0d03b2ef05101",
@@ -824,13 +855,7 @@
     "P2PK with hybrid pubkey but no STRICTENC"
 ],
 [
-    "0x47 0x30440220035d554e3153c04950c9993f41c496607a8e24093db0595be7bf875cf64fcf1f02204731c8c4e5daf15e706cec19cdd8f2c5b1d05490e11dab8465ed426569b6e92101",
-    "0x41 0x0679be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 CHECKSIG NOT",
-    "",
-    "P2PK NOT with invalid hybrid pubkey but no STRICTENC"
-],
-[
-    "0 0x47 0x304402202e79441ad1baf5a07fb86bae3753184f6717d9692680947ea8b6e8b777c69af1022079a262e13d868bb5a0964fefe3ba26942e1b0669af1afb55ef3344bc9d4fc4c401",
+    "0 0x47 0x304402203a5ee39032637c431af0a3ac42e32e0627390bd44f6f98c9c04e6d714635ad0202207b42fcd889c3ae8a1b515608f38535f1f9be815176ee8d1b65a27c767cf37aed01",
     "1 0x41 0x0679be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 2 CHECKMULTISIG",
     "",
     "1-of-2 with the second 1 hybrid pubkey and no STRICTENC"
@@ -848,25 +873,13 @@
     "P2PK with undefined hashtype but no STRICTENC"
 ],
 [
-    "0x47 0x304402207409b5b320296e5e2136a7b281a7f803028ca4ca44e2b83eebd46932677725de02202d4eea1c8d3c98e6f42614f54764e6e5e6542e213eb4d079737e9a8b6e9812ec05",
-    "0x41 0x048282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f5150811f8a8098557dfe45e8256e830b60ace62d613ac2f7b17bed31b6eaff6e26caf CHECKSIG NOT",
-    "",
-    "P2PK NOT with invalid sig and undefined hashtype but no STRICTENC"
-],
-[
-    "1 0x47 0x3044022051254b9fb476a52d85530792b578f86fea70ec1ffb4393e661bcccb23d8d63d3022076505f94a403c86097841944e044c70c2045ce90e36de51f7e9d3828db98a07501 0x47 0x304402200a358f750934b3feb822f1966bfcd8bbec9eeaa3a8ca941e11ee5960e181fa01022050bf6b5a8e7750f70354ae041cb68a7bade67ec6c3ab19eb359638974410626e01 0x47 0x304402200955d031fff71d8653221e85e36c3c85533d2312fc3045314b19650b7ae2f81002202a6bb8505e36201909d0921f01abff390ae6b7ff97bbf959f98aedeb0a56730901",
+    "1 0x47 0x3044022051254b9fb476a52d85530792b578f86fea70ec1ffb4393e661bcccb23d8d63d3022076505f94a403c86097841944e044c70c2045ce90e36de51f7e9d3828db98a07501 0x47 0x304402206d32e6d6b131ef2fe77b6a9b90b120d74e3e238e79dcffb10523a6ec94f93d65022067ae8772632ddf4c389258c6b70ed0ff94f20ee8f60207aa192a52a2469cddd901 0x47 0x304402200955d031fff71d8653221e85e36c3c85533d2312fc3045314b19650b7ae2f81002202a6bb8505e36201909d0921f01abff390ae6b7ff97bbf959f98aedeb0a56730901",
     "3 0x21 0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 3 CHECKMULTISIG",
     "",
     "3-of-3 with nonzero dummy but no NULLDUMMY"
 ],
 [
-    "1 0x47 0x304402201bb2edab700a5d020236df174fefed78087697143731f659bea59642c759c16d022061f42cdbae5bcd3e8790f20bf76687443436e94a634321c16a72aa54cbc7c2ea01 0x47 0x304402204bb4a64f2a6e5c7fb2f07fef85ee56fde5e6da234c6a984262307a20e99842d702206f8303aaba5e625d223897e2ffd3f88ef1bcffef55f38dc3768e5f2e94c923f901 0x47 0x3044022040c2809b71fffb155ec8b82fe7a27f666bd97f941207be4e14ade85a1249dd4d02204d56c85ec525dd18e29a0533d5ddf61b6b1bb32980c2f63edf951aebf7a27bfe01",
-    "3 0x21 0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x03363d90d447b00c9c99ceac05b6262ee053441c7e55552ffe526bad8f83ff4640 3 CHECKMULTISIG NOT",
-    "",
-    "3-of-3 NOT with invalid sig and nonzero dummy but no NULLDUMMY"
-],
-[
-    "0 0x47 0x304402200abeb4bd07f84222f474aed558cfbdfc0b4e96cde3c2935ba7098b1ff0bd74c302204a04c1ca67b2a20abee210cf9a21023edccbbf8024b988812634233115c6b73901 DUP",
+    "0 0x47 0x304402206cb053202e1501e6faa24e6e309bf46a2f9255aa9484ff4a26efb7434f78a58a0220132b10419c3b99601f154bf86cf12259aacd8c6f363a73dacb1d0b941680bb4c01 DUP",
     "2 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 0x21 0x038282263212c609d9ea2a6e3e172de238d8c39cabd5ac1ca10646e23fd5f51508 2 CHECKMULTISIG",
     "",
     "2-of-2 with two identical keys and sigs pushed using OP_DUP but no SIGPUSHONLY"

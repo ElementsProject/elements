@@ -11,6 +11,35 @@
 ["   ", "DEPTH", "P2SH,STRICTENC"],
 ["    ", "DEPTH", "P2SH,STRICTENC"],
 
+["0x46 0x304402204133026f43aa0726d9dd29fa05559da9edb0d8d2b3726381e35b544383a95436022028fc6523e52dfef11ad20cd67a756145a32ef37183b4765776055d9a22f78ce7", "0x03 0x776174 0x21 0x02bad332769f3de8858cbde38740d02d360bd0b493ad2dc4b40ddee2d976583ba2 CHECKSIGFROMSTACK", ""],
+
+["0x08 0x0102030405060708", "-1 RIGHT 0x00 EQUAL", ""],
+
+["0x08 0x0102030405060708", "-1 LEFT 0x00 EQUAL", ""],
+
+["0x08 0xffffffffffffffff 0x07 0x00000000000000", "AND 0x08 0x0000000000000001 EQUAL", ""],
+["0x08 0xffffffffffffffff 0x06 0x020000000000", "AND 0x08 0x0200000000000002 EQUAL", ""],
+
+["0x08 0x0f0f0f0f0f0f0f0f 0x07 0xf0f0f0f0f0f0f0", "OR 0x08 0xffffffffffffffff EQUAL", ""],
+["0x08 0xffffffffffffffff 0x06 0x000000000000", "OR 0x08 0xffffffffffffffff EQUAL", ""],
+
+["0x08 0x01ffffffffffffff", "-1 7 SUBSTR 0x07 0xffffffffffffff EQUAL", ""],
+["0x08 0x01ffffffffffffff", "1 -7 SUBSTR 0x07 0xffffffffffffff EQUAL", ""],
+["0x08 0x01ffffffffffffff", "9 1 SUBSTR 0x07 0xffffffffffffff EQUAL", ""],
+["0x08 0x01ffffffffffffff", "0 9 SUBSTR 0x07 0xffffffffffffff EQUAL", ""],
+
+["0x08 0x0000000000000000", "INVERT 0x08 0x0000000000000000 EQUAL", ""],
+["", "INVERT 0x08 0x0000000000000000 EQUAL", ""],
+
+["0x08 0x0000000000000000 0x08 0xffffffffffffffff", "CAT DEPTH 1 EQUALVERIFY 0x10 0xffffffffffffffff0000000000000000 EQUAL", "STRICTENC"],
+["0x08 0xffffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT", "STRICTENC"],
+["0x09 0xffffffffffffffffff 0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT CAT DEPTH 1 EQUALVERIFY 0x4d 0x0802 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC"],
+
+["0 0","XOR 0x01 0xff EQUAL", "STRICTENC"],
+["0x51 0x51","XOR 0x01 0xff EQUAL", "STRICTENC"],
+["0x01 0x00 0x51","XOR 0xff EQUAL", "STRICTENC"],
+["0x02 0xffff 0x14 0x517051988cbe5bbcc1348b835694117138517800","XOR 0x14 0x74e5d79337166ab5d6bbfbc2cfd5215b047a8eeb EQUAL", "STRICTENC"],
+
 ["", "", "P2SH,STRICTENC"],
 ["", "NOP", "P2SH,STRICTENC"],
 ["", "NOP DEPTH", "P2SH,STRICTENC"],
@@ -120,26 +149,13 @@
 ["NOP", "2SWAP 1", "P2SH,STRICTENC"],
 ["1", "2 3 2SWAP 1", "P2SH,STRICTENC"],
 
-["'a' 'b'", "CAT", "P2SH,STRICTENC", "CAT disabled"],
-["'a' 'b' 0", "IF CAT ELSE 1 ENDIF", "P2SH,STRICTENC", "CAT disabled"],
-["'abc' 1 1", "SUBSTR", "P2SH,STRICTENC", "SUBSTR disabled"],
-["'abc' 1 1 0", "IF SUBSTR ELSE 1 ENDIF", "P2SH,STRICTENC", "SUBSTR disabled"],
-["'abc' 2 0", "IF LEFT ELSE 1 ENDIF", "P2SH,STRICTENC", "LEFT disabled"],
-["'abc' 2 0", "IF RIGHT ELSE 1 ENDIF", "P2SH,STRICTENC", "RIGHT disabled"],
-
 ["NOP", "SIZE 1", "P2SH,STRICTENC"],
 
-["'abc'", "IF INVERT ELSE 1 ENDIF", "P2SH,STRICTENC", "INVERT disabled"],
-["1 2 0 IF AND ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "AND disabled"],
-["1 2 0 IF OR ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "OR disabled"],
-["1 2 0 IF XOR ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "XOR disabled"],
 ["2 0 IF 2MUL ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "2MUL disabled"],
 ["2 0 IF 2DIV ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "2DIV disabled"],
 ["2 2 0 IF MUL ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "MUL disabled"],
 ["2 2 0 IF DIV ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DIV disabled"],
 ["2 2 0 IF MOD ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "MOD disabled"],
-["2 2 0 IF LSHIFT ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "LSHIFT disabled"],
-["2 2 0 IF RSHIFT ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "RSHIFT disabled"],
 
 ["0 1","EQUAL", "P2SH,STRICTENC"],
 ["1 1 ADD", "0 EQUAL", "P2SH,STRICTENC"],
@@ -155,8 +171,6 @@
 ["2 2MUL", "4 EQUAL", "P2SH,STRICTENC", "disabled"],
 ["2 2DIV", "1 EQUAL", "P2SH,STRICTENC", "disabled"],
 ["7 3 MOD", "1 EQUAL", "P2SH,STRICTENC", "disabled"],
-["2 2 LSHIFT", "8 EQUAL", "P2SH,STRICTENC", "disabled"],
-["2 1 RSHIFT", "1 EQUAL", "P2SH,STRICTENC", "disabled"],
 
 ["1","NOP1 NOP4 NOP5 NOP6 NOP7 NOP8 NOP9 NOP10 2 EQUAL", "P2SH,STRICTENC"],
 ["'NOP_1_to_10' NOP1 NOP4 NOP5 NOP6 NOP7 NOP8 NOP9 NOP10","'NOP_1_to_11' EQUAL", "P2SH,STRICTENC"],
@@ -183,9 +197,6 @@
 ["1", "IF 0xbd ELSE 1 ENDIF", "P2SH,STRICTENC"],
 ["1", "IF 0xbe ELSE 1 ENDIF", "P2SH,STRICTENC"],
 ["1", "IF 0xbf ELSE 1 ENDIF", "P2SH,STRICTENC"],
-["1", "IF 0xc0 ELSE 1 ENDIF", "P2SH,STRICTENC"],
-["1", "IF 0xc1 ELSE 1 ENDIF", "P2SH,STRICTENC"],
-["1", "IF 0xc2 ELSE 1 ENDIF", "P2SH,STRICTENC"],
 ["1", "IF 0xc3 ELSE 1 ENDIF", "P2SH,STRICTENC"],
 ["1", "IF 0xc4 ELSE 1 ENDIF", "P2SH,STRICTENC"],
 ["1", "IF 0xc5 ELSE 1 ENDIF", "P2SH,STRICTENC"],

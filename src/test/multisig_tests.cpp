@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
         keys += key[1],key[i];
         s = sign_multisig(a_and_b, keys, txTo[0], 0);
         BOOST_CHECK_MESSAGE(!VerifyScript(s, a_and_b, flags, MutableTransactionNoWithdrawsSignatureChecker(&txTo[0], 0), &err), strprintf("a&b 2: %d", i));
-        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+        BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_CHECKMULTISIGVERIFY, ScriptErrorString(err));
     }
 
     // Test a OR b:
@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
         else
         {
             BOOST_CHECK_MESSAGE(!VerifyScript(s, a_or_b, flags, MutableTransactionNoWithdrawsSignatureChecker(&txTo[1], 0), &err), strprintf("a|b: %d", i));
-            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+            BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_CHECKMULTISIGVERIFY, ScriptErrorString(err));
         }
     }
     s.clear();
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE(multisig_verify)
             else
             {
                 BOOST_CHECK_MESSAGE(!VerifyScript(s, escrow, flags, MutableTransactionNoWithdrawsSignatureChecker(&txTo[2], 0), &err), strprintf("escrow 2: %d %d", i, j));
-                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_EVAL_FALSE, ScriptErrorString(err));
+                BOOST_CHECK_MESSAGE(err == SCRIPT_ERR_CHECKMULTISIGVERIFY, ScriptErrorString(err));
             }
         }
 }
