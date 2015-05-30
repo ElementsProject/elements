@@ -81,6 +81,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Withdraw proof validation failed - second script validation failed";
         case SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED:
             return "Withdraw proof validation failed - lock block was not sufficiently confirmed on sending chain";
+        case SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN:
+            return "Withdraw proof validation failed - values were hidden";
         case SCRIPT_ERR_REORG_VERIFY_FORMAT:
             return "Reorg/Fraud proof validation failed - invalid proof format";
         case SCRIPT_ERR_REORG_VERIFY_FRAUD_BLOCK:
@@ -91,6 +93,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Fraud proof validation failed - bad or unmatched original withdraw tx";
         case SCRIPT_ERR_REORG_VERIFY_FRAUD_OUTPUT:
             return "Fraud proof validation failed - output does not match expected";
+        case SCRIPT_ERR_REORG_VALUES_HIDDEN:
+            return "Fraud proof validation failed - values were hidden";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

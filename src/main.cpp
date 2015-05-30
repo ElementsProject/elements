@@ -1978,7 +1978,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                 // Because miners can take it anyway, we just devote the whole fraud bounty to miner fee
                                 const CScript &withdrawOutputScript = tx.vout[j].scriptPubKey;
                                 assert(withdrawOutputScript.IsWithdrawOutput());
-                                proofTx.vout[0].nValue = tx.vout[j].nValue - withdrawOutputScript.GetFraudBounty();
+                                assert(tx.vout[j].nValue.IsAmount());
+                                proofTx.vout[0].nValue = tx.vout[j].nValue.GetAmount() - withdrawOutputScript.GetFraudBounty();
 
                                 pvProofTxn->push_back(proofTx);
                             }

@@ -1093,13 +1093,19 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         assert(checker.GetValueIn() != -1); // Not using a NoWithdrawSignatureChecker
 
                         if (stack.size() == 2) { // increasing value of locked coins
-                            CAmount minValue = checker.GetValueIn();
+                            if (!checker.GetValueIn().IsAmount())
+                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN);
+                            CAmount minValue = checker.GetValueIn().GetAmount();
                             CTxOut newOutput = checker.GetOutputOffsetFromCurrent(0);
                             if (newOutput.IsNull()) {
                                 newOutput = checker.GetOutputOffsetFromCurrent(-1);
-                                minValue += checker.GetValueInPrevIn();
+                                if (!checker.GetValueInPrevIn().IsAmount())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN);
+                                minValue += checker.GetValueInPrevIn().GetAmount();
                             }
-                            if (newOutput.scriptPubKey != script || newOutput.nValue < minValue)
+                            if (!newOutput.nValue.IsAmount())
+                                return set_error(serror, SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN);
+                            if (newOutput.scriptPubKey != script || newOutput.nValue.GetAmount() < minValue)
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
                         } else { // stack.size() == 10...ie regular withdraw
                             int stackReadPos = -3;
@@ -1206,7 +1212,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                             unsigned char *pub_start = &(*(sdpc - 33));
                                             CHMAC_SHA256(pub_start, 33).Write(&vcontract[0], 40).Finalize(tweak);
                                             // If someone creates a tweak that makes this fail, they broke SHA256
-                                            assert(secp256k1_ec_pubkey_tweak_add(pub_start, 33, tweak) != 0);
+                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_context, pub_start, 33, tweak) != 0);
                                         }
                                     }
                                 }
@@ -1231,13 +1237,19 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (vcontract[0] != 'P' || vcontract[1] != '2' || vcontract[2] != 'S' || vcontract[3] != 'H')
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
-                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
+                                if (!locktx.vout[nlocktxOut].nValue.IsAmount())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN);
+                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue.GetAmount();
                                 const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(1);
-                                if (newLockOutput.scriptPubKey != script || newLockOutput.nValue < checker.GetValueIn() - withdrawVal)
+                                if (!newLockOutput.nValue.IsAmount() || !checker.GetValueIn().IsAmount())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN);
+                                if (newLockOutput.scriptPubKey != script || newLockOutput.nValue.GetAmount() < checker.GetValueIn().GetAmount() - withdrawVal)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 const CTxOut withdrawOutput = checker.GetOutputOffsetFromCurrent(0);
-                                if (withdrawOutput.nValue < withdrawVal)
+                                if (!withdrawOutput.nValue.IsAmount())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VALUES_HIDDEN);
+                                if (withdrawOutput.nValue.GetAmount() < withdrawVal)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 uint256 locktxHash = locktx.GetHash();
@@ -1247,7 +1259,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 #ifndef FEDERATED_PEG_SIDECHAIN_ONLY
                                     << 42 // (TODO: Measure of work from genesis to proof tip)
 #endif
-                                    << CScriptNum(withdrawOutput.nValue - withdrawVal) // Fraud bounty
+                                    << CScriptNum(withdrawOutput.nValue.GetAmount() - withdrawVal) // Fraud bounty
                                     << vsecondScriptPubKeyHash << vgenesisHash << OP_REORGPROOFVERIFY << OP_ELSE;
                                 // << lockTime << OP_CHECKSEQUENCEVERIFY << OP_DROP << OP_HASH160
                                 // << std::vector<unsigned char>(vcontract.begin() + 4, vcontract.begin() + 24) << OP_EQUAL << OP_ENDIF;
@@ -1291,7 +1303,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 // 3. relative locktime
                                 // 4. <1> indicating we are checking a withdraw proof
                                 withdrawStack.push_back(CScriptNum(checker.GetTransactionFee()).getvch());
-                                withdrawStack.push_back(CScriptNum(withdrawOutput.nValue - withdrawVal).getvch());
+                                withdrawStack.push_back(CScriptNum(withdrawOutput.nValue.GetAmount() - withdrawVal).getvch());
                                 withdrawStack.push_back(vlockTime);
                                 withdrawStack.push_back(std::vector<unsigned char>(1, 1));
 #ifndef FEDERATED_PEG_SIDECHAIN_ONLY
@@ -1453,7 +1465,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (newLockOutput.scriptPubKey != (CScript() << vgenesisHash << vsecondScriptPubKeyHash << OP_WITHDRAWPROOFVERIFY))
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_OUTPUT);
                                 CAmount fraudBounty = CScriptNum(vfraudBountyValue, fRequireMinimal, 8).getint64();
-                                if (newLockOutput.nValue < checker.GetValueIn() - fraudBounty)
+                                if (!newLockOutput.nValue.IsAmount() || !checker.GetValueIn().IsAmount())
+                                    return set_error(serror, SCRIPT_ERR_REORG_VALUES_HIDDEN);
+                                if (newLockOutput.nValue.GetAmount() < checker.GetValueIn().GetAmount() - fraudBounty)
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY_FRAUD_OUTPUT);
 
                                 //TODO: if (!checker.IsInBlockTreeAboveMe(merkleBlock.header.GetHash()))
