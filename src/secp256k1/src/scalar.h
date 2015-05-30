@@ -21,9 +21,6 @@
 #error "Please select scalar implementation"
 #endif
 
-static void secp256k1_scalar_start(void);
-static void secp256k1_scalar_stop(void);
-
 /** Clear a scalar to prevent the leak of sensitive data. */
 static void secp256k1_scalar_clear(secp256k1_scalar_t *r);
 
@@ -51,6 +48,10 @@ static void secp256k1_scalar_add_bit(secp256k1_scalar_t *r, unsigned int bit);
 /** Multiply two scalars (modulo the group order). */
 static void secp256k1_scalar_mul(secp256k1_scalar_t *r, const secp256k1_scalar_t *a, const secp256k1_scalar_t *b);
 
+/** Shift a scalar right by some amount strictly between 0 and 16, returning
+ *  the low bits that were shifted off */
+static int secp256k1_scalar_shr_int(secp256k1_scalar_t *r, int n);
+
 /** Compute the square of a scalar (modulo the group order). */
 static void secp256k1_scalar_sqr(secp256k1_scalar_t *r, const secp256k1_scalar_t *a);
 
@@ -72,6 +73,10 @@ static int secp256k1_scalar_is_one(const secp256k1_scalar_t *a);
 /** Check whether a scalar is higher than the group order divided by 2. */
 static int secp256k1_scalar_is_high(const secp256k1_scalar_t *a);
 
+/** Make a scalar odd, by negating it if necessary, in constant time.
+ * Returns -1 if the number was negated, 1 otherwise */
+static int secp256k1_scalar_wnaf_force_odd(secp256k1_scalar_t *a);
+
 #ifndef USE_NUM_NONE
 /** Convert a scalar to a number. */
 static void secp256k1_scalar_get_num(secp256k1_num_t *r, const secp256k1_scalar_t *a);
@@ -83,9 +88,9 @@ static void secp256k1_scalar_order_get_num(secp256k1_num_t *r);
 /** Compare two scalars. */
 static int secp256k1_scalar_eq(const secp256k1_scalar_t *a, const secp256k1_scalar_t *b);
 
-static void secp256k1_scalar_split_128(secp256k1_scalar_t *r1, secp256k1_scalar_t *r2, const secp256k1_scalar_t *a);
-
 #ifdef USE_ENDOMORPHISM
+/** Find r1 and r2 such that r1+r2*2^128 = a. */
+static void secp256k1_scalar_split_128(secp256k1_scalar_t *r1, secp256k1_scalar_t *r2, const secp256k1_scalar_t *a);
 /** Find r1 and r2 such that r1+r2*lambda = a, and r1 and r2 are maximum 128 bits long (see secp256k1_gej_mul_lambda). */
 static void secp256k1_scalar_split_lambda_var(secp256k1_scalar_t *r1, secp256k1_scalar_t *r2, const secp256k1_scalar_t *a);
 #endif
