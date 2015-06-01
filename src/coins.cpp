@@ -4,6 +4,7 @@
 
 #include "coins.h"
 
+#include "chainparams.h"
 #include "random.h"
 
 #include <assert.h>
@@ -257,40 +258,50 @@ extern secp256k1_context* secp256k1_bitcoin_verify_context;
 
 bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
 {
-    CAmount nPlainAmount = excess;
+    CAmountMap nPlainAmounts;
+    // TODO restore multi-asset block rewards
+    nPlainAmounts[Params().HashGenesisBlock()] = excess;
     std::vector<unsigned char> vchData;
-    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    std::map<CAssetID, std::vector<unsigned char *> > vpchCommitsInMap, vpchCommitsOutMap;
     bool fNullRangeproof = false;
     vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
     unsigned char *p = vchData.data();
     if (!tx.IsCoinBase())
     {
-        for (size_t i = 0; i < tx.vin.size(); ++i)
+        // The first input is null for asset definition transactions
+        for (unsigned int i = tx.IsAssetDefinition() ? 1 : 0; i < tx.vin.size(); ++i)
         {
-            const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
+            const CTxOut& txOut = GetOutputFor(tx.vin[i]);
+            const CTxOutValue& val = txOut.nValue;
+            const CAssetID assetID = txOut.assetID.IsNull() ? CAssetID(tx.vin[i].prevout.hash) : txOut.assetID;
             if (val.IsAmount())
-                nPlainAmount -= val.GetAmount();
+                nPlainAmounts[assetID] -= val.GetAmount();
             else
             {
+                // Touch the asset ID in the map to later iterate
+                nPlainAmounts[assetID] += 0;
                 assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
                 memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-                vpchCommitsIn.push_back(p);
+                vpchCommitsInMap[assetID].push_back(p);
                 p += CTxOutValue::nCommitmentSize;
             }
         }
     }
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
-        const CTxOutValue& val = tx.vout[i].nValue;
+        const CTxOut& txOut = tx.vout[i];
+        const CTxOutValue& val = txOut.nValue;
         assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
         if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
             return false;
         if (val.IsAmount())
-            nPlainAmount += val.GetAmount();
+            nPlainAmounts[txOut.assetID] += val.GetAmount();
         else
         {
+            // Touch the asset ID in the map to later iterate
+            nPlainAmounts[txOut.assetID] += 0;
             memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-            vpchCommitsOut.push_back(p);
+            vpchCommitsOutMap[txOut.assetID].push_back(p);
             p += CTxOutValue::nCommitmentSize;
 
             if (val.vchRangeproof.empty())
@@ -298,17 +309,33 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& exces
         }
     }
 
+    for(std::map<CAssetID, CAmount>::const_iterator it = nPlainAmounts.begin(); it != nPlainAmounts.end(); ++it) {
+        const CAssetID& assetID = it->first;
+        const CAmount& nPlainAmount  = nPlainAmounts[assetID];
+        std::vector<unsigned char *>& vpchCommitsIn = vpchCommitsInMap[assetID];
+        std::vector<unsigned char *>& vpchCommitsOut = vpchCommitsOutMap[assetID];
     // If there are no encrypted input or output values, we can do simple math
-    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
-        return (nPlainAmount == 0);
+        if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0) {
+            // Within an asset definition transaction, the asset being defined is identified with a 0
+            if (assetID.IsNull()) {
+                // Only asset definitions can have null asset IDs in outputs
+                if (!tx.IsAssetDefinition())
+                    return false;
+                // Cannot issue negative amounts
+                if (nPlainAmount < 0)
+                    return false;
+            } else if (nPlainAmount != 0)
+                return false;
+        } else {
+            // Newly issued assets cannot be confidential
+            if (assetID.IsNull())
+                return false;
 
     if (!secp256k1_pedersen_verify_tally(secp256k1_bitcoin_verify_context, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount))
         return false;
 
-    // Rangeproof is optional in this case
-    if ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof)
-        return true;
-
+            // Rangeproof is optional in case none of the conditions are satisfied
+            if (!fNullRangeproof || vpchCommitsIn.empty() || vpchCommitsOut.size() != 1 || nPlainAmount > 0) {
     uint64_t min_value, max_value;
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
@@ -317,6 +344,9 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& exces
             continue;
         if (!secp256k1_rangeproof_verify(secp256k1_bitcoin_verify_context, &min_value, &max_value, &val.vchCommitment[0], val.vchRangeproof.data(), val.vchRangeproof.size()))
             return false;
+    }
+            }
+        }
     }
 
     return true;
