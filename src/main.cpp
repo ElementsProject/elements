@@ -775,7 +775,9 @@ int64_t CheckLockTime(const CTransaction &tx, int flags)
     // Timestamps on the other hand don't get any special treatment,
     // because we can't know what timestamp the next block will have,
     // and there aren't timestamp applications where it matters.
-    const int64_t nBlockTime = GetAdjustedTime();
+    int64_t nBlockTime = GetAdjustedTime();
+    if (flags & LOCKTIME_MEDIAN_TIME_PAST)
+        nBlockTime -= ((CBlockIndex::nMedianTimeSpan + 1) >> 1) * Params().GetConsensus().nPowTargetSpacing;
 
     return LockTime(tx, flags, pCoinsView, nBlockHeight, nBlockTime);
 }
@@ -1051,10 +1053,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         view.SetBackend(dummy);
         }
 
+        int nLockTimeFlags = 0;
+        int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
+                                ? chainActive.Tip()->GetMedianTimePast()
+                                : GetAdjustedTime();
+
         // Only accept nLockTime-using transactions that can be mined in the next
         // block; we don't want our mempool filled up with transactions that can't
         // be mined yet.
-        if (LockTime(tx, 0, &view, chainActive.Height() + 1, GetAdjustedTime()))
+        if (LockTime(tx, nLockTimeFlags, &view, chainActive.Height() + 1, nLockTimeCutoff))
             return state.DoS(0, error("AcceptToMemoryPool: non-final"),
                              REJECT_NONSTANDARD, "non-final");
 
@@ -2862,7 +2869,10 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     // Check that all transactions are finalized
     BOOST_FOREACH(const CTransaction& tx, block.vtx) {
         int nLockTimeFlags = 0;
-        if (LockTime(tx, nLockTimeFlags, pcoinsTip, nHeight, block.GetBlockTime()))
+        int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
+                                ? pindexPrev->GetMedianTimePast()
+                                : block.GetBlockTime();
+        if (LockTime(tx, nLockTimeFlags, pcoinsTip, nHeight, nLockTimeCutoff))
             return state.DoS(10, error("%s: contains a non-final transaction", __func__), REJECT_INVALID, "bad-txns-nonfinal");
     }
 
