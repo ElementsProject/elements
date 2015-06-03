@@ -795,7 +795,8 @@ int64_t CheckLockTime(const CTransaction &tx, int flags)
     // current network-enforced consensus rules should be used. In
     // a future soft-fork scenario that would mean an
     // IsSuperMajority check against chainActive.Tip().
-    flags = std::max(flags, 0);
+    if (flags < 0)
+        flags = LOCKTIME_MEDIAN_TIME_PAST;
 
     // pcoinsTip contains the UTXO set for chainActive.Tip()
     const CCoinsView *pCoinsView = pcoinsTip;
@@ -1091,7 +1092,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Enforce sequnce numbers as relative lock-time
         // only for tx.nVersion >= 2.
-        int nLockTimeFlags = 0;
+        int nLockTimeFlags = LOCKTIME_MEDIAN_TIME_PAST;
         if (tx.nVersion >= 2)
             nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
 
