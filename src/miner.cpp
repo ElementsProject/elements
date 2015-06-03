@@ -161,7 +161,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         {
             const CTransaction& tx = mi->second.GetTx();
 
-            int nLockTimeFlags = 0;
+            int nLockTimeFlags = LOCKTIME_MEDIAN_TIME_PAST;
             int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
                                     ? nMedianTimePast
                                     : pblock->GetBlockTime();

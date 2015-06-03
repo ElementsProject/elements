@@ -227,16 +227,16 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.nLockTime = 0;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    BOOST_CHECK(CheckLockTime(tx, LOCKTIME_VERIFY_SEQUENCE) == chainActive.Tip()->nHeight + 1);
-    BOOST_CHECK(!LockTime(tx, LOCKTIME_VERIFY_SEQUENCE, pcoinsTip, chainActive.Tip()->nHeight + 2, GetTime()));
+    BOOST_CHECK(CheckLockTime(tx, LOCKTIME_VERIFY_SEQUENCE|LOCKTIME_MEDIAN_TIME_PAST) == chainActive.Tip()->nHeight + 1);
+    BOOST_CHECK(!LockTime(tx, LOCKTIME_VERIFY_SEQUENCE|LOCKTIME_MEDIAN_TIME_PAST, pcoinsTip, chainActive.Tip()->nHeight + 2, chainActive.Tip()->GetMedianTimePast()));
 
     // relative time locked
     tx.vin[0].prevout.hash = txFirst[1]->GetHash();
-    tx.vin[0].nSequence = ~(uint32_t)(chainActive.Tip()->GetMedianTimePast()+1-chainActive[1]->GetMedianTimePast()+LOCKTIME_THRESHOLD); // txFirst[1] is the 3rd block
+    tx.vin[0].nSequence = ~(uint32_t)(chainActive.Tip()->GetMedianTimePast()-chainActive[1]->GetMedianTimePast()+LOCKTIME_THRESHOLD); // txFirst[1] is the 3rd block
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    BOOST_CHECK(CheckLockTime(tx, LOCKTIME_VERIFY_SEQUENCE) == chainActive.Tip()->GetMedianTimePast() + 1);
-    BOOST_CHECK(!LockTime(tx, LOCKTIME_VERIFY_SEQUENCE, pcoinsTip, chainActive.Tip()->nHeight + 1, GetTime() + 1));
+    BOOST_CHECK(CheckLockTime(tx, LOCKTIME_VERIFY_SEQUENCE|LOCKTIME_MEDIAN_TIME_PAST) == chainActive.Tip()->GetMedianTimePast());
+    BOOST_CHECK(!LockTime(tx, LOCKTIME_VERIFY_SEQUENCE|LOCKTIME_MEDIAN_TIME_PAST, pcoinsTip, chainActive.Tip()->nHeight + 1, chainActive.Tip()->GetMedianTimePast() + 1));
 
     // absolute height locked
     tx.vin[0].prevout.hash = txFirst[2]->GetHash();
@@ -244,16 +244,16 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.nLockTime = chainActive.Tip()->nHeight + 1;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    BOOST_CHECK(CheckLockTime(tx, 0) == chainActive.Tip()->nHeight + 1);
-    BOOST_CHECK(!LockTime(tx, 0, pcoinsTip, chainActive.Tip()->nHeight + 2, GetTime()));
+    BOOST_CHECK(CheckLockTime(tx, LOCKTIME_MEDIAN_TIME_PAST) == chainActive.Tip()->nHeight + 1);
+    BOOST_CHECK(!LockTime(tx, LOCKTIME_MEDIAN_TIME_PAST, pcoinsTip, chainActive.Tip()->nHeight + 2, chainActive.Tip()->GetMedianTimePast()));
 
     // absolute time locked
     tx.vin[0].prevout.hash = txFirst[3]->GetHash();
-    tx.nLockTime = chainActive.Tip()->GetMedianTimePast() + 1;
+    tx.nLockTime = chainActive.Tip()->GetMedianTimePast();
     hash = tx.GetHash();
     mempool.addUnchecked(hash, CTxMemPoolEntry(tx, 11, GetTime(), 111.0, 11));
-    BOOST_CHECK(CheckLockTime(tx, 0) == chainActive.Tip()->GetMedianTimePast() + 1);
-    BOOST_CHECK(!LockTime(tx, 0, pcoinsTip, chainActive.Tip()->nHeight + 1, GetTime() + 1));
+    BOOST_CHECK(CheckLockTime(tx, LOCKTIME_MEDIAN_TIME_PAST) == chainActive.Tip()->GetMedianTimePast());
+    BOOST_CHECK(!LockTime(tx, LOCKTIME_MEDIAN_TIME_PAST, pcoinsTip, chainActive.Tip()->nHeight + 1, chainActive.Tip()->GetMedianTimePast() + 1));
 
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
 
@@ -267,7 +267,7 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     SetMockTime(chainActive.Tip()->GetMedianTimePast() + 2);
 
     BOOST_CHECK(pblocktemplate = CreateNewBlock(scriptPubKey));
-    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 5);
+    BOOST_CHECK_EQUAL(pblocktemplate->block.vtx.size(), 4);
     delete pblocktemplate;
 
     chainActive.Tip()->nHeight--;
