@@ -145,6 +145,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         CBlockIndex* pindexPrev = chainActive.Tip();
         const int nHeight = pindexPrev->nHeight + 1;
         pblock->nTime = GetAdjustedTime();
+        const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
         CCoinsViewCache view(pcoinsTip);
 
         // Priority order to process transactions
@@ -159,7 +160,13 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
              mi != mempool.mapTx.end(); ++mi)
         {
             const CTransaction& tx = mi->second.GetTx();
-            if (tx.IsCoinBase() || LockTime(tx, 0, &view, nHeight, pblock->nTime))
+
+            int nLockTimeFlags = 0;
+            int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
+                                    ? nMedianTimePast
+                                    : pblock->GetBlockTime();
+
+            if (tx.IsCoinBase() || LockTime(tx, nLockTimeFlags, &view, nHeight, nLockTimeCutoff))
                 continue;
 
             COrphan* porphan = NULL;
