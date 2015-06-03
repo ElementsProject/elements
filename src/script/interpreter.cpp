@@ -1123,8 +1123,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                             try {
                                 CMerkleBlock merkleBlock;
-                                CDataStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION) >> merkleBlock;
-                                if (!CheckProofOfWork(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
+                                CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION);
+                                merkleBlockStream >> merkleBlock;
+                                if (!merkleBlockStream.empty() || !CheckProofOfWork(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
 
                                 vector<uint256> txHashes;
@@ -1142,7 +1143,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 #endif
 
                                 CTransaction locktx;
-                                CDataStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION) >> locktx;
+                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION);
+                                locktxStream >> locktx;
+                                if (!locktxStream.empty())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
 
                                 int nlocktxOut = CScriptNum(vlockTxOutIndex, fRequireMinimal).getint();
                                 if (nlocktxOut < 0 || (unsigned int)nlocktxOut >= locktx.vout.size())
@@ -1152,7 +1156,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
 
                                 CTransaction coinbasetx;
-                                CDataStream(vlockCoinbaseTx, SER_NETWORK, PROTOCOL_VERSION) >> coinbasetx;
+                                CDataStream coinbasetxStream(vlockCoinbaseTx, SER_NETWORK, PROTOCOL_VERSION);
+                                coinbasetxStream >> coinbasetx;
+                                if (!coinbasetxStream.empty())
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
 
                                 if (coinbasetx.GetHash() != txHashes[0] || !coinbasetx.IsCoinBase())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY);
@@ -1357,8 +1364,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                             try {
                                 CMerkleBlock merkleBlockInputTx;
-                                CDataStream(vmerkleBlockInputTx, SER_NETWORK, PROTOCOL_VERSION) >> merkleBlockInputTx;
-                                if (!CheckProofOfWork(merkleBlockInputTx.header.GetHash(), merkleBlockInputTx.header.nBits))
+                                CDataStream merkleBlockInputTxStream(vmerkleBlockInputTx, SER_NETWORK, PROTOCOL_VERSION);
+                                merkleBlockInputTxStream >> merkleBlockInputTx;
+                                if (!merkleBlockInputTxStream.empty() || !CheckProofOfWork(merkleBlockInputTx.header.GetHash(), merkleBlockInputTx.header.nBits))
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
 
                                 vector<uint256> inputTxHashes;
@@ -1371,7 +1379,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
 
                                 CTransaction originalWithdrawTx;
-                                CDataStream(voriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION) >> originalWithdrawTx;
+                                CDataStream originalWithdrawTxStream(voriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION);
+                                originalWithdrawTxStream >> originalWithdrawTx;
+                                if (!originalWithdrawTxStream.empty())
+                                    return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
 
                                 CMerkleBlock merkleBlockOriginalWithdrawTx;
                                 vector<uint256> originalWithdrawHashes;
@@ -1380,8 +1391,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     if (!WithdrawProofReadStackItem(stack, fRequireMinimal, &stackReadPos, vmerkleBlockOriginalWithdrawTx))
                                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
-                                    CDataStream(vmerkleBlockOriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION) >> merkleBlockOriginalWithdrawTx;
-                                    if (!CheckProofOfWork(merkleBlockOriginalWithdrawTx.header.GetHash(), merkleBlockOriginalWithdrawTx.header.nBits))
+                                    CDataStream merkleBlockOriginalWithdrawTxStream(vmerkleBlockOriginalWithdrawTx, SER_NETWORK, PROTOCOL_VERSION);
+                                    merkleBlockOriginalWithdrawTxStream >> merkleBlockOriginalWithdrawTx;
+                                    if (!merkleBlockOriginalWithdrawTxStream.empty() || !CheckProofOfWork(merkleBlockOriginalWithdrawTx.header.GetHash(), merkleBlockOriginalWithdrawTx.header.nBits))
                                         return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
 
                                     if (merkleBlockOriginalWithdrawTx.txn.ExtractMatches(originalWithdrawHashes) != merkleBlockOriginalWithdrawTx.header.hashMerkleRoot)
@@ -1401,8 +1413,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 const CTxIn& originalWithdrawTxInput = originalWithdrawTx.vin[noriginalWithdrawTxIn];
 
                                 CTransaction originalWithdrawOutputTx;
-                                CDataStream(voriginalWithdrawOutputTx, SER_NETWORK, PROTOCOL_VERSION) >> originalWithdrawOutputTx;
-                                if (originalWithdrawTxInput.prevout.hash != originalWithdrawOutputTx.GetHash())
+                                CDataStream originalWithdrawOutputTxStream(voriginalWithdrawOutputTx, SER_NETWORK, PROTOCOL_VERSION);
+                                originalWithdrawOutputTxStream >> originalWithdrawOutputTx;
+                                if (!originalWithdrawOutputTxStream.empty() || originalWithdrawTxInput.prevout.hash != originalWithdrawOutputTx.GetHash())
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
                                 if (originalWithdrawOutputTx.vout.size() <= originalWithdrawTxInput.prevout.n)
                                     return set_error(serror, SCRIPT_ERR_REORG_VERIFY);
