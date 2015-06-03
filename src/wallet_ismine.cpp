@@ -85,6 +85,8 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
             return ISMINE_SPENDABLE;
         break;
     }
+    case TX_TRUE:
+        return ISMINE_SPENDABLE;
     }
 
     if (keystore.HaveWatchOnly(scriptPubKey))

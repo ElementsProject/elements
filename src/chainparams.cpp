@@ -247,6 +247,17 @@ public:
         genesis.proof = CProof(0x207fffff, 2);
         nDefaultPort = 18444;
 
+        CMutableTransaction txNew(genesis.vtx[0]);
+        txNew.vout.resize(2);
+        txNew.vout[0].nValue = MAX_MONEY / 2;
+        txNew.vout[1].nValue = MAX_MONEY / 2;
+        txNew.vout[1].scriptPubKey = CScript() << OP_TRUE;
+        genesis.vtx[0] = CTransaction(txNew);
+
+        CScript scriptDestination(CScript() << OP_TRUE);
+        genesis.proof = CProof(scriptDestination, CScript()); // genesis block gets a PoW pass
+        genesis.hashMerkleRoot = genesis.BuildMerkleTree();
+
         hashGenesisBlock = genesis.GetHash();
         mapCheckpointsRegtest[0] = hashGenesisBlock;
 

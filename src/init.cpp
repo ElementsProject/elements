@@ -1191,7 +1191,6 @@ bool AppInit2(boost::thread_group& threadGroup)
                 strErrors << _("Cannot downgrade wallet") << "\n";
             pwalletMain->SetMaxVersion(nMaxVersion);
         }
-
         if (fFirstRun)
         {
             // Create new keyUser and set as default key
@@ -1211,6 +1210,11 @@ bool AppInit2(boost::thread_group& threadGroup)
         LogPrintf(" wallet      %15dms\n", GetTimeMillis() - nStart);
 
         RegisterValidationInterface(pwalletMain);
+
+        CBlock block = Params().GenesisBlock();
+        BOOST_FOREACH(const CTransaction &tx, block.vtx) {
+            SyncWithWallets(tx, &block);
+        }
 
         CBlockIndex *pindexRescan = chainActive.Tip();
         if (GetBoolArg("-rescan", false))

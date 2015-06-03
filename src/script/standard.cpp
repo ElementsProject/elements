@@ -32,6 +32,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_NULL_DATA: return "nulldata";
     case TX_WITHDRAW_LOCK: return "withdraw";
     case TX_WITHDRAW_OUT: return "withdrawout";
+    case TX_TRUE: return "true";
     }
     return NULL;
 }
@@ -58,6 +59,9 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         if (GetBoolArg("-datacarrier", true))
             mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN << OP_SMALLDATA));
         mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN));
+
+        // OP_TRUE scriptPubKey
+        mTemplates.insert(make_pair(TX_TRUE, CScript() << OP_TRUE));
     }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:
@@ -192,6 +196,8 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
         return vSolutions[0][0] + 1;
     case TX_SCRIPTHASH:
         return 1; // doesn't include args needed by the script
+    case TX_TRUE:
+        return 0;
     }
     return -1;
 }
@@ -202,15 +208,22 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
-    if (whichType == TX_MULTISIG)
-    {
-        unsigned char m = vSolutions.front()[0];
-        unsigned char n = vSolutions.back()[0];
-        // Support up to x-of-3 multisig txns as standard
-        if (n < 1 || n > 3)
+    switch (whichType) {
+        case TX_MULTISIG:
+        {
+            unsigned char m = vSolutions.front()[0];
+            unsigned char n = vSolutions.back()[0];
+            // Support up to x-of-3 multisig txns as standard
+            if (n < 1 || n > 3)
+                return false;
+            if (m < 1 || m > n)
+                return false;
+            break;
+        }
+        case TX_TRUE:
             return false;
-        if (m < 1 || m > n)
-            return false;
+        default:
+            break;
     }
 
     return whichType != TX_NONSTANDARD;

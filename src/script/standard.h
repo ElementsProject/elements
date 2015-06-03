@@ -66,6 +66,7 @@ enum txnouttype
     TX_NULL_DATA,
     TX_WITHDRAW_LOCK,
     TX_WITHDRAW_OUT,
+    TX_TRUE,
 };
 
 class CNoDestination {
