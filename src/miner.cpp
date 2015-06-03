@@ -163,7 +163,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
             // Enforce sequnce numbers as relative lock-time
             // only for tx.nVersion >= 2.
-            int nLockTimeFlags = 0;
+            int nLockTimeFlags = LOCKTIME_MEDIAN_TIME_PAST;
             if (tx.nVersion >= 2)
                 nLockTimeFlags |= LOCKTIME_VERIFY_SEQUENCE;
 
