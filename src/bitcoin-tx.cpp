@@ -70,7 +70,7 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = _("Commands:") + "\n";
         strUsage += "  delin=N                " + _("Delete input N from TX") + "\n";
         strUsage += "  delout=N               " + _("Delete output N from TX") + "\n";
-        strUsage += "  in=TXID:VOUT           " + _("Add input to TX") + "\n";
+        strUsage += "  in=TXID:VOUT[:SEQ]     " + _("Add input to TX") + "\n";
         strUsage += "  locktime=N             " + _("Set TX lock time to N") + "\n";
         strUsage += "  nversion=N             " + _("Set TX version to N") + "\n";
         strUsage += "  outaddr=VALUE:ADDRESS  " + _("Add address-based output to TX") + "\n";
@@ -196,14 +196,41 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     static const unsigned int minTxOutSz = 9;
     static const unsigned int maxVout = MAX_BLOCK_SIZE / minTxOutSz;
 
-    // extract and validate vout
+    // Remove txid
     string strVout = strInput.substr(pos + 1, string::npos);
+
+    // extract and validate sequence number
+    uint32_t nSequence = ~(uint32_t)0;
+    pos = strVout.find(':');
+    if (pos != string::npos) {
+        if ((pos == 0) || (pos == (strVout.size() - 1)))
+            throw runtime_error("empty TX input field");
+
+        string strSeq = strVout.substr(pos + 1, string::npos);
+        strVout.resize(pos);
+        int64_t nSeq = atoi64(strSeq);
+
+        // Allow e.g. -1 to be used for 0xffffffff
+        if (nSeq < 0)
+            nSeq += ((int64_t)std::numeric_limits<uint32_t>::max()) + 1;
+
+        // Range check
+        if (nSeq < std::numeric_limits<uint32_t>::min() ||
+            nSeq > std::numeric_limits<uint32_t>::max())
+        {
+            throw runtime_error("invalid TX input sequence");
+        }
+
+        nSequence = (uint32_t)nSeq;
+    }
+
+    // extract and validate vout
     int vout = atoi(strVout);
     if ((vout < 0) || (vout > (int)maxVout))
         throw runtime_error("invalid TX input vout");
 
     // append to transaction input list
-    CTxIn txin(txid, vout);
+    CTxIn txin(txid, vout, CScript(), nSequence);
     tx.vin.push_back(txin);
 }
 
