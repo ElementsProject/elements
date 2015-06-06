@@ -113,6 +113,8 @@ bool DecodeHexTx(CTransaction& tx, const std::string& strHexTx, bool fTryNoWitne
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
     try {
         ssData >> tx;
+        if (!ssData.empty())
+            return false;
     }
     catch (const std::exception&) {
         return false;
