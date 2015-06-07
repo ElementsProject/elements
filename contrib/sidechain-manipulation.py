@@ -18,7 +18,7 @@ bitcoin_genesis_hash = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b6
 #Testnet:
 #bitcoin_genesis_hash = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
 
-sidechain_tx_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../sidechain-tx")
+sidechain_tx_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../alpha-tx")
 
 contracthashtool_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../contracthashtool/contracthashtool")
 is_testnet = 1
