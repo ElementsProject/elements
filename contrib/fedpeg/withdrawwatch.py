@@ -579,7 +579,7 @@ try:
 
 	print("Step 2. Bitcoin blockchain scan for withdraws completed and coins to functionaries...")
 	bitcoin_block_count = bitcoin[thread_id()].getblockcount()
-	process_confirmed_bitcoin_blockchain(1, bitcoin_block_count - 5)
+	process_confirmed_bitcoin_blockchain(447000, bitcoin_block_count - 5)
 	print("done")
 
 	sys.stdout.write("Step 3. Bitcoin blockchain rescan to load functionary outputs in wallet...")

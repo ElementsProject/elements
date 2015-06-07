@@ -92,7 +92,7 @@ public:
         pchMessageStart[1] = 0xbe;
         pchMessageStart[2] = 0xb4;
         pchMessageStart[3] = 0xd9;
-        scriptAlert = CScript() << OP_TRUE;
+        scriptAlert = CScript() << CScript::EncodeOP_N(2) << ParseHex("0322f29893482dad4de143544fa623b6f68406c61d24d021652f627a6eecb0bd93") << ParseHex("0230ec0caeb5ff100bd4be3d8dbeb00bcbbf1ad98d87fbbaff533d20754ac10025") << ParseHex("03ec379a7e837ad1310ac9b35dca14e44eaaf4ce0289d12ccf6f61785fc377f528") << CScript::EncodeOP_N(3) << OP_CHECKMULTISIG;
         nDefaultPort = 8333;
         bnProofOfWorkLimit = ~uint256(0) >> 32;
         nSubsidyHalvingInterval = 210000;
@@ -127,7 +127,8 @@ public:
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
         genesis.nVersion = 1;
         genesis.nTime    = 1231006505;
-        genesis.proof = CProof(0x1d00ffff, 2083236893);
+        CScript scriptDestination(CScript() << OP_5 << ParseHex("027d5d62861df77fc9a37dbe901a579d686d1423be5f56d6fc50bb9de3480871d1") << ParseHex("03b41ea6ba73b94c901fdd43e782aaf70016cc124b72a086e77f6e9f4f942ca9bb") << ParseHex("02be643c3350bade7c96f6f28d1750af2ef507bc1f08dd38f82749214ab90d9037") << ParseHex("021df31471281d4478df85bfce08a10aab82601dca949a79950f8ddf7002bd915a") << ParseHex("0320ea4fcf77b63e89094e681a5bd50355900bf961c10c9c82876cb3238979c0ed") << ParseHex("021c4c92c8380659eb567b497b936b274424662909e1ffebc603672ed8433f4aa1") << ParseHex("027841250cfadc06c603da8bc58f6cd91e62f369826c8718eb6bd114601dd0c5ac") << OP_7 << OP_CHECKMULTISIG);
+        genesis.proof = CProof(scriptDestination, CScript()); // genesis block gets a PoW pass
 
         hashGenesisBlock = genesis.GetHash();
         mapCheckpoints[0] = hashGenesisBlock;
@@ -172,11 +173,11 @@ public:
     CTestNetParams() {
         networkID = CBaseChainParams::TESTNET;
         strNetworkID = "test";
-        pchMessageStart[0] = 0x0b;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x09;
-        pchMessageStart[3] = 0x07;
-        nDefaultPort = 18333;
+        pchMessageStart[0] = 0xee;
+        pchMessageStart[1] = 0xa1;
+        pchMessageStart[2] = 0x1f;
+        pchMessageStart[3] = 0xfa;
+        nDefaultPort = 4242;
         nEnforceBlockUpgradeMajority = 51;
         nRejectBlockOutdatedMajority = 75;
         nToCheckBlockUpgradeMajority = 100;
@@ -186,17 +187,13 @@ public:
 
         //! Modify the testnet genesis block so the timestamp is valid for a later start.
         genesis.nTime = 1296688602;
-        genesis.proof = CProof(0x1d00ffff, 414098458);
 
         hashGenesisBlock = genesis.GetHash();
         mapCheckpointsTestnet[0] = hashGenesisBlock;
 
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("alexykot.me", "testnet-seed.alexykot.me"));
-        vSeeds.push_back(CDNSSeedData("bitcoin.petertodd.org", "testnet-seed.bitcoin.petertodd.org"));
-        vSeeds.push_back(CDNSSeedData("bluematt.me", "testnet-seed.bluematt.me"));
-        vSeeds.push_back(CDNSSeedData("bitcoin.schildbach.de", "testnet-seed.bitcoin.schildbach.de"));
+        vSeeds.push_back(CDNSSeedData("bluematt.me", "alpha-seed.bluematt.me"));
 
         base58Prefixes[PUBKEY_ADDRESS] = list_of(111);
         base58Prefixes[SCRIPT_ADDRESS] = list_of(196);
@@ -243,7 +240,6 @@ public:
         nTargetSpacing = 10 * 60;
         bnProofOfWorkLimit = ~uint256(0) >> 1;
         genesis.nTime = 1296688602;
-        genesis.proof = CProof(0x207fffff, 2);
         nDefaultPort = 18444;
 
         CMutableTransaction txNew(genesis.vtx[0]);

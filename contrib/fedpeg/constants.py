@@ -7,8 +7,8 @@ class FedpegConstants:
 	sidechain_url = "http://user:pass@127.0.0.1:4241"
 	bitcoin_url = "http://user:pass@127.0.0.1:18332"
 
-	redeem_script = "53210300ce2bc14b316474085b4037d126e948042d625f15502c7c9fab01a1a219e79b21021df31471281d4478df85bfce08a10aab82601dca949a79950f8ddf7002bd915a2103b426a9d88f3116fb4beeb4ccadaca9a52071cb8745c469c7b06a9141f9d54b3021023f37702bbe29dccba705cbb38fcdc3b1c19671693fdd3d84707d738a4625598d2103f08409b15dc6cc051b8a640d14c90eee98312d56d1fd4032408d12646acb73b255ae"
-	redeem_script_address = "2N3cy1E6jX1penE8QVsV1piyikvooib4ZCA"
+	redeem_script = "55210269992fb441ae56968e5b77d46a3e53b69f136444ae65a94041fc937bdb28d93321021df31471281d4478df85bfce08a10aab82601dca949a79950f8ddf7002bd915a2102174c82021492c2c6dfcbfa4187d10d38bed06afb7fdcd72c880179fddd641ea121033f96e43d72c33327b6a4631ccaa6ea07f0b106c88b9dc71c9000bb6044d5e88a210313d8748790f2a86fb524579b46ce3c68fedd58d2a738716249a9f7d5458a15c221030b632eeb079eb83648886122a04c7bf6d98ab5dfb94cf353ee3e9382a4c2fab02102fb54a7fcaa73c307cfd70f3fa66a2e4247a71858ca731396343ad30c7c4009ce57ae"
+	redeem_script_address = "2N353JioQVxQPpCmeidjsb8kRX28TYXtBtc"
 	secondScriptPubKeyHash = "9eac001049d5c38ece8996485418421f4a01e2d7"
 
 	blocksigning_private_key = "FILL_ME_IN"
@@ -23,7 +23,7 @@ class FedpegConstants:
 	#Testnet:
 	#bitcoin_genesis_hash = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
 
-	nodes = ["127.0.0.1"]
+	nodes =["WARREN", "GWILLEN", "LUKE-JR/WIZKID", "MAAKU", "APOELSTRA", "MATT", "GMAXWELL"]
 	my_node = "FILL_ME_IN"
 
 	# Set this to non-None if you're using a proxy (eg for Tor)
