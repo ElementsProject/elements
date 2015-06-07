@@ -511,6 +511,10 @@ bool InitSanityCheck(void)
  */
 bool AppInit2(boost::thread_group& threadGroup)
 {
+    if (Params().NetworkIDString() == "main") {
+        return InitError("Error: Elements Alpha does not support main network.");
+    }
+
     // ********************************************************* Step 1: setup
 #ifdef _MSC_VER
     // Turn off Microsoft heap dump noise

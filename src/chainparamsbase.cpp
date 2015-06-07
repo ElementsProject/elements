@@ -23,6 +23,7 @@ public:
     {
         networkID = CBaseChainParams::MAIN;
         nRPCPort = 8332;
+        strDataDir = "alphamain";
     }
 };
 static CBaseMainParams mainParams;
@@ -102,7 +103,7 @@ void SelectBaseParams(CBaseChainParams::Network network)
 CBaseChainParams::Network NetworkIdFromCommandLine()
 {
     bool fRegTest = GetBoolArg("-regtest", false);
-    bool fTestNet = GetBoolArg("-testnet", false);
+    bool fTestNet = GetBoolArg("-testnet", true);
 
     if (fTestNet && fRegTest)
         return CBaseChainParams::MAX_NETWORK_TYPES;
