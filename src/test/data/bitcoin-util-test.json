@@ -1,5 +1,5 @@
 [
-  { "exec": "././bitcoin-tx",
+  { "exec": "././alpha-tx",
     "args": ["-create"],
     "output_cmp": "blanktx.hex"
   }

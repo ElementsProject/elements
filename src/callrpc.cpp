@@ -84,10 +84,10 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth)
         result = find_value(result.get_obj(), "confirmations");
         return result.type() == int_type && result.get_int64() >= nMinConfirmationDepth;
     } catch (CConnectionFailed& e) {
-        LogPrintf("ERROR: Lost connection to bitcoind RPC, you will want to restart after fixing this!\n");
+        LogPrintf("ERROR: Lost connection to alphad RPC, you will want to restart after fixing this!\n");
         return false;
     } catch (...) {
-        LogPrintf("ERROR: Failure connecting to bitcoind RPC, you will want to restart after fixing this!\n");
+        LogPrintf("ERROR: Failure connecting to alphad RPC, you will want to restart after fixing this!\n");
         return false;
     }
     return true;
