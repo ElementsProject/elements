@@ -34,7 +34,7 @@ class WatchPeerController(RotatingConsensus):
 	def round_done(self, peer_messages):
 		mysig = sidechain.signblock(self.round_local_block_hex)
 		peer_messages.append(("self", mysig))
-		sys.stdout.write("Got signatures from %s, now combining..." % str([x[0] for x in peer_messages]))
+		sys.stdout.write("Got signatures from %s, now combining..." % str([x[0] for x in peer_messages if x[1][0] == "0" and x[1][1] == "0" and len(x[1]) == 132]))
 		sys.stdout.flush()
 		res = sidechain.combineblocksigs(self.round_local_block_hex, [x[1] for x in peer_messages])
 		if res["complete"]:
@@ -44,6 +44,9 @@ class WatchPeerController(RotatingConsensus):
 			print("done")
 		else:
 			print("got incomplete block")
+			for x in peer_messages:
+				if x[1][2:] not in res["hex"]:
+					print("Signature from %s was probably useless" % x[0])
 
 	def round_failed(self):
 		self.round_local_block_hex = ""
