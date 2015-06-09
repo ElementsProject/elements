@@ -62,6 +62,7 @@ BOOST_AUTO_TEST_CASE(rpc_addmultisig)
 
 BOOST_AUTO_TEST_CASE(rpc_wallet)
 {
+    SelectParams(CBaseChainParams::FAKE_MAIN);
     // Test RPC calls for various wallet statistics
     Value r;
 
@@ -183,6 +184,7 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
      *********************************/
     BOOST_CHECK_THROW(CallRPC("fundrawtransaction 28z"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("fundrawtransaction 01000000000180969800000000001976a91450ce0a4b0ee0ddeb633da85199728b940ac3fe9488ac00000000"), runtime_error);
+    SelectParams(CBaseChainParams::MAIN);
 }
 
 

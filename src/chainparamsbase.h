@@ -17,9 +17,8 @@ class CBaseChainParams
 public:
     enum Network {
         MAIN,
-        TESTNET,
         REGTEST,
-        UNITTEST,
+        FAKE_MAIN,
 
         MAX_NETWORK_TYPES
     };
@@ -32,7 +31,6 @@ protected:
 
     int nRPCPort;
     std::string strDataDir;
-    Network networkID;
 };
 
 /**

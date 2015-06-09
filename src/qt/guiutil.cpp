@@ -567,7 +567,10 @@ TableViewLastColumnResizingFixer::TableViewLastColumnResizingFixer(QTableView* t
 #ifdef WIN32
 boost::filesystem::path static StartupShortcutPath()
 {
-    return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
+    if (GetBoolArg("-regtest", false))
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (alpha).lnk";
+    else
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (alpharegtest).lnk";
 }
 
 bool GetStartOnSystemStartup()
