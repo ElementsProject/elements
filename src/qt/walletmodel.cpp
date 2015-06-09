@@ -63,7 +63,7 @@ CAmount WalletModel::getBalance(const CCoinControl *coinControl) const
         wallet->AvailableCoins(vCoins, true, coinControl);
         BOOST_FOREACH(const COutput& out, vCoins)
             if(out.fSpendable)
-                nBalance += out.tx->vout[out.i].nValue;
+                nBalance += out.tx->GetValueOut(out.i);
 
         return nBalance;
     }
@@ -192,7 +192,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 {
     CAmount total = 0;
     QList<SendCoinsRecipient> recipients = transaction.getRecipients();
-    std::vector<std::pair<CScript, CAmount> > vecSend;
+    std::vector<CSend> vecSend;
 
     if(recipients.empty())
     {
@@ -216,7 +216,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
                 subtotal += out.amount();
                 const unsigned char* scriptStr = (const unsigned char*)out.script().data();
                 CScript scriptPubKey(scriptStr, scriptStr+out.script().size());
-                vecSend.push_back(std::pair<CScript, CAmount>(scriptPubKey, out.amount()));
+                vecSend.push_back(CSend(scriptPubKey, out.amount()));
             }
             if (subtotal <= 0)
             {
@@ -237,8 +237,13 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             setAddress.insert(rcp.address);
             ++nAddresses;
 
-            CScript scriptPubKey = GetScriptForDestination(CBitcoinAddress(rcp.address.toStdString()).Get());
-            vecSend.push_back(std::pair<CScript, CAmount>(scriptPubKey, rcp.amount));
+            CBitcoinAddress addr(rcp.address.toStdString());
+            CScript scriptPubKey = GetScriptForDestination(addr.Get());
+            CPubKey confidentiality_pubkey;
+            if (addr.IsBlinded()) {
+                confidentiality_pubkey = addr.GetBlindingKey();
+            }
+            vecSend.push_back(CSend(scriptPubKey, rcp.amount, confidentiality_pubkey));
 
             total += rcp.amount;
         }

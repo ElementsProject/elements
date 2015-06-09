@@ -193,6 +193,11 @@ bool CWalletDB::WriteAccountingEntry(const CAccountingEntry& acentry)
     return WriteAccountingEntry(++nAccountingEntryNumber, acentry);
 }
 
+bool CWalletDB::WriteBlindingKey(const CKey& privKey)
+{
+    return Write(std::string("blindingkey"), std::vector<unsigned char>(privKey.begin(), privKey.end()));
+}
+
 CAmount CWalletDB::GetAccountCreditDebit(const string& strAccount)
 {
     list<CAccountingEntry> entries;
@@ -590,6 +595,16 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         }
+        else if (strType == "blindingkey")
+        {
+            assert(!pwallet->blinding_key.IsValid());
+            std::vector<unsigned char> vchBlindingKey;
+            ssValue >> vchBlindingKey;
+            pwallet->blinding_key.Set(vchBlindingKey.begin(), vchBlindingKey.end(), true);
+            if (pwallet->blinding_key.IsValid()) {
+                pwallet->blinding_pubkey = pwallet->blinding_key.GetPubKey();
+            }
+        }
     } catch (...)
     {
         return false;
@@ -700,6 +715,12 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 
     if (wss.fAnyUnordered)
         result = ReorderTransactions(pwallet);
+
+    if (!pwallet->blinding_key.IsValid()) {
+        pwallet->blinding_key.MakeNewKey(true);
+        pwallet->blinding_pubkey = pwallet->blinding_key.GetPubKey();
+        WriteBlindingKey(pwallet->blinding_key);
+    }
 
     return result;
 }

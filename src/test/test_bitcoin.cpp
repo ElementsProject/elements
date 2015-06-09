@@ -4,6 +4,7 @@
 
 #define BOOST_TEST_MODULE Bitcoin Test Suite
 
+#include "blind.h"
 #include "key.h"
 #include "main.h"
 #include "pubkey.h"
@@ -33,6 +34,7 @@ struct TestingSetup {
 
     TestingSetup() {
         ECC_Verify_Start();
+        ECC_Blinding_Start();
         ECC_Start();
         SetupEnvironment();
         fPrintToDebugLog = false; // don't want to write to debug.log file
@@ -77,6 +79,7 @@ struct TestingSetup {
 #endif
         boost::filesystem::remove_all(pathTemp);
         ECC_Stop();
+        ECC_Blinding_Stop();
         ECC_Verify_Stop();
     }
 };

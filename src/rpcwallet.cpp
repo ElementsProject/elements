@@ -110,7 +110,7 @@ Value getnewaddress(const Array& params, bool fHelp)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    return CBitcoinAddress(keyID).ToString();
+    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->blinding_pubkey).ToString();
 }
 
 
@@ -148,7 +148,7 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
         walletdb.WriteAccount(strAccount, account);
     }
 
-    return CBitcoinAddress(account.vchPubKey.GetID());
+    return CBitcoinAddress(account.vchPubKey.GetID()).AddBlindingKey(pwalletMain->blinding_pubkey);
 }
 
 Value getaccountaddress(const Array& params, bool fHelp)
@@ -205,7 +205,7 @@ Value getrawchangeaddress(const Array& params, bool fHelp)
 
     CKeyID keyID = vchPubKey.GetID();
 
-    return CBitcoinAddress(keyID).ToString();
+    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->blinding_pubkey).ToString();
 }
 
 
@@ -310,7 +310,7 @@ Value getaddressesbyaccount(const Array& params, bool fHelp)
     return ret;
 }
 
-void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew)
+void SendMoney(const CTxDestination &address, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
 {
     // Check amount
     if (nValue <= 0)
@@ -333,7 +333,7 @@ void SendMoney(const CTxDestination &address, CAmount nValue, CWalletTx& wtxNew)
     // Create and send the transaction
     CReserveKey reservekey(pwalletMain);
     CAmount nFeeRequired;
-    if (!pwalletMain->CreateTransaction(scriptPubKey, nValue, wtxNew, reservekey, nFeeRequired, strError))
+    if (!pwalletMain->CreateTransaction(scriptPubKey, nValue, confidentiality_key, wtxNew, reservekey, nFeeRequired, strError))
     {
         if (nValue + nFeeRequired > pwalletMain->GetBalance())
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
@@ -373,6 +373,10 @@ Value sendtoaddress(const Array& params, bool fHelp)
 
     // Amount
     CAmount nAmount = AmountFromValue(params[1]);
+    CPubKey confidentiality_pubkey;
+    if (address.IsBlinded()) {
+        confidentiality_pubkey = address.GetBlindingKey();
+    }
 
     // Wallet comments
     CWalletTx wtx;
@@ -383,7 +387,7 @@ Value sendtoaddress(const Array& params, bool fHelp)
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(address.Get(), nAmount, wtx);
+    SendMoney(address.Get(), nAmount, confidentiality_pubkey, wtx);
 
     return wtx.GetHash().GetHex();
 }
@@ -421,12 +425,14 @@ Value listaddressgroupings(const Array& params, bool fHelp)
         BOOST_FOREACH(CTxDestination address, grouping)
         {
             Array addressInfo;
-            addressInfo.push_back(CBitcoinAddress(address).ToString());
+            CBitcoinAddress addr(address);
+            addr.AddBlindingKey(pwalletMain->blinding_pubkey);
+            addressInfo.push_back(addr.ToString());
             addressInfo.push_back(ValueFromAmount(balances[address]));
             {
                 LOCK(pwalletMain->cs_wallet);
-                if (pwalletMain->mapAddressBook.find(CBitcoinAddress(address).Get()) != pwalletMain->mapAddressBook.end())
-                    addressInfo.push_back(pwalletMain->mapAddressBook.find(CBitcoinAddress(address).Get())->second.name);
+                if (pwalletMain->mapAddressBook.find(addr.Get()) != pwalletMain->mapAddressBook.end())
+                    addressInfo.push_back(pwalletMain->mapAddressBook.find(addr.Get())->second.name);
             }
             jsonGrouping.push_back(addressInfo);
         }
@@ -515,6 +521,8 @@ Value getreceivedbyaddress(const Array& params, bool fHelp)
     CScript scriptPubKey = GetScriptForDestination(address.Get());
     if (!IsMine(*pwalletMain,scriptPubKey))
         return (double)0.0;
+    if (address.IsBlinded() && address.GetBlindingKey() != pwalletMain->blinding_pubkey)
+        return (double)0.0;
 
     // Minimum confirmations
     int nMinDepth = 1;
@@ -529,10 +537,10 @@ Value getreceivedbyaddress(const Array& params, bool fHelp)
         if (wtx.IsCoinBase() || CheckLockTime(wtx))
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
-            if (txout.scriptPubKey == scriptPubKey)
+        for (unsigned int i = 0; i < wtx.vout.size(); i++)
+            if (wtx.vout[i].scriptPubKey == scriptPubKey)
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+                    nAmount += wtx.GetValueOut(i);
     }
 
     return  ValueFromAmount(nAmount);
@@ -578,12 +586,12 @@ Value getreceivedbyaccount(const Array& params, bool fHelp)
         if (wtx.IsCoinBase() || CheckLockTime(wtx))
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+        for (unsigned int i = 0; i < wtx.vout.size(); i++)
         {
             CTxDestination address;
-            if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
+            if (ExtractDestination(wtx.vout[i].scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+                    nAmount += wtx.GetValueOut(i);
         }
     }
 
@@ -809,6 +817,10 @@ Value sendfrom(const Array& params, bool fHelp)
     int nMinDepth = 1;
     if (params.size() > 3)
         nMinDepth = params[3].get_int();
+    CPubKey confidentiality_pubkey;
+    if (address.IsBlinded()) {
+        confidentiality_pubkey = address.GetBlindingKey();
+    }
 
     CWalletTx wtx;
     wtx.strFromAccount = strAccount;
@@ -824,7 +836,7 @@ Value sendfrom(const Array& params, bool fHelp)
     if (nAmount > nBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 
-    SendMoney(address.Get(), nAmount, wtx);
+    SendMoney(address.Get(), nAmount, confidentiality_pubkey, wtx);
 
     return wtx.GetHash().GetHex();
 }
@@ -870,7 +882,7 @@ Value sendmany(const Array& params, bool fHelp)
         wtx.mapValue["comment"] = params[3].get_str();
 
     set<CBitcoinAddress> setAddress;
-    vector<pair<CScript, CAmount> > vecSend;
+    vector<CSend> vecSend;
 
     CAmount totalAmount = 0;
     BOOST_FOREACH(const Pair& s, sendTo)
@@ -886,8 +898,12 @@ Value sendmany(const Array& params, bool fHelp)
         CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(s.value_);
         totalAmount += nAmount;
+        CPubKey confidentiality_pubkey;
+        if (address.IsBlinded()) {
+            confidentiality_pubkey = address.GetBlindingKey();
+        }
 
-        vecSend.push_back(make_pair(scriptPubKey, nAmount));
+        vecSend.push_back(CSend(scriptPubKey, nAmount, confidentiality_pubkey));
     }
 
     EnsureWalletIsUnlocked();
@@ -1002,10 +1018,10 @@ Value ListReceived(const Array& params, bool fByAccounts)
         if (nDepth < nMinDepth)
             continue;
 
-        BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+        for (unsigned int i = 0; i < wtx.vout.size(); i++)
         {
             CTxDestination address;
-            if (!ExtractDestination(txout.scriptPubKey, address))
+            if (!ExtractDestination(wtx.vout[i].scriptPubKey, address))
                 continue;
 
             isminefilter mine = IsMine(*pwalletMain, address);
@@ -1013,7 +1029,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
                 continue;
 
             tallyitem& item = mapTally[address];
-            item.nAmount += txout.nValue;
+            item.nAmount += wtx.GetValueOut(i);
             item.nConf = min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -1153,11 +1169,15 @@ Value listreceivedbyaccount(const Array& params, bool fHelp)
     return ListReceived(params, true);
 }
 
-static void MaybePushAddress(Object & entry, const CTxDestination &dest)
+static void MaybePushAddress(Object & entry, const CTxDestination &dest, const CPubKey& pubkey)
 {
     CBitcoinAddress addr;
-    if (addr.Set(dest))
+    if (addr.Set(dest)) {
+        if (pubkey.size() == 33) {
+            addr.AddBlindingKey(pubkey);
+        }
         entry.push_back(Pair("address", addr.ToString()));
+    }
 }
 
 void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDepth, bool fLong, Array& ret, const isminefilter& filter)
@@ -1181,7 +1201,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             if(involvesWatchonly || (::IsMine(*pwalletMain, s.destination) & ISMINE_WATCH_ONLY))
                 entry.push_back(Pair("involvesWatchonly", true));
             entry.push_back(Pair("account", strSentAccount));
-            MaybePushAddress(entry, s.destination);
+            MaybePushAddress(entry, s.destination, s.confidentiality_pubkey);
             entry.push_back(Pair("category", "send"));
             entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
             entry.push_back(Pair("vout", s.vout));
@@ -1206,7 +1226,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                 if(involvesWatchonly || (::IsMine(*pwalletMain, r.destination) & ISMINE_WATCH_ONLY))
                     entry.push_back(Pair("involvesWatchonly", true));
                 entry.push_back(Pair("account", account));
-                MaybePushAddress(entry, r.destination);
+                MaybePushAddress(entry, r.destination, r.confidentiality_pubkey);
                 if (wtx.IsCoinBase())
                 {
                     if (wtx.GetDepthInMainChain() < 1)
@@ -1574,7 +1594,7 @@ Value gettransaction(const Array& params, bool fHelp)
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.GetValueOut() - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.nTxFee : 0);
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
     if (wtx.IsFromMe(filter))

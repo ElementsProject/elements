@@ -11,6 +11,7 @@
 
 #include "addrman.h"
 #include "amount.h"
+#include "blind.h"
 #include "checkpoints.h"
 #include "compat/sanity.h"
 #include "key.h"
@@ -196,6 +197,7 @@ void Shutdown()
     delete pwalletMain;
     pwalletMain = NULL;
 #endif
+    ECC_Blinding_Stop();
     ECC_Stop();
     ECC_Verify_Stop();
     LogPrintf("%s: done\n", __func__);
@@ -772,6 +774,7 @@ bool AppInit2(boost::thread_group& threadGroup)
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
     // Initialize elliptic curve code
+    ECC_Blinding_Start();
     ECC_Verify_Start();
     ECC_Start();
 

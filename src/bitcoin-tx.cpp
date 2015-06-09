@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "base58.h"
+#include "blind.h"
 #include "clientversion.h"
 #include "primitives/block.h" // for MAX_BLOCK_SIZE
 #include "primitives/transaction.h"
@@ -72,7 +73,8 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = _("Commands:") + "\n";
         strUsage += "  delin=N                " + _("Delete input N from TX") + "\n";
         strUsage += "  delout=N               " + _("Delete output N from TX") + "\n";
-        strUsage += "  in=TXID:VOUT[:SEQ]     " + _("Add input to TX") + "\n";
+        strUsage += "  in=TXID:VOUT:VALUE:SEQ " + _("Add input to TX") + "\n";
+        strUsage += "  blind=B1::B3:B4:...    " + _("Blind transaction outputs") + "\n";
         strUsage += "  locktime=N             " + _("Set TX lock time to N") + "\n";
         strUsage += "  nversion=N             " + _("Set TX version to N") + "\n";
         strUsage += "  outaddr=VALUE:ADDRESS  " + _("Add address-based output to TX") + "\n";
@@ -201,9 +203,18 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     // Remove txid
     string strVout = strInput.substr(pos + 1, string::npos);
 
+    // extract and validate VALUE
+    pos = strVout.find(':');
+    if (pos == string::npos)
+        throw runtime_error("TX input missing separator");
+    string strValue = strVout.substr(0, pos);
+    CAmount value;
+    if (!ParseMoney(strValue, value))
+        throw runtime_error("invalid TX output value");
+
     // extract and validate sequence number
     uint32_t nSequence = ~(uint32_t)0;
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     if (pos != string::npos) {
         if ((pos == 0) || (pos == (strVout.size() - 1)))
             throw runtime_error("empty TX input field");
@@ -224,6 +235,8 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
         }
 
         nSequence = (uint32_t)nSeq;
+    } else {
+        throw runtime_error("invalid TX input: sequence missing");
     }
 
     // extract and validate vout
@@ -234,6 +247,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequence);
     tx.vin.push_back(txin);
+    tx.nTxFee += value;
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
@@ -262,7 +276,55 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
+    if (addr.IsBlinded()) {
+        CPubKey pubkey = addr.GetBlindingKey();
+        txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+    }
     tx.vout.push_back(txout);
+}
+
+static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
+{
+    std::vector<std::string> input_blinding_factors;
+    boost::split(input_blinding_factors, strInput, boost::is_any_of(":"));
+
+    if (input_blinding_factors.size() != tx.vin.size())
+        throw runtime_error("One input blinding factor required per transaction input");
+
+    bool fBlindedIns = false;
+    bool fBlindedOuts = false;
+    std::vector<std::vector<unsigned char> > input_blinds;
+    std::vector<std::vector<unsigned char> > output_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        std::vector<unsigned char> blind = ParseHex(input_blinding_factors[nIn]);
+        if (blind.size() == 0) {
+            input_blinds.push_back(blind);
+        } else if (blind.size() == 32) {
+            input_blinds.push_back(blind);
+            fBlindedIns = true;
+        }
+    }
+    for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        if (!tx.vout[nOut].nValue.IsAmount())
+            throw runtime_error("Invalid parameter: transaction outputs must be unblinded");
+        if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
+            output_pubkeys.push_back(CPubKey());
+        } else {
+            CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
+            if (!pubkey.IsValid()) {
+                 throw runtime_error("Invalid parameter: invalid confidentiality public key given");
+            }
+            output_pubkeys.push_back(pubkey);
+            fBlindedOuts = true;
+        }
+        output_blinds.push_back(std::vector<unsigned char>(0, 0));
+    }
+
+    if (fBlindedIns && !fBlindedOuts) {
+        throw runtime_error("Confidential inputs without confidential outputs");
+    }
+    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
@@ -286,10 +348,13 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 {
+    // TODO: reduce nTxFee
+
     // parse requested deletion index
     int inIdx = atoi(strInIdx);
     if (inIdx < 0 || inIdx >= (int)tx.vin.size()) {
@@ -303,6 +368,8 @@ static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 
 static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
+    // TODO: increase nTxFee
+
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
     if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
@@ -552,8 +619,8 @@ static void MutateTxWithdrawSign(CMutableTransaction& tx, const string& flagStr)
 class Secp256k1Init
 {
 public:
-    Secp256k1Init() { ECC_Start(); }
-    ~Secp256k1Init() { ECC_Stop(); }
+    Secp256k1Init() { ECC_Start(); ECC_Blinding_Start(); }
+    ~Secp256k1Init() { ECC_Stop(); ECC_Blinding_Stop(); }
 };
 
 static void MutateTx(CMutableTransaction& tx, const string& command,
@@ -581,6 +648,9 @@ static void MutateTx(CMutableTransaction& tx, const string& command,
     else if (command == "sign") {
         if (!ecc) { ecc.reset(new Secp256k1Init()); }
         MutateTxSign(tx, commandVal);
+    } else if (command == "blind") {
+        if (!ecc) { ecc.reset(new Secp256k1Init()); }
+        MutateTxBlind(tx, commandVal);
     } else if (command == "withdrawsign")
         MutateTxWithdrawSign(tx, commandVal);
 

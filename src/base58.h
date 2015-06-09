@@ -101,6 +101,8 @@ public:
  * The data vector contains RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
  */
 class CBitcoinAddress : public CBase58Data {
+private:
+
 public:
     bool Set(const CKeyID &id);
     bool Set(const CScriptID &id);
@@ -116,6 +118,11 @@ public:
     CTxDestination Get() const;
     bool GetKeyID(CKeyID &keyID) const;
     bool IsScript() const;
+
+    CBitcoinAddress& AddBlindingKey(const CPubKey &pubkey);
+    CPubKey GetBlindingKey() const;
+    CBitcoinAddress GetUnblinded() const;
+    bool IsBlinded(const CChainParams& params = Params()) const;
 };
 
 /**

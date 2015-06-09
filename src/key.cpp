@@ -58,6 +58,17 @@ CPubKey CKey::GetPubKey() const {
     return result;
 }
 
+CPubKey CKey::ECDH(const CPubKey& pubkey) const {
+    assert(fValid);
+    CPubKey result = pubkey;
+    int clen = result.size();
+    int ret = secp256k1_point_multiply((unsigned char*)result.begin(), &clen, begin());
+    assert((int)result.size() == clen);
+    assert(ret);
+    assert(result.IsValid());
+    return result;
+}
+
 bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, uint32_t test_case) const {
     if (!fValid)
         return false;

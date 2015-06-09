@@ -75,6 +75,7 @@ BITCOIN_CORE_H = \
   allocators.h \
   amount.h \
   base58.h \
+  blind.h \
   bloom.h \
   callrpc.h \
   chain.h \
@@ -232,6 +233,7 @@ libbitcoin_common_a_SOURCES = \
   allocators.cpp \
   amount.cpp \
   base58.cpp \
+  blind.cpp \
   bloom.cpp \
   chainparams.cpp \
   coins.cpp \
