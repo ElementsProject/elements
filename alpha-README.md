@@ -2,6 +2,7 @@ See https://github.com/bitcoin/bitcoin/blob/master/doc/build-unix.md
 for notes on dependencies that must be installed before beginning.
 
 To run alphad:
+
 	1. Download/build bitcoind/alphad
 	```bash
 	git clone https://github.com/ElementsProject/elements
@@ -24,6 +25,7 @@ To run alphad:
 	Note that once bitcoind finishes syncing, you can set -blindtrust=false to check that transfers to Elements Alpha are from confirmed bitcoin blocks.
 
 To move money into Elements Alpha:
+
 	1. See 1 and 2 in "To run alphad"
 	2. Download secp256k1:
 	```bash
@@ -69,6 +71,7 @@ To move money into Elements Alpha:
 	```
 
 To move money back out of Elements Alpha:
+
 	1. See 1-4 of above.
 	4. Use sidechain-manipulation.py:
 	```bash
@@ -79,6 +82,7 @@ To move money back out of Elements Alpha:
 	[matt@2ca87f82dd9a bitcoin]$ ./contrib/sidechain-manipulation.py send-to-mainchain 2MzqiCCUwtKKEV9Kxiyvk8ZuNCFKbcbneva 1
 
 To run a fedpeg operator (for your own sidechain):
+
 	1. See 1 and 2 in "To run alphad" (Do not forget to append -blindtrust=false to the alphad command args once bitcoin syncs!)
 	2. See 2-4 of "To move money into Elements Alpha"
 	   Note that the bitcoind/sidechaind wallets must be EMPTY of keys/transactions except for those created automatically by fedpeg scripts
