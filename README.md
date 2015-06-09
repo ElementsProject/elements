@@ -18,12 +18,12 @@ the Bitcoin Core software, see https://www.bitcoin.org/en/download.
 What is Elements?
 -----------------
 
-https://www.elementsproject.org
-
 Elements is a collection of experiments to bring more technical innovation to Bitcoin.
 
 What is Elements Alpha?
 -----------------------
+
+https://github.com/ElementsProject/elements/tree/alpha
 
 Elements Alpha is the Elements project's first experimental test chain.
 
