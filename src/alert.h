@@ -6,6 +6,7 @@
 #ifndef BITCOIN_ALERT_H
 #define BITCOIN_ALERT_H
 
+#include "script/interpreter.h"
 #include "serialize.h"
 #include "sync.h"
 
@@ -77,7 +78,7 @@ class CAlert : public CUnsignedAlert
 {
 public:
     std::vector<unsigned char> vchMsg;
-    std::vector<unsigned char> vchSig;
+    CScript scriptSig;
 
     CAlert()
     {
@@ -89,7 +90,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(vchMsg);
-        READWRITE(vchSig);
+        READWRITE(scriptSig);
     }
 
     void SetNull();

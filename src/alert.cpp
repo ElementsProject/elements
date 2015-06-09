@@ -7,6 +7,7 @@
 
 #include "chainparams.h"
 #include "clientversion.h"
+#include "hash.h"
 #include "net.h"
 #include "pubkey.h"
 #include "timedata.h"
@@ -86,7 +87,7 @@ void CAlert::SetNull()
 {
     CUnsignedAlert::SetNull();
     vchMsg.clear();
-    vchSig.clear();
+    scriptSig.clear();
 }
 
 bool CAlert::IsNull() const
@@ -145,16 +146,34 @@ bool CAlert::RelayTo(CNode* pnode) const
     return false;
 }
 
+namespace {
+class NaiveSignatureChecker : public BaseSignatureChecker
+{
+protected:
+    uint256 hash;
+
+public:
+    NaiveSignatureChecker(const std::vector<unsigned char>& vchMsg)
+    {
+        CSHA256().Write(&vchMsg[0], vchMsg.size()).Finalize(hash.begin());
+    }
+
+    bool CheckSig(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode) const
+    {
+        CPubKey pubkey(vchPubKey);
+        if (!pubkey.IsValid())
+            return false;
+        return pubkey.Verify(hash, vchSig);
+    }
+};
+}
+
 bool CAlert::CheckSignature() const
 {
-    CPubKey key(Params().AlertKey());
-    if (!key.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
-        return error("CAlert::CheckSignature() : verify signature failed");
-
-    // Now unserialize the data
-    CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
-    sMsg >> *(CUnsignedAlert*)this;
-    return true;
+    const CScript& scriptPubKey = Params().AlertKey();
+    NaiveSignatureChecker checker(vchMsg);
+    unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC | SCRIPT_VERIFY_NULLDUMMY | SCRIPT_VERIFY_SIGPUSHONLY | SCRIPT_VERIFY_MINIMALDATA | SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS;
+    return VerifyScript(scriptSig, scriptPubKey, flags, checker, NULL);
 }
 
 CAlert CAlert::getAlertByHash(const uint256 &hash)
