@@ -7,7 +7,7 @@ for notes on dependencies that must be installed before beginning.
 ```bash
   git clone https://github.com/ElementsProject/elements
   cd elements
-  git checkout bitcoin
+  git checkout mainchain
   ./autogen.sh && ./configure && make
   mv src/bitcoin{d,-cli,-tx} ../
   git checkout alpha
