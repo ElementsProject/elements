@@ -204,7 +204,7 @@ def sign_withdraw_tx(tx_hex, txid_concat_list):
 		output = outputs_pending[txid_concat]
 		if inputs_set not in output["spent_from"]:
 			output["spent_from"].add(inputs_set)
-			os.write(spent_from_log, "[%s, %s]\n" % (txid_concat, repr(inputs_set)))
+			os.write(spent_from_log, "['%s', %s]\n" % (txid_concat, repr(inputs_set)))
 
 	old_paid_memory = -1
 	for inp in tx_raw["vin"]:
