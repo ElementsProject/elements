@@ -46,7 +46,13 @@ for notes on dependencies that must be installed before beginning.
 ```bash
   git clone https://github.com/jgarzik/python-bitcoinrpc
 ```
-5\. Use sidechain-manipulation.py:
+5\. Edit sidechain-manipulation.py (replace `user:pass` with your RPC username and password):
+```python
+  # VARIOUS SETTINGS...
+  sidechain_url = "http://user:pass@127.0.0.1:4241"
+  bitcoin_url = "http://user:pass@127.0.0.1:18332"
+```
+6\. Use sidechain-manipulation.py:
 ```bash
   [matt@2ca87f82dd9a bitcoin]$ cd elements
   [matt@2ca87f82dd9a bitcoin]$ ./contrib/sidechain-manipulation.py generate-one-of-one-multisig sidechain-wallet
