@@ -162,7 +162,7 @@ try:
 		in_vout = utxo.in_vout
 		in_value = utxo.in_value
 
-		print("Redeeming from utxo %s:%.16g (value %.16g, refund %d)" % (in_txid, in_vout, in_value, in_value - value))
+		print("Redeeming from utxo %s:%.16g (value %.16g, refund %.16g)" % (in_txid, in_vout, in_value, in_value - value))
 
 		withdrawkeys = 'withdrawkeys:{"contract": "%s", "txoutproof": "%s", "tx": "%s", "nout": %d, "secondScriptPubKey": "%s", "secondScriptSig": "%s", "coinbase": "%s"}' % (full_contract, spv_proof, raw_bitcoin_tx_hex, nout, secondScriptPubKey, secondScriptSig, raw_coinbase_tx_hex)
 		out_scriptPubKey = "OP_IF %d 0x20%s %d 0 0x14%s 0x20%s OP_REORGPROOFVERIFY OP_ELSE 144 OP_NOP3 OP_DROP OP_HASH160 0x14%s OP_EQUAL OP_ENDIF" % (bitcoin_block["height"], sys.argv[4], nout, secondScriptPubKeyHash, inverse_bitcoin_genesis_hash, raw_dest)
