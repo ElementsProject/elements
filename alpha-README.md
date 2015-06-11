@@ -46,7 +46,9 @@ for notes on dependencies that must be installed before beginning.
 ```bash
   git clone https://github.com/jgarzik/python-bitcoinrpc
 ```
-5\. Use sidechain-manipulation.py:
+5\. Edit sidechain-manipulation.py, setting the `sidechain_url` and `bitcoin_url` values appropriately.
+
+6\. Use sidechain-manipulation.py:
 ```bash
   [matt@2ca87f82dd9a bitcoin]$ cd elements
   [matt@2ca87f82dd9a bitcoin]$ ./contrib/sidechain-manipulation.py generate-one-of-one-multisig sidechain-wallet
@@ -72,8 +74,8 @@ for notes on dependencies that must be installed before beginning.
 
 ### To move money back out of Elements Alpha:
 
-  1. See 1-4 of above.
-4\. Use sidechain-manipulation.py:
+  1. See 1-5 above.
+  2. Use sidechain-manipulation.py:
 ```bash
   [matt@2ca87f82dd9a bitcoin]$ cd elements
   [matt@2ca87f82dd9a bitcoin]$ ./contrib/sidechain-manipulation.py generate-one-of-one-multisig mainchain-wallet
