@@ -127,8 +127,8 @@ try:
 			tx_hex = tx['hex']
 
 			total_length  = len(tx_hex)/2
-			total_length += 14*32
-			total_length += 1000 # wild guess
+			total_length += 14*32 # maximum length of spv proof 1MB blocks
+			total_length += 1000 # len(full_contract) + len(secondScriptPubKey) and rounded up to 1000
 
 			if total_length >= 10000:
 				print("Transaction is too large.")
