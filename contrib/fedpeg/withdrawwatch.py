@@ -359,7 +359,7 @@ class WatchPeerController(RotatingConsensus):
 		return
 
 
-def process_sidechain_tx_for_utxos(tx, height):
+def process_sidechain_tx_for_utxos(tx, height, avoid_rescans):
 	for vout, output in enumerate(tx["vout"]):
 		if output["scriptPubKey"]["type"] == "withdrawout":
 			outp = output["scriptPubKey"]["asm"].split(" ")
@@ -377,7 +377,7 @@ def process_sidechain_tx_for_utxos(tx, height):
 			check_raise(cht.close() == None)
 			modified_redeem_script = cht_out.split("\n")[2 + settings.is_testnet][24:]
 			modified_address = cht_out.split("\n")[3 + settings.is_testnet][40:]
-			bitcoin[thread_id()].importaddress(modified_redeem_script, "", False, True)
+			bitcoin[thread_id()].importaddress(modified_redeem_script, "", not avoid_rescans, True)
 
 			cht = os.popen("%s %s -c -p %s -f %s" % (settings.contracthashtool_path, settings.cht_testnet_arg, settings.functionary_private_key, contract))
 			gen_private_key = cht.read().split("\n")[0 + settings.is_testnet][16:]
@@ -437,11 +437,11 @@ def process_sidechain_tx_for_withdraw(tx, height):
 				print("Got new txo for withdraw: %s (to %s with value %s)" % (txid_concat, p2sh_hex, str(value)))
 				map_lock.release()
 
-def process_sidechain_blockchain(min_height, max_height):
+def process_sidechain_blockchain(min_height, max_height, avoid_rescan):
 	for height in range(min_height, max_height):
 		block = sidechain[thread_id()].getblock(sidechain[thread_id()].getblockhash(height))
 		for tx in sidechain[thread_id()].batch_([["getrawtransaction", txhash, 1] for txhash in block["tx"]]):
-			process_sidechain_tx_for_utxos(tx, height)
+			process_sidechain_tx_for_utxos(tx, height, avoid_rescan)
 			process_sidechain_tx_for_withdraw(tx, height)
 
 def process_confirmed_sidechain_blockchain(min_height, max_height):
@@ -573,7 +573,7 @@ try:
 	print("Step 1. Sidechain blockchain scan for coins in and withdraws...")
 	# First do a pass over all existing blocks to collect all utxos
 	sidechain_block_count = sidechain[thread_id()].getblockcount()
-	process_sidechain_blockchain(1, sidechain_block_count)
+	process_sidechain_blockchain(1, sidechain_block_count, True)
 	process_confirmed_sidechain_blockchain(1, sidechain_block_count - 5)
 	print("done")
 
@@ -608,7 +608,7 @@ try:
 			continue
 
 		new_block_count = sidechain[thread_id()].getblockcount()
-		process_sidechain_blockchain(sidechain_block_count, new_block_count)
+		process_sidechain_blockchain(sidechain_block_count, new_block_count, False)
 		process_confirmed_sidechain_blockchain(sidechain_block_count - 5, new_block_count - 5)
 		sidechain_block_count = new_block_count
 
