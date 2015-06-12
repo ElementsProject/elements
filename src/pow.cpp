@@ -14,9 +14,12 @@
 #include "script/standard.h"
 #include "uint256.h"
 #include "util.h"
+
+#ifdef ENABLE_WALLET
 #include "wallet.h"
 
 extern CWallet* pwalletMain;
+#endif
 
 CScript CombineBlockSignatures(const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2)
 {
@@ -60,10 +63,12 @@ bool CheckProof(const CBlockHeader& block)
     return GenericVerifyScript(block.proof.solution, block.proof.challenge, SCRIPT_VERIFY_P2SH, block);
 }
 
+#ifdef ENABLE_WALLET
 bool GenerateProof(CBlockHeader *pblock, CWallet *pwallet)
 {
     return GenericSignScript(*pwallet, *pblock, pblock->proof.challenge, pblock->proof.solution);
 }
+#endif
 
 void ResetProof(CBlockHeader& block)
 {
