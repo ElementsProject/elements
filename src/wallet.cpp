@@ -163,6 +163,15 @@ bool CWallet::AddCScript(const CScript& redeemScript)
     return CWalletDB(strWalletFile).WriteCScript(Hash160(redeemScript), redeemScript);
 }
 
+bool CWallet::AddPubKeyTree(const PubKeyTree& pubkeys)
+{
+    if (!CCryptoKeyStore::AddPubKeyTree(pubkeys))
+        return false;
+    if (!fFileBacked)
+        return true;
+    return CWalletDB(strWalletFile).WritePubKeyTree(pubkeys);
+}
+
 bool CWallet::LoadCScript(const CScript& redeemScript)
 {
     /* A sanity check was added in pull #3843 to avoid adding redeemScripts
@@ -177,6 +186,11 @@ bool CWallet::LoadCScript(const CScript& redeemScript)
     }
 
     return CCryptoKeyStore::AddCScript(redeemScript);
+}
+
+bool CWallet::LoadPubKeyTree(const PubKeyTree& pubkeys)
+{
+    return CCryptoKeyStore::AddPubKeyTree(pubkeys);
 }
 
 bool CWallet::AddWatchOnly(const CScript &dest)
@@ -1612,6 +1626,7 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                         txNew.vout.insert(position, newTxOut);
                         output_pubkeys.insert(output_pubkeys.begin() + pos, blinding_pubkey);
                         nValueOut += nChange;
+                        fBlindedOuts = true;
                     }
                 }
                 else

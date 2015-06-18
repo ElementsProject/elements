@@ -203,6 +203,44 @@ struct CExtPubKey {
     bool Derive(CExtPubKey& out, unsigned int nChild) const;
 };
 
+class PubKeyTree
+{
+    std::vector<CPubKey> pubkeys;
+    std::vector<unsigned char> merkleroot;
+    int levels;
+
+private:
+    int Walk(std::vector<unsigned char> *pmerkleroot = NULL, size_t pos = 0,std::vector<std::vector<unsigned char> >* pvMerklePath = NULL);
+
+public:
+    PubKeyTree(const std::vector<CPubKey>& pubkeys_) {
+        pubkeys = pubkeys_;
+        levels = Walk(&merkleroot);
+    }
+    PubKeyTree() {}
+
+    size_t size() const { return pubkeys.size(); }
+    const CPubKey& operator[](size_t i) const { return pubkeys[i]; }
+    const std::vector<unsigned char>& GetMerkleRoot() const { return merkleroot; }
+    int GetLevels() const { return levels; }
+    const std::vector<std::vector<unsigned char> > GetMerklePath(size_t pos) {
+        std::vector<std::vector<unsigned char> > merklepath;
+        Walk(NULL, pos, &merklepath);
+        return merklepath;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(pubkeys);
+        if (ser_action.ForRead()) {
+            levels = Walk(&merkleroot);
+        }
+    }
+
+};
+
 /** Initialize the elliptic curve support. May not be called twice without calling ECC_Stop first. */
 void ECC_Verify_Start(void);
 
