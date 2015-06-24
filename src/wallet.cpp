@@ -1550,8 +1550,12 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                         return false;
                     }
                 }
+                bool fBlindedIns = false;
                 BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
                 {
+                    if (!pcoin.first->vout[pcoin.second].nValue.IsAmount()) {
+                        fBlindedIns = true;
+                    }
                     CAmount nCredit = pcoin.first->GetValueOut(pcoin.second);
                     //The coin age after the next block (depth+1) is used instead of the current,
                     //reflecting an assumption the user would accept a bit more delay for
@@ -1612,11 +1616,18 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                         txNew.vout.insert(position, newTxOut);
                         output_pubkeys.insert(output_pubkeys.begin() + pos, blinding_pubkey);
                         nValueOut += nChange;
+                        fBlindedOuts = true;
                     }
                 }
                 else
                     reservekey.ReturnKey();
 
+                if (fBlindedIns && !fBlindedOuts) {
+                    CTxOut newTxOut(0, CScript() << OP_RETURN);
+                    txNew.vout.push_back(newTxOut);
+                    output_pubkeys.push_back(blinding_pubkey);
+                    fBlindedOuts = true;
+                }
                 // Fill vin
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second));
@@ -1625,14 +1636,10 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
                 // Create blinded outputs
-                bool fBlindedIns = false;
                 std::vector<std::vector<unsigned char> > input_blinds;
                 std::vector<std::vector<unsigned char> > output_blinds;
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins) {
                     std::vector<unsigned char> blind =coin.first->GetBlindingFactor(coin.second);
-                    if (!blind.empty()) {
-                        fBlindedIns = true;
-                    }
                     input_blinds.push_back(blind);
                 }
                 for (size_t nOut = 0; nOut < txNew.vout.size(); nOut++) {
