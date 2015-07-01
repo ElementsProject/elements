@@ -17,6 +17,13 @@ using namespace std;
 
 #include "chainparamsseeds.h"
 
+const std::map<std::string, uint256> CChainParams::supportedChains =
+    boost::assign::map_list_of
+    ( "main", uint256S("0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"))
+    ( "test", uint256S("0x000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"))
+    ( "regtest", uint256S("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"))
+    ;
+
 static CBlock CreateGenesisBlock(const char* pszTimestamp, CScript genesisOutputScript, uint32_t nTime=1231006505, uint32_t nNonce=2083236893, uint32_t nBits=0x1d00ffff, int32_t nVersion=1, const CAmount& genesisReward=50 * COIN)
 {
     CMutableTransaction txNew;
@@ -95,8 +102,7 @@ public:
 
         genesis = CreateGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"));
-        assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
+        assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
 
         vSeeds.push_back(CDNSSeedData("bitcoin.sipa.be", "seed.bitcoin.sipa.be")); // Pieter Wuille
         vSeeds.push_back(CDNSSeedData("bluematt.me", "dnsseed.bluematt.me")); // Matt Corallo
@@ -122,6 +128,7 @@ public:
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
+            (     0, consensus.hashGenesisBlock)
             ( 11111, uint256S("0x0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d"))
             ( 33333, uint256S("0x000000002dd5588a74784eaa7ab0507a18ad16a236e7b1ce69f00d7ddfb5d0a6"))
             ( 74000, uint256S("0x0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20"))
@@ -169,7 +176,7 @@ public:
 
         genesis = CreateGenesisBlock(1296688602, 414098458);
         consensus.hashGenesisBlock = genesis.GetHash();
-        assert(consensus.hashGenesisBlock == uint256S("0x000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
+        assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -195,6 +202,7 @@ public:
 
         checkpointData = (Checkpoints::CCheckpointData) {
             boost::assign::map_list_of
+            (     0, consensus.hashGenesisBlock)
             ( 546, uint256S("000000002a936ca763904c3c35fce2f3556c559c0214345d31b1bcebf76acb70")),
             1337966069,
             1488,
@@ -226,8 +234,8 @@ public:
         nMinerThreads = 1;
         genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff);
         consensus.hashGenesisBlock = genesis.GetHash();
+        assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
         nDefaultPort = 18444;
-        assert(consensus.hashGenesisBlock == uint256S("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         nPruneAfterHeight = 1000;
 
         vFixedSeeds.clear(); //! Regtest mode doesn't have any fixed seeds.
@@ -242,7 +250,7 @@ public:
 
         checkpointData = (Checkpoints::CCheckpointData){
             boost::assign::map_list_of
-            ( 0, uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")),
+            (     0, consensus.hashGenesisBlock),
             0,
             0,
             0
