@@ -53,6 +53,11 @@ public:
         MAX_BASE58_TYPES
     };
 
+    /**
+     * Maps strNetworkID [see BIP70] to chainID (hashGenesisBlock and genesis checkpoint)
+     */
+    static const std::map<std::string, uint256> supportedChains;
+
     const Consensus::Params& GetConsensus() const { return consensus; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
