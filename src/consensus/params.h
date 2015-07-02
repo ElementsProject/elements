@@ -25,6 +25,8 @@ struct Params {
     int64_t nPowTargetSpacing;
     int64_t nPowTargetTimespan;
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
+    /** The maximum allowed size for a serialized block, in bytes */
+    uint64_t nMaxBlockSize;
 };
 } // namespace Consensus
 
