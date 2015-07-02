@@ -15,10 +15,14 @@ software which enables the use of this currency.
 For more information, as well as an immediately useable, binary version of
 the Bitcoin Core software, see https://www.bitcoin.org/en/download.
 
-What is Elements?
+What is Sidechain Elements?
 -----------------
 
-Elements is a collection of experiments to bring more technical innovation to Bitcoin.
+Sidechain Elements is a collection of experiments to bring more technical innovation to Bitcoin.
+
+https://github.com/ElementsProject/elementsproject.github.io
+
+Read details and future in the project documentation
 
 What is Elements Alpha?
 -----------------------
