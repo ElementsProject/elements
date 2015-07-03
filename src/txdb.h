@@ -20,6 +20,7 @@
 class CBlockIndex;
 class CCoinsViewDBCursor;
 class uint256;
+namespace Consensus { struct Params; }
 
 //! -dbcache default (MiB)
 static const int64_t nDefaultDbCache = 300;
