@@ -63,6 +63,24 @@ static CBlock CreateGenesisBlock(uint32_t nTime=1231006505, uint32_t nNonce=2083
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
 
+static void AssignBase58PrefixStyle(std::vector<unsigned char>* base58Prefixes, Base58PrefixStyle base58PrefixStyle)
+{
+    if (base58PrefixStyle == MAIN_BASE58) {
+        base58Prefixes[CChainParams::PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
+        base58Prefixes[CChainParams::SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
+        base58Prefixes[CChainParams::SECRET_KEY] =     std::vector<unsigned char>(1,128);
+        base58Prefixes[CChainParams::EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[CChainParams::EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();
+    } else if (base58PrefixStyle == TEST_BASE58) {
+        base58Prefixes[CChainParams::PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
+        base58Prefixes[CChainParams::SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        base58Prefixes[CChainParams::SECRET_KEY] =     std::vector<unsigned char>(1,239);
+        base58Prefixes[CChainParams::EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[CChainParams::EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
+    } else
+        throw std::runtime_error(strprintf(_("%s: Unknown base58 prefix style."), __func__));
+}
+
 /**
  * Main network
  */
@@ -110,13 +128,6 @@ public:
         vSeeds.push_back(CDNSSeedData("bitcoinstats.com", "seed.bitcoinstats.com")); // Christian Decker
         vSeeds.push_back(CDNSSeedData("xf2.org", "bitseed.xf2.org")); // Jeff Garzik
         vSeeds.push_back(CDNSSeedData("bitcoin.jonasschnelli.ch", "seed.bitcoin.jonasschnelli.ch")); // Jonas Schnelli
-
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();
-
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
         fRequireRPCPassword = true;
@@ -147,6 +158,7 @@ public:
                         //   (the tx=... number in the SetBestChain debug.log lines)
             60000.0     // * estimated number of transactions per day after checkpoint
         };
+        AssignBase58PrefixStyle(base58Prefixes, MAIN_BASE58);
     }
 };
 
@@ -184,13 +196,6 @@ public:
         vSeeds.push_back(CDNSSeedData("bitcoin.petertodd.org", "testnet-seed.bitcoin.petertodd.org"));
         vSeeds.push_back(CDNSSeedData("bluematt.me", "testnet-seed.bluematt.me"));
         vSeeds.push_back(CDNSSeedData("bitcoin.schildbach.de", "testnet-seed.bitcoin.schildbach.de"));
-
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
-
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
         fRequireRPCPassword = true;
@@ -208,7 +213,7 @@ public:
             1488,
             300
         };
-
+        AssignBase58PrefixStyle(base58Prefixes, TEST_BASE58);
     }
 };
 
@@ -255,11 +260,7 @@ public:
             0,
             0
         };
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
+        AssignBase58PrefixStyle(base58Prefixes, TEST_BASE58);
     }
 };
 

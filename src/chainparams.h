@@ -25,6 +25,12 @@ struct SeedSpec6 {
     uint16_t port;
 };
 
+enum Base58PrefixStyle {
+    MAIN_BASE58,
+    TEST_BASE58,
+
+    MAX_BASE58_PREFIX_STYLES
+};
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
