@@ -9,67 +9,32 @@
 
 #include <assert.h>
 
-#include <boost/assign/list_of.hpp>
-
-using namespace boost::assign;
-
 /**
- * Main network
+ * Alpha (pegged to Testnet3)
  */
-class CBaseMainParams : public CBaseChainParams
+class CBaseAlphaParams : public CBaseChainParams
 {
 public:
-    CBaseMainParams()
+    CBaseAlphaParams()
     {
-        networkID = CBaseChainParams::MAIN;
-        nRPCPort = 8332;
-        strDataDir = "alphamain";
-    }
-};
-static CBaseMainParams mainParams;
-
-/**
- * Testnet (v3)
- */
-class CBaseTestNetParams : public CBaseMainParams
-{
-public:
-    CBaseTestNetParams()
-    {
-        networkID = CBaseChainParams::TESTNET;
         nRPCPort = 4241;
-        strDataDir = "alphatestnet3";
+        strDataDir = "alpha";
     }
 };
-static CBaseTestNetParams testNetParams;
+static CBaseAlphaParams alphaParams;
 
-/*
+/**
  * Regression test
  */
-class CBaseRegTestParams : public CBaseTestNetParams
+class CBaseRegTestParams : public CBaseAlphaParams
 {
 public:
     CBaseRegTestParams()
     {
-        networkID = CBaseChainParams::REGTEST;
         strDataDir = "alpharegtest";
     }
 };
 static CBaseRegTestParams regTestParams;
-
-/*
- * Unit test
- */
-class CBaseUnitTestParams : public CBaseMainParams
-{
-public:
-    CBaseUnitTestParams()
-    {
-        networkID = CBaseChainParams::UNITTEST;
-        strDataDir = "unittest";
-    }
-};
-static CBaseUnitTestParams unitTestParams;
 
 static CBaseChainParams* pCurrentBaseParams = 0;
 
@@ -83,16 +48,11 @@ void SelectBaseParams(CBaseChainParams::Network network)
 {
     switch (network) {
     case CBaseChainParams::MAIN:
-        pCurrentBaseParams = &mainParams;
-        break;
-    case CBaseChainParams::TESTNET:
-        pCurrentBaseParams = &testNetParams;
+    case CBaseChainParams::FAKE_MAIN:
+        pCurrentBaseParams = &alphaParams;
         break;
     case CBaseChainParams::REGTEST:
         pCurrentBaseParams = &regTestParams;
-        break;
-    case CBaseChainParams::UNITTEST:
-        pCurrentBaseParams = &unitTestParams;
         break;
     default:
         assert(false && "Unimplemented network");
@@ -103,14 +63,11 @@ void SelectBaseParams(CBaseChainParams::Network network)
 CBaseChainParams::Network NetworkIdFromCommandLine()
 {
     bool fRegTest = GetBoolArg("-regtest", false);
-    bool fTestNet = GetBoolArg("-testnet", true);
 
-    if (fTestNet && fRegTest)
+    if (GetBoolArg("-testnet", false))
         return CBaseChainParams::MAX_NETWORK_TYPES;
     if (fRegTest)
         return CBaseChainParams::REGTEST;
-    if (fTestNet)
-        return CBaseChainParams::TESTNET;
     return CBaseChainParams::MAIN;
 }
 

@@ -143,9 +143,9 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         bool isTestnet = find_value(metadata, "isTestnet").get_bool();
         if (isTestnet)
-            SelectParams(CBaseChainParams::TESTNET);
-        else
             SelectParams(CBaseChainParams::MAIN);
+        else
+            SelectParams(CBaseChainParams::FAKE_MAIN);
         if(isPrivkey)
         {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
             BOOST_CHECK_MESSAGE(!secret.IsValid(), "IsValid pubkey as privkey:" + strTest);
         }
     }
-    SelectParams(CBaseChainParams::UNITTEST);
+    SelectParams(CBaseChainParams::MAIN);
 }
 
 // Goal: check that generated keys match test vectors
@@ -199,9 +199,9 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         bool isTestnet = find_value(metadata, "isTestnet").get_bool();
         if (isTestnet)
-            SelectParams(CBaseChainParams::TESTNET);
-        else
             SelectParams(CBaseChainParams::MAIN);
+        else
+            SelectParams(CBaseChainParams::FAKE_MAIN);
         if(isPrivkey)
         {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
@@ -243,8 +243,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
     CBitcoinAddress dummyAddr;
     CTxDestination nodest = CNoDestination();
     BOOST_CHECK(!dummyAddr.Set(nodest));
-
-    SelectParams(CBaseChainParams::UNITTEST);
+    SelectParams(CBaseChainParams::MAIN);
 }
 
 // Goal: check that base58 parsing code is robust against a variety of corrupted data

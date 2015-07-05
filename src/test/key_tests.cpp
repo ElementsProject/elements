@@ -62,6 +62,7 @@ BOOST_AUTO_TEST_SUITE(key_tests)
 
 BOOST_AUTO_TEST_CASE(key_test1)
 {
+    SelectParams(CBaseChainParams::FAKE_MAIN);
     CBitcoinSecret bsecret1, bsecret2, bsecret1C, bsecret2C, baddress1;
     BOOST_CHECK( bsecret1.SetString (strSecret1));
     BOOST_CHECK( bsecret2.SetString (strSecret2));
@@ -185,6 +186,7 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(key2C.SignCompact(hashMsg, detsigc));
     BOOST_CHECK_EQUAL(HexStr(detsig), "1c52d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d");
     BOOST_CHECK_EQUAL(HexStr(detsigc), "2052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d");
+    SelectParams(CBaseChainParams::MAIN);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

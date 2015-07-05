@@ -215,9 +215,9 @@ void PaymentServer::ipcParseCommandLine(int argc, char* argv[])
                 {
                     SelectParams(CBaseChainParams::MAIN);
                 }
-                else if (address.IsValid(Params(CBaseChainParams::TESTNET)))
+                else if (address.IsValid(Params(CBaseChainParams::REGTEST)))
                 {
-                    SelectParams(CBaseChainParams::TESTNET);
+                    SelectParams(CBaseChainParams::REGTEST);
                 }
             }
         }
@@ -228,13 +228,13 @@ void PaymentServer::ipcParseCommandLine(int argc, char* argv[])
             PaymentRequestPlus request;
             if (readPaymentRequestFromFile(arg, request))
             {
-                if (request.getDetails().network() == "main")
+                if (request.getDetails().network() == "alpha")
                 {
                     SelectParams(CBaseChainParams::MAIN);
                 }
-                else if (request.getDetails().network() == "test")
+                else if (request.getDetails().network() == "alpharegtest")
                 {
-                    SelectParams(CBaseChainParams::TESTNET);
+                    SelectParams(CBaseChainParams::REGTEST);
                 }
             }
         }

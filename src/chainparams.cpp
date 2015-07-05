@@ -24,10 +24,6 @@ struct SeedSpec6 {
 
 #include "chainparamsseeds.h"
 
-/**
- * Main network
- */
-
 //! Convert the pnSeeds6 array into usable address objects.
 static void convertSeed6(std::vector<CAddress> &vSeedsOut, const SeedSpec6 *data, unsigned int count)
 {
@@ -54,20 +50,12 @@ static void convertSeed6(std::vector<CAddress> &vSeedsOut, const SeedSpec6 *data
  * + Contains no strange transactions
  */
 static Checkpoints::MapCheckpoints mapCheckpoints;
-static const Checkpoints::CCheckpointData data = {
+static const Checkpoints::CCheckpointData dataAlpha = {
         &mapCheckpoints,
         0, // * UNIX timestamp of last checkpoint block
         0, // * total number of transactions between genesis and last checkpoint
                     //   (the tx=... number in the SetBestChain debug.log lines)
         0  // * estimated number of transactions per day after checkpoint
-    };
-
-static Checkpoints::MapCheckpoints mapCheckpointsTestnet;
-static const Checkpoints::CCheckpointData dataTestnet = {
-        &mapCheckpointsTestnet,
-        0,
-        0,
-        0
     };
 
 static Checkpoints::MapCheckpoints mapCheckpointsRegtest;
@@ -78,30 +66,33 @@ static const Checkpoints::CCheckpointData dataRegtest = {
         0
     };
 
-class CMainParams : public CChainParams {
+/**
+ * Alpha (pegged to Testnet3)
+ */
+class CAlphaParams : public CChainParams {
 public:
-    CMainParams() {
-        networkID = CBaseChainParams::MAIN;
-        strNetworkID = "main";
+    CAlphaParams() {
+        strNetworkID = "alpha";
         /** 
          * The message start string is designed to be unlikely to occur in normal data.
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 4-byte int at any alignment.
          */
-        pchMessageStart[0] = 0xf9;
-        pchMessageStart[1] = 0xbe;
-        pchMessageStart[2] = 0xb4;
-        pchMessageStart[3] = 0xd9;
-        scriptAlert = CScript() << CScript::EncodeOP_N(2) << ParseHex("0322f29893482dad4de143544fa623b6f68406c61d24d021652f627a6eecb0bd93") << ParseHex("0230ec0caeb5ff100bd4be3d8dbeb00bcbbf1ad98d87fbbaff533d20754ac10025") << ParseHex("03ec379a7e837ad1310ac9b35dca14e44eaaf4ce0289d12ccf6f61785fc377f528") << CScript::EncodeOP_N(3) << OP_CHECKMULTISIG;
-        nDefaultPort = 8333;
+        pchMessageStart[0] = 0xee;
+        pchMessageStart[1] = 0xa1;
+        pchMessageStart[2] = 0x1f;
+        pchMessageStart[3] = 0xfa;
+        nDefaultPort = 4242;
+        nEnforceBlockUpgradeMajority = 51;
+        nRejectBlockOutdatedMajority = 75;
+        nToCheckBlockUpgradeMajority = 100;
+        nMinerThreads = 0;
+        nTargetTimespan = 14 * 24 * 60 * 60; //! two weeks
+        nTargetSpacing = 10 * 60;
         bnProofOfWorkLimit = ~uint256(0) >> 32;
         nSubsidyHalvingInterval = 210000;
-        nEnforceBlockUpgradeMajority = 750;
-        nRejectBlockOutdatedMajority = 950;
-        nToCheckBlockUpgradeMajority = 1000;
-        nMinerThreads = 0;
-        nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        nTargetSpacing = 10 * 60;
+
+        scriptAlert = CScript() << CScript::EncodeOP_N(2) << ParseHex("0322f29893482dad4de143544fa623b6f68406c61d24d021652f627a6eecb0bd93") << ParseHex("0230ec0caeb5ff100bd4be3d8dbeb00bcbbf1ad98d87fbbaff533d20754ac10025") << ParseHex("03ec379a7e837ad1310ac9b35dca14e44eaaf4ce0289d12ccf6f61785fc377f528") << CScript::EncodeOP_N(3) << OP_CHECKMULTISIG;
 
         /**
          * Build the genesis block.
@@ -126,70 +117,12 @@ public:
         genesis.hashPrevBlock = 0;
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
         genesis.nVersion = 1;
-        genesis.nTime    = 1231006505;
+        genesis.nTime = 1296688602;
         CScript scriptDestination(CScript() << OP_5 << ParseHex("027d5d62861df77fc9a37dbe901a579d686d1423be5f56d6fc50bb9de3480871d1") << ParseHex("03b41ea6ba73b94c901fdd43e782aaf70016cc124b72a086e77f6e9f4f942ca9bb") << ParseHex("02be643c3350bade7c96f6f28d1750af2ef507bc1f08dd38f82749214ab90d9037") << ParseHex("021df31471281d4478df85bfce08a10aab82601dca949a79950f8ddf7002bd915a") << ParseHex("0320ea4fcf77b63e89094e681a5bd50355900bf961c10c9c82876cb3238979c0ed") << ParseHex("021c4c92c8380659eb567b497b936b274424662909e1ffebc603672ed8433f4aa1") << ParseHex("027841250cfadc06c603da8bc58f6cd91e62f369826c8718eb6bd114601dd0c5ac") << OP_7 << OP_CHECKMULTISIG);
         genesis.proof = CProof(scriptDestination, CScript()); // genesis block gets a PoW pass
 
         hashGenesisBlock = genesis.GetHash();
         mapCheckpoints[0] = hashGenesisBlock;
-
-        vSeeds.push_back(CDNSSeedData("bitcoin.sipa.be", "seed.bitcoin.sipa.be"));
-        vSeeds.push_back(CDNSSeedData("bluematt.me", "dnsseed.bluematt.me"));
-        vSeeds.push_back(CDNSSeedData("dashjr.org", "dnsseed.bitcoin.dashjr.org"));
-        vSeeds.push_back(CDNSSeedData("bitcoinstats.com", "seed.bitcoinstats.com"));
-        vSeeds.push_back(CDNSSeedData("xf2.org", "bitseed.xf2.org"));
-
-        base58Prefixes[PUBKEY_ADDRESS] = list_of(0);
-        base58Prefixes[SCRIPT_ADDRESS] = list_of(5);
-        base58Prefixes[BLINDED_ADDRESS]= list_of(10);
-        base58Prefixes[SECRET_KEY] =     list_of(128);
-        base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x88)(0xB2)(0x1E);
-        base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x88)(0xAD)(0xE4);
-
-        convertSeed6(vFixedSeeds, pnSeed6_main, ARRAYLEN(pnSeed6_main));
-
-        fRequireRPCPassword = true;
-        fMiningRequiresPeers = true;
-        fAllowMinDifficultyBlocks = false;
-        fDefaultConsistencyChecks = false;
-        fRequireStandard = true;
-        fMineBlocksOnDemand = false;
-        fSkipProofOfWorkCheck = false;
-        fTestnetToBeDeprecatedFieldRPC = false;
-    }
-
-    const Checkpoints::CCheckpointData& Checkpoints() const 
-    {
-        return data;
-    }
-};
-static CMainParams mainParams;
-
-/**
- * Testnet (v3)
- */
-class CTestNetParams : public CMainParams {
-public:
-    CTestNetParams() {
-        networkID = CBaseChainParams::TESTNET;
-        strNetworkID = "test";
-        pchMessageStart[0] = 0xee;
-        pchMessageStart[1] = 0xa1;
-        pchMessageStart[2] = 0x1f;
-        pchMessageStart[3] = 0xfa;
-        nDefaultPort = 4242;
-        nEnforceBlockUpgradeMajority = 51;
-        nRejectBlockOutdatedMajority = 75;
-        nToCheckBlockUpgradeMajority = 100;
-        nMinerThreads = 0;
-        nTargetTimespan = 14 * 24 * 60 * 60; //! two weeks
-        nTargetSpacing = 10 * 60;
-
-        //! Modify the testnet genesis block so the timestamp is valid for a later start.
-        genesis.nTime = 1296688602;
-
-        hashGenesisBlock = genesis.GetHash();
-        mapCheckpointsTestnet[0] = hashGenesisBlock;
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -202,8 +135,9 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x35)(0x87)(0xCF);
         base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x35)(0x83)(0x94);
 
-        convertSeed6(vFixedSeeds, pnSeed6_test, ARRAYLEN(pnSeed6_test));
+        convertSeed6(vFixedSeeds, pnSeed6_alpha, ARRAYLEN(pnSeed6_alpha));
 
+        fSkipProofOfWorkCheck = false;
         fRequireRPCPassword = true;
         fMiningRequiresPeers = true;
         fAllowMinDifficultyBlocks = true;
@@ -214,19 +148,18 @@ public:
     }
     const Checkpoints::CCheckpointData& Checkpoints() const 
     {
-        return dataTestnet;
+        return dataAlpha;
     }
 };
-static CTestNetParams testNetParams;
+static CAlphaParams alphaParams;
 
 /**
  * Regression test
  */
-class CRegTestParams : public CTestNetParams {
+class CRegTestParams : public CAlphaParams {
 public:
     CRegTestParams() {
-        networkID = CBaseChainParams::REGTEST;
-        strNetworkID = "regtest";
+        strNetworkID = "alpharegtest";
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
         pchMessageStart[2] = 0xb5;
@@ -275,50 +208,23 @@ public:
 static CRegTestParams regTestParams;
 
 /**
- * Unit test
+ * Additional chainparams more similar to Bitcoin main to use in base58-related tests.
  */
-class CUnitTestParams : public CMainParams, public CModifiableParams {
+class CFakeMainParams : public CAlphaParams {
 public:
-    CUnitTestParams() {
-        networkID = CBaseChainParams::UNITTEST;
-        strNetworkID = "unittest";
-        nDefaultPort = 18445;
-        vFixedSeeds.clear(); //! Unit test mode doesn't have any fixed seeds.
-        vSeeds.clear();  //! Unit test mode doesn't have any DNS seeds.
-
-        fRequireRPCPassword = false;
-        fMiningRequiresPeers = false;
-        fDefaultConsistencyChecks = true;
-        fAllowMinDifficultyBlocks = false;
-        fMineBlocksOnDemand = true;
+    CFakeMainParams() {
+        strNetworkID = "fake_main";
+        base58Prefixes[PUBKEY_ADDRESS] = list_of(0);
+        base58Prefixes[SCRIPT_ADDRESS] = list_of(5);
+        base58Prefixes[BLINDED_ADDRESS]= list_of(10);
+        base58Prefixes[SECRET_KEY] =     list_of(128);
+        base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x88)(0xB2)(0x1E);
+        base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x88)(0xAD)(0xE4);
     }
-
-    const Checkpoints::CCheckpointData& Checkpoints() const 
-    {
-        // UnitTest share the same checkpoints as MAIN
-        return data;
-    }
-
-    //! Published setters to allow changing values in unit test cases
-    virtual void setSubsidyHalvingInterval(int anSubsidyHalvingInterval)  { nSubsidyHalvingInterval=anSubsidyHalvingInterval; }
-    virtual void setEnforceBlockUpgradeMajority(int anEnforceBlockUpgradeMajority)  { nEnforceBlockUpgradeMajority=anEnforceBlockUpgradeMajority; }
-    virtual void setRejectBlockOutdatedMajority(int anRejectBlockOutdatedMajority)  { nRejectBlockOutdatedMajority=anRejectBlockOutdatedMajority; }
-    virtual void setToCheckBlockUpgradeMajority(int anToCheckBlockUpgradeMajority)  { nToCheckBlockUpgradeMajority=anToCheckBlockUpgradeMajority; }
-    virtual void setDefaultConsistencyChecks(bool afDefaultConsistencyChecks)  { fDefaultConsistencyChecks=afDefaultConsistencyChecks; }
-    virtual void setAllowMinDifficultyBlocks(bool afAllowMinDifficultyBlocks) {  fAllowMinDifficultyBlocks=afAllowMinDifficultyBlocks; }
-    virtual void setSkipProofOfWorkCheck(bool afSkipProofOfWorkCheck) { fSkipProofOfWorkCheck = afSkipProofOfWorkCheck; }
 };
-static CUnitTestParams unitTestParams;
-
+static CFakeMainParams fakeMainParams;
 
 static CChainParams *pCurrentParams = 0;
-
-CModifiableParams *ModifiableParams()
-{
-   assert(pCurrentParams);
-   assert(pCurrentParams==&unitTestParams);
-   return (CModifiableParams*)&unitTestParams;
-}
 
 const CChainParams &Params() {
     assert(pCurrentParams);
@@ -328,16 +234,14 @@ const CChainParams &Params() {
 CChainParams &Params(CBaseChainParams::Network network) {
     switch (network) {
         case CBaseChainParams::MAIN:
-            return mainParams;
-        case CBaseChainParams::TESTNET:
-            return testNetParams;
+            return alphaParams;
         case CBaseChainParams::REGTEST:
             return regTestParams;
-        case CBaseChainParams::UNITTEST:
-            return unitTestParams;
+        case CBaseChainParams::FAKE_MAIN:
+            return fakeMainParams;
         default:
             assert(false && "Unimplemented network");
-            return mainParams;
+            return alphaParams;
     }
 }
 
