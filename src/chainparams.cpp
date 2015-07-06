@@ -267,6 +267,50 @@ public:
     }
 };
 
+class CSizeTestParams : public CChainParams {
+public:
+    CSizeTestParams() {
+        consensus.nMaxBlockSize = GetArg("-blocksize", 1000000);
+        strNetworkID = strprintf("sizetest%d", consensus.nMaxBlockSize);
+        consensus.nSubsidyHalvingInterval = 150;
+        consensus.nMajorityEnforceBlockUpgrade = 750;
+        consensus.nMajorityRejectBlockOutdated = 950;
+        consensus.nMajorityWindow = 1000;
+        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetSpacing = 10 * 60;
+        consensus.fPowAllowMinDifficultyBlocks = true;
+
+        CScript scriptDestination(CScript() << OP_TRUE);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, 0, 0x2007ffff);
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        nDefaultPort = 28333;
+        nPruneAfterHeight = 100000;
+        fRequireRPCPassword = false;
+        fMiningRequiresPeers = false;
+        fDefaultConsistencyChecks = true;
+        fRequireStandard = false;
+        fMineBlocksOnDemand = true;
+        fTestnetToBeDeprecatedFieldRPC = false;
+
+        pchMessageStart[0] = 0xe0;
+        pchMessageStart[1] = 0x35;
+        pchMessageStart[2] = 0x8e;
+        pchMessageStart[3] = 0xfb;
+        vFixedSeeds.clear();
+        vSeeds.clear();
+        checkpointData = (Checkpoints::CCheckpointData){
+            boost::assign::map_list_of
+            (     0, consensus.hashGenesisBlock),
+            0,
+            0,
+            0
+        };
+        AssignBase58PrefixStyle(base58Prefixes, TEST_BASE58);
+    }
+};
+
 Container<CChainParams> cGlobalChainParams;
 static Container<CChainParams> cGlobalSwitchingChainParams;
 
@@ -282,6 +326,8 @@ CChainParams* CChainParams::Factory(const std::string& chain)
         return new CTestNetParams();
     else if (chain == CBaseChainParams::REGTEST)
         return new CRegTestParams();
+    else if (chain == CBaseChainParams::SIZETEST)
+        return new CSizeTestParams();
     else
         throw std::runtime_error(strprintf(_("%s: Unknown chain %s."), __func__, chain));
 }
