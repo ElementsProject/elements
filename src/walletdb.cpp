@@ -115,6 +115,12 @@ bool CWalletDB::WriteCScript(const uint160& hash, const CScript& redeemScript)
     return Write(std::make_pair(std::string("cscript"), hash), redeemScript, false);
 }
 
+bool CWalletDB::WriteKeyTree(const KeyTree& tree)
+{
+    nWalletDBUpdated++;
+    return Write(std::make_pair(std::string("keytree"), tree.hash), tree, false);
+}
+
 bool CWalletDB::WriteWatchOnly(const CScript &dest)
 {
     nWalletDBUpdated++;
@@ -576,6 +582,23 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             if (!pwallet->LoadCScript(script))
             {
                 strErr = "Error reading wallet database: LoadCScript failed";
+                return false;
+            }
+        }
+        else if (strType == "keytree")
+        {
+            uint256 hash;
+            ssKey >> hash;
+            KeyTree tree;
+            ssValue >> tree;
+            if (hash != tree.hash)
+            {
+                strErr = "Error reading wallet database: keytree root hash mismatch";
+                return false;
+            }
+            if (!pwallet->LoadKeyTree(tree))
+            {
+                strErr = "Error reading wallet database: LoadKeyTree failed";
                 return false;
             }
         }

@@ -13,6 +13,7 @@ class CScript;
 class CTransaction;
 class uint256;
 class UniValue;
+class KeyTree;
 
 // core_read.cpp
 extern CScript ParseScript(std::string s);
@@ -21,9 +22,11 @@ extern bool DecodeHexBlk(CBlock&, const std::string& strHexBlk);
 extern uint256 ParseHashUV(const UniValue& v, const std::string& strName);
 extern uint256 ParseHashStr(const std::string&, const std::string& strName);
 extern std::vector<unsigned char> ParseHexUV(const UniValue& v, const std::string& strName);
+extern bool ParseKeyTree(const std::string &s, KeyTree& tree);
 
 // core_write.cpp
 extern std::string FormatScript(const CScript& script);
+extern std::string FormatKeyTree(const KeyTree& keytree);
 extern std::string EncodeHexTx(const CTransaction& tx);
 extern std::string EncodeHexBlock(const CBlock& block);
 extern void ScriptPubKeyToUniv(const CScript& scriptPubKey,

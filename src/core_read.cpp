@@ -4,6 +4,7 @@
 
 #include "core_io.h"
 
+#include "keytree.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
 #include "script/script.h"
@@ -154,4 +155,87 @@ vector<unsigned char> ParseHexUV(const UniValue& v, const string& strName)
     if (!IsHex(strHex))
         throw runtime_error(strName+" must be hexadecimal string (not '"+strHex+"')");
     return ParseHex(strHex);
+}
+
+static bool ParseKeyTreeNode(const std::string &s, size_t &pos, KeyTreeNode& tree);
+static bool ParseKeyTreeCall(const std::string &s, size_t &pos, unsigned long* num, std::vector<KeyTreeNode>& children)
+{
+    if (s.size() == pos) return false;
+    if (s[pos] != '(') return false;
+    pos++;
+    int count = 0;
+    if (num) {
+        const char *ptr = &s[pos];
+        char *eptr = NULL;
+        *num = strtoul(ptr, &eptr, 10);
+        if (eptr == ptr) return false;
+        pos += eptr - ptr;
+        count++;
+    }
+    while (true) {
+        if (count) {
+            if (pos == s.size()) return false;
+            if (s[pos] == /*(*/')') {
+                pos++;
+                return true;
+            }
+            if (s[pos] != ',') return false;
+            pos++;
+        }
+        children.push_back(KeyTreeNode());
+        if (!ParseKeyTreeNode(s, pos, children.back())) return false;
+        count++;
+    }
+}
+
+static bool ParseKeyTreeNode(const std::string &s, size_t &pos, KeyTreeNode& tree)
+{
+    while (pos < s.size() && isspace(s[pos])) pos++;
+    if (s.size() >= pos + 66 && IsHex(s.substr(pos, 66))) {
+        std::vector<unsigned char> data = ParseHex(s.substr(pos, 66));
+        tree.leaf.Set(data.begin(), data.end());
+        pos += 66;
+        return tree.leaf.IsFullyValid();
+    }
+    if (s.size() >= pos + 2 && s.substr(pos, 2) == "OR") {
+        pos += 2;
+        if (!ParseKeyTreeCall(s, pos, NULL, tree.children)) return false;
+        if (tree.children.size() < 2) return false;
+        tree.threshold = 1;
+        return true;
+    }
+    if (s.size() >= pos + 3 && s.substr(pos, 3) == "AND") {
+        pos += 3;
+        if (!ParseKeyTreeCall(s, pos, NULL, tree.children)) return false;
+        if (tree.children.size() < 2) return false;
+        tree.threshold = tree.children.size();
+        return true;
+    }
+    if (s.size() >= pos + 9 && s.substr(pos, 9) == "THRESHOLD") {
+        pos += 9;
+        unsigned long num;
+        if (!ParseKeyTreeCall(s, pos, &num, tree.children)) return false;
+        if (tree.children.size() < 2) return false;
+        tree.threshold = num;
+        if (tree.threshold <= 1) return false;
+        if (tree.threshold >= tree.children.size()) return false;
+        return true;
+    }
+    return false;
+}
+
+bool ParseKeyTree(const std::string &s, KeyTree& tree)
+{
+    size_t pos = 0;
+    if (!ParseKeyTreeNode(s, pos, tree.root)) return false;
+    if (pos != s.size()) return false;
+    uint64_t count = 0;
+    tree.hash = GetMerkleRoot(&tree.root, &count);
+    int levels = 0;
+    while (count > 1) {
+        count = (count + 1) >> 1;
+        levels++;
+    }
+    tree.levels = levels;
+    return true;
 }

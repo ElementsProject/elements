@@ -99,6 +99,7 @@ BITCOIN_CORE_H = \
   init.h \
   key.h \
   keystore.h \
+  keytree.h \
   leveldbwrapper.h \
   limitedmap.h \
   main.h \
@@ -126,6 +127,7 @@ BITCOIN_CORE_H = \
   streams.h \
   sync.h \
   threadsafety.h \
+  thresholdtree.h \
   timedata.h \
   tinyformat.h \
   txdb.h \
@@ -246,6 +248,7 @@ libbitcoin_common_a_SOURCES = \
   hash.cpp \
   key.cpp \
   keystore.cpp \
+  keytree.cpp \
   merkleblock.cpp \
   netbase.cpp \
   pow.cpp \

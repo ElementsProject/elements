@@ -28,6 +28,11 @@ public:
 
     /** Create a singular (non-script) signature. */
     virtual bool CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const =0;
+
+    /** Deal with partial signatures to produce a multisignature. */
+    virtual bool CreatePartialSigNonce(std::vector<unsigned char>& vchSigNonce, const CKeyID& keyid, const CScript& scriptCode) const =0;
+    virtual bool CreatePartialSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, const std::vector<unsigned char>& my_pubnonce, const std::vector<std::vector<unsigned char> >& other_pubnonces, const std::vector<CPubKey>& other_pubkeys) const =0;
+    virtual bool CombinePartialSigs(std::vector<unsigned char>& out, const std::vector<std::vector<unsigned char> >& ins) const =0;
 };
 
 /** A signature creator for transactions. */
@@ -41,6 +46,9 @@ public:
     TransactionSignatureCreator(const CKeyStore& keystoreIn, const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& nValueIn, int nHashTypeIn=SIGHASH_ALL);
     const BaseSignatureChecker& Checker() const { return checker; }
     bool CreateSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode) const;
+    bool CreatePartialSigNonce(std::vector<unsigned char>& vchSigNonce, const CKeyID& keyid, const CScript& scriptCode) const;
+    bool CreatePartialSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, const std::vector<unsigned char>& my_pubnonce, const std::vector<std::vector<unsigned char> >& other_pubnonces, const std::vector<CPubKey>& other_pubkeys) const;
+    bool CombinePartialSigs(std::vector<unsigned char>& out, const std::vector<std::vector<unsigned char> >& ins) const;
 };
 
 /** Produce a script signature using a generic signature creator. */

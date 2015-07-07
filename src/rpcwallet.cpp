@@ -929,6 +929,40 @@ Value sendmany(const Array& params, bool fHelp)
 
 // Defined in rpcmisc.cpp
 extern CScript _createmultisig_redeemScript(const Array& params);
+void _createtreesig_redeemScript(const Array& params, KeyTree& tree, CScript* pscript);
+
+Value addtreesigaddress(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 2)
+    {
+        string msg = "addmultisigaddress [\"key\",...] ( \"account\" )\n"
+            "\nCreates a tree multi-signature address to the wallet.\n"
+
+            "\nArguments:\n"
+            "1. \"description\"   (string, required) A description for the allowed combinations\n"
+            "2. \"account\"      (string, optional) An account to assign the addresses to.\n"
+
+            "\nResult:\n"
+            "\"bitcoinaddress\"  (string) A bitcoin address associated with the keys.\n"
+        ;
+        throw runtime_error(msg);
+    }
+
+    string strAccount;
+    if (params.size() > 2)
+        strAccount = AccountFromValue(params[2]);
+
+    // Construct using pay-to-script-hash:
+    KeyTree tree;
+    CScript inner;
+    _createtreesig_redeemScript(params, tree, &inner);
+    CScriptID innerID(inner);
+    pwalletMain->AddKeyTree(tree);
+    pwalletMain->AddCScript(inner);
+
+    pwalletMain->SetAddressBook(innerID, strAccount, "send");
+    return CBitcoinAddress(innerID).ToString();
+}
 
 Value addmultisigaddress(const Array& params, bool fHelp)
 {

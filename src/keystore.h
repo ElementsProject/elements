@@ -7,6 +7,7 @@
 #define BITCOIN_KEYSTORE_H
 
 #include "key.h"
+#include "keytree.h"
 #include "pubkey.h"
 #include "sync.h"
 
@@ -40,6 +41,11 @@ public:
     virtual bool HaveCScript(const CScriptID &hash) const =0;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const =0;
 
+    //! Support for pubkey trees
+    virtual bool AddKeyTree(const KeyTree &tree) =0;
+    virtual bool HaveKeyTree(const uint256& hash) const =0;
+    virtual bool GetKeyTree(const uint256& hash, KeyTree& tree) const =0;
+
     //! Support for Watch-only addresses
     virtual bool AddWatchOnly(const CScript &dest) =0;
     virtual bool RemoveWatchOnly(const CScript &dest) =0;
@@ -48,6 +54,7 @@ public:
 };
 
 typedef std::map<CKeyID, CKey> KeyMap;
+typedef std::map<uint256, KeyTree> KeyTreeMap;
 typedef std::map<CScriptID, CScript > ScriptMap;
 typedef std::set<CScript> WatchOnlySet;
 
@@ -56,6 +63,7 @@ class CBasicKeyStore : public CKeyStore
 {
 protected:
     KeyMap mapKeys;
+    KeyTreeMap mapKeyTrees;
     ScriptMap mapScripts;
     WatchOnlySet setWatchOnly;
 
@@ -99,6 +107,10 @@ public:
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const;
+
+    virtual bool AddKeyTree(const KeyTree &tree);
+    virtual bool HaveKeyTree(const uint256& hash) const;
+    virtual bool GetKeyTree(const uint256& hash, KeyTree& tree) const;
 
     virtual bool AddWatchOnly(const CScript &dest);
     virtual bool RemoveWatchOnly(const CScript &dest);

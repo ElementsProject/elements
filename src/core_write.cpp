@@ -5,6 +5,7 @@
 #include "core_io.h"
 
 #include "base58.h"
+#include "keytree.h"
 #include "primitives/transaction.h"
 #include "script/script.h"
 #include "script/standard.h"
@@ -142,4 +143,30 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
         entry.pushKV("blockhash", hashBlock.GetHex());
 
     entry.pushKV("hex", EncodeHexTx(tx)); // the hex-encoded transaction. used the name "hex" to be consistent with the verbose output of "getrawtransaction".
+}
+
+static std::string FormatKeyTreeNode(const KeyTreeNode& tree)
+{
+    if (tree.threshold == 0) {
+        return HexStr(tree.leaf.begin(), tree.leaf.end());
+    }
+    std::string ret;
+    if (tree.threshold == 1) {
+        ret = "OR(";
+    } else if (tree.threshold == tree.children.size()) {
+        ret = "AND(";
+    } else {
+        ret = strprintf("THRESHOLD(%i,"/*)*/, tree.threshold);
+    }
+    for (size_t i = 0; i < tree.children.size(); i++) {
+        if (i) ret += ",";
+        ret += FormatKeyTreeNode(tree.children[i]);
+    }
+    ret += ")";
+    return ret;
+}
+
+std::string FormatKeyTree(const KeyTree& tree)
+{
+    return FormatKeyTreeNode(tree.root);
 }

@@ -185,6 +185,8 @@ public:
     bool Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned int nChild, const unsigned char cc[32]) const;
 };
 
+bool CombinePubKeys(const std::vector<CPubKey>& pubkeys, CPubKey& combination);
+
 struct CExtPubKey {
     unsigned char nDepth;
     unsigned char vchFingerprint[4];
