@@ -12,6 +12,7 @@
 #include "main.h"
 #include "merkleblock.h"
 #include "net.h"
+#include "policy/fees.h"
 #include "rpcserver.h"
 #include "script/script.h"
 #include "script/sign.h"
@@ -64,7 +65,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
-    entry.push_back(Pair("fee", ValueFromAmount(tx.nTxFee)));
+    entry.push_back(Pair("fee", ValueFromAmount(tx.GetFee(feeAssetID)))); // TODO improve ?
     Array vin;
     BOOST_FOREACH(const CTxIn& txin, tx.vin) {
         Object in;
@@ -453,7 +454,7 @@ Value listunspent(const Array& params, bool fHelp)
 
 Value createrawtransaction(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 2)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
@@ -468,6 +469,7 @@ Value createrawtransaction(const Array& params, bool fHelp)
             "         \"txid\":\"id\",  (string, required) The transaction id\n"
             "         \"vout\":n        (numeric, required) The output number\n"
             "         \"nValue\":x.xxx, (numeric, required) The amount being spent\n"
+            "         \"assetid\":\"id\",(string, optional) The assetID of the input being spent (-feeasset by default)\n"
             "       }\n"
             "       ,...\n"
             "     ]\n"
@@ -476,6 +478,13 @@ Value createrawtransaction(const Array& params, bool fHelp)
             "      \"address\": x.xxx   (numeric, required) The key is the bitcoin address, the value is the btc amount\n"
             "      ,...\n"
             "    }\n"
+            "3. \"output asset ids\"    (object, optional) a json object with addresses as keys and asset ids as values\n"
+            "                                              All addresses not contained here default to -feeasset\n"
+            "    {\n"
+            "      \"address\": \"id\"  (string, optional) The key is the bitcoin address, the value is the asset id\n"
+            "      ,...\n"
+            "    }\n"
+            "4. Asset definition        (boolean, optional, default=false) Make it an asset definition transaction. Outputs with assetID = 0 will represent the newly issued assets.\n"
 
             "\nResult:\n"
             "\"transaction\"            (string) hex string of the transaction\n"
@@ -485,14 +494,33 @@ Value createrawtransaction(const Array& params, bool fHelp)
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
         );
 
-    RPCTypeCheck(params, list_of(array_type)(obj_type));
+    if (params.size() == 2) {
+        RPCTypeCheck(params, list_of(array_type)(obj_type));
+    } else if (params.size() == 3) {
+        RPCTypeCheck(params, list_of(array_type)(obj_type)(obj_type));
+    } else if (params.size() == 4) {
+        RPCTypeCheck(params, list_of(array_type)(obj_type)(obj_type)(bool_type));
+    }
 
     Array inputs = params[0].get_array();
     Object sendTo = params[1].get_obj();
+    Object sendToAssets;
+    if (params.size() > 2) {
+        sendToAssets = params[2].get_obj();
+    }
+    bool fAssetDefinition = false;
+    if (params.size() > 3)
+        fAssetDefinition = params[3].get_bool();
 
     CMutableTransaction rawTx;
+    CAmountMap mInputValues;
+    CAmountMap mOutputValues;
 
-    CAmount inputValue = 0;
+    if (fAssetDefinition) {
+        rawTx.vin.resize(1);
+        rawTx.vin[0].prevout.SetNull();
+        rawTx.vin[0].scriptSig = CScript();
+    }
 
     BOOST_FOREACH(const Value& input, inputs) {
         const Object& o = input.get_obj();
@@ -506,14 +534,18 @@ Value createrawtransaction(const Array& params, bool fHelp)
         if (nOutput < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
 
+        CAssetID assetID = feeAssetID;
+        if (params.size() > 2) {
+            try {
+                assetID = ParseHashO(o, "assetid");
+            } catch (...) {};
+        }
         const Value& vout_value = find_value(o, "nValue");
-        inputValue += AmountFromValue(vout_value);
+        mInputValues[assetID] += AmountFromValue(vout_value);
 
         CTxIn in(COutPoint(txid, nOutput));
         rawTx.vin.push_back(in);
     }
-
-    CAmount outputValue = 0;
 
     set<CBitcoinAddress> setAddress;
     BOOST_FOREACH(const Pair& s, sendTo) {
@@ -527,9 +559,12 @@ Value createrawtransaction(const Array& params, bool fHelp)
 
         CScript scriptPubKey = GetScriptForDestination(address.Get());
         CAmount nAmount = AmountFromValue(s.value_);
-        outputValue += nAmount;
+        CAssetID assetID = feeAssetID;
+        if (params.size() > 2)
+            assetID = ParseHashO(sendToAssets, s.name_);
+        mOutputValues[assetID] += nAmount;
 
-        CTxOut out(nAmount, scriptPubKey);
+        CTxOut out(nAmount, scriptPubKey, assetID);
         if (address.IsBlinded()) {
             CPubKey confidentiality_pubkey = address.GetBlindingKey();
             if (!confidentiality_pubkey.IsValid())
@@ -539,7 +574,9 @@ Value createrawtransaction(const Array& params, bool fHelp)
         rawTx.vout.push_back(out);
     }
 
-    rawTx.nTxFee = inputValue - outputValue;
+    CAmountMap mTxReward = mInputValues;
+    mTxReward -= mOutputValues;
+    rawTx.SetFeesFromTxRewardMap(mTxReward);
 
     return EncodeHexTx(rawTx);
 }
