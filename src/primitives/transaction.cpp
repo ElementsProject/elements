@@ -226,6 +226,24 @@ CAmountMap CTransaction::GetTxRewardMap() const
     return mTxReward;
 }
 
+void CMutableTransaction::SetFeesFromTxRewardMap(const CAmountMap& mTxReward)
+{
+    assert(mTxReward.size() <= vout.size());
+    vTxFees.resize(mTxReward.size());
+    for(CAmountMap::const_iterator it = mTxReward.begin(); it != mTxReward.end(); ++it) {
+        bool fFoundAsset = false;
+        for (unsigned i = 0; i < vout.size(); ++i) {
+            if (vout[i].assetID == it->first) {
+                vTxFees[i] = it->second;
+                fFoundAsset = true;
+                break;
+            }
+        }
+        if (!fFoundAsset)
+            assert(false && "CMutableTransaction::SetFeesFromTxRewardMap: Trying to pay fees without output.");
+    }
+}
+
 bool CTransaction::GetFee(const CAssetID& assetID) const
 {
     const CAmountMap mTxReward = GetTxRewardMap();

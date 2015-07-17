@@ -394,6 +394,10 @@ struct CMutableTransaction
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
     uint256 GetHash() const;
+    /**
+     * Sets the vTxFees to the cannonical representation provided
+     */
+    void SetFeesFromTxRewardMap(const CAmountMap& mTxReward);
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H
