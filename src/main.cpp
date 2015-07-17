@@ -938,6 +938,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     if (tx.vout.empty())
         return state.DoS(10, error("CheckTransaction() : vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
+    // TODO add check to enforce cannonical representation of vTxFees
     if (tx.vTxFees.size() <= tx.vout.size())
         return state.DoS(10, error("%s: vTxFees bigger than vout", __func__),
                          REJECT_INVALID, "bad-txns-vtxfees-toolarge");
