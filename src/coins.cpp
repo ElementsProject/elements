@@ -256,11 +256,9 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
 
 extern secp256k1_context* secp256k1_bitcoin_verify_context;
 
-bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
+bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmountMap& mTxReward) const
 {
-    CAmountMap nPlainAmounts;
-    // TODO restore multi-asset block rewards
-    nPlainAmounts[Params().HashGenesisBlock()] = excess;
+    CAmountMap nPlainAmounts = mTxReward;
     std::vector<unsigned char> vchData;
     std::map<CAssetID, std::vector<unsigned char *> > vpchCommitsInMap, vpchCommitsOutMap;
     bool fNullRangeproof = false;
@@ -354,8 +352,7 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& exces
 
 bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx) const
 {
-    const CAmount& excess = tx.nTxFee;
-    return VerifyAmounts(tx, excess);
+    return VerifyAmounts(tx, tx.GetTxRewardMap());
 }
 
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const

@@ -438,13 +438,13 @@ public:
     unsigned int GetCacheSize() const;
 
     /**
-     * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
+     * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amounts as transaction reward.
      *
      * @param[in] tx    transaction for which we are checking totals
-     * @param[in] excess additional amount to consider (eg, fees)
+     * @param[in] txReward additional amounts to consider (eg, fees and subsidy)
      * @return  True if totals are identical
      */
-    bool VerifyAmounts(const CTransaction& tx, const CAmount& excess) const;
+    bool VerifyAmounts(const CTransaction& tx, const CAmountMap& mTxReward) const;
     bool VerifyAmounts(const CTransaction& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view

@@ -267,7 +267,7 @@ public:
     // structure, including the hash.
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
-    const CAmount nTxFee;
+    const std::vector<CAmount> vTxFees;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
 
@@ -290,7 +290,7 @@ public:
         assert((nType != SER_GETHASH && !fOnlyWitness && fWitness) || nType == SER_GETHASH);
         if (!fOnlyWitness)                READWRITE(*const_cast<int32_t*>(&this->nVersion));
                                           READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
-        if (!fBitcoinTx && !fOnlyWitness) READWRITE(*const_cast<CAmount*>(&nTxFee));
+        if (!fBitcoinTx && !fOnlyWitness) READWRITE(*const_cast<std::vector<CAmount>*>(&vTxFees));
         if (!fOnlyWitness)                READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (!fOnlyWitness)                READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (ser_action.ForRead())
@@ -324,6 +324,11 @@ public:
 
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
+    /**
+     * @return a CAmountMap with total fees per asset.
+     */
+    CAmountMap GetTxRewardMap() const;
+    bool GetFee(const CAssetID& assetID) const;
 
     // Compute modified tx size for priority calculation (optionally given tx size)
     unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
@@ -357,7 +362,7 @@ struct CMutableTransaction
 {
     int32_t nVersion;
     std::vector<CTxIn> vin;
-    CAmount nTxFee;
+    std::vector<CAmount> vTxFees;
     std::vector<CTxOut> vout;
     uint32_t nLockTime;
 
@@ -375,7 +380,7 @@ struct CMutableTransaction
         assert((nType != SER_GETHASH && !fOnlyWitness && fWitness) || nType == SER_GETHASH);
         if (!fOnlyWitness) READWRITE(this->nVersion);
                            READWRITE(vin);
-        if (!fOnlyWitness) READWRITE(nTxFee);
+        if (!fOnlyWitness) READWRITE(vTxFees);
         if (!fOnlyWitness) READWRITE(vout);
         if (!fOnlyWitness) READWRITE(nLockTime);
     }

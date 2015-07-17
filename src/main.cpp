@@ -13,6 +13,7 @@
 #include "init.h"
 #include "merkleblock.h"
 #include "net.h"
+#include "policy/fees.h"
 #include "pow.h"
 #include "txdb.h"
 #include "txmempool.h"
@@ -937,6 +938,9 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     if (tx.vout.empty())
         return state.DoS(10, error("CheckTransaction() : vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
+    if (tx.vTxFees.size() <= tx.vout.size())
+        return state.DoS(10, error("%s: vTxFees bigger than vout", __func__),
+                         REJECT_INVALID, "bad-txns-vtxfees-toolarge");
     // Size limits
     if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
         return state.DoS(100, error("CheckTransaction() : size limits failed"),
@@ -1063,7 +1067,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        CAmount nFees = 0;
+        CAmountMap mTxReward;
         {
         LOCK(pool.cs);
         CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1092,8 +1096,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Bring the best block into scope
         view.GetBestBlock();
 
-            nFees = tx.nTxFee;
-            if (!view.VerifyAmounts(tx, nFees))
+            mTxReward = tx.GetTxRewardMap();
+            if (!view.VerifyAmounts(tx, mTxReward))
                 return state.DoS(0,
                                  error("AcceptToMemoryPool : input amounts do not match output amounts %s",
                                        hash.ToString()),
@@ -1137,6 +1141,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         double dPriority = view.GetPriority(tx, chainActive.Height());
 
+        const CAmount nFees = mTxReward.find(feeAssetID)->second;
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height());
         unsigned int nSize = entry.GetTxSize();
 
@@ -1574,12 +1579,13 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             }
         }
 
-        const CAmount& nTxFee = tx.nTxFee;
-        if (!MoneyRange(nTxFee))
-            return state.DoS(100, error("CheckInputs() : nTxFee out of range"),
-                             REJECT_INVALID, "bad-txns-fee-outofrange");
+        const CAmountMap mTxReward = tx.GetTxRewardMap();
+        for(CAmountMap::const_iterator it = mTxReward.begin(); it != mTxReward.end(); ++it)
+            if (!MoneyRange(it->second))
+                return state.DoS(100, error("CheckInputs() : nTxFee out of range"),
+                                 REJECT_INVALID, "bad-txns-fee-outofrange");
 
-        if (!inputs.VerifyAmounts(tx, nTxFee))
+        if (!inputs.VerifyAmounts(tx, mTxReward))
             return state.DoS(100, error("CheckInputs() : %s value in != value out",
                                         tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-amount-mismatch");
@@ -1591,6 +1597,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         // Skip signature verification when connecting blocks
         // before the last block chain checkpoint. This is safe because block merkle hashes are
         // still computed and checked, and any change will be caught at the next checkpoint.
+        const CAmount nTxFee = mTxReward.find(feeAssetID)->second;
         if (fScriptChecks) {
             CTxOutValue prevValueIn = -1;
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
@@ -1777,6 +1784,7 @@ static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck, vector<CTransaction> *pvProofTxn)
 {
+    const CChainParams& chainparams = Params();
     AssertLockHeld(cs_main);
     // Check it again in case a previous version let a bad block in
     if (!CheckBlock(block, state, !fJustCheck, !fJustCheck))
@@ -1840,7 +1848,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
     int64_t nTimeStart = GetTimeMicros();
-    CAmount nFees = 0;
+    CAmountMap mBlockReward;
     int nInputs = 0;
     unsigned int nSigOps = 0;
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
@@ -1875,7 +1883,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
 
             // TODO restore multi-asset block rewards
-            nFees += tx.nTxFee;
+            mBlockReward += tx.GetTxRewardMap();
 
             std::vector<CScriptCheck> vChecks;
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, false, nScriptCheckThreads ? &vChecks : NULL))
@@ -1999,10 +2007,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
 
-    if (!view.VerifyAmounts(block.vtx[0], -GetBlockValue(pindex->nHeight, nFees)))
+    mBlockReward[chainparams.HashGenesisBlock()] += GetBlockValue(pindex->nHeight, 0);
+    if (!view.VerifyAmounts(block.vtx[0], mBlockReward))
         return state.DoS(100,
-                         error("ConnectBlock() : coinbase pays too much (actual=UNKNOWN vs limit=%d)",
-                               GetBlockValue(pindex->nHeight, nFees)),
+                         error("%s: coinbase pays too much", __func__),
                                REJECT_INVALID, "bad-cb-amount");
 
     if (!control.Wait())
