@@ -118,7 +118,26 @@ try:
 		print("Sending %s to %s..." % (sys.argv[3], send_address))
 		print("(nonce: %s)" % nonce)
 
-		txid = bitcoin.sendtoaddress(send_address, Decimal(sys.argv[3]))
+		try:
+			tx_hex = bitcoin.createrawtransaction([], {send_address: Decimal(sys.argv[3])})
+			tx_hex = bitcoin.fundrawtransaction(tx_hex)['hex']
+			tx = bitcoin.signrawtransaction(tx_hex)
+			assert(tx['complete'])
+
+			tx_hex = tx['hex']
+
+			total_length  = len(tx_hex)/2
+			total_length += 14*32 # maximum length of spv proof 1MB blocks
+			total_length += 1000 # len(full_contract) + len(secondScriptPubKey) and rounded up to 1000
+
+			if total_length >= 10000:
+				print("Transaction is too large.")
+				exit(1)
+
+			txid = bitcoin.sendrawtransaction(tx_hex)
+		except:
+			txid = bitcoin.sendtoaddress(send_address, Decimal(sys.argv[3]))
+
 		print("Sent tx with id %s" % txid)
 	elif sys.argv[1] == "claim-on-sidechain":
 		if len(sys.argv) != 5:
