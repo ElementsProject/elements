@@ -22,6 +22,7 @@ const std::map<std::string, uint256> CChainParams::supportedChains =
     ( "main", uint256S("0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"))
     ( "test", uint256S("0x000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"))
     ( "regtest", uint256S("0x0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"))
+    ( "elements_test", uint256S("0xcf97109d25b15952b636e3d98b6fc15e15665e1ba88dd83165b646e05e19da9a"))
     ;
 
 static CBlock CreateGenesisBlock(const char* pszTimestamp, CScript genesisOutputScript, uint32_t nTime=1231006505, uint32_t nNonce=2083236893, uint32_t nBits=0x1d00ffff, int32_t nVersion=1, const CAmount& genesisReward=50 * COIN)
@@ -264,6 +265,53 @@ public:
     }
 };
 
+/**
+ * Sidechain Elements Testnet
+ */
+class CElementsTestParams : public CChainParams {
+public:
+    CElementsTestParams() {
+        strNetworkID = "elements_test";
+        consensus.nSubsidyHalvingInterval = 210000;
+        consensus.nMajorityEnforceBlockUpgrade = 750;
+        consensus.nMajorityRejectBlockOutdated = 950;
+        consensus.nMajorityWindow = 1000;
+        consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetSpacing = 10 * 60;
+        consensus.fPowAllowMinDifficultyBlocks = false;
+
+        CScript scriptDestination(CScript() << OP_TRUE);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, 0, 0x2007ffff);
+        consensus.hashGenesisBlock = genesis.GetHash();
+        // assert(consensus.hashGenesisBlock == supportedChains.find(strNetworkID)->second);
+
+        nDefaultPort = 28333;
+        nPruneAfterHeight = 100000;
+        fRequireRPCPassword = false;
+        fMiningRequiresPeers = false;
+        fDefaultConsistencyChecks = true;
+        fRequireStandard = false;
+        fMineBlocksOnDemand = false;
+        fTestnetToBeDeprecatedFieldRPC = false;
+
+        pchMessageStart[0] = 0xe0;
+        pchMessageStart[1] = 0x35;
+        pchMessageStart[2] = 0x8e;
+        pchMessageStart[3] = 0xfb;
+        vFixedSeeds.clear();
+        vSeeds.clear();
+        checkpointData = (Checkpoints::CCheckpointData){
+            boost::assign::map_list_of
+            (     0, consensus.hashGenesisBlock),
+            0,
+            0,
+            0
+        };
+        AssignBase58PrefixStyle(base58Prefixes, TEST_BASE58);
+    }
+};
+
 Container<CChainParams> cGlobalChainParams;
 static Container<CChainParams> cGlobalSwitchingChainParams;
 
@@ -279,6 +327,8 @@ CChainParams* CChainParams::Factory(const std::string& chain)
         return new CTestNetParams();
     else if (chain == CBaseChainParams::REGTEST)
         return new CRegTestParams();
+    else if (chain == CBaseChainParams::ELEM_TEST)
+        return new CElementsTestParams();
     else
         throw std::runtime_error(strprintf(_("%s: Unknown chain %s."), __func__, chain));
 }

@@ -11,6 +11,7 @@
 const std::string CBaseChainParams::MAIN = "main";
 const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
+const std::string CBaseChainParams::ELEM_TEST = "elements_test";
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
@@ -62,18 +63,18 @@ public:
     }
 };
 
-/*
- * Unit test
+/**
+ * Sidechain Elements Testnet
  */
-class CBaseUnitTestParams : public CBaseMainParams
+class CBaseElementsTestParams : public CBaseMainParams
 {
 public:
-    CBaseUnitTestParams()
+    CBaseElementsTestParams()
     {
-        strDataDir = "unittest";
+        nRPCPort = 28332;
+        strDataDir = "elements_test";
     }
 };
-static CBaseUnitTestParams unitTestParams;
 
 Container<CBaseChainParams> cGlobalChainBaseParams;
 
@@ -90,6 +91,8 @@ CBaseChainParams* CBaseChainParams::Factory(const std::string& chain)
         return new CBaseTestNetParams();
     else if (chain == CBaseChainParams::REGTEST)
         return new CBaseRegTestParams();
+    else if (chain == CBaseChainParams::ELEM_TEST)
+        return new CBaseElementsTestParams();
     else
         throw std::runtime_error(strprintf(_("%s: Unknown chain %s."), __func__, chain));
 }
