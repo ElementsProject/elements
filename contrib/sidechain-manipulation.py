@@ -136,6 +136,14 @@ try:
 
 			txid = bitcoin.sendrawtransaction(tx_hex)
 		except:
+			# Compensate for <0.9 BC Core by gracefully handling the "already unlocked" wallet case.
+			try:
+				txid = bitcoin.walletpassphrase('walletPassword', 1000)
+			except JSONRPCException as e:
+				if e.error['code'] != '-17':
+					print("Got the following error from an RPC Call:")
+					print(e.error)
+					sys.exit()
 			txid = bitcoin.sendtoaddress(send_address, Decimal(sys.argv[3]))
 
 		print("Sent tx with id %s" % txid)
