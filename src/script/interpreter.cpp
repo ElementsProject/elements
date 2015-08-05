@@ -1462,7 +1462,11 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                             unsigned char *pub_start = &(*(sdpc - 33));
                                             CHMAC_SHA256(pub_start, 33).Write(&vcontract[0], 40).Finalize(tweak);
                                             // If someone creates a tweak that makes this fail, they broke SHA256
-                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_context, pub_start, 33, tweak) != 0);
+                                            secp256k1_pubkey_t pubkey;
+                                            int pubkeylen = 33;
+                                            assert(secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, pub_start, 33));
+                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_context, &pubkey, tweak) != 0);
+                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_context, pub_start, &pubkeylen, &pubkey, 1));
                                         }
                                     }
                                 }

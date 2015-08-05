@@ -9,6 +9,7 @@
 #include <assert.h>
 
 #include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
 
 /**
  * calculate number of bytes for the bitmask, and its number of non-zero bytes
