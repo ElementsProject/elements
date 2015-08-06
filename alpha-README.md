@@ -26,7 +26,7 @@ for notes on dependencies that must be installed before beginning.
 
 ### To move money into Elements Alpha:
 
-1\. See 1 and 2 in "To run alphad"
+1\. See 1 and 2 in "To run alphad"  
 2\. Download secp256k1:
 ```bash
   git clone https://github.com/bitcoin/secp256k1
