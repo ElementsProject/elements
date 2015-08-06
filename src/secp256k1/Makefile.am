@@ -13,14 +13,14 @@ noinst_HEADERS += src/group.h
 noinst_HEADERS += src/group_impl.h
 noinst_HEADERS += src/num_gmp.h
 noinst_HEADERS += src/num_gmp_impl.h
-noinst_HEADERS += src/ecdh.h
-noinst_HEADERS += src/ecdh_impl.h
 noinst_HEADERS += src/ecdsa.h
 noinst_HEADERS += src/ecdsa_impl.h
 noinst_HEADERS += src/eckey.h
 noinst_HEADERS += src/eckey_impl.h
 noinst_HEADERS += src/ecmult.h
 noinst_HEADERS += src/ecmult_impl.h
+noinst_HEADERS += src/ecmult_const.h
+noinst_HEADERS += src/ecmult_const_impl.h
 noinst_HEADERS += src/ecmult_gen.h
 noinst_HEADERS += src/ecmult_gen_impl.h
 noinst_HEADERS += src/num.h
@@ -40,56 +40,73 @@ noinst_HEADERS += src/hash_impl.h
 noinst_HEADERS += src/field.h
 noinst_HEADERS += src/field_impl.h
 noinst_HEADERS += src/bench.h
-noinst_HEADERS += src/borromean.h
-noinst_HEADERS += src/borromean_impl.h
-noinst_HEADERS += src/rangeproof.h
-noinst_HEADERS += src/rangeproof_impl.h
-noinst_HEADERS += src/schnorr.h
-noinst_HEADERS += src/schnorr_impl.h
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libsecp256k1.pc
 
 libsecp256k1_la_SOURCES = src/secp256k1.c
-libsecp256k1_la_CPPFLAGS = -I$(top_srcdir)/include $(SECP_INCLUDES)
+libsecp256k1_la_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/src $(SECP_INCLUDES)
 libsecp256k1_la_LIBADD = $(SECP_LIBS)
 
 
 noinst_PROGRAMS =
 if USE_BENCHMARK
-noinst_PROGRAMS += bench_verify bench_recover bench_sign bench_rangeproof bench_internal bench_ecdh bench_schnorr_verify
+noinst_PROGRAMS += bench_verify bench_recover bench_sign bench_internal
 bench_verify_SOURCES = src/bench_verify.c
 bench_verify_LDADD = libsecp256k1.la $(SECP_LIBS)
 bench_verify_LDFLAGS = -static
-bench_schnorr_verify_SOURCES = src/bench_schnorr_verify.c
-bench_schnorr_verify_LDADD = libsecp256k1.la $(SECP_LIBS)
-bench_schnorr_verify_LDFLAGS = -static
 bench_recover_SOURCES = src/bench_recover.c
 bench_recover_LDADD = libsecp256k1.la $(SECP_LIBS)
 bench_recover_LDFLAGS = -static
 bench_sign_SOURCES = src/bench_sign.c
 bench_sign_LDADD = libsecp256k1.la $(SECP_LIBS)
 bench_sign_LDFLAGS = -static
-bench_rangeproof_SOURCES = src/bench_rangeproof.c
-bench_rangeproof_LDADD = libsecp256k1.la $(SECP_LIBS)
-bench_rangeproof_LDFLAGS = -static
 bench_internal_SOURCES = src/bench_internal.c
 bench_internal_LDADD = $(SECP_LIBS)
 bench_internal_LDFLAGS = -static
 bench_internal_CPPFLAGS = $(SECP_INCLUDES)
-bench_ecdh_SOURCES = src/bench_ecdh.c
-bench_ecdh_LDADD = libsecp256k1.la $(SECP_LIBS)
-bench_ecdh_LDFLAGS = -static
-bench_ecdh_CPPFLAGS = $(SECP_INCLUDES)
 endif
 
 if USE_TESTS
 noinst_PROGRAMS += tests
 tests_SOURCES = src/tests.c
-tests_CPPFLAGS = -DVERIFY $(SECP_INCLUDES) $(SECP_TEST_INCLUDES)
+tests_CPPFLAGS = -DVERIFY -I$(top_srcdir)/src $(SECP_INCLUDES) $(SECP_TEST_INCLUDES)
 tests_LDADD = $(SECP_LIBS) $(SECP_TEST_LIBS)
 tests_LDFLAGS = -static
 TESTS = tests
 endif
 
-EXTRA_DIST = autogen.sh
+if USE_ECMULT_STATIC_PRECOMPUTATION
+CPPFLAGS_FOR_BUILD +=-I$(top_srcdir)/
+CFLAGS_FOR_BUILD += -Wall -Wextra -Wno-unused-function
+
+gen_context_OBJECTS = gen_context.o
+gen_context_BIN = gen_context$(BUILD_EXEEXT)
+gen_%.o: src/gen_%.c
+	$(CC_FOR_BUILD) $(CPPFLAGS_FOR_BUILD) $(CFLAGS_FOR_BUILD) -c $< -o $@
+
+$(gen_context_BIN): $(gen_context_OBJECTS)
+	$(CC_FOR_BUILD) $^ -o $@
+
+$(libsecp256k1_la_OBJECTS): src/ecmult_static_context.h
+$(tests_OBJECTS): src/ecmult_static_context.h
+
+src/ecmult_static_context.h: $(gen_context_BIN)
+	./$(gen_context_BIN)
+
+CLEANFILES = $(gen_context_BIN) src/ecmult_static_context.h
+endif
+
+EXTRA_DIST = autogen.sh src/gen_context.c src/basic-config.h
+
+if ENABLE_MODULE_ECDH
+include src/modules/ecdh/Makefile.am.include
+endif
+
+if ENABLE_MODULE_SCHNORR
+include src/modules/schnorr/Makefile.am.include
+endif
+
+if ENABLE_MODULE_RANGEPROOF
+include src/modules/rangeproof/Makefile.am.include
+endif

@@ -96,9 +96,10 @@ static int secp256k1_scalar_add(secp256k1_scalar_t *r, const secp256k1_scalar_t 
     return overflow;
 }
 
-static void secp256k1_scalar_add_bit(secp256k1_scalar_t *r, unsigned int bit) {
+static void secp256k1_scalar_cadd_bit(secp256k1_scalar_t *r, unsigned int bit, int flag) {
     uint128_t t;
     VERIFY_CHECK(bit < 256);
+    bit += ((uint32_t) flag - 1) & 0x100;  /* forcing (bit >> 6) > 3 makes this a noop */
     t = (uint128_t)r->d[0] + (((uint64_t)((bit >> 6) == 0)) << (bit & 0x3F));
     r->d[0] = t & 0xFFFFFFFFFFFFFFFFULL; t >>= 64;
     t += (uint128_t)r->d[1] + (((uint64_t)((bit >> 6) == 1)) << (bit & 0x3F));
@@ -164,10 +165,10 @@ static int secp256k1_scalar_is_high(const secp256k1_scalar_t *a) {
     return yes;
 }
 
-static int secp256k1_scalar_wnaf_force_odd(secp256k1_scalar_t *r) {
-    /* If we are odd, mask = 0 and this is a no-op;
-     * if we are even, mask = 11...11 and this is identical to secp256k1_scalar_negate */
-    uint64_t mask = (r->d[0] & 1) - 1;
+static int secp256k1_scalar_cond_negate(secp256k1_scalar_t *r, int flag) {
+    /* If we are flag = 0, mask = 00...00 and this is a no-op;
+     * if we are flag = 1, mask = 11...11 and this is identical to secp256k1_scalar_negate */
+    uint64_t mask = !flag - 1;
     uint64_t nonzero = (secp256k1_scalar_is_zero(r) != 0) - 1;
     uint128_t t = (uint128_t)(r->d[0] ^ mask) + ((SECP256K1_N_0 + 1) & mask);
     r->d[0] = t & nonzero; t >>= 64;
@@ -940,9 +941,7 @@ SECP256K1_INLINE static void secp256k1_scalar_mul_shift_var(secp256k1_scalar_t *
     r->d[1] = shift < 448 ? (l[1 + shiftlimbs] >> shiftlow | (shift < 384 && shiftlow ? (l[2 + shiftlimbs] << shifthigh) : 0)) : 0;
     r->d[2] = shift < 384 ? (l[2 + shiftlimbs] >> shiftlow | (shift < 320 && shiftlow ? (l[3 + shiftlimbs] << shifthigh) : 0)) : 0;
     r->d[3] = shift < 320 ? (l[3 + shiftlimbs] >> shiftlow) : 0;
-    if ((l[(shift - 1) >> 6] >> ((shift - 1) & 0x3f)) & 1) {
-        secp256k1_scalar_add_bit(r, 0);
-    }
+    secp256k1_scalar_cadd_bit(r, 0, (l[(shift - 1) >> 6] >> ((shift - 1) & 0x3f)) & 1);
 }
 
 #endif

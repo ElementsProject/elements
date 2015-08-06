@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-#include "include/secp256k1.h"
+#include "include/secp256k1_rangeproof.h"
 #include "util.h"
 #include "bench.h"
 
@@ -52,11 +52,13 @@ static void bench_rangeproof(void* arg) {
 int main(void) {
     bench_rangeproof_t data;
 
-    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_COMMIT | SECP256K1_CONTEXT_RANGEPROOF);
+    data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    secp256k1_pedersen_context_initialize(data.ctx);
+    secp256k1_rangeproof_context_initialize(data.ctx);
 
     data.min_bits = 32;
 
-    run_benchmark("rangeproof_verif_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, 1000 * data.min_bits);
+    run_benchmark("rangeproof_verify_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, 1000 * data.min_bits);
 
     secp256k1_context_destroy(data.ctx);
     return 0;
