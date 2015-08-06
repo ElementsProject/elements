@@ -1,200 +1,112 @@
 ACLOCAL_AMFLAGS = -I build-aux/m4
-SUBDIRS = src
-.PHONY: deploy FORCE
 
-GZIP_ENV="-9n"
+lib_LTLIBRARIES = libsecp256k1.la
+include_HEADERS = include/secp256k1.h
+noinst_HEADERS =
+noinst_HEADERS += src/scalar.h
+noinst_HEADERS += src/scalar_4x64.h
+noinst_HEADERS += src/scalar_8x32.h
+noinst_HEADERS += src/scalar_impl.h
+noinst_HEADERS += src/scalar_4x64_impl.h
+noinst_HEADERS += src/scalar_8x32_impl.h
+noinst_HEADERS += src/group.h
+noinst_HEADERS += src/group_impl.h
+noinst_HEADERS += src/num_gmp.h
+noinst_HEADERS += src/num_gmp_impl.h
+noinst_HEADERS += src/ecdsa.h
+noinst_HEADERS += src/ecdsa_impl.h
+noinst_HEADERS += src/eckey.h
+noinst_HEADERS += src/eckey_impl.h
+noinst_HEADERS += src/ecmult.h
+noinst_HEADERS += src/ecmult_impl.h
+noinst_HEADERS += src/ecmult_const.h
+noinst_HEADERS += src/ecmult_const_impl.h
+noinst_HEADERS += src/ecmult_gen.h
+noinst_HEADERS += src/ecmult_gen_impl.h
+noinst_HEADERS += src/num.h
+noinst_HEADERS += src/num_impl.h
+noinst_HEADERS += src/field_10x26.h
+noinst_HEADERS += src/field_10x26_impl.h
+noinst_HEADERS += src/field_5x52.h
+noinst_HEADERS += src/field_5x52_impl.h
+noinst_HEADERS += src/field_5x52_int128_impl.h
+noinst_HEADERS += src/field_5x52_asm_impl.h
+noinst_HEADERS += src/java/org_bitcoin_NativeSecp256k1.h
+noinst_HEADERS += src/util.h
+noinst_HEADERS += src/testrand.h
+noinst_HEADERS += src/testrand_impl.h
+noinst_HEADERS += src/hash.h
+noinst_HEADERS += src/hash_impl.h
+noinst_HEADERS += src/field.h
+noinst_HEADERS += src/field_impl.h
+noinst_HEADERS += src/bench.h
 
-BITCOIND_BIN=$(top_builddir)/src/bitcoind$(EXEEXT)
-BITCOIN_QT_BIN=$(top_builddir)/src/qt/bitcoin-qt$(EXEEXT)
-BITCOIN_CLI_BIN=$(top_builddir)/src/bitcoin-cli$(EXEEXT)
-BITCOIN_WIN_INSTALLER=$(PACKAGE)-$(PACKAGE_VERSION)-win$(WINDOWS_BITS)-setup$(EXEEXT)
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libsecp256k1.pc
 
-OSX_APP=Bitcoin-Qt.app
-OSX_DMG=Bitcoin-Qt.dmg
-OSX_DEPLOY_SCRIPT=$(top_srcdir)/contrib/macdeploy/macdeployqtplus
-OSX_FANCY_PLIST=$(top_srcdir)/contrib/macdeploy/fancy.plist
-OSX_INSTALLER_ICONS=$(top_srcdir)/src/qt/res/icons/bitcoin.icns
-OSX_PLIST=$(top_srcdir)/share/qt/Info.plist #not installed
-OSX_QT_TRANSLATIONS = da,de,es,hu,ru,uk,zh_CN,zh_TW
+libsecp256k1_la_SOURCES = src/secp256k1.c
+libsecp256k1_la_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/src $(SECP_INCLUDES)
+libsecp256k1_la_LIBADD = $(SECP_LIBS)
 
-DIST_DOCS = $(wildcard doc/*.md) $(wildcard doc/release-notes/*.md)
 
-WINDOWS_PACKAGING = $(top_srcdir)/share/pixmaps/bitcoin.ico \
-  $(top_srcdir)/share/pixmaps/nsis-header.bmp \
-  $(top_srcdir)/share/pixmaps/nsis-wizard.bmp \
-  $(top_srcdir)/doc/README_windows.txt
-
-OSX_PACKAGING = $(OSX_DEPLOY_SCRIPT) $(OSX_FANCY_PLIST) $(OSX_INSTALLER_ICONS) \
-  $(top_srcdir)/contrib/macdeploy/background.png \
-  $(top_srcdir)/contrib/macdeploy/DS_Store \
-  $(top_srcdir)/contrib/macdeploy/detached-sig-apply.sh \
-  $(top_srcdir)/contrib/macdeploy/detached-sig-create.sh
-
-COVERAGE_INFO = baseline_filtered_combined.info baseline.info block_test.info \
-  leveldb_baseline.info test_bitcoin_filtered.info total_coverage.info \
-  baseline_filtered.info block_test_filtered.info \
-  leveldb_baseline_filtered.info test_bitcoin_coverage.info test_bitcoin.info
-
-dist-hook:
-	-$(MAKE) -C $(top_distdir)/src/leveldb clean
-	-$(MAKE) -C $(top_distdir)/src/secp256k1 distclean
-	-$(GIT) archive --format=tar HEAD -- src/clientversion.cpp | $(AMTAR) -C $(top_distdir) -xf -
-
-distcheck-hook:
-	$(MKDIR_P) $(top_distdir)/_build/src/leveldb
-	cp -rf $(top_srcdir)/src/leveldb/* $(top_distdir)/_build/src/leveldb/
-	-$(MAKE) -C $(top_distdir)/_build/src/leveldb clean
-
-distcleancheck:
-	@:
-
-$(BITCOIN_WIN_INSTALLER): all-recursive
-	$(MKDIR_P) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIND_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_QT_BIN) $(top_builddir)/release
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM) $(BITCOIN_CLI_BIN) $(top_builddir)/release
-	@test -f $(MAKENSIS) && $(MAKENSIS) $(top_builddir)/share/setup.nsi || \
-	  echo error: could not build $@
-
-$(if $(findstring src/,$(MAKECMDGOALS)),$(MAKECMDGOALS), none): FORCE
-	$(MAKE) -C src $(patsubst src/%,%,$@)
-
-$(OSX_APP)/Contents/PkgInfo:
-	$(MKDIR_P) $(@D)
-	@echo "APPL????" > $@
-
-$(OSX_APP)/Contents/Resources/empty.lproj:
-	$(MKDIR_P) $(@D)
-	@touch $@
-
-$(OSX_APP)/Contents/Info.plist: $(OSX_PLIST)
-	$(MKDIR_P) $(@D)
-	$(INSTALL_DATA) $< $@
-
-$(OSX_APP)/Contents/Resources/bitcoin.icns: $(OSX_INSTALLER_ICONS)
-	$(MKDIR_P) $(@D)
-	$(INSTALL_DATA) $< $@
-
-$(OSX_APP)/Contents/MacOS/Bitcoin-Qt: $(BITCOIN_QT_BIN)
-	$(MKDIR_P) $(@D)
-	STRIPPROG="$(STRIP)" $(INSTALL_STRIP_PROGRAM)  $< $@
-
-OSX_APP_BUILT=$(OSX_APP)/Contents/PkgInfo $(OSX_APP)/Contents/Resources/empty.lproj \
-  $(OSX_APP)/Contents/Resources/bitcoin.icns $(OSX_APP)/Contents/Info.plist \
-  $(OSX_APP)/Contents/MacOS/Bitcoin-Qt
-
-if BUILD_DARWIN
-$(OSX_DMG): $(OSX_APP_BUILT) $(OSX_PACKAGING)
-	$(OSX_DEPLOY_SCRIPT) $(OSX_APP) -add-qt-tr $(OSX_QT_TRANSLATIONS) -translations-dir=$(QT_TRANSLATION_DIR) -dmg -fancy $(OSX_FANCY_PLIST) -verbose 2
-
-deploydir: $(OSX_DMG)
-else
-APP_DIST_DIR=$(top_builddir)/dist
-APP_DIST_EXTRAS=$(APP_DIST_DIR)/.background/background.png $(APP_DIST_DIR)/.DS_Store $(APP_DIST_DIR)/Applications
-
-$(APP_DIST_DIR)/Applications:
-	@rm -f $@
-	@cd $(@D); $(LN_S) /Applications $(@F)
-
-$(APP_DIST_EXTRAS): $(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Bitcoin-Qt
-
-$(OSX_DMG): $(APP_DIST_EXTRAS)
-	$(GENISOIMAGE) -no-cache-inodes -D -l -probe -V "Bitcoin-Qt" -no-pad -r -apple -o $@ dist
-
-$(APP_DIST_DIR)/.background/background.png:
-	$(MKDIR_P) $(@D)
-	$(INSTALL) $(top_srcdir)/contrib/macdeploy/background.png $@
-$(APP_DIST_DIR)/.DS_Store:
-	$(INSTALL) $(top_srcdir)/contrib/macdeploy/DS_Store $@
-
-$(APP_DIST_DIR)/$(OSX_APP)/Contents/MacOS/Bitcoin-Qt: $(OSX_APP_BUILT) $(OSX_PACKAGING)
-	INSTALLNAMETOOL=$(INSTALLNAMETOOL)  OTOOL=$(OTOOL) STRIP=$(STRIP) $(OSX_DEPLOY_SCRIPT) $(OSX_APP) -translations-dir=$(QT_TRANSLATION_DIR) -add-qt-tr $(OSX_QT_TRANSLATIONS) -verbose 2
-
-deploydir: $(APP_DIST_EXTRAS)
+noinst_PROGRAMS =
+if USE_BENCHMARK
+noinst_PROGRAMS += bench_verify bench_recover bench_sign bench_internal
+bench_verify_SOURCES = src/bench_verify.c
+bench_verify_LDADD = libsecp256k1.la $(SECP_LIBS)
+bench_verify_LDFLAGS = -static
+bench_recover_SOURCES = src/bench_recover.c
+bench_recover_LDADD = libsecp256k1.la $(SECP_LIBS)
+bench_recover_LDFLAGS = -static
+bench_sign_SOURCES = src/bench_sign.c
+bench_sign_LDADD = libsecp256k1.la $(SECP_LIBS)
+bench_sign_LDFLAGS = -static
+bench_internal_SOURCES = src/bench_internal.c
+bench_internal_LDADD = $(SECP_LIBS)
+bench_internal_LDFLAGS = -static
+bench_internal_CPPFLAGS = $(SECP_INCLUDES)
 endif
 
-if TARGET_DARWIN
-appbundle: $(OSX_APP_BUILT)
-deploy: $(OSX_DMG)
-endif
-if TARGET_WINDOWS
-deploy: $(BITCOIN_WIN_INSTALLER)
-endif
-
-$(BITCOIN_QT_BIN): FORCE
-	$(MAKE) -C src qt/$(@F)
-
-$(BITCOIND_BIN): FORCE
-	$(MAKE) -C src $(@F)
-
-$(BITCOIN_CLI_BIN): FORCE
-	$(MAKE) -C src $(@F)
-
-if USE_LCOV
-
-baseline.info:
-	$(LCOV) -c -i -d $(abs_builddir)/src -o $@
-
-baseline_filtered.info: baseline.info
-	$(LCOV) -r $< "/usr/include/*" -o $@
-
-leveldb_baseline.info: baseline_filtered.info
-	$(LCOV) -c -i -d $(abs_builddir)/src/leveldb -b $(abs_builddir)/src/leveldb -o $@
-
-leveldb_baseline_filtered.info: leveldb_baseline.info
-	$(LCOV) -r $< "/usr/include/*" -o $@
-
-baseline_filtered_combined.info: leveldb_baseline_filtered.info baseline_filtered.info
-	$(LCOV) -a leveldb_baseline_filtered.info -a baseline_filtered.info -o $@
-
-test_bitcoin.info: baseline_filtered_combined.info
-	$(MAKE) -C src/ check
-	$(LCOV) -c -d $(abs_builddir)/src -t test_bitcoin -o $@
-	$(LCOV) -z -d $(abs_builddir)/src
-	$(LCOV) -z -d $(abs_builddir)/src/leveldb
-
-test_bitcoin_filtered.info: test_bitcoin.info
-	$(LCOV) -r $< "/usr/include/*" -o $@
-
-block_test.info: test_bitcoin_filtered.info
-	$(MKDIR_P) qa/tmp
-	-@TIMEOUT=15 qa/pull-tester/run-bitcoind-for-test.sh $(JAVA) -jar $(JAVA_COMPARISON_TOOL) qa/tmp/compTool 0
-	$(LCOV) -c -d $(abs_builddir)/src --t BitcoinJBlockTest -o $@
-	$(LCOV) -z -d $(abs_builddir)/src
-	$(LCOV) -z -d $(abs_builddir)/src/leveldb
-
-block_test_filtered.info: block_test.info
-	$(LCOV) -r $< "/usr/include/*" -o $@
-
-test_bitcoin_coverage.info: baseline_filtered_combined.info test_bitcoin_filtered.info
-	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -o $@
-
-total_coverage.info:  baseline_filtered_combined.info test_bitcoin_filtered.info block_test_filtered.info
-	$(LCOV) -a baseline_filtered.info -a leveldb_baseline_filtered.info -a test_bitcoin_filtered.info -a block_test_filtered.info -o $@ | $(GREP) "\%" | $(AWK) '{ print substr($$3,2,50) "/" $$5 }' > coverage_percent.txt
-
-test_bitcoin.coverage/.dirstamp:  test_bitcoin_coverage.info
-	$(GENHTML) -s $< -o $(@D)
-	@touch $@
-
-total.coverage/.dirstamp: total_coverage.info
-	$(GENHTML) -s $< -o $(@D)
-	@touch $@
-
-cov: test_bitcoin.coverage/.dirstamp total.coverage/.dirstamp
-
+if USE_TESTS
+noinst_PROGRAMS += tests
+tests_SOURCES = src/tests.c
+tests_CPPFLAGS = -DVERIFY -I$(top_srcdir)/src $(SECP_INCLUDES) $(SECP_TEST_INCLUDES)
+tests_LDADD = $(SECP_LIBS) $(SECP_TEST_LIBS)
+tests_LDFLAGS = -static
+TESTS = tests
 endif
 
-if USE_COMPARISON_TOOL
-check-local:
-	$(MKDIR_P) qa/tmp
-	@qa/pull-tester/run-bitcoind-for-test.sh $(JAVA) -jar $(JAVA_COMPARISON_TOOL) qa/tmp/compTool $(COMPARISON_TOOL_REORG_TESTS) 2>&1
+if USE_ECMULT_STATIC_PRECOMPUTATION
+CPPFLAGS_FOR_BUILD +=-I$(top_srcdir)/
+CFLAGS_FOR_BUILD += -Wall -Wextra -Wno-unused-function
+
+gen_context_OBJECTS = gen_context.o
+gen_context_BIN = gen_context$(BUILD_EXEEXT)
+gen_%.o: src/gen_%.c
+	$(CC_FOR_BUILD) $(CPPFLAGS_FOR_BUILD) $(CFLAGS_FOR_BUILD) -c $< -o $@
+
+$(gen_context_BIN): $(gen_context_OBJECTS)
+	$(CC_FOR_BUILD) $^ -o $@
+
+$(libsecp256k1_la_OBJECTS): src/ecmult_static_context.h
+$(tests_OBJECTS): src/ecmult_static_context.h
+
+src/ecmult_static_context.h: $(gen_context_BIN)
+	./$(gen_context_BIN)
+
+CLEANFILES = $(gen_context_BIN) src/ecmult_static_context.h
 endif
 
-EXTRA_DIST = $(top_srcdir)/share/genbuild.sh qa/pull-tester/rpc-tests.sh qa/pull-tester/run-bitcoin-cli qa/rpc-tests $(DIST_DOCS) $(WINDOWS_PACKAGING) $(OSX_PACKAGING)
+EXTRA_DIST = autogen.sh src/gen_context.c src/basic-config.h
 
-CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)
+if ENABLE_MODULE_ECDH
+include src/modules/ecdh/Makefile.am.include
+endif
 
-.INTERMEDIATE: $(COVERAGE_INFO)
+if ENABLE_MODULE_SCHNORR
+include src/modules/schnorr/Makefile.am.include
+endif
 
-clean-local:
-	rm -rf test_bitcoin.coverage/ total.coverage/ $(OSX_APP)
+if ENABLE_MODULE_RANGEPROOF
+include src/modules/rangeproof/Makefile.am.include
+endif

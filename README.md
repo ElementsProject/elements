@@ -1,120 +1,61 @@
-Bitcoin Core integration/staging tree
-=====================================
+libsecp256k1
+============
 
-[![Build Status](https://travis-ci.org/bitcoin/bitcoin.svg?branch=master)](https://travis-ci.org/bitcoin/bitcoin)
+[![Build Status](https://travis-ci.org/bitcoin/secp256k1.svg?branch=master)](https://travis-ci.org/bitcoin/secp256k1)
 
-https://www.bitcoin.org
+Optimized C library for EC operations on curve secp256k1.
 
-What is Bitcoin?
-----------------
+This library is a work in progress and is being used to research best practices. Use at your own risk.
 
-Bitcoin is an experimental new digital currency that enables instant payments to
-anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate
-with no central authority: managing transactions and issuing money are carried
-out collectively by the network. Bitcoin Core is the name of open source
-software which enables the use of this currency.
+Features:
+* secp256k1 ECDSA signing/verification and key generation.
+* Adding/multiplying private/public keys.
+* Serialization/parsing of private keys, public keys, signatures.
+* Constant time, constant memory access signing and pubkey generation.
+* Derandomized DSA (via RFC6979 or with a caller provided function.)
+* Very efficient implementation.
 
-For more information, as well as an immediately useable, binary version of
-the Bitcoin Core software, see https://www.bitcoin.org/en/download.
+Implementation details
+----------------------
 
-License
--------
+* General
+  * No runtime heap allocation.
+  * Extensive testing infrastructure.
+  * Structured to facilitate review and analysis.
+  * Intended to be portable to any system with a C89 compiler and uint64_t support.
+  * Expose only higher level interfaces to minimize the API surface and improve application security. ("Be difficult to use insecurely.")
+* Field operations
+  * Optimized implementation of arithmetic modulo the curve's field size (2^256 - 0x1000003D1).
+    * Using 5 52-bit limbs (including hand-optimized assembly for x86_64, by Diederik Huys).
+    * Using 10 26-bit limbs.
+  * Field inverses and square roots using a sliding window over blocks of 1s (by Peter Dettman).
+* Scalar operations
+  * Optimized implementation without data-dependent branches of arithmetic modulo the curve's order.
+    * Using 4 64-bit limbs (relying on __int128 support in the compiler).
+    * Using 8 32-bit limbs.
+* Group operations
+  * Point addition formula specifically simplified for the curve equation (y^2 = x^3 + 7).
+  * Use addition between points in Jacobian and affine coordinates where possible.
+  * Use a unified addition/doubling formula where necessary to avoid data-dependent branches.
+  * Point/x comparison without a field inversion by comparison in the Jacobian coordinate space.
+* Point multiplication for verification (a*P + b*G).
+  * Use wNAF notation for point multiplicands.
+  * Use a much larger window for multiples of G, using precomputed multiples.
+  * Use Shamir's trick to do the multiplication with the public key and the generator simultaneously.
+  * Optionally (off by default) use secp256k1's efficiently-computable endomorphism to split the P multiplicand into 2 half-sized ones.
+* Point multiplication for signing
+  * Use a precomputed table of multiples of powers of 16 multiplied with the generator, so general multiplication becomes a series of additions.
+  * Access the table with branch-free conditional moves so memory access is uniform.
+  * No data-dependent branches
+  * The precomputed tables add and eventually subtract points for which no known scalar (private key) is known, preventing even an attacker with control over the private key used to control the data internally.
 
-Bitcoin Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
-information or see http://opensource.org/licenses/MIT.
+Build steps
+-----------
 
-Development process
--------------------
+libsecp256k1 is built using autotools:
 
-Developers work in their own trees, then submit pull requests when they think
-their feature or bug fix is ready.
-
-If it is a simple/trivial/non-controversial change, then one of the Bitcoin
-development team members simply pulls it.
-
-If it is a *more complicated or potentially controversial* change, then the patch
-submitter will be asked to start a discussion (if they haven't already) on the
-[mailing list](http://sourceforge.net/mailarchive/forum.php?forum_name=bitcoin-development).
-
-The patch will be accepted if there is broad consensus that it is a good thing.
-Developers should expect to rework and resubmit patches if the code doesn't
-match the project's coding conventions (see [doc/coding.md](doc/coding.md)) or are
-controversial.
-
-The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/bitcoin/bitcoin/tags) are created
-regularly to indicate new official, stable release versions of Bitcoin.
-
-Testing
--------
-
-Testing and code review is the bottleneck for development; we get more pull
-requests than we can review and test on short notice. Please be patient and help out by testing
-other people's pull requests, and remember this is a security-critical project where any mistake might cost people
-lots of money.
-
-### Automated Testing
-
-Developers are strongly encouraged to write unit tests for new code, and to
-submit new unit tests for old code. Unit tests can be compiled and run (assuming they weren't disabled in configure) with: `make check`
-
-Every pull request is built for both Windows and Linux on a dedicated server,
-and unit and sanity tests are automatically run. The binaries produced may be
-used for manual QA testing — a link to them will appear in a comment on the
-pull request posted by [BitcoinPullTester](https://github.com/BitcoinPullTester). See https://github.com/TheBlueMatt/test-scripts
-for the build/test scripts.
-
-### Manual Quality Assurance (QA) Testing
-
-Large changes should have a test plan, and should be tested by somebody other
-than the developer who wrote the code.
-See https://github.com/bitcoin/QA/ for how to create a test plan.
-
-Translations
-------------
-
-Changes to translations as well as new translations can be submitted to
-[Bitcoin Core's Transifex page](https://www.transifex.com/projects/p/bitcoin/).
-
-Translations are periodically pulled from Transifex and merged into the git repository. See the
-[translation process](doc/translation_process.md) for details on how this works.
-
-**Important**: We do not accept translation changes as GitHub pull requests because the next
-pull from Transifex would automatically overwrite them again.
-
-Translators should also subscribe to the [mailing list](https://groups.google.com/forum/#!forum/bitcoin-translators).
-
-Development tips and tricks
----------------------------
-
-**compiling for debugging**
-
-Run configure with the --enable-debug option, then make. Or run configure with
-CXXFLAGS="-g -ggdb -O0" or whatever debug flags you need.
-
-**debug.log**
-
-If the code is behaving strangely, take a look in the debug.log file in the data directory;
-error and debugging messages are written there.
-
-The -debug=... command-line option controls debugging; running with just -debug will turn
-on all categories (and give you a very large debug.log file).
-
-The Qt code routes qDebug() output to debug.log under category "qt": run with -debug=qt
-to see it.
-
-**testnet and regtest modes**
-
-Run with the -testnet option to run with "play bitcoins" on the test network, if you
-are testing multi-machine code that needs to operate across the internet.
-
-If you are testing something that can run on one machine, run with the -regtest option.
-In regression test mode, blocks can be created on-demand; see qa/rpc-tests/ for tests
-that run in -regtest mode.
-
-**DEBUG_LOCKORDER**
-
-Bitcoin Core is a multithreaded application, and deadlocks or other multithreading bugs
-can be very difficult to track down. Compiling with -DDEBUG_LOCKORDER (configure
-CXXFLAGS="-DDEBUG_LOCKORDER -g") inserts run-time checks to keep track of which locks
-are held, and adds warnings to the debug.log file if inconsistencies are detected.
+    $ ./autogen.sh
+    $ ./configure
+    $ make
+    $ ./tests
+    $ sudo make install  # optional
