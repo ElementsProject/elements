@@ -6,14 +6,17 @@
 #include "util.h"
 
 #include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
 
 static secp256k1_context_t* secp256k1_context = NULL;
 
 void ECC_Blinding_Start() {
     assert(secp256k1_context == NULL);
 
-    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_COMMIT | SECP256K1_CONTEXT_RANGEPROOF);
+    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     assert(ctx != NULL);
+    secp256k1_pedersen_context_initialize(ctx);
+    secp256k1_rangeproof_context_initialize(ctx);
 
     secp256k1_context = ctx;
 }
@@ -42,14 +45,13 @@ int UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, std
     if (!ephemeral_key.IsValid()) {
         return 0;
     }
-    CPubKey nonce_key = key.ECDH(ephemeral_key);
-    unsigned char nonce[32];
-    CHash256().Write(nonce_key.begin(), nonce_key.size()).Finalize(nonce);
+    uint256 nonce = key.ECDH(ephemeral_key);
+    CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
     unsigned char msg[4096];
     int msg_size;
     uint64_t min_value, max_value, amount;
     blinding_factor_out.resize(32);
-    int res = secp256k1_rangeproof_rewind(secp256k1_context, &blinding_factor_out[0], &amount, msg, &msg_size, nonce, &min_value, &max_value, &txout.nValue.vchCommitment[0], &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size());
+    int res = secp256k1_rangeproof_rewind(secp256k1_context, &blinding_factor_out[0], &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &txout.nValue.vchCommitment[0], &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size());
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
         amount_out = 0;
         blinding_factor_out.resize(0);
@@ -121,14 +123,13 @@ void BlindOutputs(const std::vector<std::vector<unsigned char> >& input_blinding
             value.vchNonceCommitment.resize(33);
             memcpy(&value.vchNonceCommitment[0], &ephemeral_pubkey[0], 33);
             // Generate nonce
-            CPubKey nonce_key = ephemeral_key.ECDH(output_pubkeys[nOut]);
-            unsigned char nonce[32];
-            CHash256().Write(nonce_key.begin(), nonce_key.size()).Finalize(nonce);
+            uint256 nonce = ephemeral_key.ECDH(output_pubkeys[nOut]);
+            CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
             // Create range proof
             int nRangeProofLen = 5134;
             // TODO: smarter min_value selection
             value.vchRangeproof.resize(nRangeProofLen);
-            int res = secp256k1_rangeproof_sign(ECC_Blinding_Context(), &value.vchRangeproof[0], &nRangeProofLen, 0, &value.vchCommitment[0], blindptrs.back(), nonce, std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount);
+            int res = secp256k1_rangeproof_sign(ECC_Blinding_Context(), &value.vchRangeproof[0], &nRangeProofLen, 0, &value.vchCommitment[0], blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount);
             value.vchRangeproof.resize(nRangeProofLen);
             // TODO: do something smarter here
             assert(res);

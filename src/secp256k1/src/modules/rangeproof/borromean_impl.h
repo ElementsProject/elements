@@ -15,6 +15,7 @@
 #include "ecmult_gen.h"
 #include "borromean.h"
 
+#include <limits.h>
 
 #ifdef WORDS_BIGENDIAN
 #define BE32(x) (x)
@@ -41,7 +42,7 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const
  *   Verifies nrings concurrent ring signatures all sharing a challenge value.
  *   Signature is one s value per pubkey and a hash.
  *   Verification equation:
- *   | m = H(P_{0..}||message) (Message contains a pubkey commitment)
+ *   | m = H(P_{0..}||message) (Message must contain pubkeys or a pubkey commitment)
  *   | For each ring i:
  *   | | en = to_scalar(H(e0||m||i||0))
  *   | | For each pubkey j:
@@ -73,7 +74,7 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context_t* ecmult_ctx, sec
     count = 0;
     secp256k1_sha256_initialize(&sha256_e0);
     for (i = 0; i < nrings; i++) {
-        DEBUG_CHECK(INT_MAX - count > rsizes[i]);
+        VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
         for (j = 0; j < rsizes[i]; j++) {
@@ -132,7 +133,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context_t* ecmult_ctx, const
     secp256k1_sha256_initialize(&sha256_e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
-        DEBUG_CHECK(INT_MAX - count > rsizes[i]);
+        VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_ecmult_gen(ecmult_gen_ctx, &rgej, &k[i]);
         secp256k1_ge_set_gej(&rge, &rgej);
         if (secp256k1_gej_is_infinity(&rgej)) {
@@ -163,7 +164,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context_t* ecmult_ctx, const
     secp256k1_sha256_finalize(&sha256_e0, e0);
     count = 0;
     for (i = 0; i < nrings; i++) {
-        DEBUG_CHECK(INT_MAX - count > rsizes[i]);
+        VERIFY_CHECK(INT_MAX - count > rsizes[i]);
         secp256k1_borromean_hash(tmp, m, mlen, e0, 32, i, 0);
         secp256k1_scalar_set_b32(&ens, tmp, &overflow);
         if (overflow || secp256k1_scalar_is_zero(&ens)) {

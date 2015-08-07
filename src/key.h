@@ -125,7 +125,7 @@ public:
     /**
      * Compute the ECDH exchange result using this private key and another public key.
      */
-    CPubKey ECDH(const CPubKey& pubkey) const;
+    uint256 ECDH(const CPubKey& pubkey) const;
 
     /**
      * Create a DER-serialized signature.

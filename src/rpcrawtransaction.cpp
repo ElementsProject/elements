@@ -26,12 +26,14 @@
 #include <boost/assign/list_of.hpp>
 #include "json/json_spirit_utils.h"
 #include "json/json_spirit_value.h"
-#include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
 
 using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
 using namespace std;
+
+extern secp256k1_context_t* secp256k1_bitcoin_verify_context;
 
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out, bool fIncludeHex)
 {
@@ -91,7 +93,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
             int mantissa;
             uint64_t minv;
             uint64_t maxv;
-            if (secp256k1_rangeproof_info(NULL, &exp, &mantissa, &minv, &maxv, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size())) {
+            if (secp256k1_rangeproof_info(secp256k1_bitcoin_verify_context, &exp, &mantissa, &minv, &maxv, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size())) {
                 if (exp == -1) {
                     out.push_back(Pair("value", ValueFromAmount((CAmount)minv)));
                 } else {

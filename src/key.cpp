@@ -12,6 +12,8 @@
 #include "random.h"
 
 #include <secp256k1.h>
+#include <secp256k1_ecdh.h>
+#include <secp256k1_schnorr.h>
 
 static secp256k1_context_t* secp256k1_context = NULL;
 
@@ -51,21 +53,21 @@ CPubKey CKey::GetPubKey() const {
     assert(fValid);
     CPubKey result;
     int clen = 65;
-    int ret = secp256k1_ec_pubkey_create(secp256k1_context, (unsigned char*)result.begin(), &clen, begin(), fCompressed);
+    secp256k1_pubkey_t pubkey;
+    int ret = secp256k1_ec_pubkey_create(secp256k1_context, &pubkey, begin());
+    secp256k1_ec_pubkey_serialize(secp256k1_context, (unsigned char*)result.begin(), &clen, &pubkey, fCompressed);
     assert((int)result.size() == clen);
     assert(ret);
     assert(result.IsValid());
     return result;
 }
 
-CPubKey CKey::ECDH(const CPubKey& pubkey) const {
+uint256 CKey::ECDH(const CPubKey& pubkey) const {
     assert(fValid);
-    CPubKey result = pubkey;
-    int clen = result.size();
-    int ret = secp256k1_point_multiply((unsigned char*)result.begin(), &clen, begin());
-    assert((int)result.size() == clen);
-    assert(ret);
-    assert(result.IsValid());
+    uint256 result;
+    secp256k1_pubkey_t pkey;
+    assert(secp256k1_ec_pubkey_parse(secp256k1_context, &pkey, pubkey.begin(), pubkey.size()));
+    assert(secp256k1_ecdh(secp256k1_context, result.begin(), &pkey, begin()));
     return result;
 }
 
@@ -101,9 +103,9 @@ bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) 
         return false;
     vchSig.resize(65);
     int rec = -1;
-    int ret = secp256k1_ecdsa_sign_compact(secp256k1_context, hash.begin(), &vchSig[1], begin(), secp256k1_nonce_function_rfc6979, NULL, &rec);
-    assert(ret);
-    assert(rec != -1);
+    secp256k1_ecdsa_signature_t sig;
+    assert(secp256k1_ecdsa_sign(secp256k1_context, hash.begin(), &sig, begin(), secp256k1_nonce_function_rfc6979, NULL));
+    assert(secp256k1_ecdsa_signature_serialize_compact(secp256k1_context, &vchSig[1], &rec, &sig));
     vchSig[0] = 27 + rec + (fCompressed ? 4 : 0);
     return true;
 }

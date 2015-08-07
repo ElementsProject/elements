@@ -7,18 +7,19 @@
 #include <string.h>
 
 #include "include/secp256k1.h"
+#include "include/secp256k1_ecdh.h"
 #include "util.h"
 #include "bench.h"
 
 typedef struct {
-    unsigned char point[33];
-    int pointlen;
+    secp256k1_context_t *ctx;
+    secp256k1_pubkey_t point;
     unsigned char scalar[32];
-} bench_multiply_t;
+} bench_ecdh_t;
 
-static void bench_multiply_setup(void* arg) {
+static void bench_ecdh_setup(void* arg) {
     int i;
-    bench_multiply_t *data = (bench_multiply_t*)arg;
+    bench_ecdh_t *data = (bench_ecdh_t*)arg;
     const unsigned char point[] = {
         0x03,
         0x54, 0x94, 0xc1, 0x5d, 0x32, 0x09, 0x97, 0x06,
@@ -27,23 +28,24 @@ static void bench_multiply_setup(void* arg) {
         0xa2, 0xba, 0xd1, 0x84, 0xf8, 0x83, 0xc6, 0x9f
     };
 
+    data->ctx = secp256k1_context_create(0);
     for (i = 0; i < 32; i++) data->scalar[i] = i + 1;
-    data->pointlen = sizeof(point);
-    memcpy(data->point, point, data->pointlen);
+    CHECK(secp256k1_ec_pubkey_parse(data->ctx, &data->point, point, sizeof(point)) == 1);
 }
 
-static void bench_multiply(void* arg) {
+static void bench_ecdh(void* arg) {
     int i;
-    bench_multiply_t *data = (bench_multiply_t*)arg;
+    unsigned char res[32];
+    bench_ecdh_t *data = (bench_ecdh_t*)arg;
 
     for (i = 0; i < 20000; i++) {
-        CHECK(secp256k1_point_multiply(data->point, &data->pointlen, data->scalar) == 1);
+        CHECK(secp256k1_ecdh(data->ctx, res, &data->point, data->scalar) == 1);
     }
 }
 
 int main(void) {
-    bench_multiply_t data;
+    bench_ecdh_t data;
 
-    run_benchmark("ecdh_mult", bench_multiply, bench_multiply_setup, NULL, &data, 10, 20000);
+    run_benchmark("ecdh", bench_ecdh, bench_ecdh_setup, NULL, &data, 10, 20000);
     return 0;
 }

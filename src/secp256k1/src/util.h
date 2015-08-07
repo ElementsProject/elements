@@ -13,8 +13,12 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include <limits.h>
 #include <stdio.h>
+
+typedef struct {
+    void (*fn)(const char *text, void* data);
+    void* data;
+} callback_t;
 
 #ifdef DETERMINISTIC
 #define TEST_FAILURE(msg) do { \
@@ -48,24 +52,48 @@
 } while(0)
 #endif
 
-/* Like assert(), but safe to use on expressions with side effects. */
-#ifndef NDEBUG
-#define DEBUG_CHECK CHECK
-#else
-#define DEBUG_CHECK(cond) do { (void)(cond); } while(0)
-#endif
-
-/* Like DEBUG_CHECK(), but when VERIFY is defined instead of NDEBUG not defined. */
+/* Like assert(), but when VERIFY is defined, and side-effect safe. */
 #ifdef VERIFY
 #define VERIFY_CHECK CHECK
+#define VERIFY_SETUP(stmt) do { stmt; } while(0)
 #else
 #define VERIFY_CHECK(cond) do { (void)(cond); } while(0)
+#define VERIFY_SETUP(stmt)
 #endif
 
-static SECP256K1_INLINE void *checked_malloc(size_t size) {
+static SECP256K1_INLINE void *checked_malloc(const callback_t* cb, size_t size) {
     void *ret = malloc(size);
-    CHECK(ret != NULL);
+    if (ret == NULL) {
+        cb->fn("Out of memory", cb->data);
+    }
     return ret;
+}
+
+/* Extract the sign of an int64, take the abs and return a uint64, constant time. */
+SECP256K1_INLINE static int secp256k1_sign_and_abs64(uint64_t *out, int64_t in) {
+    uint64_t mask0, mask1;
+    int ret;
+    ret = in < 0;
+    mask0 = ret + ~((uint64_t)0);
+    mask1 = ~mask0;
+    *out = (uint64_t)in;
+    *out = (*out & mask0) | ((~*out + 1) & mask1);
+    return ret;
+}
+
+SECP256K1_INLINE static int secp256k1_clz64_var(uint64_t x) {
+    int ret;
+    if (!x) {
+        return 64;
+    }
+# if defined(HAVE_BUILTIN_CLZLL)
+    ret = __builtin_clzll(x);
+# else
+    /*FIXME: debruijn fallback. */
+    for (ret = 0; ((x & (1ULL << 63)) == 0); x <<= 1, ret++);
+# endif
+    return ret;
+
 }
 
 /* Macro for restrict, when available and not in a VERIFY build. */
@@ -101,33 +129,5 @@ static SECP256K1_INLINE void *checked_malloc(size_t size) {
 # endif
 SECP256K1_GNUC_EXT typedef unsigned __int128 uint128_t;
 #endif
-
-/* Extract the sign of an int64, take the abs and return a uint64, constant time. */
-SECP256K1_INLINE static int secp256k1_sign_and_abs64(uint64_t *out, int64_t in) {
-    uint64_t mask0, mask1;
-    int ret;
-    ret = in < 0;
-    mask0 = ret + ~((uint64_t)0);
-    mask1 = ~mask0;
-    *out = (uint64_t)in;
-    *out = (*out & mask0) | ((~*out + 1) & mask1);
-    return ret;
-}
-
-SECP256K1_INLINE static int secp256k1_clz64_var(uint64_t x) {
-    int ret;
-    if (!x) {
-        return 64;
-    }
-# if defined(HAVE_BUILTIN_CLZLL)
-    ret = __builtin_clzll(x);
-# else
-    /*FIXME: debruijn fallback. */
-    for (ret = 0; ((x & (1ULL << 63)) == 0); x <<= 1, ret++);
-# endif
-    return ret;
-
-}
-
 
 #endif

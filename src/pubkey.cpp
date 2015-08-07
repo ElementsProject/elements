@@ -5,6 +5,8 @@
 #include "pubkey.h"
 
 #include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
+#include <secp256k1_schnorr.h>
 
 secp256k1_context_t* secp256k1_bitcoin_verify_context = NULL;
 static secp256k1_context_t*& secp256k1_context = secp256k1_bitcoin_verify_context;
@@ -14,7 +16,10 @@ bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchS
         return false;
     if (vchSig.size() != 64)
         return false;
-    if (secp256k1_schnorr_verify(secp256k1_context, (const unsigned char*)&hash, &vchSig[0], begin(), size()) != 1)
+    secp256k1_pubkey_t pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, begin(), size()))
+        return false;
+    if (secp256k1_schnorr_verify(secp256k1_context, (const unsigned char*)&hash, &vchSig[0], &pubkey) != 1)
         return false;
     return true;
 }
@@ -24,17 +29,26 @@ bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned cha
         return false;
     int recid = (vchSig[0] - 27) & 3;
     bool fComp = ((vchSig[0] - 27) & 4) != 0;
-    int pubkeylen = 65;
-    if (!secp256k1_ecdsa_recover_compact(secp256k1_context, (const unsigned char*)&hash, &vchSig[1], (unsigned char*)begin(), &pubkeylen, fComp, recid))
+    secp256k1_pubkey_t pubkey;
+    secp256k1_ecdsa_signature_t sig;
+    if (!secp256k1_ecdsa_signature_parse_compact(secp256k1_context, &sig, &vchSig[1], recid)) {
         return false;
-    assert((int)size() == pubkeylen);
+    }
+    if (!secp256k1_ecdsa_recover(secp256k1_context, hash.begin(), &sig, &pubkey)) {
+        return false;
+    }
+    unsigned char pub[65];
+    int publen = 0;
+    secp256k1_ec_pubkey_serialize(secp256k1_context, pub, &publen, &pubkey, fComp);
+    Set(pub, pub + publen);
     return true;
 }
 
 bool CPubKey::IsFullyValid() const {
     if (!IsValid())
         return false;
-    if (!secp256k1_ec_pubkey_verify(secp256k1_context, begin(), size()))
+    secp256k1_pubkey_t pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, begin(), size()))
         return false;
     return true;
 }
@@ -42,10 +56,14 @@ bool CPubKey::IsFullyValid() const {
 bool CPubKey::Decompress() {
     if (!IsValid())
         return false;
-    int clen = size();
-    int ret = secp256k1_ec_pubkey_decompress(secp256k1_context, (unsigned char*)begin(), &clen);
-    assert(ret);
-    assert(clen == (int)size());
+    secp256k1_pubkey_t pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, &(*this)[0], size())) {
+        return false;
+    }
+    unsigned char pub[65];
+    int publen = 0;
+    secp256k1_ec_pubkey_serialize(secp256k1_context, pub, &publen, &pubkey, false);
+    Set(pub, pub + publen);
     return true;
 }
 
@@ -56,9 +74,18 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned i
     unsigned char out[64];
     BIP32Hash(cc, nChild, *begin(), begin()+1, out);
     memcpy(ccChild, out+32, 32);
-    pubkeyChild = *this;
-    bool ret = secp256k1_ec_pubkey_tweak_add(secp256k1_context, (unsigned char*)pubkeyChild.begin(), pubkeyChild.size(), out);
-    return ret;
+    secp256k1_pubkey_t pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, &(*this)[0], size())) {
+        return false;
+    }
+    if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context, &pubkey, out)) {
+        return false;
+    }
+    unsigned char pub[33];
+    int publen = 0;
+    secp256k1_ec_pubkey_serialize(secp256k1_context, pub, &publen, &pubkey, 1);
+    pubkeyChild.Set(pub, pub + publen);
+    return true;
 }
 
 void CExtPubKey::Encode(unsigned char code[74]) const {
@@ -90,8 +117,10 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int nChild) const {
 void ECC_Verify_Start() {
     assert(secp256k1_context == NULL);
 
-    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_COMMIT | SECP256K1_CONTEXT_RANGEPROOF);
+    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
     assert(ctx != NULL);
+    secp256k1_pedersen_context_initialize(ctx);
+    secp256k1_rangeproof_context_initialize(ctx);
 
     secp256k1_context = ctx;
 }

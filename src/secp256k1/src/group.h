@@ -38,6 +38,8 @@ typedef struct {
 
 #define SECP256K1_GE_STORAGE_CONST(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) {SECP256K1_FE_STORAGE_CONST((a),(b),(c),(d),(e),(f),(g),(h)), SECP256K1_FE_STORAGE_CONST((i),(j),(k),(l),(m),(n),(o),(p))}
 
+#define SECP256K1_GE_STORAGE_CONST_GET(t) SECP256K1_FE_STORAGE_CONST_GET(t.x), SECP256K1_FE_STORAGE_CONST_GET(t.y)
+
 /** Set a group element equal to the point at infinity */
 static void secp256k1_ge_set_infinity(secp256k1_ge_t *r);
 
@@ -60,7 +62,7 @@ static void secp256k1_ge_neg(secp256k1_ge_t *r, const secp256k1_ge_t *a);
 static void secp256k1_ge_set_gej(secp256k1_ge_t *r, secp256k1_gej_t *a);
 
 /** Set a batch of group elements equal to the inputs given in jacobian coordinates */
-static void secp256k1_ge_set_all_gej_var(size_t len, secp256k1_ge_t *r, const secp256k1_gej_t *a);
+static void secp256k1_ge_set_all_gej_var(size_t len, secp256k1_ge_t *r, const secp256k1_gej_t *a, const callback_t *cb);
 
 /** Set a batch of group elements equal to the inputs given in jacobian
  *  coordinates (with known z-ratios). zr must contain the known z-ratios such
@@ -91,6 +93,10 @@ static void secp256k1_gej_neg(secp256k1_gej_t *r, const secp256k1_gej_t *a);
 
 /** Check whether a group element is the point at infinity. */
 static int secp256k1_gej_is_infinity(const secp256k1_gej_t *a);
+
+/** Set r equal to the double of a. If rzr is not-NULL, r->z = a->z * *rzr (where infinity means an implicit z = 0).
+ * a may not be zero. Constant time. */
+static void secp256k1_gej_double_nonzero(secp256k1_gej_t *r, const secp256k1_gej_t *a, secp256k1_fe_t *rzr);
 
 /** Set r equal to the double of a. If rzr is not-NULL, r->z = a->z * *rzr (where infinity means an implicit z = 0). */
 static void secp256k1_gej_double_var(secp256k1_gej_t *r, const secp256k1_gej_t *a, secp256k1_fe_t *rzr);

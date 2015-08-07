@@ -67,49 +67,13 @@ static void secp256k1_ecmult_odd_multiples_table(int n, secp256k1_gej_t *prej, s
     secp256k1_fe_mul(&prej[n-1].z, &prej[n-1].z, &d.z);
 }
 
-/** Fill a table 'prej' with a concatenation of precomputed off multiples of the
- *  points in a. Prej will contain the values
- *  [1*a[0],3*a[0],...,(2*n-1)*a[0],1*a[1],3*a[1],...,(2*n-1)*a[k-1]], so it
- *  needs space for k * n values. zr[0] will contain prej[0].z / a[0].z. The
- *  other zr[i] values = prej[i].z / prej[i-1].z. */
-static void secp256k1_ecmult_points_odd_multiples_table(int k, int n, secp256k1_gej_t *prej, secp256k1_fe_t *zr, const secp256k1_gej_t *a) {
-    int j;
-    for (j = 0; j < k; j++) {
-        secp256k1_gej_t aa;
-        secp256k1_fe_t z2, z3;
-        if (j != 0) {
-            /* Make the Z coordinate of each input a known multiple of the 
-             * last prej output of the previous input point. */
-            secp256k1_fe_sqr(&z2, &prej[n * j - 1].z);
-            secp256k1_fe_mul(&z3, &z2, &prej[n * j - 1].z);
-            secp256k1_fe_mul(&aa.x, &a[j].x, &z2);
-            secp256k1_fe_mul(&aa.y, &a[j].y, &z3);
-            secp256k1_fe_mul(&aa.z, &a[j].z, &prej[n * j - 1].z);
-            aa.infinity = 0;
-        } else {
-            aa = a[0];
-        }
-        secp256k1_ecmult_odd_multiples_table(n, &prej[n * j], &zr[n * j], &aa);
-        if (j != 0) {
-            /* Correct the first Z ratio output of this point, by multiplying it
-             * with the current point's input Z coordinate, chaining them
-             * together */
-            secp256k1_fe_mul(zr + n * j, zr + n * j, &a[j].z);
-        }
-    }
-}
-
 /** Fill a table 'pre' with precomputed odd multiples of a.
  *
- *  There are 3 versions of this function:
+ *  There are two versions of this function:
  *  - secp256k1_ecmult_odd_multiples_table_globalz_windowa which brings its
  *    resulting point set to a single constant Z denominator, stores the X and Y
  *    coordinates as ge_storage points in pre, and stores the global Z in rz.
  *    It only operates on tables sized for WINDOW_A wnaf multiples.
- *  - secp256k1_ecmult_points_odd_multiples_table_globalz_windowa which is
- *    identical to secp256k1_ecmult_odd_multiples_table_globalz_windowa, but
- *    works on several input points at once, and brings them all to a single
- *    global Z.
  *  - secp256k1_ecmult_odd_multiples_table_storage_var, which converts its
  *    resulting point set to actually affine points, and stores those in pre.
  *    It operates on tables of any size, but uses heap-allocated temporaries.
@@ -128,20 +92,10 @@ static void secp256k1_ecmult_odd_multiples_table_globalz_windowa(secp256k1_ge_t 
     secp256k1_ge_globalz_set_table_gej(ECMULT_TABLE_SIZE(WINDOW_A), pre, globalz, prej, zr);
 }
 
-static void secp256k1_ecmult_points_odd_multiples_table_globalz_windowa(int k, secp256k1_ge_t *pre, secp256k1_fe_t *globalz, const secp256k1_gej_t *a) {
-    secp256k1_gej_t prej[SECP256K1_ECMULT_MAX_POINTS * ECMULT_TABLE_SIZE(WINDOW_A)];
-    secp256k1_fe_t zr[SECP256K1_ECMULT_MAX_POINTS * ECMULT_TABLE_SIZE(WINDOW_A)];
-
-    /* Compute the odd multiples of all inputs in Jacobian form. */
-    secp256k1_ecmult_points_odd_multiples_table(k, ECMULT_TABLE_SIZE(WINDOW_A), prej, zr, a);
-    /* Bring them to the same Z denominator. */
-    secp256k1_ge_globalz_set_table_gej(k * ECMULT_TABLE_SIZE(WINDOW_A), pre, globalz, prej, zr);
-}
-
-static void secp256k1_ecmult_odd_multiples_table_storage_var(int n, secp256k1_ge_storage_t *pre, const secp256k1_gej_t *a) {
-    secp256k1_gej_t *prej = checked_malloc(sizeof(secp256k1_gej_t) * n);
-    secp256k1_ge_t *prea = checked_malloc(sizeof(secp256k1_ge_t) * n);
-    secp256k1_fe_t *zr = checked_malloc(sizeof(secp256k1_fe_t) * n);
+static void secp256k1_ecmult_odd_multiples_table_storage_var(int n, secp256k1_ge_storage_t *pre, const secp256k1_gej_t *a, const callback_t *cb) {
+    secp256k1_gej_t *prej = (secp256k1_gej_t*)checked_malloc(cb, sizeof(secp256k1_gej_t) * n);
+    secp256k1_ge_t *prea = (secp256k1_ge_t*)checked_malloc(cb, sizeof(secp256k1_ge_t) * n);
+    secp256k1_fe_t *zr = (secp256k1_fe_t*)checked_malloc(cb, sizeof(secp256k1_fe_t) * n);
     int i;
 
     /* Compute the odd multiples in Jacobian form. */
@@ -190,7 +144,7 @@ static void secp256k1_ecmult_context_init(secp256k1_ecmult_context_t *ctx) {
 #endif
 }
 
-static void secp256k1_ecmult_context_build(secp256k1_ecmult_context_t *ctx) {
+static void secp256k1_ecmult_context_build(secp256k1_ecmult_context_t *ctx, const callback_t *cb) {
     secp256k1_gej_t gj;
 
     if (ctx->pre_g != NULL) {
@@ -200,35 +154,35 @@ static void secp256k1_ecmult_context_build(secp256k1_ecmult_context_t *ctx) {
     /* get the generator */
     secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g);
 
-    ctx->pre_g = (secp256k1_ge_storage_t (*)[])checked_malloc(sizeof((*ctx->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
+    ctx->pre_g = (secp256k1_ge_storage_t (*)[])checked_malloc(cb, sizeof((*ctx->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
 
     /* precompute the tables with odd multiples */
-    secp256k1_ecmult_odd_multiples_table_storage_var(ECMULT_TABLE_SIZE(WINDOW_G), *ctx->pre_g, &gj);
+    secp256k1_ecmult_odd_multiples_table_storage_var(ECMULT_TABLE_SIZE(WINDOW_G), *ctx->pre_g, &gj, cb);
 
 #ifdef USE_ENDOMORPHISM
     {
         secp256k1_gej_t g_128j;
         int i;
 
-        ctx->pre_g_128 = (secp256k1_ge_storage_t (*)[])checked_malloc(sizeof((*ctx->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
+        ctx->pre_g_128 = (secp256k1_ge_storage_t (*)[])checked_malloc(cb, sizeof((*ctx->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G));
 
         /* calculate 2^128*generator */
         g_128j = gj;
         for (i = 0; i < 128; i++) {
             secp256k1_gej_double_var(&g_128j, &g_128j, NULL);
         }
-        secp256k1_ecmult_odd_multiples_table_storage_var(ECMULT_TABLE_SIZE(WINDOW_G), *ctx->pre_g_128, &g_128j);
+        secp256k1_ecmult_odd_multiples_table_storage_var(ECMULT_TABLE_SIZE(WINDOW_G), *ctx->pre_g_128, &g_128j, cb);
     }
 #endif
 }
 
 static void secp256k1_ecmult_context_clone(secp256k1_ecmult_context_t *dst,
-                                           const secp256k1_ecmult_context_t *src) {
+                                           const secp256k1_ecmult_context_t *src, const callback_t *cb) {
     if (src->pre_g == NULL) {
         dst->pre_g = NULL;
     } else {
         size_t size = sizeof((*dst->pre_g)[0]) * ECMULT_TABLE_SIZE(WINDOW_G);
-        dst->pre_g = (secp256k1_ge_storage_t (*)[])checked_malloc(size);
+        dst->pre_g = (secp256k1_ge_storage_t (*)[])checked_malloc(cb, size);
         memcpy(dst->pre_g, src->pre_g, size);
     }
 #ifdef USE_ENDOMORPHISM
@@ -236,7 +190,7 @@ static void secp256k1_ecmult_context_clone(secp256k1_ecmult_context_t *dst,
         dst->pre_g_128 = NULL;
     } else {
         size_t size = sizeof((*dst->pre_g_128)[0]) * ECMULT_TABLE_SIZE(WINDOW_G);
-        dst->pre_g_128 = (secp256k1_ge_storage_t (*)[])checked_malloc(size);
+        dst->pre_g_128 = (secp256k1_ge_storage_t (*)[])checked_malloc(cb, size);
         memcpy(dst->pre_g_128, src->pre_g_128, size);
     }
 #endif
@@ -259,43 +213,57 @@ static void secp256k1_ecmult_context_clear(secp256k1_ecmult_context_t *ctx) {
  *  - each wnaf[i] is either 0, or an odd integer between -(1<<(w-1) - 1) and (1<<(w-1) - 1)
  *  - two non-zero entries in wnaf are separated by at least w-1 zeroes.
  *  - the number of set values in wnaf is returned. This number is at most 256, and at most one more
- *  - than the number of bits in the (absolute value) of the input.
+ *    than the number of bits in the (absolute value) of the input.
  */
-static int secp256k1_ecmult_wnaf(int *wnaf, const secp256k1_scalar_t *a, int w) {
+static int secp256k1_ecmult_wnaf(int *wnaf, int len, const secp256k1_scalar_t *a, int w) {
     secp256k1_scalar_t s = *a;
-    int set_bits = 0;
+    int last_set_bit = -1;
     int bit = 0;
     int sign = 1;
+    int carry = 0;
+
+    VERIFY_CHECK(wnaf != NULL);
+    VERIFY_CHECK(0 <= len && len <= 256);
+    VERIFY_CHECK(a != NULL);
+    VERIFY_CHECK(2 <= w && w <= 31);
+
+    memset(wnaf, 0, len * sizeof(wnaf[0]));
 
     if (secp256k1_scalar_get_bits(&s, 255, 1)) {
         secp256k1_scalar_negate(&s, &s);
         sign = -1;
     }
 
-    while (bit < 256) {
+    while (bit < len) {
         int now;
         int word;
-        if (secp256k1_scalar_get_bits(&s, bit, 1) == 0) {
+        if (secp256k1_scalar_get_bits(&s, bit, 1) == (unsigned int)carry) {
             bit++;
             continue;
         }
-        while (set_bits < bit) {
-            wnaf[set_bits++] = 0;
-        }
+
         now = w;
-        if (bit + now > 256) {
-            now = 256 - bit;
+        if (now > len - bit) {
+            now = len - bit;
         }
-        word = secp256k1_scalar_get_bits_var(&s, bit, now);
-        if (word & (1 << (w-1))) {
-            secp256k1_scalar_add_bit(&s, bit + w);
-            wnaf[set_bits++] = sign * (word - (1 << w));
-        } else {
-            wnaf[set_bits++] = sign * word;
-        }
+
+        word = secp256k1_scalar_get_bits_var(&s, bit, now) + carry;
+
+        carry = (word >> (w-1)) & 1;
+        word -= carry << w;
+
+        wnaf[bit] = sign * word;
+        last_set_bit = bit;
+
         bit += now;
     }
-    return set_bits;
+#ifdef VERIFY
+    CHECK(carry == 0);
+    while (bit < 256) {
+        CHECK(secp256k1_scalar_get_bits(&s, bit++, 1) == 0);
+    } 
+#endif
+    return last_set_bit + 1;
 }
 
 static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_gej_t *r, const secp256k1_gej_t *a, const secp256k1_scalar_t *na, const secp256k1_scalar_t *ng) {
@@ -318,7 +286,7 @@ static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_ge
 #else
     int wnaf_na[256];
     int bits_na;
-    int wnaf_ng[257];
+    int wnaf_ng[256];
     int bits_ng;
 #endif
     int i;
@@ -326,11 +294,11 @@ static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_ge
 
 #ifdef USE_ENDOMORPHISM
     /* split na into na_1 and na_lam (where na = na_1 + na_lam*lambda, and na_1 and na_lam are ~128 bit) */
-    secp256k1_scalar_split_lambda_var(&na_1, &na_lam, na);
+    secp256k1_scalar_split_lambda(&na_1, &na_lam, na);
 
     /* build wnaf representation for na_1 and na_lam. */
-    bits_na_1   = secp256k1_ecmult_wnaf(wnaf_na_1,   &na_1,   WINDOW_A);
-    bits_na_lam = secp256k1_ecmult_wnaf(wnaf_na_lam, &na_lam, WINDOW_A);
+    bits_na_1   = secp256k1_ecmult_wnaf(wnaf_na_1,   130, &na_1,   WINDOW_A);
+    bits_na_lam = secp256k1_ecmult_wnaf(wnaf_na_lam, 130, &na_lam, WINDOW_A);
     VERIFY_CHECK(bits_na_1 <= 130);
     VERIFY_CHECK(bits_na_lam <= 130);
     bits = bits_na_1;
@@ -339,7 +307,7 @@ static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_ge
     }
 #else
     /* build wnaf representation for na. */
-    bits_na     = secp256k1_ecmult_wnaf(wnaf_na,     na,      WINDOW_A);
+    bits_na     = secp256k1_ecmult_wnaf(wnaf_na,     256, na,      WINDOW_A);
     bits = bits_na;
 #endif
 
@@ -364,8 +332,8 @@ static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_ge
     secp256k1_scalar_split_128(&ng_1, &ng_128, ng);
 
     /* Build wnaf representation for ng_1 and ng_128 */
-    bits_ng_1   = secp256k1_ecmult_wnaf(wnaf_ng_1,   &ng_1,   WINDOW_G);
-    bits_ng_128 = secp256k1_ecmult_wnaf(wnaf_ng_128, &ng_128, WINDOW_G);
+    bits_ng_1   = secp256k1_ecmult_wnaf(wnaf_ng_1,   129, &ng_1,   WINDOW_G);
+    bits_ng_128 = secp256k1_ecmult_wnaf(wnaf_ng_128, 129, &ng_128, WINDOW_G);
     if (bits_ng_1 > bits) {
         bits = bits_ng_1;
     }
@@ -373,7 +341,7 @@ static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_ge
         bits = bits_ng_128;
     }
 #else
-    bits_ng     = secp256k1_ecmult_wnaf(wnaf_ng,     ng,      WINDOW_G);
+    bits_ng     = secp256k1_ecmult_wnaf(wnaf_ng,     256, ng,      WINDOW_G);
     if (bits_ng > bits) {
         bits = bits_ng;
     }
@@ -405,123 +373,6 @@ static void secp256k1_ecmult(const secp256k1_ecmult_context_t *ctx, secp256k1_ge
         if (i < bits_na && (n = wnaf_na[i])) {
             ECMULT_TABLE_GET_GE(&tmpa, pre_a, n, WINDOW_A);
             secp256k1_gej_add_ge_var(r, r, &tmpa, NULL);
-        }
-        if (i < bits_ng && (n = wnaf_ng[i])) {
-            ECMULT_TABLE_GET_GE_STORAGE(&tmpa, *ctx->pre_g, n, WINDOW_G);
-            secp256k1_gej_add_zinv_var(r, r, &tmpa, &Z);
-        }
-#endif
-    }
-
-    if (!r->infinity) {
-        secp256k1_fe_mul(&r->z, &r->z, &Z);
-    }
-}
-
-static void secp256k1_ecmult_points(const secp256k1_ecmult_context_t *ctx, int points, secp256k1_gej_t *r, const secp256k1_gej_t *a, const secp256k1_scalar_t *na, const secp256k1_scalar_t *ng) {
-    secp256k1_ge_t pre_a[SECP256K1_ECMULT_MAX_POINTS][ECMULT_TABLE_SIZE(WINDOW_A)];
-    secp256k1_ge_t tmpa;
-    secp256k1_fe_t Z;
-#ifdef USE_ENDOMORPHISM
-    secp256k1_ge_t pre_a_lam[SECP256K1_ECMULT_MAX_POINTS][ECMULT_TABLE_SIZE(WINDOW_A)];
-    secp256k1_scalar_t na_1[SECP256K1_ECMULT_MAX_POINTS], na_lam[SECP256K1_ECMULT_MAX_POINTS];
-    /* Splitted G factors. */
-    secp256k1_scalar_t ng_1, ng_128;
-    int wnaf_na_1[SECP256K1_ECMULT_MAX_POINTS][130];
-    int wnaf_na_lam[SECP256K1_ECMULT_MAX_POINTS][130];
-    int bits_na_1[SECP256K1_ECMULT_MAX_POINTS];
-    int bits_na_lam[SECP256K1_ECMULT_MAX_POINTS];
-    int wnaf_ng_1[129];
-    int bits_ng_1;
-    int wnaf_ng_128[129];
-    int bits_ng_128;
-#else
-    int wnaf_na[SECP256K1_ECMULT_MAX_POINTS][256];
-    int bits_na[SECP256K1_ECMULT_MAX_POINTS];
-    int wnaf_ng[257];
-    int bits_ng;
-#endif
-    int i;
-    int bits = 0;
-    int k;
-
-    VERIFY_CHECK(points >= 1);
-    VERIFY_CHECK(points <= SECP256K1_ECMULT_MAX_POINTS);
-
-    for (k = 0; k < points; k++) {
-#ifdef USE_ENDOMORPHISM
-    /* split na into na_1 and na_lam (where na = na_1 + na_lam*lambda, and na_1 and na_lam are ~128 bit) */
-    secp256k1_scalar_split_lambda_var(&na_1[k], &na_lam[k], &na[k]);
-
-    /* build wnaf representation for na_1 and na_lam. */
-    bits_na_1[k]   = secp256k1_ecmult_wnaf(wnaf_na_1[k],   &na_1[k],   WINDOW_A);
-    bits_na_lam[k] = secp256k1_ecmult_wnaf(wnaf_na_lam[k], &na_lam[k], WINDOW_A);
-    VERIFY_CHECK(bits_na_1[k] <= 130);
-    VERIFY_CHECK(bits_na_lam[k] <= 130);
-    if (bits_na_1[k] > bits) bits = bits_na_1[k];
-    if (bits_na_lam[k] > bits) bits = bits_na_lam[k];
-#else
-    /* build wnaf representation for na. */
-    bits_na[k]     = secp256k1_ecmult_wnaf(wnaf_na[k],     &na[k],      WINDOW_A);
-    if (bits_na[k] > bits) bits = bits_na[k];
-#endif
-    }
-
-    /* calculate odd multiples of all a's */
-    secp256k1_ecmult_points_odd_multiples_table_globalz_windowa(points, &pre_a[0][0], &Z, a);
-
-#ifdef USE_ENDOMORPHISM
-    for (k = 0; k < points; k++) {
-        for (i = 0; i < ECMULT_TABLE_SIZE(WINDOW_A); i++) {
-            secp256k1_ge_mul_lambda(&pre_a_lam[k][i], &pre_a[k][i]);
-        }
-    }
-#endif
-
-#ifdef USE_ENDOMORPHISM
-    /* split ng into ng_1 and ng_128 (where gn = gn_1 + gn_128*2^128, and gn_1 and gn_128 are ~128 bit) */
-    secp256k1_scalar_split_128(&ng_1, &ng_128, ng);
-
-    /* Build wnaf representation for ng_1 and ng_128 */
-    bits_ng_1   = secp256k1_ecmult_wnaf(wnaf_ng_1,   &ng_1,   WINDOW_G);
-    bits_ng_128 = secp256k1_ecmult_wnaf(wnaf_ng_128, &ng_128, WINDOW_G);
-    if (bits_ng_1 > bits) bits = bits_ng_1;
-    if (bits_ng_128 > bits) bits = bits_ng_128;
-#else
-    bits_ng     = secp256k1_ecmult_wnaf(wnaf_ng,     ng,      WINDOW_G);
-    if (bits_ng > bits) bits = bits_ng;
-#endif
-
-    secp256k1_gej_set_infinity(r);
-
-    for (i = bits-1; i >= 0; i--) {
-        int n;
-        secp256k1_gej_double_var(r, r, NULL);
-#ifdef USE_ENDOMORPHISM
-        for (k = 0; k < points; k++) {
-        if (i < bits_na_1[k] && (n = wnaf_na_1[k][i])) {
-            ECMULT_TABLE_GET_GE(&tmpa, pre_a[k], n, WINDOW_A);
-            secp256k1_gej_add_ge_var(r, r, &tmpa, NULL);
-        }
-        if (i < bits_na_lam[k] && (n = wnaf_na_lam[k][i])) {
-            ECMULT_TABLE_GET_GE(&tmpa, pre_a_lam[k], n, WINDOW_A);
-            secp256k1_gej_add_ge_var(r, r, &tmpa, NULL);
-        }
-        }
-        if (i < bits_ng_1 && (n = wnaf_ng_1[i])) {
-            ECMULT_TABLE_GET_GE_STORAGE(&tmpa, *ctx->pre_g, n, WINDOW_G);
-            secp256k1_gej_add_zinv_var(r, r, &tmpa, &Z);
-        }
-        if (i < bits_ng_128 && (n = wnaf_ng_128[i])) {
-            ECMULT_TABLE_GET_GE_STORAGE(&tmpa, *ctx->pre_g_128, n, WINDOW_G);
-            secp256k1_gej_add_zinv_var(r, r, &tmpa, &Z);
-        }
-#else
-        for (k = 0; k < points; k++) {
-        if (i < bits_na[k] && (n = wnaf_na[k][i])) {
-            ECMULT_TABLE_GET_GE(&tmpa, pre_a[k], n, WINDOW_A);
-            secp256k1_gej_add_ge_var(r, r, &tmpa, NULL);
-        }
         }
         if (i < bits_ng && (n = wnaf_ng[i])) {
             ECMULT_TABLE_GET_GE_STORAGE(&tmpa, *ctx->pre_g, n, WINDOW_G);
