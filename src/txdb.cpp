@@ -225,9 +225,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
-                if (!CheckProof(pindexNew->GetBlockHeader()))
-                    return error("LoadBlockIndex() : CheckProof failed: %s", pindexNew->ToString());
-
                 pcursor->Next();
             } else {
                 break; // if shutdown requested or finished loading block index
