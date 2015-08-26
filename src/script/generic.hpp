@@ -7,6 +7,7 @@
 #define H_BITCOIN_SCRIPT_GENERIC
 
 #include "hash.h"
+#include "keystore.h"
 #include "script/interpreter.h"
 #include "script/sign.h"
 

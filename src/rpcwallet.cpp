@@ -11,6 +11,7 @@
 #include "net.h"
 #include "netbase.h"
 #include "timedata.h"
+#include "script/generic.hpp"
 #include "util.h"
 #include "utilmoneystr.h"
 #include "wallet.h"
@@ -443,9 +444,9 @@ Value listaddressgroupings(const Array& params, bool fHelp)
 
 Value signmessage(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 2 || params.size() > 3)
         throw runtime_error(
-            "signmessage \"bitcoinaddress\" \"message\"\n"
+            "signmessage \"bitcoinaddress\" \"message\" ( [\"sig1\", \"sig2\", ...] )\n"
             "\nSign a message with the private key of an address"
             + HelpRequiringPassphrase() + "\n"
             "\nArguments:\n"
@@ -467,29 +468,31 @@ Value signmessage(const Array& params, bool fHelp)
     EnsureWalletIsUnlocked();
 
     string strAddress = params[0].get_str();
-    string strMessage = params[1].get_str();
+    string strMessage = strMessageMagic + params[1].get_str();
 
     CBitcoinAddress addr(strAddress);
     if (!addr.IsValid())
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+    CScript pubkey = GetScriptForDestination(addr.Get());
 
-    CKeyID keyID;
-    if (!addr.GetKeyID(keyID))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
+    vector<CScript> vchSigs;
+    if (params.size() > 2) {
+         Array arr = params[2].get_array();
+         BOOST_FOREACH(const Value &o, arr) {
+             std::vector<unsigned char> vch = ParseHex(o.get_str());
+             vchSigs.push_back(CScript(vch.begin(), vch.end()));
+         }
+    }
+    if (vchSigs.size() == 0) {
+        vchSigs.push_back(CScript());
+    }
 
-    CKey key;
-    if (!pwalletMain->GetKey(keyID, key))
-        throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
+    GenericSignScript(*pwalletMain, strMessage, pubkey, vchSigs[0]);
+    for (size_t i = 1; i < vchSigs.size(); i++) {
+        vchSigs[0] = GenericCombineSignatures(pubkey, strMessage, vchSigs[0], vchSigs[i]);
+    }
 
-    CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
-    ss << strMessage;
-
-    vector<unsigned char> vchSig;
-    if (!key.SignCompact(ss.GetHash(), vchSig))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Sign failed");
-
-    return EncodeBase64(&vchSig[0], vchSig.size());
+    return EncodeBase64(&vchSigs[0][0], vchSigs[0].size());
 }
 
 Value getreceivedbyaddress(const Array& params, bool fHelp)

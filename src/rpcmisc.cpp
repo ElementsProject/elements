@@ -10,6 +10,7 @@
 #include "net.h"
 #include "netbase.h"
 #include "rpcserver.h"
+#include "script/generic.hpp"
 #include "timedata.h"
 #include "util.h"
 #ifdef ENABLE_WALLET
@@ -347,31 +348,17 @@ Value verifymessage(const Array& params, bool fHelp)
 
     string strAddress  = params[0].get_str();
     string strSign     = params[1].get_str();
-    string strMessage  = params[2].get_str();
+    string strMessage  = strMessageMagic + params[2].get_str();
 
     CBitcoinAddress addr(strAddress);
     if (!addr.IsValid())
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
 
-    CKeyID keyID;
-    if (!addr.GetKeyID(keyID))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
+    std::vector<unsigned char> vchSig;
+    vchSig = DecodeBase64(strSign.c_str());
+    CScript sig(vchSig.begin(), vchSig.end());
 
-    bool fInvalid = false;
-    vector<unsigned char> vchSig = DecodeBase64(strSign.c_str(), &fInvalid);
-
-    if (fInvalid)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Malformed base64 encoding");
-
-    CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
-    ss << strMessage;
-
-    CPubKey pubkey;
-    if (!pubkey.RecoverCompact(ss.GetHash(), vchSig))
-        return false;
-
-    return (pubkey.GetID() == keyID);
+    return GenericVerifyScript(sig, GetScriptForDestination(addr.Get()), SCRIPT_VERIFY_P2SH, strMessage);
 }
 
 Value setmocktime(const Array& params, bool fHelp)
