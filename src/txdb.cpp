@@ -198,9 +198,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
-                if (!CheckProof(pindexNew->GetBlockHeader(), consensusParams))
-                    return error("LoadBlockIndex(): CheckProof failed: %s", pindexNew->ToString());
-
                 pcursor->Next();
             } else {
                 return error("LoadBlockIndex() : failed to read value");
