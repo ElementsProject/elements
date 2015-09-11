@@ -44,3 +44,7 @@ class FedpegConstants:
 		self.sigs_required = int(self.redeem_script[:2], 16) - 0x50
 
 		self.inverse_bitcoin_genesis_hash = "".join(reversed([self.bitcoin_genesis_hash[i:i+2] for i in range(0, len(self.bitcoin_genesis_hash), 2)]))
+
+	def report_error(self, msg):
+		print("Error: %s" % msg)
+
