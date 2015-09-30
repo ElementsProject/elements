@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "script/script.h"
+
 /**
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
@@ -49,6 +51,12 @@ void SelectBaseParams(CBaseChainParams::Network network);
  * Returns MAX_NETWORK_TYPES if an invalid combination is given.
  */
 CBaseChainParams::Network NetworkIdFromCommandLine();
+
+/**
+ * Looks for hex-encoded -genesisscriptdistenation and returns a CScript of it.
+ * Returns an empty script if the flag is missing or badly encoded.
+ */
+CScript ScriptDestinationFromCommandLine();
 
 /**
  * Calls NetworkIdFromCommandLine() and then calls SelectParams as appropriate.
