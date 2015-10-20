@@ -366,7 +366,7 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
             CAmount nAmount = COIN;
             if (val.IsAmount())
                 nAmount = val.GetAmount();
-            dResult += (nAmount + nOffset) * (nHeight - nCoinsHeight + nOffset);
+            dResult += double(nAmount + nOffset) * double(nHeight - nCoinsHeight + nOffset);
         }
     }
     return tx.ComputePriority(dResult);
