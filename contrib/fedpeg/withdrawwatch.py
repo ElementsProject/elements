@@ -8,7 +8,7 @@ from threading import Lock, current_thread
 from time import sleep
 from constants import FedpegConstants
 
-from httplib import CannotSendRequest
+from httplib import CannotSendRequest, BadStatusLine
 import socket
 
 settings = FedpegConstants()
@@ -39,6 +39,9 @@ def check_reset_connections():
 	except CannotSendRequest as e:
 		sidechain[thread_id()] = AuthServiceProxy(settings.sidechain_url)
 		connections_good = False
+	except BadStatusLine as e:
+		sidechain[thread_id()] = AuthServiceProxy(settings.sidechain_url)
+		connections_good = False
 	except socket.timeout as e:
 		sidechain[thread_id()] = AuthServiceProxy(settings.sidechain_url)
 		connections_good = False
@@ -46,6 +49,9 @@ def check_reset_connections():
 	try:
 		bitcoin[thread_id()].getblockcount()
 	except CannotSendRequest as e:
+		bitcoin[thread_id()] = AuthServiceProxy(settings.bitcoin_url)
+		connections_good = False
+	except BadStatusLine as e:
 		bitcoin[thread_id()] = AuthServiceProxy(settings.bitcoin_url)
 		connections_good = False
 	except socket.timeout as e:
@@ -137,6 +143,8 @@ def process_bitcoin_tx_for_utxos(tx, is_donation=False, manual_check=False):
 
 def sign_withdraw_tx(tx_hex, txid_concat_list):
 	global donated_funds
+
+	check_reset_connections()
 
 	tx_raw = bitcoin[thread_id()].decoderawtransaction(tx_hex)
 	max_sidechain_height = sidechain[thread_id()].getblockcount() - 6
@@ -362,6 +370,8 @@ class WatchPeerController(RotatingConsensus):
 def process_sidechain_tx_for_utxos(tx, height, avoid_rescans):
 	for vout, output in enumerate(tx["vout"]):
 		if output["scriptPubKey"]["type"] == "withdrawout":
+			check_reset_connections()
+
 			outp = output["scriptPubKey"]["asm"].split(" ")
 			check_raise(len(outp) == 16)
 
@@ -578,6 +588,7 @@ try:
 	print("done")
 
 	print("Step 2. Bitcoin blockchain scan for withdraws completed and coins to functionaries...")
+	check_reset_connections()
 	bitcoin_block_count = bitcoin[thread_id()].getblockcount()
 	process_confirmed_bitcoin_blockchain(447000, bitcoin_block_count - 5)
 	print("done")
