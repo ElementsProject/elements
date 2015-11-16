@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         bool isTestnet = find_value(metadata, "isTestnet").get_bool();
         if (isTestnet)
-            SelectParams(CBaseChainParams::TESTNET);
+            SelectParams(CBaseChainParams::REGTEST);
         else
             SelectParams(CBaseChainParams::MAIN);
         if(isPrivkey)
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         bool isTestnet = find_value(metadata, "isTestnet").get_bool();
         if (isTestnet)
-            SelectParams(CBaseChainParams::TESTNET);
+            SelectParams(CBaseChainParams::REGTEST);
         else
             SelectParams(CBaseChainParams::MAIN);
         if(isPrivkey)

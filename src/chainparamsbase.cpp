@@ -11,7 +11,6 @@
 #include <assert.h>
 
 const std::string CBaseChainParams::MAIN = "main";
-const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
 const std::string CBaseChainParams::CUSTOM = "custom";
 
@@ -19,7 +18,6 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
     strUsage += HelpMessageOpt("-chain=<chain>", _("Use the chain <chain> (default: main). Allowed values: main, testnet, regtest, custom"));
-    strUsage += HelpMessageOpt("-testnet", _("Use the test chain"));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.");
@@ -41,19 +39,6 @@ public:
 };
 
 /**
- * Testnet (v3)
- */
-class CBaseTestNetParams : public CBaseChainParams
-{
-public:
-    CBaseTestNetParams()
-    {
-        nRPCPort = 18332;
-        strDataDir = "testnet3";
-    }
-};
-
-/*
  * Regression test
  */
 class CBaseRegTestParams : public CBaseChainParams
@@ -89,8 +74,6 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CBaseChainParams>(new CBaseMainParams());
-    else if (chain == CBaseChainParams::TESTNET)
-        return std::unique_ptr<CBaseChainParams>(new CBaseTestNetParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
     else if (chain == CBaseChainParams::CUSTOM)
@@ -106,14 +89,9 @@ void SelectBaseParams(const std::string& chain)
 
 std::string ChainNameFromCommandLine()
 {
-    bool fRegTest = GetBoolArg("-regtest", false);
-    bool fTestNet = GetBoolArg("-testnet", false);
-
-    if (fTestNet && fRegTest)
-        throw std::runtime_error("Invalid combination of -regtest and -testnet.");
-    if (fRegTest)
+    if (GetBoolArg("-testnet", false))
+        throw std::runtime_error(strprintf("%s: Invalid option -testnet: elements/%s is a testchain too.", __func__, CBaseChainParams::MAIN));
+    if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    if (fTestNet)
-        return CBaseChainParams::TESTNET;
     return GetArg("-chain", CBaseChainParams::MAIN);
 }
