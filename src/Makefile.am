@@ -462,6 +462,9 @@ clean-local:
 	-rm -f config.h
 	-rm -rf test/__pycache__
 
+bitcoind bitcoin-cli bitcoin-tx:
+	@echo "Remember to 'make beta*' rather than 'make bitcoin*' in this repository."
+
 .rc.o:
 	@test -f $(WINDRES)
 	## FIXME: How to get the appropriate modulename_CPPFLAGS in here?
