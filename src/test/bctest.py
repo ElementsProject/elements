@@ -31,6 +31,7 @@ def bctest(testDir, testObj, exeext):
     # Get the exec names and arguments
     execprog = testObj['exec'] + exeext
     execargs = testObj['args']
+    execargs[:0] = ["-chain=main"]
     execrun = [execprog] + execargs
 
     # Read the input data (if there is any)

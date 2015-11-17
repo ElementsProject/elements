@@ -10,14 +10,14 @@
 
 #include <assert.h>
 
-const std::string CBaseChainParams::MAIN = "main";
-const std::string CBaseChainParams::REGTEST = "regtest";
+const std::string CBaseChainParams::MAIN = CHAINPARAMS_OLD_MAIN;
+const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 const std::string CBaseChainParams::CUSTOM = "custom";
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-chain=<chain>", _("Use the chain <chain> (default: main). Allowed values: main, testnet, regtest, custom"));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_ELEMENTS));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.");
@@ -27,7 +27,7 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 }
 
 /**
- * Main network
+ * Old Main network
  */
 class CBaseMainParams : public CBaseChainParams
 {
@@ -35,6 +35,20 @@ public:
     CBaseMainParams()
     {
         nRPCPort = 8332;
+        strDataDir = CHAINPARAMS_OLD_MAIN;
+    }
+};
+
+/**
+ * Main network for elements
+ */
+class CBaseElementsParams : public CBaseChainParams
+{
+public:
+    CBaseElementsParams()
+    {
+        nRPCPort = 4241;
+        strDataDir = CHAINPARAMS_ELEMENTS;
     }
 };
 
@@ -47,7 +61,7 @@ public:
     CBaseRegTestParams()
     {
         nRPCPort = 18332;
-        strDataDir = "regtest";
+        strDataDir = CHAINPARAMS_REGTEST;
     }
 };
 
@@ -74,6 +88,8 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CBaseChainParams>(new CBaseMainParams());
+    else if (chain == CHAINPARAMS_ELEMENTS)
+        return std::unique_ptr<CBaseChainParams>(new CBaseElementsParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
     else if (chain == CBaseChainParams::CUSTOM)
@@ -90,8 +106,8 @@ void SelectBaseParams(const std::string& chain)
 std::string ChainNameFromCommandLine()
 {
     if (GetBoolArg("-testnet", false))
-        throw std::runtime_error(strprintf("%s: Invalid option -testnet: elements/%s is a testchain too.", __func__, CBaseChainParams::MAIN));
+        throw std::runtime_error(strprintf("%s: Invalid option -testnet: elements/%s is a testchain too.", __func__, CHAINPARAMS_ELEMENTS));
     if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    return GetArg("-chain", CBaseChainParams::MAIN);
+    return GetArg("-chain", CHAINPARAMS_ELEMENTS);
 }
