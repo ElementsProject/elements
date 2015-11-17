@@ -747,10 +747,7 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         // Write a bitcoin.desktop file to the autostart directory:
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
-        if (chain == CBaseChainParams::MAIN)
-            optionFile << "Name=Bitcoin\n";
-        else
-            optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
+        optionFile << strprintf("Name=Elements (%s)\n", chain);
         optionFile << "Exec=" << pszExePath << strprintf(" -min -chain=%s\n", chain);
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
