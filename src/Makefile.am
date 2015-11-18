@@ -396,6 +396,9 @@ clean-local:
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 
+bitcoind bitcoin-cli bitcoin-tx:
+	@echo "Remember to 'make alpha*' rather than 'make bitcoin*' in this repository."
+
 .rc.o:
 	@test -f $(WINDRES)
 	$(AM_V_GEN) $(WINDRES) -DWINDRES_PREPROC -i $< -o $@
