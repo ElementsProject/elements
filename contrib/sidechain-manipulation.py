@@ -1,9 +1,53 @@
 #!/usr/bin/env python2
 
-import sys, os, traceback
+import sys, os, traceback, argparse
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../python-bitcoinrpc"))
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 from decimal import *
+
+# Command line arguments
+parser = argparse.ArgumentParser(description = 'Script that accommodates the ' \
+    'movement of coins in and out of sidechains. Optional arguments must ' \
+    'come after the name of the action being performed and any related ' \
+    'arguments.')
+subparsers = parser.add_subparsers(help = 'Sidechain manipulation commands',
+                                   dest = 'command')
+
+parser_generate_1of1_MS = subparsers.add_parser('generate-one-of-one-multisig')
+parser_generate_1of1_MS.add_argument('wallet', help = 'Determines if ' \
+    'sidechain or mainchain wallet will generate an address', \
+    choices = ('sidechain-wallet', 'mainchain-wallet'))
+
+parser_send_sidechain = subparsers.add_parser('send-to-sidechain')
+parser_send_sidechain.add_argument('-wp','--walletpassword', \
+    dest = 'walletpassword', nargs = '?', default = None, help = 'Mainchain ' \
+    'wallet unlock password')
+parser_send_sidechain.add_argument('p2shSideAddress', help = 'P2SH 1-of-1 ' \
+    'multisig sidechain address from the sidechain wallet')
+parser_send_sidechain.add_argument('coinAmt', help = 'Amount of coins to pay ' \
+    'the P2SH 1-of-1 multisig sidechain address from the mainchain wallet')
+
+parser_claim_sidechain = subparsers.add_parser('claim-on-sidechain')
+parser_claim_sidechain.add_argument('sidechainP2SHaddr', help = 'P2SH ' \
+    'sidechain address')
+parser_claim_sidechain.add_argument('nonce', help = '16-byte sidechain ' \
+    'payment nonce')
+parser_claim_sidechain.add_argument('sidechainRcvTx', help = 'ID for ' \
+    'mainchain transaction where P2SH sidechain address received coins')
+
+parser_spend_from_claim = subparsers.add_parser('spend-from-claim')
+parser_spend_from_claim.add_argument('sidechainClaimTx', help = 'ID for ' \
+    'sidechain transaction where P2SH sidechain address claimed coins')
+parser_spend_from_claim.add_argument('sidechainAddress', help = 'Sidechain ' \
+    'address that claimed (in 1-of-1 P2SH multisig form) the coins ')
+
+parser_send_mainchain = subparsers.add_parser('send-to-mainchain')
+parser_send_mainchain.add_argument('p2shMainAddress', help = 'P2SH 1-of-1 ' \
+    'multisig mainchain address from the mainchain wallet')
+parser_send_mainchain.add_argument('coinAmt', help = 'Amount of coins to pay ' \
+    'the P2SH 1-of-1 multisig mainchain address from the sidechain wallet')
+
+args = parser.parse_args()
 
 # VARIOUS SETTINGS...
 sidechain_url = "http://user:pass@127.0.0.1:4241"
@@ -33,10 +77,6 @@ if is_testnet == 1:
 	testnet_arg = "-t"
 
 inverse_bitcoin_genesis_hash = "".join(reversed([bitcoin_genesis_hash[i:i+2] for i in range(0, len(bitcoin_genesis_hash), 2)]))
-
-def help():
-	print("HELP: %s (generate-one-of-one-multisig (sidechain-wallet|mainchain-wallet))|(send-to-sidechain SIDECHAIN_ADDRESS AMOUNT)|(claim-on-sidechain SIDECHAIN_ADDRESS NONCE SEND_TXID)|(spend-from-claim SIDECHAIN_TX_HASH ONE_OF_ONE_ADDRESS)" % sys.argv[0])
-	exit(1)
 
 class UTXOFinder:
 	in_txid = ""
@@ -85,27 +125,17 @@ class UTXOFinder:
 		assert(self.in_value > self.target_value)
 
 try:
-	if len(sys.argv) < 2:
-		help()
-	elif sys.argv[1] == "generate-one-of-one-multisig":
-		if len(sys.argv) != 3:
-			help()
-
-		if sys.argv[2] == "sidechain-wallet":
+	if args.command == "generate-one-of-one-multisig":
+		if args.wallet == "sidechain-wallet":
 			address = sidechain.getnewaddress()
 			p2sh_res = sidechain.addmultisigaddress(1, [address])
-		elif sys.argv[2] == "mainchain-wallet":
+		elif args.wallet == "mainchain-wallet":
 			address = bitcoin.getnewaddress()
 			p2sh_res = bitcoin.addmultisigaddress(1, [address])
-		else:
-			help()
 		print("One-of-one address: %s" % address)
 		print("P2SH address: %s" % p2sh_res)
-	elif sys.argv[1] == "send-to-sidechain":
-		if len(sys.argv) != 4:
-			help()
-
-		cht = os.popen("%s %s -g -r %s -d %s" % (contracthashtool_path, testnet_arg, redeem_script, sys.argv[2]))
+	elif args.command == "send-to-sidechain":
+		cht = os.popen("%s %s -g -r %s -d %s" % (contracthashtool_path, testnet_arg, redeem_script, args.p2shSideAddress))
 		cht_read = cht.read()
 		nonce = cht_read.split("\n")[0 + is_testnet][7:]
 		full_contract = cht_read.split("\n")[1 + is_testnet][26:]
@@ -115,11 +145,11 @@ try:
 			print("You must use a P2SH address")
 			exit(1)
 
-		print("Sending %s to %s..." % (sys.argv[3], send_address))
+		print("Sending %s to %s..." % (args.coinAmt, send_address))
 		print("(nonce: %s)" % nonce)
 
 		try:
-			tx_hex = bitcoin.createrawtransaction([], {send_address: Decimal(sys.argv[3])})
+			tx_hex = bitcoin.createrawtransaction([], {send_address: Decimal(args.coinAmt)})
 			tx_hex = bitcoin.fundrawtransaction(tx_hex)['hex']
 			tx = bitcoin.signrawtransaction(tx_hex)
 			assert(tx['complete'])
@@ -135,19 +165,32 @@ try:
 				exit(1)
 
 			txid = bitcoin.sendrawtransaction(tx_hex)
-		except:
-			txid = bitcoin.sendtoaddress(send_address, Decimal(sys.argv[3]))
+			print("sendrawtransaction - Sent tx with id %s" % txid)
+		except JSONRPCException as er:
+			print("Got the following error from an RPC Call:")
+			print(er.error)
 
-		print("Sent tx with id %s" % txid)
-	elif sys.argv[1] == "claim-on-sidechain":
-		if len(sys.argv) != 5:
-			help()
+			# If wallet is locked, try to unlock it. Exit if unlock
+			# fails. Ignore all other errors for now.
+			if er.error['code'] == -13:
+				try:
+					bitcoin.walletpassphrase(args.walletpassword, 10)
+				except JSONRPCException as e:
+					# Compensate for <0.9 BC Core by ignoring the "already unlocked" wallet case.
+					if e.error['code'] != -17:
+						print("Got the following error from an RPC Call:")
+						print(e.error)
+						sys.exit()
 
-		raw_bitcoin_tx = bitcoin.getrawtransaction(sys.argv[4], 1)
+			txid = bitcoin.sendtoaddress(send_address, Decimal(args.coinAmt))
+			print("sendtoaddress - Sent tx with id %s" % txid)
+
+	elif args.command == "claim-on-sidechain":
+		raw_bitcoin_tx = bitcoin.getrawtransaction(args.sidechainRcvTx, 1)
 		if not "confirmations" in raw_bitcoin_tx or raw_bitcoin_tx["confirmations"] <= 10:
 			print("Please wait for at least 10 confirmations on the bitcoin transaction first")
 			exit(1)
-		raw_bitcoin_tx_hex = bitcoin.getrawtransaction(sys.argv[4], 0)
+		raw_bitcoin_tx_hex = bitcoin.getrawtransaction(args.sidechainRcvTx, 0)
 
 		# Might need to calculate the scriptSig here
 		secondScriptSig = "1"
@@ -156,9 +199,9 @@ try:
 		coinbase_txid = bitcoin_block["tx"][0]
 		raw_coinbase_tx_hex = bitcoin.getrawtransaction(coinbase_txid, 0)
 
-		spv_proof = bitcoin.gettxoutproof([coinbase_txid, sys.argv[4]])
+		spv_proof = bitcoin.gettxoutproof([coinbase_txid, args.sidechainRcvTx])
 
-		cht = os.popen("%s %s -g -r %s -d %s -n %s" % (contracthashtool_path, testnet_arg, redeem_script, sys.argv[2], sys.argv[3]))
+		cht = os.popen("%s %s -g -r %s -d %s -n %s" % (contracthashtool_path, testnet_arg, redeem_script, args.sidechainP2SHaddr, args.nonce))
 		cht_read = cht.read()
 		assert(cht.close() == None)
 		raw_dest = cht_read.split("\n")[1 + is_testnet][66:]
@@ -184,7 +227,7 @@ try:
 		print("Redeeming from utxo %s:%.16g (value %.16g, refund %.16g)" % (in_txid, in_vout, in_value, in_value - value))
 
 		withdrawkeys = 'withdrawkeys:{"contract": "%s", "txoutproof": "%s", "tx": "%s", "nout": %d, "secondScriptPubKey": "%s", "secondScriptSig": "%s", "coinbase": "%s"}' % (full_contract, spv_proof, raw_bitcoin_tx_hex, nout, secondScriptPubKey, secondScriptSig, raw_coinbase_tx_hex)
-		out_scriptPubKey = "OP_IF %d 0x20%s %d 0 0x14%s 0x20%s OP_REORGPROOFVERIFY OP_ELSE 144 OP_NOP3 OP_DROP OP_HASH160 0x14%s OP_EQUAL OP_ENDIF" % (bitcoin_block["height"], sys.argv[4], nout, secondScriptPubKeyHash, inverse_bitcoin_genesis_hash, raw_dest)
+		out_scriptPubKey = "OP_IF %d 0x20%s %d 0 0x14%s 0x20%s OP_REORGPROOFVERIFY OP_ELSE 144 OP_NOP3 OP_DROP OP_HASH160 0x14%s OP_EQUAL OP_ENDIF" % (bitcoin_block["height"], args.sidechainRcvTx, nout, secondScriptPubKeyHash, inverse_bitcoin_genesis_hash, raw_dest)
 		relock_scriptPubKey = "0x20%s 0x14%s OP_WITHDRAWPROOFVERIFY" % (inverse_bitcoin_genesis_hash, secondScriptPubKeyHash)
 
 		cht = os.popen('%s -create \'set=%s\' in=%s:%d:%s:-1 outscript=%s:"%s" outscript=%s:"%s" withdrawsign' % (sidechain_tx_path, withdrawkeys, in_txid, in_vout, str(in_value), str(value), out_scriptPubKey, str(in_value - value), relock_scriptPubKey))
@@ -195,12 +238,9 @@ try:
 		print("Success!")
 		print("Resulting txid: " + str(txid))
 
-	elif sys.argv[1] == "spend-from-claim":
+	elif args.command == "spend-from-claim":
 		#TODO: Maybe make wallets recognize this as theirs?
-		if len(sys.argv) != 4:
-			help()
-
-		prev_tx = sidechain.getrawtransaction(sys.argv[2], 1)
+		prev_tx = sidechain.getrawtransaction(args.sidechainClaimTx, 1)
 		prev_out = prev_tx["vout"][0]
 		assert(prev_out["scriptPubKey"]["type"] == "withdrawout")
 		prev_script = prev_out["scriptPubKey"]["asm"].split(" ")
@@ -209,13 +249,13 @@ try:
 			print("You must wait for at least %s confirmations to claim this output (have %d)" % (prev_script[9], prev_tx["confirmations"]))
 			exit(1)
 
-		p2sh_res = sidechain.createmultisig(1, [sys.argv[3]])
+		p2sh_res = sidechain.createmultisig(1, [args.sidechainAddress])
 
-		cht = os.popen('%s %s -create in=%s:%d:%s:%d outaddr=%s:"%s"' % (sidechain_tx_path, "-testnet" if is_testnet == 1 else "", sys.argv[2], 0, str(prev_out["value"]), 0x100000000 - int(prev_script[9]) - 1, str(prev_out["value"]), sidechain.getnewaddress()))
+		cht = os.popen('%s %s -create in=%s:%d:%s:%d outaddr=%s:"%s"' % (sidechain_tx_path, "-testnet" if is_testnet == 1 else "", args.sidechainClaimTx, 0, str(prev_out["value"]), 0x100000000 - int(prev_script[9]) - 1, str(prev_out["value"]), sidechain.getnewaddress()))
 		tx_hex = cht.read().split("\n")[0]
 		assert(cht.close() == None)
 
-		tx_hex = sidechain.signrawtransaction(tx_hex, [{"txid": sys.argv[2], "vout": 0, "scriptPubKey": prev_out["scriptPubKey"]["hex"], "redeemScript": p2sh_res["redeemScript"], "nValue": prev_out["serValue"]}], [sidechain.dumpprivkey(sys.argv[3])])
+		tx_hex = sidechain.signrawtransaction(tx_hex, [{"txid": args.sidechainClaimTx, "vout": 0, "scriptPubKey": prev_out["scriptPubKey"]["hex"], "redeemScript": p2sh_res["redeemScript"], "nValue": prev_out["serValue"]}], [sidechain.dumpprivkey(args.sidechainAddress)])
 		if tx_hex["complete"] != True:
 			print("Got incomplete transaction (signing failed to create spendable transaction):")
 			print(tx_hex["hex"])
@@ -224,17 +264,14 @@ try:
 			sidechain.sendrawtransaction(tx_hex["hex"])
 			print("Success!")
 
-	elif sys.argv[1] == "send-to-mainchain":
-		if len(sys.argv) != 4:
-			help()
-
-		p2sh_tx_test = bitcoin.decoderawtransaction(bitcoin.createrawtransaction([], {sys.argv[2]: 0.1}))["vout"][0]["scriptPubKey"]
+	elif args.command == "send-to-mainchain":
+		p2sh_tx_test = bitcoin.decoderawtransaction(bitcoin.createrawtransaction([], {args.p2shMainAddress: 0.1}))["vout"][0]["scriptPubKey"]
 		if p2sh_tx_test["type"] != "scripthash":
 			print("You must use a P2SH address")
 			exit(1)
 		p2sh_hex = p2sh_tx_test["asm"].split(" ")[1]
 
-		cht = os.popen('%s -create outscript=%s:"0x1850325348%s OP_DROP 0x20%s 0x14%s WITHDRAWPROOFVERIFY"' % (sidechain_tx_path, sys.argv[3], p2sh_hex, inverse_bitcoin_genesis_hash, secondScriptPubKeyHash))
+		cht = os.popen('%s -create outscript=%s:"0x1850325348%s OP_DROP 0x20%s 0x14%s WITHDRAWPROOFVERIFY"' % (sidechain_tx_path, args.coinAmt, p2sh_hex, inverse_bitcoin_genesis_hash, secondScriptPubKeyHash))
 		res_tx = cht.read().split("\n")[0]
 		assert(cht.close() == None)
 
@@ -242,7 +279,7 @@ try:
 		if donation > 0:
 			if donation < 550: # Probably dust
 				donation = 550
-			cht = os.popen('%s -create outscript=%s:"0x1850325348%s OP_DROP 0x20%s 0x14%s WITHDRAWPROOFVERIFY" outscript=%s:"RETURN"' % (sidechain_tx_path, sys.argv[3], p2sh_hex, inverse_bitcoin_genesis_hash, secondScriptPubKeyHash, str(Decimal(donation) / Decimal(100000000))))
+			cht = os.popen('%s -create outscript=%s:"0x1850325348%s OP_DROP 0x20%s 0x14%s WITHDRAWPROOFVERIFY" outscript=%s:"RETURN"' % (sidechain_tx_path, args.coinAmt, p2sh_hex, inverse_bitcoin_genesis_hash, secondScriptPubKeyHash, str(Decimal(donation) / Decimal(100000000))))
 			res_tx = cht.read().split("\n")[0]
 			assert(cht.close() == None)
 
@@ -250,12 +287,10 @@ try:
 		fee = res_tx["fee"]
 		res_tx = sidechain.signrawtransaction(res_tx["hex"])["hex"]
 
-		print("Sending %s to functionaries for withdraw to %s (fee of %s satoshis)..." % (sys.argv[3], sys.argv[2], str(fee + donation)))
+		print("Sending %s to functionaries for withdraw to %s (fee of %s satoshis)..." % (args.coinAmt, args.p2shMainAddress, str(fee + donation)))
 		txid = sidechain.sendrawtransaction(res_tx)
 		print("Sent tx with id %s" % txid)
 
-	else:
-		help()
 except JSONRPCException as e:
 	print(traceback.format_exc())
 	print("Got the following error from an RPC Call:")
