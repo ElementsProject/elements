@@ -80,7 +80,7 @@ static const Checkpoints::CCheckpointData dataRegtest = {
 
 class CMainParams : public CChainParams {
 public:
-    CMainParams() {
+    CMainParams(CScript scriptDestination) {
         networkID = CBaseChainParams::MAIN;
         strNetworkID = "main";
         /** 
@@ -127,7 +127,9 @@ public:
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
         genesis.nVersion = 1;
         genesis.nTime    = 1231006505;
-        CScript scriptDestination(CScript() << OP_5 << ParseHex("027d5d62861df77fc9a37dbe901a579d686d1423be5f56d6fc50bb9de3480871d1") << ParseHex("03b41ea6ba73b94c901fdd43e782aaf70016cc124b72a086e77f6e9f4f942ca9bb") << ParseHex("02be643c3350bade7c96f6f28d1750af2ef507bc1f08dd38f82749214ab90d9037") << ParseHex("021df31471281d4478df85bfce08a10aab82601dca949a79950f8ddf7002bd915a") << ParseHex("0320ea4fcf77b63e89094e681a5bd50355900bf961c10c9c82876cb3238979c0ed") << ParseHex("021c4c92c8380659eb567b497b936b274424662909e1ffebc603672ed8433f4aa1") << ParseHex("027841250cfadc06c603da8bc58f6cd91e62f369826c8718eb6bd114601dd0c5ac") << OP_7 << OP_CHECKMULTISIG);
+        if (scriptDestination.empty()) {
+            scriptDestination = CScript() << OP_5 << ParseHex("027d5d62861df77fc9a37dbe901a579d686d1423be5f56d6fc50bb9de3480871d1") << ParseHex("03b41ea6ba73b94c901fdd43e782aaf70016cc124b72a086e77f6e9f4f942ca9bb") << ParseHex("02be643c3350bade7c96f6f28d1750af2ef507bc1f08dd38f82749214ab90d9037") << ParseHex("021df31471281d4478df85bfce08a10aab82601dca949a79950f8ddf7002bd915a") << ParseHex("0320ea4fcf77b63e89094e681a5bd50355900bf961c10c9c82876cb3238979c0ed") << ParseHex("021c4c92c8380659eb567b497b936b274424662909e1ffebc603672ed8433f4aa1") << ParseHex("027841250cfadc06c603da8bc58f6cd91e62f369826c8718eb6bd114601dd0c5ac") << OP_7 << OP_CHECKMULTISIG;
+        }
         genesis.proof = CProof(scriptDestination, CScript()); // genesis block gets a PoW pass
 
         hashGenesisBlock = genesis.GetHash();
@@ -163,14 +165,13 @@ public:
         return data;
     }
 };
-static CMainParams mainParams;
 
 /**
  * Testnet (v3)
  */
 class CTestNetParams : public CMainParams {
 public:
-    CTestNetParams() {
+    CTestNetParams(CScript scriptDestination) : CMainParams(scriptDestination) {
         networkID = CBaseChainParams::TESTNET;
         strNetworkID = "test";
         pchMessageStart[0] = 0xee;
@@ -217,14 +218,13 @@ public:
         return dataTestnet;
     }
 };
-static CTestNetParams testNetParams;
 
 /**
  * Regression test
  */
 class CRegTestParams : public CTestNetParams {
 public:
-    CRegTestParams() {
+    CRegTestParams(CScript scriptDestination) : CTestNetParams(scriptDestination) {
         networkID = CBaseChainParams::REGTEST;
         strNetworkID = "regtest";
         pchMessageStart[0] = 0xfa;
@@ -249,7 +249,9 @@ public:
         txNew.vout[1].scriptPubKey = CScript() << OP_TRUE;
         genesis.vtx[0] = CTransaction(txNew);
 
-        CScript scriptDestination(CScript() << OP_TRUE);
+        if (scriptDestination.empty()) {
+            scriptDestination = CScript() << OP_TRUE;
+        }
         genesis.proof = CProof(scriptDestination, CScript()); // genesis block gets a PoW pass
         genesis.hashMerkleRoot = genesis.BuildMerkleTree();
 
@@ -272,14 +274,13 @@ public:
         return dataRegtest;
     }
 };
-static CRegTestParams regTestParams;
 
 /**
  * Unit test
  */
 class CUnitTestParams : public CMainParams, public CModifiableParams {
 public:
-    CUnitTestParams() {
+    CUnitTestParams(CScript scriptDestination) : CMainParams(scriptDestination) {
         networkID = CBaseChainParams::UNITTEST;
         strNetworkID = "unittest";
         nDefaultPort = 18445;
@@ -308,50 +309,47 @@ public:
     virtual void setAllowMinDifficultyBlocks(bool afAllowMinDifficultyBlocks) {  fAllowMinDifficultyBlocks=afAllowMinDifficultyBlocks; }
     virtual void setSkipProofOfWorkCheck(bool afSkipProofOfWorkCheck) { fSkipProofOfWorkCheck = afSkipProofOfWorkCheck; }
 };
-static CUnitTestParams unitTestParams;
 
-
-static CChainParams *pCurrentParams = 0;
-
-CModifiableParams *ModifiableParams()
-{
-   assert(pCurrentParams);
-   assert(pCurrentParams==&unitTestParams);
-   return (CModifiableParams*)&unitTestParams;
-}
+static CChainParams *pCurrentParams;
 
 const CChainParams &Params() {
     assert(pCurrentParams);
     return *pCurrentParams;
 }
 
-CChainParams &Params(CBaseChainParams::Network network) {
+
+CChainParams* CChainParams::Factory(CBaseChainParams::Network network, CScript scriptDestination) {
     switch (network) {
         case CBaseChainParams::MAIN:
-            return mainParams;
+            return new CMainParams(scriptDestination);
         case CBaseChainParams::TESTNET:
-            return testNetParams;
+            return new CTestNetParams(scriptDestination);
         case CBaseChainParams::REGTEST:
-            return regTestParams;
+            return new CRegTestParams(scriptDestination);
         case CBaseChainParams::UNITTEST:
-            return unitTestParams;
+            return new CUnitTestParams(scriptDestination);
         default:
             assert(false && "Unimplemented network");
-            return mainParams;
+            return NULL;
     }
 }
 
-void SelectParams(CBaseChainParams::Network network) {
+void SelectParams(CBaseChainParams::Network network, CScript scriptDestination) {
     SelectBaseParams(network);
-    pCurrentParams = &Params(network);
+    pCurrentParams = CChainParams::Factory(network, scriptDestination);
+}
+
+void SelectParams(CBaseChainParams::Network network) {
+    SelectParams(network, CScript());
 }
 
 bool SelectParamsFromCommandLine()
 {
     CBaseChainParams::Network network = NetworkIdFromCommandLine();
+    CScript scriptDestination = ScriptDestinationFromCommandLine();
     if (network == CBaseChainParams::MAX_NETWORK_TYPES)
         return false;
 
-    SelectParams(network);
+    SelectParams(network, scriptDestination);
     return true;
 }

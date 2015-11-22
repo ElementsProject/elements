@@ -5,9 +5,12 @@
 
 #include "chainparamsbase.h"
 
+#include "script/script.h"
 #include "util.h"
+#include "utilstrencodings.h"
 
 #include <assert.h>
+#include <stdio.h>
 
 #include <boost/assign/list_of.hpp>
 
@@ -112,6 +115,20 @@ CBaseChainParams::Network NetworkIdFromCommandLine()
     if (fTestNet)
         return CBaseChainParams::TESTNET;
     return CBaseChainParams::MAIN;
+}
+
+CScript ScriptDestinationFromCommandLine()
+{
+    std::string sd = GetArg("-genesisscriptdestination", "");
+    if (!sd.empty()) {
+        if (IsHex(sd)) {
+            std::vector<unsigned char> sd_raw(ParseHex(sd));
+            return CScript(sd_raw.begin(), sd_raw.end());
+        } else {
+            fprintf(stderr, "Warning: Genesis script destination was not valid hex, ignoring it.\n");
+        }
+    }
+    return CScript();
 }
 
 bool SelectBaseParamsFromCommandLine()

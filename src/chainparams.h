@@ -80,6 +80,12 @@ public:
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const std::vector<CAddress>& FixedSeeds() const { return vFixedSeeds; }
     virtual const Checkpoints::CCheckpointData& Checkpoints() const = 0;
+    /**
+     * Creates and returns a CChainParams* of the chosen chain. The caller has to delete the object.
+     * @returns a CChainParams* of the chosen chain.
+     * @throws a std::runtime_error if the chain is not supported.
+     */
+    static CChainParams* Factory(CBaseChainParams::Network network, CScript scriptDestination);
 protected:
     CChainParams() {}
 
@@ -139,11 +145,13 @@ const CChainParams &Params();
 /** Return parameters for the given network. */
 CChainParams &Params(CBaseChainParams::Network network);
 
-/** Get modifiable network parameters (UNITTEST only) */
-CModifiableParams *ModifiableParams();
-
 /** Sets the params returned by Params() to those for the given network. */
 void SelectParams(CBaseChainParams::Network network);
+
+/**
+ * Sets the params returned by Params() to those for the given network
+ * with given blocksigning pubkey */
+void SelectParams(CBaseChainParams::Network network, CScript scriptDestination);
 
 /**
  * Looks for -regtest or -testnet and then calls SelectParams as appropriate.
