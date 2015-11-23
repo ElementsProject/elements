@@ -211,13 +211,23 @@ void PaymentServer::ipcParseCommandLine(int argc, char* argv[])
             {
                 CBitcoinAddress address(r.address.toStdString());
 
-                if (address.IsValid(Params(CBaseChainParams::MAIN)))
+                // Going into this function, we've selected Params() from the commandline,
+                // including potentially setting a custom blocksigning scriptdest. However,
+                // if we're thrown an address that isn't valid for this, our best bet is
+                // to just try the two "standard" networks and hope for the best.
+                if (!address.IsValid(Params()))
+                {
+                    SelectParams(CBaseChainParams::TESTNET);
+                }
+                if (!address.IsValid(Params()))
                 {
                     SelectParams(CBaseChainParams::MAIN);
                 }
-                else if (address.IsValid(Params(CBaseChainParams::TESTNET)))
+                if (!address.IsValid(Params()))
                 {
-                    SelectParams(CBaseChainParams::TESTNET);
+                    // At this point if the address is still invalid, an error will be
+                    // thrown at the time it's attempted to be used.
+                    qWarning() << "PaymentServer::ipcSendCommandLine : address was invalid for all known networks";
                 }
             }
         }
