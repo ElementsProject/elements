@@ -86,6 +86,7 @@ public:
      * @throws a std::runtime_error if the chain is not supported.
      */
     static CChainParams* Factory(CBaseChainParams::Network network, CScript scriptDestination);
+    virtual ~CChainParams() {}
 protected:
     CChainParams() {}
 
@@ -141,9 +142,6 @@ public:
  * outside of the unit tests.
  */
 const CChainParams &Params();
-
-/** Return parameters for the given network. */
-CChainParams &Params(CBaseChainParams::Network network);
 
 /** Sets the params returned by Params() to those for the given network. */
 void SelectParams(CBaseChainParams::Network network);

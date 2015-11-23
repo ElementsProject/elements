@@ -310,7 +310,7 @@ public:
     virtual void setSkipProofOfWorkCheck(bool afSkipProofOfWorkCheck) { fSkipProofOfWorkCheck = afSkipProofOfWorkCheck; }
 };
 
-static CChainParams *pCurrentParams;
+static CChainParams *pCurrentParams = NULL;
 
 const CChainParams &Params() {
     assert(pCurrentParams);
@@ -336,6 +336,7 @@ CChainParams* CChainParams::Factory(CBaseChainParams::Network network, CScript s
 
 void SelectParams(CBaseChainParams::Network network, CScript scriptDestination) {
     SelectBaseParams(network);
+    delete pCurrentParams;
     pCurrentParams = CChainParams::Factory(network, scriptDestination);
 }
 
