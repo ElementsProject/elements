@@ -13,6 +13,7 @@
 #include <assert.h>
 
 #include <boost/assign/list_of.hpp>
+#include <boost/scoped_ptr.hpp>
 
 using namespace std;
 using namespace boost::assign;
@@ -310,13 +311,13 @@ public:
     virtual void setSkipProofOfWorkCheck(bool afSkipProofOfWorkCheck) { fSkipProofOfWorkCheck = afSkipProofOfWorkCheck; }
 };
 
-static CChainParams *pCurrentParams;
+static boost::scoped_ptr<CChainParams> globalChainParams;
+static boost::scoped_ptr<CChainParams> globalSwitchingChainParams;
 
 const CChainParams &Params() {
-    assert(pCurrentParams);
-    return *pCurrentParams;
+    assert(globalChainParams.get());
+    return *globalChainParams;
 }
-
 
 CChainParams* CChainParams::Factory(CBaseChainParams::Network network, CScript scriptDestination) {
     switch (network) {
@@ -334,9 +335,15 @@ CChainParams* CChainParams::Factory(CBaseChainParams::Network network, CScript s
     }
 }
 
+const CChainParams& Params(CBaseChainParams::Network network)
+{
+    globalSwitchingChainParams.reset(CChainParams::Factory(network, CScript()));
+    return *globalSwitchingChainParams;
+}
+
 void SelectParams(CBaseChainParams::Network network, CScript scriptDestination) {
     SelectBaseParams(network);
-    pCurrentParams = CChainParams::Factory(network, scriptDestination);
+    globalChainParams.reset(CChainParams::Factory(network, scriptDestination));
 }
 
 void SelectParams(CBaseChainParams::Network network) {
