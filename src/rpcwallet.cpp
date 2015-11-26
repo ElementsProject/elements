@@ -1601,11 +1601,11 @@ Value gettransaction(const Array& params, bool fHelp)
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.nTxFee : 0);
+    // CAmount nFee = (wtx.IsFromMe(filter) ? wtx.nTxFee : 0);
 
-    entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
-    if (wtx.IsFromMe(filter))
-        entry.push_back(Pair("fee", ValueFromAmount(nFee)));
+    // entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
+    // if (wtx.IsFromMe(filter))
+    //     entry.push_back(Pair("fee", ValueFromAmount(nFee)));
 
     WalletTxToJSON(wtx, entry);
 
