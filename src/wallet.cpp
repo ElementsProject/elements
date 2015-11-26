@@ -864,8 +864,8 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
 
     // Compute fee:
     CAmount nDebit = GetDebit(filter);
-    if (nDebit > 0) // debit>0 means we signed/sent this transaction
-        nFee = nTxFee;
+    // if (nDebit > 0) // debit>0 means we signed/sent this transaction
+    //     nFee = nTxFee;
 
     // Sent/received.
     for (unsigned int i = 0; i < vout.size(); ++i)
@@ -1633,7 +1633,7 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second));
 
-                txNew.nTxFee = nValueIn - nValueOut;
+                // txNew.nTxFee = nValueIn - nValueOut;
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
                 // Create blinded outputs
