@@ -109,7 +109,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
             //
             // Debit
             //
-            CAmount nTxFee = wtx.nTxFee;
+            // CAmount nTxFee = wtx.nTxFee;
 
             for (unsigned int nOut = 0; nOut < wtx.vout.size(); nOut++)
             {
@@ -141,11 +141,11 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
 
                 CAmount nValue = wtx.GetValueOut(nOut);
                 /* Add fee to first output */
-                if (nTxFee > 0)
-                {
-                    nValue += nTxFee;
-                    nTxFee = 0;
-                }
+                // if (nTxFee > 0)
+                // {
+                //     nValue += nTxFee;
+                //     nTxFee = 0;
+                // }
                 sub.debit = -nValue;
 
                 parts.append(sub);
