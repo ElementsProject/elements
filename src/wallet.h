@@ -866,7 +866,7 @@ public:
         if (pwallet->IsChange(vout[nTxOut]))
             amount = GetValueOut(nTxOut);
         if (!MoneyRange(amount))
-            throw std::runtime_error("CWallet::GetCredit() : value out of range");
+            throw std::runtime_error("CWallet::GetChange() : value out of range");
         return amount;
     }
 
