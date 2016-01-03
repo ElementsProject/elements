@@ -134,6 +134,16 @@ public:
     bool Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case = 0) const;
 
     /**
+     * Create a public nonce to communicate to other parties for creating a multisignature.
+     */
+    bool PartialSigningNonce(const uint256& hash, std::vector<unsigned char>& pubnonce) const;
+
+    /**
+     * Create a part of a multisignature given all parties' public nonces.
+     */
+    bool PartialSign(const uint256& hash, const std::vector<std::vector<unsigned char> >& other_pubnonces_in, const std::vector<CPubKey>& other_pubkeys_in, const std::vector<unsigned char>& my_pubnonce_in, std::vector<unsigned char>& vchPartialSig) const;
+
+    /**
      * Create a compact signature (65 bytes), which allows reconstructing the used public key.
      * The format is one header byte, followed by two times 32 bytes for the serialized r and s values.
      * The header byte: 0x1B = first key with even y, 0x1C = first key with odd y,
@@ -177,6 +187,9 @@ struct CExtKey {
     CExtPubKey Neuter() const;
     void SetMaster(const unsigned char* seed, unsigned int nSeedLen);
 };
+
+/** Combine multiple partial signatures into a full one. */
+bool CombinePartialSignatures(const std::vector<std::vector<unsigned char> >& input, std::vector<unsigned char>& output);
 
 /** Initialize the elliptic curve support. May not be called twice without calling ECC_Stop first. */
 void ECC_Start(void);

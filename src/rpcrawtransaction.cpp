@@ -821,6 +821,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
             "         \"nValue\": \"hex\",         (string, required) The output's value commitment\n"
             "         \"scriptPubKey\": \"hex\",   (string, required) script key\n"
             "         \"redeemScript\": \"hex\"    (string, required for P2SH) redeem script\n"
+            "         \"keytree\": \"hex\"         (string, required for keytree) serialized key tree\n"
             "       }\n"
             "       ,...\n"
             "    ]\n"
@@ -921,6 +922,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
 
             RPCTypeCheck(prevOut, map_list_of("txid", str_type)("vout", int_type)("nValue", str_type)("scriptPubKey", str_type));
 
+
             uint256 txid = ParseHashO(prevOut, "txid");
 
             int nOut = find_value(prevOut, "vout").get_int();
@@ -954,12 +956,20 @@ Value signrawtransaction(const Array& params, bool fHelp)
             // if redeemScript given and not using the local wallet (private keys
             // given), add redeemScript to the tempKeystore so it can be signed:
             if (fGivenKeys && (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsWithdrawOutput())) {
-                RPCTypeCheck(prevOut, map_list_of("txid", str_type)("vout", int_type)("nValue", str_type)("scriptPubKey", str_type)("redeemScript",str_type));
+                RPCTypeCheck(prevOut, map_list_of("txid", str_type)("vout", int_type)("nValue", str_type)("scriptPubKey", str_type)("redeemScript",str_type)("keytree",str_type));
                 Value v = find_value(prevOut, "redeemScript");
                 if (!(v == Value::null)) {
                     vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
                     CScript redeemScript(rsData.begin(), rsData.end());
                     tempKeystore.AddCScript(redeemScript);
+                }
+                Value vv = find_value(prevOut, "keytree");
+                if (!(v == Value::null)) {
+                    std::string a = vv.get_str();
+                    KeyTree tree;
+                    CDataStream ss(ParseHex(a), SER_DISK, CLIENT_VERSION);
+                    ss >> tree;
+                    tempKeystore.AddKeyTree(tree);
                 }
             }
         }
@@ -1001,7 +1011,6 @@ Value signrawtransaction(const Array& params, bool fHelp)
         }
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
 
-        txin.scriptSig.clear();
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
             SignSignature(keystore, prevPubKey, coins->vout[txin.prevout.n].nValue, mergedTx, i, nHashType);

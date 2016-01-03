@@ -7,6 +7,7 @@
 
 #include "key.h"
 #include "keystore.h"
+#include "keytree.h"
 #include "script/script.h"
 #include "script/standard.h"
 
@@ -32,6 +33,20 @@ isminetype IsMine(const CKeyStore &keystore, const CTxDestination& dest)
 {
     CScript script = GetScriptForDestination(dest);
     return IsMine(keystore, script);
+}
+
+namespace
+{
+struct IsMineKeyTreeFilter : public KeyTreeFilter
+{
+    const CKeyStore *keystore;
+
+    IsMineKeyTreeFilter(const CKeyStore *keystore_) : keystore(keystore_) {}
+    bool operator()(const CPubKey& pubkey)
+    {
+        return keystore->HaveKey(pubkey.GetID());
+    }
+};
 }
 
 isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
@@ -84,6 +99,17 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
         if (HaveKeys(keys, keystore) == keys.size())
             return ISMINE_SPENDABLE;
         break;
+    }
+    case TX_TREESIG:
+    {
+        std::vector<unsigned char> merkleroot = vSolutions[1];
+        uint256 hash;
+        memcpy(hash.begin(), &merkleroot[0], 32);
+        KeyTree tree;
+        IsMineKeyTreeFilter filter(&keystore);
+        if (keystore.GetKeyTree(hash, tree) && HasMatch(&tree.root, &filter)) {
+            return ISMINE_SPENDABLE;
+        }
     }
     case TX_TRUE:
         return ISMINE_SPENDABLE;

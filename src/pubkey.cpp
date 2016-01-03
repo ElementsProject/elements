@@ -88,6 +88,31 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned i
     return true;
 }
 
+bool CombinePubKeys(const std::vector<CPubKey>& pubkeys, CPubKey& combination) {
+    bool ret = pubkeys.size() > 0;
+    std::vector<secp256k1_pubkey_t> parsed_pubkeys;
+    std::vector<const secp256k1_pubkey_t*> parsed_pubkey_pointers;
+    parsed_pubkeys.reserve(pubkeys.size());
+    parsed_pubkey_pointers.reserve(pubkeys.size());
+    for (std::vector<CPubKey>::const_iterator it = pubkeys.begin(); it != pubkeys.end(); ++it) {
+        secp256k1_pubkey_t other_pubkey;
+        ret = ret && secp256k1_ec_pubkey_parse(secp256k1_context, &other_pubkey, it->begin(), it->size());
+        if (ret) {
+            parsed_pubkeys.push_back(other_pubkey);
+            parsed_pubkey_pointers.push_back(&parsed_pubkeys.back());
+        }
+    }
+    secp256k1_pubkey_t out;
+    ret = ret && secp256k1_ec_pubkey_combine(secp256k1_context, &out, parsed_pubkeys.size(), &parsed_pubkey_pointers[0]);
+    unsigned char outv[33];
+    int outlen = 33;
+    ret = ret && secp256k1_ec_pubkey_serialize(secp256k1_context, outv, &outlen, &out, 1);
+    if (ret) {
+        combination.Set(&outv[0], &outv[33]);
+    }
+    return ret;
+}
+
 void CExtPubKey::Encode(unsigned char code[74]) const {
     code[0] = nDepth;
     memcpy(code+1, vchFingerprint, 4);

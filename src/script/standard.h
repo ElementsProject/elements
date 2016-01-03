@@ -6,6 +6,7 @@
 #ifndef BITCOIN_SCRIPT_STANDARD_H
 #define BITCOIN_SCRIPT_STANDARD_H
 
+#include "keytree.h"
 #include "script/interpreter.h"
 #include "uint256.h"
 
@@ -62,6 +63,7 @@ enum txnouttype
     TX_PUBKEY,
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
+    TX_TREESIG,
     TX_MULTISIG,
     TX_NULL_DATA,
     TX_WITHDRAW_LOCK,
@@ -94,5 +96,6 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
 
 CScript GetScriptForDestination(const CTxDestination& dest);
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
+CScript GetScriptForTree(const KeyTree& tree);
 
 #endif // BITCOIN_SCRIPT_STANDARD_H

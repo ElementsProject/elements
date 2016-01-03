@@ -41,6 +41,24 @@ public:
             return false;
         return key.Sign(checker.hash, vchSig);
     }
+    bool CreatePartialSigNonce(std::vector<unsigned char>& vchSigNonce, const CKeyID& keyid, const CScript& scriptCode) const
+    {
+        CKey key;
+        if (!keystore.GetKey(keyid, key))
+            return false;
+        return key.PartialSigningNonce(checker.hash, vchSigNonce);
+    }
+    bool CreatePartialSig(std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, const std::vector<unsigned char>& my_pubnonce, const std::vector<std::vector<unsigned char> >& other_pubnonces, const std::vector<CPubKey>& other_pubkeys) const
+    {
+        CKey key;
+        if (!keystore.GetKey(keyid, key))
+            return false;
+        return key.PartialSign(checker.hash, other_pubnonces, other_pubkeys, my_pubnonce, vchSig);
+    }
+    bool CombinePartialSigs(std::vector<unsigned char>& out, const std::vector<std::vector<unsigned char> >& ins) const
+    {
+        return CombinePartialSignatures(ins, out);
+    }
 };
 
 template<typename T>

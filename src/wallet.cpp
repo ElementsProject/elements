@@ -163,6 +163,15 @@ bool CWallet::AddCScript(const CScript& redeemScript)
     return CWalletDB(strWalletFile).WriteCScript(Hash160(redeemScript), redeemScript);
 }
 
+bool CWallet::AddKeyTree(const KeyTree& tree)
+{
+    if (!CCryptoKeyStore::AddKeyTree(tree))
+        return false;
+    if (!fFileBacked)
+        return true;
+    return CWalletDB(strWalletFile).WriteKeyTree(tree);
+}
+
 bool CWallet::LoadCScript(const CScript& redeemScript)
 {
     /* A sanity check was added in pull #3843 to avoid adding redeemScripts
@@ -177,6 +186,11 @@ bool CWallet::LoadCScript(const CScript& redeemScript)
     }
 
     return CCryptoKeyStore::AddCScript(redeemScript);
+}
+
+bool CWallet::LoadKeyTree(const KeyTree& tree)
+{
+    return CCryptoKeyStore::AddKeyTree(tree);
 }
 
 bool CWallet::AddWatchOnly(const CScript &dest)

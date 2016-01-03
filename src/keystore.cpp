@@ -86,3 +86,28 @@ bool CBasicKeyStore::HaveWatchOnly() const
     LOCK(cs_KeyStore);
     return (!setWatchOnly.empty());
 }
+
+bool CBasicKeyStore::AddKeyTree(const KeyTree &tree)
+{
+    LOCK(cs_KeyStore);
+    mapKeyTrees[tree.hash] = tree;
+    return true;
+}
+
+bool CBasicKeyStore::HaveKeyTree(const uint256& hash) const
+{
+    LOCK(cs_KeyStore);
+    return mapKeyTrees.count(hash) > 0;
+}
+
+bool CBasicKeyStore::GetKeyTree(const uint256& hash, KeyTree& tree) const
+{
+    LOCK(cs_KeyStore);
+    KeyTreeMap::const_iterator mi = mapKeyTrees.find(hash);
+    if (mi != mapKeyTrees.end())
+    {
+        tree = (*mi).second;
+        return true;
+    }
+    return false;
+}

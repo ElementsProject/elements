@@ -558,6 +558,20 @@ public:
         return (opcodetype)(OP_1+n-1);
     }
 
+    static bool DecodeInt(opcodetype opcode, const std::vector<unsigned char>& data, int64_t* ret)
+    {
+        if (opcode == OP_0) {
+            *ret = 0;
+            return true;
+        } else if (opcode >= OP_1 && opcode <= OP_16) {
+            *ret = (int)opcode - (int)(OP_1 - 1);
+            return true;
+        } else if (data.size() < 5) {
+           *ret = CScriptNum(data, false).getint64();
+        }
+        return false;
+    }
+
     int FindAndDelete(const CScript& b)
     {
         int nFound = 0;

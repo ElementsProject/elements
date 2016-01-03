@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "base58.h"
+#include "core_io.h"
 #include "clientversion.h"
 #include "init.h"
 #include "main.h"
@@ -318,6 +319,70 @@ Value createmultisig(const Array& params, bool fHelp)
     Object result;
     result.push_back(Pair("address", address.ToString()));
     result.push_back(Pair("redeemScript", HexStr(inner.begin(), inner.end())));
+
+    return result;
+}
+
+/**
+ * Used by addmultisigaddress / createmultisig:
+ */
+void _createtreesig_redeemScript(const Array& params, KeyTree& tree, CScript* pscript)
+{
+    const std::string& desc = params[0].get_str();
+
+    // Parse tree
+    if (!ParseKeyTree(desc, tree))
+        throw runtime_error("Cannot parse key tree description");
+
+    CScript result = GetScriptForTree(tree);
+
+    if (result.size() > MAX_SCRIPT_ELEMENT_SIZE)
+        throw runtime_error(
+                strprintf("redeemScript exceeds size limit: %d > %d", result.size(), MAX_SCRIPT_ELEMENT_SIZE));
+
+    if (pscript) {
+        pscript->swap(result);
+    }
+}
+
+Value createtreesig(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 1)
+    {
+        string msg = "createmultisig \"description\"\n"
+            "\nCreates a tree multi-signature address.\n"
+
+            "\nArguments:\n"
+            "1. \"description\"   (string, required) A description for the allowed combinations\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"address\":\"multisigaddress\",  (string) The value of the new multisig address.\n"
+            "  \"redeemScript\":\"script\"       (string) The string value of the hex-encoded redemption script.\n"
+            "  \"merkleroot\":\"merkleroot\",    (string) The hex-encoded merkle root of the resulting pubkey tree.\n"
+            "  \"combinations\": number,       (numeric) The number of combinations this description allows.\n"
+            "  \"serialization\": \"hex\",       (string) Hex-encoded full tree representation.\n"
+            "}\n"
+        ;
+        throw runtime_error(msg);
+    }
+
+    // Construct using pay-to-script-hash:
+    KeyTree tree;
+    CScript inner;
+    _createtreesig_redeemScript(params, tree, &inner);
+    CScriptID innerID(inner);
+    CBitcoinAddress address(innerID);
+
+    CDataStream ss(SER_DISK, CLIENT_VERSION);
+    ss << tree;
+
+    Object result;
+    result.push_back(Pair("address", address.ToString()));
+    result.push_back(Pair("redeemScript", HexStr(inner.begin(), inner.end())));
+    result.push_back(Pair("merkleroot", tree.hash.ToString()));
+    result.push_back(Pair("combinations", (int64_t)GetCombinations(&tree.root)));
+    result.push_back(Pair("serialization", HexStr(ss.begin(), ss.end())));
 
     return result;
 }

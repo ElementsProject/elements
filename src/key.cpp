@@ -144,6 +144,81 @@ bool CKey::Derive(CKey& keyChild, unsigned char ccChild[32], unsigned int nChild
     return ret;
 }
 
+bool CKey::PartialSigningNonce(const uint256& hash, std::vector<unsigned char>& pubnonceout) const {
+    if (!fValid)
+        return false;
+    secp256k1_pubkey_t pubnonce;
+    unsigned char secnonce[32];
+    LockObject(secnonce);
+    int ret = secp256k1_schnorr_generate_nonce_pair(secp256k1_context, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, NULL, &pubnonce, secnonce);
+    UnlockObject(secnonce);
+    if (!ret)
+        return false;
+    pubnonceout.resize(33 + 64);
+    int publen = 33;
+    secp256k1_ec_pubkey_serialize(secp256k1_context, &pubnonceout[0], &publen, &pubnonce, true);
+    // Sign the hash + pubnonce with a full signature, to prove possession of the corresponding private key.
+    uint256 hash2;
+    CSHA256().Write(hash.begin(), 32).Write(&pubnonceout[0], 33).Finalize(hash2.begin());
+    return secp256k1_schnorr_sign(secp256k1_context, hash2.begin(), &pubnonceout[33], begin(), secp256k1_nonce_function_rfc6979, NULL);
+}
+
+static bool CombinePubNonces(const uint256& hash, const std::vector<std::vector<unsigned char> >& pubnonces, const std::vector<CPubKey>& pubkeys, secp256k1_pubkey_t& out) {
+    bool ret = pubnonces.size() > 0;
+    ret = ret && (pubnonces.size() == pubkeys.size());
+    std::vector<secp256k1_pubkey_t> parsed_pubnonces;
+    std::vector<const secp256k1_pubkey_t*> parsed_pubnonce_pointers;
+    parsed_pubnonces.reserve(pubnonces.size());
+    parsed_pubnonce_pointers.reserve(pubnonces.size());
+    std::vector<CPubKey>::const_iterator pit = pubkeys.begin();
+    for (std::vector<std::vector<unsigned char> >::const_iterator it = pubnonces.begin(); it != pubnonces.end(); ++it, ++pit) {
+        secp256k1_pubkey_t other_pubnonce;
+        ret = ret && (it->size() == 33 + 64);
+        ret = ret && secp256k1_ec_pubkey_parse(secp256k1_context, &other_pubnonce, &(*it)[0], 33);
+        // Verify the signature on the pubnonce.
+        uint256 hash2;
+        secp256k1_pubkey_t pubkey;
+        CSHA256().Write(hash.begin(), 32).Write(&(*it)[0], 33).Finalize(hash2.begin());
+        ret = ret && secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, &(*pit)[0], pit->size());
+        ret = ret && secp256k1_schnorr_verify(secp256k1_context, hash2.begin(), &(*it)[33], &pubkey);
+        if (ret) {
+            parsed_pubnonces.push_back(other_pubnonce);
+            parsed_pubnonce_pointers.push_back(&parsed_pubnonces.back());
+        }
+    }
+    return (ret && secp256k1_ec_pubkey_combine(secp256k1_context, &out, parsed_pubnonces.size(), &parsed_pubnonce_pointers[0]));
+}
+
+bool CKey::PartialSign(const uint256& hash, const std::vector<std::vector<unsigned char> >& other_pubnonces_in, const std::vector<CPubKey>& other_pubkeys_in, const std::vector<unsigned char>& my_pubnonce_in, std::vector<unsigned char>& vchPartialSig) const {
+    if (!fValid)
+        return false;
+    secp256k1_pubkey_t pubnonce, my_pubnonce, other_pubnonces;
+    unsigned char secnonce[32];
+    LockObject(secnonce);
+    int ret = my_pubnonce_in.size() == 33 + 64 && secp256k1_ec_pubkey_parse(secp256k1_context, &my_pubnonce, &my_pubnonce_in[0], 33);
+    ret = ret && secp256k1_schnorr_generate_nonce_pair(secp256k1_context, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, NULL, &pubnonce, secnonce);
+    ret = ret && memcmp(&pubnonce, &my_pubnonce, sizeof(pubnonce)) == 0;
+    ret = ret && CombinePubNonces(hash, other_pubnonces_in, other_pubkeys_in, other_pubnonces);
+    if (ret) {
+        vchPartialSig.resize(64);
+        ret = secp256k1_schnorr_partial_sign(secp256k1_context, hash.begin(), &vchPartialSig[0], begin(), secnonce, &other_pubnonces);
+    }
+    UnlockObject(secnonce);
+    return ret;
+}
+
+bool CombinePartialSignatures(const std::vector<std::vector<unsigned char> >& input, std::vector<unsigned char>& output) {
+    std::vector<const unsigned char*> sig_pointers;
+    sig_pointers.reserve(input.size());
+    for (std::vector<std::vector<unsigned char> >::const_iterator it = input.begin(); it != input.end(); ++it) {
+        if (it->size() != 64) return false;
+        sig_pointers.push_back(&((*it)[0]));
+    }
+    output.resize(64);
+    bool ret = !!secp256k1_schnorr_partial_combine(secp256k1_context, &output[0], sig_pointers.size(), &sig_pointers[0]);
+    return ret;
+}
+
 bool CExtKey::Derive(CExtKey &out, unsigned int nChild) const {
     out.nDepth = nDepth + 1;
     CKeyID id = key.GetPubKey().GetID();
@@ -205,7 +280,7 @@ bool ECC_InitSanityCheck() {
 void ECC_Start() {
     assert(secp256k1_context == NULL);
 
-    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     assert(ctx != NULL);
 
     {
