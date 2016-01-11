@@ -10,6 +10,12 @@
 #include "utilstrencodings.h"
 #include "crypto/common.h"
 
+std::string CProof::ToString() const
+{
+    return strprintf("CProof(nBits=%08x, nNonce=%u)",
+                     nBits, nNonce);
+}
+
 uint256 CBlockHeader::GetHash() const
 {
     return SerializeHash(*this);
@@ -18,12 +24,13 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, proof=%u, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        nTime, nBits, nNonce,
+        nTime,
+        proof.ToString(),
         vtx.size());
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
