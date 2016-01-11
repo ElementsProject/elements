@@ -10,6 +10,7 @@
 #include "test/test_bitcoin.h"
 
 #include <boost/test/unit_test.hpp>
+/* TODO Re-add once Bitcoin blocks re-added
 
 std::vector<std::pair<uint256, CTransactionRef>> extra_txn;
 
@@ -338,3 +339,5 @@ BOOST_AUTO_TEST_CASE(TransactionsRequestSerializationTest) {
 }
 
 BOOST_AUTO_TEST_SUITE_END()
+
+*/

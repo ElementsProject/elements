@@ -196,8 +196,7 @@ public:
     int nVersion;
     uint256 hashMerkleRoot;
     unsigned int nTime;
-    unsigned int nBits;
-    unsigned int nNonce;
+    CProof proof;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -224,8 +223,7 @@ public:
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
-        nBits          = 0;
-        nNonce         = 0;
+        proof.SetNull();
     }
 
     CBlockIndex()
@@ -240,8 +238,7 @@ public:
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
-        nBits          = block.nBits;
-        nNonce         = block.nNonce;
+        proof          = block.proof;
     }
 
     CDiskBlockPos GetBlockPos() const {
@@ -270,8 +267,7 @@ public:
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
+        block.proof          = proof;
         return block;
     }
 
@@ -386,8 +382,7 @@ public:
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(proof);
     }
 
     uint256 GetBlockHash() const
@@ -397,8 +392,7 @@ public:
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
-        block.nBits           = nBits;
-        block.nNonce          = nNonce;
+        block.proof           = proof;
         return block.GetHash();
     }
 
