@@ -5,8 +5,14 @@
 
 #include "script.h"
 
+#include <list>
+
+#include "hash.h"
+#include "primitives/transaction.h"
+#include "streams.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
+#include "version.h"
 
 using namespace std;
 
@@ -133,13 +139,15 @@ const char* GetOpName(opcodetype opcode)
     case OP_NOP1                   : return "OP_NOP1";
     case OP_CHECKLOCKTIMEVERIFY    : return "OP_CHECKLOCKTIMEVERIFY";
     case OP_CHECKSEQUENCEVERIFY    : return "OP_CHECKSEQUENCEVERIFY";
-    case OP_NOP4                   : return "OP_NOP4";
     case OP_NOP5                   : return "OP_NOP5";
     case OP_NOP6                   : return "OP_NOP6";
     case OP_NOP7                   : return "OP_NOP7";
     case OP_NOP8                   : return "OP_NOP8";
     case OP_NOP9                   : return "OP_NOP9";
     case OP_NOP10                  : return "OP_NOP10";
+
+    // sidechains/withdraw-proofs
+    case OP_WITHDRAWPROOFVERIFY    : return "OP_WITHDRAWPROOFVERIFY";
 
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
@@ -199,6 +207,133 @@ unsigned int CScript::GetSigOpCount(const CScript& scriptSig) const
     /// ... and return its opcount:
     CScript subscript(data.begin(), data.end());
     return subscript.GetSigOpCount(true);
+}
+
+bool CScript::IsWithdrawProof() const
+{
+    // Format is <contract> <merkleBlock>xN <N> <locking tx>xM <M> <output index>
+    // for at least 6 total pushes
+    // Here we simply check that the script is push-only and has at least 6 pushes.
+    // The output must be P2SH to the appropriate script
+    const_iterator pc = begin();
+    opcodetype opcode;
+    uint32_t push_count = 0;
+    while (pc < end())
+    {
+        if (!GetOp(pc, opcode))
+            return false;
+        if (opcode > OP_16 || opcode == OP_RESERVED)
+            return false;
+        push_count++;
+    }
+    return push_count >= 6;
+}
+
+bool CScript::IsWithdrawLock() const
+{
+    // Locks look like [<chaindest> OP_DROP] <genesishash> OP_WITHDRAWPROOFVERIFY
+    // This function must return true for an OP_WITHDRAWPROOFVERIFY opcode to execute.
+    // We require all pushes be in their minimal form, to make inspection of
+    // withdraw locks a purely byte-matching affair.
+    const_iterator pc = begin();
+    vector<unsigned char> data;
+    opcodetype opcode;
+
+    if (!GetOp(pc, opcode, data))
+        return false;
+    if (opcode == 24 && data.size() == 24) { // 4 byte type + 20 byte destination is suggested
+        if (!GetOp(pc, opcode, data) || opcode != OP_DROP || data.size() != 0)
+            return false;
+
+        if (!GetOp(pc, opcode, data))
+            return false;
+    }
+
+    if (opcode != 32 || data.size() != 32)
+        return false;
+
+    if (!GetOp(pc, opcode, data) || opcode != OP_WITHDRAWPROOFVERIFY || data.size() != 0)
+        return false;
+
+    if (GetOp(pc, opcode))
+        return false;
+
+    return true;
+}
+
+uint256 CScript::GetWithdrawLockGenesisHash() const
+{
+    assert(IsWithdrawLock());
+
+    const_iterator pc = begin();
+    opcodetype opcode;
+    vector<unsigned char> vchgenesishash;
+
+    assert(GetOp(pc, opcode, vchgenesishash));
+    if (vchgenesishash.size() != 32) {
+        assert(GetOp(pc, opcode) && opcode == OP_DROP);
+        assert(GetOp(pc, opcode, vchgenesishash));
+    }
+    assert(vchgenesishash.size() == 32);
+    return uint256(vchgenesishash);
+}
+
+static bool PopWithdrawPush(vector<vector<unsigned char> >& pushes, vector<unsigned char> *read=NULL) {
+    if (pushes.empty())
+        return false;
+    int pushCount = CScriptNum(pushes.back(), false).getint();
+    pushes.pop_back();
+    if (pushCount < 0 || pushCount > 2000 || pushes.size() < size_t(pushCount))
+        return false;
+    for (int i = pushCount; i > 0; i--) {
+        if (i != 1 && pushes[pushes.size() - i].size() != 520)
+            return false;
+        if (read != NULL) {
+            const vector<unsigned char> &push = pushes[pushes.size() - i];
+            read->insert(read->end(), push.begin(), push.end());
+        }
+    }
+    for (int i = 0; i < pushCount; i++)
+        pushes.pop_back();
+    return true;
+}
+
+COutPoint CScript::GetWithdrawSpent() const
+{
+    assert(IsWithdrawProof());
+
+    try {
+        const_iterator pc = begin();
+        opcodetype opcode;
+
+        // We have to read the script from back-to-front, so we stack-ize it
+        vector<vector<unsigned char> > pushes;
+        pushes.reserve(6);
+        while (pc < end()) {
+            pushes.push_back(vector<unsigned char>());
+            assert(GetOp(pc, opcode, pushes.back()));
+            if (opcode <= OP_16 && opcode >= OP_1)
+                pushes.back().push_back(opcode - OP_1 + 1);
+            else if (opcode == OP_1NEGATE)
+                pushes.back().push_back(0x81);
+        }
+
+        int ntxOut = CScriptNum(pushes.back(), false).getint();
+        pushes.pop_back();
+
+        vector<unsigned char> vTx;
+        if (!PopWithdrawPush(pushes, &vTx))
+            return COutPoint();
+        CTransaction tx;
+        CDataStream(vTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX) >> tx;
+
+        if (ntxOut < 0 || (unsigned int)ntxOut >= tx.vout.size())
+            return COutPoint();
+
+        return COutPoint(tx.GetHash(), ntxOut);
+    } catch (std::exception& e) {
+        return COutPoint();
+    }
 }
 
 bool CScript::IsPayToScriptHash() const
