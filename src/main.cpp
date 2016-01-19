@@ -1959,7 +1959,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             return state.Invalid(false, 0, "", "Inputs unavailable");
 
         CAmount nValueIn = 0;
-        CAmount nFees = 0;
         for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
             const COutPoint &prevout = tx.vin[i].prevout;
@@ -1987,10 +1986,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
         // Tally transaction fees
         CAmount nTxFee = nValueIn - tx.GetValueOut();
-        if (nTxFee < 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-negative");
-        nFees += nTxFee;
-        if (!MoneyRange(nFees))
+        if (!MoneyRange(nTxFee))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
     return true;
 }
@@ -2487,6 +2483,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!tx.IsCoinBase())
         {
             nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            if (!MoneyRange(nFees))
+                return state.DoS(100, error("ConnectBlock(): total tx fee overflowed"), REJECT_INVALID, "bad-txns-fee-outofrange");
 
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -2509,6 +2507,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
+    if (!MoneyRange(blockReward))
+        return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     if (block.vtx[0].GetValueOut() > blockReward)
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
