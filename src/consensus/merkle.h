@@ -17,6 +17,16 @@ std::vector<uint256> ComputeMerkleBranch(const std::vector<uint256>& leaves, uin
 uint256 ComputeMerkleRootFromBranch(const uint256& leaf, const std::vector<uint256>& branch, uint32_t position);
 
 /*
+ * Has similar API semantics, but produces Merkle roots and validates
+ * branches 3x as fast, and without the mutation vulnerability. Cannot
+ * be substituted for the non-fast variants because the hash values are
+ * different.
+ */
+uint256 ComputeFastMerkleRoot(const std::vector<uint256>& leaves);
+std::vector<uint256> ComputeFastMerkleBranch(const std::vector<uint256>& leaves, uint32_t position);
+uint256 ComputeFastMerkleRootFromBranch(const uint256& leaf, const std::vector<uint256>& branch, uint32_t position);
+
+/*
  * Compute the Merkle root of the transactions in a block.
  * *mutated is set to true if a duplicated subtree was found.
  */
