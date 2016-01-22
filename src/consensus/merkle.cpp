@@ -181,36 +181,37 @@ uint256 ComputeFastMerkleRoot(const std::vector<uint256>& leaves) {
     return hash;
 }
 
-std::vector<uint256> ComputeFastMerkleBranch(const std::vector<uint256>& leaves, uint32_t position) {
+std::pair<std::vector<uint256>, uint32_t> ComputeFastMerkleBranch(const std::vector<uint256>& leaves, uint32_t position) {
     std::vector<uint256> ret;
     MerkleComputation(leaves, NULL, NULL, position, &ret, MERKLE_COMPUTATION_FAST);
-    return ret;
-}
-
-uint256 ComputeFastMerkleRootFromBranch(const uint256& leaf, const std::vector<uint256>& vMerkleBranch, uint32_t nIndex) {
     size_t max = 0;
     for (int i = 0; i < 32; ++i)
-        if (nIndex & ((uint32_t)1)<<i)
+        if (position & ((uint32_t)1)<<i)
             max = i + 1;
-    while (max > vMerkleBranch.size()) {
+    uint32_t path = position;
+    while (max > ret.size()) {
         int i;
         for (i = max-1; i >= 0; --i)
-            if (!(nIndex & ((uint32_t)1)<<i))
+            if (!(path & ((uint32_t)1)<<i))
                 break;
         if (i < 0)
-            return uint256();
-        nIndex = (((((uint32_t)1)<<(i+1))-1)>>1) |
-                  ((((uint32_t)1)<< i   )-1);
+            return std::pair<std::vector<uint256>, uint32_t>();
+        path = ((path & ~((((uint32_t)1)<<(i+1))-1))>>1)
+             |  (path &  ((((uint32_t)1)<< i   )-1));
         --max;
     }
+    return std::pair<std::vector<uint256>, uint32_t>(ret, path);
+}
+
+uint256 ComputeFastMerkleRootFromBranch(const uint256& leaf, const std::vector<uint256>& vMerkleBranch, uint32_t nPath) {
     uint256 hash = leaf;
     for (std::vector<uint256>::const_iterator it = vMerkleBranch.begin(); it != vMerkleBranch.end(); ++it) {
-        if (nIndex & 1) {
+        if (nPath & 1) {
             MerkleHash_Sha256Midstate(hash, *it, hash);
         } else {
             MerkleHash_Sha256Midstate(hash, hash, *it);
         }
-        nIndex >>= 1;
+        nPath >>= 1;
     }
     return hash;
 }
