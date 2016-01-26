@@ -2184,7 +2184,9 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
     bool fClean = true;
 
     CCoinsModifier coins = view.ModifyCoins(out.hash);
-    if (undo.nHeight != 0) {
+    if (undo.nHeight != 0 ||
+            // Special-case genesis since nHeight is always 0, assume DB is clean
+            (Params().GenesisBlock().vtx[0].GetHash() == out.hash && coins->IsPruned())) {
         // undo data contains height: this is the last output of the prevout tx being spent
         if (!coins->IsPruned())
             fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);
@@ -2386,11 +2388,26 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     uint256 hashPrevBlock = pindex->pprev == NULL ? uint256() : pindex->pprev->GetBlockHash();
     assert(hashPrevBlock == view.GetBestBlock());
 
-    // Special case for the genesis block, skipping connection of its transactions
-    // (its coinbase is unspendable)
+    // Gesesis coinbase *is* spendable
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
-        if (!fJustCheck)
+        if (!fJustCheck) {
+            assert(block.vtx.size() == 1);
+
+            std::vector<std::pair<uint256, CDiskTxPos> > vPos;
+            const CTransaction& tx = block.vtx[0];
+
+            CTxUndo undoDummy;
+            UpdateCoins(tx, view, undoDummy, pindex->nHeight);
+
+            CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
+            vPos.push_back(std::make_pair(tx.GetHash(), pos));
+
+            if (fTxIndex)
+                if (!pblocktree->WriteTxIndex(vPos))
+                    return AbortNode(state, "Failed to write transaction index");
+
             view.SetBestBlock(pindex->GetBlockHash());
+        }
         return true;
     }
 
