@@ -10,7 +10,7 @@ extern "C" {
 #include <stdint.h>
 
 /** Initialize a context for usage with Pedersen commitments. */
-int secp256k1_pedersen_context_initialize(secp256k1_context_t* ctx);
+void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
 
 /** Generate a pedersen commitment.
  *  Returns 1: commitment successfully created.
@@ -23,7 +23,7 @@ int secp256k1_pedersen_context_initialize(secp256k1_context_t* ctx);
  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   unsigned char *commit,
   unsigned char *blind,
   uint64_t value
@@ -39,7 +39,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
  *  Out:    blind_out:  pointer to a 32-byte array for the sum (cannot be NULL)
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   unsigned char *blind_out,
   const unsigned char * const *blinds,
   int n,
@@ -64,7 +64,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
  *
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   const unsigned char * const *commits,
   int pcnt,
   const unsigned char * const *ncommits,
@@ -73,7 +73,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(4);
 
 /** Initialize a context for usage with Pedersen commitments. */
-int secp256k1_rangeproof_context_initialize(secp256k1_context_t* ctx);
+void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx);
 
 /** Verify a proof that a committed value is within a range.
  * Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs.
@@ -86,7 +86,7 @@ int secp256k1_rangeproof_context_initialize(secp256k1_context_t* ctx);
  *       max_value: pointer to a unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   uint64_t *min_value,
   uint64_t *max_value,
   const unsigned char *commit,
@@ -110,7 +110,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_verify(
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   unsigned char *blind_out,
   uint64_t *value_out,
   unsigned char *message_out,
@@ -146,7 +146,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_rewind(
  *
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   unsigned char *proof,
   int *plen,
   uint64_t min_value,
@@ -170,7 +170,7 @@ SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_sign(
  *        max_value: pointer to an unsigned int64 which will be updated with the maximum value that commit could have. (cannot be NULL)
  */
 SECP256K1_WARN_UNUSED_RESULT int secp256k1_rangeproof_info(
-  const secp256k1_context_t* ctx,
+  const secp256k1_context* ctx,
   int *exp,
   int *mantissa,
   uint64_t *min_value,
