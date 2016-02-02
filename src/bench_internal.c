@@ -16,12 +16,13 @@
 #include "ecmult_const_impl.h"
 #include "ecmult_impl.h"
 #include "bench.h"
+#include "secp256k1.c"
 
 typedef struct {
-    secp256k1_scalar_t scalar_x, scalar_y;
-    secp256k1_fe_t fe_x, fe_y;
-    secp256k1_ge_t ge_x, ge_y;
-    secp256k1_gej_t gej_x, gej_y;
+    secp256k1_scalar scalar_x, scalar_y;
+    secp256k1_fe fe_x, fe_y;
+    secp256k1_ge ge_x, ge_y;
+    secp256k1_gej gej_x, gej_y;
     unsigned char data[64];
     int wnaf[256];
 } bench_inv_t;
@@ -97,7 +98,7 @@ void bench_scalar_split(void* arg) {
     bench_inv_t *data = (bench_inv_t*)arg;
 
     for (i = 0; i < 20000; i++) {
-        secp256k1_scalar_t l, r;
+        secp256k1_scalar l, r;
         secp256k1_scalar_split_lambda(&l, &r, &data->scalar_x);
         secp256k1_scalar_add(&data->scalar_x, &data->scalar_x, &data->scalar_y);
     }
@@ -282,6 +283,22 @@ void bench_rfc6979_hmac_sha256(void* arg) {
     }
 }
 
+void bench_context_verify(void* arg) {
+    int i;
+    (void)arg;
+    for (i = 0; i < 20; i++) {
+        secp256k1_context_destroy(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY));
+    }
+}
+
+void bench_context_sign(void* arg) {
+    int i;
+    (void)arg;
+    for (i = 0; i < 200; i++) {
+        secp256k1_context_destroy(secp256k1_context_create(SECP256K1_CONTEXT_SIGN));
+    }
+}
+
 
 int have_flag(int argc, char** argv, char *flag) {
     char** argm = argv + argc;
@@ -290,7 +307,9 @@ int have_flag(int argc, char** argv, char *flag) {
         return 1;
     }
     while (argv != NULL && argv != argm) {
-        if (strcmp(*argv, flag) == 0) return 1;
+        if (strcmp(*argv, flag) == 0) {
+            return 1;
+        }
         argv++;
     }
     return 0;
@@ -327,5 +346,9 @@ int main(int argc, char **argv) {
     if (have_flag(argc, argv, "hash") || have_flag(argc, argv, "sha256")) run_benchmark("hash_sha256", bench_sha256, bench_setup, NULL, &data, 10, 20000);
     if (have_flag(argc, argv, "hash") || have_flag(argc, argv, "hmac")) run_benchmark("hash_hmac_sha256", bench_hmac_sha256, bench_setup, NULL, &data, 10, 20000);
     if (have_flag(argc, argv, "hash") || have_flag(argc, argv, "rng6979")) run_benchmark("hash_rfc6979_hmac_sha256", bench_rfc6979_hmac_sha256, bench_setup, NULL, &data, 10, 20000);
+
+    if (have_flag(argc, argv, "context") || have_flag(argc, argv, "verify")) run_benchmark("context_verify", bench_context_verify, bench_setup, NULL, &data, 10, 20);
+    if (have_flag(argc, argv, "context") || have_flag(argc, argv, "sign")) run_benchmark("context_sign", bench_context_sign, bench_setup, NULL, &data, 10, 200);
+
     return 0;
 }

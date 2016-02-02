@@ -7,12 +7,14 @@
 #ifndef SECP256K1_MODULE_RANGEPROOF_TESTS
 #define SECP256K1_MODULE_RANGEPROOF_TESTS
 
+#include "include/secp256k1_rangeproof.h"
+
 void test_pedersen(void) {
     unsigned char commits[33*19];
     const unsigned char *cptr[19];
     unsigned char blinds[32*19];
     const unsigned char *bptr[19];
-    secp256k1_scalar_t s;
+    secp256k1_scalar s;
     uint64_t values[19];
     int64_t totalv;
     int i;
@@ -78,12 +80,12 @@ void test_pedersen(void) {
 
 void test_borromean(void) {
     unsigned char e0[32];
-    secp256k1_scalar_t s[64];
-    secp256k1_gej_t pubs[64];
-    secp256k1_scalar_t k[8];
-    secp256k1_scalar_t sec[8];
-    secp256k1_ge_t ge;
-    secp256k1_scalar_t one;
+    secp256k1_scalar s[64];
+    secp256k1_gej pubs[64];
+    secp256k1_scalar k[8];
+    secp256k1_scalar sec[8];
+    secp256k1_ge ge;
+    secp256k1_scalar one;
     unsigned char m[32];
     int rsizes[8];
     int secidx[8];

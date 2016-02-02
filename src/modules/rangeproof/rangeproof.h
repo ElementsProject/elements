@@ -11,20 +11,20 @@
 #include "group.h"
 
 typedef struct {
-    secp256k1_ge_storage_t (*prec)[1005];
-} secp256k1_rangeproof_context_t;
+    secp256k1_ge_storage (*prec)[1005];
+} secp256k1_rangeproof_context;
 
 
-static void secp256k1_rangeproof_context_init(secp256k1_rangeproof_context_t* ctx);
-static void secp256k1_rangeproof_context_build(secp256k1_rangeproof_context_t* ctx, const callback_t* cb);
-static void secp256k1_rangeproof_context_clone(secp256k1_rangeproof_context_t *dst,
-                                               const secp256k1_rangeproof_context_t* src, const callback_t* cb);
-static void secp256k1_rangeproof_context_clear(secp256k1_rangeproof_context_t* ctx);
-static int secp256k1_rangeproof_context_is_built(const secp256k1_rangeproof_context_t* ctx);
+static void secp256k1_rangeproof_context_init(secp256k1_rangeproof_context* ctx);
+static void secp256k1_rangeproof_context_build(secp256k1_rangeproof_context* ctx, const secp256k1_callback* cb);
+static void secp256k1_rangeproof_context_clone(secp256k1_rangeproof_context *dst,
+                                               const secp256k1_rangeproof_context* src, const secp256k1_callback* cb);
+static void secp256k1_rangeproof_context_clear(secp256k1_rangeproof_context* ctx);
+static int secp256k1_rangeproof_context_is_built(const secp256k1_rangeproof_context* ctx);
 
-static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_context_t* ecmult_ctx,
- const secp256k1_ecmult_gen_context_t* ecmult_gen_ctx,
- const secp256k1_pedersen_context_t* pedersen_ctx, const secp256k1_rangeproof_context_t* rangeproof_ctx,
+static int secp256k1_rangeproof_verify_impl(const secp256k1_ecmult_context* ecmult_ctx,
+ const secp256k1_ecmult_gen_context* ecmult_gen_ctx,
+ const secp256k1_pedersen_context* pedersen_ctx, const secp256k1_rangeproof_context* rangeproof_ctx,
  unsigned char *blindout, uint64_t *value_out, unsigned char *message_out, int *outlen, const unsigned char *nonce,
  uint64_t *min_value, uint64_t *max_value, const unsigned char *commit, const unsigned char *proof, int plen);
 

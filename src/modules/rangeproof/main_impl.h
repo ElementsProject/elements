@@ -11,16 +11,16 @@
 #include "modules/rangeproof/borromean_impl.h"
 #include "modules/rangeproof/rangeproof_impl.h"
 
-void secp256k1_pedersen_context_initialize(secp256k1_context_t* ctx) {
+void secp256k1_pedersen_context_initialize(secp256k1_context* ctx) {
     secp256k1_pedersen_context_build(&ctx->pedersen_ctx, &ctx->error_callback);
 }
 
 /* Generates a pedersen commitment: *commit = blind * G + value * G2. The commitment is 33 bytes, the blinding factor is 32 bytes.*/
-int secp256k1_pedersen_commit(const secp256k1_context_t* ctx, unsigned char *commit, unsigned char *blind, uint64_t value) {
-    secp256k1_gej_t rj;
-    secp256k1_ge_t r;
-    secp256k1_scalar_t sec;
-    int sz;
+int secp256k1_pedersen_commit(const secp256k1_context* ctx, unsigned char *commit, unsigned char *blind, uint64_t value) {
+    secp256k1_gej rj;
+    secp256k1_ge r;
+    secp256k1_scalar sec;
+    size_t sz;
     int overflow;
     int ret = 0;
     ARG_CHECK(ctx != NULL);
@@ -46,9 +46,9 @@ int secp256k1_pedersen_commit(const secp256k1_context_t* ctx, unsigned char *com
 /** Takes a list of n pointers to 32 byte blinding values, the first negs of which are treated with positive sign and the rest
  *  negative, then calculates an additional blinding value that adds to zero.
  */
-int secp256k1_pedersen_blind_sum(const secp256k1_context_t* ctx, unsigned char *blind_out, const unsigned char * const *blinds, int n, int npositive) {
-    secp256k1_scalar_t acc;
-    secp256k1_scalar_t x;
+int secp256k1_pedersen_blind_sum(const secp256k1_context* ctx, unsigned char *blind_out, const unsigned char * const *blinds, int n, int npositive) {
+    secp256k1_scalar acc;
+    secp256k1_scalar x;
     int i;
     int overflow;
     ARG_CHECK(ctx != NULL);
@@ -72,10 +72,10 @@ int secp256k1_pedersen_blind_sum(const secp256k1_context_t* ctx, unsigned char *
 }
 
 /* Takes two list of 33-byte commitments and sums the first set and subtracts the second and verifies that they sum to excess. */
-int secp256k1_pedersen_verify_tally(const secp256k1_context_t* ctx, const unsigned char * const *commits, int pcnt,
+int secp256k1_pedersen_verify_tally(const secp256k1_context* ctx, const unsigned char * const *commits, int pcnt,
  const unsigned char * const *ncommits, int ncnt, int64_t excess) {
-    secp256k1_gej_t accj;
-    secp256k1_ge_t add;
+    secp256k1_gej accj;
+    secp256k1_ge add;
     int i;
     ARG_CHECK(ctx != NULL);
     ARG_CHECK(!pcnt || (commits != NULL));
@@ -108,11 +108,11 @@ int secp256k1_pedersen_verify_tally(const secp256k1_context_t* ctx, const unsign
     return secp256k1_gej_is_infinity(&accj);
 }
 
-void secp256k1_rangeproof_context_initialize(secp256k1_context_t* ctx) {
+void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx) {
     secp256k1_rangeproof_context_build(&ctx->rangeproof_ctx, &ctx->error_callback);
 }
 
-int secp256k1_rangeproof_info(const secp256k1_context_t* ctx, int *exp, int *mantissa,
+int secp256k1_rangeproof_info(const secp256k1_context* ctx, int *exp, int *mantissa,
  uint64_t *min_value, uint64_t *max_value, const unsigned char *proof, int plen) {
     int offset;
     uint64_t scale;
@@ -126,7 +126,7 @@ int secp256k1_rangeproof_info(const secp256k1_context_t* ctx, int *exp, int *man
     return secp256k1_rangeproof_getheader_impl(&offset, exp, mantissa, &scale, min_value, max_value, proof, plen);
 }
 
-int secp256k1_rangeproof_rewind(const secp256k1_context_t* ctx,
+int secp256k1_rangeproof_rewind(const secp256k1_context* ctx,
  unsigned char *blind_out, uint64_t *value_out, unsigned char *message_out, int *outlen, const unsigned char *nonce,
  uint64_t *min_value, uint64_t *max_value,
  const unsigned char *commit, const unsigned char *proof, int plen) {
@@ -143,7 +143,7 @@ int secp256k1_rangeproof_rewind(const secp256k1_context_t* ctx,
      blind_out, value_out, message_out, outlen, nonce, min_value, max_value, commit, proof, plen);
 }
 
-int secp256k1_rangeproof_verify(const secp256k1_context_t* ctx, uint64_t *min_value, uint64_t *max_value,
+int secp256k1_rangeproof_verify(const secp256k1_context* ctx, uint64_t *min_value, uint64_t *max_value,
  const unsigned char *commit, const unsigned char *proof, int plen) {
     ARG_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
@@ -157,7 +157,7 @@ int secp256k1_rangeproof_verify(const secp256k1_context_t* ctx, uint64_t *min_va
      NULL, NULL, NULL, NULL, NULL, min_value, max_value, commit, proof, plen);
 }
 
-int secp256k1_rangeproof_sign(const secp256k1_context_t* ctx, unsigned char *proof, int *plen, uint64_t min_value,
+int secp256k1_rangeproof_sign(const secp256k1_context* ctx, unsigned char *proof, int *plen, uint64_t min_value,
  const unsigned char *commit, const unsigned char *blind, const unsigned char *nonce, int exp, int min_bits, uint64_t value){
     ARG_CHECK(ctx != NULL);
     ARG_CHECK(proof != NULL);
