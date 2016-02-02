@@ -421,7 +421,7 @@ Value listunspent(const Array& params, bool fHelp)
         if (ExtractDestination(out.tx->vout[out.i].scriptPubKey, address)) {
             CBitcoinAddress addr(address);
             if (out.tx->GetBlindingFactor(out.i).size() > 0) {
-                addr.AddBlindingKey(pwalletMain->blinding_pubkey);
+                addr.AddBlindingKey(out.tx->GetBlindingKey(out.i));
             }
             entry.push_back(Pair("address", addr.ToString()));
             if (pwalletMain->mapAddressBook.count(address))
@@ -588,8 +588,8 @@ Value rawblindrawtransaction(const Array& params, bool fHelp)
 
     if (inputBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input blind for each input must be provided"));
 
-    std::vector<std::vector<unsigned char> > input_blinds;
-    std::vector<std::vector<unsigned char> > output_blinds;
+    std::vector<uint256 > input_blinds;
+    std::vector<uint256 > output_blinds;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsAmount())
@@ -603,7 +603,7 @@ Value rawblindrawtransaction(const Array& params, bool fHelp)
             }
             output_pubkeys.push_back(pubkey);
         }
-        output_blinds.push_back(std::vector<unsigned char>(0, 0));
+        output_blinds.push_back(uint256());
     }
 
     BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
@@ -649,8 +649,8 @@ Value blindrawtransaction(const Array& params, bool fHelp)
 
     LOCK(pwalletMain->cs_wallet);
 
-    std::vector<std::vector<unsigned char> > input_blinds;
-    std::vector<std::vector<unsigned char> > output_blinds;
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> output_blinds;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.find(tx.vin[nIn].prevout.hash);
@@ -665,7 +665,7 @@ Value blindrawtransaction(const Array& params, bool fHelp)
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsAmount()) {
-            std::vector<unsigned char> blinding_factor;
+            uint256 blinding_factor;
             CAmount amount;
             if (UnblindOutput(pwalletMain->blinding_key, tx.vout[nOut], amount, blinding_factor) != 0) {
                 output_blinds.push_back(blinding_factor);
@@ -675,14 +675,14 @@ Value blindrawtransaction(const Array& params, bool fHelp)
             }
         } else if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
             output_pubkeys.push_back(CPubKey());
-            output_blinds.push_back(std::vector<unsigned char>(0, 0));
+            output_blinds.push_back(uint256());
         } else {
             CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
             if (!pubkey.IsValid()) {
                  throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
             }
             output_pubkeys.push_back(pubkey);
-            output_blinds.push_back(std::vector<unsigned char>(0, 0));
+            output_blinds.push_back(uint256());
         }
     }
 

@@ -110,7 +110,7 @@ Value getnewaddress(const Array& params, bool fHelp)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->blinding_pubkey).ToString();
+    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
 }
 
 
@@ -148,7 +148,7 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
         walletdb.WriteAccount(strAccount, account);
     }
 
-    return CBitcoinAddress(account.vchPubKey.GetID()).AddBlindingKey(pwalletMain->blinding_pubkey);
+    return CBitcoinAddress(account.vchPubKey.GetID()).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(account.vchPubKey.GetID())));
 }
 
 Value getaccountaddress(const Array& params, bool fHelp)
@@ -205,7 +205,7 @@ Value getrawchangeaddress(const Array& params, bool fHelp)
 
     CKeyID keyID = vchPubKey.GetID();
 
-    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->blinding_pubkey).ToString();
+    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
 }
 
 
@@ -300,9 +300,10 @@ Value getaddressesbyaccount(const Array& params, bool fHelp)
 
     // Find all addresses that have the given account
     Array ret;
-    BOOST_FOREACH(const PAIRTYPE(CBitcoinAddress, CAddressBookData)& item, pwalletMain->mapAddressBook)
+    BOOST_FOREACH(const PAIRTYPE(CTxDestination, CAddressBookData)& item, pwalletMain->mapAddressBook)
     {
-        const CBitcoinAddress& address = item.first;
+        CBitcoinAddress address = item.first;
+        address.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(item.first)));
         const string& strName = item.second.name;
         if (strName == strAccount)
             ret.push_back(address.ToString());
@@ -426,7 +427,7 @@ Value listaddressgroupings(const Array& params, bool fHelp)
         {
             Array addressInfo;
             CBitcoinAddress addr(address);
-            addr.AddBlindingKey(pwalletMain->blinding_pubkey);
+            addr.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(addr.Get())));
             addressInfo.push_back(addr.ToString());
             addressInfo.push_back(ValueFromAmount(balances[address]));
             {
@@ -520,8 +521,6 @@ Value getreceivedbyaddress(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
     CScript scriptPubKey = GetScriptForDestination(address.Get());
     if (!IsMine(*pwalletMain,scriptPubKey))
-        return (double)0.0;
-    if (address.IsBlinded() && address.GetBlindingKey() != pwalletMain->blinding_pubkey)
         return (double)0.0;
 
     // Minimum confirmations
@@ -976,6 +975,7 @@ Value addmultisigaddress(const Array& params, bool fHelp)
 
 struct tallyitem
 {
+    CBitcoinAddress address;
     CAmount nAmount;
     int nConf;
     vector<uint256> txids;
@@ -1006,7 +1006,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
             filter = filter | ISMINE_WATCH_ONLY;
 
     // Tally
-    map<CBitcoinAddress, tallyitem> mapTally;
+    map<CTxDestination, tallyitem> mapTally;
     for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletTx& wtx = (*it).second;
@@ -1028,7 +1028,12 @@ Value ListReceived(const Array& params, bool fByAccounts)
             if(!(mine & filter))
                 continue;
 
+            CBitcoinAddress bitcoinaddress(address);
+            if (!wtx.vout[i].nValue.IsAmount()) {
+                bitcoinaddress.AddBlindingKey(wtx.GetBlindingKey(i));
+            }
             tallyitem& item = mapTally[address];
+            item.address = bitcoinaddress;
             item.nAmount += wtx.GetValueOut(i);
             item.nConf = min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
@@ -1040,19 +1045,21 @@ Value ListReceived(const Array& params, bool fByAccounts)
     // Reply
     Array ret;
     map<string, tallyitem> mapAccountTally;
-    BOOST_FOREACH(const PAIRTYPE(CBitcoinAddress, CAddressBookData)& item, pwalletMain->mapAddressBook)
+    BOOST_FOREACH(const PAIRTYPE(CTxDestination, CAddressBookData)& item, pwalletMain->mapAddressBook)
     {
-        const CBitcoinAddress& address = item.first;
+        const CTxDestination& address = item.first;
         const string& strAccount = item.second.name;
-        map<CBitcoinAddress, tallyitem>::iterator it = mapTally.find(address);
+        map<CTxDestination, tallyitem>::iterator it = mapTally.find(address);
         if (it == mapTally.end() && !fIncludeEmpty)
             continue;
 
+        CBitcoinAddress fulladdress = address;
         CAmount nAmount = 0;
         int nConf = std::numeric_limits<int>::max();
         bool fIsWatchonly = false;
         if (it != mapTally.end())
         {
+            fulladdress = (*it).second.address;
             nAmount = (*it).second.nAmount;
             nConf = (*it).second.nConf;
             fIsWatchonly = (*it).second.fIsWatchonly;
@@ -1070,7 +1077,7 @@ Value ListReceived(const Array& params, bool fByAccounts)
             Object obj;
             if(fIsWatchonly)
                 obj.push_back(Pair("involvesWatchonly", true));
-            obj.push_back(Pair("address",       address.ToString()));
+            obj.push_back(Pair("address",       fulladdress.ToString()));
             obj.push_back(Pair("account",       strAccount));
             obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));

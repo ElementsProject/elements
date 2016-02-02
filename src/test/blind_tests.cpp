@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
     CPubKey pubkey1 = key1.GetPubKey();
     CPubKey pubkey2 = key2.GetPubKey();
 
-    std::vector<unsigned char> blind3, blind4;
+    uint256 blind3, blind4;
 
     {
         CCoinsModifier tx1 = cache.ModifyCoins(uint256(1));
@@ -52,12 +52,12 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.nTxFee = 22;
         BOOST_CHECK(cache.VerifyAmounts(tx3));
 
-        std::vector<std::vector<unsigned char> > input_blinds;
-        std::vector<std::vector<unsigned char> > output_blinds;
+        std::vector<uint256> input_blinds;
+        std::vector<uint256> output_blinds;
         std::vector<CPubKey> output_pubkeys;
-        input_blinds.push_back(std::vector<unsigned char>(0, 0));
-        input_blinds.push_back(std::vector<unsigned char>(0, 0));
-        output_blinds.push_back(std::vector<unsigned char>(0, 0));
+        input_blinds.push_back(uint256());
+        input_blinds.push_back(uint256());
+        output_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkey1);
         BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx3);
         BOOST_CHECK(!tx3.vout[0].nValue.IsAmount());
@@ -91,14 +91,14 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx4.nTxFee = 100 + 111 - 30 - 40 - 50;
         BOOST_CHECK(cache.VerifyAmounts(tx4));
 
-        std::vector<std::vector<unsigned char> > input_blinds;
-        std::vector<std::vector<unsigned char> > output_blinds;
+        std::vector<uint256> input_blinds;
+        std::vector<uint256> output_blinds;
         std::vector<CPubKey> output_pubkeys;
-        input_blinds.push_back(std::vector<unsigned char>(0, 0));
+        input_blinds.push_back(uint256());
         input_blinds.push_back(blind3);
-        output_blinds.push_back(std::vector<unsigned char>(0, 0));
-        output_blinds.push_back(std::vector<unsigned char>(0, 0));
-        output_blinds.push_back(std::vector<unsigned char>(0, 0));
+        output_blinds.push_back(uint256());
+        output_blinds.push_back(uint256());
+        output_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkey2);
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(pubkey2);

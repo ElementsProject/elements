@@ -34,33 +34,32 @@ const secp256k1_context* ECC_Blinding_Context() {
     return secp256k1_blind_context;
 }
 
-int UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, std::vector<unsigned char>& blinding_factor_out)
+bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out)
 {
-    if (txout.nValue.IsAmount()) {
-        amount_out = txout.nValue.GetAmount();
-        blinding_factor_out.resize(0);
-        return -1;
+    if (!key.IsValid()) {
+        return false;
     }
     CPubKey ephemeral_key(txout.nValue.vchNonceCommitment);
     if (!ephemeral_key.IsValid()) {
-        return 0;
+        return false;
     }
     uint256 nonce = key.ECDH(ephemeral_key);
     CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
     unsigned char msg[4096];
     int msg_size;
     uint64_t min_value, max_value, amount;
-    blinding_factor_out.resize(32);
-    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, &blinding_factor_out[0], &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &txout.nValue.vchCommitment[0], &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size());
+    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &txout.nValue.vchCommitment[0], &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size());
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
         amount_out = 0;
-        blinding_factor_out.resize(0);
-    } else
+        blinding_factor_out = uint256();
+        return false;
+    } else {
         amount_out = (CAmount)amount;
-    return res ? 1 : 0;
+        return true;
+    }
 }
 
-void BlindOutputs(const std::vector<std::vector<unsigned char> >& input_blinding_factors, const std::vector<std::vector<unsigned char> >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+void BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
@@ -71,9 +70,9 @@ void BlindOutputs(const std::vector<std::vector<unsigned char> >& input_blinding
 
     int nBlindsIn = 0;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
-        if (input_blinding_factors[nIn].size() != 0) {
+        if (input_blinding_factors[nIn] != uint256()) {
             assert(input_blinding_factors[nIn].size() == 32);
-            blindptrs.push_back(&input_blinding_factors[nIn][0]);
+            blindptrs.push_back(input_blinding_factors[nIn].begin());
             nBlindsIn++;
         }
     }
@@ -81,10 +80,9 @@ void BlindOutputs(const std::vector<std::vector<unsigned char> >& input_blinding
     int nBlindsOut = 0;
     int nToBlind = 0;
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-         assert((output_blinding_factors[nOut].size() != 0) == !tx.vout[nOut].nValue.IsAmount());
-         if (output_blinding_factors[nOut].size() != 0) {
-             assert(output_blinding_factors[nOut].size() == 32);
-             blindptrs.push_back(&output_blinding_factors[nOut][0]);
+         assert((output_blinding_factors[nOut] != uint256()) == !tx.vout[nOut].nValue.IsAmount());
+         if (output_blinding_factors[nOut] != uint256()) {
+             blindptrs.push_back(output_blinding_factors[nOut].begin());
              nBlindsOut++;
          } else {
              if (output_pubkeys[nOut].IsValid()) {
@@ -98,7 +96,7 @@ void BlindOutputs(const std::vector<std::vector<unsigned char> >& input_blinding
     }
 
     int nBlinded = 0;
-    unsigned char blind[nToBlind][32];
+    unsigned char blind[tx.vout.size()][32];
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (tx.vout[nOut].nValue.IsAmount() && output_pubkeys[nOut].IsValid()) {

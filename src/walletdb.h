@@ -123,7 +123,8 @@ public:
     CAmount GetAccountCreditDebit(const std::string& strAccount);
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& acentries);
 
-    bool WriteBlindingKey(const CKey& privKey);
+    bool WriteSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
+    bool WriteBlindingDerivationKey(const uint256& key);
 
     DBErrors ReorderTransactions(CWallet* pwallet);
     DBErrors LoadWallet(CWallet* pwallet);

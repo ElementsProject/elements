@@ -196,12 +196,13 @@ Value validateaddress(const Array& params, bool fHelp)
         }
 #ifdef ENABLE_WALLET
         isminetype mine = pwalletMain ? IsMine(*pwalletMain, dest) : ISMINE_NO;
-        if (address.IsBlinded() && address.GetBlindingKey() != pwalletMain->blinding_pubkey) {
+        if (mine != ISMINE_NO && address.IsBlinded() && address.GetBlindingKey() != pwalletMain->GetBlindingPubKey(GetScriptForDestination(dest))) {
+            // Note: this will fail to return ismine for deprecated static blinded addresses.
             mine = ISMINE_NO;
         }
         ret.push_back(Pair("ismine", (mine & ISMINE_SPENDABLE) ? true : false));
         if (!address.IsBlinded() && mine != ISMINE_NO) {
-            ret.push_back(Pair("confidential", address.AddBlindingKey(pwalletMain->blinding_pubkey).ToString()));
+            ret.push_back(Pair("confidential", address.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(dest))).ToString()));
         }
         if (mine != ISMINE_NO) {
             ret.push_back(Pair("iswatchonly", (mine & ISMINE_WATCH_ONLY) ? true: false));
