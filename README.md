@@ -32,13 +32,13 @@ https://github.com/ElementsProject/elements/tree/alpha
 Elements Alpha is the Elements project's first experimental test chain.
 
 Compared to Bitcoin itself, it adds the following features:
- * Confidential Transactions
- * Segregated Witness
- * Relative Lock Time
- * Schnorr Signatures
- * Additional opcodes
- * Deterministic Peg (pegged to Bitcoin's testnet currency).
- * Signed Blocks
+ * [Confidential Transactions][confidential-transactions]
+ * [Segregated Witness][segregated-witness]
+ * [Relative Lock Time][relative-lock-time]
+ * [Schnorr Signatures][schnorr-signatures]
+ * [Additional opcodes][opcodes]
+ * [Deterministic Peg (pegged to Bitcoin's testnet currency).][deterministic-peg]
+ * [Signed Blocks][signed-blocks]
 
 See alpha-README.md for build and use instructions.
 
@@ -47,3 +47,11 @@ License
 
 Elements Alpha is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see http://opensource.org/licenses/MIT.
+
+[confidential-transactions]: https://www.elementsproject.org/elements/confidential-transactions
+[segregated-witness]: https://www.elementsproject.org/elements/segregated-witness
+[relative-lock-time]: https://www.elementsproject.org/elements/relative-lock-time
+[schnorr-signatures]: https://www.elementsproject.org/elements/schnorr-signatures
+[opcodes]: https://www.elementsproject.org/elements/opcodes
+[deterministic-peg]: https://www.elementsproject.org/elements/deterministic-peg
+[signed-blocks]: https://www.elementsproject.org/elements/signed-blocks
