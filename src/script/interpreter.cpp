@@ -35,22 +35,22 @@ typedef vector<unsigned char> valtype;
 //! anonymous namespace
 namespace {
 
-static secp256k1_context_t* secp256k1_context = NULL;
+static secp256k1_context* secp256k1_interpreter_context = NULL;
 
 class CSecp256k1Init {
 public:
     CSecp256k1Init() {
-        assert(secp256k1_context == NULL);
+        assert(secp256k1_interpreter_context == NULL);
 
-        secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
         assert(ctx != NULL);
 
-        secp256k1_context = ctx;
+        secp256k1_interpreter_context = ctx;
     }
 
     ~CSecp256k1Init() {
-        secp256k1_context_t *ctx = secp256k1_context;
-        secp256k1_context = NULL;
+        secp256k1_context *ctx = secp256k1_interpreter_context;
+        secp256k1_interpreter_context = NULL;
 
         if (ctx) {
             secp256k1_context_destroy(ctx);
@@ -1462,11 +1462,11 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                             unsigned char *pub_start = &(*(sdpc - 33));
                                             CHMAC_SHA256(pub_start, 33).Write(&vcontract[0], 40).Finalize(tweak);
                                             // If someone creates a tweak that makes this fail, they broke SHA256
-                                            secp256k1_pubkey_t pubkey;
-                                            int pubkeylen = 33;
-                                            assert(secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, pub_start, 33));
-                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_context, &pubkey, tweak) != 0);
-                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_context, pub_start, &pubkeylen, &pubkey, 1));
+                                            secp256k1_pubkey pubkey;
+                                            size_t pubkeylen = 33;
+                                            assert(secp256k1_ec_pubkey_parse(secp256k1_interpreter_context, &pubkey, pub_start, 33));
+                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_interpreter_context, &pubkey, tweak) != 0);
+                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_interpreter_context, pub_start, &pubkeylen, &pubkey, 1));
                                         }
                                     }
                                 }

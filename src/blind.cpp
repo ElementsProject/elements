@@ -8,30 +8,30 @@
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
 
-static secp256k1_context_t* secp256k1_context = NULL;
+static secp256k1_context* secp256k1_blind_context = NULL;
 
 void ECC_Blinding_Start() {
-    assert(secp256k1_context == NULL);
+    assert(secp256k1_blind_context == NULL);
 
-    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
     assert(ctx != NULL);
     secp256k1_pedersen_context_initialize(ctx);
     secp256k1_rangeproof_context_initialize(ctx);
 
-    secp256k1_context = ctx;
+    secp256k1_blind_context = ctx;
 }
 
 void ECC_Blinding_Stop() {
-    secp256k1_context_t *ctx = secp256k1_context;
-    secp256k1_context = NULL;
+    secp256k1_context *ctx = secp256k1_blind_context;
+    secp256k1_blind_context = NULL;
 
     if (ctx) {
         secp256k1_context_destroy(ctx);
     }
 }
 
-const secp256k1_context_t* ECC_Blinding_Context() {
-    return secp256k1_context;
+const secp256k1_context* ECC_Blinding_Context() {
+    return secp256k1_blind_context;
 }
 
 int UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, std::vector<unsigned char>& blinding_factor_out)
@@ -51,7 +51,7 @@ int UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, std
     int msg_size;
     uint64_t min_value, max_value, amount;
     blinding_factor_out.resize(32);
-    int res = secp256k1_rangeproof_rewind(secp256k1_context, &blinding_factor_out[0], &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &txout.nValue.vchCommitment[0], &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size());
+    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, &blinding_factor_out[0], &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &txout.nValue.vchCommitment[0], &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size());
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
         amount_out = 0;
         blinding_factor_out.resize(0);

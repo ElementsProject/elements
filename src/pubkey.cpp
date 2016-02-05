@@ -7,19 +7,19 @@
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
 #include <secp256k1_schnorr.h>
+#include <secp256k1_recovery.h>
 
-secp256k1_context_t* secp256k1_bitcoin_verify_context = NULL;
-static secp256k1_context_t*& secp256k1_context = secp256k1_bitcoin_verify_context;
+secp256k1_context* secp256k1_bitcoin_verify_context = NULL;
 
 bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchSig) const {
     if (!IsValid())
         return false;
     if (vchSig.size() != 64)
         return false;
-    secp256k1_pubkey_t pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, begin(), size()))
+    secp256k1_pubkey pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_bitcoin_verify_context, &pubkey, begin(), size()))
         return false;
-    if (secp256k1_schnorr_verify(secp256k1_context, (const unsigned char*)&hash, &vchSig[0], &pubkey) != 1)
+    if (secp256k1_schnorr_verify(secp256k1_bitcoin_verify_context, &vchSig[0], (const unsigned char*)&hash, &pubkey) != 1)
         return false;
     return true;
 }
@@ -29,17 +29,17 @@ bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned cha
         return false;
     int recid = (vchSig[0] - 27) & 3;
     bool fComp = ((vchSig[0] - 27) & 4) != 0;
-    secp256k1_pubkey_t pubkey;
-    secp256k1_ecdsa_signature_t sig;
-    if (!secp256k1_ecdsa_signature_parse_compact(secp256k1_context, &sig, &vchSig[1], recid)) {
+    secp256k1_pubkey pubkey;
+    secp256k1_ecdsa_recoverable_signature sig;
+    if (!secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_bitcoin_verify_context, &sig, &vchSig[1], recid)) {
         return false;
     }
-    if (!secp256k1_ecdsa_recover(secp256k1_context, hash.begin(), &sig, &pubkey)) {
+    if (!secp256k1_ecdsa_recover(secp256k1_bitcoin_verify_context, &pubkey, &sig, hash.begin())) {
         return false;
     }
     unsigned char pub[65];
-    int publen = 0;
-    secp256k1_ec_pubkey_serialize(secp256k1_context, pub, &publen, &pubkey, fComp);
+    size_t publen = 65;
+    secp256k1_ec_pubkey_serialize(secp256k1_bitcoin_verify_context, pub, &publen, &pubkey, fComp ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
     Set(pub, pub + publen);
     return true;
 }
@@ -47,8 +47,8 @@ bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned cha
 bool CPubKey::IsFullyValid() const {
     if (!IsValid())
         return false;
-    secp256k1_pubkey_t pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, begin(), size()))
+    secp256k1_pubkey pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_bitcoin_verify_context, &pubkey, begin(), size()))
         return false;
     return true;
 }
@@ -56,13 +56,13 @@ bool CPubKey::IsFullyValid() const {
 bool CPubKey::Decompress() {
     if (!IsValid())
         return false;
-    secp256k1_pubkey_t pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, &(*this)[0], size())) {
+    secp256k1_pubkey pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_bitcoin_verify_context, &pubkey, &(*this)[0], size())) {
         return false;
     }
     unsigned char pub[65];
-    int publen = 0;
-    secp256k1_ec_pubkey_serialize(secp256k1_context, pub, &publen, &pubkey, false);
+    size_t publen = 0;
+    secp256k1_ec_pubkey_serialize(secp256k1_bitcoin_verify_context, pub, &publen, &pubkey, SECP256K1_EC_UNCOMPRESSED);
     Set(pub, pub + publen);
     return true;
 }
@@ -74,16 +74,16 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, unsigned char ccChild[32], unsigned i
     unsigned char out[64];
     BIP32Hash(cc, nChild, *begin(), begin()+1, out);
     memcpy(ccChild, out+32, 32);
-    secp256k1_pubkey_t pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context, &pubkey, &(*this)[0], size())) {
+    secp256k1_pubkey pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_bitcoin_verify_context, &pubkey, &(*this)[0], size())) {
         return false;
     }
-    if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context, &pubkey, out)) {
+    if (!secp256k1_ec_pubkey_tweak_add(secp256k1_bitcoin_verify_context, &pubkey, out)) {
         return false;
     }
     unsigned char pub[33];
-    int publen = 0;
-    secp256k1_ec_pubkey_serialize(secp256k1_context, pub, &publen, &pubkey, 1);
+    size_t publen = 0;
+    secp256k1_ec_pubkey_serialize(secp256k1_bitcoin_verify_context, pub, &publen, &pubkey, SECP256K1_EC_COMPRESSED);
     pubkeyChild.Set(pub, pub + publen);
     return true;
 }
@@ -115,19 +115,19 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int nChild) const {
 }
 
 void ECC_Verify_Start() {
-    assert(secp256k1_context == NULL);
+    assert(secp256k1_bitcoin_verify_context == NULL);
 
-    secp256k1_context_t *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
     assert(ctx != NULL);
     secp256k1_pedersen_context_initialize(ctx);
     secp256k1_rangeproof_context_initialize(ctx);
 
-    secp256k1_context = ctx;
+    secp256k1_bitcoin_verify_context = ctx;
 }
 
 void ECC_Verify_Stop() {
-    secp256k1_context_t *ctx = secp256k1_context;
-    secp256k1_context = NULL;
+    secp256k1_context *ctx = secp256k1_bitcoin_verify_context;
+    secp256k1_bitcoin_verify_context = NULL;
 
     if (ctx) {
         secp256k1_context_destroy(ctx);

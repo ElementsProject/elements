@@ -33,7 +33,7 @@ using namespace boost::assign;
 using namespace json_spirit;
 using namespace std;
 
-extern secp256k1_context_t* secp256k1_bitcoin_verify_context;
+extern secp256k1_context* secp256k1_bitcoin_verify_context;
 
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out, bool fIncludeHex)
 {

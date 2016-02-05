@@ -13,28 +13,28 @@
  *  sage: G2 = EllipticCurve ([F (0), F (7)]).lift_x(int(hashlib.sha256('0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8'.decode('hex')).hexdigest(),16))
  *  sage: '%x %x'%G2.xy()
  */
-static const secp256k1_ge_t secp256k1_ge_const_g2 = SECP256K1_GE_CONST(
+static const secp256k1_ge secp256k1_ge_const_g2 = SECP256K1_GE_CONST(
     0x50929b74UL, 0xc1a04954UL, 0xb78b4b60UL, 0x35e97a5eUL,
     0x078a5a0fUL, 0x28ec96d5UL, 0x47bfee9aUL, 0xce803ac0UL,
     0x31d3c686UL, 0x3973926eUL, 0x049e637cUL, 0xb1b5f40aUL,
     0x36dac28aUL, 0xf1766968UL, 0xc30c2313UL, 0xf3a38904UL
 );
 
-static void secp256k1_pedersen_context_init(secp256k1_pedersen_context_t *ctx) {
+static void secp256k1_pedersen_context_init(secp256k1_pedersen_context *ctx) {
     ctx->prec = NULL;
 }
 
-static void secp256k1_pedersen_context_build(secp256k1_pedersen_context_t *ctx, const callback_t *cb) {
-    secp256k1_ge_t prec[256];
-    secp256k1_gej_t gj;
-    secp256k1_gej_t nums_gej;
+static void secp256k1_pedersen_context_build(secp256k1_pedersen_context *ctx, const secp256k1_callback *cb) {
+    secp256k1_ge prec[256];
+    secp256k1_gej gj;
+    secp256k1_gej nums_gej;
     int i, j;
 
     if (ctx->prec != NULL) {
         return;
     }
 
-    ctx->prec = (secp256k1_ge_storage_t (*)[16][16])checked_malloc(cb, sizeof(*ctx->prec));
+    ctx->prec = (secp256k1_ge_storage (*)[16][16])checked_malloc(cb, sizeof(*ctx->prec));
 
     /* get the generator */
     secp256k1_gej_set_ge(&gj, &secp256k1_ge_const_g2);
@@ -42,8 +42,8 @@ static void secp256k1_pedersen_context_build(secp256k1_pedersen_context_t *ctx, 
     /* Construct a group element with no known corresponding scalar (nothing up my sleeve). */
     {
         static const unsigned char nums_b32[33] = "The scalar for this x is unknown";
-        secp256k1_fe_t nums_x;
-        secp256k1_ge_t nums_ge;
+        secp256k1_fe nums_x;
+        secp256k1_ge nums_ge;
         VERIFY_CHECK(secp256k1_fe_set_b32(&nums_x, nums_b32));
         VERIFY_CHECK(secp256k1_ge_set_xo_var(&nums_ge, &nums_x, 0));
         secp256k1_gej_set_ge(&nums_gej, &nums_ge);
@@ -53,9 +53,9 @@ static void secp256k1_pedersen_context_build(secp256k1_pedersen_context_t *ctx, 
 
     /* compute prec. */
     {
-        secp256k1_gej_t precj[256]; /* Jacobian versions of prec. */
-        secp256k1_gej_t gbase;
-        secp256k1_gej_t numsbase;
+        secp256k1_gej precj[256]; /* Jacobian versions of prec. */
+        secp256k1_gej gbase;
+        secp256k1_gej numsbase;
         gbase = gj; /* 16^j * G */
         numsbase = nums_gej; /* 2^j * nums. */
         for (j = 0; j < 16; j++) {
@@ -85,29 +85,29 @@ static void secp256k1_pedersen_context_build(secp256k1_pedersen_context_t *ctx, 
     }
 }
 
-static int secp256k1_pedersen_context_is_built(const secp256k1_pedersen_context_t* ctx) {
+static int secp256k1_pedersen_context_is_built(const secp256k1_pedersen_context* ctx) {
     return ctx->prec != NULL;
 }
 
-static void secp256k1_pedersen_context_clone(secp256k1_pedersen_context_t *dst,
-                                               const secp256k1_pedersen_context_t *src, const callback_t *cb) {
+static void secp256k1_pedersen_context_clone(secp256k1_pedersen_context *dst,
+                                               const secp256k1_pedersen_context *src, const secp256k1_callback *cb) {
     if (src->prec == NULL) {
         dst->prec = NULL;
     } else {
-        dst->prec = (secp256k1_ge_storage_t (*)[16][16])checked_malloc(cb, sizeof(*dst->prec));
+        dst->prec = (secp256k1_ge_storage (*)[16][16])checked_malloc(cb, sizeof(*dst->prec));
         memcpy(dst->prec, src->prec, sizeof(*dst->prec));
     }
 }
 
-static void secp256k1_pedersen_context_clear(secp256k1_pedersen_context_t *ctx) {
+static void secp256k1_pedersen_context_clear(secp256k1_pedersen_context *ctx) {
     free(ctx->prec);
     ctx->prec = NULL;
 }
 
 /* Version of secp256k1_ecmult_gen using the second generator and working only on numbers in the range [0 .. 2^64). */
-static void secp256k1_pedersen_ecmult_small(const secp256k1_pedersen_context_t *ctx, secp256k1_gej_t *r, uint64_t gn) {
-    secp256k1_ge_t add;
-    secp256k1_ge_storage_t adds;
+static void secp256k1_pedersen_ecmult_small(const secp256k1_pedersen_context *ctx, secp256k1_gej *r, uint64_t gn) {
+    secp256k1_ge add;
+    secp256k1_ge_storage adds;
     int bits;
     int i, j;
     memset(&adds, 0, sizeof(adds));
@@ -126,9 +126,9 @@ static void secp256k1_pedersen_ecmult_small(const secp256k1_pedersen_context_t *
 }
 
 /* sec * G + value * G2. */
-SECP256K1_INLINE static void secp256k1_pedersen_ecmult(const secp256k1_ecmult_gen_context_t *ecmult_gen_ctx,
- const secp256k1_pedersen_context_t *pedersen_ctx, secp256k1_gej_t *rj, const secp256k1_scalar_t *sec, uint64_t value) {
-    secp256k1_gej_t vj;
+SECP256K1_INLINE static void secp256k1_pedersen_ecmult(const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
+ const secp256k1_pedersen_context *pedersen_ctx, secp256k1_gej *rj, const secp256k1_scalar *sec, uint64_t value) {
+    secp256k1_gej vj;
     secp256k1_ecmult_gen(ecmult_gen_ctx, rj, sec);
     secp256k1_pedersen_ecmult_small(pedersen_ctx, &vj, value);
     /* FIXME: constant time. */

@@ -52,17 +52,17 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const
  *   | | r_i = r
  *   | return e_0 ==== H(r_{0..i}||m)
  */
-int secp256k1_borromean_verify(const secp256k1_ecmult_context_t* ecmult_ctx, secp256k1_scalar_t *evalues, const unsigned char *e0,
- const secp256k1_scalar_t *s, const secp256k1_gej_t *pubs, const int *rsizes, int nrings, const unsigned char *m, int mlen) {
-    secp256k1_gej_t rgej;
-    secp256k1_ge_t rge;
-    secp256k1_scalar_t ens;
+int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_scalar *evalues, const unsigned char *e0,
+ const secp256k1_scalar *s, const secp256k1_gej *pubs, const int *rsizes, int nrings, const unsigned char *m, int mlen) {
+    secp256k1_gej rgej;
+    secp256k1_ge rge;
+    secp256k1_scalar ens;
     secp256k1_sha256_t sha256_e0;
     unsigned char tmp[33];
     int i;
     int j;
     int count;
-    int size;
+    size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_ctx != NULL);
     VERIFY_CHECK(e0 != NULL);
@@ -106,18 +106,18 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context_t* ecmult_ctx, sec
     return memcmp(e0, tmp, 32) == 0;
 }
 
-int secp256k1_borromean_sign(const secp256k1_ecmult_context_t* ecmult_ctx, const secp256k1_ecmult_gen_context_t *ecmult_gen_ctx,
- unsigned char *e0, secp256k1_scalar_t *s, const secp256k1_gej_t *pubs, const secp256k1_scalar_t *k, const secp256k1_scalar_t *sec,
+int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
+ unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
  const int *rsizes, const int *secidx, int nrings, const unsigned char *m, int mlen) {
-    secp256k1_gej_t rgej;
-    secp256k1_ge_t rge;
-    secp256k1_scalar_t ens;
+    secp256k1_gej rgej;
+    secp256k1_ge rge;
+    secp256k1_scalar ens;
     secp256k1_sha256_t sha256_e0;
     unsigned char tmp[33];
     int i;
     int j;
     int count;
-    int size;
+    size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_ctx != NULL);
     VERIFY_CHECK(ecmult_gen_ctx != NULL);

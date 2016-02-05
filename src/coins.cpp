@@ -253,7 +253,7 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     return coins->vout[input.prevout.n];
 }
 
-extern secp256k1_context_t* secp256k1_bitcoin_verify_context;
+extern secp256k1_context* secp256k1_bitcoin_verify_context;
 
 bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
 {

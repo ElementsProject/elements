@@ -172,11 +172,11 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(key1.Sign(hashMsg, detsig));
     BOOST_CHECK(key1C.Sign(hashMsg, detsigc));
     BOOST_CHECK(detsig == detsigc);
-    BOOST_CHECK_EQUAL(HexStr(detsig), "66fd0c716c5d11ecc91fc2197af0e66cfd262ec2e6fb2819706930532d07b0236e43dd1586d12b6498173318c99e95413c8e9763b59a33cccd1328e880151e57");
+    BOOST_CHECK_EQUAL(HexStr(detsig), "2c56731ac2f7a7e7f11518fc7722a166b02438924ca9d8b4d111347b81d0717543fee8d9b4c4e6130357d733b7f552f1ec620c98f3e8114f63daac6d157bf254");
     BOOST_CHECK(key2.Sign(hashMsg, detsig));
     BOOST_CHECK(key2C.Sign(hashMsg, detsigc));
     BOOST_CHECK(detsig == detsigc);
-    BOOST_CHECK_EQUAL(HexStr(detsig), "f7a0ff919b2c2282846f60bc319b99ddd82ee7f88b75a053a5005de5a992eea56413aa2f5c6167babac05c8a2171253aa63b6b16a0a1e72587bfc4c5e6c32547");
+    BOOST_CHECK_EQUAL(HexStr(detsig), "e7167ae0afbba6019b4c7fcfe6de79165d555e8295bd72da1b8aa1a5b54305882cd0759e456c8fd27a147f041d168357c30a8fa08b37e2e56becaebc8e904c31");
     BOOST_CHECK(key1.SignCompact(hashMsg, detsig));
     BOOST_CHECK(key1C.SignCompact(hashMsg, detsigc));
     BOOST_CHECK_EQUAL(HexStr(detsig), "1c5dbbddda71772d95ce91cd2d14b592cfbc1dd0aabd6a394b6c2d377bbe59d31d14ddda21494a4e221f0824f0b8b924c43fa43c0ad57dccdaa11f81a6bd4582f6");
