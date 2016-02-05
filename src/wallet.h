@@ -737,6 +737,10 @@ public:
         CAmount amount = 0;
         if (pwallet->IsMine(vout[nTxOut]) & filter)
             amount = GetValueOut(nTxOut);
+        // Can be -1 if someone sent us a transaction using a wrong scanning key:
+        if (amount == -1) {
+            return 0;
+        }
         if (!MoneyRange(amount))
             throw std::runtime_error("CWallet::GetCredit() : value out of range");
         return amount;
