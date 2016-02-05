@@ -10,20 +10,17 @@ Test case is:
 4 nodes. 1 2 and 3 send transactions between each other,
 fourth node is a miner.
 1 2 3 each mine a block to start, then
-Miner creates 100 blocks so 1 2 3 each have 50 mature
-coins to spend.
-Then 5 iterations of 1/2/3 sending coins amongst
+5 iterations of 1/2/3 sending coins amongst
 themselves to get transactions in the wallets,
 and the miner mining one block.
 
 Wallets are backed up using dumpwallet/backupwallet.
-Then 5 more iterations of transactions and mining a block.
 
 Miner then generates 101 more blocks, so any
 transaction fees paid mature.
 
 Sanity check:
-  Sum(1,2,3,4 balances) == 114*50
+  Sum(1,2,3,4 balances) == genesis_balance
 
 1/2/3 are shutdown, and their wallets erased.
 Then restore using wallet.dat backup. And
@@ -95,25 +92,31 @@ class WalletBackupTest(BitcoinTestFramework):
         stop_node(self.nodes[2], 2)
 
     def erase_three(self):
-        os.remove(self.options.tmpdir + "/node0/regtest/wallet.dat")
-        os.remove(self.options.tmpdir + "/node1/regtest/wallet.dat")
-        os.remove(self.options.tmpdir + "/node2/regtest/wallet.dat")
+        os.remove(self.options.tmpdir + "/node0/alpharegtest/wallet.dat")
+        os.remove(self.options.tmpdir + "/node1/alpharegtest/wallet.dat")
+        os.remove(self.options.tmpdir + "/node2/alpharegtest/wallet.dat")
 
     def run_test(self):
         logging.info("Generating initial blockchain")
         self.nodes[0].setgenerate(True, 1)
         sync_blocks(self.nodes)
-        self.nodes[1].setgenerate(True, 1)
-        sync_blocks(self.nodes)
-        self.nodes[2].setgenerate(True, 1)
-        sync_blocks(self.nodes)
-        self.nodes[3].setgenerate(True, 100)
-        sync_blocks(self.nodes)
 
-        assert_equal(self.nodes[0].getbalance(), 50)
+        genesis_balance = 10500000
+        assert_equal(self.nodes[0].getbalance(), genesis_balance)
+        assert_equal(self.nodes[1].getbalance(), genesis_balance)
+        assert_equal(self.nodes[2].getbalance(), genesis_balance)
+        assert_equal(self.nodes[3].getbalance(), genesis_balance)
+
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 50)
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 50)
+        self.nodes[0].setgenerate(True, 101)
+        self.sync_all()
+
+        assert_equal(self.nodes[0].getbalance(), genesis_balance - 100)
         assert_equal(self.nodes[1].getbalance(), 50)
         assert_equal(self.nodes[2].getbalance(), 50)
         assert_equal(self.nodes[3].getbalance(), 0)
+
 
         logging.info("Creating transactions")
         # Five rounds of sending each other transactions.
@@ -122,16 +125,18 @@ class WalletBackupTest(BitcoinTestFramework):
 
         logging.info("Backing up")
         tmpdir = self.options.tmpdir
-        self.nodes[0].backupwallet(tmpdir + "/node0/wallet.bak")
-        self.nodes[0].dumpwallet(tmpdir + "/node0/wallet.dump")
-        self.nodes[1].backupwallet(tmpdir + "/node1/wallet.bak")
-        self.nodes[1].dumpwallet(tmpdir + "/node1/wallet.dump")
-        self.nodes[2].backupwallet(tmpdir + "/node2/wallet.bak")
-        self.nodes[2].dumpwallet(tmpdir + "/node2/wallet.dump")
+        blinding_keys = [{}, {}, {}]
 
-        logging.info("More transactions")
-        for i in range(5):
-            self.do_one_round()
+        def backup(i):
+            self.nodes[i].backupwallet(tmpdir + "/node%s/wallet.bak" % i)
+            self.nodes[i].dumpwallet(tmpdir + "/node%s/wallet.dump" % i)
+            # Export blinding keys
+            for addrs in self.nodes[i].listaddressgroupings():
+                for addr in addrs:
+                    blinding_keys[i][addr[0]] = self.nodes[i].dumpblindingkey(addr[0])
+        backup(0)
+        backup(1)
+        backup(2)
 
         # Generate 101 more blocks, so any fees paid mature
         self.nodes[3].setgenerate(True, 101)
@@ -143,9 +148,7 @@ class WalletBackupTest(BitcoinTestFramework):
         balance3 = self.nodes[3].getbalance()
         total = balance0 + balance1 + balance2 + balance3
 
-        # At this point, there are 214 blocks (103 for setup, then 10 rounds, then 101.)
-        # 114 are mature, so the sum of all wallets should be 114 * 50 = 5700.
-        assert_equal(total, 5700)
+        assert_equal(total, genesis_balance)
 
         ##
         # Test restoring spender wallets from backups
@@ -155,13 +158,13 @@ class WalletBackupTest(BitcoinTestFramework):
         self.erase_three()
 
         # Start node2 with no chain
-        shutil.rmtree(self.options.tmpdir + "/node2/regtest/blocks")
-        shutil.rmtree(self.options.tmpdir + "/node2/regtest/chainstate")
+        shutil.rmtree(self.options.tmpdir + "/node2/alpharegtest/blocks")
+        shutil.rmtree(self.options.tmpdir + "/node2/alpharegtest/chainstate")
 
         # Restore wallets from backup
-        shutil.copyfile(tmpdir + "/node0/wallet.bak", tmpdir + "/node0/regtest/wallet.dat")
-        shutil.copyfile(tmpdir + "/node1/wallet.bak", tmpdir + "/node1/regtest/wallet.dat")
-        shutil.copyfile(tmpdir + "/node2/wallet.bak", tmpdir + "/node2/regtest/wallet.dat")
+        shutil.copyfile(tmpdir + "/node0/wallet.bak", tmpdir + "/node0/alpharegtest/wallet.dat")
+        shutil.copyfile(tmpdir + "/node1/wallet.bak", tmpdir + "/node1/alpharegtest/wallet.dat")
+        shutil.copyfile(tmpdir + "/node2/wallet.bak", tmpdir + "/node2/alpharegtest/wallet.dat")
 
         logging.info("Re-starting nodes")
         self.start_three()
@@ -176,18 +179,23 @@ class WalletBackupTest(BitcoinTestFramework):
         self.erase_three()
 
         #start node2 with no chain
-        shutil.rmtree(self.options.tmpdir + "/node2/regtest/blocks")
-        shutil.rmtree(self.options.tmpdir + "/node2/regtest/chainstate")
+        shutil.rmtree(self.options.tmpdir + "/node2/alpharegtest/blocks")
+        shutil.rmtree(self.options.tmpdir + "/node2/alpharegtest/chainstate")
 
         self.start_three()
 
-        assert_equal(self.nodes[0].getbalance(), 0)
-        assert_equal(self.nodes[1].getbalance(), 0)
+        assert_equal(self.nodes[0].getbalance(), genesis_balance)
+        assert_equal(self.nodes[1].getbalance(), genesis_balance)
         assert_equal(self.nodes[2].getbalance(), 0)
 
         self.nodes[0].importwallet(tmpdir + "/node0/wallet.dump")
         self.nodes[1].importwallet(tmpdir + "/node1/wallet.dump")
         self.nodes[2].importwallet(tmpdir + "/node2/wallet.dump")
+
+        # import blinding keys, one for for each address
+        for i, per_node_keys in enumerate(blinding_keys):
+            for addr in per_node_keys:
+                self.nodes[i].importblindingkey(addr, per_node_keys[addr])
 
         sync_blocks(self.nodes)
 
