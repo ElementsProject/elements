@@ -596,9 +596,6 @@ case $host in
 esac
 
 AM_CONDITIONAL([CAN_RENDER_ICONS], [test x$can_render_icons = xyes])
-if test x$can_render_icons != xyes; then
-  AC_MSG_WARN([Couldn't find ${can_render_icons}; you won't get the Knots-branded Bitcoin icon])
-fi
 
 if test x$use_pkgconfig = xyes; then
   m4_ifndef([PKG_PROG_PKG_CONFIG], [AC_MSG_ERROR(PKG_PROG_PKG_CONFIG macro not found. Please install pkg-config and re-run autogen.sh.)])
