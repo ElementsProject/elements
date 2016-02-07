@@ -20,6 +20,7 @@ static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
 static const char DB_BLOCK_INDEX = 'b';
+static const char DB_WITHDRAW_FLAG = 'w';
 
 static const char DB_BEST_BLOCK = 'B';
 static const char DB_FLAG = 'F';
@@ -39,6 +40,10 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair(DB_COINS, txid));
 }
 
+bool CCoinsViewDB::IsWithdrawSpent(const pair<uint256, COutPoint> &outpoint) const {
+    return db.Exists(make_pair(DB_WITHDRAW_FLAG, outpoint));
+}
+
 uint256 CCoinsViewDB::GetBestBlock() const {
     uint256 hashBestChain;
     if (!db.Read(DB_BEST_BLOCK, hashBestChain))
@@ -52,10 +57,17 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            if (it->second.coins.IsPruned())
-                batch.Erase(make_pair(DB_COINS, it->first));
-            else
-                batch.Write(make_pair(DB_COINS, it->first), it->second.coins);
+            if (it->second.flags & CCoinsCacheEntry::WITHDRAW) {
+                if (!it->second.withdrawSpent)
+                    batch.Erase(make_pair(DB_WITHDRAW_FLAG, it->first));
+                else
+                    batch.Write(make_pair(DB_WITHDRAW_FLAG, it->first), '1');
+            } else {
+                if (it->second.coins.IsPruned())
+                    batch.Erase(make_pair(DB_COINS, it->first.first));
+                else
+                    batch.Write(make_pair(DB_COINS, it->first.first), it->second.coins);
+            }
             changed++;
         }
         count++;

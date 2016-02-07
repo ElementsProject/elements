@@ -265,6 +265,9 @@ public:
     }
 };
 
+// For ~WITHDRAW entries, the first element is the txhash, the second is IsNull()
+// For WITHDRAW entries, the first is the genesis hash, the second is the txo (on the other chain) spent
+typedef std::pair<uint256, COutPoint> CCoinsMapKey;
 class SaltedTxidHasher
 {
 private:
@@ -279,6 +282,9 @@ public:
      * unordered_map will behave unpredictably if the custom hasher returns a
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
+    size_t operator()(const CCoinsMapKey& key) const {
+        return SipHashUint256(k0, k1, key.first) ^ SipHashUint256(k0, k1, key.second.hash);
+    }
     size_t operator()(const uint256& txid) const {
         return SipHashUint256(k0, k1, txid);
     }
@@ -287,17 +293,19 @@ public:
 struct CCoinsCacheEntry
 {
     CCoins coins; // The actual cached data.
+    bool withdrawSpent;
     unsigned char flags;
 
     enum Flags {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1), // The parent view does not have this entry (or it is pruned).
+        DIRTY    = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH    = (1 << 1), // The parent view does not have this entry (or it is pruned).
+        WITHDRAW = (1 << 2), // represents a withdraw (coins is actually empty/useless, look at withdrawSpent instead)
     };
 
-    CCoinsCacheEntry() : coins(), flags(0) {}
+    CCoinsCacheEntry() : coins(), withdrawSpent(false), flags(0) {}
 };
 
-typedef boost::unordered_map<uint256, CCoinsCacheEntry, SaltedTxidHasher> CCoinsMap;
+typedef boost::unordered_map<CCoinsMapKey, CCoinsCacheEntry, SaltedTxidHasher> CCoinsMap;
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor
@@ -331,6 +339,9 @@ public:
     //! This may (but cannot always) return true for fully spent transactions
     virtual bool HaveCoins(const uint256 &txid) const;
 
+    //! Check if a given withdraw has been spent
+    virtual bool IsWithdrawSpent(const std::pair<uint256, COutPoint> &outpoint) const;
+
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
 
@@ -356,6 +367,7 @@ public:
     CCoinsViewBacked(CCoinsView *viewIn);
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+    bool IsWithdrawSpent(const std::pair<uint256, COutPoint> &outpoint) const;
     uint256 GetBestBlock() const;
     void SetBackend(CCoinsView &viewIn);
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock);
@@ -410,6 +422,8 @@ public:
     // Standard CCoinsView methods
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+    bool IsWithdrawSpent(const std::pair<uint256, COutPoint> &outpoint) const;
+    void SetWithdrawSpent(const std::pair<uint256, COutPoint> &outpoint, bool fSpent);
     uint256 GetBestBlock() const;
     void SetBestBlock(const uint256 &hashBlock);
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock);
