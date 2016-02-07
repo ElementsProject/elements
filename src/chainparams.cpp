@@ -84,7 +84,7 @@ public:
         nPruneAfterHeight = 100000;
 
         CScript scriptDestination(CScript() << OP_TRUE);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, 2083236893, 0x1d00ffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, 2083236893, 0x1d00ffff, 1, MAX_MONEY);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //! TODO
@@ -165,7 +165,7 @@ public:
         nPruneAfterHeight = 1000;
 
         CScript scriptDestination(CScript() << OP_TRUE);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, 2, 0x207fffff, 1, MAX_MONEY);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
