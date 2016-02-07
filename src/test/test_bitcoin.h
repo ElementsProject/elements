@@ -33,6 +33,7 @@ struct TestingSetup: public BasicTestingSetup {
     boost::filesystem::path pathTemp;
     boost::thread_group threadGroup;
     CConnman* connman;
+    CKey coinbaseKey; // private/public key needed to spend coinbase transactions
 
     TestingSetup(const std::string& chainName = CBaseChainParams::MAIN);
     ~TestingSetup();
@@ -57,7 +58,6 @@ struct TestChain100Setup : public TestingSetup {
     ~TestChain100Setup();
 
     std::vector<CTransaction> coinbaseTxns; // For convenience, coinbase transactions
-    CKey coinbaseKey; // private/public key needed to spend coinbase transactions
 };
 
 class CTxMemPoolEntry;

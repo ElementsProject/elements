@@ -9,6 +9,7 @@
 #include "chainparams.h"
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
+#include "consensus/merkle.h"
 #include "key.h"
 #include "validation.h"
 #include "miner.h"
@@ -61,6 +62,16 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         // instead of unit tests, but for now we need these here.
 
         RegisterAllCoreRPCCommands(tableRPC);
+
+    // Make genesis coinbase use out spend-key
+    coinbaseKey.MakeNewKey(true);
+    CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    CMutableTransaction newCoinbase(*(Params().GenesisBlock().vtx[0]));
+    newCoinbase.vout[0].scriptPubKey = scriptPubKey;
+    const_cast<CBlock&>(Params().GenesisBlock()).vtx[0] = MakeTransactionRef(newCoinbase);
+    const_cast<CBlock&>(Params().GenesisBlock()).hashMerkleRoot = BlockMerkleRoot(Params().GenesisBlock());
+    const_cast<Consensus::Params&>(Params().GetConsensus()).hashGenesisBlock = Params().GenesisBlock().GetHash();
+
         ClearDatadirCache();
         pathTemp = GetTempPath() / strprintf("test_bitcoin_%lu_%i", (unsigned long)GetTime(), (int)(GetRand(100000)));
         boost::filesystem::create_directories(pathTemp);
@@ -98,8 +109,9 @@ TestingSetup::~TestingSetup()
 TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 {
     // Generate a 100-block chain:
-    coinbaseKey.MakeNewKey(true);
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
+    assert(Params().GenesisBlock().vtx[0]->vout[0].scriptPubKey == scriptPubKey);
+    coinbaseTxns.push_back(*(Params().GenesisBlock().vtx[0]));
     for (int i = 0; i < COINBASE_MATURITY; i++)
     {
         std::vector<CMutableTransaction> noTxns;
