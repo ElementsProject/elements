@@ -1123,7 +1123,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 CMerkleBlock merkleBlock;
                                 CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
                                 merkleBlockStream >> merkleBlock;
-                                if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkleBlock.header))
+                                if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.bitcoinproof.challenge))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
                                 vector<uint256> txHashes;
@@ -1137,17 +1137,17 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (merkleBlock.header.GetHash() == genesishash)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
-                                CTransaction locktx;
+                                CTransactionRef locktx;
                                 CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
                                 locktxStream >> locktx;
                                 if (!locktxStream.empty())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
                                 int nlocktxOut = CScriptNum(vlockTxOutIndex, fRequireMinimal).getint();
-                                if (nlocktxOut < 0 || (unsigned int)nlocktxOut >= locktx.vout.size())
+                                if (nlocktxOut < 0 || (unsigned int)nlocktxOut >= locktx->vout.size())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
-                                if (locktx.GetHash() != txHashes[0])
+                                if (locktx->GetHash() != txHashes[0])
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
 
                                 if (vcontract.size() != 40)
@@ -1179,7 +1179,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 }
 
                                 CScriptID expectedP2SH(scriptDestination);
-                                if (locktx.vout[nlocktxOut].scriptPubKey != GetScriptForDestination(expectedP2SH))
+                                if (locktx->vout[nlocktxOut].scriptPubKey != GetScriptForDestination(expectedP2SH))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
 
                                 vcontract.erase(vcontract.begin() + 4, vcontract.begin() + 20); // Remove the nonce from the contract before further processing
@@ -1188,7 +1188,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 // We check values by doing the following:
                                 // * Tx must relock at least <unlocked coins> - <locked-on-bitcoin coins>
                                 // * Tx must send at least the withdraw value to its P2SH withdraw, but may send more
-                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
+                                CAmount withdrawVal = locktx->vout[nlocktxOut].nValue;
                                 CAmount lockValueRequired = checker.GetValueIn() - withdrawVal;
                                 if (lockValueRequired > 0) {
                                     const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(1);

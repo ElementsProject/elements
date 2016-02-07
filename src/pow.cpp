@@ -37,7 +37,7 @@ void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Con
     block.proof.challenge = indexLast.proof.challenge;
 }
 
-bool CheckBitcoinProof(uint256 hash, unsigned int nBits, const Consensus::Params& params)
+bool CheckBitcoinProof(uint256 hash, unsigned int nBits)
 {
     bool fNegative;
     bool fOverflow;
@@ -46,7 +46,7 @@ bool CheckBitcoinProof(uint256 hash, unsigned int nBits, const Consensus::Params
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
 
     // Check range
-    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(params.powLimit))
+    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(Params().GetConsensus().powLimit))
         return false;
 
     // Check proof of work matches claimed amount
