@@ -41,7 +41,7 @@ class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
 class CInv;
-class CScriptCheck;
+class CCheck;
 class CValidationInterface;
 class CValidationState;
 
@@ -293,16 +293,13 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& ma
  * instead of being performed inline.
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-                 unsigned int flags, bool cacheStore, std::vector<CScriptCheck> *pvChecks = NULL);
+                 unsigned int flags, bool cacheStore, std::vector<CCheck*> *pvChecks = NULL);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight);
 
 /** Context-independent validity checks */
 bool CheckTransaction(const CTransaction& tx, CValidationState& state);
-
-/** Check whether the amounts in a transaction match up. */
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess);
 
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
@@ -351,7 +348,23 @@ int64_t CheckLockTime(const CTransaction &tx, int flags = -1);
  * Closure representing one script verification
  * Note that this stores references to the spending transaction 
  */
-class CScriptCheck
+class CCheck
+{
+protected:
+    ScriptError error;
+    bool fAmountError;
+
+public:
+    CCheck() : error(SCRIPT_ERR_UNKNOWN_ERROR), fAmountError(false) {}
+    virtual ~CCheck() {}
+
+    virtual bool operator()() = 0;
+
+    ScriptError GetScriptError() const { return error; }
+    bool IsAmountError() const { return fAmountError; }
+};
+
+class CScriptCheck : public CCheck
 {
 private:
     CScript scriptPubKey;
@@ -363,33 +376,19 @@ private:
     int nSpendHeight;
     unsigned int nFlags;
     bool cacheStore;
-    ScriptError error;
 
 public:
-    CScriptCheck(): ptxTo(0), nIn(0), nValueIn(-1), nValueInPreviousIn(-1), nTxFee(-1), nSpendHeight(-1), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
     CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, CTxOutValue nValueInPreviousInIn, CAmount nTxFeeIn, int nSpendHeightIn, unsigned int nFlagsIn, bool cacheIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
         ptxTo(&txToIn), nIn(nInIn), nValueIn(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
         nValueInPreviousIn(nValueInPreviousInIn), nTxFee(nTxFeeIn), nSpendHeight(nSpendHeightIn),
-        nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR) { }
+        nFlags(nFlagsIn), cacheStore(cacheIn) { }
 
     bool operator()();
-
-    void swap(CScriptCheck &check) {
-        scriptPubKey.swap(check.scriptPubKey);
-        std::swap(ptxTo, check.ptxTo);
-        std::swap(nIn, check.nIn);
-        std::swap(nValueIn, check.nValueIn);
-        std::swap(nValueInPreviousIn, check.nValueInPreviousIn);
-        std::swap(nTxFee, check.nTxFee);
-        std::swap(nSpendHeight, check.nSpendHeight);
-        std::swap(nFlags, check.nFlags);
-        std::swap(cacheStore, check.cacheStore);
-        std::swap(error, check.error);
-    }
-
-    ScriptError GetScriptError() const { return error; }
 };
+
+/** Check whether the amounts in a transaction match up. */
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks = NULL);
 
 
 /** Functions for disk access for blocks */
