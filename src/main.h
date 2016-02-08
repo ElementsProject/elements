@@ -301,6 +301,9 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
 /** Context-independent validity checks */
 bool CheckTransaction(const CTransaction& tx, CValidationState& state);
 
+/** Check whether the amounts in a transaction match up. */
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess);
+
 /** Check for standard transaction types
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
  */

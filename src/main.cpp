@@ -20,6 +20,8 @@
 #include "util.h"
 #include "utilmoneystr.h"
 
+#include <secp256k1_rangeproof.h>
+
 #include <sstream>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -992,6 +994,75 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     return true;
 }
 
+extern secp256k1_context* secp256k1_bitcoin_verify_context;
+
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess)
+{
+    CAmount nPlainAmount = excess;
+    std::vector<unsigned char> vchData;
+    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    bool fNullRangeproof = false;
+    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
+    unsigned char *p = vchData.data();
+    if (!tx.IsCoinBase())
+    {
+        for (size_t i = 0; i < tx.vin.size(); ++i)
+        {
+            const CTxOutValue& val = cache.GetOutputFor(tx.vin[i]).nValue;
+            if (val.IsAmount())
+                nPlainAmount -= val.GetAmount();
+            else
+            {
+                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+                vpchCommitsIn.push_back(p);
+                p += CTxOutValue::nCommitmentSize;
+            }
+        }
+    }
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
+            return false;
+        if (val.IsAmount())
+            nPlainAmount += val.GetAmount();
+        else
+        {
+            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+            vpchCommitsOut.push_back(p);
+            p += CTxOutValue::nCommitmentSize;
+
+            if (val.vchRangeproof.empty())
+                fNullRangeproof = true;
+        }
+    }
+
+    // If there are no encrypted input or output values, we can do simple math
+    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
+        return (nPlainAmount == 0);
+
+    if (!secp256k1_pedersen_verify_tally(secp256k1_bitcoin_verify_context, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount))
+        return false;
+
+    // Rangeproof is optional in this case
+    if ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof)
+        return true;
+
+    uint64_t min_value, max_value;
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        if (val.IsAmount())
+            continue;
+        if (!secp256k1_rangeproof_verify(secp256k1_bitcoin_verify_context, &min_value, &max_value, &val.vchCommitment[0], val.vchRangeproof.data(), val.vchRangeproof.size()))
+            return false;
+    }
+
+    return true;
+}
+
 CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree)
 {
     {
@@ -1097,7 +1168,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         view.GetBestBlock();
 
             nFees = tx.nTxFee;
-            if (!view.VerifyAmounts(tx, nFees))
+            if (!VerifyAmounts(view, tx, nFees))
                 return state.DoS(0,
                                  error("AcceptToMemoryPool : input amounts do not match output amounts %s",
                                        hash.ToString()),
@@ -1544,7 +1615,6 @@ bool CScriptCheck::operator()() {
     }
     return true;
 }
-
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
@@ -1585,7 +1655,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             return state.DoS(100, error("CheckInputs() : nTxFee out of range"),
                              REJECT_INVALID, "bad-txns-fee-outofrange");
 
-        if (!inputs.VerifyAmounts(tx, nTxFee))
+        if (!VerifyAmounts(inputs, tx, nTxFee))
             return state.DoS(100, error("CheckInputs() : %s value in != value out",
                                         tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-amount-mismatch");
@@ -2004,7 +2074,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
 
-    if (!view.VerifyAmounts(block.vtx[0], -GetBlockValue(pindex->nHeight, nFees)))
+    if (!VerifyAmounts(view, block.vtx[0], -GetBlockValue(pindex->nHeight, nFees)))
         return state.DoS(100,
                          error("ConnectBlock() : coinbase pays too much (actual=UNKNOWN vs limit=%d)",
                                GetBlockValue(pindex->nHeight, nFees)),

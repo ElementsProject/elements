@@ -8,9 +8,6 @@
 
 #include <assert.h>
 
-#include <secp256k1.h>
-#include <secp256k1_rangeproof.h>
-
 /**
  * calculate number of bytes for the bitmask, and its number of non-zero bytes
  * each bit in the bitmask represents the availability of one output, but the
@@ -251,75 +248,6 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     const CCoins* coins = AccessCoins(input.prevout.hash);
     assert(coins && coins->IsAvailable(input.prevout.n));
     return coins->vout[input.prevout.n];
-}
-
-extern secp256k1_context* secp256k1_bitcoin_verify_context;
-
-bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
-{
-    CAmount nPlainAmount = excess;
-    std::vector<unsigned char> vchData;
-    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
-    bool fNullRangeproof = false;
-    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
-    unsigned char *p = vchData.data();
-    if (!tx.IsCoinBase())
-    {
-        for (size_t i = 0; i < tx.vin.size(); ++i)
-        {
-            const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
-            if (val.IsAmount())
-                nPlainAmount -= val.GetAmount();
-            else
-            {
-                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
-                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-                vpchCommitsIn.push_back(p);
-                p += CTxOutValue::nCommitmentSize;
-            }
-        }
-    }
-    for (size_t i = 0; i < tx.vout.size(); ++i)
-    {
-        const CTxOutValue& val = tx.vout[i].nValue;
-        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
-        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
-            return false;
-        if (val.IsAmount())
-            nPlainAmount += val.GetAmount();
-        else
-        {
-            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-            vpchCommitsOut.push_back(p);
-            p += CTxOutValue::nCommitmentSize;
-
-            if (val.vchRangeproof.empty())
-                fNullRangeproof = true;
-        }
-    }
-
-    // If there are no encrypted input or output values, we can do simple math
-    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
-        return (nPlainAmount == 0);
-
-    if (!secp256k1_pedersen_verify_tally(secp256k1_bitcoin_verify_context, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount))
-        return false;
-
-    // Rangeproof is optional in this case
-    if ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof)
-        return true;
-
-    uint64_t min_value, max_value;
-    for (size_t i = 0; i < tx.vout.size(); ++i)
-    {
-        const CTxOutValue& val = tx.vout[i].nValue;
-        if (val.IsAmount())
-            continue;
-        if (!secp256k1_rangeproof_verify(secp256k1_bitcoin_verify_context, &min_value, &max_value, &val.vchCommitment[0], val.vchRangeproof.data(), val.vchRangeproof.size()))
-            return false;
-    }
-
-    return true;
 }
 
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
