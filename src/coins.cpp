@@ -322,12 +322,6 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& exces
     return true;
 }
 
-bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx) const
-{
-    const CAmount& excess = tx.nTxFee;
-    return VerifyAmounts(tx, excess);
-}
-
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {
