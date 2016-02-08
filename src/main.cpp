@@ -1167,13 +1167,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Bring the best block into scope
         view.GetBestBlock();
 
-            nFees = tx.nTxFee;
-            if (!VerifyAmounts(view, tx, nFees))
-                return state.DoS(0,
-                                 error("AcceptToMemoryPool : input amounts do not match output amounts %s",
-                                       hash.ToString()),
-                                 REJECT_NONSTANDARD, "bad-txns-amount-mismatch");
-
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
         view.SetBackend(dummy);
         }
