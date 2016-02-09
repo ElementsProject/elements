@@ -16,13 +16,6 @@
 
 #include "chainparamsseeds.h"
 
-// Elements: change the name in chainparamsbase.h if you need to change the genesis hash
-const std::map<std::string, uint256> CChainParams::supportedChains =
-    boost::assign::map_list_of
-    ( CHAINPARAMS_ELEMENTS, uint256S("0x300ae16b51c2e42da1e12133c76e4951a08d17b9c346c4a9d9e815c024ebeff7"))
-    ( CHAINPARAMS_REGTEST, uint256S("0x64593b5e4b59628d2a93d6685064a98c50560acf968855f276ea01900f2c81e1"))
-    ;
-
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
@@ -289,6 +282,13 @@ public:
         consensus.hashGenesisBlock = genesis.GetHash();
     }
 };
+
+
+const std::map<std::string, uint256> CChainParams::supportedChains =
+    boost::assign::map_list_of
+    ( CHAINPARAMS_ELEMENTS, CElementsParams().GenesisBlock().GetHash())
+    ( CHAINPARAMS_REGTEST, CRegTestParams().GenesisBlock().GetHash())
+    ;
 
 static std::unique_ptr<CChainParams> globalChainParams;
 
