@@ -300,8 +300,11 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
         return 0;
 
     CAmount nResult = 0;
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
-        nResult += GetOutputFor(tx.vin[i]).nValue;
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
+        assert(val.IsAmount());
+        nResult += val.GetAmount();
+    }
 
     return nResult;
 }
@@ -313,8 +316,9 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& exces
     CAmount nInAmount = GetValueIn(tx);
     for (std::vector<CTxOut>::const_iterator it(tx.vout.begin()); it != tx.vout.end(); ++it)
     {
-        nInAmount -= it->nValue;
-        if (!MoneyRange(it->nValue) || (!MoneyRange(nInAmount) && !MoneyRange(-nInAmount)))
+        assert(it->nValue.IsAmount());
+        nInAmount -= it->nValue.GetAmount();;
+        if (!MoneyRange(it->nValue.GetAmount()) || (!MoneyRange(nInAmount) && !MoneyRange(-nInAmount)))
             return false;
     }
     return excess == nInAmount;
@@ -346,8 +350,12 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight, CAmount
         assert(coins);
         if (!coins->IsAvailable(txin.prevout.n)) continue;
         if (coins->nHeight <= nHeight) {
-            dResult += coins->vout[txin.prevout.n].nValue * (nHeight-coins->nHeight);
-            inChainInputValue += coins->vout[txin.prevout.n].nValue;
+            const CTxOutValue& val = coins->vout[txin.prevout.n].nValue;
+            CAmount nAmount = COIN;
+            if (val.IsAmount())
+                nAmount = val.GetAmount();
+            dResult += nAmount * (nHeight-coins->nHeight);
+            inChainInputValue += nAmount;
         }
     }
     return tx.ComputePriority(dResult);

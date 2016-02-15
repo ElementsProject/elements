@@ -477,7 +477,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             continue;
         }
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
-        const CAmount& amount = coins->vout[txin.prevout.n].nValue;
+        const CTxOutValue& amount = coins->vout[txin.prevout.n].nValue;
 
         SignatureData sigdata;
         // Only sign SIGHASH_SINGLE if there's a corresponding output:

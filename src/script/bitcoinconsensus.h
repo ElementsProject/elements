@@ -67,9 +67,9 @@ EXPORT_SYMBOL int bitcoinconsensus_verify_script(const unsigned char *scriptPubK
                                                  const unsigned char *txTo        , unsigned int txToLen,
                                                  unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err);
 
-// Use -1 for amountPreviousInput if there is no previous input (ie nIn == 0)
-EXPORT_SYMBOL int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, uint64_t amount,
-                                    uint64_t amountPreviousInput,
+EXPORT_SYMBOL int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
+                                    const unsigned char* amount,              unsigned int amountLen,
+                                    const unsigned char* amountPreviousInput, unsigned int amountPreviousInputLen,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err);
 

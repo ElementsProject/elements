@@ -1082,11 +1082,11 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     CAmount nValueOut = 0;
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
-        if (txout.nValue < 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue > MAX_MONEY)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOut += txout.nValue;
+        if (!txout.nValue.IsValid())
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
+        if (!txout.nValue.IsAmount())
+            continue;
+        nValueOut += txout.nValue.GetAmount();
         if (!MoneyRange(nValueOut))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
@@ -2008,9 +2008,12 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             }
 
             // Check for negative or overflow input values
-            nValueIn += coins->vout[prevout.n].nValue;
-            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            const CTxOutValue& value = coins->vout[prevout.n].nValue;
+            if (value.IsAmount()) {
+                nValueIn += value.GetAmount();
+                if (!MoneyRange(value.GetAmount()) || !MoneyRange(nValueIn))
+                    return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            }
 
             if (coins->vout[prevout.n].scriptPubKey.IsWithdrawLock() && tx.vin[i].scriptSig.IsWithdrawProof()) {
                 uint256 genesisHash(coins->vout[prevout.n].scriptPubKey.GetWithdrawLockGenesisHash());
@@ -2092,7 +2095,11 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // super-majority signaling has occurred.
                     return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
-                prevValueIn = coins->vout[tx.vin[i].prevout.n].nValue;
+                const CTxOutValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
+                if (value.IsAmount())
+                    prevValueIn = value.GetAmount();
+                else
+                    prevValueIn = -1;
             }
         }
     }

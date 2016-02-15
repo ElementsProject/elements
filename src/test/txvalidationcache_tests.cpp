@@ -45,7 +45,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
         spends[i].vout.resize(1);
         spends[i].vout[0].nValue = 11*CENT;
         spends[i].vout[0].scriptPubKey = scriptPubKey;
-        spends[i].nTxFee = coinbaseTxns[0].vout[0].nValue - 11*CENT;
+        spends[i].nTxFee = coinbaseTxns[0].vout[0].nValue.GetAmount() - 11*CENT;
 
         // Sign:
         std::vector<unsigned char> vchSig;

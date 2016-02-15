@@ -639,7 +639,8 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     stats.nTransactionOutputs++;
                     ss << VARINT(i+1);
                     ss << out;
-                    nTotalAmount += out.nValue;
+                    if (out.nValue.IsAmount())
+                        nTotalAmount += out.nValue.GetAmount();
                 }
             }
             stats.nSerializedSize += 32 + pcursor->GetValueSize();
@@ -669,7 +670,6 @@ UniValue gettxoutsetinfo(const UniValue& params, bool fHelp)
             "  \"txouts\": n,            (numeric) The number of output transactions\n"
             "  \"bytes_serialized\": n,  (numeric) The serialized size\n"
             "  \"hash_serialized\": \"hash\",   (string) The serialized hash\n"
-            "  \"total_amount\": x.xxx          (numeric) The total amount\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("gettxoutsetinfo", "")
@@ -687,7 +687,6 @@ UniValue gettxoutsetinfo(const UniValue& params, bool fHelp)
         ret.push_back(Pair("txouts", (int64_t)stats.nTransactionOutputs));
         ret.push_back(Pair("bytes_serialized", (int64_t)stats.nSerializedSize));
         ret.push_back(Pair("hash_serialized", stats.hashSerialized.GetHex()));
-        ret.push_back(Pair("total_amount", ValueFromAmount(stats.nTotalAmount)));
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
@@ -764,7 +763,8 @@ UniValue gettxout(const UniValue& params, bool fHelp)
         ret.push_back(Pair("confirmations", 0));
     else
         ret.push_back(Pair("confirmations", pindex->nHeight - coins.nHeight + 1));
-    ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue)));
+    if (coins.vout[n].nValue.IsAmount())
+        ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue.GetAmount())));
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
     ret.push_back(Pair("scriptPubKey", o));
