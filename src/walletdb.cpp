@@ -193,9 +193,14 @@ bool CWalletDB::WriteAccountingEntry(const CAccountingEntry& acentry)
     return WriteAccountingEntry(++nAccountingEntryNumber, acentry);
 }
 
-bool CWalletDB::WriteBlindingKey(const CKey& privKey)
+bool CWalletDB::WriteSpecificBlindingKey(const CScriptID& scriptid, const uint256& key)
 {
-    return Write(std::string("blindingkey"), std::vector<unsigned char>(privKey.begin(), privKey.end()));
+    return Write(make_pair(std::string("specificblindingkey"), scriptid), key);
+}
+
+bool CWalletDB::WriteBlindingDerivationKey(const uint256& key)
+{
+    return Write(std::string("blindingderivationkey"), key);
 }
 
 CAmount CWalletDB::GetAccountCreditDebit(const string& strAccount)
@@ -595,14 +600,34 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         }
+        /* Only for backward compatibility with older wallets. */
         else if (strType == "blindingkey")
         {
             assert(!pwallet->blinding_key.IsValid());
             std::vector<unsigned char> vchBlindingKey;
             ssValue >> vchBlindingKey;
             pwallet->blinding_key.Set(vchBlindingKey.begin(), vchBlindingKey.end(), true);
-            if (pwallet->blinding_key.IsValid()) {
-                pwallet->blinding_pubkey = pwallet->blinding_key.GetPubKey();
+            if (!pwallet->blinding_key.IsValid()) {
+                strErr = "Error reading wallet blinding key";
+                return false;
+            }
+        }
+        else if (strType == "blindingderivationkey")
+        {
+            assert(pwallet->blinding_derivation_key == 0);
+            uint256 key;
+            ssValue >> key;
+            pwallet->blinding_derivation_key = key;
+        }
+        else if (strType == "specificblindingkey")
+        {
+            CScriptID scriptid;
+            ssKey >> scriptid;
+            uint256 key;
+            ssValue >> key;
+            if (!pwallet->LoadSpecificBlindingKey(scriptid, key)) {
+                strErr = "Error reading wallet database: LoadSpecificBlindingKey failed";
+                return false;
             }
         }
     } catch (...)
@@ -716,10 +741,15 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     if (wss.fAnyUnordered)
         result = ReorderTransactions(pwallet);
 
-    if (!pwallet->blinding_key.IsValid()) {
-        pwallet->blinding_key.MakeNewKey(true);
-        pwallet->blinding_pubkey = pwallet->blinding_key.GetPubKey();
-        WriteBlindingKey(pwallet->blinding_key);
+    if (result == DB_LOAD_OK && pwallet->blinding_derivation_key == 0) {
+        CKey key;
+        key.MakeNewKey(true);
+        uint256 keybin;
+        memcpy(keybin.begin(), key.begin(), key.size());
+        pwallet->blinding_derivation_key = keybin;
+        if (!WriteBlindingDerivationKey(pwallet->blinding_derivation_key)) {
+            result = DB_LOAD_FAIL;
+        }
     }
 
     return result;

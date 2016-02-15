@@ -237,6 +237,9 @@ bool CBitcoinAddress::Set(const CTxDestination& dest)
 
 CBitcoinAddress& CBitcoinAddress::AddBlindingKey(const CPubKey& pubkey)
 {
+    if (!pubkey.IsValid()) {
+        return *this;
+    }
     assert(pubkey.size() == 33);
     assert(!IsBlinded());
     std::vector<unsigned char> data = vchVersion;

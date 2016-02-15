@@ -298,11 +298,12 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
 
     bool fBlindedIns = false;
     bool fBlindedOuts = false;
-    std::vector<std::vector<unsigned char> > input_blinds;
-    std::vector<std::vector<unsigned char> > output_blinds;
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> output_blinds;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
-        std::vector<unsigned char> blind = ParseHex(input_blinding_factors[nIn]);
+        uint256 blind;
+        blind.SetHex(input_blinding_factors[nIn]);
         if (blind.size() == 0) {
             input_blinds.push_back(blind);
         } else if (blind.size() == 32) {
@@ -323,7 +324,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
             output_pubkeys.push_back(pubkey);
             fBlindedOuts = true;
         }
-        output_blinds.push_back(std::vector<unsigned char>(0, 0));
+        output_blinds.push_back(uint256());
     }
 
     if (fBlindedIns && !fBlindedOuts) {

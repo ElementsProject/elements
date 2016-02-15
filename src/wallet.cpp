@@ -8,6 +8,7 @@
 #include "base58.h"
 #include "checkpoints.h"
 #include "coincontrol.h"
+#include "crypto/hmac_sha256.h"
 #include "net.h"
 #include "script/script.h"
 #include "script/sign.h"
@@ -895,7 +896,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
         COutputEntry output = {address, GetValueOut(i), (int)i, CPubKey()};
 
         if (!txout.nValue.IsAmount() && GetValueOut(i) > 0) {
-            output.confidentiality_pubkey = pwallet->blinding_pubkey;
+            output.confidentiality_pubkey = GetBlindingKey(i);
         }
 
         // If we are debited by the transaction, add the output as a "sent" entry
@@ -1614,7 +1615,7 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                         int pos = GetRandInt(txNew.vout.size()+1);
                         vector<CTxOut>::iterator position = txNew.vout.begin()+pos;
                         txNew.vout.insert(position, newTxOut);
-                        output_pubkeys.insert(output_pubkeys.begin() + pos, blinding_pubkey);
+                        output_pubkeys.insert(output_pubkeys.begin() + pos, GetBlindingPubKey(scriptChange));
                         nValueOut += nChange;
                         fBlindedOuts = true;
                     }
@@ -1625,7 +1626,7 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                 if (fBlindedIns && !fBlindedOuts) {
                     CTxOut newTxOut(0, CScript() << OP_RETURN);
                     txNew.vout.push_back(newTxOut);
-                    output_pubkeys.push_back(blinding_pubkey);
+                    output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     fBlindedOuts = true;
                 }
                 // Fill vin
@@ -1636,14 +1637,14 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
                 // Create blinded outputs
-                std::vector<std::vector<unsigned char> > input_blinds;
-                std::vector<std::vector<unsigned char> > output_blinds;
+                std::vector<uint256> input_blinds;
+                std::vector<uint256> output_blinds;
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins) {
-                    std::vector<unsigned char> blind =coin.first->GetBlindingFactor(coin.second);
+                    uint256 blind = coin.first->GetBlindingFactor(coin.second);
                     input_blinds.push_back(blind);
                 }
                 for (size_t nOut = 0; nOut < txNew.vout.size(); nOut++) {
-                    output_blinds.push_back(std::vector<unsigned char>(0, 0));
+                    output_blinds.push_back(uint256());
                 }
                 if (fBlindedIns && !fBlindedOuts) {
                     strFailReason = _("Confidential inputs without confidential outputs");
@@ -2528,3 +2529,133 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, bool fRejectInsaneFee)
     return ::AcceptToMemoryPool(mempool, state, *this, fLimitFree, NULL, fRejectInsaneFee);
 }
 
+CKey CWallet::GetBlindingKey(const CScript* script) const
+{
+    CKey key;
+
+    if (script != NULL) {
+        std::map<CScriptID, uint256>::const_iterator it = mapSpecificBlindingKeys.find(CScriptID(*script));
+        if (it != mapSpecificBlindingKeys.end()) {
+            key.Set(it->second.begin(), it->second.end(), true);
+            if (key.IsValid()) {
+                return key;
+            }
+        }
+    }
+
+    if (script != NULL && blinding_derivation_key != 0) {
+        unsigned char vch[32];
+        CHMAC_SHA256(blinding_derivation_key.begin(), blinding_derivation_key.size()).Write(&((*script)[0]), script->size()).Finalize(vch);
+        key.Set(&vch[0], &vch[32], true);
+        if (key.IsValid()) {
+            return key;
+        }
+    }
+
+    if (script == NULL && blinding_key.IsValid()) {
+        return blinding_key;
+    }
+
+    return CKey();
+}
+
+CPubKey CWallet::GetBlindingPubKey(const CScript& script) const
+{
+    CKey key = GetBlindingKey(&script);
+    if (key.IsValid()) {
+        return key.GetPubKey();
+    }
+
+    return CPubKey();
+}
+
+bool CWallet::LoadSpecificBlindingKey(const CScriptID& scriptid, const uint256& key)
+{
+    AssertLockHeld(cs_wallet); // mapSpecificBlindingKeys
+    mapSpecificBlindingKeys[scriptid] = key;
+    return true;
+}
+
+bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key)
+{
+    AssertLockHeld(cs_wallet); // mapSpecificBlindingKeys
+    if (!LoadSpecificBlindingKey(scriptid, key))
+        return false;
+
+    if (!fFileBacked)
+        return true;
+    return CWalletDB(strWalletFile).WriteSpecificBlindingKey(scriptid, key);
+}
+
+void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor) const
+{
+    if (output.nValue.IsAmount()) {
+        amount = output.nValue.GetAmount();
+        pubkey = CPubKey();
+        blindingfactor = 0;
+        return;
+    }
+
+    CKey blinding_key;
+    if ((blinding_key = GetBlindingKey(&output.scriptPubKey)).IsValid()) {
+        // For outputs using derived blinding.
+        if (UnblindOutput(blinding_key, output, amount, blindingfactor)) {
+            pubkey = blinding_key.GetPubKey();
+            return;
+        }
+    }
+    if ((blinding_key = GetBlindingKey(NULL)).IsValid()) {
+        // For outputs using deprecated static blinding.
+        if (UnblindOutput(blinding_key, output, amount, blindingfactor)) {
+            pubkey = blinding_key.GetPubKey();
+            return;
+        }
+    }
+
+    amount = -1;
+    pubkey = CPubKey();
+    blindingfactor = 0;
+}
+
+void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut) const
+{
+    // Blinding data is cached in a serialized record mapWallet["blindingdata"].
+    // It contains a concatenation byte vectors, 74 bytes per txout.
+    // Each consists of:
+    // * 1 byte boolean marker (has the output been computed)?
+    // * 8 bytes amount (-1 if unknown)
+    // * 32 bytes blinding factor
+    // * 33 bytes blinding pubkey (ECDH pubkey of the destination)
+    // This is really ugly, and should use CDataStream serialization instead.
+
+    assert(nOut < vout.size());
+    if (mapValue["blindingdata"].size() < (nOut + 1) * 74) {
+        mapValue["blindingdata"].resize(vout.size() * 74);
+    }
+
+    unsigned char* it = (unsigned char*)(&mapValue["blindingdata"][0]) + 74 * nOut;
+
+    CAmount amount = -1;
+    CPubKey pubkey;
+    uint256 blindingfactor;
+
+    if (*it == 1) {
+        memcpy(&amount, &*(it + 1), 8);
+        memcpy(blindingfactor.begin(), &*(it + 9), 32);
+        pubkey.Set(it + 41, it + 74);
+    } else {
+        pwallet->ComputeBlindingData(vout[nOut], amount, pubkey, blindingfactor);
+        *it = 1;
+        memcpy(&*(it + 1), &amount, 8);
+        memcpy(&*(it + 9), blindingfactor.begin(), 32);
+        if (pubkey.IsValid() && pubkey.size() == 33) {
+            memcpy(&*(it + 41), pubkey.begin(), 33);
+        } else {
+            memset(&*(it + 41), 0, 33);
+        }
+    }
+
+    if (pamountOut) *pamountOut = amount;
+    if (ppubkeyOut) *ppubkeyOut = pubkey;
+    if (pblindingfactorOut) *pblindingfactorOut = blindingfactor;
+}

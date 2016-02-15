@@ -8,7 +8,7 @@
 void ECC_Blinding_Start();
 void ECC_Blinding_Stop();
 
-int UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, std::vector<unsigned char>& blinding_factor_out);
-void BlindOutputs(const std::vector<std::vector<unsigned char> >& input_blinding_factors, const std::vector<std::vector<unsigned char> >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
+bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out);
+void BlindOutputs(const std::vector<uint256>& input_blinding_factors, const std::vector<uint256>& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
 
 #endif
