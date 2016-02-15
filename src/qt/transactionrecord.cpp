@@ -56,7 +56,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
                 TransactionRecord sub(hash, nTime);
                 CTxDestination address;
                 sub.idx = i; // vout index
-                sub.credit = txout.nValue;
+                sub.credit = txout.nValue.GetAmount();
                 sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
                 if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*wallet, address))
                 {
@@ -143,7 +143,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
                     sub.address = mapValue["to"];
                 }
 
-                CAmount nValue = txout.nValue;
+                CAmount nValue = txout.nValue.GetAmount();
                 /* Add fee to first output */
                 if (nTxFee > 0)
                 {

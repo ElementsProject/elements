@@ -171,12 +171,16 @@ return;
 #if defined(HAVE_CONSENSUS_LIB)
     CDataStream stream(SER_NETWORK, PROTOCOL_VERSION);
     stream << tx2;
+    CDataStream streamVal1(SER_NETWORK, PROTOCOL_VERSION);
+    streamVal1 << txCredit.vout[0].nValue;
+    CDataStream streamVal2(SER_NETWORK, PROTOCOL_VERSION);
+    streamVal2 << CTxOutValue();
     int libconsensus_flags = flags & bitcoinconsensus_SCRIPT_FLAGS_VERIFY_ALL;
     if (libconsensus_flags == flags) {
         if (flags & bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS) {
-            BOOST_CHECK_MESSAGE(bitcoinconsensus_verify_script_with_amount(scriptPubKey.data(), scriptPubKey.size(), txCredit.vout[0].nValue, -1, (const unsigned char*)&stream[0], stream.size(), 0, libconsensus_flags, NULL) == expect, message);
+            BOOST_CHECK_MESSAGE(bitcoinconsensus_verify_script_with_amount(scriptPubKey.data(), scriptPubKey.size(), (const unsigned char*)&streamVal1[0], streamVal1.size(), (const unsigned char*)&streamVal2[0], streamVal2.size(), (const unsigned char*)&stream[0], stream.size(), 0, libconsensus_flags, NULL) == expect, message);
         } else {
-            BOOST_CHECK_MESSAGE(bitcoinconsensus_verify_script_with_amount(scriptPubKey.data(), scriptPubKey.size(), 0, -1, (const unsigned char*)&stream[0], stream.size(), 0, libconsensus_flags, NULL) == expect, message);
+            BOOST_CHECK_MESSAGE(bitcoinconsensus_verify_script_with_amount(scriptPubKey.data(), scriptPubKey.size(), (const unsigned char*)&streamVal2[0], streamVal2.size(), (const unsigned char*)&streamVal2[0], streamVal2.size(), (const unsigned char*)&stream[0], stream.size(), 0, libconsensus_flags, NULL) == expect, message);
             BOOST_CHECK_MESSAGE(bitcoinconsensus_verify_script(scriptPubKey.data(), scriptPubKey.size(), (const unsigned char*)&stream[0], stream.size(), 0, libconsensus_flags, NULL) == expect,message);
         }
     }

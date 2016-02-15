@@ -75,7 +75,7 @@ struct CompareValueOnly
 
 std::string COutput::ToString() const
 {
-    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->tx->vout[i].nValue));
+    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->tx->vout[i].nValue.GetAmount()));
 }
 
 const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
@@ -1226,7 +1226,7 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) const
             const CWalletTx& prev = (*mi).second;
             if (txin.prevout.n < prev.tx->vout.size())
                 if (IsMine(prev.tx->vout[txin.prevout.n]) & filter)
-                    return prev.tx->vout[txin.prevout.n].nValue;
+                    return prev.tx->vout[txin.prevout.n].nValue.GetAmount();
         }
     }
     return 0;
@@ -1239,9 +1239,9 @@ isminetype CWallet::IsMine(const CTxOut& txout) const
 
 CAmount CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
 {
-    if (!MoneyRange(txout.nValue))
+    if (!MoneyRange(txout.nValue.GetAmount()))
         throw std::runtime_error(std::string(__func__) + ": value out of range");
-    return ((IsMine(txout) & filter) ? txout.nValue : 0);
+    return ((IsMine(txout) & filter) ? txout.nValue.GetAmount() : 0);
 }
 
 bool CWallet::IsChange(const CTxOut& txout) const
@@ -1268,9 +1268,9 @@ bool CWallet::IsChange(const CTxOut& txout) const
 
 CAmount CWallet::GetChange(const CTxOut& txout) const
 {
-    if (!MoneyRange(txout.nValue))
+    if (!MoneyRange(txout.nValue.GetAmount()))
         throw std::runtime_error(std::string(__func__) + ": value out of range");
-    return (IsChange(txout) ? txout.nValue : 0);
+    return (IsChange(txout) ? txout.nValue.GetAmount() : 0);
 }
 
 bool CWallet::IsMine(const CTransaction& tx) const
@@ -1492,7 +1492,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             address = CNoDestination();
         }
 
-        COutputEntry output = {address, txout.nValue, (int)i};
+        COutputEntry output = {address, txout.nValue.GetAmount(), (int)i};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -2081,7 +2081,7 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
             for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++) {
                 isminetype mine = IsMine(pcoin->tx->vout[i]);
                 if (!(IsSpent(wtxid, i)) && mine != ISMINE_NO &&
-                    !IsLockedCoin((*it).first, i) && (pcoin->tx->vout[i].nValue > 0 || fIncludeZeroValue) &&
+                    !IsLockedCoin((*it).first, i) && (pcoin->tx->vout[i].nValue.GetAmount() > 0 || fIncludeZeroValue) &&
                     (!coinControl || !coinControl->HasSelected() || coinControl->fAllowOtherInputs || coinControl->IsSelected(COutPoint((*it).first, i))))
                         vCoins.push_back(COutput(pcoin, i, nDepth,
                                                  ((mine & ISMINE_SPENDABLE) != ISMINE_NO) ||
@@ -2167,7 +2167,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, const int nConfMin
             continue;
 
         int i = output.i;
-        CAmount n = pcoin->tx->vout[i].nValue;
+        CAmount n = pcoin->tx->vout[i].nValue.GetAmount();
 
         pair<CAmount,pair<const CWalletTx*,unsigned int> > coin = make_pair(n,make_pair(pcoin, i));
 
@@ -2254,7 +2254,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmount&
         {
             if (!out.fSpendable)
                  continue;
-            nValueRet += out.tx->tx->vout[out.i].nValue;
+            nValueRet += out.tx->tx->vout[out.i].nValue.GetAmount();
             setCoinsRet.insert(make_pair(out.tx, out.i));
         }
         return (nValueRet >= nTargetValue);
@@ -2276,7 +2276,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmount&
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
-            nValueFromPresetInputs += pcoin->tx->vout[outpoint.n].nValue;
+            nValueFromPresetInputs += pcoin->tx->vout[outpoint.n].nValue.GetAmount();
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -2320,7 +2320,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     for (size_t idx = 0; idx < tx.vout.size(); idx++)
     {
         const CTxOut& txOut = tx.vout[idx];
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue, setSubtractFeeFromOutputs.count(idx) == 1};
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), setSubtractFeeFromOutputs.count(idx) == 1};
         vecSend.push_back(recipient);
     }
 
@@ -2456,12 +2456,12 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
-                        txout.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
+                        txout.nValue = CTxOutValue(txout.nValue.GetAmount() - (nFeeRet / nSubtractFeeFromAmount)); // Subtract fee equally from each selected recipient
 
                         if (fFirst) // first receiver pays the remainder not divisible by output count
                         {
                             fFirst = false;
-                            txout.nValue -= nFeeRet % nSubtractFeeFromAmount;
+                            txout.nValue =  CTxOutValue(txout.nValue.GetAmount() - (nFeeRet % nSubtractFeeFromAmount));
                         }
                     }
 
@@ -2469,7 +2469,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     {
                         if (recipient.fSubtractFeeFromAmount && nFeeRet > 0)
                         {
-                            if (txout.nValue < 0)
+                            if (txout.nValue.GetAmount() < 0)
                                 strFailReason = _("The transaction amount is too small to pay the fee");
                             else
                                 strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
@@ -2491,7 +2491,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 }
                 for (const auto& pcoin : setCoins)
                 {
-                    CAmount nCredit = pcoin.first->tx->vout[pcoin.second].nValue;
+                    CAmount nCredit = pcoin.first->tx->vout[pcoin.second].nValue.GetAmount();
                     //The coin age after the next block (depth+1) is used instead of the current,
                     //reflecting an assumption the user would accept a bit more delay for
                     //a chance at a free transaction.
@@ -2545,13 +2545,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     // So instead we raise the change and deduct from the recipient.
                     if (nSubtractFeeFromAmount > 0 && newTxOut.IsDust(dustRelayFee))
                     {
-                        CAmount nDust = newTxOut.GetDustThreshold(dustRelayFee) - newTxOut.nValue;
-                        newTxOut.nValue += nDust; // raise change until no more dust
+                        CAmount nDust = newTxOut.GetDustThreshold(dustRelayFee) - newTxOut.nValue.GetAmount();
+                        newTxOut.nValue = CTxOutValue(newTxOut.nValue.GetAmount() + nDust); // raise change until no more dust
                         for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from first recipient
                         {
                             if (vecSend[i].fSubtractFeeFromAmount)
                             {
-                                txNew.vout[i].nValue -= nDust;
+                                txNew.vout[i].nValue = CTxOutValue(txNew.vout[i].nValue.GetAmount() - nDust);
                                 if (txNew.vout[i].IsDust(dustRelayFee))
                                 {
                                     strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
@@ -2667,7 +2667,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
                         vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
-                        change_position->nValue += extraFeePaid;
+                        change_position->nValue = CTxOutValue(change_position->nValue.GetAmount() + extraFeePaid);
                         nFeeRet -= extraFeePaid;
                     }
                     break; // Done, enough fee included.
@@ -2678,8 +2678,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
                     vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                     // Only reduce change if remaining amount is still a large enough output.
-                    if (change_position->nValue >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
-                        change_position->nValue -= additionalFeeNeeded;
+                    if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
+                        change_position->nValue = CTxOutValue(change_position->nValue.GetAmount() - additionalFeeNeeded);
                         nFeeRet += additionalFeeNeeded;
                         break; // Done, able to increase fee from change
                     }
@@ -3146,7 +3146,7 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
                 if(!ExtractDestination(pcoin->tx->vout[i].scriptPubKey, addr))
                     continue;
 
-                CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->tx->vout[i].nValue;
+                CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->tx->vout[i].nValue.GetAmount();
 
                 if (!balances.count(addr))
                     balances[addr] = 0;

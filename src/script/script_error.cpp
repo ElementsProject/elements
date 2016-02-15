@@ -97,6 +97,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Withdraw proof validation failed - output does not match expected";
         case SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED:
             return "Withdraw proof validation failed - lock block was not sufficiently confirmed on sending chain";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS:
+            return "Withdraw proof validation failed - amounts in outputs were blinded";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

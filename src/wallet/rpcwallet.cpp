@@ -592,7 +592,7 @@ UniValue getreceivedbyaddress(const JSONRPCRequest& request)
         BOOST_FOREACH(const CTxOut& txout, wtx.tx->vout)
             if (txout.scriptPubKey == scriptPubKey)
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+                    nAmount += txout.nValue.GetAmount();
     }
 
     return  ValueFromAmount(nAmount);
@@ -648,7 +648,7 @@ UniValue getreceivedbyaccount(const JSONRPCRequest& request)
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
                 if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+                    nAmount += txout.nValue.GetAmount();
         }
     }
 
@@ -1187,7 +1187,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
                 continue;
 
             tallyitem& item = mapTally[address];
-            item.nAmount += txout.nValue;
+            item.nAmount += txout.nValue.GetAmount();
             item.nConf = min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -2503,7 +2503,7 @@ UniValue listunspent(const JSONRPCRequest& request)
         }
 
         entry.push_back(Pair("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
-        entry.push_back(Pair("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue)));
+        entry.push_back(Pair("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue.GetAmount())));
         entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         entry.push_back(Pair("solvable", out.fSolvable));
@@ -2910,15 +2910,15 @@ UniValue bumpfee(const JSONRPCRequest& request)
     assert(nDelta > 0);
     CMutableTransaction tx(*(wtx.tx));
     CTxOut* poutput = &(tx.vout[nOutput]);
-    if (poutput->nValue < nDelta) {
+    if (poutput->nValue.GetAmount() < nDelta) {
         throw JSONRPCError(RPC_MISC_ERROR, "Change output is too small to bump the fee");
     }
 
     // If the output would become dust, discard it (converting the dust to fee)
-    poutput->nValue -= nDelta;
-    if (poutput->nValue <= poutput->GetDustThreshold(::dustRelayFee)) {
+    poutput->nValue = CTxOutValue(poutput->nValue.GetAmount() - nDelta);
+    if (poutput->nValue.GetAmount() <= poutput->GetDustThreshold(::dustRelayFee)) {
         LogPrint("rpc", "Bumping fee and discarding dust output\n");
-        nNewFee += poutput->nValue;
+        nNewFee += poutput->nValue.GetAmount();
         tx.vout.erase(tx.vout.begin() + nOutput);
     }
 
@@ -2936,7 +2936,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
         std::map<uint256, CWalletTx>::const_iterator mi = pwalletMain->mapWallet.find(input.prevout.hash);
         assert(mi != pwalletMain->mapWallet.end() && input.prevout.n < mi->second.tx->vout.size());
         const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
-        const CAmount& amount = mi->second.tx->vout[input.prevout.n].nValue;
+        const CAmount& amount = mi->second.tx->vout[input.prevout.n].nValue.GetAmount();
         SignatureData sigdata;
         if (!ProduceSignature(TransactionSignatureCreator(pwalletMain, &txNewConst, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Can't sign transaction.");
