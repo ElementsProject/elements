@@ -110,12 +110,8 @@ private:
                 // * Don't do batches smaller than 1 (duh), or larger than nBatchSize.
                 nNow = std::max(1U, std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1)));
                 vChecks.clear();
-                for (unsigned int i = 0; i < nNow; i++) {
-                    // We want the lock on the mutex to be as short as possible, so swap jobs from the global
-                    // queue to the local batch vector instead of copying.
-                    vChecks.insert(vChecks.end(), queue.end() - nNow, queue.end());
-                    queue.resize(queue.size() - nNow);
-                }
+                vChecks.insert(vChecks.end(), queue.end() - nNow, queue.end());
+                queue.resize(queue.size() - nNow);
                 // Check whether we need to do work at all
                 fOk = fAllOk;
             }
