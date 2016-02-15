@@ -145,7 +145,7 @@ TestChain100Setup::~TestChain100Setup()
 CAmount TotalValueOut(const CMutableTransaction& tx) {
     CAmount nTotal = 0;
     BOOST_FOREACH(const CTxOut& txo, tx.vout)
-        nTotal += txo.nValue;
+        nTotal += txo.nValue.GetAmount();
     return nTotal;
 }
 

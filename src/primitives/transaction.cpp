@@ -43,7 +43,48 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+
+CTxOutValue::CTxOutValue()
+: nAmount(-1)
+{
+}
+
+CTxOutValue::CTxOutValue(CAmount nAmountIn)
+: nAmount(nAmountIn)
+{
+}
+
+bool CTxOutValue::IsValid() const
+{
+    return MoneyRange(nAmount);
+}
+
+bool CTxOutValue::IsNull() const
+{
+    return nAmount == -1;
+}
+
+bool CTxOutValue::IsAmount() const
+{
+    return nAmount != -1;
+}
+
+CAmount CTxOutValue::GetAmount() const
+{
+    assert(IsAmount());
+    return nAmount;
+}
+
+bool operator==(const CTxOutValue& a, const CTxOutValue& b)
+{
+    return a.nAmount == b.nAmount;
+}
+
+bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
+    return !(a == b);
+}
+
+CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
 {
     nValue = nValueIn;
     scriptPubKey = scriptPubKeyIn;
@@ -51,7 +92,7 @@ CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
+    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}

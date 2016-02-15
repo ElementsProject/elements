@@ -126,13 +126,38 @@ public:
     std::string ToString() const;
 };
 
+
+class CTxOutValue
+{
+    CAmount nAmount;
+public:
+    CTxOutValue();
+    CTxOutValue(CAmount);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nAmount);
+    }
+
+    bool IsValid() const;
+    bool IsNull() const;
+    bool IsAmount() const;
+
+    CAmount GetAmount() const;
+
+    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b);
+    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b);
+};
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
 class CTxOut
 {
 public:
-    CAmount nValue;
+    CTxOutValue nValue;
     CScript scriptPubKey;
 
     CTxOut()
@@ -140,7 +165,7 @@ public:
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
@@ -195,7 +220,9 @@ public:
 
     bool IsDust(const CFeeRate &minRelayTxFee) const
     {
-        return (nValue < GetDustThreshold(minRelayTxFee));
+        if (!nValue.IsAmount())
+            return false; // FIXME
+        return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)

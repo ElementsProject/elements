@@ -228,7 +228,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
     stack.push_back(new CCoinsViewCacheTest(&base)); // Start with one cache.
 
     // Track the txids we've used and whether they have been spent or not
-    std::map<uint256, CAmount> coinbaseids;
+    std::map<uint256, CTxOutValue> coinbaseids;
     std::set<uint256> alltxids;
     std::set<uint256> duplicateids;
 
@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             if (insecure_rand() % 10 == 0 || coinbaseids.size() < 10) {
                 // 1/100 times create a duplicate coinbase
                 if (insecure_rand() % 10 == 0 && coinbaseids.size()) {
-                    std::map<uint256, CAmount>::iterator coinbaseIt = coinbaseids.lower_bound(GetRandHash());
+                    std::map<uint256, CTxOutValue>::iterator coinbaseIt = coinbaseids.lower_bound(GetRandHash());
                     if (coinbaseIt == coinbaseids.end()) {
                         coinbaseIt = coinbaseids.begin();
                     }

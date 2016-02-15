@@ -102,7 +102,8 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
-        out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
+        if (txout.nValue.IsAmount())
+            out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
@@ -817,7 +818,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             continue;
         }
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
-        const CAmount& amount = coins->vout[txin.prevout.n].nValue;
+        const CTxOutValue& amount = coins->vout[txin.prevout.n].nValue;
 
         SignatureData sigdata;
         // Only sign SIGHASH_SINGLE if there's a corresponding output:

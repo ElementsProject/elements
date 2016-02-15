@@ -415,8 +415,8 @@ class CScriptCheck
 {
 private:
     CScript scriptPubKey;
-    CAmount amount;
-    CAmount amountPreviousInput;
+    CTxOutValue amount;
+    CTxOutValue amountPreviousInput;
     const CTransaction *ptxTo;
     unsigned int nIn;
     unsigned int nFlags;
@@ -426,7 +426,7 @@ private:
 
 public:
     CScriptCheck(): amount(0), amountPreviousInput(-1), ptxTo(0), nIn(0), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, CAmount amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CTxOutValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
         amountPreviousInput(amountPreviousInputIn),
         ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn) { }

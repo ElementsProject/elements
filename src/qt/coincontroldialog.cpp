@@ -789,10 +789,10 @@ void CoinControlDialog::updateView()
             itemOutput->setText(COLUMN_CONFIRMATIONS, strPad(QString::number(out.nDepth), 8, " "));
 
             // priority
-            double dPriority = ((double)out.tx->vout[out.i].nValue  / (nInputSize + 78)) * (out.nDepth+1); // 78 = 2 * 34 + 10
+            double dPriority = ((double)out.tx->vout[out.i].nValue.GetAmount()  / (nInputSize + 78)) * (out.nDepth+1); // 78 = 2 * 34 + 10
             itemOutput->setText(COLUMN_PRIORITY, CoinControlDialog::getPriorityLabel(dPriority, mempoolEstimatePriority));
             itemOutput->setText(COLUMN_PRIORITY_INT64, strPad(QString::number((int64_t)dPriority), 20, " "));
-            dPrioritySum += (double)out.tx->vout[out.i].nValue  * (out.nDepth+1);
+            dPrioritySum += (double)out.tx->vout[out.i].nValue.GetAmount()  * (out.nDepth+1);
             nInputSum    += nInputSize;
 
             // transaction hash
