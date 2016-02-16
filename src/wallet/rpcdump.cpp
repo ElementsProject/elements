@@ -1108,12 +1108,12 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
     return response;
 }
 
-UniValue dumpblindingkey(const UniValue& params, bool fHelp)
+UniValue dumpblindingkey(const JSONRPCRequest& request)
 {
-    if (!EnsureWalletIsAvailable(fHelp))
+    if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 1 || params.size() > 1)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 1)
         throw runtime_error(
             "dumpblindingkey \"address\"\n"
             "\nDumps the private blinding key for a CT address in hex."
@@ -1123,7 +1123,7 @@ UniValue dumpblindingkey(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    CBitcoinAddress address(params[0].get_str());
+    CBitcoinAddress address(request.params[0].get_str());
     if (!address.IsValid()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
     }
@@ -1152,12 +1152,12 @@ UniValue dumpblindingkey(const UniValue& params, bool fHelp)
     throw JSONRPCError(RPC_WALLET_ERROR, "Blinding key for address is unknown");
 }
 
-UniValue importblindingkey(const UniValue& params, bool fHelp)
+UniValue importblindingkey(const JSONRPCRequest& request)
 {
-    if (!EnsureWalletIsAvailable(fHelp))
+    if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 2 || params.size() > 2)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 2)
         throw runtime_error(
             "importblindingkey \"address\" \"blindinghex\"\n"
             "\nImports a private blinding key in hex for a CT address."
@@ -1168,7 +1168,7 @@ UniValue importblindingkey(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    CBitcoinAddress address(params[0].get_str());
+    CBitcoinAddress address(request.params[0].get_str());
     if (!address.IsValid()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address or script");
     }
@@ -1176,10 +1176,10 @@ UniValue importblindingkey(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a CT address");
     }
 
-    if (!IsHex(params[1].get_str())) {
+    if (!IsHex(request.params[1].get_str())) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
     }
-    std::vector<unsigned char> keydata = ParseHex(params[1].get_str());
+    std::vector<unsigned char> keydata = ParseHex(request.params[1].get_str());
     if (keydata.size() != 32) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length");
     }

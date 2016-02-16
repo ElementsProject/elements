@@ -3079,8 +3079,8 @@ extern UniValue importwallet(const JSONRPCRequest& request);
 extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
-extern UniValue dumpblindingkey(const UniValue& params, bool fHelp);
-extern UniValue importblindingkey(const UniValue& params, bool fHelp);
+extern UniValue dumpblindingkey(const JSONRPCRequest& request);
+extern UniValue importblindingkey(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                        actor (function)           okSafeMode
