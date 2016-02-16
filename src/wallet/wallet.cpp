@@ -1082,7 +1082,7 @@ CAmount CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) const
             const CWalletTx& prev = (*mi).second;
             if (txin.prevout.n < prev.vout.size())
                 if (IsMine(prev.vout[txin.prevout.n]) & filter)
-                    return prev.GetValueOut(txin.prevout.n);
+                    return std::max<CAmount>(0, prev.GetValueOut(txin.prevout.n));
         }
     }
     return 0;
@@ -1281,11 +1281,21 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
         nFee = nTxFee;
     }
 
+    CTxDestination addressUnaccounted = CNoDestination();
+    int voutUnaccounted = -1;
+    CAmount nValueUnaccounted = nDebit - nFee;
+    int nUnaccountedOutputs = 0;
+
     // Sent/received.
     for (unsigned int i = 0; i < vout.size(); ++i)
     {
+        CAmount nValueOut = GetValueOut(i);
+
+        if (nValueOut >= 0) {
+            nValueUnaccounted -= nValueOut;
+        }
         const CTxOut& txout = vout[i];
-        isminetype fIsMine = pwallet->IsMine(txout);
+        isminetype fIsMine = nValueOut >= 0 ? pwallet->IsMine(txout) : ISMINE_NO;
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
         //   2) the output is to us (received)
@@ -1308,11 +1318,17 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             address = CNoDestination();
         }
 
-        COutputEntry output = {address, GetValueOut(i), (int)i, CPubKey()};
-
-        if (!txout.nValue.IsAmount() && GetValueOut(i) > 0) {
-            output.confidentiality_pubkey = GetBlindingKey(i);
+        if (nDebit > 0 && nValueOut < 0) {
+            // This is an output we'd add to listSent, but we don't know its value.
+            // Instead just remember its details so we can reconstruct it or
+            // correct for it afterwards.
+            addressUnaccounted = address;
+            voutUnaccounted = i;
+            nUnaccountedOutputs++;
+            continue;
         }
+
+        COutputEntry output = {address, nValueOut, (int)i, GetBlindingKey(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -1323,6 +1339,17 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             listReceived.push_back(output);
     }
 
+    if (nValueUnaccounted != 0 && nDebit > 0) {
+        if (nValueUnaccounted > 0 && nUnaccountedOutputs == 1) {
+            // There is exactly one sent output with unknown value. Reconstruct it.
+            COutputEntry unaccounted = {addressUnaccounted, nValueUnaccounted, voutUnaccounted, CPubKey()};
+            listSent.push_back(unaccounted);
+        } else {
+            // It's not simple. Create a synthetic unknown output entry to correct.
+            COutputEntry unaccounted = {CNoDestination(), nValueUnaccounted, -1, CPubKey()};
+            listSent.push_back(unaccounted);
+        }
+    }
 }
 
 void CWalletTx::GetAccountAmounts(const string& strAccount, CAmount& nReceived,
