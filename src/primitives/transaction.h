@@ -129,26 +129,52 @@ public:
 
 class CTxOutValue
 {
-    CAmount nAmount;
 public:
+    static const size_t nCommitmentSize = 33;
+
+    std::vector<unsigned char> vchCommitment;
+    std::vector<unsigned char> vchRangeproof;
+    std::vector<unsigned char> vchNonceCommitment;
+
     CTxOutValue();
     CTxOutValue(CAmount);
+    CTxOutValue(const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchRangeproofIn);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(nAmount);
+        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
+            CAmount nAmount = 0;
+            if (!ser_action.ForRead())
+                nAmount = GetAmount();
+            READWRITE(nAmount);
+            if (ser_action.ForRead())
+                SetToBitcoinAmount(nAmount);
+        } else {
+            // Though the range proof + nonce commitment are essentially witness data,
+            // we dont care too much about the space-savings here. Also, since they're
+            // signed by everything (output data), we don't take a malleability hit for
+            // doing this.
+            READWRITE(REF(CFlatData(&vchCommitment[0], &vchCommitment[nCommitmentSize])));
+            READWRITE(vchRangeproof);
+            READWRITE(vchNonceCommitment);
+        }
     }
 
     bool IsValid() const;
     bool IsNull() const;
-    bool IsAmount() const;
+    bool IsAmount() const; // True for both native Amounts and "Bitcoin amounts"
 
     CAmount GetAmount() const;
 
     friend bool operator==(const CTxOutValue& a, const CTxOutValue& b);
     friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b);
+
+private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BITCOIN_BLOCK_OR_TX
+    void SetToBitcoinAmount(const CAmount nAmount);
+    bool IsInBitcoinTransaction() const;
+    void SetToAmount(const CAmount nAmount);
 };
 
 /** An output of a transaction.  It contains the public key that the next input

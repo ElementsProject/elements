@@ -45,43 +45,77 @@ std::string CTxIn::ToString() const
 
 
 CTxOutValue::CTxOutValue()
-: nAmount(-1)
 {
+    vchCommitment.resize(nCommitmentSize);
+    vchCommitment[0] = 0xff;
 }
 
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
-: nAmount(nAmountIn)
 {
+    vchCommitment.resize(nCommitmentSize);
+    SetToAmount(nAmountIn);
 }
 
 bool CTxOutValue::IsValid() const
 {
-    return MoneyRange(nAmount);
+    switch(vchCommitment[0]) {
+        case 0:
+        case 1:
+            for (size_t i = 0; i < nCommitmentSize - sizeof(CAmount); i++)
+                if (vchCommitment[i])
+                    return false;
+            return true;
+        case 2:
+        case 3:
+            return true;
+        default:
+            return false;
+    }
 }
 
 bool CTxOutValue::IsNull() const
 {
-    return nAmount == -1;
+    return vchCommitment[0] == 0xff;
 }
 
 bool CTxOutValue::IsAmount() const
 {
-    return nAmount != -1;
+    return vchCommitment[0] == 0 || vchCommitment[0] == 1;
 }
 
 CAmount CTxOutValue::GetAmount() const
 {
     assert(IsAmount());
+    CAmount nAmount = 0;
+    for (size_t i = 0; i < sizeof(nAmount); i++)
+        nAmount |= CAmount(vchCommitment[nCommitmentSize - 1 - i]) << (i * 8);
     return nAmount;
 }
 
 bool operator==(const CTxOutValue& a, const CTxOutValue& b)
 {
-    return a.nAmount == b.nAmount;
+    return a.vchRangeproof == b.vchRangeproof &&
+           a.vchCommitment == b.vchCommitment &&
+           a.vchNonceCommitment == b.vchNonceCommitment;
 }
 
 bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
     return !(a == b);
+}
+
+void CTxOutValue::SetToBitcoinAmount(const CAmount nAmount) {
+    SetToAmount(nAmount);
+    vchCommitment[0] = 1;
+}
+
+bool CTxOutValue::IsInBitcoinTransaction() const {
+    return vchCommitment[0] == 1;
+}
+
+void CTxOutValue::SetToAmount(const CAmount nAmount) {
+    memset(&vchCommitment[0], 0, nCommitmentSize - sizeof(nAmount));
+    for (size_t i = 0; i < sizeof(nAmount); ++i)
+        vchCommitment[nCommitmentSize - 1 - i] = ((nAmount >> (i * 8)) & 0xff);
 }
 
 CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)

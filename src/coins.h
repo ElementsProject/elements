@@ -479,18 +479,6 @@ public:
     //! Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
 
-    /** 
-     * Amount of bitcoins coming in to a transaction
-     * Note that lightweight clients may not know anything besides the hash of previous transactions,
-     * so may not be able to calculate this.
-     *
-     * @param[in] tx	transaction for which we are checking input total
-     * @return	Sum of value of all inputs (scriptSigs)
-     */
-private:
-    CAmount GetValueIn(const CTransaction& tx) const;
-
-public:
     /**
      * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
      *

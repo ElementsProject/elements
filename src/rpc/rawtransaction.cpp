@@ -104,6 +104,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         UniValue out(UniValue::VOBJ);
         if (txout.nValue.IsAmount())
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
+        else {} // TODO: Non-Amount values
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);

@@ -114,13 +114,25 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!ser_action.ForRead()) {
-            assert(txout.nValue.IsAmount());
-            uint64_t nVal = CompressAmount(txout.nValue.GetAmount());
-            READWRITE(VARINT(nVal));
+            if (txout.nValue.IsAmount()) {
+                uint8_t b = 0;
+                READWRITE(b);
+                uint64_t nVal = CompressAmount(txout.nValue.GetAmount());
+                READWRITE(VARINT(nVal));
+            } else {
+                uint8_t b = 1;
+                READWRITE(b);
+                READWRITE(txout.nValue);
+            }
         } else {
-            uint64_t nVal = 0;
-            READWRITE(VARINT(nVal));
-            txout.nValue = DecompressAmount(nVal);
+            uint8_t type;
+            READWRITE(type);
+            if (type == 0) {
+                uint64_t nVal = 0;
+                READWRITE(VARINT(nVal));
+                txout.nValue = DecompressAmount(nVal);
+            } else
+                READWRITE(txout.nValue);
         }
         CScriptCompressor cscript(REF(txout.scriptPubKey));
         READWRITE(cscript);
