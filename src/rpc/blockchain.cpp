@@ -765,6 +765,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
         ret.push_back(Pair("confirmations", pindex->nHeight - coins.nHeight + 1));
     if (coins.vout[n].nValue.IsAmount())
         ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue.GetAmount())));
+    else {} // TODO: Non-Amount values
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
     ret.push_back(Pair("scriptPubKey", o));

@@ -197,6 +197,8 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
         if (txout.nValue.IsAmount()) {
             UniValue outValue(UniValue::VNUM, FormatMoney(txout.nValue.GetAmount()));
             out.pushKV("value", outValue);
+        } else {
+            //TODO: Non-Amount values
         }
         out.pushKV("n", (int64_t)i);
 
