@@ -16,6 +16,7 @@
 // paid to a TX_PUBKEY, the second 21 and 22 CENT outputs
 // paid to a TX_PUBKEYHASH.
 //
+/*
 static std::vector<CMutableTransaction>
 SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
 {
@@ -46,7 +47,7 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
 
     return dummyTransactions;
 }
-
+*/
 // Microbenchmark for simple accesses to a CCoinsViewCache database. Note from
 // laanwj, "replicating the actual usage patterns of the client is hard though,
 // many times micro-benchmarks of the database showed completely different
@@ -55,6 +56,7 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
 // (https://github.com/bitcoin/bitcoin/issues/7883#issuecomment-224807484)
 static void CCoinsCaching(benchmark::State& state)
 {
+    /*
     CBasicKeyStore keystore;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
@@ -82,6 +84,7 @@ static void CCoinsCaching(benchmark::State& state)
         CAmount value = coins.GetValueIn(t1);
         assert(value == (50 + 21 + 22) * CENT);
     }
+    */
 }
 
 BENCHMARK(CCoinsCaching);
