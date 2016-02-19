@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (c) 2013, 2014, 2015 Pieter Wuille, Gregory Maxwell      *
+ * Copyright (c) 2013-2015 Pieter Wuille, Gregory Maxwell             *
  * Distributed under the MIT software license, see the accompanying   *
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
@@ -131,6 +131,52 @@ void random_scalar_order(secp256k1_scalar *num) {
         }
         break;
     } while(1);
+}
+
+void run_util_tests(void) {
+    int i;
+    uint64_t r;
+    uint64_t r2;
+    uint64_t r3;
+    int64_t s;
+    CHECK(secp256k1_clz64_var(0) == 64);
+    CHECK(secp256k1_clz64_var(1) == 63);
+    CHECK(secp256k1_clz64_var(2) == 62);
+    CHECK(secp256k1_clz64_var(3) == 62);
+    CHECK(secp256k1_clz64_var(~0ULL) == 0);
+    CHECK(secp256k1_clz64_var((~0ULL) - 1) == 0);
+    CHECK(secp256k1_clz64_var((~0ULL) >> 1) == 1);
+    CHECK(secp256k1_clz64_var((~0ULL) >> 2) == 2);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MAX) == 0);
+    CHECK(r == INT64_MAX);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MAX - 1) == 0);
+    CHECK(r == INT64_MAX - 1);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MIN) == 1);
+    CHECK(r == (uint64_t)INT64_MAX + 1);
+    CHECK(secp256k1_sign_and_abs64(&r, INT64_MIN + 1) == 1);
+    CHECK(r == (uint64_t)INT64_MAX);
+    CHECK(secp256k1_sign_and_abs64(&r, 0) == 0);
+    CHECK(r == 0);
+    CHECK(secp256k1_sign_and_abs64(&r, 1) == 0);
+    CHECK(r == 1);
+    CHECK(secp256k1_sign_and_abs64(&r, -1) == 1);
+    CHECK(r == 1);
+    CHECK(secp256k1_sign_and_abs64(&r, 2) == 0);
+    CHECK(r == 2);
+    CHECK(secp256k1_sign_and_abs64(&r, -2) == 1);
+    CHECK(r == 2);
+    for (i = 0; i < 10; i++) {
+        CHECK(secp256k1_clz64_var((~0ULL) - secp256k1_rand32()) == 0);
+        r = ((uint64_t)secp256k1_rand32() << 32) | secp256k1_rand32();
+        r2 = secp256k1_rands64(0, r);
+        CHECK(r2 <= r);
+        r3 = secp256k1_rands64(r2, r);
+        CHECK((r3 >= r2) && (r3 <= r));
+        r = secp256k1_rands64(0, INT64_MAX);
+        s = (int64_t)r * (secp256k1_rand32()&1?-1:1);
+        CHECK(secp256k1_sign_and_abs64(&r2, s) == (s < 0));
+        CHECK(r2 == r);
+    }
 }
 
 void run_context_tests(void) {
@@ -4249,6 +4295,10 @@ void run_ecdsa_openssl(void) {
 # include "modules/recovery/tests_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_RANGEPROOF
+# include "modules/rangeproof/tests_impl.h"
+#endif
+
 int main(int argc, char **argv) {
     unsigned char seed16[16] = {0};
     unsigned char run32[32] = {0};
@@ -4301,6 +4351,7 @@ int main(int argc, char **argv) {
 
     run_rand_bits();
     run_rand_int();
+    run_util_tests();
 
     run_sha256_tests();
     run_hmac_sha256_tests();
@@ -4370,6 +4421,10 @@ int main(int argc, char **argv) {
 #ifdef ENABLE_MODULE_RECOVERY
     /* ECDSA pubkey recovery tests */
     run_recovery_tests();
+#endif
+
+#ifdef ENABLE_MODULE_RANGEPROOF
+    run_rangeproof_tests();
 #endif
 
     secp256k1_rand256(run32);
