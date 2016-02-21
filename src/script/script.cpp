@@ -336,6 +336,20 @@ COutPoint CScript::GetWithdrawSpent() const
     }
 }
 
+void CScript::PushWithdraw(const vector<unsigned char> push) {
+    int64_t pushCount = 0;
+    for (vector<unsigned char>::const_iterator it = push.begin(); it < push.end(); pushCount++) {
+        if (push.end() - it < 520) {
+            *this << vector<unsigned char>(it, push.end());
+            it = push.end();
+        } else {
+            *this << vector<unsigned char>(it, it + 520);
+            it += 520;
+        }
+    }
+    *this << pushCount;
+}
+
 bool CScript::IsPayToScriptHash() const
 {
     // Extra-fast test for pay-to-script-hash CScripts:

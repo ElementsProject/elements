@@ -636,6 +636,9 @@ public:
     /** Returns true if this is a proof-of-withdraw, spending an IsWithdrawLock */
     bool IsWithdrawProof() const;
 
+    //! Push a vector with a length postfix (as used by withdraw proofs)
+    void PushWithdraw(const std::vector<unsigned char> push);
+
     /** Get the withdraw output spent, asserting IsWithdrawProof first */
     COutPoint GetWithdrawSpent() const;
 
