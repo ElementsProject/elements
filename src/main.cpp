@@ -1907,12 +1907,19 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txund
     // mark inputs spent
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
-        BOOST_FOREACH(const CTxIn &txin, tx.vin) {
+        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            const CTxIn &txin = tx.vin[i];
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
             unsigned nPos = txin.prevout.n;
 
             if (nPos >= coins->vout.size() || coins->vout[nPos].IsNull())
                 assert(false);
+
+            if (coins->vout[txin.prevout.n].scriptPubKey.IsWithdrawLock() && txin.scriptSig.IsWithdrawProof()) {
+                pair<uint256, COutPoint> outpoint = make_pair(coins->vout[txin.prevout.n].scriptPubKey.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
+                inputs.SetWithdrawSpent(outpoint, true);
+            }
+
             // mark an outpoint spent, and construct undo information
             txundo.vprevout.push_back(CTxInUndo(coins->vout[nPos]));
             coins->Spend(nPos);
@@ -2137,7 +2144,7 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
  * @param out The out point that corresponds to the tx input.
  * @return True on success.
  */
-static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out)
+static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin)
 {
     bool fClean = true;
 
@@ -2159,6 +2166,20 @@ static bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const CO
     if (coins->vout.size() < out.n+1)
         coins->vout.resize(out.n+1);
     coins->vout[out.n] = undo.txout;
+
+    if (undo.txout.scriptPubKey.IsWithdrawLock()) {
+        if (!txin.scriptSig.IsWithdrawProof()) {
+            if (!txin.scriptSig.IsPushOnly())
+                fClean = fClean && error("%s: lock spent by non-proof", __func__);
+        } else {
+            pair<uint256, COutPoint> outpoint = make_pair(undo.txout.scriptPubKey.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
+            bool fSpent = view.IsWithdrawSpent(outpoint);
+            if (!fSpent)
+                fClean = fClean && error("%s: withdraw not marked spent", __func__);
+            else
+                view.SetWithdrawSpent(outpoint, false);
+        }
+    }
 
     return fClean;
 }
@@ -2214,7 +2235,7 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
                 const COutPoint &out = tx.vin[j].prevout;
                 const CTxInUndo &undo = txundo.vprevout[j];
-                if (!ApplyTxInUndo(undo, view, out))
+                if (!ApplyTxInUndo(undo, view, out, tx.vin[j]))
                     fClean = false;
             }
         }
