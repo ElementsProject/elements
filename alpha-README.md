@@ -46,7 +46,7 @@ for notes on dependencies that must be installed before beginning.
 ```bash
   git clone https://github.com/jgarzik/python-bitcoinrpc
 ```
-5\. Edit sidechain-manipulation.py (replace `user:pass` with your RPC username and password):
+5\. Edit contrib/fedpeg/constants.py (replace `user:pass` with your RPC username and password):
 ```python
   # VARIOUS SETTINGS...
   sidechain_url = "http://user:pass@127.0.0.1:4241"
