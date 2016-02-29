@@ -1466,7 +1466,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                             size_t pubkeylen = 33;
                                             assert(secp256k1_ec_pubkey_parse(secp256k1_interpreter_context, &pubkey, pub_start, 33));
                                             assert(secp256k1_ec_pubkey_tweak_add(secp256k1_interpreter_context, &pubkey, tweak) != 0);
-                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_interpreter_context, pub_start, &pubkeylen, &pubkey, 1));
+                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_interpreter_context, pub_start, &pubkeylen, &pubkey, SECP256K1_EC_COMPRESSED));
                                         }
                                     }
                                 }
