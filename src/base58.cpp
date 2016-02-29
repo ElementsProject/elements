@@ -240,13 +240,49 @@ bool CBitcoinAddress::Set(const CTxDestination& dest)
     return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
 }
 
+CBitcoinAddress& CBitcoinAddress::AddBlindingKey(const CPubKey& pubkey)
+{
+    if (!pubkey.IsValid()) {
+        return *this;
+    }
+    assert(pubkey.size() == 33);
+    assert(!IsBlinded());
+    std::vector<unsigned char> data = vchVersion;
+    data.insert(data.end(), pubkey.begin(), pubkey.end());
+    data.insert(data.end(), vchData.begin(), vchData.end());
+    SetData(Params().Base58Prefix(CChainParams::BLINDED_ADDRESS), &data[0], data.size());
+    return *this;
+}
+
+CPubKey CBitcoinAddress::GetBlindingKey() const
+{
+    assert(IsBlinded());
+    CPubKey pubkey(&vchData[1], &vchData[34]);
+    return pubkey;
+}
+
+bool CBitcoinAddress::IsBlinded(const CChainParams& params) const
+{
+    return (vchVersion == params.Base58Prefix(CChainParams::BLINDED_ADDRESS) && vchData.size() > 34);
+}
+
 bool CBitcoinAddress::IsValid() const
 {
     return IsValid(Params());
 }
 
+CBitcoinAddress CBitcoinAddress::GetUnblinded() const
+{
+    CBitcoinAddress subaddr;
+    subaddr.SetData(std::vector<unsigned char>(&vchData[0], &vchData[1]), &vchData[34], vchData.size() - 34);
+    return subaddr;
+}
+
 bool CBitcoinAddress::IsValid(const CChainParams& params) const
 {
+    if (IsBlinded(params)) {
+        return GetUnblinded().IsValid(params);
+    }
     bool fCorrectSize = vchData.size() == 20;
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
                          vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
@@ -255,6 +291,9 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
 
 CTxDestination CBitcoinAddress::Get() const
 {
+    if (IsBlinded()) {
+        return GetUnblinded().Get();
+    }
     if (!IsValid())
         return CNoDestination();
     uint160 id;
@@ -269,6 +308,9 @@ CTxDestination CBitcoinAddress::Get() const
 
 bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
 {
+    if (IsBlinded()) {
+        return GetUnblinded().GetKeyID(keyID);
+    }
     if (!IsValid() || vchVersion != Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS))
         return false;
     uint160 id;
@@ -279,6 +321,9 @@ bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
 
 bool CBitcoinAddress::IsScript() const
 {
+    if (IsBlinded()) {
+        return GetUnblinded().IsScript();
+    }
     return IsValid() && vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS);
 }
 

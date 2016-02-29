@@ -117,6 +117,11 @@ public:
     CTxDestination Get() const;
     bool GetKeyID(CKeyID &keyID) const;
     bool IsScript() const;
+
+    CBitcoinAddress& AddBlindingKey(const CPubKey &pubkey);
+    CPubKey GetBlindingKey() const;
+    CBitcoinAddress GetUnblinded() const;
+    bool IsBlinded(const CChainParams& params = Params()) const;
 };
 
 /**
