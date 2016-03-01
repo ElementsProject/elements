@@ -7,6 +7,7 @@
 #define BITCOIN_WALLET_WALLET_H
 
 #include "amount.h"
+#include "blind.h"
 #include "streams.h"
 #include "tinyformat.h"
 #include "ui_interface.h"
@@ -137,6 +138,7 @@ struct CRecipient
 {
     CScript scriptPubKey;
     CAmount nAmount;
+    CPubKey confidentiality_key;
     bool fSubtractFeeFromAmount;
 };
 
@@ -166,6 +168,7 @@ struct COutputEntry
     CTxDestination destination;
     CAmount amount;
     int vout;
+    CPubKey confidentiality_pubkey;
 };
 
 /** A transaction with a merkle branch linking it to the block chain. */
@@ -256,7 +259,7 @@ private:
     const CWallet* pwallet;
 
 public:
-    mapValue_t mapValue;
+    mutable mapValue_t mapValue;
     std::vector<std::pair<std::string, std::string> > vOrderForm;
     unsigned int fTimeReceivedIsTxTime;
     unsigned int nTimeReceived; //!< time received by this node
@@ -269,6 +272,11 @@ public:
     char fFromMe;
     std::string strFromAccount;
     int64_t nOrderPos; //!< position in ordered transaction list
+
+    // For each output
+    mutable std::vector<uint256> vBlindingFactors;
+    mutable std::vector<CAmount> vAmountsOut;
+    mutable std::vector<CPubKey> vBlindingKeys;
 
     // memory only
     mutable bool fDebitCached;
@@ -397,11 +405,13 @@ public:
 
     //! filter decides which addresses will count towards the debit
     CAmount GetDebit(const isminefilter& filter) const;
+    CAmount GetCredit(unsigned int nTxOut, const isminefilter& filter) const;
     CAmount GetCredit(const isminefilter& filter) const;
     CAmount GetImmatureCredit(bool fUseCache=true) const;
     CAmount GetAvailableCredit(bool fUseCache=true) const;
     CAmount GetImmatureWatchOnlyCredit(const bool& fUseCache=true) const;
     CAmount GetAvailableWatchOnlyCredit(const bool& fUseCache=true) const;
+    CAmount GetChange(unsigned int nTxOut) const;
     CAmount GetChange() const;
 
     void GetAmounts(std::list<COutputEntry>& listReceived,
@@ -427,6 +437,17 @@ public:
     bool RelayWalletTransaction(CConnman* connman);
 
     std::set<uint256> GetConflicts() const;
+
+private:
+    void GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut) const;
+
+public:
+    //! Returns either the value out (if it is to us) or 0
+    CAmount GetValueOut(unsigned int nOut) const;
+
+    //! Returns either the blinding factor (if it is to us) or 0
+    uint256 GetBlindingFactor(unsigned int nOut) const;
+    CPubKey GetBlindingKey(unsigned int nOut) const;
 };
 
 
@@ -656,6 +677,7 @@ public:
     typedef std::map<unsigned int, CMasterKey> MasterKeyMap;
     MasterKeyMap mapMasterKeys;
     unsigned int nMasterKeyMaxID;
+    std::map<CScriptID, uint256> mapSpecificBlindingKeys;
 
     CWallet()
     {
@@ -686,6 +708,8 @@ public:
         nLastResend = 0;
         nTimeFirstKey = 0;
         fBroadcastTransactions = false;
+        blinding_key = CKey();
+        blinding_derivation_key = uint256();
     }
 
     std::map<uint256, CWalletTx> mapWallet;
@@ -703,6 +727,13 @@ public:
     CPubKey vchDefaultKey;
 
     std::set<COutPoint> setLockedCoins;
+
+    //! The actual blinding key is computed as HMAC-SHA256(key=blinding_derivation_key, msg=scriptPubKey).
+    //! There can be exceptions in mapSpecificBlindingKeys.
+    uint256 blinding_derivation_key;
+
+    //! Only for backward compatibility with older wallets (superseded by blinding_derivation_key).
+    CKey blinding_key;
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
@@ -742,6 +773,10 @@ public:
     bool LoadKey(const CKey& key, const CPubKey &pubkey) { return CCryptoKeyStore::AddKeyPubKey(key, pubkey); }
     //! Load metadata (used by LoadWallet)
     bool LoadKeyMetadata(const CTxDestination& pubKey, const CKeyMetadata &metadata);
+    //! Adds a script-specific blinding key to the wallet, and saves it to disk.
+    bool AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
+    //! Adds a script-specific blinding key to the wallet without saving it to disk (used by LoadWallet)
+    bool LoadSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
 
     bool LoadMinVersion(int nVersion) { AssertLockHeld(cs_wallet); nWalletVersion = nVersion; nWalletMaxVersion = std::max(nWalletMaxVersion, nVersion); return true; }
     void UpdateTimeFirstKey(int64_t nCreateTime);
@@ -861,17 +896,15 @@ public:
      */
     CAmount GetDebit(const CTxIn& txin, const isminefilter& filter) const;
     isminetype IsMine(const CTxOut& txout) const;
-    CAmount GetCredit(const CTxOut& txout, const isminefilter& filter) const;
     bool IsChange(const CTxOut& txout) const;
-    CAmount GetChange(const CTxOut& txout) const;
     bool IsMine(const CTransaction& tx) const;
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
     CAmount GetDebit(const CTransaction& tx, const isminefilter& filter) const;
+    CAmount GetCredit(const CWalletTx& tx, const isminefilter& filter) const;
+    CAmount GetChange(const CWalletTx& tx) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
-    CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
-    CAmount GetChange(const CTransaction& tx) const;
     void SetBestChain(const CBlockLocator& loc) override;
 
     DBErrors LoadWallet(bool& fFirstRunRet);
@@ -959,6 +992,12 @@ public:
 
     /* Mark a transaction (and it in-wallet descendants) as abandoned so its inputs may be respent. */
     bool AbandonTransaction(const uint256& hashTx);
+
+    //! script == NULL gives the backward compatible blinding key
+    CKey GetBlindingKey(const CScript* script) const;
+    CPubKey GetBlindingPubKey(const CScript& script) const;
+
+    void ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor) const;
 
     /** Mark a transaction as replaced by another transaction (e.g., BIP 125). */
     bool MarkReplaced(const uint256& originalHash, const uint256& newHash);
