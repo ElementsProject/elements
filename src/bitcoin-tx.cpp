@@ -7,6 +7,7 @@
 #endif
 
 #include "base58.h"
+#include "blind.h"
 #include "clientversion.h"
 #include "coins.h"
 #include "consensus/consensus.h"
@@ -71,7 +72,8 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = HelpMessageGroup(_("Commands:"));
         strUsage += HelpMessageOpt("delin=N", _("Delete input N from TX"));
         strUsage += HelpMessageOpt("delout=N", _("Delete output N from TX"));
-        strUsage += HelpMessageOpt("in=TXID:VOUT(:SEQUENCE_NUMBER)", _("Add input to TX"));
+        strUsage += HelpMessageOpt("in=TXID:VOUT:VALUE(:SEQUENCE_NUMBER)", _("Add input to TX"));
+        strUsage += HelpMessageOpt("blind=B1:B2:B3:...", _("Transaction input blinds"));
         strUsage += HelpMessageOpt("locktime=N", _("Set TX lock time to N"));
         strUsage += HelpMessageOpt("nversion=N", _("Set TX version to N"));
         strUsage += HelpMessageOpt("outaddr=VALUE:ADDRESS", _("Add address-based output to TX"));
@@ -185,7 +187,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
     // separate TXID:VOUT in string
-    if (vStrInputParts.size()<2)
+    if (vStrInputParts.size()<3)
         throw runtime_error("TX input missing separator");
 
     // extract and validate TXID
@@ -203,14 +205,21 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     if ((vout < 0) || (vout > (int)maxVout))
         throw runtime_error("invalid TX input vout");
 
+    // extract and validate VALUE
+    string strValue = vStrInputParts[2];
+    CAmount value;
+    if (!ParseMoney(strValue, value))
+        throw runtime_error("invalid TX output value");
+
     // extract the optional sequence number
     uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max();
-    if (vStrInputParts.size() > 2)
-        nSequenceIn = std::stoul(vStrInputParts[2]);
+    if (vStrInputParts.size() > 3)
+        nSequenceIn = std::stoul(vStrInputParts[3]);
 
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequenceIn);
     tx.vin.push_back(txin);
+    tx.nTxFee += value;
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
@@ -239,7 +248,12 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
+    if (addr.IsBlinded()) {
+        CPubKey pubkey = addr.GetBlindingKey();
+        txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+    }
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
 }
 
 static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
@@ -269,6 +283,52 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
 
     CTxOut txout(value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
+}
+
+static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
+{
+    std::vector<std::string> input_blinding_factors;
+    boost::split(input_blinding_factors, strInput, boost::is_any_of(":"));
+
+    if (input_blinding_factors.size() != tx.vin.size())
+        throw runtime_error("One input blinding factor required per transaction input");
+
+    bool fBlindedIns = false;
+    bool fBlindedOuts = false;
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> output_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        uint256 blind;
+        blind.SetHex(input_blinding_factors[nIn]);
+        if (blind.size() == 0) {
+            input_blinds.push_back(blind);
+        } else if (blind.size() == 32) {
+            input_blinds.push_back(blind);
+            fBlindedIns = true;
+        }
+    }
+    for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        if (!tx.vout[nOut].nValue.IsAmount())
+            throw runtime_error("Invalid parameter: transaction outputs must be unblinded");
+        if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
+            output_pubkeys.push_back(CPubKey());
+        } else {
+            CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
+            if (!pubkey.IsValid()) {
+                 throw runtime_error("Invalid parameter: invalid confidentiality public key given");
+            }
+            output_pubkeys.push_back(pubkey);
+            fBlindedOuts = true;
+        }
+        output_blinds.push_back(uint256());
+    }
+
+    if (fBlindedIns && !fBlindedOuts) {
+        throw runtime_error("Confidential inputs without confidential outputs");
+    }
+    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
@@ -292,10 +352,13 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 {
+    // TODO: reduce nTxFee
+
     // parse requested deletion index
     int inIdx = atoi(strInIdx);
     if (inIdx < 0 || inIdx >= (int)tx.vin.size()) {
@@ -309,6 +372,8 @@ static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 
 static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
+    // TODO: increase nTxFee
+
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
     if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
@@ -541,6 +606,9 @@ static void MutateTx(CMutableTransaction& tx, const string& command,
     else if (command == "sign") {
         if (!ecc) { ecc.reset(new Secp256k1Init()); }
         MutateTxSign(tx, commandVal);
+    } else if (command == "blind") {
+        if (!ecc) { ecc.reset(new Secp256k1Init()); }
+        MutateTxBlind(tx, commandVal);
     }
 
     else if (command == "load")
