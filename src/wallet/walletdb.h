@@ -25,6 +25,7 @@ struct CBlockLocator;
 class CKeyPool;
 class CMasterKey;
 class CScript;
+class CScriptID;
 class CWallet;
 class CWalletTx;
 class uint160;
@@ -166,6 +167,9 @@ public:
 
     CAmount GetAccountCreditDebit(const std::string& strAccount);
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& acentries);
+
+    bool WriteSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
+    bool WriteBlindingDerivationKey(const uint256& key);
 
     DBErrors ReorderTransactions(CWallet* pwallet);
     DBErrors LoadWallet(CWallet* pwallet);

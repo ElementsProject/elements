@@ -166,6 +166,9 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
             "  \"pubkey\" : \"publickeyhex\",    (string) The hex value of the raw public key\n"
             "  \"iscompressed\" : true|false,  (boolean) If the address is compressed\n"
             "  \"account\" : \"account\"         (string) DEPRECATED. The account associated with the address, \"\" is the default account\n"
+            "  \"confidential_key\" : \"pubkey\" (string) The confidentiality key associated with the address, or \"\" if none\n"
+            "  \"unconfidential\" : \"address\"  (string) The address without confidentiality key\n"
+            "  \"confidential\" : \"address\"    (string) Confidential version of the address, only if it is yours and unconfidential\n"
             "  \"hdkeypath\" : \"keypath\"       (string, optional) The HD keypath if the key is HD and available\n"
             "  \"hdmasterkeyid\" : \"<hash160>\" (string, optional) The Hash160 of the HD master pubkey\n"
             "}\n"
@@ -194,10 +197,26 @@ UniValue validateaddress(const UniValue& params, bool fHelp)
         CScript scriptPubKey = GetScriptForDestination(dest);
         ret.push_back(Pair("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
 
+        if (address.IsBlinded()) {
+            CPubKey key = address.GetBlindingKey();
+            ret.push_back(Pair("confidential_key", HexStr(key.begin(), key.end())));
+            ret.push_back(Pair("unconfidential", address.GetUnblinded().ToString()));
+        } else {
+            ret.push_back(Pair("confidential_key", ""));
+            ret.push_back(Pair("unconfidential", currentAddress));
+        }
+
 #ifdef ENABLE_WALLET
         isminetype mine = pwalletMain ? IsMine(*pwalletMain, dest) : ISMINE_NO;
+        if (mine != ISMINE_NO && address.IsBlinded() && address.GetBlindingKey() != pwalletMain->GetBlindingPubKey(GetScriptForDestination(dest))) {
+            // Note: this will fail to return ismine for deprecated static blinded addresses.
+            mine = ISMINE_NO;
+        }
         ret.push_back(Pair("ismine", (mine & ISMINE_SPENDABLE) ? true : false));
         ret.push_back(Pair("iswatchonly", (mine & ISMINE_WATCH_ONLY) ? true: false));
+        if (!address.IsBlinded() && mine != ISMINE_NO) {
+            ret.push_back(Pair("confidential", address.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(dest))).ToString()));
+        }
         UniValue detail = boost::apply_visitor(DescribeAddressVisitor(), dest);
         ret.pushKVs(detail);
         if (pwalletMain && pwalletMain->mapAddressBook.count(dest))
