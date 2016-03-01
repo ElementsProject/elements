@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "base58.h"
+#include "blind.h"
 #include "chain.h"
 #include "coins.h"
 #include "consensus/validation.h"
@@ -30,10 +31,35 @@
 #include <stdint.h>
 
 #include <boost/assign/list_of.hpp>
+#include <secp256k1_rangeproof.h>
 
 #include <univalue.h>
 
 using namespace std;
+
+static secp256k1_context* secp256k1_blind_context = NULL;
+
+class RPCRawTransaction_ECC_Init {
+public:
+    RPCRawTransaction_ECC_Init() {
+        assert(secp256k1_blind_context == NULL);
+
+        secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+        assert(ctx != NULL);
+
+        secp256k1_blind_context = ctx;
+    }
+
+    ~RPCRawTransaction_ECC_Init() {
+        secp256k1_context *ctx = secp256k1_blind_context;
+        secp256k1_blind_context = NULL;
+
+        if (ctx) {
+            secp256k1_context_destroy(ctx);
+        }
+    }
+};
+static RPCRawTransaction_ECC_Init ecc_init_on_load;
 
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
 {
@@ -104,7 +130,28 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         UniValue out(UniValue::VOBJ);
         if (txout.nValue.IsAmount())
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
-        else {} // TODO: Non-Amount values
+        else {
+            int exp;
+            int mantissa;
+            uint64_t minv;
+            uint64_t maxv;
+            if (secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size())) {
+                if (exp == -1) {
+                    out.push_back(Pair("value", ValueFromAmount((CAmount)minv)));
+                } else {
+                    out.push_back(Pair("value-minimum", ValueFromAmount((CAmount)minv)));
+                    out.push_back(Pair("value-maximum", ValueFromAmount((CAmount)maxv)));
+                }
+                out.push_back(Pair("ct-exponent", exp));
+                out.push_back(Pair("ct-bits", mantissa));
+            }
+        }
+
+        {
+            CDataStream ssValue(SER_NETWORK, PROTOCOL_VERSION);
+            ssValue << txout.nValue;
+            out.push_back(Pair("serValue", HexStr(ssValue.begin(), ssValue.end())));
+        }
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
@@ -356,6 +403,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             "       {\n"
             "         \"txid\":\"id\",    (string, required) The transaction id\n"
             "         \"vout\":n        (numeric, required) The output number\n"
+            "         \"nValue\":x.xxx, (numeric, required) The amount being spent\n"
             "         \"sequence\":n    (numeric, optional) The sequence number\n"
             "       }\n"
             "       ,...\n"
@@ -454,6 +502,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
 
             CTxOut out(nAmount, scriptPubKey);
+            if (address.IsBlinded()) {
+                CPubKey confidentiality_pubkey = address.GetBlindingKey();
+                if (!confidentiality_pubkey.IsValid())
+                     throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
+                out.nValue.vchNonceCommitment = std::vector<unsigned char>(confidentiality_pubkey.begin(), confidentiality_pubkey.end());
+            }
             rawTx.vout.push_back(out);
         }
     }
@@ -462,6 +516,153 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
     return EncodeHexTx(rawTx);
 }
+
+void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_blinds, std::vector<CPubKey>& output_pubkeys) {
+    for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        if (!tx.vout[nOut].nValue.IsAmount()) {
+            uint256 blinding_factor;
+            CAmount amount;
+#ifdef ENABLE_WALLET
+            if (fUseWallet && UnblindOutput(pwalletMain->blinding_key, tx.vout[nOut], amount, blinding_factor) != 0) {
+                output_blinds.push_back(blinding_factor);
+                output_pubkeys.push_back(CPubKey());
+            } else if (fUseWallet)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded or to wallet"));
+#endif
+            if (!fUseWallet)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded"));
+        } else if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
+            output_pubkeys.push_back(CPubKey());
+            output_blinds.push_back(uint256());
+        } else {
+            CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
+            if (!pubkey.IsValid()) {
+                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
+            }
+            output_pubkeys.push_back(pubkey);
+            output_blinds.push_back(uint256());
+        }
+    }
+}
+
+UniValue rawblindrawtransaction(const UniValue& params, bool fHelp)
+{
+    if (fHelp || (params.size() != 2 && params.size() != 3))
+        throw runtime_error(
+            "rawblindrawtransaction \"hexstring\" [\"inputblinder\",...] [\"totalblinder\"]\n"
+            "\nConvert one or more outputs of a raw transaction into confidential ones.\n"
+            "Returns the hex-encoded raw transaction.\n"
+            "If at least one of the inputs is confidential, at least one of the outputs must be.\n"
+            "The input raw transaction cannot have already-blinded outputs.\n"
+            "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
+
+            "\nArguments:\n"
+            "1. \"hexstring\",          (string, required) A hex-encoded raw transaction.\n"
+            "2. [                     (array, required) An array with one entry per transaction input.\n"
+            "    \"inputblinder\"       (string, required) A hex-encoded blinding factor, one for each input.\n"
+            "                         Blinding factors can be found in the \"blinder\" output of listunspent.\n"
+            "   ],\n"
+            "3. \"totalblinder\"        (string, optional) Ignored for now.\n"
+
+            "\nResult:\n"
+            "\"transaction\"              (string) hex string of the transaction\n"
+        );
+
+    if (params.size() == 2) {
+        RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR));
+    } else {
+        RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR)(UniValue::VSTR));
+    }
+
+    vector<unsigned char> txData(ParseHexV(params[0], "argument 1"));
+    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+    CMutableTransaction tx;
+    try {
+        ssData >> tx;
+    } catch (const std::exception &) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    UniValue inputBlinds = params[1].get_array();
+
+    if (inputBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input blind for each input must be provided"));
+
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> output_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        if (!inputBlinds[nIn].isStr())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of hex strings");
+        std::string blind(inputBlinds[nIn].get_str());
+        if (!IsHex(blind) || blind.length() != 32*2)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of 32-byte hex-encoded strings");
+        input_blinds.push_back(uint256S(blind));
+    }
+
+    FillOutputBlinds(tx, false, output_blinds, output_pubkeys);
+
+    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+
+    return EncodeHexTx(tx);
+}
+
+#ifdef ENABLE_WALLET
+UniValue blindrawtransaction(const UniValue& params, bool fHelp)
+{
+    if (fHelp || (params.size() != 1 && params.size() != 2))
+        throw runtime_error(
+            "blindrawtransaction \"hexstring\" [\"totalblinder\"]\n"
+            "\nConvert one or more outputs of a raw transaction into confidential ones using only wallet inputs.\n"
+            "Returns the hex-encoded raw transaction.\n"
+            "If at least one of the inputs is confidential, at least one of the outputs must be.\n"
+            "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
+
+            "\nArguments:\n"
+            "1. \"hexstring\",          (string, required) A hex-encoded raw transaction.\n"
+            "2. \"totalblinder\"        (string, optional) Ignored for now.\n"
+
+            "\nResult:\n"
+            "\"transaction\"              (string) hex string of the transaction\n"
+        );
+
+    if (params.size() == 1) {
+        RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
+    } else {
+        RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VSTR));
+    }
+
+    vector<unsigned char> txData(ParseHexV(params[0], "argument 1"));
+    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+    CMutableTransaction tx;
+    try {
+        ssData >> tx;
+    } catch (const std::exception &) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    LOCK(pwalletMain->cs_wallet);
+
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> output_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.find(tx.vin[nIn].prevout.hash);
+        if (it == pwalletMain->mapWallet.end()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction spends from non-wallet output"));
+        }
+        if (tx.vin[nIn].prevout.n >= it->second.vout.size()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction spends non-existing output"));
+        }
+        input_blinds.push_back(it->second.GetBlindingFactor(tx.vin[nIn].prevout.n));
+    }
+
+    FillOutputBlinds(tx, true, output_blinds, output_pubkeys);
+
+    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+
+    return EncodeHexTx(tx);
+}
+#endif
 
 UniValue decoderawtransaction(const UniValue& params, bool fHelp)
 {
@@ -921,6 +1122,8 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "decodescript",           &decodescript,           true  },
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false },
     { "rawtransactions",    "signrawtransaction",     &signrawtransaction,     false }, /* uses wallet if enabled */
+    { "rawtransactions",    "rawblindrawtransaction", &rawblindrawtransaction, false },
+    { "rawtransactions",    "blindrawtransaction",    &blindrawtransaction,    true  },
 
     { "blockchain",         "gettxoutproof",          &gettxoutproof,          true  },
     { "blockchain",         "verifytxoutproof",       &verifytxoutproof,       true  },
