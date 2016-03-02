@@ -341,7 +341,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 3)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,\"data\":\"hex\",...} ( locktime )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n,\"nValue\":n},...] {\"address\":amount,\"data\":\"hex\",...} ( locktime )\n"
             "\nCreate a transaction spending the given inputs and creating new outputs.\n"
             "Outputs can be addresses or data.\n"
             "Returns hex-encoded raw transaction.\n"
@@ -391,6 +391,8 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         rawTx.nLockTime = nLockTime;
     }
 
+    CAmount inputValue = 0;
+
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
         const UniValue& o = input.get_obj();
@@ -418,8 +420,13 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
+        const UniValue& vout_value = find_value(o, "nValue");
+        inputValue += AmountFromValue(vout_value);
+
         rawTx.vin.push_back(in);
     }
+
+    CAmount outputValue = 0;
 
     set<CBitcoinAddress> setAddress;
     vector<string> addrList = sendTo.getKeys();
@@ -441,11 +448,15 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
             CScript scriptPubKey = GetScriptForDestination(address.Get());
             CAmount nAmount = AmountFromValue(sendTo[name_]);
+            outputValue += nAmount;
+
 
             CTxOut out(nAmount, scriptPubKey);
             rawTx.vout.push_back(out);
         }
     }
+
+    rawTx.nTxFee = inputValue - outputValue;
 
     return EncodeHexTx(rawTx);
 }
