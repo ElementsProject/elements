@@ -2209,7 +2209,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 }
 
 bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, CReserveKey& reservekey, CAmount& nFeeRet,
-                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign)
+                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts)
 {
     CAmount nValue = 0;
     int nChangePosRequest = nChangePosInOut;
@@ -2463,8 +2463,12 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     uint256 blind = coin.first->GetBlindingFactor(coin.second);
                     input_blinds.push_back(blind);
                 }
+                if(outAmounts)
+                    outAmounts->clear();
                 for (size_t nOut = 0; nOut < txNew.vout.size(); nOut++) {
                     output_blinds.push_back(uint256());
+                    if (outAmounts)
+                        outAmounts->push_back(txNew.vout[nOut].nValue.GetAmount());
                 }
                 if (fBlindedIns && !fBlindedOuts) {
                     strFailReason = _("Confidential inputs without confidential outputs");
