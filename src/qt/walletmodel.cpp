@@ -64,7 +64,7 @@ CAmount WalletModel::getBalance(const CCoinControl *coinControl) const
         wallet->AvailableCoins(vCoins, true, coinControl);
         BOOST_FOREACH(const COutput& out, vCoins)
             if(out.fSpendable)
-                nBalance += out.tx->vout[out.i].nValue;
+                nBalance += out.tx->GetValueOut(out.i);
 
         return nBalance;
     }
@@ -222,7 +222,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
                 const unsigned char* scriptStr = (const unsigned char*)out.script().data();
                 CScript scriptPubKey(scriptStr, scriptStr+out.script().size());
                 CAmount nAmount = out.amount();
-                CRecipient recipient = {scriptPubKey, nAmount, rcp.fSubtractFeeFromAmount};
+                CRecipient recipient = {scriptPubKey, nAmount, CPubKey(), rcp.fSubtractFeeFromAmount};
                 vecSend.push_back(recipient);
             }
             if (subtotal <= 0)
@@ -244,8 +244,13 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             setAddress.insert(rcp.address);
             ++nAddresses;
 
-            CScript scriptPubKey = GetScriptForDestination(CBitcoinAddress(rcp.address.toStdString()).Get());
-            CRecipient recipient = {scriptPubKey, rcp.amount, rcp.fSubtractFeeFromAmount};
+            CBitcoinAddress addr(rcp.address.toStdString());
+            CScript scriptPubKey = GetScriptForDestination(addr.Get());
+            CPubKey confidentiality_pubkey;
+            if (addr.IsBlinded()) {
+                confidentiality_pubkey = addr.GetBlindingKey();
+            }
+            CRecipient recipient = {scriptPubKey, rcp.amount, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
             total += rcp.amount;
@@ -274,10 +279,11 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
         CWalletTx *newTx = transaction.getTransaction();
         CReserveKey *keyChange = transaction.getPossibleKeyChange();
-        bool fCreated = wallet->CreateTransaction(vecSend, *newTx, *keyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl);
+        std::vector<CAmount> outAmounts;
+        bool fCreated = wallet->CreateTransaction(vecSend, *newTx, *keyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl, true, &outAmounts);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && fCreated)
-            transaction.reassignAmounts(nChangePosRet);
+            transaction.reassignAmounts(outAmounts, nChangePosRet);
 
         if(!fCreated)
         {
