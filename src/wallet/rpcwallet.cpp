@@ -3079,6 +3079,8 @@ extern UniValue importwallet(const JSONRPCRequest& request);
 extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
+extern UniValue dumpblindingkey(const UniValue& params, bool fHelp);
+extern UniValue importblindingkey(const UniValue& params, bool fHelp);
 
 static const CRPCCommand commands[] =
 { //  category              name                        actor (function)           okSafeMode
@@ -3089,7 +3091,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "addmultisigaddress",       &addmultisigaddress,       true,   {"nrequired","keys","account"} },
     { "wallet",             "addwitnessaddress",        &addwitnessaddress,        true,   {"address"} },
     { "wallet",             "backupwallet",             &backupwallet,             true,   {"destination"} },
-    { "wallet",             "bumpfee",                  &bumpfee,                  true,   {"txid", "options"} },
+    { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true,   {} },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true,   {"address"}  },
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
@@ -3108,6 +3110,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "importprivkey",            &importprivkey,            true,   {"privkey","label","rescan"} },
     { "wallet",             "importwallet",             &importwallet,             true,   {"filename"} },
     { "wallet",             "importaddress",            &importaddress,            true,   {"address","label","rescan","p2sh"} },
+    { "wallet",             "importblindingkey",        &importblindingkey,        true,   {} },
     { "wallet",             "importprunedfunds",        &importprunedfunds,        true,   {"rawtransaction","txoutproof"} },
     { "wallet",             "importpubkey",             &importpubkey,             true,   {"pubkey","label","rescan"} },
     { "wallet",             "keypoolrefill",            &keypoolrefill,            true,   {"newsize"} },
