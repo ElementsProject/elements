@@ -385,7 +385,7 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
                 return QString();
             }
         }
-        strAddress = CBitcoinAddress(newKey.GetID()).ToString();
+        strAddress = CBitcoinAddress(newKey.GetID()).AddBlindingKey(wallet->GetBlindingPubKey(GetScriptForDestination(CTxDestination(newKey.GetID())))).ToString();
     }
     else
     {
