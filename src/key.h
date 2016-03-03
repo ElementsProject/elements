@@ -121,6 +121,11 @@ public:
     CPubKey GetPubKey() const;
 
     /**
+     * Compute the ECDH exchange result using this private key and another public key.
+     */
+    uint256 ECDH(const CPubKey& pubkey) const;
+
+    /**
      * Create a DER-serialized signature.
      * The test_case parameter tweaks the deterministic nonce.
      */
