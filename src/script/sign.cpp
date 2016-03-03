@@ -109,6 +109,9 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
         return (SignN(vSolutions, creator, scriptPubKey, ret, sigversion));
 
+    case TX_TRUE:
+        return true;
+
     case TX_WITNESS_V0_KEYHASH:
         ret.push_back(vSolutions[0]);
         return true;
@@ -320,6 +323,7 @@ static Stacks CombineSignatures(const CScript& scriptPubKey, const BaseSignature
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
     case TX_WITHDRAW_LOCK:
+    case TX_TRUE:
         // Don't know anything about this, assume bigger one is correct:
         if (sigs1.script.size() >= sigs2.script.size())
             return sigs1;
