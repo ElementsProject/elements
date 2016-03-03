@@ -34,6 +34,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITHDRAW_LOCK: return "withdraw";
+    case TX_TRUE: return "true";
     }
     return NULL;
 }
@@ -92,6 +93,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     // script.
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_NULL_DATA;
+        return true;
+    }
+
+    if (scriptPubKey == CScript() << OP_TRUE) {
+        typeRet = TX_TRUE;
         return true;
     }
 

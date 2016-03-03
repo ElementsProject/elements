@@ -1554,6 +1554,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!CWallet::InitLoadWallet())
         return false;
 #else
+
     LogPrintf("No wallet support compiled in!\n");
 #endif
 
@@ -1614,6 +1615,12 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
             condvar_GenesisWait.wait(lock);
         }
         uiInterface.NotifyBlockTip.disconnect(BlockNotifyGenesisWait);
+    }
+
+    CBlockIndex *genesis = chainActive.Genesis();
+    const CBlock &genesisBlock = Params().GenesisBlock();
+    for (unsigned int i = 0; i<genesis->nTx ; i++) {
+        GetMainSignals().SyncTransaction(*(genesisBlock.vtx[i]), genesis, (int)i);
     }
 
     // ********************************************************* Step 11: start node
