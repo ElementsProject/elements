@@ -79,6 +79,7 @@ BITCOIN_CORE_H = \
   addrdb.h \
   addrman.h \
   base58.h \
+  blind.h \
   bloom.h \
   blockencodings.h \
   callrpc.h \
@@ -308,6 +309,7 @@ libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   amount.cpp \
   base58.cpp \
+  blind.cpp \
   bloom.cpp \
   chainparams.cpp \
   coins.cpp \
