@@ -1,4 +1,4 @@
-Bitcoin Core 0.14.1
+Sidechain Elements 0.14.1
 =====================
 
 Setup
