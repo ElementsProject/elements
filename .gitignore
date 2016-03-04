@@ -1,12 +1,12 @@
 *.tar.gz
 
 *.exe
-src/bitcoin
-src/bitcoind
-src/bitcoin-cli
-src/bitcoin-tx
-src/test/test_bitcoin
-src/qt/test/test_bitcoin-qt
+src/beta
+src/betad
+src/beta-cli
+src/beta-tx
+src/test/test_beta
+src/qt/test/test_beta-qt
 
 # autoreconf
 Makefile.in
@@ -74,12 +74,12 @@ src/qt/test/moc*.cpp
 # Compilation and Qt preprocessor part
 *.qm
 Makefile
-bitcoin-qt
-Bitcoin-Qt.app
+beta-qt
+Beta-Qt.app
 
 # Unit-tests
 Makefile.test
-bitcoin-qt_test
+beta-qt_test
 src/test/buildenv.py
 
 # Resources cpp
