@@ -8,17 +8,22 @@
 #include "chain.h"
 #include "core_io.h"
 #include "consensus/validation.h"
+#include "crypto/hmac_sha256.h"
 #include "init.h"
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
 #include "policy/rbf.h"
 #include "rpc/server.h"
+#include "random.h"
 #include "timedata.h"
 #include "util.h"
 #include "utilmoneystr.h"
 #include "wallet.h"
 #include "walletdb.h"
+#include "merkleblock.h"
+
+#include <secp256k1.h>
 
 #include <stdint.h>
 
@@ -30,6 +35,11 @@ using namespace std;
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
+
+//Redeemscript template for alpha fedpeg
+static const CScript fedRedeemScript(CScript() << OP_1 << ParseHex("03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd") << OP_1 << OP_CHECKMULTISIG);
+
+static uint256 genesisBlockHash(uint256S("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"));
 
 std::string HelpRequiringPassphrase()
 {
@@ -338,7 +348,13 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
     return ret;
 }
 
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew);
 static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+{
+    SendMoney(GetScriptForDestination(address), nValue, fSubtractFeeFromAmount, confidentiality_key, wtxNew);
+}
+
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
 {
     CAmount curBalance = pwalletMain->GetBalance();
 
@@ -348,9 +364,6 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, bool fSubtr
 
     if (nValue > curBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
-
-    // Parse Bitcoin address
-    CScript scriptPubKey = GetScriptForDestination(address);
 
     // Create and send the transaction
     CReserveKey reservekey(pwalletMain);
@@ -2653,6 +2666,312 @@ UniValue signblock(const UniValue& params, bool fHelp)
     return HexStr(block.proof.solution.begin(), block.proof.solution.end());
 }
 
+namespace {
+static secp256k1_context *secp256k1_ctx;
+
+class CSecp256k1Init {
+public:
+    CSecp256k1Init() {
+        secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+    }
+    ~CSecp256k1Init() {
+        secp256k1_context_destroy(secp256k1_ctx);
+    }
+};
+static CSecp256k1Init instance_of_csecp256k1;
+}
+
+CScriptID calculate_contract(const CScript& federationRedeemScript, const CBitcoinAddress& destAddress, const unsigned char nonce[16], unsigned char fullcontract[40]) {
+    fullcontract[0] = (unsigned char)'P';
+    fullcontract[1] = (unsigned char)'2';
+    if (destAddress.IsScript())
+        fullcontract[2] = (unsigned char)'S';
+    else
+        fullcontract[2] = (unsigned char)'P';
+    fullcontract[3] = (unsigned char)'H';
+    memcpy(fullcontract + 4, nonce, 16);
+
+    std::vector<unsigned char> destHash;
+    CScript destScript = GetScriptForDestination(destAddress.Get());
+    CScript::iterator scriptIt = destScript.begin();
+    opcodetype opcodeTmp;
+    assert(destScript.GetOp(scriptIt, opcodeTmp, destHash));
+    if (!destAddress.IsScript()) {
+        assert(opcodeTmp == OP_DUP);
+        assert(destScript.GetOp(scriptIt, opcodeTmp, destHash));
+    }
+    assert(opcodeTmp == OP_HASH160);
+    assert(destScript.GetOp(scriptIt, opcodeTmp, destHash));
+    assert(opcodeTmp == 0x14 && destHash.size() == 20);
+    memcpy(fullcontract + 4 + 16, &destHash[0], destHash.size());
+
+    CScript scriptDestination(federationRedeemScript);
+    {
+        CScript::iterator sdpc = scriptDestination.begin();
+        vector<unsigned char> vch;
+        while (scriptDestination.GetOp(sdpc, opcodeTmp, vch))
+        {
+            assert((vch.size() == 33 && opcodeTmp < OP_PUSHDATA4) ||
+                   (opcodeTmp <= OP_16 && opcodeTmp >= OP_1) || opcodeTmp == OP_CHECKMULTISIG);
+            if (vch.size() == 33)
+            {
+                unsigned char tweak[32];
+                size_t pub_len = 33;
+                unsigned char *pub_start = &(*(sdpc - pub_len));
+                CHMAC_SHA256(pub_start, pub_len).Write(fullcontract, 40).Finalize(tweak);
+                secp256k1_pubkey pubkey;
+                assert(secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey, pub_start, pub_len) == 1);
+                // If someone creates a tweak that makes this fail, they broke SHA256
+                assert(secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &pubkey, tweak) == 1);
+                assert(secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &pubkey, SECP256K1_EC_COMPRESSED) == 1);
+                assert(pub_len == 33);
+            }
+        }
+    }
+
+    return CScriptID(scriptDestination);
+}
+
+UniValue getfundingaddress(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "getfundingaddress ( \"account\" )\n"
+            "\nReturns information necessary to complete withdraw steps to alpha sidechain.\n"
+            "The user should send coins from their Bitcoin wallet to the mainaddress returned.\n"
+            "\nArguments:\n"
+            "1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created if there is no account by the given name.\n"
+            "\nResult:\n"
+            "\"nonce\"             (string) Nonce used for sidechain withdrawout step\n"
+            "\"mainaddress\"       (string) Mainchain Deposit Address\n"
+            "\"address\"           (string) The newly created address to which coins will be sent on the sidechain\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getfundingaddress", "")
+            + HelpExampleCli("getfundingaddress", "\"\"")
+            + HelpExampleCli("getfundingaddress", "\"myaccount\"")
+            + HelpExampleRpc("getfundingaddress", "\"myaccount\"")
+        );
+
+    //Creates new address for later receipt of final funds in spendclaim
+    CBitcoinAddress address(CBitcoinAddress(getnewaddress(params, false).get_str()).GetUnblinded());
+
+    //Call contracthashtool, get deposit address on mainchain.
+    unsigned char nonce[16];
+    GetRandBytes(nonce, sizeof(nonce));
+    unsigned char fullcontract[40];
+    CBitcoinAddress destAddr(calculate_contract(fedRedeemScript, address, nonce, fullcontract));
+
+    UniValue fundinginfo(UniValue::VOBJ);
+
+    fundinginfo.pushKV("nonce", HexStr(nonce, &nonce[sizeof(nonce)]));
+    fundinginfo.pushKV("mainaddress", destAddr.ToString());
+    fundinginfo.pushKV("address", address.ToString());
+    return fundinginfo;
+}
+
+UniValue sendtomainchain(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "sendtomainchain address amount\n"
+            "\nSends sidechain funds to the given mainchain address, through the\n"
+            "federated withdraw mechanism\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The required deposit address on Bitcoin mainchain\n"
+            "2. \"amount\"         (numeric, required) The amount being sent to Bitcoin mainchain\n"
+            "\nResult:\n"
+            "\"txid\"              (string) Transaction ID of the resulting sidechain transaction\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\"")
+            + HelpExampleRpc("sendtomainchain", "\"mzF5siaQwJAJxePqaYRKibY9vRVXmkWuyV\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    CBitcoinAddress address(params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+
+    CAmount nAmount = AmountFromValue(params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    // Parse Bitcoin address for asm field
+    CScript scriptPubKeyMainchain(GetScriptForDestination(address.Get()));
+    CScript::const_iterator pc(scriptPubKeyMainchain.begin());
+    CScript::const_iterator pend(scriptPubKeyMainchain.end());
+    opcodetype type;
+    vector<unsigned char> vData;
+    while (pc != pend) {
+       scriptPubKeyMainchain.GetOp(pc, type, vData);
+       if (type == OP_HASH160) {
+           scriptPubKeyMainchain.GetOp(pc, type, vData);
+           break;
+       }
+    }
+    assert(pc != pend && type == 0x14);
+
+    CScript scriptPubKey;
+
+    vector<unsigned char> hex;
+    hex.push_back((unsigned char)'P');
+    hex.push_back((unsigned char)'2');
+    if (scriptPubKeyMainchain.IsPayToScriptHash())
+        hex.push_back((unsigned char)'S');
+    else
+        hex.push_back((unsigned char)'P');
+    hex.push_back((unsigned char)'H');
+    hex.insert(hex.end(), vData.begin(), vData.end());
+
+    scriptPubKey << hex;
+    scriptPubKey << OP_DROP;
+    scriptPubKey << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
+    scriptPubKey << OP_WITHDRAWPROOFVERIFY;
+    assert(scriptPubKey.IsWithdrawLock());
+
+    EnsureWalletIsUnlocked();
+
+    CWalletTx wtxNew;
+    SendMoney(scriptPubKey, nAmount, false, CPubKey(), wtxNew);
+
+    return wtxNew.GetHash().GetHex();
+}
+
+extern UniValue sendrawtransaction(const UniValue& params, bool fHelp);
+
+UniValue claimwithdraw(const UniValue& params, bool fHelp)
+{
+
+    if (fHelp || params.size() != 4)
+        throw runtime_error(
+            "claimwithdraw sidechainaddress nonce bitcoinTx txoutproof\n"
+            "\nClaim coins from the main chain by creating a withdraw transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
+            "Note that the transaction will not be mined or relayed unless it is buried at least 10 blocks deep.\n"
+            "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n"
+            "\nArguments:\n"
+            "1. \"sidechainaddress\"  (string, required) The sidechain address address generated by getfundingaddress\n"
+            "2. \"nonce\"             (string, required) The nonce generated by getfundingaddress\n"
+            "3. \"bitcoinTx\"         (string, required) The raw bitcoin transaction (in hex) depositing bitcoin to the mainaddress generated by getfundingaddress\n"
+            "4. \"txoutproof\"        (string, required) A rawtxoutproof (in hex) generated by bitcoind's `gettxoutproof` containing a proof of only bitcoinTx\n"
+            "\nResult:\n"
+            "\"txid\"                 (string) Txid of the resulting sidechain transaction\n"
+            "\nExamples:\n"
+//XXX: Fix the examples
+            + HelpExampleCli("claimwithdraw", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\" \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
+            + HelpExampleRpc("claimwithdraw", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\", \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
+        );
+
+    CBitcoinAddress sidechainAddress(params[0].get_str());
+    if (!sidechainAddress.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid sidechainaddress");
+
+    if (!IsHex(params[1].get_str()) || !IsHex(params[2].get_str()) || !IsHex(params[3].get_str()))
+        throw JSONRPCError(RPC_TYPE_ERROR, "the last three arguments must be hex strings");
+
+    std::vector<unsigned char> txData = ParseHex(params[2].get_str());
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+    CTransaction txBTC;
+    ssTx >> txBTC;
+
+    std::vector<unsigned char> txOutProofData = ParseHex(params[3].get_str());
+    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+    CMerkleBlock merkleBlock;
+    ssTxOutProof >> merkleBlock;
+    if (!ssTxOutProof.empty() || !CheckBitcoinProof(merkleBlock.header))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+
+    vector<uint256> txHashes;
+    vector<unsigned int> txIndices;
+    if (merkleBlock.txn.ExtractMatches(txHashes, txIndices) != merkleBlock.header.hashMerkleRoot)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+
+    if (txHashes.size() != 1 || txHashes[0] != txBTC.GetHash())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The txoutproof must contain bitcoinTx and only bitcoinTx");
+
+    if (!IsHex(params[1].get_str()) || params[1].get_str().length() != 16*2)
+        throw JSONRPCError(RPC_TYPE_ERROR, "nonce must be a 32-byte hex string");
+    std::vector<unsigned char> nonce = ParseHex(params[1].get_str());
+
+    //Call contracthashtool
+    unsigned char fullcontract[40];
+    CScript mainchain_script = GetScriptForDestination(calculate_contract(fedRedeemScript, sidechainAddress, &nonce[0], fullcontract));
+
+    unsigned int nOut = 0;
+    for (; nOut < txBTC.vout.size(); nOut++)
+        if (txBTC.vout[nOut].scriptPubKey == mainchain_script)
+            break;
+    if (nOut == txBTC.vout.size())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainaddress from getfundingaddress");
+    CAmount value = txBTC.vout[nOut].nValue.GetAmount();
+
+    //Output we're re-locking
+    CScript relock_spk;
+    relock_spk << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
+    relock_spk << OP_WITHDRAWPROOFVERIFY;
+
+    if (value > MAX_MONEY / 200)
+        throw JSONRPCError(RPC_VERIFY_REJECTED, "IsStandard rules prevent pegging-in > 0.105 million BTC reliably at a time - please work with your functionary to mine a large lock-merge transaction first");
+
+    LOCK(cs_main);
+
+    std::vector<std::pair<COutPoint, CAmount> > lockedUTXO;
+    if (!GetLockedOutputs(genesisBlockHash, value, lockedUTXO))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find inputs with sufficient value - are you sure bitcoinTx is valid?");
+
+    while (lockedUTXO.size() != 1) {
+        CMutableTransaction mtxn;
+        mtxn.vin.push_back(CTxIn(lockedUTXO[0].first.hash, lockedUTXO[0].first.n, CScript(), ~(uint32_t)0));
+        mtxn.vin.push_back(CTxIn(lockedUTXO[1].first.hash, lockedUTXO[1].first.n, CScript(), ~(uint32_t)0));
+        CAmount out_value = lockedUTXO[0].second + lockedUTXO[1].second;
+        mtxn.vout.push_back(CTxOut(out_value, relock_spk));
+
+        CValidationState state;
+        bool fMissingInputs;
+        if (!AcceptToMemoryPool(mempool, state, mtxn, false, &fMissingInputs, false, true))
+            throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("Failed to merge locked outputs, please try again later (%i: %s)", state.GetRejectCode(), state.GetRejectReason()));
+        RelayTransaction(mtxn);
+
+        lockedUTXO.erase(lockedUTXO.begin(), lockedUTXO.begin() + 2);
+        lockedUTXO.push_back(std::make_pair(COutPoint(mtxn.GetHash(), 0), out_value));
+    }
+
+    assert(lockedUTXO.size() == 1 && lockedUTXO[0].second >= value);
+
+    uint256 utxo_txid(lockedUTXO[0].first.hash);
+    uint32_t utxo_vout = lockedUTXO[0].first.n;
+    CAmount utxo_value = lockedUTXO[0].second;
+
+
+    CScript scriptSig;
+    scriptSig << std::vector<unsigned char>(fullcontract, fullcontract + 40);
+    scriptSig.PushWithdraw(txOutProofData);
+    scriptSig.PushWithdraw(txData);
+    scriptSig << nOut;
+
+    //Build the transaction
+    CMutableTransaction mtxn;
+    CTxIn txin(utxo_txid, utxo_vout, scriptSig, ~(uint32_t)0);
+    CTxOut txout(value, GetScriptForDestination(sidechainAddress.Get()));
+    CTxOut txrelock(utxo_value - value, relock_spk);
+    mtxn.vin.push_back(txin);
+    mtxn.vout.push_back(txout);
+    mtxn.vout.push_back(txrelock);
+    mtxn.nTxFee = 0;
+
+    //No signing needed, just send
+    CTransaction finalTxn(mtxn);
+    UniValue signedTxnArray(UniValue::VARR);
+    signedTxnArray.push_back(EncodeHexTx(finalTxn));
+    return sendrawtransaction(signedTxnArray, false);
+}
+
 extern UniValue dumpprivkey(const UniValue& params, bool fHelp); // in rpcdump.cpp
 extern UniValue importprivkey(const UniValue& params, bool fHelp);
 extern UniValue importaddress(const UniValue& params, bool fHelp);
@@ -2676,11 +2995,13 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true  },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true  },
     { "wallet",             "dumpwallet",               &dumpwallet,               true  },
+    { "wallet",             "claimwithdraw",            &claimwithdraw,            false },
     { "wallet",             "encryptwallet",            &encryptwallet,            true  },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true  },
     { "wallet",             "getaccount",               &getaccount,               true  },
     { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,    true  },
     { "wallet",             "getbalance",               &getbalance,               false },
+    { "wallet",             "getfundingaddress",        &getfundingaddress,        false },
     { "wallet",             "getnewaddress",            &getnewaddress,            true  },
     { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,      true  },
     { "wallet",             "getreceivedbyaccount",     &getreceivedbyaccount,     false },
@@ -2708,6 +3029,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendfrom",                 &sendfrom,                 false },
     { "wallet",             "sendmany",                 &sendmany,                 false },
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false },
+    { "wallet",             "sendtomainchain",          &sendtomainchain,          false },
     { "wallet",             "setaccount",               &setaccount,               true  },
     { "wallet",             "settxfee",                 &settxfee,                 true  },
     { "wallet",             "signblock",                &signblock,                true  },
