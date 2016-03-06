@@ -26,7 +26,7 @@ class CBlockIndex;
 
 inline double AllowFreeThreshold()
 {
-    return COIN * 144 / 250;
+    return CENT * 1 / 250;
 }
 
 inline bool AllowFree(double dPriority)
