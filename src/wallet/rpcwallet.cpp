@@ -37,7 +37,7 @@ int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
 //Redeemscript template for alpha fedpeg
-static const CScript fedRedeemScript(CScript() << OP_1 << ParseHex("03a34b99f22c790c4e36b2b3c2c35a36db06226e41c692fc82b8b56ac1c540c5bd") << OP_1 << OP_CHECKMULTISIG);
+static const CScript fedRedeemScript(CScript() << OP_1 << ParseHex("03d728ad6757d4784effea04d47baafa216cf474866c2d4dc99b1e8e3eb936e730") << OP_1 << OP_CHECKMULTISIG);
 
 static uint256 genesisBlockHash(uint256S("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"));
 

@@ -83,7 +83,7 @@ public:
         nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
-        CScript scriptDestination(CScript() << OP_TRUE);
+        CScript scriptDestination(CScript() << OP_1 << ParseHex("03aeb681df5ac19e449a872b9e9347f1db5a0394d2ec5caf2a9c143f86e232b0d9") << OP_1 << OP_CHECKMULTISIG);
         genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, 2083236893, 0x1d00ffff, 1, MAX_MONEY);
         consensus.hashGenesisBlock = genesis.GetHash();
 
