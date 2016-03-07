@@ -76,11 +76,11 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xee;
-        pchMessageStart[1] = 0xa1;
+        pchMessageStart[0] = 0xef;
+        pchMessageStart[1] = 0xb1;
         pchMessageStart[2] = 0x1f;
-        pchMessageStart[3] = 0xfa;
-        nDefaultPort = 4242;
+        pchMessageStart[3] = 0xea;
+        nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
         CScript scriptDestination(CScript() << OP_TRUE);
@@ -163,7 +163,7 @@ public:
         pchMessageStart[1] = 0xbf;
         pchMessageStart[2] = 0xb5;
         pchMessageStart[3] = 0xda;
-        nDefaultPort = 18444;
+        nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
 
         CScript scriptDestination(CScript() << OP_TRUE);
