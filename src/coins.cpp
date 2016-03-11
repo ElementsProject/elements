@@ -316,13 +316,13 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmountMap& mT
         if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0) {
             // Within an asset definition transaction, the asset being defined is identified with a 0
             if (assetID.IsNull()) {
-                // Only asset definitions can have null asset IDs in outputs
-                if (!tx.IsAssetDefinition())
+                // Only asset definitions and coinbase can have null asset IDs in outputs
+                if (!tx.IsAssetDefinition() && !tx.IsCoinBase())
                     return false;
                 // Cannot issue negative amounts
                 if (nPlainAmount < 0)
                     return false;
-            } else if (nPlainAmount != 0)
+            } else if (nPlainAmount != 0 && !tx.IsCoinBase())
                 return false;
         } else {
             // Newly issued assets cannot be confidential

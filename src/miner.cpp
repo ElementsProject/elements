@@ -335,8 +335,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         txNew.vin[0].prevout.SetNull();
         txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
 
-        txNew.vout.resize(mBlockReward.size());
         mBlockReward[chainparams.HashGenesisBlock()] += GetBlockValue(nHeight, 0);
+        txNew.vout.resize(mBlockReward.size());
         unsigned int i = 0;
         for(CAmountMap::const_iterator it = mBlockReward.begin(); it != mBlockReward.end(); ++it) {
             txNew.vout[i].scriptPubKey = scriptPubKeyIn;
