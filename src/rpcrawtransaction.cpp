@@ -454,7 +454,7 @@ Value listunspent(const Array& params, bool fHelp)
 
 Value createrawtransaction(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 2)
         throw runtime_error(
             "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n"
             "\nCreate a transaction spending the given inputs and sending to the given addresses.\n"
@@ -484,12 +484,6 @@ Value createrawtransaction(const Array& params, bool fHelp)
             "      \"address\": \"id\"  (string, optional) The key is the bitcoin address, the value is the asset id\n"
             "      ,...\n"
             "    }\n"
-            "3. \"output asset ids\"    (object, optional) a json object with addresses as keys and asset ids as values\n"
-            "                                              All addresses not contained here default to -feeasset\n"
-            "    {\n"
-            "      \"address\": \"id\"  (string, optional) The key is the bitcoin address, the value is the asset id\n"
-            "      ,...\n"
-            "    }\n"
             "4. Asset definition        (boolean, optional, default=false) Make it an asset definition transaction. Outputs with assetID = 0 will represent the newly issued assets.\n"
 
             "\nResult:\n"
@@ -500,7 +494,13 @@ Value createrawtransaction(const Array& params, bool fHelp)
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":0.01}\"")
         );
 
-    RPCTypeCheck(params, list_of(array_type)(obj_type));
+    if (params.size() == 2) {
+        RPCTypeCheck(params, list_of(array_type)(obj_type));
+    } else if (params.size() == 3) {
+        RPCTypeCheck(params, list_of(array_type)(obj_type)(obj_type));
+    } else if (params.size() == 4) {
+        RPCTypeCheck(params, list_of(array_type)(obj_type)(obj_type)(bool_type));
+    }
 
     Array inputs = params[0].get_array();
     Object sendTo = params[1].get_obj();
