@@ -210,11 +210,11 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
         throw runtime_error("invalid TX input vout");
 
     // Remove vout
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     strVout = strVout.substr(pos + 1, string::npos);
 
     // extract and validate VALUE
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     if (pos == string::npos)
         throw runtime_error("TX input missing separator");
     string strValue = strVout.substr(0, pos);
@@ -225,16 +225,16 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     CAssetID assetID = CAssetID(Params().HashGenesisBlock());
     // extract and validate sequence number
     uint32_t nSequence = ~(uint32_t)0;
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     if (pos != string::npos) {
         if ((pos == 0) || (pos == (strVout.size() - 1)))
             throw runtime_error("empty TX input field");
 
         string strSeq = strVout.substr(pos + 1, string::npos);
-        size_t posAsset = strInput.find(':');
-        if (posAsset != string::npos && posAsset != 0 && posAsset != (strInput.size() - 1)) {
-            strSeq = strInput.substr(pos + 1, posAsset);
-            string strAsset = strInput.substr(posAsset + 1, string::npos);
+        size_t posAsset = strVout.find(':');
+        if (posAsset != string::npos && posAsset != 0 && posAsset != (strVout.size() - 1)) {
+            strSeq = strVout.substr(pos + 1, posAsset);
+            string strAsset = strVout.substr(posAsset + 1, string::npos);
             assetID = CAssetID(uint256(strAsset));
         }
 
@@ -283,9 +283,9 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     // extract and validate ADDRESS
     string strAddr = strInput.substr(pos + 1, string::npos);
     CAssetID assetID = CAssetID(Params().HashGenesisBlock());
-    size_t posAsset = strInput.find(':');
+    size_t posAsset = strInput.find(':', pos + 1);
     if (posAsset != string::npos && posAsset != 0 && posAsset != (strInput.size() - 1)) {
-        strAddr = strInput.substr(pos, posAsset);
+        strAddr = strInput.substr(pos + 1, posAsset - pos - 1);
         string strAsset = strInput.substr(posAsset + 1, string::npos);
         assetID = CAssetID(uint256(strAsset));
     }
@@ -371,7 +371,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     // extract and validate script
     string strScript = strInput.substr(pos + 1, string::npos);
     CAssetID assetID = CAssetID(Params().HashGenesisBlock());
-    size_t posAsset = strInput.find(':');
+    size_t posAsset = strInput.find(':', pos + 1);
     if (posAsset != string::npos && posAsset != 0 && posAsset != (strInput.size() - 1)) {
         strScript = strInput.substr(pos, posAsset);
         string strAsset = strInput.substr(posAsset + 1, string::npos);
