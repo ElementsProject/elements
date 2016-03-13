@@ -2405,6 +2405,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             assert(block.vtx.size() == 1);
 
             std::vector<std::pair<uint256, CDiskTxPos> > vPos;
+            std::multimap<uint256, std::pair<COutPoint, CAmount> > mLocksCreated;
             const CTransaction& tx = block.vtx[0];
 
             CTxUndo undoDummy;
@@ -2412,10 +2413,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
             vPos.push_back(std::make_pair(tx.GetHash(), pos));
+            for (unsigned int i = 0; i < tx.vout.size(); i++) {
+                CTxOut txout= tx.vout[i];
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
+                    mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), i), txout.nValue.GetAmount())));
+            }
 
             if (fTxIndex)
                 if (!pblocktree->WriteTxIndex(vPos))
                     return AbortNode(state, "Failed to write transaction index");
+            pblocktree->WriteLocksCreated(mLocksCreated);
 
             view.SetBestBlock(pindex->GetBlockHash());
         }
@@ -2515,6 +2522,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
     vPos.reserve(block.vtx.size());
+    std::multimap<uint256, std::pair<COutPoint, CAmount> > mLocksCreated;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
@@ -2590,6 +2598,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
+
+        for (unsigned int j = 0; j < tx.vout.size(); j++) {
+            CTxOut txout = tx.vout[j];
+            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
+                mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
+        }
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
@@ -2633,6 +2647,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (fTxIndex)
         if (!pblocktree->WriteTxIndex(vPos))
             return AbortNode(state, "Failed to write transaction index");
+
+    pblocktree->WriteLocksCreated(mLocksCreated);
 
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
