@@ -116,6 +116,9 @@ public:
     bool ReadReindexing(bool &fReindex);
     bool ReadTxIndex(const uint256 &txid, CDiskTxPos &pos);
     bool WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> > &list);
+    bool WriteLocksCreated(const std::multimap<uint256, std::pair<COutPoint, CAmount> > &list);
+    bool ReadLocksCreated(const uint256 &genesisHash, std::vector<std::pair<COutPoint, CAmount> > &vLocks);
+    bool ReWriteLocksCreated(const uint256 &genesisHash, const std::vector<std::pair<COutPoint, CAmount> > &vLocks);
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex);

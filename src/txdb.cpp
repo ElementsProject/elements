@@ -19,6 +19,7 @@ using namespace std;
 static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
+static const char DB_LOCKS = 'k';
 static const char DB_BLOCK_INDEX = 'b';
 static const char DB_WITHDRAW_FLAG = 'w';
 
@@ -169,6 +170,36 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
     for (std::vector<std::pair<uint256,CDiskTxPos> >::const_iterator it=vect.begin(); it!=vect.end(); it++)
         batch.Write(make_pair(DB_TXINDEX, it->first), it->second);
     return WriteBatch(batch);
+}
+
+bool CBlockTreeDB::WriteLocksCreated(const std::multimap<uint256, std::pair<COutPoint, CAmount> > &map) {
+    if (map.size() == 0)
+        return true;
+
+    uint256 prevGenesis;
+    CDBBatch batch(*this);
+    std::vector<std::pair<COutPoint, CAmount> > vLocks;
+    for (std::multimap<uint256, std::pair<COutPoint, CAmount> >::const_iterator it=map.begin(); it!=map.end(); it++) {
+        if (prevGenesis != it->first || it == map.begin()) {
+            if (it != map.begin())
+                batch.Write(make_pair(DB_LOCKS, prevGenesis), vLocks);
+            prevGenesis = it->first;
+            if (!Read(make_pair(DB_LOCKS, it->first), vLocks))
+                vLocks.clear();
+        }
+        vLocks.push_back(it->second);
+    }
+    batch.Write(make_pair(DB_LOCKS, prevGenesis), vLocks);
+    return WriteBatch(batch);
+}
+
+
+bool CBlockTreeDB::ReadLocksCreated(const uint256 &genesisHash, std::vector<std::pair<COutPoint, CAmount> > &vLocks) {
+    return Read(make_pair(DB_LOCKS, genesisHash), vLocks);
+}
+
+bool CBlockTreeDB::ReWriteLocksCreated(const uint256 &genesisHash, const std::vector<std::pair<COutPoint, CAmount> > &vLocks) {
+    return Write(make_pair(DB_LOCKS, genesisHash), vLocks);
 }
 
 bool CBlockTreeDB::WriteFlag(const std::string &name, bool fValue) {
