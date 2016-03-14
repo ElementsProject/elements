@@ -1188,6 +1188,9 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             if(!(mine & filter))
                 continue;
 
+            if (wtx.GetValueOut(i) < 0)
+                continue;
+
             CBitcoinAddress bitcoinaddress(address);
             if (!wtx.vout[i].nValue.IsAmount())
                 bitcoinaddress.AddBlindingKey(wtx.GetBlindingKey(i));
