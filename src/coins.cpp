@@ -271,7 +271,17 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmountMap& mT
         {
             const CTxOut& txOut = GetOutputFor(txin);
             const CTxOutValue& val = txOut.nValue;
-            const CAssetID assetID = txOut.assetID.IsNull() ? CAssetID(txin.prevout.hash) : txOut.assetID;
+            CAssetID assetID;
+            if (txOut.assetID.IsNull()) {
+                bool isPrevGenesis = false;
+                for (unsigned int j = 0; j < Params().GenesisBlock().vtx.size(); ++j) {
+                    if (Params().GenesisBlock().vtx[j].GetHash() == txin.prevout.hash)
+                        isPrevGenesis = true;
+                }
+                assetID = isPrevGenesis ? Params().HashGenesisBlock() : CAssetID(txin.prevout.hash);
+            }
+            else
+                assetID = txOut.assetID;
             if (val.IsAmount())
                 nPlainAmounts[assetID] -= val.GetAmount();
             else
