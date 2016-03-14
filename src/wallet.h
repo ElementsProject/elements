@@ -706,6 +706,7 @@ public:
         fImmatureWatchCreditCached = false;
         fDebitCached = false;
         fChangeCached = false;
+        WipeUnknownBlindindData();
     }
 
     void BindWallet(CWallet *pwalletIn)
@@ -947,6 +948,7 @@ public:
 
 private:
     void GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut) const;
+    void WipeUnknownBlindindData() const;
 
 public:
     //! Returns either the value out (if it is to us) or 0
