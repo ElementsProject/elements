@@ -1068,7 +1068,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
 
-        CAmountMap mTxReward;
         {
         LOCK(pool.cs);
         CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -1097,13 +1096,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Bring the best block into scope
         view.GetBestBlock();
-
-            mTxReward = tx.GetTxRewardMap();
-            if (!view.VerifyAmounts(tx, mTxReward))
-                return state.DoS(0,
-                                 error("AcceptToMemoryPool : input amounts do not match output amounts %s",
-                                       hash.ToString()),
-                                 REJECT_NONSTANDARD, "bad-txns-amount-mismatch");
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
         view.SetBackend(dummy);
@@ -1143,6 +1135,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         double dPriority = view.GetPriority(tx, chainActive.Height());
 
+        CAmountMap mTxReward = tx.GetTxRewardMap();
         const CAmount nFees = mTxReward.find(feeAssetID)->second;
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height());
         unsigned int nSize = entry.GetTxSize();
