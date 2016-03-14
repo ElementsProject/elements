@@ -217,7 +217,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     pos = strVout.find(':', pos + 1);
     if (pos == string::npos)
         throw runtime_error("TX input missing separator");
-    string strValue = strVout.substr(0, pos);
+    string strValue = strVout.substr(pos + 1, strVout.find(':', pos + 1) - pos - 1);
     CAmount value;
     if (!ParseMoney(strValue, value))
         throw runtime_error("invalid TX output value");
