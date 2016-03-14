@@ -9,6 +9,7 @@
 #include "tinyformat.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "amount.h"
 
 #include <assert.h>
 
@@ -17,15 +18,19 @@
 
 #include "chainparamsseeds.h"
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward)
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards)
 {
+    // Shards must be evenly divisible
+    assert(MAX_MONEY % rewardShards == 0);
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vout.resize(1);
     txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-    txNew.vout[0].nValue = genesisReward;
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
+    txNew.vout.resize(rewardShards);
+    for (unsigned int i = 0; i < rewardShards; i++) {
+        txNew.vout[i].nValue = genesisReward/rewardShards;
+        txNew.vout[i].scriptPubKey = genesisOutputScript;
+    }
 
     CBlock genesis;
     genesis.nTime    = nTime;
@@ -87,7 +92,7 @@ public:
 
         uint256 genesisBlockHash(uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
         CScript scriptDestination(CScript() << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, scriptChallenge, 1, MAX_MONEY);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, scriptChallenge, 1, MAX_MONEY, 100);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //! TODO
@@ -170,7 +175,7 @@ public:
         nPruneAfterHeight = 1000;
 
         CScript scriptDestination(CScript() << OP_TRUE);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, scriptDestination, 1, MAX_MONEY);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, scriptDestination, 1, MAX_MONEY, 100);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
