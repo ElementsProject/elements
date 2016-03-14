@@ -575,7 +575,7 @@ bool AddOrphanTx(const CTransaction& tx, NodeId peer)
 
     mapOrphanTransactions[hash].tx = tx;
     mapOrphanTransactions[hash].fromPeer = peer;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    FOREACH_TXIN(txin, tx)
         mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
 
     LogPrint("mempool", "stored orphan tx %s (mapsz %u prevsz %u)\n", hash.ToString(),
@@ -588,7 +588,7 @@ void static EraseOrphanTx(uint256 hash)
     map<uint256, COrphanTx>::iterator it = mapOrphanTransactions.find(hash);
     if (it == mapOrphanTransactions.end())
         return;
-    BOOST_FOREACH(const CTxIn& txin, it->second.tx.vin)
+    FOREACH_TXIN(txin, it->second.tx)
     {
         map<uint256, set<uint256> >::iterator itPrev = mapOrphanTransactionsByPrev.find(txin.prevout.hash);
         if (itPrev == mapOrphanTransactionsByPrev.end())
@@ -667,7 +667,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason)
         return false;
     }
 
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    FOREACH_TXIN(txin, tx)
     {
         if (!txin.scriptSig.IsPushOnly()) {
             reason = "scriptsig-not-pushonly";
@@ -718,7 +718,7 @@ int64_t LockTime(const CTransaction &tx, int flags, const CCoinsView* pCoinsView
     // Will remain equal to true if all inputs are finalized (MAX_INT).
     bool fFinalized = true;
 
-    BOOST_FOREACH(const CTxIn& txin, tx.vin) {
+    FOREACH_TXIN(txin, tx) {
         // The relative lock-time is the inverted sequence number so
         // as to preserve the semantics MAX_INT means an input is
         // finalized (0 relative lock-time).
@@ -896,7 +896,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 unsigned int GetLegacySigOpCount(const CTransaction& tx)
 {
     unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    FOREACH_TXIN(txin, tx)
     {
         nSigOps += txin.scriptSig.GetSigOpCount(false);
     }
@@ -913,11 +913,11 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
         return 0;
 
     unsigned int nSigOps = 0;
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    FOREACH_TXIN(txin, tx)
     {
-        const CTxOut &prevout = inputs.GetOutputFor(tx.vin[i]);
+        const CTxOut &prevout = inputs.GetOutputFor(txin);
         if (prevout.scriptPubKey.IsPayToScriptHash())
-            nSigOps += prevout.scriptPubKey.GetSigOpCount(tx.vin[i].scriptSig);
+            nSigOps += prevout.scriptPubKey.GetSigOpCount(txin.scriptSig);
     }
     return nSigOps;
 }
@@ -969,7 +969,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
 
     // Check for duplicate inputs
     set<COutPoint> vInOutPoints;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    FOREACH_TXIN(txin, tx)
     {
         if (vInOutPoints.count(txin.prevout))
             return state.DoS(100, error("CheckTransaction() : duplicate inputs"),
@@ -984,8 +984,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
                              REJECT_INVALID, "bad-cb-length");
     } else {
         // The first input is null for asset definition transactions
-        for (unsigned int i = tx.IsAssetDefinition() ? 1 : 0; i < tx.vin.size(); i++)
-            if (tx.vin[i].prevout.IsNull())
+        FOREACH_TXIN(txin, tx)
+            if (txin.prevout.IsNull())
                 return state.DoS(10, error("CheckTransaction(): prevout is null"),
                                  REJECT_INVALID, "bad-txns-prevout-null");
     }
@@ -1081,7 +1081,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Note that this does not check for the presence of actual outputs (see the next check for that),
         // only helps filling in pfMissingInputs (to determine missing vs spent).
         // Don't check the null input in asset defintion transactions
-        for (unsigned int i = tx.IsAssetDefinition() ? 1 : 0; i < tx.vin.size(); i++) {
+        for (unsigned int i = tx.GetFirstInputPos(); i < tx.vin.size(); i++) {
             if (!view.HaveCoins(tx.vin[i].prevout.hash)) {
                 if (pfMissingInputs)
                     *pfMissingInputs = true;
@@ -1515,7 +1515,7 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
     // mark inputs spent
     if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
-        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        for (unsigned int i = tx.GetFirstInputPos(); i < tx.vin.size(); i++) {
             const CTxIn &txin = tx.vin[i];
             txundo.vprevout.push_back(CTxInUndo());
             CCoinsModifier coins = inputs.ModifyCoins(txin.prevout.hash);
@@ -1559,9 +1559,9 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         // This is also true for mempool checks.
         CBlockIndex *pindexPrev = mapBlockIndex.find(inputs.GetBestBlock())->second;
         int nSpendHeight = pindexPrev->nHeight + 1;
-        for (unsigned int i = 0; i < tx.vin.size(); i++)
+        FOREACH_TXIN(txin, tx)
         {
-            const COutPoint &prevout = tx.vin[i].prevout;
+            const COutPoint &prevout = txin.prevout;
             const CCoins *coins = inputs.AccessCoins(prevout.hash);
             assert(coins);
 
@@ -1595,7 +1595,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         const CAmount nTxFee = mTxReward.find(feeAssetID)->second;
         if (fScriptChecks) {
             CTxOutValue prevValueIn = -1;
-            for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            for (unsigned int i = tx.GetFirstInputPos(); i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const CCoins* coins = inputs.AccessCoins(prevout.hash);
                 assert(coins);
