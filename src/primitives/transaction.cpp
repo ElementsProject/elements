@@ -244,9 +244,11 @@ void CMutableTransaction::SetFeesFromTxRewardMap(const CAmountMap& mTxReward)
     }
 }
 
-bool CTransaction::GetFee(const CAssetID& assetID) const
+CAmount CTransaction::GetFee(const CAssetID& assetID) const
 {
     const CAmountMap mTxReward = GetTxRewardMap();
+    if (!mTxReward.count(assetID))
+        return 0;
     return mTxReward.find(assetID)->second;
 }
 

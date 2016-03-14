@@ -328,7 +328,7 @@ public:
      * @return a CAmountMap with total fees per asset.
      */
     CAmountMap GetTxRewardMap() const;
-    bool GetFee(const CAssetID& assetID) const;
+    CAmount GetFee(const CAssetID& assetID) const;
 
     // Compute modified tx size for priority calculation (optionally given tx size)
     unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
