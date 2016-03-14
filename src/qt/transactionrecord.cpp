@@ -80,7 +80,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
     {
         bool involvesWatchAddress = false;
         isminetype fAllFromMe = ISMINE_SPENDABLE;
-        BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+        FOREACH_TXIN(txin, wtx)
         {
             isminetype mine = wallet->IsMine(txin);
             if(mine == ISMINE_WATCH_ONLY) involvesWatchAddress = true;

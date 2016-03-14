@@ -318,6 +318,11 @@ public:
         return (vin.size() > 1 && vin[0].prevout.IsNull());
     }
 
+    unsigned int GetFirstInputPos() const
+    {
+        return IsAssetDefinition() ? 1 : 0;
+    }
+
     friend bool operator==(const CTransaction& a, const CTransaction& b)
     {
         return a.hash == b.hash;
@@ -369,5 +374,12 @@ struct CMutableTransaction
      */
     uint256 GetHash() const;
 };
+
+#define FOREACH_TXIN(VAR, TX) \
+    for (unsigned int __txin_i = (TX).GetFirstInputPos(); \
+         __txin_i < (TX).vin.size(); \
+         ++__txin_i) \
+        if (bool __txin_finish = false) {} else \
+        for (const CTxIn& VAR = (TX).vin[__txin_i]; !__txin_finish; __txin_finish = true)
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

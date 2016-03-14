@@ -265,9 +265,11 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& exces
     unsigned char *p = vchData.data();
     if (!tx.IsCoinBase())
     {
-        for (size_t i = 0; i < tx.vin.size(); ++i)
+        // The first input is null for asset definition transactions
+        FOREACH_TXIN(txin, tx)
         {
-            const CTxOutValue& val = GetOutputFor(tx.vin[i]).nValue;
+            const CTxOut& txOut = GetOutputFor(txin);
+            const CTxOutValue& val = txOut.nValue;
             if (val.IsAmount())
                 nPlainAmount -= val.GetAmount();
             else
@@ -331,8 +333,9 @@ bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx) const
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {
-        for (unsigned int i = 0; i < tx.vin.size(); i++) {
-            const COutPoint &prevout = tx.vin[i].prevout;
+        // Don't check the null input in asset defintion transactions
+        FOREACH_TXIN(txin, tx) {
+            const COutPoint &prevout = txin.prevout;
             const CCoins* coins = AccessCoins(prevout.hash);
             if (!coins || !coins->IsAvailable(prevout.n)) {
                 return false;
@@ -347,7 +350,7 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
     if (tx.IsCoinBase())
         return 0.0;
     double dResult = 0.0;
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    FOREACH_TXIN(txin, tx)
     {
         const CCoins* coins = AccessCoins(txin.prevout.hash);
         assert(coins);

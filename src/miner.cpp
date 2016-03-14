@@ -181,7 +181,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
             COrphan* porphan = NULL;
             bool fMissingInputs = false;
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            FOREACH_TXIN(txin, tx)
             {
                 // Read prev transaction
                 if (!view.HaveCoins(txin.prevout.hash))
