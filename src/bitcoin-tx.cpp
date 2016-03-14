@@ -231,7 +231,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
             throw runtime_error("empty TX input field");
 
         string strSeq = strVout.substr(pos + 1, string::npos);
-        size_t posAsset = strVout.find(':');
+        size_t posAsset = strVout.find(':', pos + 1);
         if (posAsset != string::npos && posAsset != 0 && posAsset != (strVout.size() - 1)) {
             strSeq = strVout.substr(pos + 1, posAsset);
             string strAsset = strVout.substr(posAsset + 1, string::npos);
@@ -257,12 +257,12 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
         throw runtime_error("invalid TX input: sequence missing");
     }
 
-    CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
-    mTxReward[assetID] += value;
-    tx.SetFeesFromTxRewardMap(mTxReward);
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequence);
     tx.vin.push_back(txin);
+    CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
+    mTxReward[assetID] += value;
+    tx.SetFeesFromTxRewardMap(mTxReward);
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
@@ -303,10 +303,10 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
         CPubKey pubkey = addr.GetBlindingKey();
         txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
+    tx.vout.push_back(txout);
     CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
     mTxReward[assetID] -= value;
     tx.SetFeesFromTxRewardMap(mTxReward);
-    tx.vout.push_back(txout);
 }
 
 static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
