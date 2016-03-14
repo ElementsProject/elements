@@ -222,7 +222,8 @@ CAmountMap CTransaction::GetTxRewardMap() const
     assert(vTxFees.size() <= vout.size());
     CAmountMap mTxReward;
     for (unsigned i = 0; i < vTxFees.size(); ++i)
-        mTxReward[vout[i].assetID] += vTxFees[i];
+        if (vout[i].assetID != 0)
+            mTxReward[vout[i].assetID] += vTxFees[i];
     return mTxReward;
 }
 
