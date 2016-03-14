@@ -4203,3 +4203,12 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
     pubkey = CPubKey();
     blindingfactor.SetNull();
 }
+
+void CWalletTx::WipeUnknownBlindingData() const
+{
+    for (unsigned int n = 0; n < tx->vout.size(); n++) {
+        if (GetValueOut(n) == -1) {
+            mapValue["blindingdata"][74 * n] = 0;
+        }
+    }
+}
