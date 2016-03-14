@@ -1081,8 +1081,9 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // do all inputs exist?
         // Note that this does not check for the presence of actual outputs (see the next check for that),
         // only helps filling in pfMissingInputs (to determine missing vs spent).
-        BOOST_FOREACH(const CTxIn txin, tx.vin) {
-            if (!view.HaveCoins(txin.prevout.hash)) {
+        // Don't check the null input in asset defintion transactions
+        for (unsigned int i = tx.IsAssetDefinition() ? 1 : 0; i < tx.vin.size(); i++) {
+            if (!view.HaveCoins(tx.vin[i].prevout.hash)) {
                 if (pfMissingInputs)
                     *pfMissingInputs = true;
                 return false;
