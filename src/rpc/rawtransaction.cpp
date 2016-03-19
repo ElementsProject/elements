@@ -67,7 +67,8 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("vsize", (int)::GetVirtualTransactionSize(tx)));
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
-
+    entry.push_back(Pair("fee", ValueFromAmount(tx.nTxFee)));
+    
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
@@ -154,6 +155,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
+            "  \"fee\" : x.xxx,          (numeric) The transaction fee in " + CURRENCY_UNIT + "\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"
@@ -466,6 +468,7 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp)
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
+            "  \"fee\" : x.xxx,          (numeric) The transaction fee in " + CURRENCY_UNIT + "\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"

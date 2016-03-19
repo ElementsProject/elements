@@ -306,6 +306,20 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
     return nResult;
 }
 
+bool CCoinsViewCache::VerifyAmounts(const CTransaction& tx, const CAmount& excess) const
+{
+    if (!MoneyRange(excess) && !MoneyRange(-excess))
+        return false;
+    CAmount nInAmount = GetValueIn(tx);
+    for (std::vector<CTxOut>::const_iterator it(tx.vout.begin()); it != tx.vout.end(); ++it)
+    {
+        nInAmount -= it->nValue;
+        if (!MoneyRange(it->nValue) || (!MoneyRange(nInAmount) && !MoneyRange(-nInAmount)))
+            return false;
+    }
+    return excess == nInAmount;
+}
+
 bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {

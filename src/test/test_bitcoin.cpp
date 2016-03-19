@@ -142,6 +142,13 @@ TestChain100Setup::~TestChain100Setup()
 }
 
 
+CAmount TotalValueOut(const CMutableTransaction& tx) {
+    CAmount nTotal = 0;
+    BOOST_FOREACH(const CTxOut& txo, tx.vout)
+        nTotal += txo.nValue;
+    return nTotal;
+}
+
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(CMutableTransaction &tx, CTxMemPool *pool) {
     CTransaction txn(tx);
     return FromTx(txn, pool);
@@ -150,7 +157,7 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(CMutableTransaction &tx, CTxMemPo
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(CTransaction &txn, CTxMemPool *pool) {
     bool hasNoDependencies = pool ? pool->HasNoInputsOf(txn) : hadNoDependencies;
     // Hack to assume either its completely dependent on other mempool txs or not at all
-    CAmount inChainValue = hasNoDependencies ? txn.GetValueOut() : 0;
+    CAmount inChainValue = hasNoDependencies ? TotalValueOut(tx) : 0;
 
     return CTxMemPoolEntry(txn, nFee, nTime, dPriority, nHeight,
                            hasNoDependencies, inChainValue, spendsCoinbase, sigOpCost, lp, setWithdrawsSpent);
