@@ -33,9 +33,10 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFe
     nCountWithDescendants = 1;
     nSizeWithDescendants = GetTxSize();
     nModFeesWithDescendants = nFee;
+    /* Unused and impossible to validate with confidential values anyways
     CAmount nValueIn = tx->GetValueOut()+nFee;
     assert(inChainInputValue <= nValueIn);
-
+    */
     feeDelta = 0;
 
     nCountWithAncestors = 1;

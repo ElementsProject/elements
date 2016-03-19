@@ -527,6 +527,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
+        if (tx.nTxFee != 0)
+            return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
     }
     else
     {
@@ -658,7 +660,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         CCoinsViewCache view(&dummy);
         std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
 
-        CAmount nValueIn = 0;
         LockPoints lp;
         {
         LOCK(pool.cs);
@@ -709,8 +710,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         // Bring the best block into scope
         view.GetBestBlock();
 
-        nValueIn = view.GetValueIn(tx);
-
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
         view.SetBackend(dummy);
 
@@ -733,9 +732,8 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
-        CAmount nValueOut = tx.GetValueOut();
-        CAmount nFees = nValueIn-nValueOut;
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
+        CAmount nFees = tx.nTxFee;
         CAmount nModifiedFees = nFees;
         double nPriorityDummy = 0;
         pool.ApplyDeltas(hash, nPriorityDummy, nModifiedFees);
@@ -1451,17 +1449,18 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             }
         }
 
-        if (nValueIn < tx.GetValueOut())
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-                strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(tx.GetValueOut())));
-
         // Tally transaction fees
-        CAmount nTxFee = nValueIn - tx.GetValueOut();
+        CAmount nTxFee = tx.nTxFee;
         if (nTxFee < 0)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-negative");
         nFees += nTxFee;
         if (!MoneyRange(nFees))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+
+        if (!inputs.VerifyAmounts(tx, nTxFee))
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+                strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
+
     return true;
 }
 }// namespace Consensus
@@ -1993,7 +1992,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         txdata.emplace_back(tx);
         if (!tx.IsCoinBase())
         {
-            nFees += view.GetValueIn(tx)-tx.GetValueOut();
+            nFees += tx.nTxFee;
 
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
@@ -2016,10 +2015,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
 
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
-    if (block.vtx[0]->GetValueOut() > blockReward)
+    if (!MoneyRange(blockReward))
+        return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
+    if (!view.VerifyAmounts(*(block.vtx[0]), -blockReward))
         return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",
-                               block.vtx[0]->GetValueOut(), blockReward),
+                         error("ConnectBlock(): coinbase pays too much (limit=%d)",
+                               blockReward),
                                REJECT_INVALID, "bad-cb-amount");
 
     if (!control.Wait())

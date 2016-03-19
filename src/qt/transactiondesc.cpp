@@ -212,7 +212,7 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
                 strHTML += "<b>" + tr("Total credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
             }
 
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut();
+            CAmount nTxFee = wtx.tx->nTxFee;
             if (nTxFee > 0)
                 strHTML += "<b>" + tr("Transaction fee") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
         }

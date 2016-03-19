@@ -1462,8 +1462,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     CAmount nDebit = GetDebit(filter);
     if (nDebit > 0) // debit>0 means we signed/sent this transaction
     {
-        CAmount nValueOut = tx->GetValueOut();
-        nFee = nDebit - nValueOut;
+        nFee = tx->nTxFee;
     }
 
     // Sent/received.
@@ -2604,6 +2603,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 for (const auto& coin : setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second,CScript(),
                                               std::numeric_limits<unsigned int>::max() - (fWalletRbf ? 2 : 1)));
+
+                txNew.nTxFee = nFeeRet;
 
                 // Fill in dummy signatures for fee calculation.
                 if (!DummySignTx(txNew, setCoins)) {

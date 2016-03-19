@@ -1825,7 +1825,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
     CAmount nCredit = wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->nTxFee : 0);
 
     entry.push_back(Pair("amount", ValueFromAmount(nNet - nFee)));
     if (wtx.IsFromMe(filter))
@@ -2844,7 +2844,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
     }
 
     // calculate the old fee and fee-rate
-    CAmount nOldFee = wtx.GetDebit(ISMINE_SPENDABLE) - wtx.tx->GetValueOut();
+    CAmount nOldFee = wtx.tx->nTxFee;
     CFeeRate nOldFeeRate(nOldFee, txSize);
     CAmount nNewFee;
     CFeeRate nNewFeeRate;
