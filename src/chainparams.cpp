@@ -16,7 +16,7 @@
 
 #include "chainparamsseeds.h"
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
@@ -28,7 +28,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
 
     CBlock genesis;
     genesis.nTime    = nTime;
-    genesis.proof = CProof(nBits, nNonce);
+    genesis.proof = CProof(scriptChallenge, CScript());
     genesis.nVersion = nVersion;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
@@ -94,8 +94,11 @@ public:
         nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
-        CScript scriptDestination(CScript() << OP_TRUE);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, 2083236893, 0x1d00ffff, 1, MAX_MONEY);
+        CScript scriptChallenge(CScript() << OP_1 << ParseHex("03aeb681df5ac19e449a872b9e9347f1db5a0394d2ec5caf2a9c143f86e232b0d9") << OP_1 << OP_CHECKMULTISIG);
+
+        uint256 genesisBlockHash(uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
+        CScript scriptDestination(CScript() << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, scriptChallenge, 1, MAX_MONEY);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //! TODO
@@ -186,7 +189,7 @@ public:
         nPruneAfterHeight = 1000;
 
         CScript scriptDestination(CScript() << OP_TRUE);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, 2, 0x207fffff, 1, MAX_MONEY);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, scriptDestination, 1, MAX_MONEY);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
@@ -280,7 +283,6 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
 
         UpdateFromArgs();
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
     }
 };
