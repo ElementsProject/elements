@@ -601,7 +601,8 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight,
+                                const std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent)
 {
     LOCK(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -625,6 +626,16 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         }
         removeConflicts(*tx);
         ClearPrioritisation(tx->GetHash());
+    }
+    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setWithdrawsSpent.begin(); it != setWithdrawsSpent.end(); it++) {
+        std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it2 = mapWithdrawsSpentToTxid.find(*it);
+        if (it2 != mapWithdrawsSpentToTxid.end()) {
+            txiter txit = mapTx.find(it2->second);
+            assert(txit != mapTx.end());
+            setEntries stage;
+            stage.insert(txit);
+            RemoveStaged(stage, true);
+        }
     }
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
