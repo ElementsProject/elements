@@ -1262,11 +1262,15 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         if (!view.HaveInputs(tx))
             return state.Invalid(false, REJECT_DUPLICATE, "bad-txns-inputs-spent");
 
+        // We disable replacement of peg-ins as they are spendable-by-anyone
         BOOST_FOREACH(const CTxIn &txin, tx.vin)
         {
             CCoins coins;
             assert(view.GetCoins(txin.prevout.hash, coins));
             if (coins.vout[txin.prevout.n].scriptPubKey.IsWithdrawLock() && txin.scriptSig.IsWithdrawProof()) {
+                if (pool.mapNextTx.count(txin.prevout))
+                    return state.Invalid(false, REJECT_CONFLICT, "txn-mempool-replace-withdraw");
+
                 pair<uint256, COutPoint> outpoint = make_pair(coins.vout[txin.prevout.n].scriptPubKey.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
                 if (view.IsWithdrawSpent(outpoint))
                     return state.Invalid(false, REJECT_CONFLICT, "withdraw-already-claimed");
