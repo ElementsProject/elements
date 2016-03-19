@@ -1228,6 +1228,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
+        std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
 
         CAmount nValueIn = 0;
         LockPoints lp;
@@ -1260,6 +1261,18 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         // are the actual inputs available?
         if (!view.HaveInputs(tx))
             return state.Invalid(false, REJECT_DUPLICATE, "bad-txns-inputs-spent");
+
+        BOOST_FOREACH(const CTxIn &txin, tx.vin)
+        {
+            CCoins coins;
+            assert(view.GetCoins(txin.prevout.hash, coins));
+            if (coins.vout[txin.prevout.n].scriptPubKey.IsWithdrawLock() && txin.scriptSig.IsWithdrawProof()) {
+                pair<uint256, COutPoint> outpoint = make_pair(coins.vout[txin.prevout.n].scriptPubKey.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
+                if (view.IsWithdrawSpent(outpoint))
+                    return state.Invalid(false, REJECT_CONFLICT, "withdraw-already-claimed");
+                setWithdrawsSpent.insert(outpoint);
+            }
+        }
 
         // Bring the best block into scope
         view.GetBestBlock();
@@ -1309,7 +1322,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
             }
         }
 
-        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), pool.HasNoInputsOf(tx), inChainInputValue, fSpendsCoinbase, nSigOpsCost, lp);
+        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height(), pool.HasNoInputsOf(tx), inChainInputValue, fSpendsCoinbase, nSigOpsCost, lp, setWithdrawsSpent);
         unsigned int nSize = entry.GetTxSize();
 
         // Check that the transaction doesn't have an excessive number of
@@ -1533,6 +1546,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
             return false;
         }
 
+        assert(setWithdrawsSpent2 == setWithdrawsSpent);
         setWithdrawsSpent2.clear();
 
         // Check again against just the consensus-critical mandatory script
@@ -1549,6 +1563,8 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
             return error("%s: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s, %s",
                 __func__, hash.ToString(), FormatStateMessage(state));
         }
+
+        assert(setWithdrawsSpent2 == setWithdrawsSpent);
 
         // Remove conflicting transactions from the mempool
         BOOST_FOREACH(const CTxMemPool::txiter it, allConflicting)
