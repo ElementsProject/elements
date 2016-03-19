@@ -23,10 +23,10 @@ using namespace std;
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
                                  int64_t _nTime, double _entryPriority, unsigned int _entryHeight,
                                  bool poolHasNoInputsOf, CAmount _inChainInputValue,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp):
+                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& _setWithdrawsSpent):
     tx(std::make_shared<CTransaction>(_tx)), nFee(_nFee), nTime(_nTime), entryPriority(_entryPriority), entryHeight(_entryHeight),
     hadNoDependencies(poolHasNoInputsOf), inChainInputValue(_inChainInputValue),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
+    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp), setWithdrawsSpent(_setWithdrawsSpent)
 {
     nTxWeight = GetTransactionWeight(_tx);
     nModSize = _tx.CalculateModifiedSize(GetTxSize());
@@ -447,6 +447,10 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
 
+    typedef std::pair<uint256, COutPoint> WithdrawPair;
+    BOOST_FOREACH(const WithdrawPair& it, entry.setWithdrawsSpent)
+        assert(mapWithdrawsSpentToTxid.insert(std::make_pair(it, hash)).second);
+
     return true;
 }
 
@@ -455,6 +459,10 @@ void CTxMemPool::removeUnchecked(txiter it)
     const uint256 hash = it->GetTx().GetHash();
     BOOST_FOREACH(const CTxIn& txin, it->GetTx().vin)
         mapNextTx.erase(txin.prevout);
+
+    typedef std::pair<uint256, COutPoint> WithdrawPair;
+    BOOST_FOREACH(const WithdrawPair& it2, it->setWithdrawsSpent)
+        assert(mapWithdrawsSpentToTxid.erase(it2));
 
     if (vTxHashes.size() > 1) {
         vTxHashes[it->vTxHashesIdx] = std::move(vTxHashes.back());
@@ -660,6 +668,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
     LOCK(cs);
     list<const CTxMemPoolEntry*> waitingOnDependants;
+    set<pair<uint256, COutPoint> > setGlobalWithdrawsSpent;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->GetTxSize();
@@ -741,6 +750,10 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
             assert(CheckInputs(tx, state, mempoolDuplicate, false, 0, false, txdata, setWithdrawsSpent, NULL));
             UpdateCoins(tx, mempoolDuplicate, 1000000);
+            assert(setWithdrawsSpent == it->setWithdrawsSpent);
+            size_t prevWithdrawsCount = setGlobalWithdrawsSpent.size();
+            setGlobalWithdrawsSpent.insert(setWithdrawsSpent.begin(), setWithdrawsSpent.end());
+            assert(setGlobalWithdrawsSpent.size() == prevWithdrawsCount + setWithdrawsSpent.size());
         }
     }
     unsigned int stepsSinceLastRemove = 0;
@@ -757,6 +770,10 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
             assert(CheckInputs(entry->GetTx(), state, mempoolDuplicate, false, 0, false, txdata, setWithdrawsSpent, NULL));
             UpdateCoins(entry->GetTx(), mempoolDuplicate, 1000000);
+            assert(setWithdrawsSpent == entry->setWithdrawsSpent);
+            size_t prevWithdrawsCount = setGlobalWithdrawsSpent.size();
+            setGlobalWithdrawsSpent.insert(setWithdrawsSpent.begin(), setWithdrawsSpent.end());
+            assert(setGlobalWithdrawsSpent.size() == prevWithdrawsCount + setWithdrawsSpent.size());
             stepsSinceLastRemove = 0;
         }
     }
@@ -767,6 +784,14 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         assert(it2 != mapTx.end());
         assert(&tx == it->second);
     }
+
+    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setGlobalWithdrawsSpent.begin(); it != setGlobalWithdrawsSpent.end(); it++) {
+        assert(!pcoins->IsWithdrawSpent(*it));
+    }
+    for (std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it = mapWithdrawsSpentToTxid.begin(); it != mapWithdrawsSpentToTxid.end(); it++) {
+        assert(setGlobalWithdrawsSpent.erase(it->first));
+    }
+    assert(setGlobalWithdrawsSpent.size() == 0);
 
     assert(totalTxSize == checkTotal);
     assert(innerUsage == cachedInnerUsage);
@@ -982,6 +1007,10 @@ bool CCoinsViewMemPool::GetCoins(const uint256 &txid, CCoins &coins) const {
 
 bool CCoinsViewMemPool::HaveCoins(const uint256 &txid) const {
     return mempool.exists(txid) || base->HaveCoins(txid);
+}
+
+bool CCoinsViewMemPool::IsWithdrawSpent(const std::pair<uint256, COutPoint> &outpoint) const {
+    return mempool.mapWithdrawsSpentToTxid.count(outpoint) || base->IsWithdrawSpent(outpoint);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {
