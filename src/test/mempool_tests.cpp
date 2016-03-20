@@ -5,10 +5,12 @@
 #include "policy/policy.h"
 #include "txmempool.h"
 #include "util.h"
+#include "random.h"
 
 #include "test/test_bitcoin.h"
 
 #include <boost/test/unit_test.hpp>
+#include <boost/assign/list_of.hpp>
 #include <list>
 #include <vector>
 
@@ -577,6 +579,89 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     // ... unless it has gone all the way to 0 (after getting past 1000/2)
 
     SetMockTime(0);
+}
+
+BOOST_AUTO_TEST_CASE(WithdrawsSpentTest)
+{
+    CTxMemPool pool(CFeeRate(0));
+
+    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+    TestMemPoolEntryHelper entry;
+
+    std::pair<uint256, COutPoint> withdraw1, withdraw2, withdraw3;
+    GetRandBytes(withdraw1.first.begin(), withdraw1.first.size());
+    GetRandBytes(withdraw2.first.begin(), withdraw2.first.size());
+    GetRandBytes(withdraw3.first.begin(), withdraw3.first.size());
+    GetRandBytes(withdraw1.second.hash.begin(), withdraw1.second.hash.size());
+    GetRandBytes(withdraw2.second.hash.begin(), withdraw2.second.hash.size());
+    withdraw3.second.hash = withdraw2.second.hash;
+    withdraw1.second.n = 0;
+    withdraw2.second.n = 0;
+    withdraw3.second.n = 1;
+
+    CMutableTransaction tx;
+    tx.vin.resize(1);
+    tx.vout.resize(1);
+    tx.vout[0].nValue = 0;
+    const uint256 tx1Hash(tx.GetHash());
+    pool.addUnchecked(tx1Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    BOOST_CHECK(pool.mapWithdrawsSpentToTxid.empty());
+
+    setWithdrawsSpent = boost::assign::list_of(withdraw1);
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(2);
+    tx.vout[1].nValue = 0;
+    const uint256 tx2Hash(tx.GetHash());
+    pool.addUnchecked(tx2Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw1].ToString(), tx2Hash.ToString());
+
+    setWithdrawsSpent = boost::assign::list_of(withdraw2);
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(3);
+    tx.vout[2].nValue = 0;
+    const uint256 tx3Hash(tx.GetHash());
+    pool.addUnchecked(tx3Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw2].ToString(), tx3Hash.ToString());
+
+    setWithdrawsSpent = boost::assign::list_of(withdraw3);
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(4);
+    tx.vout[3].nValue = 0;
+    std::list<CTransaction> conflicts;
+    pool.removeForBlock(boost::assign::list_of(tx), 1, setWithdrawsSpent, conflicts);
+
+    BOOST_CHECK_EQUAL(pool.size(), 3);
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid.size(), 2);
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw1].ToString(), tx2Hash.ToString());
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw2].ToString(), tx3Hash.ToString());
+
+    setWithdrawsSpent = boost::assign::list_of(withdraw1);
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(5);
+    tx.vout[4].nValue = 0;
+    pool.removeForBlock(boost::assign::list_of(tx), 2, setWithdrawsSpent, conflicts);
+
+    BOOST_CHECK_EQUAL(pool.size(), 2);
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid.size(), 1);
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw2].ToString(), tx3Hash.ToString());
+
+    setWithdrawsSpent = boost::assign::list_of(withdraw1)(withdraw3);
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(6);
+    tx.vout[5].nValue = 0;
+    const uint256 tx4Hash(tx.GetHash());
+    pool.addUnchecked(tx4Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw1].ToString(), tx4Hash.ToString());
+    BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw3].ToString(), tx4Hash.ToString());
+
+    setWithdrawsSpent = boost::assign::list_of(withdraw2)(withdraw3);
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(7);
+    tx.vout[6].nValue = 0;
+    pool.removeForBlock(boost::assign::list_of(tx), 3, setWithdrawsSpent, conflicts);
+
+    BOOST_CHECK_EQUAL(pool.size(), 1);
+    BOOST_CHECK(pool.mapWithdrawsSpentToTxid.empty());
 }
 
 BOOST_AUTO_TEST_SUITE_END()
