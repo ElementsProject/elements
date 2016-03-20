@@ -1753,12 +1753,40 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
         pblocktree->ReWriteLocksCreated(genesisHash, vChangedLocks);
     }
 
+    //If not enough, combine mempool locks
     if (nTotal < nAmount) {
-        //TODO: Allow claims-from-mempool
+        std::vector<const CTransaction*> vMempoolTxn;
+        BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+            vMempoolTxn.push_back(&e.GetTx());
+        }
+
+        std::random_shuffle(vMempoolTxn.begin(), vMempoolTxn.end());
+
+        BOOST_FOREACH(const CTransaction* ptx, vMempoolTxn) {
+            const CTransaction& tx = *ptx;
+            for (unsigned int j = 0; j < tx.vout.size() && nTotal < nAmount; j++) {
+                CTxOut txout = tx.vout[j];
+                if (!txout.scriptPubKey.IsWithdrawLock())
+                    continue;
+
+                uint256 withdrawGenHash = txout.scriptPubKey.GetWithdrawLockGenesisHash();
+                if (genesisHash != withdrawGenHash)
+                    continue;
+                if (mempool.mapWithdrawsSpentToTxid.count(std::make_pair(withdrawGenHash, COutPoint(tx.GetHash(), j))))
+                    continue;
+
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount()) {
+                    res.push_back(std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount()));
+                    nTotal += txout.nValue.GetAmount();
+                    if (nTotal >= nAmount)
+                        return true;
+                }
+            }
+       }
         return false;
     }
 
-    std::sort(res.begin(), res.end(), utxoSort);
+    //res list is already randomized
     nTotal = 0;
     size_t i = 0;
     for (; i < res.size() && nTotal < nAmount; i++)
