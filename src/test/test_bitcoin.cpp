@@ -140,9 +140,8 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(CTransaction &txn, CTxMemPool *po
     // Hack to assume either its completely dependent on other mempool txs or not at all
     CAmount inChainValue = hasNoDependencies ? txn.GetValueOut() : 0;
 
-    std::set<std::pair<uint256, COutPoint> > mapWithdrawsSpent;
     return CTxMemPoolEntry(txn, nFee, nTime, dPriority, nHeight,
-                           hasNoDependencies, inChainValue, spendsCoinbase, sigOpCost, lp, mapWithdrawsSpent);
+                           hasNoDependencies, inChainValue, spendsCoinbase, sigOpCost, lp, setWithdrawsSpent);
 }
 
 void Shutdown(void* parg)
