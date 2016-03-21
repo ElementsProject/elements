@@ -1670,10 +1670,103 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, const Consensus::P
     return false;
 }
 
+bool utxoSort(const std::pair<COutPoint, CAmount>& a, const std::pair<COutPoint, CAmount>& b) {
+    return a.second > b.second;
+}
 
+/** Select Inputs which lock at least nAmount to the given chain */
+bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::vector<std::pair<COutPoint, CAmount> >& res) {
+    res.clear();
 
+    LOCK2(cs_main, mempool.cs);
 
+    std::vector<std::pair<COutPoint, CAmount> > locksCreated;
+    bool locksChanged = false;
+    if (!pblocktree->ReadLocksCreated(genesisHash, locksCreated))
+        return false;
 
+    //For faster random esasure
+    std::list<std::pair<COutPoint, CAmount> > locksList;
+    std::copy(locksCreated.begin(), locksCreated.end(), std::back_inserter(locksList));
+
+    unsigned int skippedLocks = 0;
+    while (locksList.size() - skippedLocks > 0) {
+        uint64_t idx = GetRand(locksList.size() - skippedLocks);
+        std::list<std::pair<COutPoint, CAmount> >::iterator it = locksList.begin();
+        std::advance(it, idx);
+        const std::pair<COutPoint, CAmount> &lock = (*it);
+
+        //Erase locks that have been spent in an active block
+        CCoins coins;
+        if (!pcoinsTip->GetCoins(lock.first.hash, coins) || !coins.IsAvailable(lock.first.n)) {
+            locksList.erase(it);
+            locksChanged = true;
+            continue;
+        }
+
+        //Move too-small locks or locks currently spent in mempool to back of list
+        if (lock.second < nAmount ||
+                mempool.mapNextTx.count(COutPoint(lock.first.hash, lock.first.n))) {
+            locksList.push_back(lock);
+            locksList.erase(it);
+            skippedLocks++;
+            continue;
+        }
+
+        assert(coins.vout[lock.first.n].nValue.IsAmount() && coins.vout[lock.first.n].nValue.GetAmount() == lock.second);
+        res.push_back(lock);
+        break;
+    }
+    if (locksChanged) {
+        //Convert back for serialization
+        std::vector<std::pair<COutPoint, CAmount> > vChangedLocks(locksList.begin(), locksList.end());
+        pblocktree->ReWriteLocksCreated(genesisHash, vChangedLocks);
+    }
+    //Found single lock large enough
+    if (res.size())
+        return true;
+
+    CAmount nTotal = 0;
+    //Gather up smaller locked outputs for aggregation.
+    for (std::list<std::pair<COutPoint, CAmount> >::iterator it = locksList.begin(); it != locksList.end(); it++) {
+        CCoins coins;
+        if (!pcoinsTip->GetCoins(it->first.hash, coins) || !coins.IsAvailable(it->first.n)) {
+            it = locksList.erase(it);
+            it--;
+            locksChanged = true;
+            continue;
+        }
+
+        if (mempool.mapNextTx.count(COutPoint(it->first.hash, it->first.n)))
+            continue;
+
+        assert(coins.vout[it->first.n].nValue.IsAmount() && coins.vout[it->first.n].nValue.GetAmount() == it->second);
+        res.push_back(*it);
+
+        nTotal += it->second;
+        assert(MoneyRange(nTotal));
+    }
+
+    if (locksChanged) {
+        //Convert back for serialization
+        std::vector<std::pair<COutPoint, CAmount> > vChangedLocks(locksList.begin(), locksList.end());
+        pblocktree->ReWriteLocksCreated(genesisHash, vChangedLocks);
+    }
+
+    if (nTotal < nAmount) {
+        //TODO: Allow claims-from-mempool
+        return false;
+    }
+
+    std::sort(res.begin(), res.end(), utxoSort);
+    nTotal = 0;
+    size_t i = 0;
+    for (; i < res.size() && nTotal < nAmount; i++)
+        nTotal += res[i].second;
+
+    res.resize(i);
+    return true;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
