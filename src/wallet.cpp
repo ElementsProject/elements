@@ -1642,20 +1642,18 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                         int pos = GetRandInt(txNew.vout.size()+1);
                         vector<CTxOut>::iterator position = txNew.vout.begin()+pos;
                         txNew.vout.insert(position, newTxOut);
-                        output_pubkeys.insert(output_pubkeys.begin() + pos, GetBlindingPubKey(scriptChange));
+                        if (fBlindedOuts || fBlindedIns) {
+                            output_pubkeys.insert(output_pubkeys.begin() + pos, GetBlindingPubKey(scriptChange));
+                        } else {
+                            // No need for blinded change if we have no hidden value to protect.
+                            output_pubkeys.insert(output_pubkeys.begin() + pos, CPubKey());
+                        }
                         nValueOut += nChange;
-                        fBlindedOuts = true;
                     }
                 }
                 else
                     reservekey.ReturnKey();
 
-                if (fBlindedIns && !fBlindedOuts) {
-                    CTxOut newTxOut(0, CScript() << OP_RETURN);
-                    txNew.vout.push_back(newTxOut);
-                    output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
-                    fBlindedOuts = true;
-                }
                 // Fill vin
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second));
@@ -1673,11 +1671,18 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                 for (size_t nOut = 0; nOut < txNew.vout.size(); nOut++) {
                     output_blinds.push_back(uint256());
                 }
-                if (fBlindedIns && !fBlindedOuts) {
-                    strFailReason = _("Confidential inputs without confidential outputs");
-                    return false;
+                if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew)) {
+                    // We need an extra blinded output
+                    // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
+                    // instead, as this does not actually provide better privacy.
+                    CTxOut newTxOut(0, CScript() << OP_RETURN);
+                    txNew.vout.push_back(newTxOut);
+                    output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
+                    output_blinds.push_back(uint256());
+                    // Now it has to succeed
+                    bool ret = BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew);
+                    assert(ret);
                 }
-                BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew);
 
                 // Sign
                 int nIn = 0;

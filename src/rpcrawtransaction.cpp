@@ -606,7 +606,9 @@ Value rawblindrawtransaction(const Array& params, bool fHelp)
         output_blinds.push_back(uint256());
     }
 
-    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+    if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add a blinded output"));
+    }
 
     return EncodeHexTx(tx);
 }
@@ -686,7 +688,9 @@ Value blindrawtransaction(const Array& params, bool fHelp)
         }
     }
 
-    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+    if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add a blinded output"));
+    }
 
     return EncodeHexTx(tx);
 }
