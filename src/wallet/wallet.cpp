@@ -2307,7 +2307,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             {
                 nChangePosInOut = nChangePosRequest;
                 std::vector<CPubKey> output_pubkeys;
-                bool fBlindedOuts = false;
 
                 txNew.vin.clear();
                 txNew.vout.clear();
@@ -2350,8 +2349,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     }
                     txNew.vout.push_back(txout);
                     output_pubkeys.push_back(recipient.confidentiality_key);
-                    if (recipient.confidentiality_key.size() != 0)
-                        fBlindedOuts = true;
                 }
 
                 // Choose coins to use
@@ -2362,11 +2359,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     strFailReason = _("Insufficient funds");
                     return false;
                 }
-                bool fBlindedIns = false;
                 BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
                 {
-                    if (!pcoin.first->vout[pcoin.second].nValue.IsAmount())
-                        fBlindedIns = true;
                     CAmount nCredit = pcoin.first->GetValueOut(pcoin.second);
                     //The coin age after the next block (depth+1) is used instead of the current,
                     //reflecting an assumption the user would accept a bit more delay for
@@ -2458,19 +2452,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
                         txNew.vout.insert(position, newTxOut);
                         output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, GetBlindingPubKey(scriptChange));
-                        fBlindedOuts = true;
                     }
                 }
                 else
                     reservekey.ReturnKey();
-
-                if (fBlindedIns && !fBlindedOuts) {
-                    CTxOut newTxOut(0, CScript() << OP_RETURN);
-                    txNew.vout.push_back(newTxOut);
-                    output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
-                    fBlindedOuts = true;
-                }
-
 
                 // Fill vin
                 //
@@ -2497,11 +2482,18 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (outAmounts)
                         outAmounts->push_back(txNew.vout[nOut].nValue.GetAmount());
                 }
-                if (fBlindedIns && !fBlindedOuts) {
-                    strFailReason = _("Confidential inputs without confidential outputs");
-                    return false;
+                if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew)) {
+                    // We need a dummy output to put a non-zero blinding factor.
+                    // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
+                    // instead, as this does not actually provide better privacy.
+                    CTxOut newTxOut(0, CScript() << OP_RETURN);
+                    txNew.vout.push_back(newTxOut);
+                    output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
+                    output_blinds.push_back(uint256());
+                    // Now it has to succeed
+                    bool ret = BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew);
+                    assert(ret);
                 }
-                BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew);
 
                 // Sign
                 int nIn = 0;

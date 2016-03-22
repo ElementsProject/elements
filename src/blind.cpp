@@ -60,7 +60,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     }
 }
 
-void BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
@@ -95,8 +95,15 @@ void BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std
          }
     }
 
-    if (nBlindsIn != 0) {
-        assert((nBlindsOut + nToBlind) != 0);
+    static const unsigned char diff_zero[32] = {0};
+    if (nToBlind == 0) {
+        unsigned char diff[32];
+        // If there is no place to put a blinding factor anymore, the existing input blinding factors must equal the outputs
+        bool ret = secp256k1_pedersen_blind_sum(secp256k1_blind_context, diff, &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn);
+        assert(ret);
+        if (memcmp(diff_zero, diff, 32)) {
+            return false;
+        }
     }
 
     //Running total of newly blinded outputs
@@ -109,6 +116,10 @@ void BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std
             if (nBlinded + 1 == nToBlind) {
                 // Last to-be-blinded value: compute from all other blinding factors.
                 assert(secp256k1_pedersen_blind_sum(secp256k1_blind_context, &blind[nBlinded][0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
+                // Never permit producting a blinding factor 0, but insist a new output is added.
+                if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
+                    return false;
+                }
                 blindptrs.push_back(&blind[nBlinded++][0]);
             } else {
                 GetRandBytes(&blind[nBlinded][0], 32);
@@ -138,4 +149,6 @@ void BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std
             assert(res);
         }
     }
+
+    return true;
 }
