@@ -615,7 +615,9 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     FillOutputBlinds(tx, false, output_blinds, output_pubkeys);
 
-    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+    if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
+    }
 
     return EncodeHexTx(tx);
 }
@@ -672,7 +674,9 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
 
     FillOutputBlinds(tx, true, output_blinds, output_pubkeys);
 
-    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+    if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
+    }
 
     return EncodeHexTx(tx);
 }
