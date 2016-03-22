@@ -85,7 +85,7 @@ class UTXOFinder:
 
 	def check_tx(self, tx):
 		for vout, output in enumerate(tx["vout"]):
-			if output["scriptPubKey"]["type"] == "withdraw":
+			if output["scriptPubKey"]["type"] == "withdraw" and not "OP_DROP" in output["scriptPubKey"]["asm"]:
 				if output["value"] >= value:
 					self.in_txid = tx["txid"]
 					self.in_vout = vout
