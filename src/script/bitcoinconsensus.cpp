@@ -89,7 +89,7 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         if (amountPreviousInput.IsAmount() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
             return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionNoWithdrawsSignatureChecker(&tx, nIn, amount, txdata), NULL);
         else
-            return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, amountPreviousInput), NULL);
+            return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, amountPreviousInput, CScript()), NULL);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }

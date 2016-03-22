@@ -36,9 +36,6 @@ using namespace std;
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
-//Redeemscript template for alpha fedpeg
-static const CScript fedRedeemScript(CScript() << OP_2 << ParseHex("02d51090b27ca8f1cc04984614bd749d8bab6f2a3681318d3fd0dd43b2a39dd774") << ParseHex("03a75bd7ac458b19f98047c76a6ffa442e592148c5d23a1ec82d379d5d558f4fd8") << ParseHex("034c55bede1bce8e486080f8ebb7a0e8f106b49efb295a8314da0e1b1723738c66") << OP_3 << OP_CHECKMULTISIG);
-
 std::string HelpRequiringPassphrase()
 {
     return pwalletMain && pwalletMain->IsCrypted()
@@ -2815,7 +2812,7 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
     unsigned char nonce[16];
     memset(nonce, 0, sizeof(nonce));
     unsigned char fullcontract[40];
-    CBitcoinAddress destAddr(calculate_contract(fedRedeemScript, address, nonce, fullcontract));
+    CBitcoinAddress destAddr(calculate_contract(Params().GetConsensus().fedpegScript, address, nonce, fullcontract));
 
     UniValue fundinginfo(UniValue::VOBJ);
 
@@ -2970,7 +2967,7 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     unsigned char nonce[16];
     memset(nonce, 0, sizeof(nonce));
     unsigned char fullcontract[40];
-    CScript mainchain_script = GetScriptForDestination(calculate_contract(fedRedeemScript, sidechainAddress, &nonce[0], fullcontract));
+    CScript mainchain_script = GetScriptForDestination(calculate_contract(Params().GetConsensus().fedpegScript, sidechainAddress, &nonce[0], fullcontract));
 
     unsigned int nOut = 0;
     for (; nOut < txBTC.vout.size(); nOut++)
