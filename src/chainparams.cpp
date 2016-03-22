@@ -72,6 +72,9 @@ public:
         // Default blocksign script for elements
         defaultSignblockScript = CScript() << OP_2 << ParseHex("03206b45265ae687dfdc602b8faa7dd749d7865b0e51f986e12c532229f0c998be") << ParseHex("02cc276552e180061f64dc16e2a02e7f9ecbcc744dea84eddbe991721824df825c") << ParseHex("0204c6be425356d9200a3303d95f2c39078cc9473ca49619da1e0ec233f27516ca") << OP_3 << OP_CHECKMULTISIG;
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", "", mapArgs), defaultSignblockScript);
+        CScript defaultFedpegScript;
+        defaultFedpegScript = CScript() << OP_2 << ParseHex("02d51090b27ca8f1cc04984614bd749d8bab6f2a3681318d3fd0dd43b2a39dd774") << ParseHex("03a75bd7ac458b19f98047c76a6ffa442e592148c5d23a1ec82d379d5d558f4fd8") << ParseHex("034c55bede1bce8e486080f8ebb7a0e8f106b49efb295a8314da0e1b1723738c66") << OP_3 << OP_CHECKMULTISIG;
+        consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", "", mapArgs), defaultFedpegScript);
 
         strNetworkID = CHAINPARAMS_ELEMENTS;
         consensus.nSubsidyHalvingInterval = 210000;
@@ -184,6 +187,7 @@ public:
     {
         const CScript defaultRegtestScript(CScript() << OP_TRUE);
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", "", mapArgs), defaultRegtestScript);
+        consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", "", mapArgs), defaultRegtestScript);
 
         strNetworkID = CHAINPARAMS_REGTEST;
         consensus.nSubsidyHalvingInterval = 150;
