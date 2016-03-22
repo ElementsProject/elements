@@ -71,7 +71,7 @@ ScriptError VerifyWithFlag(const CTransaction& output, const CMutableTransaction
 {
     ScriptError error;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue, -1), &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue, -1, CScript()), &error);
     BOOST_CHECK((ret == true) == (error == SCRIPT_ERR_OK));
 
     return error;
