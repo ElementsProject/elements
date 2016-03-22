@@ -97,7 +97,41 @@ UniValue getnetworkhashps(const UniValue& params, bool fHelp)
 
 UniValue generate(const UniValue& params, bool fHelp)
 {
-    throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used in private chain mode");
+    if (fHelp || params.size() < 1 || params.size() > 1)
+        throw runtime_error(
+            "generate numblocks\n"
+            "\nMine blocks immediately (before the RPC call returns)\n"
+            "\nNote: this function can only be used on the regtest network\n"
+            "\nArguments:\n"
+            "1. numblocks    (numeric, required) How many blocks are generated immediately.\n"
+            "\nResult\n"
+            "[ blockhashes ]     (array) hashes of blocks generated\n"
+            "\nExamples:\n"
+            "\nGenerate 11 blocks\n"
+            + HelpExampleCli("generate", "11")
+        );
+
+    LOCK(cs_main);
+
+    CScript coinbaseDest(Params().CoinbaseDestination());
+    if (coinbaseDest == CScript())
+        coinbaseDest = CScript() << OP_TRUE;
+
+    UniValue arr(UniValue::VARR);
+    for (int i = 0; i < params[0].get_int(); i++) {
+        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseDest));
+        if (!pblocktemplate.get())
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
+        unsigned int nExtraNonce = 0;
+        IncrementExtraNonce(&pblocktemplate->block, chainActive.Tip(), nExtraNonce);
+        if (!CheckProof(pblocktemplate->block, Params().GetConsensus()))
+            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used with a block-signature-required chain");
+        CValidationState state;
+        assert(ProcessNewBlock(state, Params(), NULL, &pblocktemplate->block, true, NULL));
+        assert(state.IsValid() && chainActive.Tip()->GetBlockHash() == pblocktemplate->block.GetHash());
+        arr.push_back(pblocktemplate->block.GetHash().ToString());
+    }
+    return arr;
 }
 
 UniValue getnewblockhex(const UniValue& params, bool fHelp)
