@@ -95,6 +95,8 @@ public:
         genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, scriptChallenge, 1, MAX_MONEY, 100);
         consensus.hashGenesisBlock = genesis.GetHash();
 
+        scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
+
         vFixedSeeds.clear(); //! TODO
         vSeeds.clear(); //! TODO
 
@@ -177,6 +179,8 @@ public:
         CScript scriptDestination(CScript() << OP_TRUE);
         genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, scriptDestination, 1, MAX_MONEY, 100);
         consensus.hashGenesisBlock = genesis.GetHash();
+
+        scriptCoinbaseDestination = CScript(); // Allow any coinbase destination
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
