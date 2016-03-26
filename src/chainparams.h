@@ -83,6 +83,8 @@ public:
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     /** Only allowed in regtest for testing purposes, otherwise NOP */
     void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout) {};
+    /** All coinbase outputs (after genesis) must be to this destination */
+    const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
     /**
      * Creates and returns a CChainParams* of the chosen chain. The caller has to delete the object.
      * @returns a CChainParams* of the chosen chain.
@@ -107,6 +109,7 @@ protected:
     bool fMineBlocksOnDemand;
     bool fTestnetToBeDeprecatedFieldRPC;
     CCheckpointData checkpointData;
+    CScript scriptCoinbaseDestination;
 };
 
 /**
