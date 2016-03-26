@@ -88,7 +88,7 @@ public:
         nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
-        CScript scriptChallenge(CScript() << OP_2 << ParseHex("03206b45265ae687dfdc602b8faa7dd749d7865b0e51f986e12c532229f0c998be") << ParseHex("0204c6be425356d9200a3303d95f2c39078cc9473ca49619da1e0ec233f27516ca") << ParseHex("02cc276552e180061f64dc16e2a02e7f9ecbcc744dea84eddbe991721824df825c") << OP_3 << OP_CHECKMULTISIG);
+        CScript scriptChallenge(CScript() << OP_2 << ParseHex("03206b45265ae687dfdc602b8faa7dd749d7865b0e51f986e12c532229f0c998be") << ParseHex("02cc276552e180061f64dc16e2a02e7f9ecbcc744dea84eddbe991721824df825c") << ParseHex("0204c6be425356d9200a3303d95f2c39078cc9473ca49619da1e0ec233f27516ca") << OP_3 << OP_CHECKMULTISIG);
 
         uint256 genesisBlockHash(uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
         CScript scriptDestination(CScript() << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
