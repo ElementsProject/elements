@@ -1695,7 +1695,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
         std::list<std::pair<COutPoint, CAmount> >::iterator it = locksList.begin();
         std::advance(it, idx);
         const std::pair<COutPoint, CAmount> &lock = (*it);
-
+        //Should run this first
         //Erase locks that have been spent in an active block
         CCoins coins;
         if (!pcoinsTip->GetCoins(lock.first.hash, coins) || !coins.IsAvailable(lock.first.n)) {
