@@ -57,9 +57,11 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
     coinbaseKey.MakeNewKey(true);
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
     CMutableTransaction newCoinbase(Params().GenesisBlock().vtx[0]);
-    newCoinbase.vout[0].scriptPubKey = scriptPubKey;
+    for (unsigned int i = 0; i < Params().GenesisBlock().vtx[0].vout.size(); i++)
+        newCoinbase.vout[i].scriptPubKey = scriptPubKey;
     const_cast<CBlock&>(Params().GenesisBlock()).vtx[0] = newCoinbase;
     const_cast<CBlock&>(Params().GenesisBlock()).hashMerkleRoot = BlockMerkleRoot(Params().GenesisBlock());
+    const_cast<CBlock&>(Params().GenesisBlock()).proof = CProof(CScript()<<OP_TRUE, CScript());
     const_cast<Consensus::Params&>(Params().GetConsensus()).hashGenesisBlock = Params().GenesisBlock().GetHash();
 
         ClearDatadirCache();
@@ -142,7 +144,7 @@ TestChain100Setup::~TestChain100Setup()
 }
 
 
-CAmount TotalValueOut(const CMutableTransaction& tx) {
+CAmount TotalValueOut(const CTransaction& tx) {
     CAmount nTotal = 0;
     BOOST_FOREACH(const CTxOut& txo, tx.vout)
         nTotal += txo.nValue.GetAmount();
@@ -157,7 +159,7 @@ CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(CMutableTransaction &tx, CTxMemPo
 CTxMemPoolEntry TestMemPoolEntryHelper::FromTx(CTransaction &txn, CTxMemPool *pool) {
     bool hasNoDependencies = pool ? pool->HasNoInputsOf(txn) : hadNoDependencies;
     // Hack to assume either its completely dependent on other mempool txs or not at all
-    CAmount inChainValue = hasNoDependencies ? TotalValueOut(tx) : 0;
+    CAmount inChainValue = hasNoDependencies ? TotalValueOut(txn) : 0;
 
     return CTxMemPoolEntry(txn, nFee, nTime, dPriority, nHeight,
                            hasNoDependencies, inChainValue, spendsCoinbase, sigOpCost, lp, setWithdrawsSpent);
