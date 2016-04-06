@@ -13,6 +13,10 @@
 
 BOOST_FIXTURE_TEST_SUITE(pow_tests, BasicTestingSetup)
 
+BOOST_AUTO_TEST_CASE(dummy_case)
+{
+
+}
 #if 0
 // TODO: Re-enable when we re-add bitcoin stuff
 

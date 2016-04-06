@@ -162,7 +162,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
 #ifdef ENABLE_WALLET
         //This tests the wallet blinding caching functionality
-        CWalletTx wtx(&wallet, tx4);
+        CWalletTx wtx(&wallet, MakeTransactionRef(tx4));
         uint256 factor = wtx.GetBlindingFactor(0);
         CPubKey pubkey = wtx.GetBlindingPubKey(0);
         CAmount amount = wtx.GetValueOut(0);
