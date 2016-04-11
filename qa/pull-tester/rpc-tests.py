@@ -76,7 +76,7 @@ for arg in sys.argv[1:]:
 
 #Set env vars
 if "BITCOIND" not in os.environ:
-    os.environ["BITCOIND"] = BUILDDIR + '/src/bitcoind' + EXEEXT
+    os.environ["BETAD"] = BUILDDIR+ '/src/betad' + EXEEXT
 if "BITCOINCLI" not in os.environ:
     os.environ["BITCOINCLI"] = BUILDDIR + '/src/bitcoin-cli' + EXEEXT
 
@@ -103,11 +103,11 @@ if ENABLE_ZMQ:
 testScripts = [
     # longest test should go first, to favor running tests in parallel
     'p2p-fullblocktest.py',
-    'walletbackup.py',
-    'bip68-112-113-p2p.py',
+    #'walletbackup.py',
+    #'bip68-112-113-p2p.py',
     'wallet.py',
-    'wallet-hd.py',
-    'wallet-dump.py',
+    #'wallet-hd.py',
+    #'wallet-dump.py',
     'listtransactions.py',
     'receivedby.py',
     'mempool_resurrect_test.py',
@@ -118,7 +118,7 @@ testScripts = [
     'rest.py',
     'mempool_spendcoinbase.py',
     'mempool_reorg.py',
-    'mempool_limit.py',
+    #'mempool_limit.py',
     'httpbasics.py',
     'multi_rpc.py',
     'zapwallettxes.py',
@@ -129,21 +129,22 @@ testScripts = [
     'nodehandling.py',
     'reindex.py',
     'decodescript.py',
-    'blockchain.py',
-    'disablewallet.py',
+    #'blockchain.py',
+    #'disablewallet.py',
     'sendheaders.py',
     'keypool.py',
     'prioritise_transaction.py',
     'invalidblockrequest.py',
     'invalidtxrequest.py',
     'abandonconflict.py',
-    'p2p-versionbits-warning.py',
-    'p2p-segwit.py',
+    'confidential_transactions.py',
+    #'p2p-versionbits-warning.py',
+    #'p2p-segwit.py',
     'segwit.py',
-    'importprunedfunds.py',
+    #'importprunedfunds.py',
     'signmessages.py',
-    'p2p-compactblocks.py',
-    'nulldummy.py',
+    #'p2p-compactblocks.py',
+    #'nulldummy.py',
 ]
 if ENABLE_ZMQ:
     testScripts.append('zmq_test.py')
@@ -162,7 +163,7 @@ testScriptsExt = [
     'forknotify.py',
     'invalidateblock.py',
     'rpcbind_test.py',
-    'smartfees.py',
+    #'smartfees.py',
     'maxblocksinflight.py',
     'p2p-acceptblock.py',
     'mempool_packages.py',

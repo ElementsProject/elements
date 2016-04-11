@@ -143,6 +143,12 @@ def deser_vector(f, c):
         r.append(t)
     return r
 
+def deser_flat_vector(f, length):
+    r = []
+    for i in xrange(length):
+        t = struct.unpack("<B", f.read(1))[0]
+        r.append(t)
+    return r
 
 # ser_function_name: Allow for an alternate serialization function on the
 # entries in the vector (we use this for serializing the vector of transactions
@@ -155,6 +161,21 @@ def ser_vector(l, ser_function_name=None):
         else:
             r += i.serialize()
     return r
+
+def ser_flat_vector(l):
+    r = ""
+    if len(l) < 253:
+        r = chr(len(l))
+    elif len(l) < 0x10000:
+        r = chr(253) + struct.pack("<H", len(l))
+    elif len(l) < 0x100000000:
+        r = chr(254) + struct.pack("<I", len(l))
+    else:
+        r = chr(255) + struct.pack("<Q", len(l))
+    for i in l:
+        r += chr(i)
+    return r
+
 
 
 def deser_uint256_vector(f):
@@ -337,24 +358,55 @@ class CTxIn(object):
             % (repr(self.prevout), bytes_to_hex_str(self.scriptSig),
                self.nSequence)
 
+def setCTxOutValue(amount):
+    vchCommitment = [0]*33
+    for i in range(8): #8 bytes
+        vchCommitment[33-1-i] = ((amount >> (i*8)) & 0xff)
+    return ''.join(map(chr, vchCommitment))
+
+#Serialization only does value commitment
+class CTxOutValue(object):
+    def __init__(self, vchCommitment=[], vchRangeProof="", vchNonceCommitment=""):
+        self.vchCommitment = vchCommitment
+        self.vchRangeProof = vchRangeProof
+        self.vchNonceCommitment = vchNonceCommitment
+
+    def deserialize(self, f):
+        self.vchCommitment = f.read(33)
+        #self.vchRangeProof = deser_string(f)
+        #self.vchNonceCommitment = deser_string(f)
+
+    def serialize(self):
+        r = b""
+        r += self.vchCommitment
+        #r += ''.join(map(chr, self.vchCommitment))
+        #r += ser_string(self.vchRangeProof)
+        #r += ser_string(self.vchNonceCommitment)
+        return r
+
+    def __repr__(self):
+        return "CTxOutValue(vchCommitment=%s vchRangeProof=%s, vchnonceCommitment=%s)" \
+            % ("COMMITMENT", "RANGE", "NONCE")#(self.vchCommitment, self.vchRangeProof,
+               #self.vchNonceCommitment)
 
 class CTxOut(object):
-    def __init__(self, nValue=0, scriptPubKey=b""):
+    def __init__(self, nValue=CTxOutValue(), scriptPubKey=""):
         self.nValue = nValue
         self.scriptPubKey = scriptPubKey
 
     def deserialize(self, f):
-        self.nValue = struct.unpack("<q", f.read(8))[0]
+        self.nValue = CTxOutValue()
+        self.nValue.deserialize(f)
         self.scriptPubKey = deser_string(f)
 
     def serialize(self):
         r = b""
-        r += struct.pack("<q", self.nValue)
+        r += self.nValue.serialize()
         r += ser_string(self.scriptPubKey)
         return r
 
     def __repr__(self):
-        return "CTxOut(nValue=%i.%08i scriptPubKey=%s)" \
+        return "CTxOut(nValue=%s scriptPubKey=%s)" \
             % (self.nValue // COIN, self.nValue % COIN,
                bytes_to_hex_str(self.scriptPubKey))
 
@@ -423,6 +475,7 @@ class CTransaction(object):
     def __init__(self, tx=None):
         if tx is None:
             self.nVersion = 1
+            self.nTxFee = 0
             self.vin = []
             self.vout = []
             self.wit = CTxWitness()
@@ -431,6 +484,7 @@ class CTransaction(object):
             self.hash = None
         else:
             self.nVersion = tx.nVersion
+            self.nTxFee = tx.nTxFee
             self.vin = copy.deepcopy(tx.vin)
             self.vout = copy.deepcopy(tx.vout)
             self.nLockTime = tx.nLockTime
@@ -440,6 +494,16 @@ class CTransaction(object):
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
+        self.nTxFee = struct.unpack("<q", f.read(8))[0]
+        self.vin = deser_vector(f, CTxIn)
+        self.vout = deser_vector(f, CTxOut)
+        self.nLockTime = struct.unpack("<I", f.read(4))[0]
+        self.sha256 = None
+        self.hash = None
+
+    def deserialize_with_witness(self, f):
+        self.nVersion = struct.unpack("<i", f.read(4))[0]
+        self.nTxFee = struct.unpack("<q", f.read(8))[0]
         self.vin = deser_vector(f, CTxIn)
         flags = 0
         if len(self.vin) == 0:
@@ -451,13 +515,21 @@ class CTransaction(object):
                 self.vout = deser_vector(f, CTxOut)
         else:
             self.vout = deser_vector(f, CTxOut)
-        if flags != 0:
+        if flags & 1 > 0:
             self.wit.vtxinwit = [CTxInWitness() for i in range(len(self.vin))]
             self.wit.deserialize(f)
+
+        if flags & 2 > 0:
+            for i in range(len(self.vout)):
+                self.vout[i].nValue.vchRangeProof = deser_string(f)
+                self.vout[i].nValue.vchNonceCommitment = deser_string(f)
+        if flags > 3:
+            raise TypeError('Extra witness flags:' + str(flags))
         self.nLockTime = struct.unpack("<I", f.read(4))[0]
         self.sha256 = None
         self.hash = None
 
+    # Only applicable for non-CT, non-segwit transactions
     def serialize_without_witness(self):
         r = b""
         r += struct.pack("<i", self.nVersion)
@@ -489,12 +561,42 @@ class CTransaction(object):
         r += struct.pack("<I", self.nLockTime)
         return r
 
+    # Only serialize with witness when explicitly called for
+    def serialize_with_witness(self):
+        flags = 0
+        if not self.wit.is_null():
+            flags |= 1
+        for i in range(len(self.vout)):
+            if self.vout[i].nValue.vchRangeProof != None or self.vout[i].nValue.vchNonceCommitment != None:
+                flags |= 2
+        r = b""
+        r += struct.pack("<i", self.nVersion)
+        r += struct.pack("<q", self.nTxFee)
+        if flags:
+            dummy = []
+            r += ser_vector(dummy)
+            r += struct.pack("<B", flags)
+        r += ser_vector(self.vin)
+        r += ser_vector(self.vout)
+        if flags & 1:
+            if (len(self.wit.vtxinwit) != len(self.vin)):
+                # vtxinwit must have the same length as vin
+                self.wit.vtxinwit = self.wit.vtxinwit[:len(self.vin)]
+                for i in range(len(self.wit.vtxinwit), len(self.vin)):
+                    self.wit.vtxinwit.append(CTxInWitness())
+        r += self.wit.serialize()
+        if flags & 2 > 0:
+            for i in range(len(self.vout)):
+                r += ser_string(self.vout[i].nValue.vchRangeProof)
+                r += ser_string(self.vout[i].nValue.vchNonceCommitment)
+        r += struct.pack("<I", self.nLockTime)
+        return r
+
     # Regular serialization is without witness -- must explicitly
     # call serialize_with_witness to include witness data.
     def serialize(self):
-        return self.serialize_without_witness()
+        return self.serialize_with_witness()
 
-    # Recalculate the txid (transaction hash without witness)
     def rehash(self):
         self.sha256 = None
         self.calc_sha256()
@@ -531,6 +633,7 @@ class CBlockHeader(object):
             self.hashPrevBlock = header.hashPrevBlock
             self.hashMerkleRoot = header.hashMerkleRoot
             self.nTime = header.nTime
+            self.nHeight = header.nHeight
             self.nBits = header.nBits
             self.nNonce = header.nNonce
             self.sha256 = header.sha256
@@ -542,6 +645,7 @@ class CBlockHeader(object):
         self.hashPrevBlock = 0
         self.hashMerkleRoot = 0
         self.nTime = 0
+        self.nHeight = 0
         self.nBits = 0
         self.nNonce = 0
         self.sha256 = None
@@ -552,6 +656,7 @@ class CBlockHeader(object):
         self.hashPrevBlock = deser_uint256(f)
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
+        self.nHeight = struct.unpack("<I", f.read(4))[0]
         self.nBits = struct.unpack("<I", f.read(4))[0]
         self.nNonce = struct.unpack("<I", f.read(4))[0]
         self.sha256 = None
@@ -563,6 +668,7 @@ class CBlockHeader(object):
         r += ser_uint256(self.hashPrevBlock)
         r += ser_uint256(self.hashMerkleRoot)
         r += struct.pack("<I", self.nTime)
+        r += struct.pack("<I", self.nHeight)
         r += struct.pack("<I", self.nBits)
         r += struct.pack("<I", self.nNonce)
         return r
@@ -574,6 +680,7 @@ class CBlockHeader(object):
             r += ser_uint256(self.hashPrevBlock)
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
+            r += struct.pack("<I", self.nHeight)
             r += struct.pack("<I", self.nBits)
             r += struct.pack("<I", self.nNonce)
             self.sha256 = uint256_from_str(hash256(r))
@@ -585,9 +692,9 @@ class CBlockHeader(object):
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x nHeight=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce)
+               time.ctime(self.nTime), self.nBits, self.nNonce, self.nHeight)
 
 
 class CBlock(CBlockHeader):

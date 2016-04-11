@@ -62,16 +62,16 @@ class KeyPoolTest(BitcoinTestFramework):
         time.sleep(1.1)
         assert_equal(nodes[0].getwalletinfo()["unlocked_until"], 0)
 
-        # drain them by mining
-        nodes[0].generate(1)
-        nodes[0].generate(1)
-        nodes[0].generate(1)
-        nodes[0].generate(1)
-        try:
-            nodes[0].generate(1)
-            raise AssertionError('Keypool should be exhausted after three addesses')
-        except JSONRPCException as e:
-            assert(e.error['code']==-12)
+        # drain them by mining #Not in beta regtest
+        #nodes[0].generate(1)
+        #nodes[0].generate(1)
+        #nodes[0].generate(1)
+        #nodes[0].generate(1)
+        #try:
+        #    nodes[0].generate(1)
+        #    raise AssertionError('Keypool should be exhausted after three addesses')
+        #except JSONRPCException,e:
+        #    assert(e.error['code']==-12)
 
     def __init__(self):
         super().__init__()
