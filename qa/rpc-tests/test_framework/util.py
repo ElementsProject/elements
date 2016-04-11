@@ -182,7 +182,7 @@ def initialize_datadir(dirname, n):
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
     rpc_u, rpc_p = rpc_auth_pair(n)
-    with open(os.path.join(datadir, "bitcoin.conf"), 'w', encoding='utf8') as f:
+    with open(os.path.join(datadir, "beta.conf"), 'w', encoding='utf8') as f:
         f.write("regtest=1\n")
         f.write("rpcuser=" + rpc_u + "\n")
         f.write("rpcpassword=" + rpc_p + "\n")
@@ -249,7 +249,7 @@ def initialize_chain(test_dir, num_nodes, cachedir):
         # Create cache directories, run bitcoinds:
         for i in range(MAX_NODES):
             datadir=initialize_datadir(cachedir, i)
-            args = [ os.getenv("BITCOIND", "bitcoind"), "-server", "-keypool=1", "-datadir="+datadir, "-discover=0" ]
+            args = [ os.getenv("BETAD", "betad"), "-server", "-keypool=1", "-datadir="+datadir, "-discover=0" ]
             if i > 0:
                 args.append("-connect=127.0.0.1:"+str(p2p_port(0)))
             bitcoind_processes[i] = subprocess.Popen(args)
@@ -335,7 +335,7 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
     """
     datadir = os.path.join(dirname, "node"+str(i))
     if binary is None:
-        binary = os.getenv("BITCOIND", "bitcoind")
+        binary = os.getenv("BETAD", "betad")
     args = [ binary, "-datadir="+datadir, "-server", "-keypool=1", "-discover=0", "-rest", "-mocktime="+str(get_mocktime()) ]
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
@@ -368,7 +368,7 @@ def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, timewait=None
     return rpcs
 
 def log_filename(dirname, n_node, logname):
-    return os.path.join(dirname, "node"+str(n_node), "regtest", logname)
+    return os.path.join(dirname, "node"+str(n_node), "betaregtest", logname)
 
 def stop_node(node, i):
     try:
@@ -632,7 +632,7 @@ def create_confirmed_utxos(fee, node, count):
     for i in range(iterations):
         t = utxos.pop()
         inputs = []
-        inputs.append({ "txid" : t["txid"], "vout" : t["vout"]})
+        inputs.append({ "txid" : t["txid"], "vout" : t["vout"], "nValue" : t["amount"]})
         outputs = {}
         send_value = t['amount'] - fee
         outputs[addr1] = satoshi_round(send_value/2)
@@ -683,7 +683,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     txids = []
     for _ in range(num):
         t = utxos.pop()
-        inputs=[{ "txid" : t["txid"], "vout" : t["vout"]}]
+        inputs=[{ "txid" : t["txid"], "vout" : t["vout"], "nValue" : t["amount"]}]
         outputs = {}
         change = t['amount'] - fee
         outputs[addr] = satoshi_round(change)

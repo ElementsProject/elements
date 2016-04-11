@@ -83,7 +83,7 @@ class BlockchainTest(BitcoinTestFramework):
         assert isinstance(header['nonce'], int)
         assert isinstance(header['version'], int)
         assert isinstance(int(header['versionHex'], 16), int)
-        assert isinstance(header['difficulty'], Decimal)
+        assert isinstance(header['difficulty'], int)#always 1
 
 if __name__ == '__main__':
     BlockchainTest().main()

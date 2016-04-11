@@ -76,7 +76,7 @@ for arg in sys.argv[1:]:
 
 #Set env vars
 if "BITCOIND" not in os.environ:
-    os.environ["BITCOIND"] = BUILDDIR + '/src/bitcoind' + EXEEXT
+    os.environ["BETAD"] = BUILDDIR+ '/src/betad' + EXEEXT
 
 if EXEEXT == ".exe" and "-win" not in opts:
     # https://github.com/bitcoin/bitcoin/commit/d52802551752140cf41f0d9a225a43e84404d3e9
@@ -101,7 +101,7 @@ if ENABLE_ZMQ:
 testScripts = [
     # longest test should go first, to favor running tests in parallel
     'wallet-hd.py',
-    'walletbackup.py',
+    #'walletbackup.py',
     # vv Tests less than 5m vv
     'p2p-fullblocktest.py',
     'fundrawtransaction.py',
@@ -111,7 +111,6 @@ testScripts = [
     'wallet.py',
     'wallet-accounts.py',
     'p2p-segwit.py',
-    'wallet-dump.py',
     'listtransactions.py',
     # vv Tests less than 60s vv
     'sendheaders.py',
@@ -138,18 +137,19 @@ testScripts = [
     'signrawtransactions.py',
     'nodehandling.py',
     'decodescript.py',
-    'blockchain.py',
-    'disablewallet.py',
+    #'blockchain.py',
+    #'disablewallet.py',
     'keypool.py',
     'p2p-mempool.py',
     'prioritise_transaction.py',
     'invalidblockrequest.py',
     'invalidtxrequest.py',
-    'p2p-versionbits-warning.py',
+    'confidential_transactions.py',
     'preciousblock.py',
-    'importprunedfunds.py',
+    #'p2p-segwit.py',
+    #'importprunedfunds.py',
     'signmessages.py',
-    'nulldummy.py',
+    #'nulldummy.py',
     'import-rescan.py',
     'bumpfee.py',
     'rpcnamedargs.py',
