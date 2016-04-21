@@ -25,6 +25,11 @@
 #include <boost/thread.hpp>
 #include <boost/algorithm/string/case_conv.hpp> // for to_upper()
 
+//For thread local rpc username
+#include <boost/thread/tss.hpp>
+//Thread local rpc user name for logging purposes
+boost::thread_specific_ptr<std::string> userInstance;
+
 using namespace RPCServer;
 using namespace std;
 
