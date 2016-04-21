@@ -17,7 +17,12 @@
 
 #include <boost/function.hpp>
 
+#include <boost/thread/tss.hpp>
+
 #include <univalue.h>
+
+//Thread-local rpc user name for logging purposes
+extern boost::thread_specific_ptr<std::string> userInstance;
 
 static const unsigned int DEFAULT_RPC_SERIALIZE_VERSION = 1;
 
