@@ -172,6 +172,14 @@ static bool HTTPReq_JSONRPC(HTTPRequest* req, const std::string &)
         return false;
     }
 
+    //Set thread-local storage variable to RPC user name for logging
+    std::string strUserPass64 = authHeader.second.substr(6);
+    boost::trim(strUserPass64);
+    std::string strUserPass = DecodeBase64(strUserPass64);
+    if (!userInstance.get()) {
+        userInstance.reset(new std::string(strUserPass.substr(0, strUserPass.find(":"))));
+    }
+
     JSONRequest jreq;
     try {
         // Parse request
