@@ -5184,7 +5184,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
             return false;
-        } else {
+        } else if (GetBoolArg("-enforcenodebloom", true)) {
             pfrom->fDisconnect = true;
             return false;
         }
