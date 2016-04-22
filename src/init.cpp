@@ -979,7 +979,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
 
-    if (GetBoolArg("-peerbloomfilters", DEFAULT_PEERBLOOMFILTERS))
+    if (GetBoolArg("-peerbloomfilters", false))
         nLocalServices = ServiceFlags(nLocalServices | NODE_BLOOM);
 
     nMaxTipAge = GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
