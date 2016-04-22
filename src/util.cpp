@@ -106,14 +106,16 @@ map<string, string> mapArgs;
 map<string, vector<string> > mapMultiArgs;
 bool fDebug = false;
 bool fPrintToConsole = false;
-bool fPrintToDebugLog = true;
 bool fDaemon = false;
+bool fPrintToDebugLog = true;
+bool fPrintToAuditLog = true;
 bool fServer = false;
 string strMiscWarning;
 bool fLogTimestamps = DEFAULT_LOGTIMESTAMPS;
 bool fLogTimeMicros = DEFAULT_LOGTIMEMICROS;
 bool fLogIPs = DEFAULT_LOGIPS;
 std::atomic<bool> fReopenDebugLog(false);
+volatile bool fReopenAuditLog = false;
 CTranslationInterface translationInterface;
 
 /** Init OpenSSL library multithreading support */
@@ -179,19 +181,23 @@ instance_of_cinit;
  */
 
 static boost::once_flag debugPrintInitFlag = BOOST_ONCE_INIT;
+static boost::once_flag auditPrintInitFlag = BOOST_ONCE_INIT;
 
 /**
  * We use boost::call_once() to make sure mutexDebugLog and
- * vMsgsBeforeOpenLog are initialized in a thread-safe manner.
+ * vMsgsBeforeOpenDebugLog are initialized in a thread-safe manner.
  *
- * NOTE: fileout, mutexDebugLog and sometimes vMsgsBeforeOpenLog
+ * NOTE: fileout, mutexDebugLog and sometimes vMsgsBeforeOpenDebugLog
  * are leaked on exit. This is ugly, but will be cleaned up by
  * the OS/libc. When the shutdown sequence is fully audited and
  * tested, explicit destruction of these objects can be implemented.
  */
-static FILE* fileout = NULL;
+static FILE* fileout_debug = NULL;
+static FILE* fileout_audit = NULL;
 static boost::mutex* mutexDebugLog = NULL;
-static list<string> *vMsgsBeforeOpenLog;
+static boost::mutex* mutexAuditLog = NULL;
+static list<string> *vMsgsBeforeOpenDebugLog;
+static list<string> *vMsgsBeforeOpenAuditLog;
 
 static int FileWriteStr(const std::string &str, FILE *fp)
 {
@@ -202,7 +208,14 @@ static void DebugPrintInit()
 {
     assert(mutexDebugLog == NULL);
     mutexDebugLog = new boost::mutex();
-    vMsgsBeforeOpenLog = new list<string>;
+    vMsgsBeforeOpenDebugLog = new list<string>;
+}
+
+static void AuditPrintInit()
+{
+    assert(mutexAuditLog == NULL);
+    mutexAuditLog = new boost::mutex();
+    vMsgsBeforeOpenAuditLog = new list<string>;
 }
 
 void OpenDebugLog()
@@ -210,21 +223,43 @@ void OpenDebugLog()
     boost::call_once(&DebugPrintInit, debugPrintInitFlag);
     boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
 
-    assert(fileout == NULL);
-    assert(vMsgsBeforeOpenLog);
+    assert(fileout_debug == NULL);
+    assert(vMsgsBeforeOpenDebugLog);
     boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
-    fileout = fopen(pathDebug.string().c_str(), "a");
-    if (fileout) setbuf(fileout, NULL); // unbuffered
+    fileout_debug = fopen(pathDebug.string().c_str(), "a");
+    if (fileout_debug) setbuf(fileout_debug, NULL); // unbuffered
 
     // dump buffered messages from before we opened the log
-    while (!vMsgsBeforeOpenLog->empty()) {
-        FileWriteStr(vMsgsBeforeOpenLog->front(), fileout);
-        vMsgsBeforeOpenLog->pop_front();
+    while (!vMsgsBeforeOpenDebugLog->empty()) {
+        FileWriteStr(vMsgsBeforeOpenDebugLog->front(), fileout_debug);
+        vMsgsBeforeOpenDebugLog->pop_front();
     }
 
-    delete vMsgsBeforeOpenLog;
-    vMsgsBeforeOpenLog = NULL;
+    delete vMsgsBeforeOpenDebugLog;
+    vMsgsBeforeOpenDebugLog = NULL;
 }
+
+void OpenAuditLog()
+{
+    boost::call_once(&AuditPrintInit, auditPrintInitFlag);
+    boost::mutex::scoped_lock scoped_lock(*mutexAuditLog);
+
+    assert(fileout_audit == NULL);
+    assert(vMsgsBeforeOpenAuditLog);
+    boost::filesystem::path pathAudit = GetDataDir() / "audit.log";
+    fileout_audit = fopen(pathAudit.string().c_str(), "a");
+    if (fileout_audit) setbuf(fileout_audit, NULL); // unbuffered
+
+    // dump buffered messages from before we opened the log
+    while (!vMsgsBeforeOpenAuditLog->empty()) {
+        FileWriteStr(vMsgsBeforeOpenAuditLog->front(), fileout_audit);
+        vMsgsBeforeOpenAuditLog->pop_front();
+    }
+
+    delete vMsgsBeforeOpenAuditLog;
+    vMsgsBeforeOpenAuditLog = NULL;
+}
+
 
 bool LogAcceptCategory(const char* category)
 {
@@ -284,7 +319,7 @@ static std::string LogTimestampStr(const std::string &str, bool *fStartedNewLine
     return strStamped;
 }
 
-int LogPrintStr(const std::string &str)
+int DebugLogPrintStr(const std::string &str)
 {
     int ret = 0; // Returns total number of characters written
     static bool fStartedNewLine = true;
@@ -303,10 +338,10 @@ int LogPrintStr(const std::string &str)
         boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
 
         // buffer if we haven't opened the log yet
-        if (fileout == NULL) {
-            assert(vMsgsBeforeOpenLog);
+        if (fileout_debug == NULL) {
+            assert(vMsgsBeforeOpenDebugLog);
             ret = strTimestamped.length();
-            vMsgsBeforeOpenLog->push_back(strTimestamped);
+            vMsgsBeforeOpenDebugLog->push_back(strTimestamped);
         }
         else
         {
@@ -314,15 +349,56 @@ int LogPrintStr(const std::string &str)
             if (fReopenDebugLog) {
                 fReopenDebugLog = false;
                 boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
-                if (freopen(pathDebug.string().c_str(),"a",fileout) != NULL)
-                    setbuf(fileout, NULL); // unbuffered
+                if (freopen(pathDebug.string().c_str(),"a",fileout_debug) != NULL)
+                    setbuf(fileout_debug, NULL); // unbuffered
             }
 
-            ret = FileWriteStr(strTimestamped, fileout);
+            ret = FileWriteStr(strTimestamped, fileout_debug);
         }
     }
     return ret;
 }
+
+int AuditLogPrintStr(const std::string &str)
+{
+    int ret = 0; // Returns total number of characters written
+    static bool fStartedNewLine = true;
+
+    string strTimestamped = LogTimestampStr(str, &fStartedNewLine);
+
+    if (fPrintToConsole)
+    {
+        // print to console
+        ret = fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
+        fflush(stdout);
+    }
+    else if (fPrintToAuditLog)
+    {
+        boost::call_once(&AuditPrintInit, auditPrintInitFlag);
+        boost::mutex::scoped_lock scoped_lock(*mutexAuditLog);
+
+        // buffer if we haven't opened the log yet
+        if (fileout_audit == NULL) {
+            assert(vMsgsBeforeOpenAuditLog);
+            ret = strTimestamped.length();
+            vMsgsBeforeOpenAuditLog->push_back(strTimestamped);
+        }
+        else
+        {
+            // reopen the log file, if requested
+            if (fReopenAuditLog) {
+                fReopenAuditLog = false;
+                boost::filesystem::path pathAudit = GetDataDir() / "audit.log";
+                if (freopen(pathAudit.string().c_str(),"a",fileout_audit) != NULL)
+                    setbuf(fileout_audit, NULL); // unbuffered
+            }
+
+            ret = FileWriteStr(strTimestamped, fileout_audit);
+        }
+    }
+    return ret;
+}
+
 
 /** Interpret string as boolean, for argument parsing */
 static bool InterpretBool(const std::string& strValue)
