@@ -45,7 +45,7 @@ extern const std::map<std::string, std::vector<std::string> >& mapMultiArgs;
 extern bool fDebug;
 extern bool fPrintToConsole;
 extern bool fPrintToDebugLog;
-
+extern bool fPrintToAuditLog;
 extern bool fLogTimestamps;
 extern bool fLogTimeMicros;
 extern bool fLogIPs;
@@ -71,7 +71,9 @@ bool SetupNetworking();
 /** Return true if log accepts specified category */
 bool LogAcceptCategory(const char* category);
 /** Send a string to the log output */
-int LogPrintStr(const std::string &str);
+int DebugLogPrintStr(const std::string &str);
+/** Send a string to the audit log output */
+int AuditLogPrintStr(const std::string &str);
 
 #define LogPrint(category, ...) do { \
     if (LogAcceptCategory((category))) { \
@@ -82,6 +84,13 @@ int LogPrintStr(const std::string &str);
 #define LogPrintf(...) do { \
     LogPrintStr(tfm::format(__VA_ARGS__)); \
 } while(0)
+
+template<typename T1, typename... Args>
+static inline int AuditLogPrint(const char* category, const char* fmt, const T1& v1, const Args&... args)
+{
+    if(!LogAcceptCategory(category)) return 0;                            \
+    return AuditLogPrintStr(tfm::format(fmt, v1, args...));
+}
 
 template<typename... Args>
 bool error(const char* fmt, const Args&... args)
@@ -111,6 +120,7 @@ void ReadConfigFile(const std::string& confPath);
 boost::filesystem::path GetSpecialFolderPath(int nFolder, bool fCreate = true);
 #endif
 void OpenDebugLog();
+void OpenAuditLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 
