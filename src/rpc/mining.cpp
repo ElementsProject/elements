@@ -17,10 +17,12 @@
 #include "net.h"
 #include "pow.h"
 #include "rpc/server.h"
+#include "script/standard.h"
 #include "txmempool.h"
 #include "util.h"
 #include "utilstrencodings.h"
 #include "validationinterface.h"
+#include "wallet/wallet.h"
 
 #include <stdint.h>
 
@@ -114,8 +116,25 @@ UniValue generate(const UniValue& params, bool fHelp)
     LOCK(cs_main);
 
     CScript coinbaseDest(Params().CoinbaseDestination());
-    if (coinbaseDest == CScript())
+    if (coinbaseDest == CScript()) {
         coinbaseDest = CScript() << OP_TRUE;
+#ifdef ENABLE_WALLET
+        LOCK2(cs_main, pwalletMain->cs_wallet);
+
+        if (!pwalletMain->IsLocked())
+            pwalletMain->TopUpKeyPool();
+
+        // Generate a new key that is added to wallet
+        CPubKey newKey;
+        if (!pwalletMain->GetKeyFromPool(newKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        CKeyID keyID = newKey.GetID();
+
+        pwalletMain->SetAddressBook(keyID, "", "receive");
+
+        coinbaseDest = GetScriptForDestination(CTxDestination(keyID));
+#endif
+    }
 
     UniValue arr(UniValue::VARR);
     for (int i = 0; i < params[0].get_int(); i++) {
