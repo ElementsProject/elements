@@ -2849,12 +2849,12 @@ UniValue sendtomainchain(const UniValue& params, bool fHelp)
 
 extern UniValue sendrawtransaction(const UniValue& params, bool fHelp);
 
-UniValue claimwithdraw(const UniValue& params, bool fHelp)
+UniValue claimpegin(const UniValue& params, bool fHelp)
 {
 
     if (fHelp || params.size() != 4)
         throw runtime_error(
-            "claimwithdraw sidechainaddress nonce bitcoinTx txoutproof\n"
+            "claimpegin sidechainaddress nonce bitcoinTx txoutproof\n"
             "\nClaim coins from the main chain by creating a withdraw transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
             "Note that the transaction will not be mined or relayed unless it is buried at least 10 blocks deep.\n"
             "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n"
@@ -2867,8 +2867,8 @@ UniValue claimwithdraw(const UniValue& params, bool fHelp)
             "\"txid\"                 (string) Txid of the resulting sidechain transaction\n"
             "\nExamples:\n"
 //XXX: Fix the examples
-            + HelpExampleCli("claimwithdraw", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\" \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
-            + HelpExampleRpc("claimwithdraw", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\", \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
+            + HelpExampleCli("claimpegin", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\" \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
+            + HelpExampleRpc("claimpegin", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\", \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
         );
 
     CBitcoinAddress sidechainAddress(params[0].get_str());
@@ -2998,7 +2998,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true  },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true  },
     { "wallet",             "dumpwallet",               &dumpwallet,               true  },
-    { "wallet",             "claimwithdraw",            &claimwithdraw,            false },
+    { "wallet",             "claimpegin",               &claimpegin,               false },
     { "wallet",             "encryptwallet",            &encryptwallet,            true  },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true  },
     { "wallet",             "getaccount",               &getaccount,               true  },
