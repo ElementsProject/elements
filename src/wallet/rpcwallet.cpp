@@ -2784,18 +2784,17 @@ UniValue sendtomainchain(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() != 2)
         throw runtime_error(
-            "sendtomainchain address amount\n"
-            "\nSends sidechain funds to the given mainchain address, through the\n"
-            "federated withdraw mechanism\n"
+            "sendtomainchain mainchainaddress amount\n"
+            "\nSends sidechain funds to the given mainchain address, through the federated withdraw mechanism\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
-            "1. \"address\"        (string, required) The required deposit address on Bitcoin mainchain\n"
+            "1. \"address\"        (string, required) The destination address on Bitcoin mainchain\n"
             "2. \"amount\"         (numeric, required) The amount being sent to Bitcoin mainchain\n"
             "\nResult:\n"
             "\"txid\"              (string) Transaction ID of the resulting sidechain transaction\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\"")
-            + HelpExampleRpc("sendtomainchain", "\"mzF5siaQwJAJxePqaYRKibY9vRVXmkWuyV\"")
+            + HelpExampleCli("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\" 0.1")
+            + HelpExampleRpc("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\" 0.1")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
