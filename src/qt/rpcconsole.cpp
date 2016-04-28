@@ -390,6 +390,10 @@ void RPCExecutor::request(const QString &command)
             return;
         }
         Q_EMIT reply(RPCConsole::CMD_REPLY, QString::fromStdString(result));
+        //Set rpc user string
+        if (!userInstance.get()) {
+            userInstance.reset(new std::string("QT"));
+        }
     }
     catch (UniValue& objError)
     {
