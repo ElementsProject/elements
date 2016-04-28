@@ -449,7 +449,7 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
 
     SendMoney(address.Get(), nAmount, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
 
-    AuditLogPrintf("%s : sendtoaddress %s %d", *userInstance.get(), wtx.GetHash().GetHex(), nAmount);
+    AuditLogPrintf("%s : sendtoaddress %s %d", getUser(), wtx.GetHash().GetHex(), nAmount);
 
     return wtx.GetHash().GetHex();
 }
