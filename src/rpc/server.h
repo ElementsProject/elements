@@ -193,6 +193,8 @@ extern std::string HelpRequiringPassphrase();
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
 
+extern std::string getUser();
+
 extern void EnsureWalletIsUnlocked();
 
 bool StartRPC();

@@ -30,6 +30,10 @@
 //Thread local rpc user name for logging purposes
 boost::thread_specific_ptr<std::string> userInstance;
 
+std::string getUser() {
+        return (userInstance.get() ? *userInstance.get() : "UNDEFINED_USER");
+}
+
 using namespace RPCServer;
 using namespace std;
 
