@@ -3265,12 +3265,12 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
 
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
-UniValue claimwithdraw(const JSONRPCRequest& request)
+UniValue claimpegin(const JSONRPCRequest& request)
 {
 
     if (request.fHelp || request.params.size() != 4)
         throw std::runtime_error(
-            "claimwithdraw sidechainaddress nonce bitcoinTx txoutproof\n"
+            "claimpegin sidechainaddress nonce bitcoinTx txoutproof\n"
             "\nClaim coins from the main chain by creating a withdraw transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
             "Note that the transaction will not be mined or relayed unless it is buried at least 10 blocks deep.\n"
             "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n"
@@ -3283,8 +3283,8 @@ UniValue claimwithdraw(const JSONRPCRequest& request)
             "\"txid\"                 (string) Txid of the resulting sidechain transaction\n"
             "\nExamples:\n"
 //XXX: Fix the examples
-            + HelpExampleCli("claimwithdraw", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\" \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
-            + HelpExampleRpc("claimwithdraw", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\", \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
+            + HelpExampleCli("claimpegin", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\" \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
+            + HelpExampleRpc("claimpegin", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"eb00b5dc3afc67beee5bfdfd79665283\", \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
         );
 
     CBitcoinAddress sidechainAddress(request.params[0].get_str());
@@ -3432,7 +3432,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true,   {"address"}  },
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
-    { "wallet",             "claimwithdraw",            &claimwithdraw,            false,   {} },
+    { "wallet",             "claimpegin",               &claimpegin,               false,  {} },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },
     { "wallet",             "getaccount",               &getaccount,               true,   {"address"} },
     { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,    true,   {"account"} },
