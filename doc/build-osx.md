@@ -20,15 +20,15 @@ Dependencies
 
 NOTE: Building with Qt4 is still supported, however, could result in a broken UI. Building with Qt5 is recommended.
 
-Build Bitcoin Core
+Build `Beta`
 ------------------------
 
-1. Clone the bitcoin source code and cd into `bitcoin`
+1. Clone the beta source code and cd into `beta`
 
-        git clone https://github.com/bitcoin/bitcoin
-        cd bitcoin
+        git clone https://github.com/ElementsProject/elements.git
+        cd elements
 
-2.  Build bitcoin-core:
+2.  Build sidechain elements:
 
     Configure and build the headless bitcoin binaries as well as the GUI (if Qt is found).
 
@@ -49,7 +49,7 @@ Build Bitcoin Core
 Running
 -------
 
-Bitcoin Core is now available at `./src/bitcoind`
+Beta is now available at `./src/beta`
 
 Before running, it's recommended you create an RPC configuration file.
 
@@ -57,18 +57,18 @@ Before running, it's recommended you create an RPC configuration file.
 
     chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/bitcoin.conf"
 
-The first time you run bitcoind, it will start downloading the blockchain. This process could take several hours.
+The first time you run betad, it will start downloading the blockchain. This process could take several hours.
 
 You can monitor the download process by looking at the debug.log file:
 
-    tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
+    tail -f $HOME/Library/Application\ Support/beta/debug.log
 
 Other commands:
 -------
 
-    ./src/bitcoind -daemon # Starts the bitcoin daemon.
-    ./src/bitcoin-cli --help # Outputs a list of command-line options.
-    ./src/bitcoin-cli help # Outputs a list of RPC commands when the daemon is running.
+    ./src/betad -daemon # Starts the bitcoin daemon.
+    ./src/beta-cli --help # Outputs a list of command-line options.
+    ./src/beta-cli help # Outputs a list of RPC commands when the daemon is running.
 
 Using Qt Creator as IDE
 ------------------------
