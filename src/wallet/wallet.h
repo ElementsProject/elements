@@ -426,7 +426,7 @@ public:
 
     //! Returns either the blinding factor (if it is to us) or 0
     uint256 GetBlindingFactor(unsigned int nOut) const;
-    CPubKey GetBlindingKey(unsigned int nOut) const;
+    CPubKey GetBlindingPubKey(unsigned int nOut) const;
 };
 
 
