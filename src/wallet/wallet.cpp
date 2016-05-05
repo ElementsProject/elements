@@ -1501,7 +1501,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             continue;
         }
 
-        COutputEntry output = {address, nValueOut, (int)i, GetBlindingKey(i)};
+        COutputEntry output = {address, nValueOut, (int)i, GetBlindingPubKey(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
@@ -1967,7 +1967,7 @@ uint256 CWalletTx::GetBlindingFactor(unsigned int nOut) const {
 }
 
 
-CPubKey CWalletTx::GetBlindingKey(unsigned int nOut) const {
+CPubKey CWalletTx::GetBlindingPubKey(unsigned int nOut) const {
     CPubKey ret;
     GetBlindingData(nOut, NULL, &ret, NULL);
     return ret;
