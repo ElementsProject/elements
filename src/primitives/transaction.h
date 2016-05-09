@@ -246,7 +246,8 @@ public:
 
     bool IsDust(const CFeeRate &minRelayTxFee) const
     {
-        if (!nValue.IsAmount())
+        //Don't annoy user over withdrawlock change
+        if (!nValue.IsAmount() || scriptPubKey.IsWithdrawLock())
             return false; // FIXME
         return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
