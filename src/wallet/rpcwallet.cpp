@@ -484,7 +484,6 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp)
         {
             UniValue addressInfo(UniValue::VARR);
             CBitcoinAddress addr(address);
-            addr.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(addr.Get())));
             addressInfo.push_back(addr.ToString());
             addressInfo.push_back(ValueFromAmount(balances[address]));
             {
@@ -1192,8 +1191,6 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
                 continue;
 
             CBitcoinAddress bitcoinaddress(address);
-            if (!wtx.vout[i].nValue.IsAmount())
-                bitcoinaddress.AddBlindingKey(wtx.GetBlindingKey(i));
 
             tallyitem& item = mapTally[address];
             item.address = bitcoinaddress;
@@ -1240,6 +1237,8 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             UniValue obj(UniValue::VOBJ);
             if(fIsWatchonly)
                 obj.push_back(Pair("involvesWatchonly", true));
+            if (fulladdress.IsBlinded())
+                fulladdress = fulladdress.GetUnblinded();
             obj.push_back(Pair("address",       fulladdress.ToString()));
             obj.push_back(Pair("account",       strAccount));
             obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
@@ -1357,8 +1356,6 @@ static void MaybePushAddress(UniValue & entry, const CTxDestination &dest, const
 {
     CBitcoinAddress addr;
     if (addr.Set(dest)) {
-        if (confidentiality_pubkey.size() == 33)
-            addr.AddBlindingKey(confidentiality_pubkey);
         entry.push_back(Pair("address", addr.ToString()));
     }
 }
@@ -2467,8 +2464,6 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
         if (fValidAddress) {
             CBitcoinAddress addr(address);
-            if (out.tx->GetBlindingFactor(out.i).size() > 0)
-                addr.AddBlindingKey(out.tx->GetBlindingKey(out.i));
             entry.push_back(Pair("address", addr.ToString()));
             if (pwalletMain->mapAddressBook.count(address))
                 entry.push_back(Pair("account", pwalletMain->mapAddressBook[address].name));
