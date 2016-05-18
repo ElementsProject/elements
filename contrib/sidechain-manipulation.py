@@ -246,7 +246,7 @@ try:
 		prev_script = prev_out["scriptPubKey"]["asm"].split(" ")
 		assert(prev_script[10] == "OP_NOP3")
 		if "confirmations" not in prev_tx or prev_tx["confirmations"] < int(prev_script[9]):
-			print("You must wait for at least %s confirmations to claim this output (have %d)" % (prev_script[9], prev_tx["confirmations"]))
+			print("You must wait for at least %s confirmations to claim this output (have %d)" % (prev_script[9], prev_tx.get("confirmations", 0)))
 			exit(1)
 
 		p2sh_res = sidechain.createmultisig(1, [args.sidechainAddress])
