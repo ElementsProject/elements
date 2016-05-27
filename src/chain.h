@@ -234,6 +234,7 @@ public:
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
+        nHeight        = block.nHeight;
         proof          = block.proof;
     }
 
@@ -263,6 +264,7 @@ public:
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
+        block.nHeight        = nHeight;
         block.proof          = proof;
         return block;
     }
@@ -383,6 +385,7 @@ public:
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
         block.proof           = proof;
+        block.nHeight         = nHeight;
         return block.GetHash();
     }
 

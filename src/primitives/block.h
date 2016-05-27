@@ -99,6 +99,7 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
+    uint32_t nHeight;
     CBitcoinProof bitcoinproof;
     CProof proof;
 
@@ -117,8 +118,10 @@ public:
         READWRITE(nTime);
         if (IsBitcoinBlock() || (nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX))
             READWRITE(bitcoinproof);
-        else
+        else {
+            READWRITE(nHeight);
             READWRITE(proof);
+        }
     }
 
     void SetNull()
@@ -127,6 +130,7 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
+        nHeight = 0;
         bitcoinproof.SetNull();
         proof.SetNull();
     }
@@ -192,6 +196,7 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
+        block.nHeight        = nHeight;
         block.bitcoinproof   = bitcoinproof;
         block.proof          = proof;
         return block;

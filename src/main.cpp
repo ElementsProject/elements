@@ -2615,6 +2615,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
             assert(block.vtx.size() == 1);
+            assert(block.nHeight == 0);
 
             std::vector<std::pair<uint256, CDiskTxPos> > vPos;
             std::multimap<uint256, std::pair<COutPoint, CAmount> > mLocksCreated;
@@ -3892,6 +3893,11 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     // Check timestamp against prev
     if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
         return state.Invalid(false, REJECT_INVALID, "time-too-old", "block's timestamp is too early");
+
+    // Check height in header against prev
+    if ((uint32_t)pindexPrev->nHeight + 1 != block.nHeight)
+        return state.Invalid(error("%s: block height in header is incorrect", __func__),
+                             REJECT_INVALID, "bad-header-height");
 
     // Check timestamp
     if (block.GetBlockTime() > nAdjustedTime + 2 * 60 * 60)
