@@ -187,6 +187,7 @@ CBlockTemplate* BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn)
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
     ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
     ResetProof(*pblock);
+    pblock->nHeight = nHeight;
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(pblock->vtx[0]);
 
     CValidationState state;
