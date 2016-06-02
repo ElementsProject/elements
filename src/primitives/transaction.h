@@ -16,6 +16,8 @@ static const int SERIALIZE_BITCOIN_BLOCK_OR_TX = 0x20000000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
 
+static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
+
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
 {
@@ -246,9 +248,12 @@ public:
 
     bool IsDust(const CFeeRate &minRelayTxFee) const
     {
-        //Don't annoy user over withdrawlock change
-        if (!nValue.IsAmount() || scriptPubKey.IsWithdrawLock())
+        if (!nValue.IsAmount())
             return false; // FIXME
+        //Withdrawlocks are evaluated at a higher, static feerate
+        //to ensure peg-outs are IsStandard on mainchain
+        if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
+            return true;
         return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
 
