@@ -2913,10 +2913,14 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     if (value > MAX_MONEY / 200)
         throw JSONRPCError(RPC_VERIFY_REJECTED, "IsStandard rules prevent pegging-in > 0.105 million BTC reliably at a time - please work with your functionary to mine a large lock-merge transaction first");
 
+    //Pad the locked outputs by the IsStandard lock dust value
+    CTxOut dummyTxOut(0, relock_spk);
+    CAmount lockDust(dummyTxOut.GetDustThreshold(withdrawLockTxFee));
+
     LOCK(cs_main);
 
     std::vector<std::pair<COutPoint, CAmount> > lockedUTXO;
-    if (!GetLockedOutputs(genesisBlockHash, value, lockedUTXO))
+    if (!GetLockedOutputs(genesisBlockHash, value+lockDust, lockedUTXO))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find inputs with sufficient value - are you sure bitcoinTx is valid?");
 
     while (lockedUTXO.size() != 1) {
@@ -2936,7 +2940,7 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
         lockedUTXO.push_back(std::make_pair(COutPoint(mtxn.GetHash(), 0), out_value));
     }
 
-    assert(lockedUTXO.size() == 1 && lockedUTXO[0].second >= value);
+    assert(lockedUTXO.size() == 1 && lockedUTXO[0].second >= value+lockDust);
 
     uint256 utxo_txid(lockedUTXO[0].first.hash);
     uint32_t utxo_vout = lockedUTXO[0].first.n;
