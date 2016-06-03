@@ -43,11 +43,22 @@ static void http_request_done(struct evhttp_request *req, void *ctx)
     }
 }
 
-UniValue CallRPC(const string& strMethod, const UniValue& params, int port)
+UniValue CallRPC(const string& strMethod, const UniValue& params, int port, bool connectToMainchain)
 {
-    std::string host = GetArg("-rpcconnect", DEFAULT_RPCCONNECT);
+    std::string strhost = "-rpcconnect";
+    std::string strport = "-rpcport";
+    std::string struser = "-rpcuser";
+    std::string strpassword = "-rpcpassword";
+    if (connectToMainchain) {
+        strhost = "-mainchainhost";
+        strport = "-mainchainrpcport";
+        strpassword = "-mainchainrpcpassword";
+        struser = "-mainchainrpcuser";
+    }
+
+    std::string host = GetArg(strhost, DEFAULT_RPCHOST);
     if (port < 0)
-        port = GetArg("-rpcport", BaseParams().RPCPort());
+        port = GetArg(strport, BaseParams().RPCPort());
 
     // Create event base
     struct event_base *base = event_base_new(); // TODO RAII
@@ -67,16 +78,24 @@ UniValue CallRPC(const string& strMethod, const UniValue& params, int port)
 
     // Get credentials
     std::string strRPCUserColonPass;
-    if (mapArgs["-rpcpassword"] == "") {
+    if (mapArgs[strpassword] == "") {
+
         // Try fall back to cookie-based authentication if no password is provided
-        if (!GetAuthCookie(&strRPCUserColonPass)) {
+        if (!connectToMainchain && !GetAuthCookie(&strRPCUserColonPass)) {
+            throw runtime_error(strprintf(
+                _("Could not locate RPC credentials. No authentication cookie could be found, and no rpcpassword is set in the configuration file (%s)"),
+                    GetConfigFile().string().c_str()));
+        }
+
+        // Try fall back to cookie-based authentication if no password is provided
+        if (connectToMainchain && !GetMainchainAuthCookie(&strRPCUserColonPass)) {
             throw runtime_error(strprintf(
                 _("Could not locate RPC credentials. No authentication cookie could be found, and no rpcpassword is set in the configuration file (%s)"),
                     GetConfigFile().string().c_str()));
 
         }
     } else {
-        strRPCUserColonPass = mapArgs["-rpcuser"] + ":" + mapArgs["-rpcpassword"];
+        strRPCUserColonPass = mapArgs[struser] + ":" + mapArgs[strpassword];
     }
 
     struct evkeyvalq *output_headers = evhttp_request_get_output_headers(req);
@@ -124,10 +143,11 @@ UniValue CallRPC(const string& strMethod, const UniValue& params, int port)
 
 bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, int nMinConfirmationDepth)
 {
+
     try {
         UniValue params(UniValue::VARR);
         params.push_back(UniValue(0));
-        UniValue reply = CallRPC("getblockhash", params, GetArg("-rpcconnectport", 18332));
+        UniValue reply = CallRPC("getblockhash", params, GetArg("-mainchainrpcport", 18332));
         if (!find_value(reply, "error").isNull())
             return false;
         UniValue result = find_value(reply, "result");
@@ -138,7 +158,7 @@ bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, in
 
         params = UniValue(UniValue::VARR);
         params.push_back(hash.GetHex());
-        reply = CallRPC("getblock", params, GetArg("-rpcconnectport", 18332));
+        reply = CallRPC("getblock", params, GetArg("-mainchainrpcport", 18332));
         if (!find_value(reply, "error").isNull())
             return false;
         result = find_value(reply, "result");

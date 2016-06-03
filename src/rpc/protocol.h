@@ -87,6 +87,8 @@ boost::filesystem::path GetAuthCookieFile();
 bool GenerateAuthCookie(std::string *cookie_out);
 /** Read the RPC authentication cookie from disk */
 bool GetAuthCookie(std::string *cookie_out);
+/** Needs to know cookiedir path info -cli doesn't require*/
+bool GetMainchainAuthCookie(std::string *cookie_out);
 /** Delete RPC authentication cookie from disk */
 void DeleteAuthCookie();
 

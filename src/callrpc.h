@@ -15,7 +15,7 @@
 
 #include <univalue.h>
 
-static const char DEFAULT_RPCCONNECT[] = "127.0.0.1";
+static const char DEFAULT_RPCHOST[] = "127.0.0.1";
 static const int DEFAULT_HTTP_CLIENT_TIMEOUT=900;
 
 //
@@ -32,7 +32,7 @@ public:
 
 };
 
-UniValue CallRPC(const std::string& strMethod, const UniValue& params, int port=-1);
+UniValue CallRPC(const std::string& strMethod, const UniValue& params, int port=-1, bool connectToMainchain=false);
 bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, int nMinConfirmationDepth);
 
 #endif // BITCOIN_CALLRPC_H
