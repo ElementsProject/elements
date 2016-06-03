@@ -22,6 +22,7 @@ static const char DB_TXINDEX = 't';
 static const char DB_LOCKS = 'k';
 static const char DB_BLOCK_INDEX = 'b';
 static const char DB_WITHDRAW_FLAG = 'w';
+static const char DB_INVALID_BLOCK_Q = 'q';
 
 static const char DB_BEST_BLOCK = 'B';
 static const char DB_FLAG = 'F';
@@ -212,6 +213,14 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
         return false;
     fValue = ch == '1';
     return true;
+}
+
+bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
+    return Read(make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);//FIXME: why uint256 and not ""
+}
+
+bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
+    return Write(make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex)

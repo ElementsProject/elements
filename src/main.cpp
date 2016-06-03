@@ -7,6 +7,7 @@
 
 #include "addrman.h"
 #include "arith_uint256.h"
+#include "callrpc.h"
 #include "blockencodings.h"
 #include "chainparams.h"
 #include "checkpoints.h"
@@ -2455,6 +2456,92 @@ static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 void ThreadScriptCheck() {
     RenameThread("bitcoin-scriptch");
     scriptcheckqueue.Thread();
+}
+
+bool BitcoindRPCCheck(bool init)
+{
+    //First, we can clear out any blocks thatsomehow are now deemed valid
+    //eg reconsiderblock rpc call manually
+    std::vector<uint256> vblocksToReconsider;
+    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
+    std::vector<uint256> vblocksToReconsiderAgain;
+    BOOST_FOREACH(uint256& blockhash, vblocksToReconsider) {
+        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+            vblocksToReconsiderAgain.push_back(blockhash);
+        }
+    }
+    vblocksToReconsider = vblocksToReconsiderAgain;
+    vblocksToReconsiderAgain.clear();
+    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
+
+    //Next, check for working rpc
+    if (GetBoolArg("-validatepegin", false)) {
+        try {
+            UniValue params(UniValue::VARR);
+            params.push_back(UniValue(0));
+            UniValue reply = CallRPC("getblockhash", params, GetArg("-mainchainrpcport", 18332), true);
+            if (!find_value(reply, "error").isNull()) {
+               LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+               return false;
+            }
+            UniValue result = reply["result"];
+            if (GetBoolArg("-testnet", false) && result.isStr() && result.get_str() != "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943") { //FIXME: Stick parent chain(s) genesis in chainparams
+                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?");
+                return false;
+            }
+            if (GetBoolArg("-regtest", false) && result.isStr() && result.get_str() != "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206") {
+                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?");
+                return false;
+            }
+        } catch (...) {
+            LogPrintf("ERROR: Failure connecting to bitcoind RPC.\n");
+            return false;
+        }
+    }
+
+    //Sanity startup check won't reconsider queued blocks
+    if (init) {
+       return true;
+    }
+
+    /* Getting this far means we either aren't validating pegins(so let's make sure that's why
+       it failed previously) or we successfully connected to bitcoind
+       Time to reconsider blocks
+    */
+    if (vblocksToReconsider.size() > 0) {
+        CValidationState state;
+        BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
+            {
+                LOCK(cs_main);
+                if (mapBlockIndex.count(blockhash) == 0)
+                    continue;
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+                ResetBlockFailureFlags(pblockindex);
+            }
+        }
+
+        //All blocks are now being reconsidered
+        ActivateBestChain(state, Params());
+        //This simply checks for DB errors
+        if (!state.IsValid()) {
+            //Something scary?
+        }
+
+        //Now to clear out now-valid blocks
+        BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+
+            //Marked as invalid still, put back into queue
+            if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                vblocksToReconsiderAgain.push_back(blockhash);
+            }
+        }
+
+        //Write back remaining blocks
+        pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
+        }
+    return true;
 }
 
 // Protected by cs_main

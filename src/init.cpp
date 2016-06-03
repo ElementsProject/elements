@@ -11,6 +11,7 @@
 
 #include "addrman.h"
 #include "amount.h"
+#include "callrpc.h"
 #include "chain.h"
 #include "chainparams.h"
 #include "checkpoints.h"
@@ -1517,6 +1518,14 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 12: finished
 
     SetRPCWarmupFinished();
+
+    CScheduler::Function f2 = boost::bind(&BitcoindRPCCheck, false);
+    scheduler.scheduleEvery(f2, 120);
+
+    if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
+        return InitError(_("ERROR: liquid-daemon is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
+    }
+
     uiInterface.InitMessage(_("Done loading"));
 
 #ifdef ENABLE_WALLET
