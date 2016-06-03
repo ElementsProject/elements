@@ -2217,7 +2217,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // peering with non-upgraded nodes even after soft-fork
                     // super-majority signaling has occurred.
                     if (check.GetScriptError() == SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED)
-                        return state.Invalid(false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                        return state.Invalid(false, REJECT_SCRIPT, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                     else
                         return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
                 }
@@ -3166,8 +3166,29 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, chainparams, &setWithdrawsSpent);
         GetMainSignals().BlockChecked(*pblock, state);
         if (!rv) {
-            if (state.IsInvalid())
+            if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
+                //Possibly result of RPC to bitcoind failure
+                //or unseen Bitcoin blocks.
+                if (state.GetRejectCode() == REJECT_SCRIPT) {
+                    //Write queue of invalid blocks that
+                    //must be cleared to continue operation
+                    std::vector<uint256> vinvalidBlocks;
+                    pblocktree->ReadInvalidBlockQueue(vinvalidBlocks);
+                    bool blockAlreadyInvalid = false;
+                    BOOST_FOREACH(uint256& hash, vinvalidBlocks) {
+                        if (hash == pblock->GetHash()) {
+                            blockAlreadyInvalid = true;
+                            break;
+                        }
+                    }
+                    if (!blockAlreadyInvalid) {
+                        vinvalidBlocks.push_back(pblock->GetHash());
+                        pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
+                    }
+                }
+            }
+
             return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
         }
         mapBlockSource.erase(pindexNew->GetBlockHash());
@@ -4023,6 +4044,13 @@ static bool AcceptBlock(const CBlock& block, CValidationState& state, const CCha
 
     CBlockIndex *pindexDummy = NULL;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
+
+    //Never process blocks if RPC to bitcoind failure has triggered a failed block
+    std::vector<uint256> lockdown;
+    if (pblocktree->ReadInvalidBlockQueue(lockdown) && lockdown.size() > 0) {
+        LogPrintf("Block with hash %s was received, but unable to process due to bitcoind pegin validation failure.", block.GetHash().GetHex());
+        return false;
+    }
 
     if (!AcceptBlockHeader(block, state, chainparams, &pindex))
         return false;
