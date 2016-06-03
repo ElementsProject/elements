@@ -263,6 +263,8 @@ bool LoadBlockIndex(const CChainParams& chainparams);
 void UnloadBlockIndex();
 /** Run an instance of the script checking thread */
 void ThreadScriptCheck();
+/** Check if bitcoind connection via RPC is correctly working*/
+bool BitcoindRPCCheck(bool init);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Format a string that describes several potential problems detected by the core.
