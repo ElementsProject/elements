@@ -90,6 +90,9 @@ public:
     void FromTx(const CTransaction &tx, int nHeightIn) {
         fCoinBase = tx.IsCoinBase();
         vout = tx.vout;
+        for (size_t i = 0; i < vout.size(); i++) {
+            CTxOutWitnessSerializer(vout[i]).SetNull();
+        }
         nHeight = nHeightIn;
         nVersion = tx.nVersion;
         ClearUnspendable();
