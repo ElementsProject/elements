@@ -24,6 +24,7 @@
 #include "txmempool.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
+#include "util.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
@@ -1076,6 +1077,8 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         result.push_back(Pair("errors", vErrors));
     }
 
+    AuditLogPrintf("%s : signrawtransaction %s\n", getUser(), EncodeHexTx(mergedTx));
+
     return result;
 }
 
@@ -1153,6 +1156,7 @@ UniValue sendrawtransaction(const JSONRPCRequest& request)
     }
     if(!g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+    AuditLogPrintf("%s : sendrawtransaction %s\n", getUser(), hashTx.GetHex());
 
     CInv inv(MSG_TX, hashTx);
     g_connman->ForEachNode([&inv](CNode* pnode)

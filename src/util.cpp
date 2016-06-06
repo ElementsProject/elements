@@ -119,7 +119,7 @@ bool fLogTimestamps = DEFAULT_LOGTIMESTAMPS;
 bool fLogTimeMicros = DEFAULT_LOGTIMEMICROS;
 bool fLogIPs = DEFAULT_LOGIPS;
 std::atomic<bool> fReopenDebugLog(false);
-volatile bool fReopenAuditLog = false;
+std::atomic<bool> fReopenAuditLog(false);
 CTranslationInterface translationInterface;
 
 /** Init OpenSSL library multithreading support */
@@ -232,12 +232,11 @@ void OpenDebugLog()
     boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
     fileout_debug = fopen(pathDebug.string().c_str(), "a");
     if (fileout_debug) setbuf(fileout_debug, NULL); // unbuffered
-        setbuf(fileout, NULL); // unbuffered
+        setbuf(fileout_debug, NULL); // unbuffered
         // dump buffered messages from before we opened the log
     while (!vMsgsBeforeOpenDebugLog->empty()) {
         FileWriteStr(vMsgsBeforeOpenDebugLog->front(), fileout_debug);
         vMsgsBeforeOpenDebugLog->pop_front();
-        }
     }
 
     delete vMsgsBeforeOpenDebugLog;
@@ -370,7 +369,7 @@ int DebugLogPrintStr(const std::string &str)
 int AuditLogPrintStr(const std::string &str)
 {
     int ret = 0; // Returns total number of characters written
-    static bool fStartedNewLine = true;
+    static std::atomic_bool fStartedNewLine(true);
 
     string strTimestamped = LogTimestampStr(str, &fStartedNewLine);
 

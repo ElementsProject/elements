@@ -77,25 +77,28 @@ int AuditLogPrintStr(const std::string &str);
 
 #define LogPrint(category, ...) do { \
     if (LogAcceptCategory((category))) { \
-        LogPrintStr(tfm::format(__VA_ARGS__)); \
+        DebugLogPrintStr(tfm::format(__VA_ARGS__)); \
     } \
 } while(0)
 
 #define LogPrintf(...) do { \
-    LogPrintStr(tfm::format(__VA_ARGS__)); \
+    DebugLogPrintStr(tfm::format(__VA_ARGS__)); \
 } while(0)
 
-template<typename T1, typename... Args>
-static inline int AuditLogPrint(const char* category, const char* fmt, const T1& v1, const Args&... args)
-{
-    if(!LogAcceptCategory(category)) return 0;                            \
-    return AuditLogPrintStr(tfm::format(fmt, v1, args...));
-}
+#define AuditLogPrint(category, ...) do { \
+    if (LogAcceptCategory((category))) { \
+        AuditLogPrintStr(tfm::format(__VA_ARGS__)); \
+    } \
+} while(0)
+
+#define AuditLogPrintf(...) do { \
+    AuditLogPrintStr(tfm::format(__VA_ARGS__)); \
+} while(0)
 
 template<typename... Args>
 bool error(const char* fmt, const Args&... args)
 {
-    LogPrintStr("ERROR: " + tfm::format(fmt, args...) + "\n");
+    DebugLogPrintStr("ERROR: " + tfm::format(fmt, args...) + "\n");
     return false;
 }
 

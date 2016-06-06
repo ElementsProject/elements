@@ -152,6 +152,8 @@ UniValue importprivkey(const JSONRPCRequest& request)
         }
     }
 
+    AuditLogPrintf("%s : importprivkey %s\n", getUser(), pubkey.GetHash().GetHex());
+
     return NullUniValue;
 }
 
@@ -251,6 +253,8 @@ UniValue importaddress(const JSONRPCRequest& request)
         pwalletMain->ScanForWalletTransactions(chainActive.Genesis(), true);
         pwalletMain->ReacceptWalletTransactions();
     }
+
+    AuditLogPrintf("%s : importaddress %s\n", getUser(), request.params[0].get_str());
 
     return NullUniValue;
 }
@@ -404,6 +408,8 @@ UniValue importpubkey(const JSONRPCRequest& request)
         pwalletMain->ReacceptWalletTransactions();
     }
 
+    AuditLogPrintf("%s : importpubkey %s\n", getUser(), request.params[0].get_str());
+
     return NullUniValue;
 }
 
@@ -511,6 +517,8 @@ UniValue importwallet(const JSONRPCRequest& request)
     if (!fGood)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error adding some keys to wallet");
 
+    AuditLogPrintf("%s : importwallet %s\n", getUser(), request.params[0].get_str());
+
     return NullUniValue;
 }
 
@@ -548,6 +556,9 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     CKey vchSecret;
     if (!pwalletMain->GetKey(keyID, vchSecret))
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for address " + strAddress + " is not known");
+
+    AuditLogPrintf("%s : dumpprivkey %s\n", getUser(), strAddress);
+
     return CBitcoinSecret(vchSecret).ToString();
 }
 
@@ -639,6 +650,9 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     file << "\n";
     file << "# End of dump\n";
     file.close();
+
+    AuditLogPrintf("%s : dumpwallet %s\n", getUser(), request.params[0].get_str());
+
     return NullUniValue;
 }
 
@@ -1138,6 +1152,7 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
     if (key.IsValid()) {
         CPubKey pubkey = key.GetPubKey();
         if (pubkey == address.GetBlindingKey()) {
+            AuditLogPrintf("%s : dumpblindingkey %s\n", getUser(), address.ToString());
             return HexStr(key.begin(), key.end());
         }
     }
@@ -1146,6 +1161,7 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
     if (key.IsValid()) {
         CPubKey pubkey = key.GetPubKey();
         if (pubkey == address.GetBlindingKey()) {
+            AuditLogPrintf("%s : dumpblindingkey %s\n", getUser(), address.ToString());
             return HexStr(key.begin(), key.end());
         }
     }
