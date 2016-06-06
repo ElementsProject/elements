@@ -24,6 +24,7 @@
 #include "txmempool.h"
 #include "uint256.h"
 #include "utilstrencodings.h"
+#include "util.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
@@ -1052,6 +1053,8 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
         result.push_back(Pair("errors", vErrors));
     }
 
+    AuditLogPrintf("%s : signrawtransaction %s\n", getUser(), EncodeHexTx(mergedTx));
+
     return result;
 }
 
@@ -1126,6 +1129,8 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
     }
     RelayTransaction(tx);
+
+    AuditLogPrintf("%s : sendrawtransaction %s\n", getUser(), tx.ToString());
 
     return hashTx.GetHex();
 }
