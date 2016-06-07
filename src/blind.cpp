@@ -60,7 +60,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     }
 }
 
-bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vector<uint256 >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
@@ -84,10 +84,10 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std
     //Number of outputs to newly blind
     int nToBlind = 0;
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-         assert((output_blinding_factors[nOut] != uint256()) == !tx.vout[nOut].nValue.IsAmount());
-         if (output_blinding_factors[nOut] != uint256()) {
-             blindptrs.push_back(output_blinding_factors[nOut].begin());
-             nBlindsOut++;
+        assert((output_blinding_factors[nOut] != uint256()) == !tx.vout[nOut].nValue.IsAmount());
+        if (output_blinding_factors[nOut] != uint256()) {
+            blindptrs.push_back(output_blinding_factors[nOut].begin());
+            nBlindsOut++;
          } else {
              if (output_pubkeys[nOut].IsValid()) {
                  nToBlind++;
@@ -125,6 +125,7 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, const std
                 GetRandBytes(&blind[nBlinded][0], 32);
                 blindptrs.push_back(&blind[nBlinded++][0]);
             }
+            output_blinding_factors[nOut] = uint256(std::vector<unsigned char>(blindptrs[blindptrs.size()-1], blindptrs[blindptrs.size()-1]+32));
             nBlindsOut++;
             // Create blinded value
             CTxOutValue& value = tx.vout[nOut].nValue;
