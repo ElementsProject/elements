@@ -1339,6 +1339,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             listReceived.push_back(output);
     }
 
+    // This should not happen if transaction was created via CreateTransaction
     if (nValueUnaccounted != 0 && nDebit > 0) {
         if (nValueUnaccounted > 0 && nUnaccountedOutputs == 1) {
             // There is exactly one sent output with unknown value. Reconstruct it.
@@ -1719,6 +1720,26 @@ bool CWalletTx::IsEquivalentTo(const CWalletTx& tx) const
         for (unsigned int i = 0; i < tx1.vin.size(); i++) tx1.vin[i].scriptSig = CScript();
         for (unsigned int i = 0; i < tx2.vin.size(); i++) tx2.vin[i].scriptSig = CScript();
         return CTransaction(tx1) == CTransaction(tx2);
+}
+
+void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn) const
+{
+    assert(nOut < vout.size());
+    if (mapValue["blindingdata"].size() < (nOut + 1) * 74) {
+        mapValue["blindingdata"].resize(vout.size() * 74);
+    }
+
+    unsigned char* it = (unsigned char*)(&mapValue["blindingdata"][0]) + 74 * nOut;
+
+    *it = 1;
+    memcpy(&*(it + 1), &amountIn, 8);
+    memcpy(&*(it + 9), blindingfactorIn.begin(), 32);
+    if (pubkeyIn.IsValid() && pubkeyIn.size() == 33) {
+        memcpy(&*(it + 41), pubkeyIn.begin(), 33);
+    } else {
+        memset(&*(it + 41), 0, 33);
+    }
+
 }
 
 void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut) const
@@ -2468,6 +2489,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 txNew.nTxFee = nFeeRet;
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
+                // Store amounts for storage in mapValue
+                std::vector<CAmount> vAmounts;
+
                 // Create blinded outputs
                 std::vector<uint256> input_blinds;
                 std::vector<uint256> output_blinds;
@@ -2481,6 +2505,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     output_blinds.push_back(uint256());
                     if (outAmounts)
                         outAmounts->push_back(txNew.vout[nOut].nValue.GetAmount());
+                    vAmounts.push_back(txNew.vout[nOut].nValue.GetAmount());
                 }
                 if (!BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew)) {
                     // We need a dummy output to put a non-zero blinding factor.
@@ -2490,6 +2515,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     txNew.vout.push_back(newTxOut);
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
+                    vAmounts.push_back(0);
                     // Now it has to succeed
                     bool ret = BlindOutputs(input_blinds, output_blinds, output_pubkeys, txNew);
                     assert(ret);
@@ -2530,6 +2556,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 // Embed the constructed transaction data in wtxNew.
                 *static_cast<CTransaction*>(&wtxNew) = CTransaction(txNew);
+
+                assert(vAmounts.size() == output_pubkeys.size());
+                assert(output_pubkeys.size() == output_blinds.size());
+
+                for (unsigned int i = 0; i< vAmounts.size(); i++) {
+                    wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i]);
+                }
 
                 // Limit size
                 if (GetTransactionWeight(txNew) >= MAX_STANDARD_TX_WEIGHT)
