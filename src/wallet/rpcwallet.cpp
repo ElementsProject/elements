@@ -604,7 +604,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
 
         for (unsigned int i = 0; i < wtx.vout.size(); i++)
             if (wtx.vout[i].scriptPubKey == scriptPubKey)
-                if (wtx.GetDepthInMainChain() >= nMinDepth)
+                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetValueOut(i) >= 0)
                     nAmount += wtx.GetValueOut(i);
     }
 
@@ -660,7 +660,7 @@ UniValue getreceivedbyaccount(const UniValue& params, bool fHelp)
         {
             CTxDestination address;
             if (ExtractDestination(wtx.vout[i].scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
-                if (wtx.GetDepthInMainChain() >= nMinDepth)
+                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetValueOut(i) >= 0)
                     nAmount += wtx.GetValueOut(i);
         }
     }
