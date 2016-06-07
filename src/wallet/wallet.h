@@ -416,12 +416,15 @@ public:
 
     std::set<uint256> GetConflicts() const;
 
+    // For use in wallet transaction creation to remember 3rd party values
+    void SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn) const;
+
 private:
     void GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut) const;
     void WipeUnknownBlindingData() const;
 
 public:
-    //! Returns either the value out (if it is to us) or -1
+    //! Returns either the value out (if it is known) or -1
     CAmount GetValueOut(unsigned int nOut) const;
 
     //! Returns either the blinding factor (if it is to us) or 0
