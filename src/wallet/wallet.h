@@ -421,7 +421,7 @@ private:
     void WipeUnknownBlindingData() const;
 
 public:
-    //! Returns either the value out (if it is to us) or 0
+    //! Returns either the value out (if it is to us) or -1
     CAmount GetValueOut(unsigned int nOut) const;
 
     //! Returns either the blinding factor (if it is to us) or 0
