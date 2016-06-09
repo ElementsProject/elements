@@ -48,7 +48,7 @@ bool CheckBitcoinProof(const CBlockHeader& block)
     bnTarget.SetCompact(block.bitcoinproof.challenge, &fNegative, &fOverflow);
 
     // Check range
-    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(Params().GetConsensus().powLimit))
+    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(Params().GetConsensus().parentChainPowLimit))
         return false;
 
     // Check proof of work matches claimed amount
