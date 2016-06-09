@@ -449,7 +449,12 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
 
     SendMoney(address.Get(), nAmount, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
 
-    AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\n", getUser(), request.params[0].get_str(), request.params[1].getValStr(), wtx.GetHash().GetHex());
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
+        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), request.params[0].get_str(), request.params[1].getValStr(), wtx.GetHash().GetHex(), blinds);
 
     return wtx.GetHash().GetHex();
 }
@@ -1028,7 +1033,12 @@ UniValue sendmany(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
 
-    AuditLogPrintf("%s", strAudit);
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
+        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s\nblinds:\n%s\n", strAudit, blinds);
 
     return wtx.GetHash().GetHex();
 }
@@ -3283,7 +3293,12 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     CWalletTx wtxNew;
     SendMoney(scriptPubKey, nAmount, false, CPubKey(), wtxNew);
 
-    AuditLogPrintf("%s : sendtomainchain %s\n", getUser(), wtxNew.tx->GetHash().GetHex());
+    std::string blinds;
+    for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {
+        blinds += "blind:" + wtxNew.GetBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s : sendtomainchain %s\nblinds:\n%s\n", getUser(), wtxNew.tx->GetHash().GetHex(), blinds);
 
     return wtxNew.GetHash().GetHex();
 }
