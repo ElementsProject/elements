@@ -442,7 +442,12 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     SendMoney(address.Get(), nAmount, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
 
-    AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\n", getUser(), params[0].get_str(), params[1].getValStr(), wtx.GetHash().GetHex());
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.vout.size(); i++) {
+        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), params[0].get_str(), params[1].getValStr(), wtx.GetHash().GetHex(), blinds);
 
     return wtx.GetHash().GetHex();
 }
@@ -998,7 +1003,12 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     if (!pwalletMain->CommitTransaction(wtx, keyChange))
         throw JSONRPCError(RPC_WALLET_ERROR, "Transaction commit failed");
 
-    AuditLogPrintf("%s", strAudit);
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.vout.size(); i++) {
+        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s\nblinds:\n%s\n", strAudit, blinds);
 
     return wtx.GetHash().GetHex();
 }
@@ -2867,7 +2877,12 @@ UniValue sendtomainchain(const UniValue& params, bool fHelp)
     CWalletTx wtxNew;
     SendMoney(scriptPubKey, nAmount, false, CPubKey(), wtxNew);
 
-    AuditLogPrintf("%s : sendtomainchain %s\n", getUser(), wtxNew.ToString());
+    std::string blinds;
+    for (unsigned int i=0; i<wtxNew.vout.size(); i++) {
+        blinds += "blind:" + wtxNew.GetBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s : sendtomainchain %s\nblinds:\n%s\n", getUser(), wtxNew.ToString(), blinds);
 
     return wtxNew.GetHash().GetHex();
 }
