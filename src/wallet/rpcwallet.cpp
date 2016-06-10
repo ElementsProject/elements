@@ -1530,6 +1530,7 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
             "                                          from (for receiving funds, positive amounts), or went to (for sending funds,\n"
             "                                          negative amounts).\n"
             "    \"bip125-replaceable\": \"yes|no|unknown\"  (string) Whether this transaction could be replaced due to BIP125 (replace-by-fee);\n"
+            "    \"blindingfactors\": \"...\"  (string) The list of blinding factors for a given transaction in vout order\n"
             "                                                     may be unknown for unconfirmed transactions not in the mempool\n"
             "  }\n"
             "]\n"
