@@ -1313,7 +1313,9 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
 
         if (!ExtractDestination(txout.scriptPubKey, address) && !txout.scriptPubKey.IsUnspendable())
         {
-            LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
+            //Don't alarm user over blank address for withdrawLocks
+            if (!txout.scriptPubKey.IsWithdrawLock())
+                LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
                      this->GetHash().ToString());
             address = CNoDestination();
         }
