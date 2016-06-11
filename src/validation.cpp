@@ -3433,6 +3433,11 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
             if (block.vtx[i]->HasWitness()) {
                 return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected witness data found", __func__));
             }
+            for (size_t o = 0; o < block.vtx[i]->vout.size(); o++) {
+                if (!CTxOutWitnessSerializer(REF(block.vtx[i]->vout[o])).IsNull()) {
+                    return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected output witness data found", __func__));
+                }
+            }
         }
     }
 
