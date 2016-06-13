@@ -2642,9 +2642,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return true;
     }
 
-    // Check that all coinbase outputs pay to the required destination
+    // Check that all non-zero-value coinbase outputs pay to the required destination
     BOOST_FOREACH(const CTxOut& txout, block.vtx[0].vout) {
-        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination())
+        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination() && !(txout.nValue.IsAmount() && txout.nValue.GetAmount() == 0))
             return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
                              REJECT_INVALID, "bad-coinbase-txos");
     }
