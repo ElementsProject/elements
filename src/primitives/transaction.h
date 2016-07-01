@@ -350,6 +350,33 @@ public:
     // FIXME: constructor and methods
 };
 
+class CAssetReissuance
+{
+public:
+    // The original asset entropy which was used to generate the fixed
+    // asset tag and reissuance tokens.
+    uint256 hashAssetEntropy;
+
+    // This is a revelation of the blinding key for the input,
+    // which shows that the input being spent is of the reissuance
+    // capability type for the asset being inflated.
+    uint256 assetBlindingNonce;
+
+    // The reissuance amount, either positive (inflation) or negative
+    // (deflation). Note that the corresponding reissuance token must
+    // be the output being spent in either case.
+    CTxOutValue nAmount;
+
+    // Set to 1 if the reissuance is increasing the number of asset
+    // tokens in circulation (treated as an input), -1 if the reissuance
+    // is decreasing the number of tokens (treated as an output), and 0
+    // if there is no reissuance (reissuance object is Null).
+    int nSign;
+
+public:
+    // FIXME: constructor and methods
+};
+
 struct CMutableTransaction;
 
 /**
@@ -507,6 +534,12 @@ public:
     // objects equal to the number of set bits in the bitfield.
     std::vector<bool> vAssetGenerationBits;
     std::vector<CAssetGeneration> vAssetGenerations;
+
+    // Like the previous fields, we have a bitfield that specifies which
+    // inputs are asset re-issuance spends, followed by a vector of those
+    // reissuance objects.
+    std::vector<bool> vAssetReissuanceBits;
+    std::vector<CAssetReissuance> vCAssetReissuances;
 
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
