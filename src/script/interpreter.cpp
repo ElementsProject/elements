@@ -1191,7 +1191,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
 
                                 CScriptID expectedP2SH(scriptDestination);
                                 if (locktx.vout[nlocktxOut].scriptPubKey != GetScriptForDestination(expectedP2SH))
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPTDEST);
 
                                 vcontract.erase(vcontract.begin() + 4, vcontract.begin() + 20); // Remove the nonce from the contract before further processing
                                 assert(vcontract.size() == 24);
@@ -1210,14 +1210,14 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     if (!newLockOutput.nValue.IsAmount())
                                         return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                     if (newLockOutput.IsNull() || newLockOutput.scriptPubKey != relockScript || newLockOutput.nValue.GetAmount() < lockValueRequired)
-                                        return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+                                        return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_RELOCK_SCRIPTVAL);
                                 }
 
                                 const CTxOut withdrawOutput = checker.GetOutputOffsetFromCurrent(0);
                                 if (!withdrawOutput.nValue.IsAmount())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                 if (withdrawOutput.nValue.GetAmount() < withdrawVal)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_VAL);
 
                                 CScript expectedWithdrawScriptPubKey;
                                 if (vcontract[0] == 'P' && vcontract[1] == '2' && vcontract[2] == 'S' && vcontract[3] == 'H')
@@ -1228,7 +1228,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
                                 if (withdrawOutput.scriptPubKey != expectedWithdrawScriptPubKey)
-                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
+                                    return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPT);
 
 #ifndef BITCOIN_SCRIPT_NO_CALLRPC
                                 if (GetBoolArg("-validatepegin", false) && !checker.IsConfirmedBitcoinBlock(genesishash, merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED))

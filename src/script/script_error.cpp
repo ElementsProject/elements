@@ -99,6 +99,14 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Withdraw proof validation failed - lock block was not sufficiently confirmed on sending chain";
         case SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS:
             return "Withdraw proof validation failed - amounts in outputs were blinded";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPTDEST:
+            return "Withdraw proof validation failed - Bitcoin output script destination does not match federation script";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_RELOCK_SCRIPTVAL:
+            return "Withdraw proof validation failed - Relock scriptpubkey or value is invalid";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_VAL:
+            return "Withdraw proof validation failed - Withdraw output value invalid";
+        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPT:
+            return "Withdraw proof validation failed - Sidechain pegin destination does not match expected";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;
