@@ -129,6 +129,75 @@ public:
 };
 
 
+class CTxOutAsset
+{
+public:
+    static const size_t nAssetTagSize = 33;
+
+    std::vector<unsigned char> vchAssetTag;
+    std::vector<unsigned char> vchSurjectionproof;
+
+    CTxOutAsset()
+    {
+        vchAssetTag.reserve(nAssetTagSize);
+        SetNull();
+    }
+
+    CTxOutAsset(const uint256& assetID)
+    {
+        SetToAssetID(assetID);
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
+            if (ser_action.ForRead()) {
+                vchAssetTag.resize(1);
+                vchAssetTag[0] = 0;
+                vchSurjectionproof.clear();
+            }
+        } else {
+            READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
+            // The surjection proof is serialized as part of the witness data
+        }
+    }
+
+    bool IsNull() const
+    {
+        return vchAssetTag.empty() || vchAssetTag[0]==0xff;
+    }
+
+    void SetNull();
+
+    bool IsAssetID() const
+    {
+        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
+    }
+    bool GetAssetID(uint256& assetID) const;
+
+    bool IsAssetCommitment() const
+    {
+        return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==8 || vchAssetTag[0]==9);
+    }
+
+    friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
+    {
+        return (a.vchAssetTag        == b.vchAssetTag &&
+                a.vchSurjectionproof == b.vchSurjectionproof);
+    }
+
+    friend bool operator!=(const CTxOutAsset& a, const CTxOutAsset& b)
+    {
+        return !(a == b);
+    }
+
+private:
+    bool IsInBitcoinTransaction() const { return vchAssetTag[0] == 0; }
+    void SetToAssetID(const uint256& assetID);
+};
+
 class CTxOutValue
 {
 public:

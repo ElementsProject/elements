@@ -43,6 +43,28 @@ std::string CTxIn::ToString() const
     return str;
 }
 
+void CTxOutAsset::SetNull()
+{
+    vchAssetTag.resize(1);
+    vchAssetTag[0] = 0xff;
+    vchSurjectionproof.clear();
+}
+
+bool CTxOutAsset::GetAssetID(uint256& assetID) const
+{
+    if (!IsAssetID())
+        return false;
+    std::copy(std::next(vchAssetTag.begin()), vchAssetTag.end(), assetID.begin());
+    return true;
+}
+
+void CTxOutAsset::SetToAssetID(const uint256& assetID)
+{
+    vchAssetTag.reserve(nAssetTagSize);
+    vchAssetTag.push_back(1);
+    vchAssetTag.insert(vchAssetTag.end(), assetID.begin(), assetID.end());
+    vchSurjectionproof.clear();
+}
 
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
 {
