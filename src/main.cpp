@@ -2012,10 +2012,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
 
     mBlockReward[chainparams.HashGenesisBlock()] += GetBlockValue(pindex->nHeight, 0);
-    if (!view.VerifyAmounts(block.vtx[0], mBlockReward))
-        return state.DoS(100,
-                         error("%s: coinbase pays too much", __func__),
-                               REJECT_INVALID, "bad-cb-amount");
+    // if (!view.VerifyAmounts(block.vtx[0], mBlockReward))
+    //     return state.DoS(100,
+    //                      error("%s: coinbase pays too much", __func__),
+    //                            REJECT_INVALID, "bad-cb-amount");
 
     if (!control.Wait())
         return state.DoS(100, false);
