@@ -482,15 +482,6 @@ public:
     //! Calculate the size of the cache (in bytes)
     size_t DynamicMemoryUsage() const;
 
-    /**
-     * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
-     *
-     * @param[in] tx     transaction for which we are checking totals
-     * @param[in] excess additional amount to consider as input value (eg fees), can be negative
-     * @return  True if totals are identical
-     */
-    bool VerifyAmounts(const CTransaction& tx, const CAmount& excess) const;
-
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransaction& tx) const;
 
