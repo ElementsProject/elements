@@ -1055,7 +1055,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Check for conflicts with in-memory transactions
     {
     LOCK(pool.cs); // protect pool.mapNextTx
-    for (unsigned int i = 0; i < tx.vin.size(); i++)
+    for (unsigned int i = tx.GetFirstInputPos(); i < tx.vin.size(); i++)
     {
         COutPoint outpoint = tx.vin[i].prevout;
         if (pool.mapNextTx.count(outpoint))
@@ -1138,7 +1138,12 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         double dPriority = view.GetPriority(tx, chainActive.Height());
 
         CAmountMap mTxReward = tx.GetTxRewardMap();
-        const CAmount nFees = mTxReward.find(feeAssetID)->second;
+        CAmount nFees;
+        if (mTxReward.find(feeAssetID) == mTxReward.end()) {
+            nFees = 0;
+        } else {
+            nFees = mTxReward.find(feeAssetID)->second;
+        }
         CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height());
         unsigned int nSize = entry.GetTxSize();
 
