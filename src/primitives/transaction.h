@@ -132,6 +132,7 @@ public:
 class CTxOutValue
 {
 public:
+    static const size_t nExplicitSize = 9;
     static const size_t nCommittedSize = 33;
 
     std::vector<unsigned char> vchCommitment;
@@ -156,7 +157,27 @@ public:
         } else {
             // We only serialize the value commitment here.
             // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
-            READWRITE(REF(CFlatData(&vchCommitment[0], &vchCommitment[nCommittedSize])));
+            READWRITE(vchCommitment.front());
+            if (ser_action.ForRead()) {
+                switch (vchCommitment.front()) {
+                    case 0:
+                    case 1:
+                        vchCommitment.resize(nExplicitSize);
+                        break;
+                    // Alpha used 2 and 3 for value commitments
+                    case 2:
+                    case 3:
+                        break;
+                    case 8:
+                    case 9:
+                        vchCommitment.resize(nCommittedSize);
+                        break;
+                    default:
+                        vchCommitment.resize(1);
+                        return;
+                }
+            }
+            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
         }
     }
 

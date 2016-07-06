@@ -46,13 +46,13 @@ std::string CTxIn::ToString() const
 
 CTxOutValue::CTxOutValue()
 {
-    vchCommitment.resize(nCommittedSize);
+    vchCommitment.resize(1);
     vchCommitment[0] = 0xff;
 }
 
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
 {
-    vchCommitment.resize(nCommittedSize);
+    vchCommitment.resize(nExplicitSize);
     SetToAmount(nAmountIn);
 }
 
@@ -61,9 +61,8 @@ bool CTxOutValue::IsValid() const
     switch(vchCommitment[0]) {
         case 0:
         case 1:
-            for (size_t i = 0; i < nCommittedSize - sizeof(CAmount); i++)
-                if (vchCommitment[i])
-                    return false;
+            if (vchCommitment.size() != nExplicitSize)
+                return false;
             return true;
         // Alpha used 2 and 3 for value commitments
         case 2:
@@ -71,6 +70,8 @@ bool CTxOutValue::IsValid() const
             return false;
         case 8:
         case 9:
+            if (vchCommitment.size() != nCommittedSize)
+                return false;
             return true;
         default:
             return false;
@@ -90,10 +91,7 @@ bool CTxOutValue::IsAmount() const
 CAmount CTxOutValue::GetAmount() const
 {
     assert(IsAmount());
-    CAmount nAmount = 0;
-    for (size_t i = 0; i < sizeof(nAmount); i++)
-        nAmount |= CAmount(vchCommitment[nCommittedSize - 1 - i]) << (i * 8);
-    return nAmount;
+    return ReadBE64(&vchCommitment[1]);
 }
 
 bool operator==(const CTxOutValue& a, const CTxOutValue& b)
@@ -117,9 +115,9 @@ bool CTxOutValue::IsInBitcoinTransaction() const {
 }
 
 void CTxOutValue::SetToAmount(const CAmount nAmount) {
-    memset(&vchCommitment[0], 0, nCommittedSize - sizeof(nAmount));
-    for (size_t i = 0; i < sizeof(nAmount); ++i)
-        vchCommitment[nCommittedSize - 1 - i] = ((nAmount >> (i * 8)) & 0xff);
+    vchCommitment.resize(nExplicitSize);
+    vchCommitment[0] = 0;
+    WriteBE64(&vchCommitment[1], nAmount);
 }
 
 CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
