@@ -481,10 +481,10 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
         coins.vout.push_back(txout);
     }
 
-    CScriptCheck checks[mtx.vin.size()];
+    CScriptCheck* checks[mtx.vin.size()];
     for(uint32_t i = 0; i < mtx.vin.size(); i++) {
-        std::vector<CScriptCheck> vChecks;
-        checks[i] = CScriptCheck(coins, tx, i, -1, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false, &txdata);
+        std::vector<CScriptCheck*> vChecks;
+        checks[i] = new CScriptCheck(coins, tx, i, -1, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false, &txdata);
         vChecks.push_back(checks[i]);
         control.Add(vChecks);
     }

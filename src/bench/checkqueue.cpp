@@ -22,6 +22,7 @@ static const int PREVECTOR_SIZE = 28;
 static const int QUEUE_BATCH_SIZE = 128;
 static void CCheckQueueSpeed(benchmark::State& state)
 {
+    /* FIXME
     struct FakeJobNoWork {
         bool operator()()
         {
@@ -55,7 +56,7 @@ static void CCheckQueueSpeed(benchmark::State& state)
         control.Wait();
     }
     tg.interrupt_all();
-    tg.join_all();
+    tg.join_all();*/
 }
 
 // This Benchmark tests the CheckQueue with a slightly realistic workload,
@@ -63,6 +64,7 @@ static void CCheckQueueSpeed(benchmark::State& state)
 // and there is a little bit of work done between calls to Add.
 static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
 {
+    /* FIXME
     struct PrevectorJob {
         prevector<PREVECTOR_SIZE, uint8_t> p;
         PrevectorJob(){
@@ -81,6 +83,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
     for (auto x = 0; x < std::max(MIN_CORES, GetNumCores()); ++x) {
        tg.create_thread([&]{queue.Thread();});
     }
+
     while (state.KeepRunning()) {
         // Make insecure_rand here so that each iteration is identical.
         FastRandomContext insecure_rand(true);
@@ -97,7 +100,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
         control.Wait();
     }
     tg.interrupt_all();
-    tg.join_all();
+    tg.join_all();*/
 }
 BENCHMARK(CCheckQueueSpeed);
 BENCHMARK(CCheckQueueSpeedPrevectorJob);
