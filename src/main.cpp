@@ -12,6 +12,7 @@
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
+#include "coins.h"
 #include "consensus/consensus.h"
 #include "consensus/merkle.h"
 #include "consensus/validation.h"
@@ -48,6 +49,8 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/math/distributions/poisson.hpp>
 #include <boost/thread.hpp>
+#include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
 
 using namespace std;
 
@@ -1119,6 +1122,106 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     return true;
 }
 
+//static Secp256k1Ctx init_context_on_load;
+//extern secp256k1_context* secp256k1_bitcoin_verify_context;
+
+static secp256k1_context* secp256k1_ctx_verify_amounts = NULL;
+
+class Secp256k1Ctx
+{
+public:
+    Secp256k1Ctx() {
+        assert(secp256k1_ctx_verify_amounts == NULL);
+        secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        secp256k1_pedersen_context_initialize(secp256k1_ctx_verify_amounts);
+        secp256k1_rangeproof_context_initialize(secp256k1_ctx_verify_amounts);
+        assert(secp256k1_ctx_verify_amounts != NULL);
+    }
+
+    ~Secp256k1Ctx() {
+        assert(secp256k1_ctx_verify_amounts != NULL);
+        secp256k1_context_destroy(secp256k1_ctx_verify_amounts);
+        secp256k1_ctx_verify_amounts = NULL;
+    }
+};
+
+
+
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess)
+{
+    CAmount nPlainAmount = excess;
+    std::vector<unsigned char> vchData;
+    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    bool fNullRangeproof = false;
+    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
+    unsigned char *p = vchData.data();
+    if (!tx.IsCoinBase())
+    {
+        for (size_t i = 0; i < tx.vin.size(); ++i)
+        {
+            const CTxOutValue& val = cache.GetOutputFor(tx.vin[i]).nValue;
+            if (val.IsAmount()) {
+                nPlainAmount -= val.GetAmount();
+                if (!MoneyRange(val.GetAmount()) || (!MoneyRange(nPlainAmount) && !MoneyRange(-nPlainAmount)))
+                    return false;
+            }
+            else
+            {
+                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+                vpchCommitsIn.push_back(p);
+                p += CTxOutValue::nCommitmentSize;
+            }
+        }
+    }
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
+            return false;
+        if (val.IsAmount()) {
+            nPlainAmount += val.GetAmount();
+            if (!MoneyRange(val.GetAmount()) || (!MoneyRange(nPlainAmount) && !MoneyRange(-nPlainAmount)))
+                return false;
+        }
+        else
+        {
+            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+            vpchCommitsOut.push_back(p);
+            p += CTxOutValue::nCommitmentSize;
+
+            if (val.vchRangeproof.empty())
+                fNullRangeproof = true;
+        }
+    }
+
+    // If there are no encrypted input or output values, we can do simple math
+    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
+        return (nPlainAmount == 0);
+
+    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount))
+        return false;
+
+    // Rangeproof is optional in this case
+    if ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof)
+        return true;
+
+    uint64_t min_value, max_value;
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        if (val.IsAmount())
+            continue;
+        if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &val.vchCommitment[0], val.vchRangeproof.data(), val.vchRangeproof.size()))
+            return false;
+    }
+
+    return true;
+}
+
+
+
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) {
     int expired = pool.Expire(GetTime() - age);
     if (expired != 0)
@@ -2156,7 +2259,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (!MoneyRange(nTxFee))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
 
-        if (!inputs.VerifyAmounts(tx, nTxFee))
+        if (!VerifyAmounts(inputs, tx, nTxFee))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
 
@@ -2834,7 +2937,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (!MoneyRange(blockReward))
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
-    if (!view.VerifyAmounts(block.vtx[0], -blockReward))
+    if (VerifyAmounts(view, block.vtx[0], -blockReward))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
                                blockReward),

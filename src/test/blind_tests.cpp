@@ -7,6 +7,7 @@
 #include "coins.h"
 #include "uint256.h"
 #include "wallet/wallet.h"
+#include "main.h"
 
 #include "test/test_bitcoin.h"
 
@@ -64,7 +65,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.vout.resize(1);
         tx3.vout[0].nValue = 100;
         tx3.nTxFee = 22;
-        BOOST_CHECK(cache.VerifyAmounts(tx3, tx3.nTxFee));
+        BOOST_CHECK(VerifyAmounts(cache, tx3, tx3.nTxFee));
 
         // Try to blind with a single output, which fails as its blinding factor ends up being zero.
         std::vector<uint256> input_blinds;
@@ -84,7 +85,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx3));
         BOOST_CHECK(!tx3.vout[0].nValue.IsAmount());
         BOOST_CHECK(!tx3.vout[1].nValue.IsAmount());
-        BOOST_CHECK(cache.VerifyAmounts(tx3, tx3.nTxFee));
+        BOOST_CHECK(VerifyAmounts(cache, tx3, tx3.nTxFee));
 
         CAmount unblinded_amount;
         BOOST_CHECK(UnblindOutput(key2, tx3.vout[0], unblinded_amount, blind3) == 0);
@@ -99,7 +100,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         in3->vout[1] = tx3.vout[1];
 
         tx3.nTxFee--;
-        BOOST_CHECK(!cache.VerifyAmounts(tx3, tx3.nTxFee));
+        BOOST_CHECK(!VerifyAmounts(cache, tx3, tx3.nTxFee));
     }
 
     {
@@ -114,7 +115,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx4.vout[0].nValue = 30;
         tx4.vout[1].nValue = 40;
         tx4.nTxFee = 100 + 111 - 30 - 40;
-        BOOST_CHECK(!cache.VerifyAmounts(tx4, tx4.nTxFee)); // Spends a blinded coin with no blinded outputs to compensate.
+        BOOST_CHECK(!VerifyAmounts(cache, tx4, tx4.nTxFee)); // Spends a blinded coin with no blinded outputs to compensate.
 
         std::vector<uint256> input_blinds;
         std::vector<uint256> output_blinds;
@@ -141,7 +142,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx4.vout[1].nValue = 40;
         tx4.vout[2].nValue = 50;
         tx4.nTxFee = 100 + 111 - 30 - 40 - 50;
-        BOOST_CHECK(!cache.VerifyAmounts(tx4, tx4.nTxFee)); // Spends a blinded coin with no blinded outputs to compensate.
+        BOOST_CHECK(!VerifyAmounts(cache, tx4, tx4.nTxFee)); // Spends a blinded coin with no blinded outputs to compensate.
 
         std::vector<uint256> input_blinds;
         std::vector<uint256> output_blinds;
@@ -158,7 +159,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(!tx4.vout[0].nValue.IsAmount());
         BOOST_CHECK(tx4.vout[1].nValue.IsAmount());
         BOOST_CHECK(!tx4.vout[2].nValue.IsAmount());
-        BOOST_CHECK(cache.VerifyAmounts(tx4, tx4.nTxFee));
+        BOOST_CHECK(VerifyAmounts(cache, tx4, tx4.nTxFee));
 
 #ifdef ENABLE_WALLET
         //This tests the wallet blinding caching functionality
@@ -213,7 +214,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         in4->vout[2] = tx4.vout[2];
 
         tx4.nTxFee--;
-        BOOST_CHECK(!cache.VerifyAmounts(tx4, tx4.nTxFee));
+        BOOST_CHECK(!VerifyAmounts(cache, tx4, tx4.nTxFee));
     }
 }
 

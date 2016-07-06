@@ -347,7 +347,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.nTxFee = (50+21+22)*CENT - 90*CENT;
 
     BOOST_CHECK(AreInputsStandard(t1, coins));
-    BOOST_CHECK(coins.VerifyAmounts(t1, t1.nTxFee));
+    BOOST_CHECK(VerifyAmounts(coins, t1, t1.nTxFee));
 }
 
 void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outscript, CTransaction& output, CMutableTransaction& input, bool success = true)

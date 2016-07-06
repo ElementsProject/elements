@@ -373,6 +373,17 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 } // namespace Consensus
 
 /**
+ * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
+ *
+ * @param[in] view   CCoinsViewCache to find necessary outputs
+ * @param[in] tx     transaction for which we are checking totals
+ * @param[in] excess additional amount to consider as input value (eg fees), can be negative
+ * @return  True if totals are identical
+*/
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess);
+
+
+/**
  * Check if transaction is final and can be included in a block with the
  * specified height and time. Consensus critical.
  */
