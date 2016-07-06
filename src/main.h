@@ -34,7 +34,7 @@ class CBlockTreeDB;
 class CBloomFilter;
 class CChainParams;
 class CInv;
-class CScriptCheck;
+class CCheck;
 class CTxMemPool;
 class CValidationInterface;
 class CValidationState;
@@ -353,7 +353,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                  unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent,
-                 std::vector<CScriptCheck> *pvChecks = NULL);
+                 std::vector<CCheck*> *pvChecks = NULL);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
@@ -368,7 +368,7 @@ namespace Consensus {
  * This does not modify the UTXO set. This does not check scripts and sigs.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks);
 
 } // namespace Consensus
 
@@ -378,9 +378,10 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
  * @param[in] view   CCoinsViewCache to find necessary outputs
  * @param[in] tx     transaction for which we are checking totals
  * @param[in] excess additional amount to consider as input value (eg fees), can be negative
+ * @param[in] pvChecks  multithreaded rangeproof and commitment checker
  * @return  True if totals are identical
 */
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess);
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks = NULL);
 
 
 /**
@@ -426,7 +427,23 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, LockPoints* lp = NULL
  * Closure representing one script verification
  * Note that this stores references to the spending transaction 
  */
-class CScriptCheck
+class CCheck
+ {
+ protected:
+     ScriptError error;
+     bool fAmountError;
+
+ public:
+     CCheck() : error(SCRIPT_ERR_UNKNOWN_ERROR), fAmountError(false) {}
+     virtual ~CCheck() {}
+
+     virtual bool operator()() = 0;
+
+     ScriptError GetScriptError() const { return error; }
+     bool IsAmountError() const { return fAmountError; }
+};
+
+class CScriptCheck : public CCheck
 {
 private:
     CScript scriptPubKey;
@@ -436,31 +453,16 @@ private:
     unsigned int nIn;
     unsigned int nFlags;
     bool cacheStore;
-    ScriptError error;
     PrecomputedTransactionData *txdata;
 
 public:
-    CScriptCheck(): amount(0), amountPreviousInput(-1), ptxTo(0), nIn(0), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
     CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CTxOutValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
         amountPreviousInput(amountPreviousInputIn),
-        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn) { }
+        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), txdata(txdataIn) { }
 
     bool operator()();
 
-    void swap(CScriptCheck &check) {
-        scriptPubKey.swap(check.scriptPubKey);
-        std::swap(ptxTo, check.ptxTo);
-        std::swap(amount, check.amount);
-        std::swap(amountPreviousInput, check.amountPreviousInput);
-        std::swap(nIn, check.nIn);
-        std::swap(nFlags, check.nFlags);
-        std::swap(cacheStore, check.cacheStore);
-        std::swap(error, check.error);
-        std::swap(txdata, check.txdata);
-    }
-
-    ScriptError GetScriptError() const { return error; }
 };
 
 

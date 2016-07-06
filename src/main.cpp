@@ -1122,10 +1122,9 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     return true;
 }
 
-//static Secp256k1Ctx init_context_on_load;
-//extern secp256k1_context* secp256k1_bitcoin_verify_context;
+namespace {
 
-static secp256k1_context* secp256k1_ctx_verify_amounts = NULL;
+static secp256k1_context* secp256k1_ctx_verify_amounts;
 
 class Secp256k1Ctx
 {
@@ -1144,12 +1143,86 @@ public:
         secp256k1_ctx_verify_amounts = NULL;
     }
 };
+static Secp256k1Ctx instance_of_secp256k1ctx;
 
-
-
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess)
+/** Closure representing one output range check. */
+class CRangeCheck : public CCheck
 {
+private:
+    const CTxOutValue* val;
+
+public:
+    CRangeCheck(const CTxOutValue* val_) : val(val_) {}
+
+    bool operator()();
+};
+
+/** Closure representing a transaction amount balance check. */
+class CBalanceCheck : public CCheck
+{
+private:
+    std::vector<unsigned char> vchData;
+    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    CAmount nPlainAmount;
+
+public:
+    CBalanceCheck(std::vector<unsigned char>& vchData_, std::vector<unsigned char*>& vpchCommitsIn_, std::vector<unsigned char*>& vpchCommitsOut_, const CAmount& nPlainAmount_) : nPlainAmount(nPlainAmount_) {
+        vchData.swap(vchData_);
+        vpchCommitsIn.swap(vpchCommitsIn_);
+        vpchCommitsOut.swap(vpchCommitsOut_);
+    }
+
+    bool operator()();
+};
+
+// Destroys check, or passes its ownership to the queue.
+static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
+{
+    if (queue != NULL) {
+        queue->push_back(check);
+        return true;
+    }
+    bool ret = (*check)();
+    delete check;
+    return ret;
+}
+
+
+bool CRangeCheck::operator()()
+{
+    if (val->IsAmount()) {
+        return true;
+    }
+
+    uint64_t min_value, max_value;
+    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &val->vchCommitment[0], val->vchRangeproof.data(), val->vchRangeproof.size())) {
+        fAmountError = true;
+        return false;
+    }
+
+    return true;
+};
+
+bool CBalanceCheck::operator()()
+{
+    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount)) {
+        fAmountError = true;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace
+
+
+
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks)
+{
+    bool fNeedNoRangeProof = false;
     CAmount nPlainAmount = excess;
+
+    {
     std::vector<unsigned char> vchData;
     std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
     bool fNullRangeproof = false;
@@ -1200,21 +1273,25 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
     if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
         return (nPlainAmount == 0);
 
-    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount))
+    fNeedNoRangeProof = ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof);
+
+    if (!QueueCheck(pvChecks, new CBalanceCheck(vchData, vpchCommitsIn, vpchCommitsOut, nPlainAmount))) {
         return false;
+    }
+    }
 
     // Rangeproof is optional in this case
-    if ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof)
+    if (fNeedNoRangeProof)
         return true;
 
-    uint64_t min_value, max_value;
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         const CTxOutValue& val = tx.vout[i].nValue;
         if (val.IsAmount())
             continue;
-        if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &val.vchCommitment[0], val.vchRangeproof.data(), val.vchRangeproof.size()))
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val))) {
             return false;
+        }
     }
 
     return true;
@@ -2211,7 +2288,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
@@ -2259,7 +2336,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (!MoneyRange(nTxFee))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
 
-        if (!VerifyAmounts(inputs, tx, nTxFee))
+        if (!VerifyAmounts(inputs, tx, nTxFee, pvChecks))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
 
@@ -2267,11 +2344,11 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 }
 }// namespace Consensus
 
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, set<pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CScriptCheck> *pvChecks)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, set<pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
-        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), setWithdrawsSpent))
+        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), setWithdrawsSpent, pvChecks))
             return false;
 
         if (pvChecks)
@@ -2295,11 +2372,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 assert(coins);
 
                 // Verify signature
-                CScriptCheck check(*coins, tx, i, prevValueIn, flags, cacheStore, &txdata);
-                if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
-                } else if (!check()) {
+                CCheck* check = new CScriptCheck(*coins, tx, i, prevValueIn, flags, cacheStore, &txdata);
+                if (!QueueCheck(pvChecks, check)) {
                     if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
                         // Check whether the failure was caused by a
                         // non-mandatory script verification check, such as
@@ -2310,7 +2384,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         CScriptCheck check2(*coins, tx, i, prevValueIn,
                                 flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheStore, &txdata);
                         if (check2())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check->GetScriptError())));
                     }
                     // Failures of other flags indicate a transaction that is
                     // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
@@ -2319,10 +2393,10 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // as to the correct behavior - we may want to continue
                     // peering with non-upgraded nodes even after soft-fork
                     // super-majority signaling has occurred.
-                    if (check.GetScriptError() == SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED)
-                        return state.Invalid(false, REJECT_SCRIPT, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                    if (check->GetScriptError() == SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED)
+                        return state.Invalid(false, REJECT_SCRIPT, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check->GetScriptError())));
                     else
-                        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check->GetScriptError())));
                 }
                 const CTxOutValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
                 if (value.IsAmount())
@@ -2554,7 +2628,7 @@ void static FlushBlockFile(bool fFinalize = false)
 
 bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigned int nAddSize);
 
-static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
+static CCheckQueue<CCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck() {
     RenameThread("bitcoin-scriptch");
@@ -2838,7 +2912,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     CBlockUndo blockundo;
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
+    CCheckQueueControl<CCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
     std::vector<uint256> vOrphanErase;
     std::vector<int> prevheights;
@@ -2908,7 +2982,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (!MoneyRange(nFees))
                 return state.DoS(100, error("ConnectBlock(): total tx fee overflowed"), REJECT_INVALID, "bad-txns-fee-outofrange");
 
-            std::vector<CScriptCheck> vChecks;
+            std::vector<CCheck*> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, txdata[i], setWithdrawsSpent == NULL ? setWithdrawsSpentDummy : *setWithdrawsSpent, nScriptCheckThreads ? &vChecks : NULL))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
@@ -2937,7 +3011,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
     if (!MoneyRange(blockReward))
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
-    if (VerifyAmounts(view, block.vtx[0], -blockReward))
+    if (!VerifyAmounts(view, block.vtx[0], -blockReward))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
                                blockReward),
