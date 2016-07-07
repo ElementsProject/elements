@@ -125,7 +125,7 @@ public:
                 READWRITE(txout.nValue);
             }
         } else {
-            uint8_t type;
+            uint8_t type = 0;
             READWRITE(type);
             if (type == 0) {
                 uint64_t nVal = 0;
