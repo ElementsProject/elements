@@ -6,12 +6,18 @@
 #include "blind.h"
 #include "coins.h"
 #include "uint256.h"
+#include "wallet/wallet.h"
 
 #include "test/test_bitcoin.h"
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_FIXTURE_TEST_SUITE(blind_tests, BasicTestingSetup)
+
+BOOST_FIXTURE_TEST_SUITE(blind_tests, TestingSetup)
+
+#ifdef ENABLE_WALLET
+static CWallet wallet;
+#endif
 
 BOOST_AUTO_TEST_CASE(naive_blinding_test)
 {
@@ -154,6 +160,45 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(!tx4.vout[2].nValue.IsAmount());
         BOOST_CHECK(cache.VerifyAmounts(tx4, tx4.nTxFee));
 
+#ifdef ENABLE_WALLET
+        //This tests the wallet blinding caching functionality
+        CWalletTx wtx(&wallet, tx4);
+        uint256 factor = wtx.GetBlindingFactor(0);
+        CPubKey pubkey = wtx.GetBlindingPubKey(0);
+        CAmount amount = wtx.GetValueOut(0);
+
+        BOOST_CHECK(factor == uint256());
+        BOOST_CHECK(pubkey == CPubKey());
+        BOOST_CHECK(amount == -1);
+
+        wtx.SetBlindingData(0, 42, output_pubkeys[0], output_blinds[0]);
+
+        factor = wtx.GetBlindingFactor(0);
+        pubkey = wtx.GetBlindingPubKey(0);
+        amount = wtx.GetValueOut(0);
+
+        BOOST_CHECK(factor == output_blinds[0]);
+        BOOST_CHECK(pubkey == output_pubkeys[0]);
+        BOOST_CHECK(amount == 42);
+
+        wtx.SetBlindingData(1, 11, output_pubkeys[1], output_blinds[1]);
+
+        factor = wtx.GetBlindingFactor(0);
+        pubkey = wtx.GetBlindingPubKey(0);
+        amount = wtx.GetValueOut(0);
+
+        BOOST_CHECK(factor == output_blinds[0]);
+        BOOST_CHECK(pubkey == output_pubkeys[0]);
+        BOOST_CHECK(amount == 42);
+
+        factor = wtx.GetBlindingFactor(1);
+        pubkey = wtx.GetBlindingPubKey(1);
+        amount = wtx.GetValueOut(1);
+
+        BOOST_CHECK(factor == output_blinds[1]);
+        BOOST_CHECK(pubkey == output_pubkeys[1]);
+        BOOST_CHECK(amount == 11);
+#endif
         CAmount unblinded_amount;
         BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], unblinded_amount, blind4) == 0);
         BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], unblinded_amount, blind4) == 1);
