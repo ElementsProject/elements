@@ -180,18 +180,29 @@ public:
         }
     }
 
-    bool IsValid() const;
-    bool IsNull() const;
-    bool IsAmount() const; // True for both native Amounts and "Bitcoin amounts"
+    bool IsNull() const { return vchCommitment[0] == 0xff; }
 
+    bool IsValid() const;
+
+    // True for both native Amounts and "Bitcoin amounts"
+    bool IsAmount() const { return vchCommitment[0] == 0 || vchCommitment[0] == 1; }
     CAmount GetAmount() const;
 
-    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b);
-    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b);
+    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
+    {
+        return a.vchRangeproof == b.vchRangeproof &&
+               a.vchCommitment == b.vchCommitment &&
+               a.vchNonceCommitment == b.vchNonceCommitment;
+    }
+
+    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b)
+    {
+        return !(a == b);
+    }
 
 private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BITCOIN_BLOCK_OR_TX
     void SetToBitcoinAmount(const CAmount nAmount);
-    bool IsInBitcoinTransaction() const;
+    bool IsInBitcoinTransaction() const { return vchCommitment[0] == 0; }
     void SetToAmount(const CAmount nAmount);
 };
 

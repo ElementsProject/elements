@@ -78,40 +78,15 @@ bool CTxOutValue::IsValid() const
     }
 }
 
-bool CTxOutValue::IsNull() const
-{
-    return vchCommitment[0] == 0xff;
-}
-
-bool CTxOutValue::IsAmount() const
-{
-    return vchCommitment[0] == 0 || vchCommitment[0] == 1;
-}
-
 CAmount CTxOutValue::GetAmount() const
 {
     assert(IsAmount());
     return ReadBE64(&vchCommitment[1]);
 }
 
-bool operator==(const CTxOutValue& a, const CTxOutValue& b)
-{
-    return a.vchRangeproof == b.vchRangeproof &&
-           a.vchCommitment == b.vchCommitment &&
-           a.vchNonceCommitment == b.vchNonceCommitment;
-}
-
-bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
-    return !(a == b);
-}
-
 void CTxOutValue::SetToBitcoinAmount(const CAmount nAmount) {
     SetToAmount(nAmount);
     vchCommitment[0] = 0;
-}
-
-bool CTxOutValue::IsInBitcoinTransaction() const {
-    return vchCommitment[0] == 0;
 }
 
 void CTxOutValue::SetToAmount(const CAmount nAmount) {
