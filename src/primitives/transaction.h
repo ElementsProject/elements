@@ -141,7 +141,6 @@ public:
 
     CTxOutValue();
     CTxOutValue(CAmount);
-    CTxOutValue(const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchRangeproofIn);
 
     ADD_SERIALIZE_METHODS;
 
