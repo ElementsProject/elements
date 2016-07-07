@@ -107,16 +107,16 @@ bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
 
 void CTxOutValue::SetToBitcoinAmount(const CAmount nAmount) {
     SetToAmount(nAmount);
-    vchCommitment[0] = 1;
+    vchCommitment[0] = 0;
 }
 
 bool CTxOutValue::IsInBitcoinTransaction() const {
-    return vchCommitment[0] == 1;
+    return vchCommitment[0] == 0;
 }
 
 void CTxOutValue::SetToAmount(const CAmount nAmount) {
     vchCommitment.resize(nExplicitSize);
-    vchCommitment[0] = 0;
+    vchCommitment[0] = 1;
     WriteBE64(&vchCommitment[1], nAmount);
 }
 
