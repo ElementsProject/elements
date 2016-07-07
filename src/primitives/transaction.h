@@ -140,7 +140,7 @@ public:
     std::vector<unsigned char> vchRangeproof;
     std::vector<unsigned char> vchNonceCommitment;
 
-    CTxOutValue();
+    CTxOutValue() { SetNull(); }
     CTxOutValue(CAmount);
 
     ADD_SERIALIZE_METHODS;
@@ -181,6 +181,7 @@ public:
         }
     }
 
+    void SetNull();
     bool IsNull() const { return vchCommitment[0] == 0xff; }
 
     bool IsValid() const;

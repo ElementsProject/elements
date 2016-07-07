@@ -44,16 +44,16 @@ std::string CTxIn::ToString() const
 }
 
 
-CTxOutValue::CTxOutValue()
-{
-    vchCommitment.resize(1);
-    vchCommitment[0] = 0xff;
-}
-
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
 {
     vchCommitment.resize(nExplicitSize);
     SetToAmount(nAmountIn);
+}
+
+void CTxOutValue::SetNull()
+{
+    vchCommitment.resize(1);
+    vchCommitment[0] = 0xff;
 }
 
 bool CTxOutValue::IsValid() const
