@@ -8,6 +8,8 @@
 
 #include "script/interpreter.h"
 
+#include <secp256k1.h>
+#include <secp256k1_rangeproof.h>
 #include <vector>
 
 // DoS prevention: limit cache size to less than 40MB (over 500000
@@ -25,6 +27,19 @@ public:
     CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amount, const CTxOutValue& amountPreviousInput, bool storeIn, PrecomputedTransactionData& txdataIn) : TransactionSignatureChecker(txToIn, nInIn, amount, amountPreviousInput), store(storeIn) {}
 
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
+};
+
+class CachingRangeProofChecker
+{
+private:
+    bool store;
+public:
+    CachingRangeProofChecker(bool storeIn){
+        store = storeIn;
+    };
+
+    bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const secp256k1_context* ctx) const;
+
 };
 
 #endif // BITCOIN_SCRIPT_SIGCACHE_H
