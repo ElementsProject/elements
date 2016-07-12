@@ -1150,9 +1150,10 @@ class CRangeCheck : public CCheck
 {
 private:
     const CTxOutValue* val;
+    const bool store;
 
 public:
-    CRangeCheck(const CTxOutValue* val_) : val(val_) {}
+    CRangeCheck(const CTxOutValue* val_, const bool storeIn) : val(val_), store(storeIn) {}
 
     bool operator()();
 };
@@ -1194,13 +1195,7 @@ bool CRangeCheck::operator()()
         return true;
     }
 
-    uint64_t min_value, max_value;
-    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &val->vchCommitment[0], val->vchRangeproof.data(), val->vchRangeproof.size())) {
-        fAmountError = true;
-        return false;
-    }
-
-    return true;
+    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, secp256k1_ctx_verify_amounts);
 };
 
 bool CBalanceCheck::operator()()
@@ -1217,7 +1212,7 @@ bool CBalanceCheck::operator()()
 
 
 
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks)
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks, const bool cacheStore)
 {
     bool fNeedNoRangeProof = false;
     CAmount nPlainAmount = excess;
@@ -1289,7 +1284,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         const CTxOutValue& val = tx.vout[i].nValue;
         if (val.IsAmount())
             continue;
-        if (!QueueCheck(pvChecks, new CRangeCheck(&val))) {
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val, cacheStore))) {
             return false;
         }
     }
@@ -2288,7 +2283,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
@@ -2336,7 +2331,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (!MoneyRange(nTxFee))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
 
-        if (!VerifyAmounts(inputs, tx, nTxFee, pvChecks))
+        if (!VerifyAmounts(inputs, tx, nTxFee, pvChecks, cacheStore))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
 
@@ -2348,7 +2343,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 {
     if (!tx.IsCoinBase())
     {
-        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), setWithdrawsSpent, pvChecks))
+        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), setWithdrawsSpent, pvChecks, cacheStore))
             return false;
 
         if (pvChecks)

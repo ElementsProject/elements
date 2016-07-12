@@ -368,7 +368,7 @@ namespace Consensus {
  * This does not modify the UTXO set. This does not check scripts and sigs.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore);
 
 } // namespace Consensus
 
@@ -379,9 +379,10 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
  * @param[in] tx     transaction for which we are checking totals
  * @param[in] excess additional amount to consider as input value (eg fees), can be negative
  * @param[in] pvChecks  multithreaded rangeproof and commitment checker
+ * @param[in] cacheStore signal if rangeproof verification should be cached
  * @return  True if totals are identical
 */
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks = NULL);
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
 
 
 /**
