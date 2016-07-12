@@ -759,7 +759,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             CValidationState state;
             std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
             bool fCheckResult = tx.IsCoinBase() ||
-                Consensus::CheckTxInputs(tx, state, mempoolDuplicate, nSpendHeight, setWithdrawsSpent, NULL);
+                Consensus::CheckTxInputs(tx, state, mempoolDuplicate, nSpendHeight, setWithdrawsSpent, NULL, false);
             assert(fCheckResult);
             UpdateCoins(tx, mempoolDuplicate, 1000000);
             assert(setWithdrawsSpent == it->setWithdrawsSpent);
@@ -780,7 +780,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         } else {
             std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
             bool fCheckResult = entry->GetTx().IsCoinBase() ||
-                Consensus::CheckTxInputs(entry->GetTx(), state, mempoolDuplicate, nSpendHeight, setWithdrawsSpent, NULL);
+                Consensus::CheckTxInputs(entry->GetTx(), state, mempoolDuplicate, nSpendHeight, setWithdrawsSpent, NULL, false);
             assert(fCheckResult);
             UpdateCoins(entry->GetTx(), mempoolDuplicate, 1000000);
             assert(setWithdrawsSpent == entry->setWithdrawsSpent);

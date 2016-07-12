@@ -88,6 +88,9 @@ public:
  * signatureCache could be made local to VerifySignature.
 */
 static CSignatureCache signatureCache;
+
+static CSignatureCache rangeProofCache;
+
 }
 
 // To be called once in AppInit2/TestingSetup to initialize the signatureCache
@@ -101,6 +104,17 @@ void InitSignatureCache()
             (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }
 
+// To be called once in AppInit2/TestingSetup to initialize the rangeproof cache
+void InitRangeproofCache()
+{
+    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
+    // setup_bytes creates the minimum possible cache (2 elements).
+    size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
+    size_t nElems = rangeProofCache.setup_bytes(nMaxCacheSize);
+    LogPrintf("Using %zu MiB out of %zu requested for rangeproof cache, able to store %zu elements\n",
+            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
+}
+
 bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     uint256 entry;
@@ -111,5 +125,23 @@ bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsig
         return false;
     if (store)
         signatureCache.Set(entry);
+    return true;
+}
+
+bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+{
+    CPubKey pubkey(vchCommitment);
+    uint256 entry;
+    rangeProofCache.ComputeEntry(entry, uint256(), vchRangeProof, pubkey);
+
+    if (rangeProofCache.Get(entry, !store)) {
+        return true;
+    }
+
+    uint64_t min_value, max_value;
+    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &vchCommitment[0], vchRangeProof.data(), vchRangeProof.size())) {
+        return false;
+    }
+
     return true;
 }
