@@ -282,33 +282,41 @@ private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BI
 class CTxOut
 {
 public:
+    CTxOutAsset nAsset;
     CTxOutValue nValue;
     CScript scriptPubKey;
 
+    // FIXME: Inventory the places this constructor is called, and make sure
+    //        that `nAsset` is being set appropriately.
     CTxOut()
     {
         SetNull();
     }
 
+    // FIXME: Add `const CTxOutAsset& nAssetIn` as first parameter. This will
+    //        (rightfully) break all code that calls this constructor, which
+    //        will need to be fixed to be asset aware.
     CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nAsset);
         READWRITE(nValue);
         READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
 
     void SetNull()
     {
+        nAsset = CTxOutAsset();
         nValue = CTxOutValue();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nValue.IsNull() && scriptPubKey.empty();
+        return nAsset.IsNull() && nValue.IsNull() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -357,6 +365,7 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue       == b.nValue &&
+                a.nValue       == b.nValue &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -378,18 +387,20 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.nValue.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
+        return ref.nAsset.vchSurjectionproof.empty() && ref.nValue.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
     }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         if (!(nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX)) {
+            READWRITE(ref.nAsset.vchSurjectionproof);
             READWRITE(ref.nValue.vchRangeproof);
             READWRITE(ref.nValue.vchNonceCommitment);
         }
     }
 
     void SetNull() {
+        std::vector<unsigned char>().swap(ref.nAsset.vchSurjectionproof);
         std::vector<unsigned char>().swap(ref.nValue.vchRangeproof);
         std::vector<unsigned char>().swap(ref.nValue.vchNonceCommitment);
     }

@@ -125,7 +125,13 @@ CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
+    uint256 assetID;
+    std::string strAsset;
+    if (nAsset.IsAssetID() && nAsset.GetAssetID(assetID))
+        strAsset = strprintf("nAsset=%s, ", assetID.ToString());
+    if (nAsset.IsAssetCommitment())
+        strAsset = std::string("nAsset=UNKNOWN, ");
+    return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
