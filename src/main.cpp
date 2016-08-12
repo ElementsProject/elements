@@ -1171,7 +1171,7 @@ public:
     bool operator()();
 };
 
-// Destroys check, or passes its ownership to the queue.
+// Does *not* destroy the check in the case of no queue, or passes its ownership to the queue.
 static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
 {
     if (queue != NULL) {
@@ -1179,7 +1179,6 @@ static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
         return true;
     }
     bool ret = (*check)();
-    delete check;
     return ret;
 }
 
@@ -2383,10 +2382,18 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // as to the correct behavior - we may want to continue
                     // peering with non-upgraded nodes even after soft-fork
                     // super-majority signaling has occurred.
-                    if (check->GetScriptError() == SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED)
-                        return state.Invalid(false, REJECT_SCRIPT, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check->GetScriptError())));
+
+                    // If the check was deleted already, we have no idea what is
+                    // wrong with it. This should only happen during ConnectBlock
+                    // with a non-NULL queue. Since this code is only reached in
+                    // the one-shot mempool case it will never be deleted.
+                    assert(check);
+                    ScriptError serror = check->GetScriptError();
+                    delete check;
+                    if (serror == SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED)
+                        return state.Invalid(false, REJECT_SCRIPT, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
                     else
-                        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check->GetScriptError())));
+                        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
                 }
                 const CTxOutValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
                 if (value.IsAmount())
