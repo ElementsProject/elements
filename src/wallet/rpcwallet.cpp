@@ -22,7 +22,7 @@
 #include "wallet.h"
 #include "walletdb.h"
 #include "merkleblock.h"
-
+#include "chainparams.h"
 #include <secp256k1.h>
 
 #include <stdint.h>
@@ -38,8 +38,6 @@ static CCriticalSection cs_nWalletUnlockTime;
 
 //Redeemscript template for alpha fedpeg
 static const CScript fedRedeemScript(CScript() << OP_2 << ParseHex("02d51090b27ca8f1cc04984614bd749d8bab6f2a3681318d3fd0dd43b2a39dd774") << ParseHex("03a75bd7ac458b19f98047c76a6ffa442e592148c5d23a1ec82d379d5d558f4fd8") << ParseHex("034c55bede1bce8e486080f8ebb7a0e8f106b49efb295a8314da0e1b1723738c66") << OP_3 << OP_CHECKMULTISIG);
-
-static uint256 genesisBlockHash(uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
 
 std::string HelpRequiringPassphrase()
 {
@@ -2868,6 +2866,8 @@ UniValue sendtomainchain(const UniValue& params, bool fHelp)
     hex.push_back((unsigned char)'H');
     hex.insert(hex.end(), vData.begin(), vData.end());
 
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+
     scriptPubKey << hex;
     scriptPubKey << OP_DROP;
     scriptPubKey << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
@@ -2962,6 +2962,8 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     if (nOut == txBTC.vout.size())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainaddress from getpeginaddress");
     CAmount value = txBTC.vout[nOut].nValue.GetAmount();
+
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
 
     //Output we're re-locking
     CScript relock_spk;
