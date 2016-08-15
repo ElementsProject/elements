@@ -2660,12 +2660,8 @@ bool BitcoindRPCCheck(bool init)
                return false;
             }
             UniValue result = reply["result"];
-            if (GetBoolArg("-testnet", false) && result.isStr() && result.get_str() != "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943") { //FIXME: Stick parent chain(s) genesis in chainparams
-                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?");
-                return false;
-            }
-            if (GetBoolArg("-regtest", false) && result.isStr() && result.get_str() != "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206") {
-                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?");
+            if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
+                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
                 return false;
             }
         } catch (const std::runtime_error& re) {

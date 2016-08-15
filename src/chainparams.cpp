@@ -96,8 +96,8 @@ public:
 
         CScript scriptChallenge(CScript() << OP_2 << ParseHex("03206b45265ae687dfdc602b8faa7dd749d7865b0e51f986e12c532229f0c998be") << ParseHex("02cc276552e180061f64dc16e2a02e7f9ecbcc744dea84eddbe991721824df825c") << ParseHex("0204c6be425356d9200a3303d95f2c39078cc9473ca49619da1e0ec233f27516ca") << OP_3 << OP_CHECKMULTISIG);
 
-        uint256 genesisBlockHash(uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"));
-        CScript scriptDestination(CScript() << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
+        parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
+        CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
         genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, scriptChallenge, 1, MAX_MONEY, 100);
         consensus.hashGenesisBlock = genesis.GetHash();
 
@@ -186,6 +186,8 @@ public:
         CScript scriptDestination(CScript() << OP_TRUE);
         genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1296688602, scriptDestination, 1, MAX_MONEY, 100);
         consensus.hashGenesisBlock = genesis.GetHash();
+
+        parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 
         scriptCoinbaseDestination = CScript(); // Allow any coinbase destination
 
