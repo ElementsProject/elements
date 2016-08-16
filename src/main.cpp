@@ -2668,8 +2668,10 @@ bool BitcoindRPCCheck(bool init)
                 LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?");
                 return false;
             }
-        } catch (...) {
-            LogPrintf("ERROR: Failure connecting to bitcoind RPC.\n");
+        } catch (const std::runtime_error& re) {
+            std::string totalErr = "ERROR: Failure connecting to bitcoind RPC: ";
+            totalErr += std::string(re.what()) + "\n";
+            LogPrintf(totalErr.c_str());
             return false;
         }
     }

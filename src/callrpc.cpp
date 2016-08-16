@@ -122,7 +122,7 @@ UniValue CallRPC(const string& strMethod, const UniValue& params, int port, bool
     event_base_free(base);
 
     if (response.status == 0)
-        throw CConnectionFailed("couldn't connect to server");
+        throw CConnectionFailed("couldn't connect to server (make sure daemon is running and you are using the right rpc port)");
     else if (response.status == HTTP_UNAUTHORIZED)
         throw runtime_error("incorrect rpcuser or rpcpassword (authorization failed)");
     else if (response.status >= 400 && response.status != HTTP_BAD_REQUEST && response.status != HTTP_NOT_FOUND && response.status != HTTP_INTERNAL_SERVER_ERROR)
