@@ -2778,14 +2778,14 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
         throw runtime_error(
             "getpeginaddress ( \"account\" )\n"
             "\nReturns information needed for claimpegin to move coins to the sidechain.\n"
-            "The user should send coins from their Bitcoin wallet to the mainaddress returned.\n"
+            "The user should send coins from their Bitcoin wallet to the mainchain_address returned.\n"
             "IMPORTANT: Like getaddress, getpeginaddress adds new secrets to wallet.dat, necessitating backup on a regular basis.\n"
 
             "\nArguments:\n"
             "1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used. It can also be set to the empty string \"\" to represent the default account. The account does not need to exist, it will be created if there is no account by the given name.\n"
             "\nResult:\n"
-            "\"mainaddress\"       (string) Mainchain Deposit Address\n"
-            "\"address\"           (string) The newly created address to which coins will be sent on the sidechain\n"
+            "\"mainchain_address\"           (string) Mainchain Bitcoin deposit address to send bitcoin to\n"
+            "\"sidechain_address\"           (string) The sidechain address in this wallet which must be used in `claimpegin` to retrieve pegged-in funds\n"
             "\nExamples:\n"
             + HelpExampleCli("getpeginaddress", "")
             + HelpExampleCli("getpeginaddress", "\"\"")
