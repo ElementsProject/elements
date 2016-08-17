@@ -2922,12 +2922,22 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     std::vector<unsigned char> txData = ParseHex(params[1].get_str());
     CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
     CTransaction txBTC;
-    ssTx >> txBTC;
+    try {
+        ssTx >> txBTC;
+    }
+    catch (...) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
+    }
 
     std::vector<unsigned char> txOutProofData = ParseHex(params[2].get_str());
     CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
     CMerkleBlock merkleBlock;
-    ssTxOutProof >> merkleBlock;
+    try {
+        ssTxOutProof >> merkleBlock;
+    }
+    catch (...) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
+    }
     if (!ssTxOutProof.empty() || !CheckBitcoinProof(merkleBlock.header))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
 
