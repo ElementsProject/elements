@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <time.h>
 
@@ -3343,6 +3344,7 @@ void test_ecdsa_end_to_end(void) {
     unsigned char pubkeyc[65];
     size_t pubkeyclen = 65;
     secp256k1_pubkey pubkey;
+    secp256k1_pubkey pubkey_tmp;
     unsigned char seckey[300];
     size_t seckeylen = 300;
 
@@ -3363,6 +3365,13 @@ void test_ecdsa_end_to_end(void) {
     CHECK(secp256k1_ec_pubkey_serialize(ctx, pubkeyc, &pubkeyclen, &pubkey, secp256k1_rand_bits(1) == 1 ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED));
     memset(&pubkey, 0, sizeof(pubkey));
     CHECK(secp256k1_ec_pubkey_parse(ctx, &pubkey, pubkeyc, pubkeyclen) == 1);
+
+    /* Verify negation changes the key and changes it back */
+    memcpy(&pubkey_tmp, &pubkey, sizeof(pubkey));
+    CHECK(secp256k1_ec_pubkey_negate(ctx, &pubkey_tmp) == 1);
+    CHECK(memcmp(&pubkey_tmp, &pubkey, sizeof(pubkey)) != 0);
+    CHECK(secp256k1_ec_pubkey_negate(ctx, &pubkey_tmp) == 1);
+    CHECK(memcmp(&pubkey_tmp, &pubkey, sizeof(pubkey)) == 0);
 
     /* Verify private key import and export. */
     CHECK(ec_privkey_export_der(ctx, seckey, &seckeylen, privkey, secp256k1_rand_bits(1) == 1));
