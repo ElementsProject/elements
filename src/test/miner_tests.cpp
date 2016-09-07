@@ -220,12 +220,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
         if (txFirst.size() < 4)
             txFirst.push_back(new CTransaction(pblock->vtx[0]));
         pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-        SetNonce(*pblock, blockinfo[i].nonce);
-        if (!CheckProof(*pblock, chainparams.GetConsensus()))
-        {
-            printf("WARNING: Skipping miner tests due to changed genesis block\n");
-            return;
-        }
         CValidationState state;
         BOOST_CHECK(ProcessNewBlock(state, chainparams, NULL, pblock, true, NULL));
         BOOST_CHECK(state.IsValid());
