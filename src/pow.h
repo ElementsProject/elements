@@ -14,16 +14,20 @@
 class CBlockHeader;
 class CBlockIndex;
 class CProof;
+class CScript;
+class CWallet;
 class uint256;
 
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
 /** Scans nonces looking for a hash with at least some zero bits */
-bool MaybeGenerateProof(CBlockHeader* pblock);
+bool MaybeGenerateProof(CBlockHeader* pblock, CWallet* pwallet);
 void ResetProof(CBlockHeader& block);
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
+
+CScript CombineBlockSignatures(const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2);
 
 /** Avoid using these functions when possible */
 double GetChallengeDifficulty(const CBlockIndex* blockindex);

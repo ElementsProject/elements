@@ -95,115 +95,9 @@ UniValue getnetworkhashps(const UniValue& params, bool fHelp)
     return GetNetworkHashPS(params.size() > 0 ? params[0].get_int() : 120, params.size() > 1 ? params[1].get_int() : -1);
 }
 
-UniValue generateBlocks(boost::shared_ptr<CReserveScript> coinbaseScript, int nGenerate, uint64_t nMaxTries, bool keepScript)
-{
-    static const int nInnerLoopCount = 0x10000;
-    int nHeightStart = 0;
-    int nHeightEnd = 0;
-    int nHeight = 0;
-
-    {   // Don't keep cs_main locked
-        LOCK(cs_main);
-        nHeightStart = chainActive.Height();
-        nHeight = nHeightStart;
-        nHeightEnd = nHeightStart+nGenerate;
-    }
-    unsigned int nExtraNonce = 0;
-    UniValue blockHashes(UniValue::VARR);
-    while (nHeight < nHeightEnd)
-    {
-        std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript));
-        if (!pblocktemplate.get())
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Couldn't create new block");
-        CBlock *pblock = &pblocktemplate->block;
-        IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce, pblocktemplate->vchCoinbaseCommitment);
-        while (!MaybeGenerateProof(pblock) || !CheckProof(*pblock, Params().GetConsensus()))
-        {
-            // Yes, there is a chance every nonce could fail to satisfy the -regtest
-            // target -- 1 in 2^(2^32). That ain't gonna happen.
-        }
-        CValidationState state;
-        if (!ProcessNewBlock(state, Params(), NULL, pblock, true, NULL))
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
-        ++nHeight;
-        blockHashes.push_back(pblock->GetHash().GetHex());
-
-        //mark script as important because it was used at least for one coinbase output if the script came from the wallet
-        if (keepScript)
-        {
-            coinbaseScript->KeepScript();
-        }
-    }
-    return blockHashes;
-}
-
 UniValue generate(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 2)
-        throw runtime_error(
-            "generate numblocks ( maxtries )\n"
-            "\nMine up to numblocks blocks immediately (before the RPC call returns)\n"
-            "\nArguments:\n"
-            "1. numblocks    (numeric, required) How many blocks are generated immediately.\n"
-            "2. maxtries     (numeric, optional) How many iterations to try (default = 1000000).\n"
-            "\nResult\n"
-            "[ blockhashes ]     (array) hashes of blocks generated\n"
-            "\nExamples:\n"
-            "\nGenerate 11 blocks\n"
-            + HelpExampleCli("generate", "11")
-        );
-
-    int nGenerate = params[0].get_int();
-    uint64_t nMaxTries = 1000000;
-    if (params.size() > 1) {
-        nMaxTries = params[1].get_int();
-    }
-
-    boost::shared_ptr<CReserveScript> coinbaseScript;
-    GetMainSignals().ScriptForMining(coinbaseScript);
-
-    // If the keypool is exhausted, no script is returned at all.  Catch this.
-    if (!coinbaseScript)
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-
-    //throw an error if no script was provided
-    if (coinbaseScript->reserveScript.empty())
-        throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available (mining requires a wallet)");
-
-    return generateBlocks(coinbaseScript, nGenerate, nMaxTries, true);
-}
-
-UniValue generatetoaddress(const UniValue& params, bool fHelp)
-{
-    if (fHelp || params.size() < 2 || params.size() > 3)
-        throw runtime_error(
-            "generatetoaddress numblocks address (maxtries)\n"
-            "\nMine blocks immediately to a specified address (before the RPC call returns)\n"
-            "\nArguments:\n"
-            "1. numblocks    (numeric, required) How many blocks are generated immediately.\n"
-            "2. address    (string, required) The address to send the newly generated bitcoin to.\n"
-            "3. maxtries     (numeric, optional) How many iterations to try (default = 1000000).\n"
-            "\nResult\n"
-            "[ blockhashes ]     (array) hashes of blocks generated\n"
-            "\nExamples:\n"
-            "\nGenerate 11 blocks to myaddress\n"
-            + HelpExampleCli("generatetoaddress", "11 \"myaddress\"")
-        );
-
-    int nGenerate = params[0].get_int();
-    uint64_t nMaxTries = 1000000;
-    if (params.size() > 2) {
-        nMaxTries = params[2].get_int();
-    }
-
-    CBitcoinAddress address(params[1].get_str());
-    if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Error: Invalid address");
-    
-    boost::shared_ptr<CReserveScript> coinbaseScript(new CReserveScript());
-    coinbaseScript->reserveScript = GetScriptForDestination(address.Get());
-
-    return generateBlocks(coinbaseScript, nGenerate, nMaxTries, false);
+    throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used in private chain mode");
 }
 
 UniValue getmininginfo(const UniValue& params, bool fHelp)
@@ -907,7 +801,6 @@ static const CRPCCommand commands[] =
     { "mining",             "submitblock",            &submitblock,            true  },
 
     { "generating",         "generate",               &generate,               true  },
-    { "generating",         "generatetoaddress",      &generatetoaddress,      true  },
 
     { "util",               "estimatefee",            &estimatefee,            true  },
     { "util",               "estimatepriority",       &estimatepriority,       true  },

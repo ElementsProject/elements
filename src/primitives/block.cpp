@@ -9,11 +9,12 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
+#include "core_io.h"
 
 std::string CProof::ToString() const
 {
-    return strprintf("CProof(nBits=%08x, nNonce=%u)",
-                     nBits, nNonce);
+    return strprintf("CProof(challenge=%s, solution=%s)",
+                     ScriptToAsmStr(challenge), ScriptToAsmStr(solution));
 }
 
 uint256 CBlockHeader::GetHash() const

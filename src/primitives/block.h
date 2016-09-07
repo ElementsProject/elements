@@ -7,40 +7,41 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include "primitives/transaction.h"
+#include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
 
 class CProof
 {
 public:
-    uint32_t nBits;
-    uint32_t nNonce;
+    CScript challenge;
+    CScript solution;
 
     CProof()
     {
         SetNull();
     }
-    CProof(uint32_t nBitsIn, uint32_t nNonceIn) :
-        nBits(nBitsIn), nNonce(nNonceIn) {}
+    CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        READWRITE(*(CScriptBase*)(&challenge));
+        if (!(nType & SER_GETHASH))
+            READWRITE(*(CScriptBase*)(&solution));
     }
 
     void SetNull()
     {
-        nBits = 0;
-        nNonce = 0;
+        challenge.clear();
+        solution.clear();
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        return challenge.empty();
     }
 
     std::string ToString() const;
