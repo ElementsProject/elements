@@ -44,11 +44,9 @@ If you've already indexed testnet:
 ./bitcoind -rpcuser=$RPC_USER -rpcpassword=$RPC_PASS -testnet -txindex -daemon
 ```
 
-Checkout `alpha`. Before making any changes of your own,`fetch/merge` a [patch](https://github.com/TomMcCabe/elements/tree/patch) for a few code changes that will consolidate our settings in `sidechain-manipulation.py` and `constants.py` ([PR #86 of Elements Repo](https://github.com/ElementsProject/elements/pull/86)):
+Checkout:
 ```shell
-git checkout alpha
-git fetch https://github.com/TomMcCabe/elements patch
-git merge FETCH_HEAD alpha 
+git checkout alpha 
 ```
 
 With bitcoin testnet, generate an address and obtain the private/public key.
