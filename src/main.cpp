@@ -20,6 +20,8 @@
 #include "util.h"
 #include "utilmoneystr.h"
 
+#include <secp256k1_rangeproof.h>
+
 #include <sstream>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -992,6 +994,153 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     return true;
 }
 
+extern secp256k1_context* secp256k1_bitcoin_verify_context;
+
+namespace {
+/** Closure representing one output range check. */
+class CRangeCheck : public CCheck
+{
+private:
+    const CTxOutValue* val;
+
+public:
+    CRangeCheck(const CTxOutValue* val_) : val(val_) {}
+
+    bool operator()();
+};
+
+/** Closure representing a transaction amount balance check. */
+class CBalanceCheck : public CCheck
+{
+private:
+    std::vector<unsigned char> vchData;
+    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    CAmount nPlainAmount;
+
+public:
+    CBalanceCheck(std::vector<unsigned char>& vchData_, std::vector<unsigned char*>& vpchCommitsIn_, std::vector<unsigned char*>& vpchCommitsOut_, const CAmount& nPlainAmount_) : nPlainAmount(nPlainAmount_) {
+        vchData.swap(vchData_);
+        vpchCommitsIn.swap(vpchCommitsIn_);
+        vpchCommitsOut.swap(vpchCommitsOut_);
+    }
+
+    bool operator()();
+};
+
+// Destroys check, or passes its ownership to the queue.
+static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
+{
+    if (queue != NULL) {
+        queue->push_back(check);
+        return true;
+    }
+    bool ret = (*check)();
+    delete check;
+    return ret;
+}
+
+
+bool CRangeCheck::operator()()
+{
+    if (val->IsAmount()) {
+        return true;
+    }
+
+    uint64_t min_value, max_value;
+    if (!secp256k1_rangeproof_verify(secp256k1_bitcoin_verify_context, &min_value, &max_value, &val->vchCommitment[0], val->vchRangeproof.data(), val->vchRangeproof.size())) {
+        fAmountError = true;
+        return false;
+    }
+
+    return true;
+};
+
+bool CBalanceCheck::operator()()
+{
+    if (!secp256k1_pedersen_verify_tally(secp256k1_bitcoin_verify_context, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount)) {
+        fAmountError = true;
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace
+
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks)
+{
+    bool fNeedNoRangeProof = false;
+    CAmount nPlainAmount = excess;
+
+    {
+    std::vector<unsigned char> vchData;
+    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    bool fNullRangeproof = false;
+    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
+    unsigned char *p = vchData.data();
+    if (!tx.IsCoinBase())
+    {
+        for (size_t i = 0; i < tx.vin.size(); ++i)
+        {
+            const CTxOutValue& val = cache.GetOutputFor(tx.vin[i]).nValue;
+            if (val.IsAmount())
+                nPlainAmount -= val.GetAmount();
+            else
+            {
+                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+                vpchCommitsIn.push_back(p);
+                p += CTxOutValue::nCommitmentSize;
+            }
+        }
+    }
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
+            return false;
+        if (val.IsAmount())
+            nPlainAmount += val.GetAmount();
+        else
+        {
+            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
+            vpchCommitsOut.push_back(p);
+            p += CTxOutValue::nCommitmentSize;
+
+            if (val.vchRangeproof.empty())
+                fNullRangeproof = true;
+        }
+    }
+
+    // If there are no encrypted input or output values, we can do simple math
+    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
+        return (nPlainAmount == 0);
+
+    fNeedNoRangeProof = ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof);
+
+    if (!QueueCheck(pvChecks, new CBalanceCheck(vchData, vpchCommitsIn, vpchCommitsOut, nPlainAmount))) {
+        return false;
+    }
+    }
+
+    // Rangeproof is optional in this case
+    if (fNeedNoRangeProof)
+        return true;
+
+    for (size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        const CTxOutValue& val = tx.vout[i].nValue;
+        if (val.IsAmount())
+            continue;
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val))) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree)
 {
     {
@@ -1095,13 +1244,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 
         // Bring the best block into scope
         view.GetBestBlock();
-
-            nFees = tx.nTxFee;
-            if (!view.VerifyAmounts(tx, nFees))
-                return state.DoS(0,
-                                 error("AcceptToMemoryPool : input amounts do not match output amounts %s",
-                                       hash.ToString()),
-                                 REJECT_NONSTANDARD, "bad-txns-amount-mismatch");
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
         view.SetBackend(dummy);
@@ -1545,7 +1687,7 @@ bool CScriptCheck::operator()() {
     return true;
 }
 
-bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, std::vector<CScriptCheck> *pvChecks)
+bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, std::vector<CCheck*> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -1585,7 +1727,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             return state.DoS(100, error("CheckInputs() : nTxFee out of range"),
                              REJECT_INVALID, "bad-txns-fee-outofrange");
 
-        if (!inputs.VerifyAmounts(tx, nTxFee))
+        if (!VerifyAmounts(inputs, tx, nTxFee, pvChecks))
             return state.DoS(100, error("CheckInputs() : %s value in != value out",
                                         tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-amount-mismatch");
@@ -1605,11 +1747,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 assert(coins);
 
                 // Verify signature
-                CScriptCheck check(*coins, tx, i, prevValueIn, nTxFee, nSpendHeight, flags, cacheStore);
-                if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
-                } else if (!check()) {
+                CCheck* check = new CScriptCheck(*coins, tx, i, prevValueIn, nTxFee, nSpendHeight, flags, cacheStore);
+                if (!QueueCheck(pvChecks, check)) {
                     if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
                         // Check whether the failure was caused by a
                         // non-mandatory script verification check, such as
@@ -1629,7 +1768,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // as to the correct behavior - we may want to continue
                     // peering with non-upgraded nodes even after a soft-fork
                     // super-majority vote has passed.
-                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check->GetScriptError())));
                 }
                 prevValueIn = coins->vout[tx.vin[i].prevout.n].nValue;
             }
@@ -1768,7 +1907,7 @@ void static FlushBlockFile(bool fFinalize = false)
 
 bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigned int nAddSize);
 
-static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
+static CCheckQueue<CCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck() {
     RenameThread("bitcoin-scriptch");
@@ -1843,7 +1982,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     CBlockUndo blockundo;
 
-    CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
+    CCheckQueueControl<CCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
 
     int64_t nTimeStart = GetTimeMicros();
     CAmount nFees = 0;
@@ -1882,7 +2021,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             nFees += tx.nTxFee;
 
-            std::vector<CScriptCheck> vChecks;
+            std::vector<CCheck*> vChecks;
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, false, nScriptCheckThreads ? &vChecks : NULL))
                 return false;
             control.Add(vChecks);
@@ -2004,7 +2143,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     int64_t nTime1 = GetTimeMicros(); nTimeConnect += nTime1 - nTimeStart;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
 
-    if (!view.VerifyAmounts(block.vtx[0], -GetBlockValue(pindex->nHeight, nFees)))
+    if (!VerifyAmounts(view, block.vtx[0], -GetBlockValue(pindex->nHeight, nFees)))
         return state.DoS(100,
                          error("ConnectBlock() : coinbase pays too much (actual=UNKNOWN vs limit=%d)",
                                GetBlockValue(pindex->nHeight, nFees)),

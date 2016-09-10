@@ -437,7 +437,6 @@ public:
      * @return  True if totals are identical
      */
     bool VerifyAmounts(const CTransaction& tx, const CAmount& excess) const;
-    bool VerifyAmounts(const CTransaction& tx) const;
 
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransaction& tx) const;
