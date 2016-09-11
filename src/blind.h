@@ -9,6 +9,10 @@ void ECC_Blinding_Start();
 void ECC_Blinding_Stop();
 
 bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out);
-void BlindOutputs(const std::vector<uint256>& input_blinding_factors, const std::vector<uint256>& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
+
+/* Returns false if we need more blinded outputs to ensure privacy.
+ * The caller should retry with an extra blinded output, in that case.
+ */
+bool BlindOutputs(const std::vector<uint256>& input_blinding_factors, const std::vector<uint256>& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
 
 #endif
