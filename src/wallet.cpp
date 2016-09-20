@@ -2686,3 +2686,12 @@ void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey*
     if (ppubkeyOut) *ppubkeyOut = pubkey;
     if (pblindingfactorOut) *pblindingfactorOut = blindingfactor;
 }
+
+void CWalletTx::WipeUnknownBlindindData() const
+{
+    for (unsigned int n = 0; n < vout.size(); n++) {
+        if (GetValueOut(n) == -1) {
+            mapValue["blindingdata"][74 * n] = 0;
+        }
+    }
+}
