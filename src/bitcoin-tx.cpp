@@ -44,7 +44,7 @@ static bool AppInitRawTx(int argc, char* argv[])
 
     // Check for -chain, -testnet or -regtest parameter (Params() calls are only valid after this clause)
     try {
-        SelectParams(ChainNameFromCommandLine());
+        SelectParams(ChainNameFromCommandLine(), mapArgs);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;

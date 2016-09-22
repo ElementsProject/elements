@@ -124,7 +124,8 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
     std::vector<unsigned char> result;
     CBitcoinSecret secret;
     CBitcoinAddress addr;
-    SelectParams(CBaseChainParams::MAIN);
+    std::map<std::string, std::string> mapArgs;
+    SelectParams(CBaseChainParams::MAIN, mapArgs);
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
@@ -140,9 +141,9 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         bool isTestnet = find_value(metadata, "isTestnet").get_bool();
         if (isTestnet)
-            SelectParams(CBaseChainParams::REGTEST);
+            SelectParams(CBaseChainParams::REGTEST, mapArgs);
         else
-            SelectParams(CBaseChainParams::MAIN);
+            SelectParams(CBaseChainParams::MAIN, mapArgs);
         if(isPrivkey)
         {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
@@ -180,6 +181,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
 {
     UniValue tests = read_json(std::string(json_tests::base58_keys_valid, json_tests::base58_keys_valid + sizeof(json_tests::base58_keys_valid)));
     std::vector<unsigned char> result;
+    std::map<std::string, std::string> mapArgs;
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
@@ -195,9 +197,9 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
         bool isPrivkey = find_value(metadata, "isPrivkey").get_bool();
         bool isTestnet = find_value(metadata, "isTestnet").get_bool();
         if (isTestnet)
-            SelectParams(CBaseChainParams::REGTEST);
+            SelectParams(CBaseChainParams::REGTEST, mapArgs);
         else
-            SelectParams(CBaseChainParams::MAIN);
+            SelectParams(CBaseChainParams::MAIN, mapArgs);
         if(isPrivkey)
         {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
@@ -240,7 +242,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
     CTxDestination nodest = CNoDestination();
     BOOST_CHECK(!dummyAddr.Set(nodest));
 
-    SelectParams(CBaseChainParams::MAIN);
+    SelectParams(CBaseChainParams::MAIN, mapArgs);
 }
 
 // Goal: check that base58 parsing code is robust against a variety of corrupted data

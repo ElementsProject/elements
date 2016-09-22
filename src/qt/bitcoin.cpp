@@ -605,7 +605,7 @@ int main(int argc, char *argv[])
 
     // Check for -chain, -testnet or -regtest parameter (Params() calls are only valid after this clause)
     try {
-        SelectParams(ChainNameFromCommandLine());
+        SelectParams(ChainNameFromCommandLine(), mapArgs);
     } catch(std::exception &e) {
         QMessageBox::critical(0, QObject::tr(PACKAGE_NAME), QObject::tr("Error: %1").arg(e.what()));
         return 1;

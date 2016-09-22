@@ -37,7 +37,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         SetupNetworking();
         fPrintToDebugLog = false; // don't want to write to debug.log file
         fCheckBlockIndex = true;
-        SelectParams(chainName);
+        SelectParams(chainName, mapArgs);
         noui_connect();
 }
 

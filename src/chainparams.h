@@ -88,10 +88,11 @@ public:
     const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
     /**
      * Creates and returns a CChainParams* of the chosen chain. The caller has to delete the object.
+     * @param mapArgs A map with the runtime configuration.
      * @returns a CChainParams* of the chosen chain.
      * @throws a std::runtime_error if the chain is not supported.
      */
-    static CChainParams* Factory(const std::string& chain);
+    static CChainParams* Factory(const std::string& chain, const std::map<std::string, std::string>& mapArgs);
 protected:
     CChainParams() {}
 
@@ -124,7 +125,7 @@ const CChainParams &Params();
  * Sets the params returned by Params() to those for the given BIP70 chain name.
  * @throws std::runtime_error when the chain is not supported.
  */
-void SelectParams(const std::string& chain);
+void SelectParams(const std::string& network, const std::map<std::string, std::string>& mapArgs);
 
 /**
  * Allows modifying the BIP9 regtest parameters.

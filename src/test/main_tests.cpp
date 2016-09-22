@@ -46,7 +46,8 @@ BOOST_AUTO_TEST_CASE(block_subsidy_test)
 
 BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 {
-    const boost::scoped_ptr<CChainParams> testChainParams(CChainParams::Factory(CBaseChainParams::MAIN));
+    std::map<std::string, std::string> mapArgs;  
+    const boost::scoped_ptr<CChainParams> testChainParams(CChainParams::Factory(CBaseChainParams::MAIN, mapArgs));
     CAmount nSum = GetBlockSubsidy(0, testChainParams->GetConsensus());
     BOOST_CHECK_EQUAL(nSum, 2100000000000000ULL);
     for (int nHeight = 1; nHeight < 14000000; nHeight += 1000) {
