@@ -298,7 +298,8 @@ void OnRPCPreCommand(const CRPCCommand& cmd)
 
 std::string HelpMessage(HelpMessageMode mode)
 {
-    const boost::scoped_ptr<CChainParams> defaultChainParams(CChainParams::Factory(CBaseChainParams::MAIN));
+    std::map<std::string, std::string> mapArgs;
+    const boost::scoped_ptr<CChainParams> defaultChainParams(CChainParams::Factory(CBaseChainParams::MAIN, mapArgs));
     const boost::scoped_ptr<CBaseChainParams> defaultBaseParams(CBaseChainParams::Factory(CBaseChainParams::MAIN));
     const bool showDebug = GetBoolArg("-help-debug", false);
 

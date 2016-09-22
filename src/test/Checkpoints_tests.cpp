@@ -14,9 +14,10 @@ BOOST_FIXTURE_TEST_SUITE(Checkpoints_tests, BasicTestingSetup)
 // The hash of the genesis block it's the genesis checkpoint and chain id
 BOOST_AUTO_TEST_CASE(genesisblockhash_test)
 {
+    std::map<std::string, std::string> mapArgs;
     std::map<std::string, uint256>::const_iterator iter;
     for (iter = CChainParams::supportedChains.begin(); iter != CChainParams::supportedChains.end(); ++iter) {
-        const boost::scoped_ptr<CChainParams> testChainParams(CChainParams::Factory(iter->first));
+        const boost::scoped_ptr<CChainParams> testChainParams(CChainParams::Factory(iter->first, mapArgs));
         const CChainParams& chainparams = *testChainParams;
         std::string hashStr = chainparams.GenesisBlock().GetHash().GetHex();
         BOOST_CHECK_EQUAL(hashStr, iter->second.GetHex());
