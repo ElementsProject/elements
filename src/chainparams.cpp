@@ -18,6 +18,18 @@
 
 #include "chainparamsseeds.h"
 
+static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
+{
+    CScript returnScript;
+    if (!strScript.empty()) {
+        std::vector<unsigned char> scriptData = ParseHex(strScript);
+        returnScript = CScript(scriptData.begin(), scriptData.end());
+    } else {
+        returnScript = defaultScript;
+    }
+    return returnScript;
+}
+
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards)
 {
     // Shards must be evenly divisible
