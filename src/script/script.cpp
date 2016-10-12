@@ -80,6 +80,7 @@ const char* GetOpName(opcodetype opcode)
     // splice ops
     case OP_CAT                    : return "OP_CAT";
     case OP_SUBSTR                 : return "OP_SUBSTR";
+    case OP_SUBSTR_LAZY            : return "OP_SUBSTR_LAZY";
     case OP_LEFT                   : return "OP_LEFT";
     case OP_RIGHT                  : return "OP_RIGHT";
     case OP_SIZE                   : return "OP_SIZE";
@@ -134,6 +135,9 @@ const char* GetOpName(opcodetype opcode)
     case OP_CHECKSIGVERIFY         : return "OP_CHECKSIGVERIFY";
     case OP_CHECKMULTISIG          : return "OP_CHECKMULTISIG";
     case OP_CHECKMULTISIGVERIFY    : return "OP_CHECKMULTISIGVERIFY";
+    case OP_DETERMINISTICRANDOM    : return "OP_DETERMINISTICRANDOM";
+    case OP_CHECKSIGFROMSTACK      : return "OP_CHECKSIGFROMSTACK";
+    case OP_CHECKSIGFROMSTACKVERIFY: return "OP_CHECKSIGFROMSTACKVERIFY";
 
     // expanson
     case OP_NOP1                   : return "OP_NOP1";

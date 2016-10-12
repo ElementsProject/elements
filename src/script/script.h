@@ -107,6 +107,7 @@ enum opcodetype
     // splice ops
     OP_CAT = 0x7e,
     OP_SUBSTR = 0x7f,
+    OP_SUBSTR_LAZY = 0xc3,
     OP_LEFT = 0x80,
     OP_RIGHT = 0x81,
     OP_SIZE = 0x82,
@@ -164,6 +165,9 @@ enum opcodetype
     OP_CHECKSIGVERIFY = 0xad,
     OP_CHECKMULTISIG = 0xae,
     OP_CHECKMULTISIGVERIFY = 0xaf,
+    OP_DETERMINISTICRANDOM = 0xc0,
+    OP_CHECKSIGFROMSTACK = 0xc1,
+    OP_CHECKSIGFROMSTACKVERIFY = 0xc2,
 
     // expansion
     OP_NOP1 = 0xb0,
