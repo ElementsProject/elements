@@ -98,7 +98,7 @@ static bool AppInit(int argc, char* argv[])
             fprintf(stderr, "Error reading configuration file: %s\n", error.c_str());
             return false;
         }
-        // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+        // Check for -chain, -testnet or -regtest parameter (Params() calls are only valid after this clause)
         try {
             SelectParams(gArgs.GetChainName());
         } catch (const std::exception& e) {

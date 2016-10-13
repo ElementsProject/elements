@@ -17,6 +17,7 @@ const std::string CBaseChainParams::REGTEST = "regtest";
 
 void SetupChainParamsBaseOptions()
 {
+    gArgs.AddArg("-chain=<chain>", "Use the chain <chain> (default: main). Allowed values: main, testnet, regtest", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
