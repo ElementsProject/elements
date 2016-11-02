@@ -1126,9 +1126,7 @@ class Secp256k1Ctx
 public:
     Secp256k1Ctx() {
         assert(secp256k1_ctx_verify_amounts == NULL);
-        secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-        secp256k1_pedersen_context_initialize(secp256k1_ctx_verify_amounts);
-        secp256k1_rangeproof_context_initialize(secp256k1_ctx_verify_amounts);
+        secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
         assert(secp256k1_ctx_verify_amounts != NULL);
     }
 
@@ -1157,15 +1155,14 @@ public:
 class CBalanceCheck : public CCheck
 {
 private:
-    std::vector<unsigned char> vchData;
-    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
-    CAmount nPlainAmount;
+    std::vector<secp256k1_pedersen_commitment> vData;
+    std::vector<secp256k1_pedersen_commitment *> vpCommitsIn, vpCommitsOut;
 
 public:
-    CBalanceCheck(std::vector<unsigned char>& vchData_, std::vector<unsigned char*>& vpchCommitsIn_, std::vector<unsigned char*>& vpchCommitsOut_, const CAmount& nPlainAmount_) : nPlainAmount(nPlainAmount_) {
-        vchData.swap(vchData_);
-        vpchCommitsIn.swap(vpchCommitsIn_);
-        vpchCommitsOut.swap(vpchCommitsOut_);
+    CBalanceCheck(std::vector<secp256k1_pedersen_commitment>& vData_, std::vector<secp256k1_pedersen_commitment*>& vpCommitsIn_, std::vector<secp256k1_pedersen_commitment*>& vpCommitsOut_)  {
+        vData.swap(vData_);
+        vpCommitsIn.swap(vpCommitsIn_);
+        vpCommitsOut.swap(vpCommitsOut_);
     }
 
     bool operator()();
@@ -1194,7 +1191,7 @@ bool CRangeCheck::operator()()
 
 bool CBalanceCheck::operator()()
 {
-    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount)) {
+    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpCommitsIn.data(), vpCommitsIn.size(), vpCommitsOut.data(), vpCommitsOut.size())) {
         fAmountError = true;
         return false;
     }
@@ -1208,15 +1205,21 @@ bool CBalanceCheck::operator()()
 
 bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks, const bool cacheStore)
 {
-    bool fNeedNoRangeProof = false;
     CAmount nPlainAmount = excess;
+    unsigned int blindedInputs = 0;
+    unsigned int blindedOutputs = 0;
 
     {
-    std::vector<unsigned char> vchData;
-    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
+    std::vector<secp256k1_pedersen_commitment> vData;
+    std::vector<secp256k1_pedersen_commitment *> vpCommitsIn, vpCommitsOut;
+
     bool fNullRangeproof = false;
-    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
-    unsigned char *p = vchData.data();
+    vData.resize((tx.vin.size() + tx.vout.size() + 1)); // 1 for fee
+    secp256k1_pedersen_commitment *p = &vData[0];
+    secp256k1_pedersen_commitment commit;
+    // This is used to add in the explicit values
+    unsigned char explBlinds[32];
+    memset(explBlinds, 0, sizeof(explBlinds));
     if (!tx.IsCoinBase())
     {
         for (size_t i = 0; i < tx.vin.size(); ++i)
@@ -1229,10 +1232,13 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
             }
             else
             {
+                blindedInputs += 1;
                 assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
-                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-                vpchCommitsIn.push_back(p);
-                p += CTxOutValue::nCommitmentSize;
+                if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
+                    return false;
+                memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
+                vpCommitsIn.push_back(p);
+                p++;
             }
         }
     }
@@ -1249,30 +1255,45 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         }
         else
         {
-            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-            vpchCommitsOut.push_back(p);
-            p += CTxOutValue::nCommitmentSize;
+            blindedOutputs += 1;
+            if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
+                return false;
 
             if (val.vchRangeproof.empty())
                 fNullRangeproof = true;
+            memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
+            vpCommitsOut.push_back(p);
+            p++;
         }
     }
 
     // If there are no encrypted input or output values, we can do simple math
-    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
+    if (blindedInputs + blindedOutputs == 0)
         return (nPlainAmount == 0);
 
-    fNeedNoRangeProof = ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof);
+    // Add fee to tally
+    if (nPlainAmount != 0) {
+        if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, nPlainAmount > 0 ? nPlainAmount : -nPlainAmount, secp256k1_generator_h) != 1)
+            return false;
 
-    if (!QueueCheck(pvChecks, new CBalanceCheck(vchData, vpchCommitsIn, vpchCommitsOut, nPlainAmount))) {
-        return false;
+        memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
+        if (nPlainAmount > 0)
+            vpCommitsOut.push_back(p);
+        else
+            vpCommitsIn.push_back(p);
+        p++;
     }
+
+
+    if (!QueueCheck(pvChecks, new CBalanceCheck(vData, vpCommitsIn, vpCommitsOut))) {
+        return false;
     }
 
     // Rangeproof is optional in this case
-    if (fNeedNoRangeProof)
+    if (blindedInputs > 0 && blindedOutputs == 1 && nPlainAmount <= 0 && fNullRangeproof)
         return true;
 
+    }
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         const CTxOutValue& val = tx.vout[i].nValue;
