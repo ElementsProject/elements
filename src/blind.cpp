@@ -96,24 +96,13 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vect
          }
     }
 
-    static const unsigned char diff_zero[32] = {0};
-    if (nToBlind == 0) {
-        unsigned char diff[32];
-        // If there is no place to put a blinding factor anymore, the existing input blinding factors must equal the outputs
-        bool ret = secp256k1_pedersen_blind_sum(secp256k1_blind_context, diff, &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn);
-        assert(ret);
-        if (memcmp(diff_zero, diff, 32)) {
-            return false;
-        }
-    }
-
     //Running total of newly blinded outputs
+    static const unsigned char diff_zero[32] = {0};
     int nBlinded = 0;
     unsigned char blind[tx.vout.size()][32];
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (tx.vout[nOut].nValue.IsAmount() && output_pubkeys[nOut].IsValid()) {
-            assert(output_pubkeys[nOut].IsValid());
             if (nBlinded + 1 == nToBlind) {
                 // Last to-be-blinded value: compute from all other blinding factors.
                 assert(secp256k1_pedersen_blind_sum(secp256k1_blind_context, &blind[nBlinded][0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
@@ -155,6 +144,14 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vect
             // TODO: do something smarter here
             assert(res);
         }
+    }
+
+    // Check resulting blinding, normal operation should pass
+    unsigned char diff[32];
+    bool ret = secp256k1_pedersen_blind_sum(secp256k1_blind_context, diff, &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn);
+    assert(ret);
+    if (memcmp(diff_zero, diff, 32)) {
+        return false;
     }
 
     return true;
