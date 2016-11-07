@@ -1233,7 +1233,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
             else
             {
                 blindedInputs += 1;
-                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
+                assert(val.vchCommitment.size() == CTxOutValue::nCommittedSize);
                 if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                     return false;
                 memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
@@ -1245,8 +1245,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         const CTxOutValue& val = tx.vout[i].nValue;
-        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
-        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
+        assert(val.vchCommitment.size() == CTxOutValue::nCommittedSize);
+        if (val.vchNonceCommitment.size() > CTxOutValue::nCommittedSize || val.vchRangeproof.size() > 5000)
             return false;
         if (val.IsAmount()) {
             nPlainAmount += val.GetAmount();
