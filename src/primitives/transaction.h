@@ -326,6 +326,28 @@ public:
     }
 };
 
+class CAssetGeneration
+{
+public:
+    // This is a 32-byte nonce of no consensus-defined meaning,
+    // but is used as additional entropy to the asset tag calculation.
+    // This is used by higher-layer protocols for defining the
+    // Ricardian contract governing the asset.
+    uint256 hashNonce;
+
+    // Both explicit and blinded issuance amounts are supported
+    // (see class definition for CTxOutValue for details).
+    CTxOutValue nAmount;
+
+    // If nonzero, specifies the number of asset issuance and/or
+    // de-issuance tokens to generate. These tokens are made available
+    // to the outputs of the generating transaction.
+    CAmount nInflationKeys;
+    CAmount nDeflationKeys;
+
+public:
+    // FIXME: constructor and methods
+};
 
 class CTxInWitness
 {
@@ -525,6 +547,14 @@ public:
     const int32_t nVersion;
     const CAmount nTxFee;
     const std::vector<CTxIn> vin;
+
+    // The bitfield specifies which inputs of the transaction are used
+    // as entropy sources for generation of the fixed asset tag and any
+    // capability tokens. This is followed by a vector of CAssetGeneration
+    // objects equal to the number of set bits in the bitfield.
+    std::vector<bool> vAssetGenerationBits;
+    std::vector<CAssetGeneration> vAssetGenerations;
+
     const std::vector<CTxOut> vout;
     CTxWitness wit; // Not const: can change without invalidating the txid cache
     const uint32_t nLockTime;
