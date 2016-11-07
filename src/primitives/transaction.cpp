@@ -46,13 +46,13 @@ std::string CTxIn::ToString() const
 
 CTxOutValue::CTxOutValue()
 {
-    vchCommitment.resize(nCommitmentSize);
+    vchCommitment.resize(nCommittedSize);
     vchCommitment[0] = 0xff;
 }
 
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
 {
-    vchCommitment.resize(nCommitmentSize);
+    vchCommitment.resize(nCommittedSize);
     SetToAmount(nAmountIn);
 }
 
@@ -61,7 +61,7 @@ bool CTxOutValue::IsValid() const
     switch(vchCommitment[0]) {
         case 0:
         case 1:
-            for (size_t i = 0; i < nCommitmentSize - sizeof(CAmount); i++)
+            for (size_t i = 0; i < nCommittedSize - sizeof(CAmount); i++)
                 if (vchCommitment[i])
                     return false;
             return true;
@@ -92,7 +92,7 @@ CAmount CTxOutValue::GetAmount() const
     assert(IsAmount());
     CAmount nAmount = 0;
     for (size_t i = 0; i < sizeof(nAmount); i++)
-        nAmount |= CAmount(vchCommitment[nCommitmentSize - 1 - i]) << (i * 8);
+        nAmount |= CAmount(vchCommitment[nCommittedSize - 1 - i]) << (i * 8);
     return nAmount;
 }
 
@@ -117,9 +117,9 @@ bool CTxOutValue::IsInBitcoinTransaction() const {
 }
 
 void CTxOutValue::SetToAmount(const CAmount nAmount) {
-    memset(&vchCommitment[0], 0, nCommitmentSize - sizeof(nAmount));
+    memset(&vchCommitment[0], 0, nCommittedSize - sizeof(nAmount));
     for (size_t i = 0; i < sizeof(nAmount); ++i)
-        vchCommitment[nCommitmentSize - 1 - i] = ((nAmount >> (i * 8)) & 0xff);
+        vchCommitment[nCommittedSize - 1 - i] = ((nAmount >> (i * 8)) & 0xff);
 }
 
 CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
