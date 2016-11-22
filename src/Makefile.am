@@ -33,7 +33,7 @@ if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
 endif
 if BUILD_BITCOIN_LIBS
-LIBBITCOINCONSENSUS=libbetaconsensus.la
+LIBBITCOINCONSENSUS=libelementsconsensus.la
 endif
 if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
@@ -61,11 +61,11 @@ TESTS =
 BENCHMARKS =
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += betad
+  bin_PROGRAMS += elementsd
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += beta-cli beta-tx
+  bin_PROGRAMS += elements-cli elements-tx
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -349,16 +349,16 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
 # bitcoind binary #
-betad_SOURCES = bitcoind.cpp
-betad_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-betad_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-betad_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elementsd_SOURCES = bitcoind.cpp
+elementsd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+elementsd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+elementsd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-betad_SOURCES += bitcoind-res.rc
+elementsd_SOURCES += bitcoind-res.rc
 endif
 
-betad_LDADD = \
+elementsd_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
   $(LIBUNIVALUE) \
@@ -371,38 +371,38 @@ betad_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-betad_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+elementsd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # bitcoin-cli binary #
-beta_cli_SOURCES = bitcoin-cli.cpp
-beta_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-beta_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-beta_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_cli_SOURCES = bitcoin-cli.cpp
+elements_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+elements_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+elements_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-beta_cli_SOURCES += bitcoin-cli-res.rc
+elements_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-beta_cli_LDADD = \
+elements_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CRYPTO)
 
-beta_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
+elements_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
 
 # bitcoin-tx binary #
-beta_tx_SOURCES = bitcoin-tx.cpp
-beta_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-beta_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-beta_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_tx_SOURCES = bitcoin-tx.cpp
+elements_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+elements_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-beta_tx_SOURCES += bitcoin-tx-res.rc
+elements_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
-beta_tx_LDADD = \
+elements_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -410,22 +410,22 @@ beta_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
 
-beta_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
+elements_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
 
 # bitcoinconsensus library #
 if BUILD_BITCOIN_LIBS
 include_HEADERS = script/bitcoinconsensus.h
-libbetaconsensus_la_SOURCES = $(crypto_libbitcoin_crypto_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
+libelementsconsensus_la_SOURCES = $(crypto_libbitcoin_crypto_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
 
 if GLIBC_BACK_COMPAT
-  libbetaconsensus_la_SOURCES += compat/glibc_compat.cpp
+  libelementsconsensus_la_SOURCES += compat/glibc_compat.cpp
 endif
 
-libbetaconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS)
-libbetaconsensus_la_LIBADD = $(LIBSECP256K1)
-libbetaconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL -DBITCOIN_SCRIPT_NO_CALLRPC
-libbetaconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS)
+libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
+libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL -DBITCOIN_SCRIPT_NO_CALLRPC
+libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
 #
@@ -463,7 +463,7 @@ clean-local:
 	-rm -rf test/__pycache__
 
 bitcoind bitcoin-cli bitcoin-tx:
-	@echo "Remember to 'make beta*' rather than 'make bitcoin*' in this repository."
+	@echo "Remember to 'make elements*' rather than 'make bitcoin*' in this repository."
 
 .rc.o:
 	@test -f $(WINDRES)

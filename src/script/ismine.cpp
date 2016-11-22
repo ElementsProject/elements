@@ -148,7 +148,7 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
         break;
     }
     case TX_TRUE:
-        if (Params().NetworkIDString() == "betaregtest")
+        if (Params().NetworkIDString() == CHAINPARAMS_REGTEST)
             return ISMINE_SPENDABLE;
     }
 

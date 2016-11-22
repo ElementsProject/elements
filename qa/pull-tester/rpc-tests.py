@@ -76,7 +76,7 @@ for arg in sys.argv[1:]:
 
 #Set env vars
 if "BITCOIND" not in os.environ:
-    os.environ["BETAD"] = BUILDDIR+ '/src/betad' + EXEEXT
+    os.environ["ELEMENTSD"] = BUILDDIR+ '/src/elementsd' + EXEEXT
 if "BITCOINCLI" not in os.environ:
     os.environ["BITCOINCLI"] = BUILDDIR + '/src/bitcoin-cli' + EXEEXT
 

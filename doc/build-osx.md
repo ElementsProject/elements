@@ -20,10 +20,10 @@ Dependencies
 
 NOTE: Building with Qt4 is still supported, however, could result in a broken UI. Building with Qt5 is recommended.
 
-Build `Beta`
+Build `Element`
 ------------------------
 
-1. Clone the beta source code and cd into `beta`
+1. Clone the elements source code and cd into `elements`
 
         git clone https://github.com/ElementsProject/elements.git
         cd elements
@@ -49,7 +49,7 @@ Build `Beta`
 Running
 -------
 
-Beta is now available at `./src/beta`
+Element is now available at `./src/elements`
 
 Before running, it's recommended you create an RPC configuration file.
 
@@ -57,18 +57,18 @@ Before running, it's recommended you create an RPC configuration file.
 
     chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/bitcoin.conf"
 
-The first time you run betad, it will start downloading the blockchain. This process could take several hours.
+The first time you run elementsd, it will start downloading the blockchain. This process could take several hours.
 
 You can monitor the download process by looking at the debug.log file:
 
-    tail -f $HOME/Library/Application\ Support/beta/debug.log
+    tail -f $HOME/Library/Application\ Support/elements/debug.log
 
 Other commands:
 -------
 
-    ./src/betad -daemon # Starts the bitcoin daemon.
-    ./src/beta-cli --help # Outputs a list of command-line options.
-    ./src/beta-cli help # Outputs a list of RPC commands when the daemon is running.
+    ./src/elementsd -daemon # Starts the bitcoin daemon.
+    ./src/elements-cli --help # Outputs a list of command-line options.
+    ./src/elements-cli help # Outputs a list of RPC commands when the daemon is running.
 
 Using Qt Creator as IDE
 ------------------------
