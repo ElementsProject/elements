@@ -1,5 +1,5 @@
-Sidechain Elements 0.13.1
-=====================
+Elements 0.13.1
+===============
 
 Setup
 ---------------------
@@ -13,16 +13,16 @@ The following are some helpful notes on how to run Bitcoin on your native platfo
 
 Unpack the files into a directory and run:
 
-- `bin/beta-qt` (GUI) or
-- `bin/betad` (headless)
+- `bin/elements-qt` (GUI) or
+- `bin/elementsd` (headless)
 
 ### Windows
 
-Unpack the files into a directory, and then run beta-qt.exe.
+Unpack the files into a directory, and then run elements-qt.exe.
 
 ### OS X
 
-Drag Beta-Sidechain to your applications folder, and then run Beta-Sidechain.
+Drag Elements to your applications folder, and then run Elements.
 
 ### Need Help?
 

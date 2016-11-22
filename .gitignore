@@ -1,12 +1,12 @@
 *.tar.gz
 
 *.exe
-src/beta
-src/betad
-src/beta-cli
-src/beta-tx
-src/test/test_beta
-src/qt/test/test_beta-qt
+src/elements
+src/elementsd
+src/elements-cli
+src/elements-tx
+src/test/test_elements
+src/qt/test/test_elements-qt
 
 # autoreconf
 Makefile.in
@@ -74,12 +74,12 @@ src/qt/test/moc*.cpp
 # Compilation and Qt preprocessor part
 *.qm
 Makefile
-beta-qt
-Beta-Qt.app
+elements-qt
+Elements-Qt.app
 
 # Unit-tests
 Makefile.test
-beta-qt_test
+elements-qt_test
 src/test/buildenv.py
 
 # Resources cpp

@@ -10,7 +10,7 @@
 #  spendfrom.py  # Lists available funds
 #  spendfrom.py --from=ADDRESS --to=ADDRESS --amount=11.00
 #
-# Assumes it will talk to a betad or Beta-Qt running
+# Assumes it will talk to a elementsd or Elements-Qt running
 # on localhost.
 #
 # Depends on jsonrpc
@@ -44,7 +44,7 @@ def determine_db_dir():
     return os.path.expanduser("~/.bitcoin")
 
 def read_bitcoin_config(dbdir):
-    """Read the beta.conf file from dbdir, returns dictionary of settings"""
+    """Read the elements.conf file from dbdir, returns dictionary of settings"""
     from ConfigParser import SafeConfigParser
 
     class FakeSecHead(object):
@@ -62,11 +62,11 @@ def read_bitcoin_config(dbdir):
                 return s
 
     config_parser = SafeConfigParser()
-    config_parser.readfp(FakeSecHead(open(os.path.join(dbdir, "beta.conf"))))
+    config_parser.readfp(FakeSecHead(open(os.path.join(dbdir, "elements.conf"))))
     return dict(config_parser.items("all"))
 
 def connect_JSON(config):
-    """Connect to a beta JSON-RPC server"""
+    """Connect to a elements JSON-RPC server"""
     testnet = config.get('testnet', '0')
     testnet = (int(testnet) > 0)  # 0/1 in config file, convert to True/False
     if not 'rpcport' in config:
@@ -75,7 +75,7 @@ def connect_JSON(config):
     try:
         result = ServiceProxy(connect)
         # ServiceProxy is lazy-connect, so send an RPC command mostly to catch connection errors,
-        # but also make sure the betad we're talking to is/isn't testnet:
+        # but also make sure the elementsd we're talking to is/isn't testnet:
         if result.getmininginfo()['testnet'] != testnet:
             sys.stderr.write("RPC server at "+connect+" testnet setting mismatch\n")
             sys.exit(1)

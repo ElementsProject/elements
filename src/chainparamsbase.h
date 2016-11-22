@@ -9,8 +9,8 @@
 #include <vector>
 
 #define CHAINPARAMS_OLD_MAIN "main"
-#define CHAINPARAMS_ELEMENTS "betatestnet3"
-#define CHAINPARAMS_REGTEST "betaregtest"
+#define CHAINPARAMS_ELEMENTS "elements"
+#define CHAINPARAMS_REGTEST "elementsregtest"
 
 /**
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)

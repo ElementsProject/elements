@@ -55,7 +55,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
 }
 
 /**
- * Elements Beta.
+ * Elements Core.
  */
 class CElementsParams : public CChainParams {
 public:
