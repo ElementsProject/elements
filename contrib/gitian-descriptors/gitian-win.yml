@@ -23,7 +23,7 @@ packages:
 - "python"
 remotes:
 - "url": "https://github.com/ElementsProject/elements.git"
-  "dir": "beta"
+  "dir": "elements"
 files: []
 script: |
   WRAP_DIR=$HOME/wrapped
@@ -101,7 +101,7 @@ script: |
   create_per-host_linker_wrapper "2000-01-01 12:00:00"
   export PATH=${WRAP_DIR}:${PATH}
 
-  cd beta
+  cd elements
   BASEPREFIX=`pwd`/depends
   # Build dependencies for each host
   for i in $HOSTS; do
@@ -119,14 +119,14 @@ script: |
   ./autogen.sh
   CONFIG_SITE=${BASEPREFIX}/`echo "${HOSTS}" | awk '{print $1;}'`/share/config.site ./configure --prefix=/
   make dist
-  SOURCEDIST=`echo beta-*.tar.gz`
+  SOURCEDIST=`echo elements-*.tar.gz`
   DISTNAME=`echo ${SOURCEDIST} | sed 's/.tar.*//'`
 
   # Correct tar file order
   mkdir -p temp
   pushd temp
   tar xf ../$SOURCEDIST
-  find beta-* | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ../$SOURCEDIST
+  find elements-* | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ../$SOURCEDIST
   mkdir -p $OUTDIR/src
   cp ../$SOURCEDIST $OUTDIR/src
   popd
@@ -146,7 +146,7 @@ script: |
     make ${MAKEOPTS} -C src check-security
     make deploy
     make install DESTDIR=${INSTALLPATH}
-    cp -f beta-*setup*.exe $OUTDIR/
+    cp -f elements-*setup*.exe $OUTDIR/
     cd installed
     mv ${DISTNAME}/bin/*.dll ${DISTNAME}/lib/
     find . -name "lib*.la" -delete

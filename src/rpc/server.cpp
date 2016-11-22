@@ -269,11 +269,11 @@ UniValue stop(const JSONRPCRequest& jsonRequest)
     if (jsonRequest.fHelp || jsonRequest.params.size() > 1)
         throw runtime_error(
             "stop\n"
-            "\nStop Beta server.");
+            "\nStop Elements server.");
     // Event loop will exit after current HTTP requests have been handled, so
     // this reply will get back to the client.
     StartShutdown();
-    return "Beta server stopping";
+    return "Elements server stopping";
 }
 
 /**

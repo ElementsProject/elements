@@ -103,8 +103,8 @@ namespace boost {
 
 using namespace std;
 
-const char * const BITCOIN_CONF_FILENAME = "beta.conf";
-const char * const BITCOIN_PID_FILENAME = "beta-daemon.pid";
+const char * const BITCOIN_CONF_FILENAME = "elements.conf";
+const char * const BITCOIN_PID_FILENAME = "elements-daemon.pid";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;

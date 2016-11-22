@@ -60,7 +60,7 @@ void CChainParams::UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nSta
 }
 
 /**
- * Elements Beta.
+ * Elements Core.
 
  */
 class CElementsParams : public CChainParams {

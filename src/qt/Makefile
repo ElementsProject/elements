@@ -1,9 +1,9 @@
 .PHONY: FORCE
 all: FORCE
-	$(MAKE) -C .. beta_qt test_beta_qt
+	$(MAKE) -C .. elements_qt test_elements_qt
 clean: FORCE
-	$(MAKE) -C .. beta_qt_clean test_beta_qt_clean
+	$(MAKE) -C .. elements_qt_clean test_elements_qt_clean
 check: FORCE
-	$(MAKE) -C .. test_beta_qt_check
-beta-qt beta-qt.exe: FORCE
-	 $(MAKE) -C .. beta_qt
+	$(MAKE) -C .. test_elements_qt_check
+elements-qt elements-qt.exe: FORCE
+	 $(MAKE) -C .. elements_qt
