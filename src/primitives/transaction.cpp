@@ -54,7 +54,7 @@ bool CTxOutAsset::GetAssetID(uint256& assetID) const
 {
     if (!IsAssetID() && !IsAssetGeneration())
         return false;
-    std::copy(std::next(vchAssetTag.begin()), vchAssetTag.end(), assetID.begin());
+    std::copy(vchAssetTag.begin() + 1, vchAssetTag.end(), assetID.begin());
     return true;
 }
 
