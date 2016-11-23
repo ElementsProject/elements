@@ -458,15 +458,15 @@ public:
     // asset tag and reissuance tokens.
     uint256 hashAssetEntropy;
 
-    // The reissuance amount, either positive (inflation) or negative
-    // (deflation). Note that the corresponding reissuance token must
-    // be the output being spent in either case.
-    CTxOutValue nAmount;
-
     // This is a revelation of the blinding key for the input,
     // which shows that the input being spent is of the reissuance
     // capability type for the asset being inflated.
     uint256 assetBlindingNonce;
+
+    // The reissuance amount, either positive (inflation) or negative
+    // (deflation). Note that the corresponding reissuance token must
+    // be the output being spent in either case.
+    CTxOutValue nAmount;
 
 public:
     // FIXME: constructor and methods
