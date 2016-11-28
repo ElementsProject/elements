@@ -1,10 +1,9 @@
-Contributing to Bitcoin Core
+Contributing to Elements Core
 ============================
 
-The Bitcoin Core project operates an open contributor model where anyone is welcome to contribute towards development in the form of peer review, testing and patches. This document explains the practical process and guidelines for contributing.
+The Elements Core project operates an open contributor model where anyone is welcome to contribute towards development in the form of peer review, testing and patches. This document explains the practical process and guidelines for contributing.
 
-Firstly in terms of structure, there is no particular concept of “Core developers” in the sense of privileged people. Open source often naturally revolves around meritocracy where longer term contributors gain more trust from the developer community. However, some hierarchy is necessary for practical purposes. As such there are repository “maintainers” who are responsible for merging pull requests as well as a “lead maintainer” who is responsible for the release cycle, overall merging, moderation and appointment of maintainers.
-
+In Contrast to Bitcoin Core, this repository is property of Blockstream Inc. which means that acceptance of contributions comes down to one of the privelaged "maintainers" of the repository. These maintainers are responsible for merging pull requests as well as a “lead maintainer” who is responsible for the release cycle, overall merging, moderation and appointment of maintainers. The intention is however to follow a very similar meritocratic model to Bitcoin Core's, meaning that all contributions are welcome, and a history of high-quality contributions will likely pull more weight than otherwise.
 
 Contributor Workflow
 --------------------
@@ -81,9 +80,9 @@ Project maintainers aim for a quick turnaround on refactoring pull requests, so 
 "Decision Making" Process
 -------------------------
 
-The following applies to code changes to the Bitcoin Core project (and related projects such as libsecp256k1), and is not to be confused with overall Bitcoin Network Protocol consensus changes.
+The following applies to code changes to the Elements Core project (and related projects such as libsecp256k1).
 
-Whether a pull request is merged into Bitcoin Core rests with the project merge maintainers and ultimately the project lead.
+Whether a pull request is merged into Elements Core rests with the project merge maintainers and ultimately the project lead.
 
 Maintainers will take into consideration if a patch is in line with the general principles of the project; meets the minimum standards for inclusion; and will judge the general consensus of contributors.
 
@@ -96,8 +95,7 @@ In general, all pull requests must:
   - not break the existing test suite;
   - where bugs are fixed, where possible, there should be unit tests demonstrating the bug and also proving the fix. This helps prevent regression.
 
-Patches that change Bitcoin consensus rules are considerably more involved than normal because they affect the entire ecosystem and so must be preceded by extensive mailing list discussions and have a numbered BIP. While each case will be different, one should be prepared to expend more time and effort than for other kinds of patches because of increased peer review and consensus building requirements.
-
+Changes to the consensus ruleset will likely be denied unless it is a direct security issue. In this case the issue should be sent to one of the project maintainers in private using secure communication if possible. Blockstream reserves the right to include additional feature softforks to a currently-running network, and hardforking changes for new networks.
 
 ###Peer Review
 
@@ -115,10 +113,9 @@ Project maintainers reserve the right to weigh the opinions of peer reviewers us
 
 Where a patch set affects consensus critical code, the bar will be set much higher in terms of discussion and peer review requirements, keeping in mind that mistakes could be very costly to the wider community. This includes refactoring of consensus critical code.
 
-Where a patch set proposes to change the Bitcoin consensus, it must have been discussed extensively on the mailing list and IRC, be accompanied by a widely discussed BIP and have a generally widely perceived technical consensus of being a worthwhile change based on the judgement of the maintainers.
-
+Where a patch set proposes to change the Elements consensus, it must have been discussed extensively on the github thread, and receive a larger number of ACKs, including multiple tested ACKs from maintainers.
 
 Release Policy
 --------------
 
-The project leader is the release manager for each Bitcoin Core release.
+The project leader is the release manager for each Elements Core release.
