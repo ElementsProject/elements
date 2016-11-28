@@ -2482,11 +2482,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 // Fill vin
                 //
-                // Note how the sequence number is set to max()-1 so that the
-                // nLockTime set above actually works.
+                // Note how the sequence number is set to max()-2 so that the
+                // nLockTime set above actually works, and activates opt-In RBF.
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second,CScript(),
-                                              std::numeric_limits<unsigned int>::max()-1));
+                                              std::numeric_limits<unsigned int>::max()-2));
 
                 txNew.nTxFee = nFeeRet;
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
