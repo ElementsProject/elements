@@ -146,3 +146,37 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
     return true;
 
 }
+
+bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+{
+    static CSignatureCache surjectionProofCache;
+
+    std::vector<unsigned char> vchproof;
+    size_t proof_len = 0;
+    vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
+    secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
+
+    std::vector<unsigned char> vchGen;
+    vchGen.resize(CTxOutValue::nCommittedSize);
+    secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchGen[0], &gen);
+
+    CPubKey pubkey(vchGen);
+    uint256 entry;
+    surjectionProofCache.ComputeEntry(entry, uint256(), vchproof, pubkey);
+
+    if (surjectionProofCache.Get(entry)) {
+        if (!store) {
+            surjectionProofCache.Erase(entry);
+        }
+        return true;
+    }
+
+    if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
+        return false;
+    }
+
+    if (store) {
+        surjectionProofCache.Set(entry);
+    }
+    return true;
+}

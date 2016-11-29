@@ -10,6 +10,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
+#include <secp256k1_surjectionproof.h>
 #include <vector>
 
 // DoS prevention: limit cache size to less than 40MB (over 500000
@@ -39,6 +40,19 @@ public:
     };
 
     bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const std::vector<unsigned char>& vchAssetTag, const secp256k1_context* ctx) const;
+
+};
+
+class CachingSurjectionProofChecker
+{
+private:
+    bool store;
+public:
+    CachingSurjectionProofChecker(bool storeIn){
+        store = storeIn;
+    };
+
+    bool VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* ctx) const;
 
 };
 

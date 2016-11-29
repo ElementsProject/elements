@@ -1175,8 +1175,9 @@ private:
     secp256k1_surjectionproof proof;
     std::vector<secp256k1_generator> vTags;
     secp256k1_generator gen;
+    const bool store;
 public:
-    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& vTags_, secp256k1_generator& genIn) : proof(proofIn), gen(genIn) {
+    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& vTags_, secp256k1_generator& genIn, const bool storeIn) : proof(proofIn), gen(genIn), store(storeIn) {
         vTags.swap(vTags_);
     }
 
@@ -1216,11 +1217,7 @@ bool CBalanceCheck::operator()()
 
 bool CSurjectionCheck::operator()()
 {
-    if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
-        return false;
-    }
-
-    return true;
+    return CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts);
 }
 
 } // namespace
@@ -1409,7 +1406,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &asset.vchSurjectionproof[0], asset.vchSurjectionproof.size()) != 1)
             return false;
 
-        if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, ephemeral_input_tags, gen))) {
+        if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, ephemeral_input_tags, gen, cacheStore))) {
             return false;
         }
         // Each CSurjectionCheck uses swap to keep pointers valid.
