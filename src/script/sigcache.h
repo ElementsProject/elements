@@ -10,6 +10,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
+#include <secp256k1_surjectionproof.h>
 #include <vector>
 
 // DoS prevention: limit cache size to 32MB (over 1000000 entries on 64-bit
@@ -45,7 +46,21 @@ public:
 
 };
 
+class CachingSurjectionProofChecker
+{
+private:
+    bool store;
+public:
+    CachingSurjectionProofChecker(bool storeIn){
+        store = storeIn;
+    };
+
+    bool VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* ctx) const;
+
+};
+
 void InitSignatureCache();
 void InitRangeproofCache();
+void InitSurjectionproofCache();
 
 #endif // BITCOIN_SCRIPT_SIGCACHE_H

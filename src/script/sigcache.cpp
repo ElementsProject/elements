@@ -91,6 +91,9 @@ static CSignatureCache signatureCache;
 
 static CSignatureCache rangeProofCache;
 
+static CSignatureCache surjectionProofCache;
+
+
 }
 
 // To be called once in AppInit2/TestingSetup to initialize the signatureCache
@@ -114,6 +117,18 @@ void InitRangeproofCache()
     LogPrintf("Using %zu MiB out of %zu requested for rangeproof cache, able to store %zu elements\n",
             (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }
+
+// To be called once in AppInit2/TestingSetup to initialize the surjectionrproof cache
+void InitSurjectionproofCache()
+{
+    // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
+    // setup_bytes creates the minimum possible cache (2 elements).
+    size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
+    size_t nElems = surjectionProofCache.setup_bytes(nMaxCacheSize);
+    LogPrintf("Using %zu MiB out of %zu requested for surjectionproof cache, able to store %zu elements\n",
+            (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
+}
+
 
 bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
@@ -148,6 +163,32 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
         return false;
 
     if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &commit, vchRangeProof.data(), vchRangeProof.size(), NULL, 0, &tag)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+{
+    std::vector<unsigned char> vchproof;
+    size_t proof_len = 0;
+    vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
+    secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
+
+    std::vector<unsigned char> vchGen;
+    vchGen.resize(CTxOutValue::nCommittedSize);
+    secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchGen[0], &gen);
+
+    CPubKey pubkey(vchGen);
+    uint256 entry;
+    surjectionProofCache.ComputeEntry(entry, uint256(), vchproof, pubkey);
+
+    if (surjectionProofCache.Get(entry, !store)) {
+        return true;
+    }
+
+    if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
         return false;
     }
 

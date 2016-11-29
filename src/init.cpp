@@ -1186,6 +1186,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     InitSignatureCache();
     InitRangeproofCache();
+    InitSurjectionproofCache();
 
     LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
     if (nScriptCheckThreads) {
