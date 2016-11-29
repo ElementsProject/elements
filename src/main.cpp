@@ -1169,6 +1169,20 @@ public:
     bool operator()();
 };
 
+class CSurjectionCheck : public CCheck
+{
+private:
+    secp256k1_surjectionproof proof;
+    std::vector<secp256k1_generator> vTags;
+    secp256k1_generator gen;
+public:
+    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& vTags_, secp256k1_generator& genIn) : proof(proofIn), gen(genIn) {
+        vTags.swap(vTags_);
+    }
+
+    bool operator()();
+};
+
 // Does *not* destroy the check in the case of no queue, or passes its ownership to the queue.
 static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
 {
@@ -1194,6 +1208,15 @@ bool CBalanceCheck::operator()()
 {
     if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpCommitsIn.data(), vpCommitsIn.size(), vpCommitsOut.data(), vpCommitsOut.size())) {
         fAmountError = true;
+        return false;
+    }
+
+    return true;
+}
+
+bool CSurjectionCheck::operator()()
+{
+    if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
         return false;
     }
 
@@ -1352,7 +1375,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
     }
 
     //Surjection proof checking of ephemeral asset keys
-    secp256k1_generator ephemeral_input_tags[tx.vin.size()];
+    std::vector<secp256k1_generator> ephemeral_input_tags;
+    ephemeral_input_tags.resize(tx.vin.size());
 
     for (size_t i = 0; i < tx.vin.size(); i++)
     {
@@ -1368,6 +1392,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         }
     }
 
+    std::vector<secp256k1_generator> copy_ephemeral_input_tags(ephemeral_input_tags);
+
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CTxOutAsset& asset = tx.vout[i].nAsset;
@@ -1382,8 +1408,13 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         secp256k1_surjectionproof proof;
         if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &asset.vchSurjectionproof[0], asset.vchSurjectionproof.size()) != 1)
             return false;
-        if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, ephemeral_input_tags, tx.vin.size(), &gen) != 1)
+
+        if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, ephemeral_input_tags, gen))) {
             return false;
+        }
+        // Each CSurjectionCheck uses swap to keep pointers valid.
+        // Original values need to put back in place for next output
+        ephemeral_input_tags = copy_ephemeral_input_tags;
     }
 
     return true;
