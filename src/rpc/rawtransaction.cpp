@@ -1176,8 +1176,9 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false, {"hexstring","allowhighfees"} },
     { "rawtransactions",    "signrawtransaction",     &signrawtransaction,     false, {"hexstring","prevtxs","privkeys","sighashtype"} }, /* uses wallet if enabled */
     { "rawtransactions",    "rawblindrawtransaction", &rawblindrawtransaction, false, {}},
+#ifdef ENABLE_WALLET
     { "rawtransactions",    "blindrawtransaction",    &blindrawtransaction,    true, {}},
-
+#endif
     { "blockchain",         "gettxoutproof",          &gettxoutproof,          true,  {"txids", "blockhash"} },
     { "blockchain",         "verifytxoutproof",       &verifytxoutproof,       true,  {"proof"} },
 };
