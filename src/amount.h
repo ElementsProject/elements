@@ -7,7 +7,7 @@
 #define BITCOIN_AMOUNT_H
 
 #include "serialize.h"
-
+#include "uint256.h"
 #include <stdlib.h>
 #include <string>
 
@@ -18,6 +18,17 @@ static const CAmount COIN = 100000000;
 static const CAmount CENT = 1000000;
 
 extern const std::string CURRENCY_UNIT;
+
+/**
+ *  Native Asset Issuance
+ *
+ *  An asset identifier tag, a 256 bits serialized hash (sha256) defined
+ *  by the issuance transaction from which the output’s coins are derived.
+ *  Each output contains coins from a single asset/currency.
+ *  For the host currency, the similarly-calculated hash of the chain’s genesis
+ *  block is used instead.
+**/
+typedef uint256 CAssetID;
 
 /** No amount larger than this (in satoshi) is valid.
  *
