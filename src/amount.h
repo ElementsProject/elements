@@ -30,6 +30,9 @@ extern const std::string CURRENCY_UNIT;
 **/
 typedef uint256 CAssetID;
 
+/** The sha256 of Bitcoin genesis block, for easy reference **/
+static const CAssetID BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621"));
+
 /** No amount larger than this (in satoshi) is valid.
  *
  * Note that this constant is *not* the total money supply, which in Bitcoin
