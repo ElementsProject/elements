@@ -45,6 +45,9 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
         txNew.vout[i].scriptPubKey = genesisOutputScript;
     }
 
+    uint256 eth(uint256S("11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"));
+    txNew.vout.push_back(CTxOut(eth, 100, genesisOutputScript));
+
     CBlock genesis;
     genesis.nTime    = nTime;
     genesis.proof = CProof(scriptChallenge, CScript());
