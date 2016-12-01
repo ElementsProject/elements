@@ -47,8 +47,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getblockhash", 0 },
     { "move", 2 },
     { "move", 3 },
-    { "sendfrom", 2 },
-    { "sendfrom", 3 },
     { "listtransactions", 1 },
     { "listtransactions", 2 },
     { "listtransactions", 3 },

@@ -35,11 +35,11 @@ class TxnMallTest(BitcoinTestFramework):
         
         # Assign coins to foo and bar accounts:
         node0_address_foo = self.nodes[0].getnewaddress("foo")
-        fund_foo_txid = self.nodes[0].sendfrom("", node0_address_foo, 1219)
+#        fund_foo_txid = self.nodes[0].sendfrom("", node0_address_foo, 1219)
         fund_foo_tx = self.nodes[0].gettransaction(fund_foo_txid)
 
         node0_address_bar = self.nodes[0].getnewaddress("bar")
-        fund_bar_txid = self.nodes[0].sendfrom("", node0_address_bar, 29)
+#        fund_bar_txid = self.nodes[0].sendfrom("", node0_address_bar, 29)
         fund_bar_tx = self.nodes[0].gettransaction(fund_bar_txid)
 
         assert_equal(self.nodes[0].getbalance(""),
@@ -67,8 +67,8 @@ class TxnMallTest(BitcoinTestFramework):
         assert_equal(doublespend["complete"], True)
 
         # Create two spends using 1 50 BTC coin each
-        txid1 = self.nodes[0].sendfrom("foo", node1_address, 40, 0)
-        txid2 = self.nodes[0].sendfrom("bar", node1_address, 20, 0)
+#        txid1 = self.nodes[0].sendfrom("foo", node1_address, 40, 0)
+#        txid2 = self.nodes[0].sendfrom("bar", node1_address, 20, 0)
         
         # Have node0 mine a block:
         if (self.options.mine_block):
