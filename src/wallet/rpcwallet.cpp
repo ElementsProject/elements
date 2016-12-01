@@ -3410,8 +3410,10 @@ UniValue claimpegin(const JSONRPCRequest& request)
     if (value > MAX_MONEY / 200)
         throw JSONRPCError(RPC_VERIFY_REJECTED, "IsStandard rules prevent pegging-in > 0.105 million BTC reliably at a time - please work with your functionary to mine a large lock-merge transaction first");
 
+    uint256 bitcoinID(BITCOINID);
+
     //Pad the locked outputs by the IsStandard lock dust value
-    CTxOut dummyTxOut(0, relock_spk);
+    CTxOut dummyTxOut(bitcoinID, 0, relock_spk);
     CAmount lockDust(dummyTxOut.GetDustThreshold(withdrawLockTxFee));
 
     LOCK(cs_main);
@@ -3425,7 +3427,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
         mtxn.vin.push_back(CTxIn(lockedUTXO[0].first.hash, lockedUTXO[0].first.n, CScript(), ~(uint32_t)0));
         mtxn.vin.push_back(CTxIn(lockedUTXO[1].first.hash, lockedUTXO[1].first.n, CScript(), ~(uint32_t)0));
         CAmount out_value = lockedUTXO[0].second + lockedUTXO[1].second;
-        mtxn.vout.push_back(CTxOut(out_value, relock_spk));
+        mtxn.vout.push_back(CTxOut(bitcoinID, out_value, relock_spk));
 
         CValidationState state;
         bool fMissingInputs;
@@ -3458,8 +3460,8 @@ UniValue claimpegin(const JSONRPCRequest& request)
     //Build the transaction
     CMutableTransaction mtxn;
     CTxIn txin(utxo_txid, utxo_vout, scriptSig, ~(uint32_t)0);
-    CTxOut txout(value, GetScriptForDestination(sidechainAddress.Get()));
-    CTxOut txrelock(utxo_value - value, relock_spk);
+    CTxOut txout(bitcoinID, value, GetScriptForDestination(sidechainAddress.Get()));
+    CTxOut txrelock(bitcoinID, utxo_value - value, relock_spk);
     mtxn.vin.push_back(txin);
     mtxn.vout.push_back(txout);
     mtxn.vout.push_back(txrelock);
