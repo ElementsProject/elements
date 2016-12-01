@@ -30,7 +30,7 @@ static CScript StrHexToScriptWithDefault(std::string strScript, const CScript de
     return returnScript;
 }
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards)
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const uint256& assetID)
 {
     // Shards must be evenly divisible
     assert(MAX_MONEY % rewardShards == 0);
@@ -41,6 +41,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     txNew.vout.resize(rewardShards);
     for (unsigned int i = 0; i < rewardShards; i++) {
         txNew.vout[i].nValue = genesisReward/rewardShards;
+        txNew.vout[i].nAsset = assetID;
         txNew.vout[i].scriptPubKey = genesisOutputScript;
     }
 
@@ -122,13 +123,15 @@ public:
         nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
+        // SHA256 of Bitcoin genesis mainnet hash for NUMS bitcoin asset id
+        bitcoinID = BITCOINID;
+
         parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, genesisChallengeScript, 1, MAX_MONEY, 100);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, genesisChallengeScript, 1, MAX_MONEY, 100, bitcoinID);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
-
         vFixedSeeds.clear(); //! TODO
         vSeeds.clear(); //! TODO
 
@@ -227,7 +230,10 @@ public:
         nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100);
+        // SHA256 of Bitcoin genesis mainnet hash for NUMS bitcoin asset id
+        bitcoinID = BITCOINID;
+
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, bitcoinID);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
