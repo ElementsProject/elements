@@ -356,6 +356,9 @@ public:
     {
         if (!nValue.IsAmount())
             return false; // FIXME
+        uint256 assetid;
+        if (!nAsset.GetAssetID(assetid) || assetid != BITCOINID)
+            return false;
         //Withdrawlocks are evaluated at a higher, static feerate
         //to ensure peg-outs are IsStandard on mainchain
         if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
