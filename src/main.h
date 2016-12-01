@@ -378,11 +378,12 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
  * @param[in] view   CCoinsViewCache to find necessary outputs
  * @param[in] tx     transaction for which we are checking totals
  * @param[in] excess additional amount to consider as input value (eg fees), can be negative
+ * @param[in] excessID the asset id of the additional amount
  * @param[in] pvChecks  multithreaded rangeproof and commitment checker
  * @param[in] cacheStore signal if rangeproof verification should be cached
  * @return  True if totals are identical
 */
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, const uint256& excessID, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
 
 
 /**

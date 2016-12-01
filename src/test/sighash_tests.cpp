@@ -114,6 +114,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle) {
         tx.vout.push_back(CTxOut());
         CTxOut &txout = tx.vout.back();
         txout.nValue = insecure_rand() % 100000000;
+        txout.nAsset = BITCOINID;
         RandomScript(txout.scriptPubKey);
     }
 }

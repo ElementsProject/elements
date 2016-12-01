@@ -571,7 +571,7 @@ bool PaymentServer::processPaymentRequest(const PaymentRequestPlus& request, Sen
         }
 
         // Extract and check amounts
-        CTxOut txOut(sendingTo.second, sendingTo.first);
+        CTxOut txOut(BITCOINID, sendingTo.second, sendingTo.first);
         if (txOut.IsDust(::minRelayTxFee)) {
             Q_EMIT message(tr("Payment request error"), tr("Requested payment amount of %1 is too small (considered dust).")
                 .arg(BitcoinUnits::formatWithUnit(optionsModel->getDisplayUnit(), sendingTo.second)),

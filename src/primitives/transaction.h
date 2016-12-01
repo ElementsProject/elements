@@ -159,6 +159,7 @@ public:
                 vchSurjectionproof.clear();
             }
         } else {
+            vchAssetTag.resize(nAssetTagSize);
             READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
             // The surjection proof is serialized as part of the witness data
         }
@@ -179,7 +180,7 @@ public:
 
     bool IsAssetCommitment() const
     {
-        return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==8 || vchAssetTag[0]==9);
+        return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==10 || vchAssetTag[0]==11);
     }
 
     friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
@@ -296,7 +297,7 @@ public:
     // FIXME: Add `const CTxOutAsset& nAssetIn` as first parameter. This will
     //        (rightfully) break all code that calls this constructor, which
     //        will need to be fixed to be asset aware.
-    CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 

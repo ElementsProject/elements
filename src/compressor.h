@@ -134,6 +134,7 @@ public:
             } else
                 READWRITE(txout.nValue);
         }
+        READWRITE(txout.nAsset);
         CScriptCompressor cscript(REF(txout.scriptPubKey));
         READWRITE(cscript);
     }

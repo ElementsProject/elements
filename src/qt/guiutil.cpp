@@ -255,7 +255,7 @@ bool isDust(const QString& address, const CAmount& amount)
 {
     CTxDestination dest = CBitcoinAddress(address.toStdString()).Get();
     CScript script = GetScriptForDestination(dest);
-    CTxOut txOut(amount, script);
+    CTxOut txOut(BITCOINID, amount, script);
     return txOut.IsDust(::minRelayTxFee);
 }
 

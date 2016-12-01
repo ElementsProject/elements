@@ -117,8 +117,9 @@ void CTxOutValue::SetToAmount(const CAmount nAmount) {
     WriteBE64(&vchCommitment[1], nAmount);
 }
 
-CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
 {
+    nAsset = nAssetIn;
     nValue = nValueIn;
     scriptPubKey = scriptPubKeyIn;
 }

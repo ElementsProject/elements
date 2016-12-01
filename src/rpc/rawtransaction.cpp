@@ -486,7 +486,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         if (name_ == "data") {
             std::vector<unsigned char> data = ParseHexV(sendTo[name_].getValStr(),"Data");
 
-            CTxOut out(0, CScript() << OP_RETURN << data);
+            CTxOut out(BITCOINID, 0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else {
             CBitcoinAddress address(name_);
@@ -502,7 +502,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             outputValue += nAmount;
 
 
-            CTxOut out(nAmount, scriptPubKey);
+            CTxOut out(BITCOINID, nAmount, scriptPubKey);
             if (address.IsBlinded()) {
                 CPubKey confidentiality_pubkey = address.GetBlindingKey();
                 if (!confidentiality_pubkey.IsValid())

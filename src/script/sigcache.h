@@ -38,7 +38,7 @@ public:
         store = storeIn;
     };
 
-    bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const secp256k1_context* ctx) const;
+    bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const std::vector<unsigned char>& vchAssetTag, const secp256k1_context* ctx) const;
 
 };
 

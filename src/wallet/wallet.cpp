@@ -2344,7 +2344,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 // vouts to the payees
                 BOOST_FOREACH (const CRecipient& recipient, vecSend)
                 {
-                    CTxOut txout(recipient.nAmount, recipient.scriptPubKey);
+                    CTxOut txout(BITCOINID, recipient.nAmount, recipient.scriptPubKey);
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
@@ -2427,7 +2427,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         scriptChange = GetScriptForDestination(vchPubKey.GetID());
                     }
 
-                    CTxOut newTxOut(nChange, scriptChange);
+                    CTxOut newTxOut(BITCOINID, nChange, scriptChange);
 
                     // We do not move dust-change to fees, because the sender would end up paying more than requested.
                     // This would be against the purpose of the all-inclusive feature.
@@ -2513,7 +2513,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     // We need a dummy output to put a non-zero blinding factor.
                     // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
                     // instead, as this does not actually provide better privacy.
-                    CTxOut newTxOut(0, CScript() << OP_RETURN);
+                    CTxOut newTxOut(BITCOINID, 0, CScript() << OP_RETURN);
                     txNew.vout.push_back(newTxOut);
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
