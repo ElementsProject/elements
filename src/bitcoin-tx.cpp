@@ -76,7 +76,7 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage += HelpMessageOpt("delin=N", _("Delete input N from TX"));
         strUsage += HelpMessageOpt("delout=N", _("Delete output N from TX"));
         strUsage += HelpMessageOpt("in=TXID:VOUT:VALUE(:SEQUENCE_NUMBER)", _("Add input to TX"));
-        strUsage += HelpMessageOpt("blind=B1:B2:B3:...", _("Transaction input blinds"));
+        strUsage += HelpMessageOpt("blind=V1,B1,AB1,ID1:V2,B2,AB2,ID2:VB3...", _("Transaction input blinds(4-tuple of value, blinding, asset blinding, asset id required)"));
         strUsage += HelpMessageOpt("locktime=N", _("Set TX lock time to N"));
         strUsage += HelpMessageOpt("nversion=N", _("Set TX version to N"));
         strUsage += HelpMessageOpt("outaddr=VALUE:ADDRESS", _("Add address-based output to TX"));
@@ -291,24 +291,43 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
 
 static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
 {
-    std::vector<std::string> input_blinding_factors;
-    boost::split(input_blinding_factors, strInput, boost::is_any_of(":"));
+    std::vector<std::string> input_blinding;
+    boost::split(input_blinding, strInput, boost::is_any_of(":"));
 
-    if (input_blinding_factors.size() != tx.vin.size())
+    if (input_blinding.size() != tx.vin.size())
         throw runtime_error("One input blinding factor required per transaction input");
 
     bool fBlindedIns = false;
     bool fBlindedOuts = false;
     std::vector<uint256> input_blinds;
     std::vector<uint256> output_blinds;
+    std::vector<uint256> output_asset_blinds;
     std::vector<CPubKey> output_pubkeys;
+    std::vector<CAmount> input_amounts;
+    std::vector<uint256> input_asset_blinds;
+    std::vector<uint256> input_asset_ids;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        std::vector<std::string> entry;
+        boost::split(entry, input_blinding[nIn], boost::is_any_of(","));
+        if (entry.size() != 4)
+            throw runtime_error("Each blinding input entry must have value:blinding:assetblinding:assetid attached");
         uint256 blind;
-        blind.SetHex(input_blinding_factors[nIn]);
-        if (blind.size() == 0) {
-            input_blinds.push_back(blind);
-        } else if (blind.size() == 32) {
-            input_blinds.push_back(blind);
+        blind.SetHex(entry[1]);
+        uint256 assetblind;
+        assetblind.SetHex(entry[2]);
+        input_asset_blinds.push_back(assetblind);
+        uint256 id;
+        id.SetHex(entry[3]);
+        input_asset_ids.push_back(id);
+        CAmount value;
+        if (!ParseMoney(entry[0].data(), value))
+            throw runtime_error("invalid TX input value");
+        input_amounts.push_back(value);
+        input_blinds.push_back(blind);
+        if (!(blind == uint256() && assetblind == uint256()) ||
+            !(blind != uint256() && assetblind != uint256()))
+            throw runtime_error("Each input must have both zero or non-zero blindings");
+        if (blind != uint256()) {
             fBlindedIns = true;
         }
     }
@@ -326,12 +345,13 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
             fBlindedOuts = true;
         }
         output_blinds.push_back(uint256());
+        output_asset_blinds.push_back(uint256());
     }
 
     if (fBlindedIns && !fBlindedOuts) {
         throw runtime_error("Confidential inputs without confidential outputs");
     }
-    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+    BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)

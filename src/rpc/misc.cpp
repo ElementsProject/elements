@@ -26,6 +26,8 @@
 
 using namespace std;
 
+extern UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& strasset);
+
 /**
  * @note Do not add or change anything in the information returned by this
  * method. `getinfo` exists for backwards-compatibility only. It combines
@@ -41,10 +43,14 @@ using namespace std;
  **/
 UniValue getinfo(const UniValue& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+    if (fHelp || params.size() > 1)
         throw runtime_error(
             "getinfo\n"
             "Returns an object containing various state info.\n"
+#ifdef ENABLE_WALLET
+            "\nArguments:\n"
+            "1. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances.\n"
+#endif
             "\nResult:\n"
             "{\n"
             "  \"version\": xxxxx,           (numeric) the server version\n"
@@ -84,7 +90,16 @@ UniValue getinfo(const UniValue& params, bool fHelp)
 #ifdef ENABLE_WALLET
     if (pwalletMain) {
         obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
-        obj.push_back(Pair("balance",       ValueFromAmount(pwalletMain->GetBalance())));
+        CAmountMap balance = pwalletMain->GetBalance();
+        std::string strasset = "bitcoin";
+        if (params.size() > 0) {
+            strasset = params[0].get_str();
+        }
+        obj.push_back(Pair("balance", PushAssetBalance(balance, pwalletMain, strasset)));
+    }
+    else {
+        if (!params[0].isNull())
+            throw JSONRPCError(RPC_WALLET_ERROR, "Wallet must be enabled to list asset balances.");
     }
 #endif
     obj.push_back(Pair("blocks",        (int)chainActive.Height()));

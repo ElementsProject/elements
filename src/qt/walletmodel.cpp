@@ -69,17 +69,17 @@ CAmount WalletModel::getBalance(const CCoinControl *coinControl) const
         return nBalance;
     }
 
-    return wallet->GetBalance();
+    return wallet->GetBalance()[BITCOINID];
 }
 
 CAmount WalletModel::getUnconfirmedBalance() const
 {
-    return wallet->GetUnconfirmedBalance();
+    return wallet->GetUnconfirmedBalance()[BITCOINID];
 }
 
 CAmount WalletModel::getImmatureBalance() const
 {
-    return wallet->GetImmatureBalance();
+    return wallet->GetImmatureBalance()[BITCOINID];
 }
 
 bool WalletModel::haveWatchOnly() const
@@ -89,17 +89,17 @@ bool WalletModel::haveWatchOnly() const
 
 CAmount WalletModel::getWatchBalance() const
 {
-    return wallet->GetWatchOnlyBalance();
+    return wallet->GetWatchOnlyBalance()[BITCOINID];
 }
 
 CAmount WalletModel::getWatchUnconfirmedBalance() const
 {
-    return wallet->GetUnconfirmedWatchOnlyBalance();
+    return wallet->GetUnconfirmedWatchOnlyBalance()[BITCOINID];
 }
 
 CAmount WalletModel::getWatchImmatureBalance() const
 {
-    return wallet->GetImmatureWatchOnlyBalance();
+    return wallet->GetImmatureWatchOnlyBalance()[BITCOINID];
 }
 
 void WalletModel::updateStatus()
@@ -222,7 +222,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
                 const unsigned char* scriptStr = (const unsigned char*)out.script().data();
                 CScript scriptPubKey(scriptStr, scriptStr+out.script().size());
                 CAmount nAmount = out.amount();
-                CRecipient recipient = {scriptPubKey, nAmount, CPubKey(), rcp.fSubtractFeeFromAmount};
+                CRecipient recipient = {scriptPubKey, nAmount, BITCOINID, CPubKey(), rcp.fSubtractFeeFromAmount};
                 vecSend.push_back(recipient);
             }
             if (subtotal <= 0)
@@ -250,7 +250,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             if (addr.IsBlinded()) {
                 confidentiality_pubkey = addr.GetBlindingKey();
             }
-            CRecipient recipient = {scriptPubKey, rcp.amount, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
+            CRecipient recipient = {scriptPubKey, rcp.amount, BITCOINID, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
             total += rcp.amount;
@@ -279,8 +279,10 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
         CWalletTx *newTx = transaction.getTransaction();
         CReserveKey *keyChange = transaction.getPossibleKeyChange();
+        std::vector<CReserveKey*> vkeyChange;
+        vkeyChange.push_back(keyChange);
         std::vector<CAmount> outAmounts;
-        bool fCreated = wallet->CreateTransaction(vecSend, *newTx, *keyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl, true, &outAmounts);
+        bool fCreated = wallet->CreateTransaction(vecSend, *newTx, vkeyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl, true, &outAmounts);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && fCreated)
             transaction.reassignAmounts(outAmounts, nChangePosRet);
@@ -334,7 +336,9 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
         }
 
         CReserveKey *keyChange = transaction.getPossibleKeyChange();
-        if(!wallet->CommitTransaction(*newTx, *keyChange))
+        std::vector<CReserveKey*> vkeyChange;
+        vkeyChange.push_back(keyChange);
+        if(!wallet->CommitTransaction(*newTx, vkeyChange))
             return TransactionCommitFailed;
 
         CTransaction* t = (CTransaction*)newTx;

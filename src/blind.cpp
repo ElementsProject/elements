@@ -7,6 +7,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
+#include <secp256k1_surjectionproof.h>
 
 static secp256k1_context* secp256k1_blind_context = NULL;
 
@@ -33,7 +34,7 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
-bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out)
+bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, uint256& asset_id_out, uint256& asset_blinding_factor_out)
 {
     if (!key.IsValid()) {
         return false;
@@ -45,37 +46,69 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     uint256 nonce = key.ECDH(ephemeral_key);
     CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
     unsigned char msg[4096];
-    size_t msg_size;
+    size_t msg_size = 64;
     uint64_t min_value, max_value, amount;
     secp256k1_pedersen_commitment commit;
-    if(!secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &commit, &txout.nValue.vchCommitment[0]))
+    if (!txout.nAsset.IsAssetCommitment())
         return false;
-    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size(), NULL, 0, secp256k1_generator_h);
-    if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
+
+    secp256k1_generator gen;
+    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, &txout.nAsset.vchAssetTag[0]) != 1)
+        return false;
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &commit, &txout.nValue.vchCommitment[0]) != 1)
+        return false;
+    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size(), NULL, 0, &gen);
+    secp256k1_generator recoveredGen;
+
+    if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
         amount_out = 0;
         blinding_factor_out = uint256();
+        asset_id_out = uint256();
+        asset_blinding_factor_out = uint256();
         return false;
     } else {
         amount_out = (CAmount)amount;
+        asset_id_out = uint256(std::vector<unsigned char>(msg, msg+32));
+        asset_blinding_factor_out = uint256(std::vector<unsigned char>(msg+32, msg+64));
         return true;
     }
 }
 
-bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vector<uint256 >& output_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
+    assert(tx.vout.size() == output_asset_blinding_factors.size());
     assert(tx.vin.size() == input_blinding_factors.size());
+    assert(tx.vin.size() == input_asset_blinding_factors.size());
+    assert(tx.vin.size() == input_asset_ids.size());
+    assert(tx.vin.size() == input_amounts.size());
 
-    std::vector<const unsigned char*> blindptrs;
+    std::vector<unsigned char*> blindptrs;
+    std::vector<const unsigned char*> assetblindptrs;
+    std::vector<uint64_t> blindedAmounts;
     blindptrs.reserve(tx.vout.size() + tx.vin.size());
+    assetblindptrs.reserve(tx.vout.size() + tx.vin.size());
+
+    //Surjection proof prep
+    std::vector<secp256k1_fixed_asset_tag> inputAssetIDs;
+    std::vector<secp256k1_generator> inputAssetGenerators;
+    inputAssetIDs.resize(tx.vin.size());
+    inputAssetGenerators.resize(tx.vin.size());
+    for (size_t i = 0; i < tx.vin.size(); i++) {
+        memcpy(&inputAssetIDs[i], input_asset_ids[i].begin(), 32);
+        assert(secp256k1_generator_generate_blinded(secp256k1_blind_context, &inputAssetGenerators[i], input_asset_ids[i].begin(), input_asset_blinding_factors[i].begin()) == 1);
+    }
 
     //Total blinded inputs
     int nBlindsIn = 0;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         if (input_blinding_factors[nIn] != uint256()) {
             assert(input_blinding_factors[nIn].size() == 32);
+            assert(input_asset_blinding_factors[nIn].size() == 32);
             blindptrs.push_back(input_blinding_factors[nIn].begin());
+            assetblindptrs.push_back(input_asset_blinding_factors[nIn].begin());
+            blindedAmounts.push_back(input_amounts[nIn]);
             nBlindsIn++;
         }
     }
@@ -85,10 +118,24 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vect
     //Number of outputs to newly blind
     int nToBlind = 0;
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-        assert((output_blinding_factors[nOut] != uint256()) == !tx.vout[nOut].nValue.IsAmount());
+        CTxOut& out = tx.vout[nOut];
+        // Wallet only understands all-blinded or all-unblinded
+        assert((output_blinding_factors[nOut] != uint256()) == !out.nValue.IsAmount());
+        assert(out.nValue.IsAmount() == out.nAsset.IsAssetID());
+        assert(out.nAsset.IsAssetCommitment() == !out.nAsset.vchSurjectionproof.empty());
         if (output_blinding_factors[nOut] != uint256()) {
+            assert(output_asset_blinding_factors[nOut] != uint256());
             blindptrs.push_back(output_blinding_factors[nOut].begin());
+            assetblindptrs.push_back(output_asset_blinding_factors[nOut].begin());
+            blindedAmounts.push_back(tx.vout[nOut].nValue.GetAmount());
             nBlindsOut++;
+
+            //Assert-check surjective proofs
+            secp256k1_generator gen;
+            secp256k1_surjectionproof proof;
+            assert(secp256k1_generator_parse(secp256k1_blind_context, &gen, &out.nAsset.vchAssetTag[0]) == 1);
+            assert(secp256k1_surjectionproof_parse(secp256k1_blind_context, &proof, &out.nAsset.vchSurjectionproof[0], out.nAsset.vchSurjectionproof.size()) == 1);
+            assert(secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen) == 1);
          } else {
              if (output_pubkeys[nOut].IsValid()) {
                  nToBlind++;
@@ -100,30 +147,75 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vect
     static const unsigned char diff_zero[32] = {0};
     int nBlinded = 0;
     unsigned char blind[tx.vout.size()][32];
+    unsigned char asset_blind[tx.vout.size()][32];
+    secp256k1_pedersen_commitment commit;
+    secp256k1_generator gen;
+    uint256 assetID;
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-        if (tx.vout[nOut].nValue.IsAmount() && output_pubkeys[nOut].IsValid()) {
-            if (nBlinded + 1 == nToBlind) {
-                // Last to-be-blinded value: compute from all other blinding factors.
-                assert(secp256k1_pedersen_blind_sum(secp256k1_blind_context, &blind[nBlinded][0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
-                // Never permit producting a blinding factor 0, but insist a new output is added.
-                if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
-                    return false;
-                }
-                blindptrs.push_back(&blind[nBlinded++][0]);
-            } else {
-                GetRandBytes(&blind[nBlinded][0], 32);
-                blindptrs.push_back(&blind[nBlinded++][0]);
-            }
-            output_blinding_factors[nOut] = uint256(std::vector<unsigned char>(blindptrs[blindptrs.size()-1], blindptrs[blindptrs.size()-1]+32));
-            nBlindsOut++;
-            // Create blinded value
-            CTxOutValue& value = tx.vout[nOut].nValue;
+        CTxOut& out = tx.vout[nOut];
+        if (out.nValue.IsAmount() && output_pubkeys[nOut].IsValid()) {
+            CTxOutValue& value = out.nValue;
+            CTxOutAsset& asset = out.nAsset;
             CAmount amount = value.GetAmount();
-            secp256k1_pedersen_commitment commit;
-            assert(secp256k1_pedersen_commit(secp256k1_blind_context, &commit, (unsigned char*)blindptrs.back(), amount, secp256k1_generator_h));
+            assert(out.nAsset.GetAssetID(assetID));
+            blindedAmounts.push_back(value.GetAmount());
+
+            GetRandBytes(&blind[nBlinded][0], 32);
+            GetRandBytes(&asset_blind[nBlinded][0], 32);
+            blindptrs.push_back(&blind[nBlinded][0]);
+            assetblindptrs.push_back(&asset_blind[nBlinded][0]);
+
+            nBlindsOut++;
+
+            // Last blinding factor r' is set as -(output's (vr + r') - input's (vr + r')).
+            // Before modifying the transaction or return arguments we must
+            // ensure the final blinding factor to not be its corresponding -vr (aka unblinded),
+            // or 0, in the case of 0-value output, insisting on additional output to blind.
+            if (nBlinded + 1 == nToBlind) {
+
+                // Generate value we intend to insert
+                assert(secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
+
+                assert(secp256k1_pedersen_commit(secp256k1_blind_context, &commit, (unsigned char*)blindptrs.back(), amount, &gen));
+                unsigned char commitCheck[CTxOutValue::nCommittedSize];
+                secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, commitCheck, &commit);
+
+                // 0-value/0-blind commit is invalid,
+                if (amount == 0) {
+                    if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
+                        return false;
+                    }
+                }
+                else {
+                    // Blank-blind commit
+                    unsigned char blankBlind[CTxOutValue::nCommittedSize] = {0};
+                    assert(secp256k1_generator_generate_blinded(secp256k1_blind_context, &gen, assetID.begin(), blankBlind) == 1);
+                    assert(secp256k1_pedersen_commit(secp256k1_blind_context, &commit, blankBlind, amount, &gen));
+                    unsigned char blankCheck[CTxOutValue::nCommittedSize];
+                    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, blankCheck, &commit);
+                    // Make sure the two commitments don't match. If so, ask for additional output
+                    // and try again
+                    if (memcmp(blankCheck, commitCheck, 32) == 0)
+                        return false;
+                }
+            }
+
+            nBlinded++;
+
+            output_blinding_factors[nOut] = uint256(std::vector<unsigned char>(blindptrs[blindptrs.size()-1], blindptrs[blindptrs.size()-1]+32));
+            output_asset_blinding_factors[nOut] = uint256(std::vector<unsigned char>(assetblindptrs[assetblindptrs.size()-1], assetblindptrs[assetblindptrs.size()-1]+32));
+
+            //Blind the asset ID
+            assert(secp256k1_generator_generate_blinded(secp256k1_blind_context, &gen, assetID.begin(), assetblindptrs[assetblindptrs.size()-1]) == 1);
+            assert(secp256k1_generator_serialize(secp256k1_blind_context, &asset.vchAssetTag[0], &gen));
+
+            // Create value commitment
+            value.vchCommitment.resize(CTxOutValue::nCommittedSize);
+            assert(secp256k1_pedersen_commit(secp256k1_blind_context, &commit, (unsigned char*)blindptrs.back(), amount, &gen));
             secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, &value.vchCommitment[0], &commit);
             assert(value.IsValid());
+
             // Generate ephemeral key for ECDH nonce generation
             CKey ephemeral_key;
             ephemeral_key.MakeNewKey(true);
@@ -133,26 +225,48 @@ bool BlindOutputs(const std::vector<uint256 >& input_blinding_factors, std::vect
             // Generate nonce
             uint256 nonce = ephemeral_key.ECDH(output_pubkeys[nOut]);
             CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
-            // Create range proof
+
+            // Prep range proof
             size_t nRangeProofLen = 5134;
             // TODO: smarter min_value selection
             value.vchRangeproof.resize(nRangeProofLen);
-            unsigned char message;
-            size_t msg_len = 0;
-            int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &value.vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, &message, msg_len, NULL, 0, secp256k1_generator_h);
+
+            // Compose sidechannel message to convey asset info (ID and asset blinds)
+            unsigned char assetsMessage[64];
+            memcpy(assetsMessage, assetID.begin(), 32);
+            memcpy(assetsMessage+32,  assetblindptrs[assetblindptrs.size()-1], 32);
+
+            // Sign rangeproof
+            int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &value.vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), NULL, 0, &gen);
             value.vchRangeproof.resize(nRangeProofLen);
             // TODO: do something smarter here
             assert(res);
+
+            // Create surjection proof
+            size_t nInputsToSelect = std::min((size_t)3, input_asset_ids.size());
+            unsigned char randseed[32];
+            GetRandBytes(randseed, 32);
+            size_t input_index;
+            secp256k1_surjectionproof proof;
+            secp256k1_fixed_asset_tag tag;
+            memcpy(&tag, assetID.begin(), 32);
+            assert(secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &inputAssetIDs[0], input_asset_ids.size(), nInputsToSelect, &tag, 100, randseed) != 0);
+            assert(secp256k1_surjectionproof_generate(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen, input_index, input_asset_blinding_factors[input_index].begin(), assetblindptrs[assetblindptrs.size()-1]) == 1);
+            assert(secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen));
+
+            size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
+            tx.vout[nOut].nAsset.vchSurjectionproof.resize(output_len);
+            secp256k1_surjectionproof_serialize(secp256k1_blind_context, &asset.vchSurjectionproof[0], &output_len, &proof);
         }
     }
 
-    // Check resulting blinding, normal operation should pass
-    unsigned char diff[32];
-    bool ret = secp256k1_pedersen_blind_sum(secp256k1_blind_context, diff, &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn);
-    assert(ret);
-    if (memcmp(diff_zero, diff, 32)) {
+    // Check blinding(even if nothing has been done)
+    unsigned char tempFinalBlind[32];
+    memcpy(tempFinalBlind, &blind[nBlinded-1][0], 32);
+    memset(&blind[nBlinded-1][0], 0, 32);
+    assert(secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
+    if (memcmp(&blind[nBlinded-1][0], tempFinalBlind, 32))
         return false;
-    }
 
     return true;
 }
