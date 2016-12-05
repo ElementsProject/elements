@@ -333,7 +333,7 @@ set<uint256> CWallet::GetConflicts(const uint256& txid) const
 
     std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range;
 
-    BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+    FOREACH_TXIN(txin, wtx)
     {
         if (mapTxSpends.count(txin.prevout) <= 1)
             continue;  // No conflict if zero or one spends
@@ -417,7 +417,7 @@ void CWallet::AddToSpends(const uint256& wtxid)
     if (thisTx.IsCoinBase()) // Coinbases don't spend anything!
         return;
 
-    BOOST_FOREACH(const CTxIn& txin, thisTx.vin)
+    FOREACH_TXIN(txin, thisTx)
         AddToSpends(txin.prevout, wtxid);
 }
 
@@ -712,7 +712,7 @@ void CWallet::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
     // If a transaction changes 'conflicted' state, that changes the balance
     // available of the outputs it spends. So force those to be
     // recomputed, also:
-    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+    FOREACH_TXIN(txin, tx)
     {
         if (mapWallet.count(txin.prevout.hash))
             mapWallet[txin.prevout.hash].MarkDirty();
@@ -864,8 +864,8 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
 
     // Compute fee:
     CAmount nDebit = GetDebit(filter);
-    if (nDebit > 0) // debit>0 means we signed/sent this transaction
-        nFee = nTxFee;
+    // if (nDebit > 0) // debit>0 means we signed/sent this transaction
+    //     nFee = nTxFee;
 
     CTxDestination addressUnaccounted = CNoDestination();
     int voutUnaccounted = -1;
@@ -1660,7 +1660,7 @@ bool CWallet::CreateTransaction(const vector<CSend>& vecSend, const vector<CTxIn
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second));
 
-                txNew.nTxFee = nValueIn - nValueOut;
+                // txNew.nTxFee = nValueIn - nValueOut;
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
                 // Create blinded outputs
@@ -1783,7 +1783,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
 
             // Notify that old coins are spent
             set<CWalletTx*> setCoins;
-            BOOST_FOREACH(const CTxIn& txin, wtxNew.vin)
+            FOREACH_TXIN(txin, wtxNew)
             {
                 CWalletTx &coin = mapWallet[txin.prevout.hash];
                 coin.BindWallet(this);

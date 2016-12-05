@@ -73,17 +73,18 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = _("Commands:") + "\n";
         strUsage += "  delin=N                " + _("Delete input N from TX") + "\n";
         strUsage += "  delout=N               " + _("Delete output N from TX") + "\n";
-        strUsage += "  in=TXID:VOUT:VALUE:SEQ " + _("Add input to TX") + "\n";
-        strUsage += "  blind=B1::B3:B4:...    " + _("Blind transaction outputs") + "\n";
+        strUsage += "  in=TXID:VOUT:VALUE:SEQ[:ASSETID] " + _("Add input to TX") + "\n";
+        strUsage += "  blind=B1:B3:B4:...     " + _("Blind transaction outputs") + "\n";
         strUsage += "  locktime=N             " + _("Set TX lock time to N") + "\n";
         strUsage += "  nversion=N             " + _("Set TX version to N") + "\n";
-        strUsage += "  outaddr=VALUE:ADDRESS  " + _("Add address-based output to TX") + "\n";
-        strUsage += "  outscript=VALUE:SCRIPT " + _("Add raw script output to TX") + "\n";
+        strUsage += "  outaddr=VALUE:ADDRESS[:ASSETID] " + _("Add address-based output to TX") + "\n";
+        strUsage += "  outscript=VALUE:SCRIPT[:ASSETID]" + _("Add raw script output to TX") + "\n";
         strUsage += "  sign=SIGHASH-FLAGS     " + _("Add zero or more signatures to transaction") + "\n";
         strUsage += "      This command requires JSON registers:\n";
         strUsage += "      prevtxs=JSON object\n";
         strUsage += "      privatekeys=JSON object\n";
         strUsage += "      See signrawtransaction docs for format of sighash flags, JSON objects.\n";
+        strUsage += "  newasset=1             " + _("Make it a transaction definition transaction. An error will be raised if used after the transaction already has inputs.") + "\n";
         strUsage += "\n";
         fprintf(stdout, "%s", strUsage.c_str());
 
@@ -209,26 +210,34 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
         throw runtime_error("invalid TX input vout");
 
     // Remove vout
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     strVout = strVout.substr(pos + 1, string::npos);
 
     // extract and validate VALUE
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     if (pos == string::npos)
         throw runtime_error("TX input missing separator");
-    string strValue = strVout.substr(0, pos);
+    string strValue = strVout.substr(pos + 1, strVout.find(':', pos + 1) - pos - 1);
     CAmount value;
     if (!ParseMoney(strValue, value))
         throw runtime_error("invalid TX output value");
 
+    CAssetID assetID = CAssetID(Params().HashGenesisBlock());
     // extract and validate sequence number
     uint32_t nSequence = ~(uint32_t)0;
-    pos = strVout.find(':');
+    pos = strVout.find(':', pos + 1);
     if (pos != string::npos) {
         if ((pos == 0) || (pos == (strVout.size() - 1)))
             throw runtime_error("empty TX input field");
 
         string strSeq = strVout.substr(pos + 1, string::npos);
+        size_t posAsset = strVout.find(':', pos + 1);
+        if (posAsset != string::npos && posAsset != 0 && posAsset != (strVout.size() - 1)) {
+            strSeq = strVout.substr(pos + 1, posAsset);
+            string strAsset = strVout.substr(posAsset + 1, string::npos);
+            assetID = CAssetID(uint256(strAsset));
+        }
+
         strVout.resize(pos);
         int64_t nSeq = atoi64(strSeq);
 
@@ -251,7 +260,9 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequence);
     tx.vin.push_back(txin);
-    tx.nTxFee += value;
+    CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
+    mTxReward[assetID] += value;
+    tx.SetFeesFromTxRewardMap(mTxReward);
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
@@ -271,6 +282,14 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 
     // extract and validate ADDRESS
     string strAddr = strInput.substr(pos + 1, string::npos);
+    CAssetID assetID = CAssetID(Params().HashGenesisBlock());
+    size_t posAsset = strInput.find(':', pos + 1);
+    if (posAsset != string::npos && posAsset != 0 && posAsset != (strInput.size() - 1)) {
+        strAddr = strInput.substr(pos + 1, posAsset - pos - 1);
+        string strAsset = strInput.substr(posAsset + 1, string::npos);
+        assetID = CAssetID(uint256(strAsset));
+    }
+
     CBitcoinAddress addr(strAddr);
     if (!addr.IsValid())
         throw runtime_error("invalid TX output address");
@@ -279,13 +298,15 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     CScript scriptPubKey = GetScriptForDestination(addr.Get());
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(value, scriptPubKey, assetID);
     if (addr.IsBlinded()) {
         CPubKey pubkey = addr.GetBlindingKey();
         txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
-    tx.nTxFee -= value;
     tx.vout.push_back(txout);
+    CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
+    mTxReward[assetID] -= value;
+    tx.SetFeesFromTxRewardMap(mTxReward);
 }
 
 static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
@@ -349,24 +370,32 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
 
     // extract and validate script
     string strScript = strInput.substr(pos + 1, string::npos);
+    CAssetID assetID = CAssetID(Params().HashGenesisBlock());
+    size_t posAsset = strInput.find(':', pos + 1);
+    if (posAsset != string::npos && posAsset != 0 && posAsset != (strInput.size() - 1)) {
+        strScript = strInput.substr(pos, posAsset);
+        string strAsset = strInput.substr(posAsset + 1, string::npos);
+        assetID = CAssetID(uint256(strAsset));
+    }
     CScript scriptPubKey = ParseScript(strScript); // throws on err
 
+    CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
+    mTxReward[assetID] -= value;
+    tx.SetFeesFromTxRewardMap(mTxReward);
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(value, scriptPubKey, assetID);
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 {
-    // TODO: reduce nTxFee
-
     // parse requested deletion index
     int inIdx = atoi(strInIdx);
     if (inIdx < 0 || inIdx >= (int)tx.vin.size()) {
         string strErr = "Invalid TX input index '" + strInIdx + "'";
         throw runtime_error(strErr.c_str());
     }
+    // TODO: reduce fees (SetFeesFromTxRewardMap)
 
     // delete input from transaction
     tx.vin.erase(tx.vin.begin() + inIdx);
@@ -374,8 +403,6 @@ static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 
 static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
-    // TODO: increase nTxFee
-
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
     if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
@@ -383,6 +410,13 @@ static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
         throw runtime_error(strErr.c_str());
     }
 
+    if (!tx.vout[outIdx].nValue.IsAmount())
+        throw runtime_error("Cannot delete confidential outputs");
+
+    CAmountMap mTxReward = CTransaction(tx).GetTxRewardMap();
+    CTxOut txOut = tx.vout[outIdx];
+    mTxReward[txOut.assetID] -= txOut.nValue.GetAmount();
+    tx.SetFeesFromTxRewardMap(mTxReward);
     // delete output from transaction
     tx.vout.erase(tx.vout.begin() + outIdx);
 }
@@ -624,6 +658,16 @@ static void MutateTxWithdrawSign(CMutableTransaction& tx, const string& flagStr)
     }
 }
 
+static void MutateTxAssetDefinition(CMutableTransaction& tx)
+{
+    if (tx.vin.size() > 0)
+        throw runtime_error("Asset definition transaction already has inputs");
+
+    tx.vin.resize(1);
+    tx.vin[0].prevout.SetNull();
+    tx.vin[0].scriptSig = CScript();
+}
+
 class Secp256k1Init
 {
 public:
@@ -661,6 +705,8 @@ static void MutateTx(CMutableTransaction& tx, const string& command,
         MutateTxBlind(tx, commandVal);
     } else if (command == "withdrawsign")
         MutateTxWithdrawSign(tx, commandVal);
+    else if (command == "newasset")
+        MutateTxAssetDefinition(tx);
 
     else if (command == "load")
         RegisterLoad(commandVal);

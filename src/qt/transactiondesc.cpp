@@ -151,7 +151,7 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
     else
     {
         isminetype fAllFromMe = ISMINE_SPENDABLE;
-        BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+        FOREACH_TXIN(txin, wtx)
         {
             isminetype mine = wallet->IsMine(txin);
             if(fAllFromMe > mine) fAllFromMe = mine;
@@ -212,15 +212,15 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
                 strHTML += "<b>" + tr("Total credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
             }
 
-            if (wtx.nTxFee > 0)
-                strHTML += "<b>" + tr("Transaction fee") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wtx.nTxFee) + "<br>";
+            // if (wtx.nTxFee > 0)
+            //     strHTML += "<b>" + tr("Transaction fee") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wtx.nTxFee) + "<br>";
         }
         else
         {
             //
             // Mixed debit transaction
             //
-            BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+            FOREACH_TXIN(txin, wtx)
                 if (wallet->IsMine(txin))
                     strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(txin, ISMINE_ALL)) + "<br>";
             for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -273,7 +273,7 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
     if (fDebug)
     {
         strHTML += "<hr><br>" + tr("Debug information") + "<br><br>";
-        BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+        FOREACH_TXIN(txin, wtx)
             if(wallet->IsMine(txin))
                 strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(txin, ISMINE_ALL)) + "<br>";
         for (unsigned int i = 0; i < wtx.vout.size(); i++)
@@ -286,7 +286,7 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
         strHTML += "<br><b>" + tr("Inputs") + ":</b>";
         strHTML += "<ul>";
 
-        BOOST_FOREACH(const CTxIn& txin, wtx.vin)
+        FOREACH_TXIN(txin, wtx)
         {
             COutPoint prevout = txin.prevout;
 

@@ -87,6 +87,33 @@ bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
     return !(a == b);
 }
 
+bool operator<(const CAmountMap& a, const CAmountMap& b)
+{
+    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it) {
+        if (a.count(it->first) == 0 || a.find(it->first)->second < it->second)
+            return true;
+    }
+    return false;
+}
+
+CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b)
+{
+    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it)
+        a[it->first] += it->second;
+    return a;
+}
+
+CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b)
+{
+    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it) {
+        if (a.count(it->first) > 0)
+            a[it->first] -= it->second;
+        else
+            throw std::runtime_error(strprintf("%s : asset %s is not contained in this map", __func__, it->first.ToString()));
+    }
+    return a;
+}
+
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
@@ -121,19 +148,18 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn, CAssetID assetIDIn) 
+    : nValue(valueIn), assetID(assetIDIn), scriptPubKey(scriptPubKeyIn)
 {
-    nValue = valueIn;
-    scriptPubKey = scriptPubKeyIn;
 }
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), scriptPubKey.ToString().substr(0,30));
+    return strprintf("CTxOut(nValue=%s, assetID=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), assetID.ToString(), scriptPubKey.ToString().substr(0,30));
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), nTxFee(tx.nTxFee), vout(tx.vout), nLockTime(tx.nLockTime) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), vTxFees(std::vector<CAmount>()), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vTxFees(tx.vTxFees), vout(tx.vout), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
 {
@@ -166,15 +192,15 @@ void CTransaction::UpdateHash() const
     hasher.Finalize((unsigned char*)&hashFull);
 }
 
-CTransaction::CTransaction() : hash(0), hashFull(0), nVersion(CTransaction::CURRENT_VERSION), vin(), nTxFee(0), vout(), nLockTime(0) { }
+CTransaction::CTransaction() : hash(0), hashFull(0), nVersion(CTransaction::CURRENT_VERSION), vin(), vTxFees(std::vector<CAmount>()), vout(), nLockTime(0) { }
 
-CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), nTxFee(tx.nTxFee), vout(tx.vout), nLockTime(tx.nLockTime) {
+CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vTxFees(tx.vTxFees), vout(tx.vout), nLockTime(tx.nLockTime) {
     UpdateHash();
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<CAmount*>(&nTxFee) = tx.nTxFee;
+    *const_cast<std::vector<CAmount>*>(&vTxFees) = tx.vTxFees;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
@@ -189,6 +215,42 @@ double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSiz
     if (nTxSize == 0) return 0.0;
 
     return dPriorityInputs / nTxSize;
+}
+
+CAmountMap CTransaction::GetTxRewardMap() const
+{
+    assert(vTxFees.size() <= vout.size());
+    CAmountMap mTxReward;
+    for (unsigned i = 0; i < vTxFees.size(); ++i)
+        if (vout[i].assetID != 0)
+            mTxReward[vout[i].assetID] += vTxFees[i];
+    return mTxReward;
+}
+
+void CMutableTransaction::SetFeesFromTxRewardMap(const CAmountMap& mTxReward)
+{
+    assert(mTxReward.size() <= vout.size());
+    vTxFees.resize(mTxReward.size());
+    for(CAmountMap::const_iterator it = mTxReward.begin(); it != mTxReward.end(); ++it) {
+        bool fFoundAsset = false;
+        for (unsigned i = 0; i < vout.size(); ++i) {
+            if (vout[i].assetID == it->first) {
+                vTxFees[i] = it->second;
+                fFoundAsset = true;
+                break;
+            }
+        }
+        if (!fFoundAsset)
+            assert(false && "CMutableTransaction::SetFeesFromTxRewardMap: Trying to pay fees without output.");
+    }
+}
+
+CAmount CTransaction::GetFee(const CAssetID& assetID) const
+{
+    const CAmountMap mTxReward = GetTxRewardMap();
+    if (!mTxReward.count(assetID))
+        return 0;
+    return mTxReward.find(assetID)->second;
 }
 
 unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
@@ -212,12 +274,12 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u, fee=%u)\n",
+    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u, vTxFees.size=%u)\n",
         GetHash().ToString().substr(0,10),
         nVersion,
         vin.size(),
         vout.size(),
-        nLockTime, nTxFee);
+        nLockTime, vTxFees.size());
     for (unsigned int i = 0; i < vin.size(); i++)
         str += "    " + vin[i].ToString() + "\n";
     for (unsigned int i = 0; i < vout.size(); i++)

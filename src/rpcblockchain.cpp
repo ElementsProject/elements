@@ -178,7 +178,7 @@ Value getrawmempool(const Array& params, bool fHelp)
             info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
             const CTransaction& tx = e.GetTx();
             set<string> setDepends;
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            FOREACH_TXIN(txin, tx)
             {
                 if (mempool.exists(txin.prevout.hash))
                     setDepends.insert(txin.prevout.hash.ToString());

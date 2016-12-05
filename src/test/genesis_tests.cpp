@@ -18,13 +18,7 @@ BOOST_AUTO_TEST_CASE(genesis_mainnet)
     BOOST_CHECK_EQUAL(params->HashGenesisBlock().GetHex(),
                       params->GenesisBlock().GetHash().GetHex());
     BOOST_CHECK_EQUAL(params->HashGenesisBlock().GetHex(),
-                      "b811a5eeaf27432278c032a0b520f829be2b92fafff9789efe2755fff8ef547b");
-    // Check that unittest genesis hash is same as the mainnet one
-    const CChainParams *params2 = &Params();
-    BOOST_CHECK_EQUAL(params2->HashGenesisBlock().GetHex(),
-                      params2->GenesisBlock().GetHash().GetHex());
-    BOOST_CHECK_EQUAL(params2->HashGenesisBlock().GetHex(),
-                      "b811a5eeaf27432278c032a0b520f829be2b92fafff9789efe2755fff8ef547b");
+                      "4d055eb17dad11aec976bc4b46b2708f91aac0ffedb3b9a3f3451b64d106a9a6");
 }
 
 // Goal: check that the standard testnet genesis block is computed correctly
@@ -35,7 +29,7 @@ BOOST_AUTO_TEST_CASE(genesis_testnet)
     BOOST_CHECK_EQUAL(params->HashGenesisBlock().GetHex(),
                       params->GenesisBlock().GetHash().GetHex());
     BOOST_CHECK_EQUAL(params->HashGenesisBlock().GetHex(),
-                      "f7f0ca371b1003dc7346bab766b4a131f9e3a5d68820a364d70921cb15b95eaa");
+                      "ad5cb13bc360f0cbc4ba3dca881e6a771d05052469edb73e54956b5225918846");
     // Return params to base case for other tests
     SelectParams(CBaseChainParams::MAIN);
 }
@@ -48,7 +42,7 @@ BOOST_AUTO_TEST_CASE(genesis_regtest)
     BOOST_CHECK_EQUAL(params->HashGenesisBlock().GetHex(),
                       params->GenesisBlock().GetHash().GetHex());
     BOOST_CHECK_EQUAL(params->HashGenesisBlock().GetHex(),
-                      "b41d03dc310957765223df2bf2f4b3609c79b8b6ac0a0764b20754f972d48b6c");
+                      "095cdb4b50450887a3fba5fa77bdd7ce969868b78e2e7a75886d8e324c9e331d");
     // Return params to base case for other tests
     SelectParams(CBaseChainParams::MAIN);
 }
@@ -63,21 +57,21 @@ BOOST_AUTO_TEST_CASE(genesis_customscript)
     BOOST_CHECK_EQUAL(params1->HashGenesisBlock().GetHex(),
                       params1->GenesisBlock().GetHash().GetHex());
     BOOST_CHECK_EQUAL(params1->HashGenesisBlock().GetHex(),
-                      "2ec431e3858cef95882cd7d627599fd757afa81938f0b886bee691a48b1e9b58");
+                      "431a10b6cfd6b593adcc1f243b348042a3d46efdf9ac7c939994647349754d21");
 
     SelectParams(CBaseChainParams::TESTNET, unsignable);
     const CChainParams *params2 = &Params();
     BOOST_CHECK_EQUAL(params2->HashGenesisBlock().GetHex(),
                       params2->GenesisBlock().GetHash().GetHex());
     BOOST_CHECK_EQUAL(params2->HashGenesisBlock().GetHex(),
-                      "e28e10e75c6f55edfdb914831b8d48c79fd858b6020963a038ee97dcaae2b355");
+                      "24e37fa582f78e10706be56a3ad166d92517c9eab9bbf9861fd5d6b6ac3d560b");
 
     SelectParams(CBaseChainParams::REGTEST, unsignable);
     const CChainParams *params3 = &Params();
     BOOST_CHECK_EQUAL(params3->HashGenesisBlock().GetHex(),
                       params3->GenesisBlock().GetHash().GetHex());
     BOOST_CHECK_EQUAL(params3->HashGenesisBlock().GetHex(),
-                      "a99a962c80d71fe1eb0b30217a6f14bc571e3eee97bc16663cf42d9e22eb6cb2");
+                      "dac4000e5ed09f558c27b442c555f4ea4fa8ce60e11d39898881412741c571a5");
 
     // Return params to base case for other tests
     SelectParams(CBaseChainParams::MAIN);

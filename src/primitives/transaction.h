@@ -155,6 +155,23 @@ public:
     std::string ToString() const;
 };
 
+/**
+ *  Native Asset Issuance
+ *
+ *  An asset identifier tag, a 256 bits serialized hash (sha256) of the asset
+ *  definition transaction from which the output’s coins are derived. Each output contains
+ *  coins from a single asset/currency. For the host currency, the similarly-calculated
+ *  hash of the chain’s genesis block is used instead. Within an asset
+ *  definition transaction, the asset being defined is identified with 0 as a hash.
+ */
+typedef uint256 CAssetID;
+
+typedef std::map<CAssetID, CAmount> CAmountMap;
+
+bool operator<(const CAmountMap& a, const CAmountMap& b);
+CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b);
+CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b);
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
@@ -162,6 +179,7 @@ class CTxOut
 {
 public:
     CTxOutValue nValue;
+    CAssetID assetID;
     CScript scriptPubKey;
 
     CTxOut()
@@ -169,19 +187,21 @@ public:
         SetNull();
     }
 
-    CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn);
+    CTxOut(const CTxOutValue& valueIn, CScript scriptPubKeyIn, CAssetID assetID=CAssetID());
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nValue);
+        READWRITE(assetID);
         READWRITE(scriptPubKey);
     }
 
     void SetNull()
     {
         nValue = CTxOutValue();
+        assetID.SetNull();
         scriptPubKey.clear();
     }
 
@@ -210,6 +230,7 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue       == b.nValue &&
+                a.assetID      == b.assetID &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -246,7 +267,7 @@ public:
     // structure, including the hash.
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
-    const CAmount nTxFee;
+    const std::vector<CAmount> vTxFees;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
 
@@ -269,7 +290,7 @@ public:
         assert((nType != SER_GETHASH && !fOnlyWitness && fWitness) || nType == SER_GETHASH);
         if (!fOnlyWitness)                READWRITE(*const_cast<int32_t*>(&this->nVersion));
                                           READWRITE(*const_cast<std::vector<CTxIn>*>(&vin));
-        if (!fBitcoinTx && !fOnlyWitness) READWRITE(*const_cast<CAmount*>(&nTxFee));
+        if (!fBitcoinTx && !fOnlyWitness) READWRITE(*const_cast<std::vector<CAmount>*>(&vTxFees));
         if (!fOnlyWitness)                READWRITE(*const_cast<std::vector<CTxOut>*>(&vout));
         if (!fOnlyWitness)                READWRITE(*const_cast<uint32_t*>(&nLockTime));
         if (ser_action.ForRead())
@@ -303,6 +324,11 @@ public:
 
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
+    /**
+     * @return a CAmountMap with total fees per asset.
+     */
+    CAmountMap GetTxRewardMap() const;
+    CAmount GetFee(const CAssetID& assetID) const;
 
     // Compute modified tx size for priority calculation (optionally given tx size)
     unsigned int CalculateModifiedSize(unsigned int nTxSize=0) const;
@@ -310,6 +336,17 @@ public:
     bool IsCoinBase() const
     {
         return (vin.size() == 1 && vin[0].prevout.IsNull());
+    }
+
+    //! Asset definition transactions must have more than 1 input
+    bool IsAssetDefinition() const
+    {
+        return (vin.size() > 1 && vin[0].prevout.IsNull());
+    }
+
+    unsigned int GetFirstInputPos() const
+    {
+        return IsAssetDefinition() ? 1 : 0;
     }
 
     friend bool operator==(const CTransaction& a, const CTransaction& b)
@@ -330,7 +367,7 @@ struct CMutableTransaction
 {
     int32_t nVersion;
     std::vector<CTxIn> vin;
-    CAmount nTxFee;
+    std::vector<CAmount> vTxFees;
     std::vector<CTxOut> vout;
     uint32_t nLockTime;
 
@@ -348,7 +385,7 @@ struct CMutableTransaction
         assert((nType != SER_GETHASH && !fOnlyWitness && fWitness) || nType == SER_GETHASH);
         if (!fOnlyWitness) READWRITE(this->nVersion);
                            READWRITE(vin);
-        if (!fOnlyWitness) READWRITE(nTxFee);
+        if (!fOnlyWitness) READWRITE(vTxFees);
         if (!fOnlyWitness) READWRITE(vout);
         if (!fOnlyWitness) READWRITE(nLockTime);
     }
@@ -362,6 +399,17 @@ struct CMutableTransaction
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
     uint256 GetHash() const;
+    /**
+     * Sets the vTxFees to the cannonical representation provided
+     */
+    void SetFeesFromTxRewardMap(const CAmountMap& mTxReward);
 };
+
+#define FOREACH_TXIN(VAR, TX) \
+    for (unsigned int __txin_i = (TX).GetFirstInputPos(); \
+         __txin_i < (TX).vin.size(); \
+         ++__txin_i) \
+        if (bool __txin_finish = false) {} else \
+        for (const CTxIn& VAR = (TX).vin[__txin_i]; !__txin_finish; __txin_finish = true)
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

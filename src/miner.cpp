@@ -10,6 +10,7 @@
 #include "primitives/transaction.h"
 #include "main.h"
 #include "net.h"
+#include "policy/fees.h"
 #include "pow.h"
 #include "timedata.h"
 #include "util.h"
@@ -96,7 +97,7 @@ int64_t UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
 
 static CFeeRate CalculateSubjectiveFeeRateAndPriority(const CCoinsViewCache& view, const CTransaction& tx, const unsigned int& nTxSize, double& dPriority) {
     const uint256& hash = tx.GetHash();
-    CAmount nTxFees = tx.nTxFee;
+    CAmount nTxFees = tx.GetFee(feeAssetID);
     mempool.ApplyDeltas(hash, dPriority, nTxFees);
 
     return CFeeRate(nTxFees, nTxSize);
@@ -104,6 +105,7 @@ static CFeeRate CalculateSubjectiveFeeRateAndPriority(const CCoinsViewCache& vie
 
 CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 {
+    const CChainParams& chainparams = Params();
     // Create new block
     auto_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
     if(!pblocktemplate.get())
@@ -114,13 +116,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     // -blockversion=N to test forking scenarios
     if (Params().MineBlocksOnDemand())
         pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
-
-    // Create coinbase tx
-    CMutableTransaction txNew;
-    txNew.vin.resize(1);
-    txNew.vin[0].prevout.SetNull();
-    txNew.vout.resize(1);
-    txNew.vout[0].scriptPubKey = scriptPubKeyIn;
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.push_back(CTransaction());
@@ -143,8 +138,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 
     // Collect memory pool transactions into the block
-    CAmount nFees = 0;
-
+    CAmountMap mBlockReward;
     {
         LOCK2(cs_main, mempool.cs);
         CBlockIndex* pindexPrev = chainActive.Tip();
@@ -181,7 +175,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
             COrphan* porphan = NULL;
             bool fMissingInputs = false;
-            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            FOREACH_TXIN(txin, tx)
             {
                 // Read prev transaction
                 if (!view.HaveCoins(txin.prevout.hash))
@@ -281,8 +275,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             if (!view.HaveInputs(tx))
                 continue;
 
-            const CAmount& nTxFees = tx.nTxFee;
-
             nTxSigOps += GetP2SHSigOpCount(tx, view);
             if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
                 continue;
@@ -297,14 +289,15 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             CTxUndo txundo;
             UpdateCoins(tx, state, view, txundo, nHeight);
 
+            const CAmountMap mTxReward = tx.GetTxRewardMap();
             // Added
             pblock->vtx.push_back(tx);
-            pblocktemplate->vTxFees.push_back(nTxFees);
+            pblocktemplate->vTxFees.push_back(mTxReward.find(feeAssetID)->second);
             pblocktemplate->vTxSigOps.push_back(nTxSigOps);
             nBlockSize += nTxSize;
             ++nBlockTx;
             nBlockSigOps += nTxSigOps;
-            nFees += nTxFees;
+            mBlockReward += mTxReward;
 
             if (fPrintPriority)
             {
@@ -336,11 +329,23 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         nLastBlockSize = nBlockSize;
         LogPrintf("CreateNewBlock(): total size %u\n", nBlockSize);
 
-        // Compute final coinbase transaction.
-        txNew.vout[0].nValue = GetBlockValue(nHeight, nFees);
+        // Create and Compute final coinbase transaction.
+        CMutableTransaction txNew;
+        txNew.vin.resize(1);
+        txNew.vin[0].prevout.SetNull();
         txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
+
+        mBlockReward[chainparams.HashGenesisBlock()] += GetBlockValue(nHeight, 0);
+        txNew.vout.resize(mBlockReward.size());
+        unsigned int i = 0;
+        for(CAmountMap::const_iterator it = mBlockReward.begin(); it != mBlockReward.end(); ++it) {
+            txNew.vout[i].scriptPubKey = scriptPubKeyIn;
+            txNew.vout[i].assetID = it->first;
+            txNew.vout[i].nValue = it->second;
+            ++i;
+        }
         pblock->vtx[0] = txNew;
-        pblocktemplate->vTxFees[0] = -nFees;
+        pblocktemplate->vTxFees[0] = -mBlockReward.find(feeAssetID)->second;
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();

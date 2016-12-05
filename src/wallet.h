@@ -363,7 +363,7 @@ public:
     CAmount GetDebit(const CTransaction& tx, const isminefilter& filter) const
     {
         CAmount nDebit = 0;
-        BOOST_FOREACH(const CTxIn& txin, tx.vin)
+        FOREACH_TXIN(txin, tx)
         {
             nDebit += GetDebit(txin, filter);
             if (!MoneyRange(nDebit))
@@ -922,7 +922,7 @@ public:
             return false;
 
         // Trusted if all inputs are from us and are in the mempool:
-        BOOST_FOREACH(const CTxIn& txin, vin)
+        FOREACH_TXIN(txin, *this)
         {
             // Transactions not sent by us: not trusted
             const CWalletTx* parent = pwallet->GetWalletTx(txin.prevout.hash);
