@@ -2632,7 +2632,7 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
-bool BitcoindRPCCheck(bool init)
+bool BitcoindRPCCheck(const bool init)
 {
     //First, we can clear out any blocks thatsomehow are now deemed valid
     //eg reconsiderblock rpc call manually
@@ -2651,24 +2651,36 @@ bool BitcoindRPCCheck(bool init)
 
     //Next, check for working rpc
     if (GetBoolArg("-validatepegin", false)) {
-        try {
-            UniValue params(UniValue::VARR);
-            params.push_back(UniValue(0));
-            UniValue reply = CallRPC("getblockhash", params, true);
-            if (!find_value(reply, "error").isNull()) {
-               LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
-               return false;
-            }
-            UniValue result = reply["result"];
-            if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
-                LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
+        // During init try until a non-RPC_IN_WARMUP result
+        while (true) {
+            try {
+                UniValue params(UniValue::VARR);
+                params.push_back(UniValue(0));
+                UniValue reply = CallRPC("getblockhash", params, true);
+                UniValue error = find_value(reply, "error");
+                if (!error.isNull()) {
+                    if (error["code"].get_int() == RPC_IN_WARMUP) {
+                        MilliSleep(1000);
+                        continue;
+                    }
+                    else {
+                        LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+                        return false;
+                    }
+                }
+                UniValue result = reply["result"];
+                if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
+                    LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
+                    return false;
+                }
+            } catch (const std::runtime_error& re) {
+                std::string totalErr = "ERROR: Failure connecting to bitcoind RPC: ";
+                totalErr += std::string(re.what()) + "\n";
+                LogPrintf(totalErr.c_str());
                 return false;
             }
-        } catch (const std::runtime_error& re) {
-            std::string totalErr = "ERROR: Failure connecting to bitcoind RPC: ";
-            totalErr += std::string(re.what()) + "\n";
-            LogPrintf(totalErr.c_str());
-            return false;
+            // Success
+            break;
         }
     }
 

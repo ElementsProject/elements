@@ -1526,6 +1526,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     CScheduler::Function f2 = boost::bind(&BitcoindRPCCheck, false);
     scheduler.scheduleEvery(f2, 120);
 
+    uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
+
     if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
         return InitError(_("ERROR: liquid-daemon is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
     }
