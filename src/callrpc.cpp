@@ -76,23 +76,24 @@ static void http_error_cb(enum evhttp_request_error err, void *ctx)
 }
 #endif
 
-UniValue CallRPC(const std::string& strMethod, const UniValue& params, int port, bool connectToMainchain)
+UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool connectToMainchain)
 {
     std::string strhost = "-rpcconnect";
     std::string strport = "-rpcport";
     std::string struser = "-rpcuser";
     std::string strpassword = "-rpcpassword";
+
+    int port = GetArg(strport, BaseParams().RPCPort());
+
     if (connectToMainchain) {
         strhost = "-mainchainhost";
         strport = "-mainchainrpcport";
         strpassword = "-mainchainrpcpassword";
         struser = "-mainchainrpcuser";
+        port = GetArg(strport, BaseParams().MainchainRPCPort());
     }
 
     std::string host = GetArg(strhost, DEFAULT_RPCCONNECT);
-    if (port < 0)
-        port = GetArg(strport, BaseParams().RPCPort());
-
     // Obtain event base
     raii_event_base base = obtain_event_base();
 
@@ -122,12 +123,16 @@ UniValue CallRPC(const std::string& strMethod, const UniValue& params, int port,
         // Try fall back to cookie-based authentication if no password is provided
         if (connectToMainchain && !GetMainchainAuthCookie(&strRPCUserColonPass)) {
             throw std::runtime_error(strprintf(
-                _("Could not locate RPC credentials. No authentication cookie could be found, and no rpcpassword is set in the configuration file (%s)"),
+                _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcpassword is set in the configuration file (%s)"),
                     GetConfigFile(GetArg("-conf", BITCOIN_CONF_FILENAME)).string().c_str()));
 
         }
     } else {
-        strRPCUserColonPass = GetArg("-rpcuser", "") + ":" + GetArg("-rpcpassword", "");
+        if (struser == "")
+            throw std::runtime_error(
+                 _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcuser is set in the configuration file"));
+        else
+            strRPCUserColonPass = GetArg(struser, "") + ":" + GetArg(strpassword, "");
     }
 
     struct evkeyvalq* output_headers = evhttp_request_get_output_headers(req.get());
@@ -153,7 +158,10 @@ UniValue CallRPC(const std::string& strMethod, const UniValue& params, int port,
     if (response.status == 0)
         throw CConnectionFailed(strprintf("couldn't connect to server: %s (code %d)\n(make sure server is running and you are connecting to the correct RPC port)", http_errorstring(response.error), response.error));
     else if (response.status == HTTP_UNAUTHORIZED)
-        throw std::runtime_error("incorrect rpcuser or rpcpassword (authorization failed)");
+        if (connectToMainchain)
+            throw std::runtime_error("incorrect mainchainrpcuser or mainchainrpcpassword (authorization failed)");
+        else
+            throw std::runtime_error("incorrect rpcuser or rpcpassword (authorization failed)");
     else if (response.status >= 400 && response.status != HTTP_BAD_REQUEST && response.status != HTTP_NOT_FOUND && response.status != HTTP_INTERNAL_SERVER_ERROR)
         throw std::runtime_error(strprintf("server returned HTTP error %d", response.status));
     else if (response.body.empty())
@@ -176,7 +184,7 @@ bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, in
     try {
         UniValue params(UniValue::VARR);
         params.push_back(UniValue(0));
-        UniValue reply = CallRPC("getblockhash", params, GetArg("-mainchainrpcport", 18332));
+        UniValue reply = CallRPC("getblockhash", params, true);
         if (!find_value(reply, "error").isNull())
             return false;
         UniValue result = find_value(reply, "result");
@@ -187,7 +195,7 @@ bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, in
 
         params = UniValue(UniValue::VARR);
         params.push_back(hash.GetHex());
-        reply = CallRPC("getblock", params, GetArg("-mainchainrpcport", 18332));
+        reply = CallRPC("getblock", params, true);
         if (!find_value(reply, "error").isNull())
             return false;
         result = find_value(reply, "result");

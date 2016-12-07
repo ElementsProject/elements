@@ -26,11 +26,12 @@ public:
 
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
-
+    int MainchainRPCPort() const { return nMainchainRPCPort; }
 protected:
     CBaseChainParams() {}
 
     int nRPCPort;
+    int nMainchainRPCPort;
     std::string strDataDir;
 };
 

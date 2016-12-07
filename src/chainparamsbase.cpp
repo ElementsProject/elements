@@ -48,6 +48,7 @@ public:
     CBaseElementsParams()
     {
         nRPCPort = 9041;
+        nMainchainRPCPort = 18332;
         strDataDir = CHAINPARAMS_ELEMENTS;
     }
 };
@@ -61,6 +62,7 @@ public:
     CBaseRegTestParams()
     {
         nRPCPort = 7041;
+        nMainchainRPCPort = 18332;
         strDataDir = CHAINPARAMS_REGTEST;
     }
 };
