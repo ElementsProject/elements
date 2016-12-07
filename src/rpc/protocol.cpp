@@ -11,6 +11,7 @@
 #include "utilstrencodings.h"
 #include "utiltime.h"
 #include "version.h"
+#include "chainparamsbase.h"
 
 #include <stdint.h>
 #include <fstream>
@@ -78,9 +79,8 @@ boost::filesystem::path GetAuthCookieFile()
 boost::filesystem::path GetMainchainAuthCookieFile()
 {
     boost::filesystem::path path(GetArg("-mainchainrpccookiefile", COOKIEAUTH_FILE));
-    //Change to default false for live network
-    if (!path.is_complete() && GetBoolArg("-testnet", true)) path = "testnet3" / path;
-    if (!path.is_complete() && GetBoolArg("-regtest", false)) path = "regtest" / path;
+    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_ELEMENTS) path = "testnet3" / path;
+    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_REGTEST) path = "regtest" / path;
     if (!path.is_complete()) path = GetDataDir(false) / path;
     return path;
 }
