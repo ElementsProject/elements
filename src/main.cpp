@@ -2654,7 +2654,7 @@ bool BitcoindRPCCheck(bool init)
         try {
             UniValue params(UniValue::VARR);
             params.push_back(UniValue(0));
-            UniValue reply = CallRPC("getblockhash", params, GetArg("-mainchainrpcport", 18332), true);
+            UniValue reply = CallRPC("getblockhash", params, true);
             if (!find_value(reply, "error").isNull()) {
                LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
                return false;
