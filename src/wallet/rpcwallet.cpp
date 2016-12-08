@@ -390,14 +390,17 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAssetID asse
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
     // Create and send the transaction
-    std::vector<CReserveKey> vChangeKey;
     std::vector<CReserveKey*> vpChangeKey;
-    vChangeKey.push_back(CReserveKey(pwalletMain));
+    std::vector<CReserveKey> vChangeKey;
+    // For some reason reserving avoids a segfault? TODO Diagnose this
+    vChangeKey.reserve(2);
+    vChangeKey.emplace_back(pwalletMain);
     vpChangeKey.push_back(&vChangeKey[0]);
     if (pwalletMain->GetAssetIDFromLabel("bitcoin") != assetID) {
-        vChangeKey.push_back(CReserveKey(pwalletMain));
+        vChangeKey.emplace_back(pwalletMain);
         vpChangeKey.push_back(&vChangeKey[1]);
     }
+
     CAmount nFeeRequired;
     std::string strError;
     vector<CRecipient> vecSend;
@@ -1027,14 +1030,15 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     std::vector<CReserveKey> vChangeKey;
     std::vector<CReserveKey*> vpChangeKey;
     std::set<CAssetID> setAssetIDs;
-    vChangeKey.push_back(CReserveKey(pwalletMain));
     setAssetIDs.insert(pwalletMain->GetAssetIDFromLabel("bitcoin"));
     for (auto recipient : vecSend) {
-        if (setAssetIDs.count(recipient.asset) == 0) {
-                vChangeKey.push_back(CReserveKey(pwalletMain));
-                vpChangeKey.push_back(&vChangeKey[vChangeKey.size()-1]);
-                setAssetIDs.insert(recipient.asset);
-        }
+        setAssetIDs.insert(recipient.asset);
+    }
+    // Need to reserve or possibly segfault? TODO Diagnose
+    vChangeKey.reserve(setAssetIDs.size());
+    for (unsigned int i = 0; i < setAssetIDs.size(); i++) {
+        vChangeKey.emplace_back(pwalletMain);
+        vpChangeKey.push_back(&vChangeKey[i]);
     }
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
