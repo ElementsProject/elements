@@ -4302,6 +4302,7 @@ bool CMerkleTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& 
 
 std::string CWallet::GetAssetLabelFromID(const uint256& id) const
 {
+    LOCK(cs_wallet);
     std::map<uint256, std::string>::const_iterator it = mapAssetLabels.find(id);
     if (it != mapAssetLabels.end())
         return it->second;
@@ -4310,6 +4311,7 @@ std::string CWallet::GetAssetLabelFromID(const uint256& id) const
 
 uint256 CWallet::GetAssetIDFromLabel(const std::string& label) const
 {
+    LOCK(cs_wallet);
     std::map<std::string, uint256>::const_iterator it = mapAssetIDs.find(label);
     if (it != mapAssetIDs.end())
         return it->second;
