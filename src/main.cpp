@@ -1257,7 +1257,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
                 if (val.GetAmount() == 0)
                     continue;
 
-                if (asset.IsAssetID()) {
+                if (asset.IsAssetID() || asset.IsAssetGeneration()) {
                     uint256 fixedAsset;
                     asset.GetAssetID(fixedAsset);
                     assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
@@ -1307,6 +1307,13 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
             else if (asset.IsAssetCommitment()) {
                 if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
                     return false;
+            }
+            else if (asset.IsAssetGeneration()) {
+                if (tx.IsCoinBase())
+                    return false;
+                // We don't add this to the balance, just assume id is NUMS a-ok
+                continue;
+
             }
             else {
                 assert(false);
@@ -1378,7 +1385,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
     for (size_t i = 0; i < tx.vin.size(); i++)
     {
         const CTxOutAsset& asset = cache.GetOutputFor(tx.vin[i]).nAsset;
-        if (asset.IsAssetID()) {
+        if (asset.IsAssetID() || asset.IsAssetGeneration()) {
             uint256 fixedAsset;
             asset.GetAssetID(fixedAsset);
             assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], fixedAsset.begin()));
@@ -1395,7 +1402,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
     {
         const CTxOutAsset& asset = tx.vout[i].nAsset;
         //No need for surjective proof
-        if (asset.IsAssetID()) {
+        if (asset.IsAssetID() || asset.IsAssetGeneration()) {
             assert(asset.vchSurjectionproof.size() == 0);
             continue;
         }

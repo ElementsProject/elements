@@ -52,7 +52,7 @@ void CTxOutAsset::SetNull()
 
 bool CTxOutAsset::GetAssetID(uint256& assetID) const
 {
-    if (!IsAssetID())
+    if (!IsAssetID() && !IsAssetGeneration())
         return false;
     std::copy(std::next(vchAssetTag.begin()), vchAssetTag.end(), assetID.begin());
     return true;
@@ -128,7 +128,7 @@ std::string CTxOut::ToString() const
 {
     uint256 assetID;
     std::string strAsset;
-    if (nAsset.IsAssetID() && nAsset.GetAssetID(assetID))
+    if ((nAsset.IsAssetID() || nAsset.IsAssetGeneration()) && nAsset.GetAssetID(assetID))
         strAsset = strprintf("nAsset=%s, ", assetID.ToString());
     if (nAsset.IsAssetCommitment())
         strAsset = std::string("nAsset=UNKNOWN, ");

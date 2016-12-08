@@ -2373,7 +2373,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 }
 
 bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey*>& vpChangeKey, CAmount& nFeeRet,
-                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts)
+                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, uint256* newAsset, int64_t* newAmount)
 {
     CAmountMap mapValue;
     CAssetID BITCOINID = GetAssetIDFromLabel("bitcoin");
@@ -2661,6 +2661,15 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     // Now it has to succeed
                     bool ret = BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txNew);
                     assert(ret);
+                }
+
+                if (newAsset != NULL && *newAsset != uint256()) {
+                    // Very secure.
+                    CTxOut assetout = CTxOut(*newAsset, *newAmount, vecSend[0].scriptPubKey);
+                    assetout.nAsset.SetAsAssetGeneration();
+                    uint256 getit;
+                    assetout.nAsset.GetAssetID(getit);
+                    txNew.vout.push_back(assetout);
                 }
 
                 // Sign
@@ -4007,7 +4016,7 @@ bool CWallet::LoadAssetIDLabelMapping(const uint256& id, const std::string& labe
 
 void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, uint256& assetID, uint256& assetBlindingFactor) const
 {
-    if (output.nValue.IsAmount() && output.nAsset.IsAssetID()) {
+    if (output.nValue.IsAmount() && (output.nAsset.IsAssetID() || output.nAsset.IsAssetGeneration())) {
         amount = output.nValue.GetAmount();
         output.nAsset.GetAssetID(assetID);
         pubkey = CPubKey();

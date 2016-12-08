@@ -121,7 +121,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
         CTxOut& out = tx.vout[nOut];
         // Wallet only understands all-blinded or all-unblinded
         assert((output_blinding_factors[nOut] != uint256()) == !out.nValue.IsAmount());
-        assert(out.nValue.IsAmount() == out.nAsset.IsAssetID());
+        assert(out.nValue.IsAmount() == out.nAsset.IsAssetID() || out.nValue.IsAmount() == out.nAsset.IsAssetGeneration());
         assert(out.nAsset.IsAssetCommitment() == !out.nAsset.vchSurjectionproof.empty());
         if (output_blinding_factors[nOut] != uint256()) {
             assert(output_asset_blinding_factors[nOut] != uint256());

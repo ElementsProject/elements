@@ -183,6 +183,16 @@ public:
         return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==10 || vchAssetTag[0]==11);
     }
 
+    bool IsAssetGeneration() const
+    {
+        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==12;
+    }
+
+    void SetAsAssetGeneration()
+    {
+        vchAssetTag[0] = 12;
+    }
+
     friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
     {
         return (a.vchAssetTag        == b.vchAssetTag &&
