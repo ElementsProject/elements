@@ -385,6 +385,11 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 */
 bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, const uint256& excessID, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
 
+/**
+ * Verify the amounts of coinbase transactions. It will fail for any blinded amount or type.
+ * Each output must be IsAmount && IsAssetID.
+*/
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmount& fees, const uint256& feeID);
 
 /**
  * Check if transaction is final and can be included in a block with the

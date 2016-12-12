@@ -1226,6 +1226,7 @@ bool CSurjectionCheck::operator()()
 
 bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, const uint256& excessID, std::vector<CCheck*>* pvChecks, const bool cacheStore)
 {
+    assert(!tx.IsCoinBase());
 
     std::vector<secp256k1_pedersen_commitment> vData;
     std::vector<secp256k1_pedersen_commitment *> vpCommitsIn, vpCommitsOut;
@@ -1369,14 +1370,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         }
     }
 
-    // Blinded assets and surjection proofs not supported for coinbase
-    if (tx.IsCoinBase()) {
-        for (size_t i = 0; i < tx.vout.size(); i++) {
-            if (!tx.vout[i].nAsset.IsAssetID() || !tx.vout[i].nAsset.vchSurjectionproof.empty())
-                return false;
-        }
-        return true;
-    }
 
     //Surjection proof checking of ephemeral asset keys
     std::vector<secp256k1_generator> ephemeral_input_tags;
@@ -1422,6 +1415,20 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
     }
 
     return true;
+}
+
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmount& fees, const uint256& feeID)
+{
+    assert(tx.IsCoinBase());
+    CAmount remaining = fees;
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsAssetID())
+            return false;
+        if (feeID != BITCOINID)
+            return false;
+        remaining -= tx.vout[i].nValue.GetAmount();
+    }
+    return MoneyRange(remaining);
 }
 
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) {
@@ -3145,7 +3152,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     CAmount blockReward = nFees;
     if (!MoneyRange(blockReward))
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
-    if (!VerifyAmounts(view, block.vtx[0], -blockReward, BITCOINID))
+    if (!VerifyCoinbaseAmount(block.vtx[0], blockReward, BITCOINID))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
                                blockReward),
