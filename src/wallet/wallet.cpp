@@ -1293,7 +1293,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     CAmountMap nDebit = GetDebit(filter);
     if (nDebit > CAmountMap()) // debit>0 means we signed/sent this transaction
     {
-        nFee = nTxFee;
+        nFee = GetFee();
     }
 
     CTxDestination addressUnaccounted = CNoDestination();
@@ -2611,7 +2611,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     txNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second,CScript(),
                                               std::numeric_limits<unsigned int>::max()-2));
 
-                txNew.nTxFee = nFeeRet;
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
                 // Store amounts for storage in mapValue
@@ -2670,6 +2669,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     uint256 getit;
                     assetout.nAsset.GetAssetID(getit);
                     txNew.vout.push_back(assetout);
+                }
+
+                // Add fee
+                if (nFeeRet > 0) {
+                    CTxOut fee(BITCOINID, nFeeRet, CScript());
+                    assert(fee.IsFee());
+                    txNew.vout.push_back(fee);
                 }
 
                 // Sign

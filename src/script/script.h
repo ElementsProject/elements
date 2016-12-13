@@ -656,11 +656,11 @@ public:
     /**
      * Returns whether the script is guaranteed to fail at execution,
      * regardless of the initial stack. This allows outputs to be pruned
-     * instantly when entering the UTXO set.
+     * instantly when entering the UTXO set. This includes fee outputs.
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
+        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
     }
 
     void clear()

@@ -135,8 +135,8 @@ std::string CTxOut::ToString() const
     return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), nTxFee(tx.nTxFee), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
 {
@@ -153,15 +153,38 @@ uint256 CTransaction::GetWitnessHash() const
     return SerializeHash(*this, SER_GETHASH, 0);
 }
 
-CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), vin(), vout(), nLockTime(0) { }
+bool CTransaction::HasValidFee() const
+{
+    CAmount totalFee = 0;
+    for (unsigned int i = 0; i < vout.size(); i++) {
+        CAmount fee = 0;
+        if (vout[i].IsFee())
+            fee = vout[i].nValue.GetAmount();
+        if (!MoneyRange(fee)) {
+            return false;
+        }
+        totalFee += fee;
+    }
+    return MoneyRange(totalFee);
+}
 
-CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), nTxFee(tx.nTxFee), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
+CAmount CTransaction::GetFee() const
+{
+    CAmount fee = 0;
+    for (unsigned int i = 0; i < vout.size(); i++)
+        if (vout[i].IsFee())
+            fee += vout[i].nValue.GetAmount();
+    return fee;
+}
+
+CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) { }
+
+CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
     UpdateHash();
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<CAmount*>(&nTxFee) = tx.nTxFee;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     *const_cast<CTxWitness*>(&wit) = tx.wit;
@@ -198,11 +221,16 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
 
 std::string CTransaction::ToString() const
 {
+    CAmount fee = 0;
+    for (unsigned int i = 0; i < vout.size(); i++)
+        if (vout[i].IsFee())
+            fee += vout[i].nValue.GetAmount();
+
     std::string str;
     str += strprintf("CTransaction(hash=%s, ver=%d, fee=%d.%08d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
         GetHash().ToString().substr(0,10),
         nVersion,
-        nTxFee / COIN, nTxFee % COIN,
+        fee / COIN, fee % COIN,
         vin.size(),
         vout.size(),
         nLockTime);

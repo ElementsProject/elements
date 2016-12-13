@@ -376,6 +376,14 @@ public:
         return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
 
+    bool IsFee() const
+    {
+        uint256 assetid;
+        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.GetAssetID(assetid) && assetid == BITCOINID)
+            return true;
+        return false;
+    }
+
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nValue       == b.nValue &&
@@ -525,7 +533,6 @@ struct CMutableTransaction;
 /**
  * Basic transaction serialization format:
  * - int32_t nVersion
- * - int32_t nTxFee
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - uint32_t nLockTime
@@ -549,10 +556,6 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
     const bool fAllowWitness = !(nVersion & SERIALIZE_TRANSACTION_NO_WITNESS);
     const bool fIsBitcoinTx = (nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX);
     READWRITE(*const_cast<int32_t*>(&tx.nVersion));
-    if ((ser_action.ForRead() || (!ser_action.ForRead() && tx.nTxFee != TX_FEE_BITCOIN_TX_FLAG)) && !fIsBitcoinTx)
-        READWRITE(*const_cast<CAmount*>(&tx.nTxFee));
-    else if (ser_action.ForRead())
-        const_cast<CAmount&>(tx.nTxFee) = TX_FEE_BITCOIN_TX_FLAG;
     unsigned char flags = 0;
     if (ser_action.ForRead()) {
         const_cast<std::vector<CTxIn>*>(&tx.vin)->clear();
@@ -660,7 +663,6 @@ public:
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
     const int32_t nVersion;
-    const CAmount nTxFee;
     const std::vector<CTxIn> vin;
 
     // The bitfield specifies which inputs of the transaction are used
@@ -709,6 +711,12 @@ public:
     // Compute a hash that includes both transaction and witness data
     uint256 GetWitnessHash() const;
 
+    // Check if explicit TX fees overflow or are negative
+    bool HasValidFee() const;
+
+    // Compute the fee from the explicit fee outputs. Must call HasValidFee first
+    CAmount GetFee() const;
+
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
 
@@ -739,7 +747,6 @@ public:
 struct CMutableTransaction
 {
     int32_t nVersion;
-    CAmount nTxFee;
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     CTxWitness wit;

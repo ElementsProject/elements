@@ -240,7 +240,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
             tx.vout.resize(1);
             tx.vout[0].scriptPubKey = CScript() << OP_TRUE;
             tx.vout[0].nValue = CTxOutValue(GENESISVALUE);
-            tx.nTxFee = 0;
 
             sighash = SignatureHash(genScriptPubKey, tx, 0, SIGHASH_ALL, 0, SIGVERSION_BASE);
             coinbaseKey.Sign(sighash, vchSig);
@@ -276,7 +275,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     for (unsigned int i = 0; i < 1001; ++i)
     {
         tx.vout[0].nValue = CTxOutValue(tx.vout[0].nValue.GetAmount() - LOWFEE);
-        tx.nTxFee = LOWFEE;
 
         hash = tx.GetHash();
         // If we don't set the # of sig ops in the CTxMemPoolEntry, template creation fails
@@ -296,12 +294,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].prevout.hash = firstCoin;
     tx.vout[0].nValue = CTxOutValue(GENESISVALUE);
     tx.vout[0].scriptPubKey = CScript();
-    tx.nTxFee = LOWFEE;
 
     for (unsigned int i = 0; i < 1001; ++i)
     {
         tx.vout[0].nValue = CTxOutValue(tx.vout[0].nValue.GetAmount() - LOWFEE);
-        tx.nTxFee = LOWFEE;
 
         hash = tx.GetHash();
         // If we do set the # of sig ops in the CTxMemPoolEntry, template creation passes
@@ -343,12 +339,10 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].prevout.hash = firstCoin;
     tx.vout[0].nValue = CTxOutValue(GENESISVALUE - HIGHFEE);
-    tx.nTxFee = HIGHFEE;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, entry.Fee(HIGHFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
     tx.vin[0].prevout.hash = hash;
     tx.vout[0].nValue = CTxOutValue(tx.vout[0].nValue.GetAmount()-HIGHERFEE);
-    tx.nTxFee = HIGHERFEE;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, entry.Fee(HIGHERFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
     BOOST_CHECK(pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey));
@@ -360,7 +354,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].prevout.SetNull();
     tx.vin[0].scriptSig = CScript() << OP_0 << OP_1;
     tx.vout[0].nValue = CTxOutValue(0);
-    tx.nTxFee = LOWFEE;
     hash = tx.GetHash();
     // give it a fee so it'll get mined
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
@@ -372,7 +365,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].prevout.n = 0;
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vout[0].nValue = CTxOutValue(GENESISVALUE - HIGHFEE);
-    tx.nTxFee = HIGHFEE;
     script = CScript() << OP_0;
     tx.vout[0].scriptPubKey = GetScriptForDestination(CScriptID(script));
     hash = tx.GetHash();
@@ -380,7 +372,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].prevout.hash = hash;
     tx.vin[0].scriptSig = CScript() << std::vector<unsigned char>(script.begin(), script.end());
     tx.vout[0].nValue = CTxOutValue(tx.vout[0].nValue.GetAmount() - LOWFEE);
-    tx.nTxFee = LOWFEE;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, entry.Fee(LOWFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
     BOOST_CHECK_THROW(BlockAssembler(chainparams).CreateNewBlock(scriptPubKey), std::runtime_error);
@@ -390,7 +381,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].prevout.hash = firstCoin;
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vout[0].nValue = CTxOutValue(GENESISVALUE - HIGHFEE);
-    tx.nTxFee = HIGHFEE;
     tx.vout[0].scriptPubKey = CScript() << OP_1;
     hash = tx.GetHash();
     mempool.addUnchecked(hash, entry.Fee(HIGHFEE).Time(GetTime()).SpendsCoinbase(false).FromTx(tx));
@@ -453,7 +443,6 @@ BOOST_AUTO_TEST_CASE(CreateNewBlock_validity)
     tx.vin[0].scriptSig = CScript() << OP_1;
     tx.vin[0].nSequence = chainActive.Tip()->nHeight + 1; // txFirst[0] is the 2nd block
     tx.vout[0].nValue = CTxOutValue(GENESISVALUE - HIGHFEE);
-    tx.nTxFee = HIGHFEE;
     prevheights[0] = baseheight + 1;
     tx.vout.resize(1);
     tx.vout[0].scriptPubKey = CScript() << OP_1;

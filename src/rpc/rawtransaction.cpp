@@ -94,7 +94,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("vsize", (int)::GetVirtualTransactionSize(tx)));
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
-    entry.push_back(Pair("fee", ValueFromAmount(tx.nTxFee)));
+    entry.push_back(Pair("fee", ValueFromAmount(tx.GetFee())));
     
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
@@ -556,8 +556,6 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             rawTx.vout.push_back(out);
         }
     }
-
-    rawTx.nTxFee = inputValue[bitcoinid] - outputValue[bitcoinid];
 
     return EncodeHexTx(rawTx);
 }

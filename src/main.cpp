@@ -1101,10 +1101,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
 
     if (tx.IsCoinBase())
     {
-        // Coinbase transactions may not have eccessive scriptSigs or fees
+        // Coinbase transactions may not have eccessive scriptSigs
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
-        if (tx.nTxFee != 0)
+        if (tx.GetFee() != 0)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
     }
     else
@@ -1224,7 +1224,7 @@ bool CSurjectionCheck::operator()()
 
 
 
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, const uint256& excessID, std::vector<CCheck*>* pvChecks, const bool cacheStore)
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore)
 {
     assert(!tx.IsCoinBase());
 
@@ -1339,20 +1339,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const C
         vpCommitsOut.push_back(p);
         p++;
 
-    }
-
-    // Add fee to tally
-    if (excess != 0) {
-        assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, excessID.begin()));
-        if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, excess > 0 ? excess : -excess, &gen) != 1)
-            return false;
-
-        memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
-        if (excess > 0)
-            vpCommitsOut.push_back(p);
-        else
-            vpCommitsIn.push_back(p);
-        p++;
     }
 
     // Check balance
@@ -1618,8 +1604,11 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
+        if (!tx.HasValidFee())
+            return state.DoS(0, false, REJECT_INVALID, "bad-fees");
+        CAmount nFees = tx.GetFee();
+
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
-        CAmount nFees = tx.nTxFee;
         CAmount nModifiedFees = nFees;
         double nPriorityDummy = 0;
         pool.ApplyDeltas(hash, nPriorityDummy, nModifiedFees);
@@ -2464,11 +2453,9 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         }
 
         // Tally transaction fees
-        CAmount nTxFee = tx.nTxFee;
-        if (!MoneyRange(nTxFee))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
-
-        if (!VerifyAmounts(inputs, tx, nTxFee, BITCOINID, pvChecks, cacheStore))
+        if (!tx.HasValidFee())
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+        if (!VerifyAmounts(inputs, tx, pvChecks, cacheStore))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
 
@@ -2485,6 +2472,9 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
+
+        // Tally validity checked in CheckTxInputs
+        CAmount fee = tx.GetFee();
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -3119,10 +3109,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         txdata.emplace_back(tx);
         if (!tx.IsCoinBase())
         {
-            nFees += tx.nTxFee;
-            if (!MoneyRange(nFees))
-                return state.DoS(100, error("ConnectBlock(): total tx fee overflowed"), REJECT_INVALID, "bad-txns-fee-outofrange");
-
             std::vector<CCheck*> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, txdata[i], setWithdrawsSpent == NULL ? setWithdrawsSpentDummy : *setWithdrawsSpent, nScriptCheckThreads ? &vChecks : NULL))
@@ -3145,6 +3131,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
                 mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
         }
+        if (!tx.HasValidFee())
+            return state.DoS(100, error("ConnectBlock(): transaction fee overflowed"), REJECT_INVALID, "bad-fee-outofrange");
+        nFees += tx.GetFee();
+        if (!MoneyRange(nFees))
+            return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);

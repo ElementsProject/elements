@@ -1908,7 +1908,8 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
 
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
-    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.nTxFee : 0);
+    assert(wtx.HasValidFee());
+    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.GetFee() : 0);
     CAmountMap nNet = nCredit - nDebit;
     nNet[pwalletMain->GetAssetIDFromLabel("bitcoin")] -= nFee;
 
@@ -3127,7 +3128,6 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     mtxn.vin.push_back(txin);
     mtxn.vout.push_back(txout);
     mtxn.vout.push_back(txrelock);
-    mtxn.nTxFee = 0;
 
     //No signing needed, just send
     CTransaction finalTxn(mtxn);

@@ -222,7 +222,6 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequenceIn);
     tx.vin.push_back(txin);
-    tx.nTxFee += value;
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
@@ -256,7 +255,6 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
         txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
@@ -286,7 +284,6 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
 
     CTxOut txout(BITCOINID, value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
@@ -375,13 +372,10 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     // construct TxOut, append to transaction output list
     CTxOut txout(BITCOINID, value, scriptPubKey);
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 {
-    // TODO: reduce nTxFee
-
     // parse requested deletion index
     int inIdx = atoi(strInIdx);
     if (inIdx < 0 || inIdx >= (int)tx.vin.size()) {
@@ -395,8 +389,6 @@ static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 
 static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
-    // TODO: increase nTxFee
-
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
     if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
