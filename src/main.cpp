@@ -1101,10 +1101,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
 
     if (tx.IsCoinBase())
     {
-        // Coinbase transactions may not have eccessive scriptSigs
+        // Coinbase transactions may not have eccessive scriptSigs or any fee outputs
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
-        if (tx.GetFee() != 0)
+        if (tx.HasValidFee() || tx.GetFee() != 0)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
     }
     else
