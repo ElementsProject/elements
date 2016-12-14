@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.vout.resize(1);
         tx3.vout[0].nValue = 100;
         tx3.vout[0].nAsset = bitcoinID;
-        CAmount fee = CTransaction(tx3).GetFee();
+        CAmount fee = CTransaction(tx3).GetFee()[bitcoinID];
         BOOST_CHECK(VerifyAmounts(cache, tx3));
 
         // Try to blind with a single output, which fails as its blinding factor ends up being zero.
@@ -171,7 +171,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(!tx4.vout[0].nValue.IsAmount());
         BOOST_CHECK(tx4.vout[1].nValue.IsAmount());
         BOOST_CHECK(!tx4.vout[2].nValue.IsAmount());
-        CAmount fee5 = CTransaction(tx4).GetFee();
+        CAmount fee5 = CTransaction(tx4).GetFee()[bitcoinID];
         BOOST_CHECK(VerifyAmounts(cache, tx4));
 /*
 #ifdef ENABLE_WALLET

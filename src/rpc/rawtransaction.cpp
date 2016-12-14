@@ -94,7 +94,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("vsize", (int)::GetVirtualTransactionSize(tx)));
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
-    entry.push_back(Pair("fee", ValueFromAmount(tx.GetFee())));
     
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
@@ -130,7 +129,10 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
         if (txout.nValue.IsAmount())
-            out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
+            if (txout.IsFee())
+                out.push_back(Pair("fee_value", ValueFromAmount(txout.nValue.GetAmount())));
+            else
+                out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
         else {
             int exp;
             int mantissa;
@@ -214,7 +216,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "  \"vsize\" : n,            (numeric) The virtual transaction size (differs from size for witness transactions)\n"
             "  \"version\" : n,          (numeric) The version\n"
             "  \"locktime\" : ttt,       (numeric) The lock time\n"
-            "  \"fee\" : x.xxx,          (numeric) The transaction fee in " + CURRENCY_UNIT + "\n"
             "  \"vin\" : [               (array of json objects)\n"
             "     {\n"
             "       \"txid\": \"id\",    (string) The transaction id\n"
@@ -231,6 +232,7 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp)
             "  \"vout\" : [              (array of json objects)\n"
             "     {\n"
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"fee_value\" : x.xxx,        (numeric) The fee value in " + CURRENCY_UNIT + "\n"
             "       \"n\" : n,                    (numeric) index\n"
             "       \"assetid\" : \"hex\"         (string) the asset id, if unblinded\n"
             "       \"assettag\" : \"hex\"        (string) the asset tag, if blinded\n"

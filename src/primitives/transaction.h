@@ -379,7 +379,7 @@ public:
     bool IsFee() const
     {
         uint256 assetid;
-        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.GetAssetID(assetid) && assetid == BITCOINID)
+        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsAssetID())
             return true;
         return false;
     }
@@ -715,7 +715,7 @@ public:
     bool HasValidFee() const;
 
     // Compute the fee from the explicit fee outputs. Must call HasValidFee first
-    CAmount GetFee() const;
+    CAmountMap GetFee() const;
 
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;

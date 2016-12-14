@@ -1104,8 +1104,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
         // Coinbase transactions may not have eccessive scriptSigs or any fee outputs
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
-        if (tx.HasValidFee() || tx.GetFee() != 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
+
+        for (unsigned int i = 0; i < tx.vout.size(); i++)
+            if (tx.vout[i].IsFee())
+                return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
     }
     else
     {
@@ -1403,16 +1405,16 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     return true;
 }
 
-bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmount& fees, const uint256& feeID)
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
 {
     assert(tx.IsCoinBase());
-    CAmount remaining = fees;
+    CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsAssetID())
             return false;
-        if (feeID != BITCOINID)
-            return false;
-        remaining -= tx.vout[i].nValue.GetAmount();
+        uint256 assetid;
+        tx.vout[i].nAsset.GetAssetID(assetid);
+        remaining[assetid] -= tx.vout[i].nValue.GetAmount();
     }
     return MoneyRange(remaining);
 }
@@ -1606,7 +1608,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         if (!tx.HasValidFee())
             return state.DoS(0, false, REJECT_INVALID, "bad-fees");
-        CAmount nFees = tx.GetFee();
+        CAmount nFees = tx.GetFee()[BITCOINID];
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -2474,7 +2476,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
             pvChecks->reserve(tx.vin.size());
 
         // Tally validity checked in CheckTxInputs
-        CAmount fee = tx.GetFee();
+        CAmountMap fee = tx.GetFee();
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -3047,7 +3049,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     std::vector<uint256> vOrphanErase;
     std::vector<int> prevheights;
-    CAmount nFees = 0;
+    CAmountMap mapFees;
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
@@ -3133,20 +3135,20 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         if (!tx.HasValidFee())
             return state.DoS(100, error("ConnectBlock(): transaction fee overflowed"), REJECT_INVALID, "bad-fee-outofrange");
-        nFees += tx.GetFee();
-        if (!MoneyRange(nFees))
+        mapFees += tx.GetFee();
+        if (!MoneyRange(mapFees))
             return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
 
-    CAmount blockReward = nFees;
+    CAmountMap blockReward = mapFees;
     if (!MoneyRange(blockReward))
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
-    if (!VerifyCoinbaseAmount(block.vtx[0], blockReward, BITCOINID))
+    if (!VerifyCoinbaseAmount(block.vtx[0], blockReward))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
-                               blockReward),
+                               blockReward[BITCOINID]),
                                REJECT_INVALID, "bad-cb-amount");
 
     //Don't DoS ban in case of RPC script check failure

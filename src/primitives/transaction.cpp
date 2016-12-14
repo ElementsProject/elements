@@ -155,25 +155,30 @@ uint256 CTransaction::GetWitnessHash() const
 
 bool CTransaction::HasValidFee() const
 {
-    CAmount totalFee = 0;
+    CAmountMap totalFee;
     for (unsigned int i = 0; i < vout.size(); i++) {
         CAmount fee = 0;
-        if (vout[i].IsFee())
+        if (vout[i].IsFee()) {
             fee = vout[i].nValue.GetAmount();
-        if (fee == 0 || !MoneyRange(fee)) {
-            return false;
+            if (fee == 0 || !MoneyRange(fee))
+                return false;
+            uint256 assetid;
+            vout[i].nAsset.GetAssetID(assetid);
+            totalFee[assetid] += fee;
         }
-        totalFee += fee;
     }
     return MoneyRange(totalFee);
 }
 
-CAmount CTransaction::GetFee() const
+CAmountMap CTransaction::GetFee() const
 {
-    CAmount fee = 0;
+    CAmountMap fee;
     for (unsigned int i = 0; i < vout.size(); i++)
-        if (vout[i].IsFee())
-            fee += vout[i].nValue.GetAmount();
+        if (vout[i].IsFee()) {
+            uint256 assetid;
+            vout[i].nAsset.GetAssetID(assetid);
+            fee[assetid] += vout[i].nValue.GetAmount();
+        }
     return fee;
 }
 

@@ -1293,7 +1293,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     CAmountMap nDebit = GetDebit(filter);
     if (nDebit > CAmountMap()) // debit>0 means we signed/sent this transaction
     {
-        nFee = GetFee();
+        nFee = GetFee()[BITCOINID];
     }
 
     CTxDestination addressUnaccounted = CNoDestination();

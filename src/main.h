@@ -387,7 +387,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
  * Verify the amounts of coinbase transactions. It will fail for any blinded amount or type.
  * Each output must be IsAmount && IsAssetID.
 */
-bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmount& fees, const uint256& feeID);
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
 
 /**
  * Check if transaction is final and can be included in a block with the
