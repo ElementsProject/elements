@@ -160,7 +160,7 @@ bool CTransaction::HasValidFee() const
         CAmount fee = 0;
         if (vout[i].IsFee())
             fee = vout[i].nValue.GetAmount();
-        if (!MoneyRange(fee)) {
+        if (fee == 0 || !MoneyRange(fee)) {
             return false;
         }
         totalFee += fee;
