@@ -41,6 +41,35 @@ CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b);
 CAmountMap operator+(const CAmountMap& a, const CAmountMap& b);
 CAmountMap operator-(const CAmountMap& a, const CAmountMap& b);
 
+// WARNING: Comparisons are only looking for *complete* ordering.
+// For strict inequality checks, if any entry would fail the non-strict
+// inequality, the comparison will fail. Therefore it is possible
+// that all inequality comparison checks may fail.
+// Therefore if >/< fails against a CAmountMap(), this means there
+// are all zeroes or one or more negative values.
+//
+// Examples: 1A + 2B <= 1A + 2B + 1C
+//      and  1A + 2B <  1A + 2B + 1C
+//                   but
+//           !(1A + 2B == 1A + 2B + 1C)
+//-------------------------------------
+//           1A + 2B == 1A + 2B
+//      and  1A + 2B <= 1A + 2B
+//                   but
+//           !(1A + 2B < 1A + 2B)
+//-------------------------------------
+//           !(1A + 2B == 2B - 1C)
+//           !(1A + 2B >= 2B - 1C)
+//                     ...
+//           !(1A + 2B < 2B - 1C)
+//      and   1A + 2B != 2B - 1C
+bool operator<(const CAmountMap& a, const CAmountMap& b);
+bool operator<=(const CAmountMap& a, const CAmountMap& b);
+bool operator>(const CAmountMap& a, const CAmountMap& b);
+bool operator>=(const CAmountMap& a, const CAmountMap& b);
+bool operator==(const CAmountMap& a, const CAmountMap& b);
+bool operator!=(const CAmountMap& a, const CAmountMap& b);
+
 /** No amount larger than this (in satoshi) is valid.
  *
  * Note that this constant is *not* the total money supply, which in Bitcoin

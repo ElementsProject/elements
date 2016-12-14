@@ -63,34 +63,6 @@ static const bool DEFAULT_USE_HD_WALLET = true;
 
 extern const char * DEFAULT_WALLET_DAT;
 
-// WARNING: Comparisons are only looking for *complete* ordering.
-// For strict inequality checks, if any entry would fail the non-strict
-// inequality, the comparison will fail. Therefore it is possible
-// that all inequality comparison checks may fail.
-// Therefore if >/< fails against a CAmountMap(), this means there
-// are all zeroes or one or more negative values.
-//
-// Examples: 1A + 2B <= 1A + 2B + 1C
-//      and  1A + 2B <  1A + 2B + 1C
-//                   but
-//           !(1A + 2B == 1A + 2B + 1C)
-//-------------------------------------
-//           1A + 2B == 1A + 2B
-//      and  1A + 2B <= 1A + 2B
-//                   but
-//           !(1A + 2B < 1A + 2B)
-//-------------------------------------
-//           !(1A + 2B == 2B - 1C)
-//           !(1A + 2B >= 2B - 1C)
-//                     ...
-//           !(1A + 2B < 2B - 1C)
-//      and   1A + 2B != 2B - 1C
-bool operator<(const CAmountMap& a, const CAmountMap& b);
-bool operator<=(const CAmountMap& a, const CAmountMap& b);
-bool operator>(const CAmountMap& a, const CAmountMap& b);
-bool operator>=(const CAmountMap& a, const CAmountMap& b);
-bool operator==(const CAmountMap& a, const CAmountMap& b);
-bool operator!=(const CAmountMap& a, const CAmountMap& b);
 bool hasNegativeValue(const CAmountMap& amount);
 bool hasNonPositiveValue(const CAmountMap& amount);
 
