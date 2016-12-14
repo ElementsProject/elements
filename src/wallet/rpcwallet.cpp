@@ -1961,7 +1961,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
     assert(wtx.tx->HasValidFee());
-    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee() : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee()[BITCOINID] : 0);
     CAmountMap nNet = nCredit - nDebit;
     nNet[pwalletMain->GetAssetIDFromLabel("bitcoin")] -= nFee;
 
@@ -3015,7 +3015,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
     }
 
     // calculate the old fee and fee-rate
-    CAmount nOldFee = wtx.tx->GetFee();
+    CAmount nOldFee = wtx.tx->GetFee()[BITCOINID];
     CFeeRate nOldFeeRate(nOldFee, txSize);
     CAmount nNewFee;
     CFeeRate nNewFeeRate;

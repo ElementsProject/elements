@@ -1466,7 +1466,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     CAmountMap nDebit = GetDebit(filter);
     if (nDebit > CAmountMap()) // debit>0 means we signed/sent this transaction
     {
-        nFee = tx->GetFee();
+        nFee = tx->GetFee()[BITCOINID];
     }
 
     CTxDestination addressUnaccounted = CNoDestination();
