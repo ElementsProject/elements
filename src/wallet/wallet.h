@@ -63,9 +63,6 @@ static const bool DEFAULT_USE_HD_WALLET = true;
 
 extern const char * DEFAULT_WALLET_DAT;
 
-/** Structure used for internal wallet accounting, and not consensus**/
-typedef std::map<CAssetID, CAmount> CAmountMap;
-
 // WARNING: Comparisons are only looking for *complete* ordering.
 // For strict inequality checks, if any entry would fail the non-strict
 // inequality, the comparison will fail. Therefore it is possible
@@ -96,18 +93,6 @@ bool operator==(const CAmountMap& a, const CAmountMap& b);
 bool operator!=(const CAmountMap& a, const CAmountMap& b);
 bool hasNegativeValue(const CAmountMap& amount);
 bool hasNonPositiveValue(const CAmountMap& amount);
-
-CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b);
-CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b);
-CAmountMap operator+(const CAmountMap& a, const CAmountMap& b);
-CAmountMap operator-(const CAmountMap& a, const CAmountMap& b);
-
-inline bool MoneyRange(const CAmountMap& mapValue) {
-    for(CAmountMap::const_iterator it = mapValue.begin(); it != mapValue.end(); it++)
-        if (it->second < 0 || it->second > MAX_MONEY)
-            return false;
-   return true;
-}
 
 class CBlockIndex;
 class CCoinControl;

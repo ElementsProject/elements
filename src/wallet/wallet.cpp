@@ -4162,37 +4162,3 @@ bool hasNonPostiveValue(const CAmountMap& amount)
     }
     return false;
 }
-
-CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b)
-{
-    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it)
-        a[it->first] += it->second;
-    return a;
-}
-
-CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b)
-{
-    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it)
-        a[it->first] -= it->second;
-    return a;
-}
-
-CAmountMap operator+(const CAmountMap& a, const CAmountMap& b)
-{
-    CAmountMap c;
-    for(std::map<CAssetID, CAmount>::const_iterator it = a.begin(); it != a.end(); ++it)
-        c[it->first] += it->second;
-    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it)
-        c[it->first] += it->second;
-    return c;
-}
-
-CAmountMap operator-(const CAmountMap& a, const CAmountMap& b)
-{
-    CAmountMap c;
-    for(std::map<CAssetID, CAmount>::const_iterator it = a.begin(); it != a.end(); ++it)
-        c[it->first] += it->second;
-    for(std::map<CAssetID, CAmount>::const_iterator it = b.begin(); it != b.end(); ++it)
-        c[it->first] -= it->second;
-    return c;
-}

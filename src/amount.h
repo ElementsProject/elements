@@ -33,6 +33,14 @@ typedef uint256 CAssetID;
 /** The sha256 of Bitcoin genesis block, for easy reference **/
 static const CAssetID BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621"));
 
+/** Used for consensus fee and general wallet accounting*/
+typedef std::map<CAssetID, CAmount> CAmountMap;
+
+CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b);
+CAmountMap& operator-=(CAmountMap& a, const CAmountMap& b);
+CAmountMap operator+(const CAmountMap& a, const CAmountMap& b);
+CAmountMap operator-(const CAmountMap& a, const CAmountMap& b);
+
 /** No amount larger than this (in satoshi) is valid.
  *
  * Note that this constant is *not* the total money supply, which in Bitcoin
@@ -45,6 +53,12 @@ static const CAssetID BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773
 static const CAmount MAX_MONEY = 21000000 * COIN;
 inline bool MoneyRange(const CAmount& nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 
+inline bool MoneyRange(const CAmountMap& mapValue) {
+    for(CAmountMap::const_iterator it = mapValue.begin(); it != mapValue.end(); it++)
+        if (it->second < 0 || it->second > MAX_MONEY)
+            return false;
+   return true;
+}
 /**
  * Fee rate in satoshis per kilobyte: CAmount / kB
  */
