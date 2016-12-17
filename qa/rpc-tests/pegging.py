@@ -88,13 +88,13 @@ sidechain.sendtomainchain(addr, 50)
 sidechain.generate(101)
 
 addrs = sidechain.getpeginaddress()
-txid = bitcoin.sendtoaddress(addrs["mainaddress"], 49)
+txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 49)
 bitcoin.generate(10)
 proof = bitcoin.gettxoutproof([txid])
 raw = bitcoin.getrawtransaction(txid)
 
 print("Attempting peg-in")
-pegtxid = sidechain.claimpegin(addrs["address"], raw, proof)
+pegtxid = sidechain.claimpegin(addrs["sidechain_address"], raw, proof)
 sidechain.generate(1)
 
 tx = sidechain.gettransaction(pegtxid)
