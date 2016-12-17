@@ -2805,7 +2805,7 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
             + HelpExampleRpc("getpeginaddress", "\"myaccount\"")
         );
 
-    //Creates new address for later receipt of final funds in spendclaim
+    //Creates new address for receiving unlocked utxos
     CBitcoinAddress address(CBitcoinAddress(getnewaddress(params, false).get_str()).GetUnblinded());
 
     //Call contracthashtool, get deposit address on mainchain.
