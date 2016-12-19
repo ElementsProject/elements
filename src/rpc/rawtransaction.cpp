@@ -158,6 +158,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         else if (asset.IsAssetCommitment()) {
             out.push_back(Pair("assettag", HexStr(asset.vchAssetTag)));
         }
+        else if (asset.IsAssetGeneration()) {
+            uint256 assetID;
+            asset.GetAssetID(assetID);
+            out.push_back(Pair("assetgeneration", assetID.GetHex()));
+        }
 
         {
             CDataStream ssValue(SER_NETWORK, PROTOCOL_VERSION);
