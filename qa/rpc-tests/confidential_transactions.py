@@ -87,11 +87,12 @@ class CTTest (BitcoinTestFramework):
         unspent = self.nodes[0].listunspent()
         unspent = [i for i in unspent if i['amount'] > value23]
         assert_equal(len(unspent), 1)
+        fee = Decimal(0.0001)
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
                                                 {unconfidential_address: value2, address: value3,
-                                                change_address: unspent[0]["amount"] - value2 - value3})
+                                                change_address: unspent[0]["amount"] - value2 - value3 - fee})
         tx = self.nodes[0].blindrawtransaction(tx)
         tx_signed = self.nodes[0].signrawtransaction(tx)
         raw_tx_id = self.nodes[0].sendrawtransaction(tx_signed['hex'])
@@ -138,7 +139,7 @@ class CTTest (BitcoinTestFramework):
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
-                                                  {unconfidential_address: unspent[0]["amount"]});
+                                                  {unconfidential_address: unspent[0]["amount"] - fee});
 
         # Test that blindrawtransaction returns an exception
         try:
@@ -155,7 +156,7 @@ class CTTest (BitcoinTestFramework):
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
                                                   {unconfidential_address: value4,
-                                                   change_address: unspent[0]["amount"] - value4});
+                                                   change_address: unspent[0]["amount"] - value4 - fee});
         tx = self.nodes[0].blindrawtransaction(tx)
 
         tx_signed = self.nodes[0].signrawtransaction(tx)
