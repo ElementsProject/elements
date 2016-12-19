@@ -221,6 +221,19 @@ public:
     bool operator()(const CNoDestination& no) const { return false; }
 };
 
+class CParentBitcoinAddressVisitor : public boost::static_visitor<bool>
+{
+private:
+    CParentBitcoinAddress* addr;
+
+public:
+    CParentBitcoinAddressVisitor(CParentBitcoinAddress* addrIn) : addr(addrIn) {}
+
+    bool operator()(const CKeyID& id) const { return addr->Set(id); }
+    bool operator()(const CScriptID& id) const { return addr->Set(id); }
+    bool operator()(const CNoDestination& no) const { return false; }
+};
+
 } // anon namespace
 
 bool CBitcoinAddress::Set(const CKeyID& id)
@@ -238,6 +251,23 @@ bool CBitcoinAddress::Set(const CScriptID& id)
 bool CBitcoinAddress::Set(const CTxDestination& dest)
 {
     return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
+}
+
+bool CParentBitcoinAddress::Set(const CKeyID& id)
+{
+    SetData(Params().Base58Prefix(CChainParams::PARENT_PUBKEY_ADDRESS), &id, 20);
+    return true;
+}
+
+bool CParentBitcoinAddress::Set(const CScriptID& id)
+{
+    SetData(Params().Base58Prefix(CChainParams::PARENT_SCRIPT_ADDRESS), &id, 20);
+    return true;
+}
+
+bool CParentBitcoinAddress::Set(const CTxDestination& dest)
+{
+    return boost::apply_visitor(CParentBitcoinAddressVisitor(this), dest);
 }
 
 CBitcoinAddress& CBitcoinAddress::AddBlindingKey(const CPubKey& pubkey)
@@ -271,6 +301,11 @@ bool CBitcoinAddress::IsValid() const
     return IsValid(Params());
 }
 
+bool CParentBitcoinAddress::IsValid() const
+{
+    return IsValid(Params());
+}
+
 CBitcoinAddress CBitcoinAddress::GetUnblinded() const
 {
     CBitcoinAddress subaddr;
@@ -289,6 +324,14 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
     return fCorrectSize && fKnownVersion;
 }
 
+bool CParentBitcoinAddress::IsValid(const CChainParams& params) const
+{
+    bool fCorrectSize = vchData.size() == 20;
+    bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PARENT_PUBKEY_ADDRESS) ||
+                         vchVersion == params.Base58Prefix(CChainParams::PARENT_SCRIPT_ADDRESS);
+    return fCorrectSize && fKnownVersion;
+}
+
 CTxDestination CBitcoinAddress::Get() const
 {
     if (IsBlinded()) {
@@ -301,6 +344,20 @@ CTxDestination CBitcoinAddress::Get() const
     if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS))
         return CKeyID(id);
     else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS))
+        return CScriptID(id);
+    else
+        return CNoDestination();
+}
+
+CTxDestination CParentBitcoinAddress::Get() const
+{
+    if (!IsValid())
+        return CNoDestination();
+    uint160 id;
+    memcpy(&id, &vchData[0], 20);
+    if (vchVersion == Params().Base58Prefix(CChainParams::PARENT_PUBKEY_ADDRESS))
+        return CKeyID(id);
+    else if (vchVersion == Params().Base58Prefix(CChainParams::PARENT_SCRIPT_ADDRESS))
         return CScriptID(id);
     else
         return CNoDestination();
