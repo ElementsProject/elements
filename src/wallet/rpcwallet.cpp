@@ -3228,7 +3228,7 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     unsigned char nonce[16];
     memset(nonce, 0, sizeof(nonce));
     unsigned char fullcontract[40];
-    CBitcoinAddress destAddr(calculate_contract(Params().GetConsensus().fedpegScript, address, nonce, fullcontract));
+    CParentBitcoinAddress destAddr(calculate_contract(Params().GetConsensus().fedpegScript, address, nonce, fullcontract));
 
     UniValue fundinginfo(UniValue::VOBJ);
 
@@ -3261,7 +3261,7 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    CBitcoinAddress address(request.params[0].get_str());
+    CParentBitcoinAddress address(request.params[0].get_str());
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 

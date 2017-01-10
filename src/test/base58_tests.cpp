@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
 {
     UniValue tests = read_json(std::string(json_tests::base58_keys_valid, json_tests::base58_keys_valid + sizeof(json_tests::base58_keys_valid)));
     CBitcoinSecret secret;
-    CBitcoinAddress addr;
+    CParentBitcoinAddress addr;
     SelectParams(CBaseChainParams::MAIN);
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
@@ -146,7 +146,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_parse)
         {
             bool isCompressed = find_value(metadata, "isCompressed").get_bool();
             // Must be valid private key
-            // Note: CBitcoinSecret::SetString tests isValid, whereas CBitcoinAddress does not!
+            // Note: CBitcoinSecret::SetString tests isValid, whereas CParentBitcoinAddress does not!
             BOOST_CHECK_MESSAGE(secret.SetString(exp_base58string), "!SetString:"+ strTest);
             BOOST_CHECK_MESSAGE(secret.IsValid(), "!IsValid:" + strTest);
             CKey privkey = secret.GetKey();
@@ -227,14 +227,14 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
                 BOOST_ERROR("Bad addrtype: " << strTest);
                 continue;
             }
-            CBitcoinAddress addrOut;
+            CParentBitcoinAddress addrOut;
             BOOST_CHECK_MESSAGE(addrOut.Set(dest), "encode dest: " + strTest);
             BOOST_CHECK_MESSAGE(addrOut.ToString() == exp_base58string, "mismatch: " + strTest);
         }
     }
 
     // Visiting a CNoDestination must fail
-    CBitcoinAddress dummyAddr;
+    CParentBitcoinAddress dummyAddr;
     CTxDestination nodest = CNoDestination();
     BOOST_CHECK(!dummyAddr.Set(nodest));
 
@@ -246,7 +246,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_invalid)
 {
     UniValue tests = read_json(std::string(json_tests::base58_keys_invalid, json_tests::base58_keys_invalid + sizeof(json_tests::base58_keys_invalid))); // Negative testcases
     CBitcoinSecret secret;
-    CBitcoinAddress addr;
+    CParentBitcoinAddress addr;
 
     for (unsigned int idx = 0; idx < tests.size(); idx++) {
         UniValue test = tests[idx];
