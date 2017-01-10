@@ -51,34 +51,31 @@ public:
 class CProof
 {
 public:
-    CScript challenge;
     CScript solution;
 
     CProof()
     {
         SetNull();
     }
-    CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
+    CProof(CScript solutionIn) : solution(solutionIn) {}
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
-        READWRITE(*(CScriptBase*)(&challenge));
         if (!(nType & SER_GETHASH))
             READWRITE(*(CScriptBase*)(&solution));
     }
 
     void SetNull()
     {
-        challenge.clear();
         solution.clear();
     }
 
     bool IsNull() const
     {
-        return challenge.empty();
+        return solution.empty();
     }
 
     std::string ToString() const;

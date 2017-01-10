@@ -2694,7 +2694,7 @@ UniValue signblock(const UniValue& params, bool fHelp)
     }
 
     block.proof.solution = CScript();
-    MaybeGenerateProof(&block, pwalletMain);
+    MaybeGenerateProof(Params().GetConsensus(), &block, pwalletMain);
     return HexStr(block.proof.solution.begin(), block.proof.solution.end());
 }
 
