@@ -50,6 +50,8 @@ public:
         SECRET_KEY,
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
+        PARENT_PUBKEY_ADDRESS,
+        PARENT_SCRIPT_ADDRESS,
 
         MAX_BASE58_TYPES
     };

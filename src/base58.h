@@ -124,6 +124,24 @@ public:
     bool IsBlinded(const CChainParams& params = Params()) const;
 };
 
+class CParentBitcoinAddress : public CBase58Data {
+public:
+    bool Set(const CKeyID &id);
+    bool Set(const CScriptID &id);
+    bool Set(const CTxDestination &dest);
+    bool IsValid() const;
+    bool IsValid(const CChainParams &params) const;
+
+    CParentBitcoinAddress() {}
+    CParentBitcoinAddress(const CTxDestination &dest) { Set(dest); }
+    CParentBitcoinAddress(const std::string& strAddress) { SetString(strAddress); }
+    CParentBitcoinAddress(const char* pszAddress) { SetString(pszAddress); }
+
+    CTxDestination Get() const;
+    bool GetKeyID(CKeyID &keyID) const;
+    bool IsScript() const;
+};
+
 /**
  * A base58-encoded secret key
  */
