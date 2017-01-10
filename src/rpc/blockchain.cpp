@@ -10,6 +10,7 @@
 #include "coins.h"
 #include "consensus/validation.h"
 #include "validation.h"
+#include "core_io.h"
 #include "policy/policy.h"
 #include "primitives/transaction.h"
 #include "rpc/server.h"
@@ -74,7 +75,6 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("time", (int64_t)blockindex->nTime));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
     result.push_back(Pair("nonce", (uint64_t)GetNonce(blockindex->GetBlockHeader())));
-    result.push_back(Pair("bits", GetChallengeStr(blockindex->GetBlockHeader())));
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
 
@@ -118,7 +118,6 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
     result.push_back(Pair("nonce", (uint64_t)GetNonce(block)));
-    result.push_back(Pair("bits", GetChallengeStr(block)));
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
 
@@ -1046,6 +1045,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"chain\": \"xxxx\",        (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"signblockhex\": \"xxxx\", (string) the scriptPubKey for signing blocks as a hex string.\n"
+            "  \"signblockasm\": \"xxxx\", (string) the scriptPubKey for signing blocks in a format more readable for humans (asm).\n"
             "  \"blocks\": xxxxxx,         (numeric) the current number of blocks processed in the server\n"
             "  \"headers\": xxxxxx,        (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\", (string) the hash of the currently best block\n"
@@ -1079,10 +1080,13 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             + HelpExampleRpc("getblockchaininfo", "")
         );
 
+    const Consensus::Params& consensusParams = Params().GetConsensus();
     LOCK(cs_main);
 
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("chain",                 Params().NetworkIDString()));
+    obj.push_back(Pair("signblockhex",          HexStr(consensusParams.signblockScript)));
+    obj.push_back(Pair("signblockasm",          ScriptToAsmStr(consensusParams.signblockScript)));
     obj.push_back(Pair("blocks",                (int)chainActive.Height()));
     obj.push_back(Pair("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1));
     obj.push_back(Pair("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex()));
@@ -1092,7 +1096,6 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.push_back(Pair("chainwork",             chainActive.Tip()->nChainWork.GetHex()));
     obj.push_back(Pair("pruned",                fPruneMode));
 
-    const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue bip9_softforks(UniValue::VOBJ);
     BIP9SoftForkDescPushBack(bip9_softforks, "csv", consensusParams, Consensus::DEPLOYMENT_CSV);
     BIP9SoftForkDescPushBack(bip9_softforks, "segwit", consensusParams, Consensus::DEPLOYMENT_SEGWIT);
