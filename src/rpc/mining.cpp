@@ -216,14 +216,15 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
     UniValue result(UniValue::VOBJ);
+    const Consensus::Params& consensusParams = Params().GetConsensus();
     const UniValue& sigs = request.params[1].get_array();
     for (unsigned int i = 0; i < sigs.size(); i++) {
         const std::string& sig = sigs[i].get_str();
         if (!IsHex(sig))
             continue;
         std::vector<unsigned char> vchScript = ParseHex(sig);
-        block.proof.solution = CombineBlockSignatures(block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
-        if (CheckProof(block, Params().GetConsensus())) {
+        block.proof.solution = CombineBlockSignatures(consensusParams, block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
+        if (CheckProof(block, consensusParams)) {
             result.push_back(Pair("hex", EncodeHexBlock(block)));
             result.push_back(Pair("complete", true));
             return result;
@@ -751,7 +752,6 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
     result.push_back(Pair("coinbaseaux", aux));
     result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue.GetAmount()));
     result.push_back(Pair("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast)));
-    result.push_back(Pair("target", GetChallengeStrHex(*pblock)));
     result.push_back(Pair("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1));
     result.push_back(Pair("mutable", aMutable));
     result.push_back(Pair("noncerange", "00000000ffffffff"));
@@ -768,7 +768,6 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
         result.push_back(Pair("weightlimit", (int64_t)MAX_BLOCK_WEIGHT));
     }
     result.push_back(Pair("curtime", pblock->GetBlockTime()));
-    result.push_back(Pair("bits", GetChallengeStr(*pblock)));
     result.push_back(Pair("height", (int64_t)(pindexPrev->nHeight+1)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
