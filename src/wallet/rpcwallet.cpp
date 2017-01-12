@@ -2810,6 +2810,7 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"mainchain_address\"           (string) Mainchain Bitcoin deposit address to send bitcoin to\n"
             "\"sidechain_address\"           (string) The sidechain address in this wallet which must be used in `claimpegin` to retrieve pegged-in funds\n"
+            "\"fedpegscript\"                (string) The federation script the user is committing to. THIS *MUST* BE SET TO PROPER NETWORK VALUES OR MONEY SENT TO mainchain_address WILL BE IRREVERSIBLY LOST.\n"
             "\nExamples:\n"
             + HelpExampleCli("getpeginaddress", "")
             + HelpExampleCli("getpeginaddress", "\"\"")
@@ -2835,6 +2836,7 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
     UniValue fundinginfo(UniValue::VOBJ);
     fundinginfo.pushKV("mainchain_address", destAddr.ToString());
     fundinginfo.pushKV("sidechain_address", address.ToString());
+    fundinginfo.pushKV("fedpegscript", HexStr(Params().GetConsensus().fedpegScript));
     return fundinginfo;
 }
 
