@@ -27,28 +27,25 @@ software which enables the use of this currency.
 For more information, as well as an immediately useable, binary version of
 the Bitcoin Core software, see https://www.bitcoin.org/en/download.
 
-What is Elements Alpha?
------------------------
-https://github.com/ElementsProject/elements/tree/alpha
-
-Elements Alpha is the Elements project's first experimental test chain.
+What is Elements?
+----------------
 
 Compared to Bitcoin itself, it adds the following features:
  * [Confidential Transactions][confidential-transactions]
- * [Segregated Witness][segregated-witness]
- * [Relative Lock Time][relative-lock-time]
- * [Schnorr Signatures][schnorr-signatures]
  * [Additional opcodes][opcodes]
- * [Deterministic Peg (pegged to Bitcoin's testnet currency).][deterministic-peg]
+ * [Deterministic Peg][deterministic-peg]
  * [Signed Blocks][signed-blocks]
 
-Getting Started
----------------
-See alpha-README.md for build and use instructions.
+Previous elements that have been integrated into Core:
+ * [Segregated Witness][segregated-witness]
+ * [Relative Lock Time][relative-lock-time]
+
+Elements deferred for additional research and standardization:
+ * [Schnorr Signatures][schnorr-signatures]
 
 License
 -------
-Elements Alpha is released under the terms of the MIT license. See [COPYING](COPYING) for more
+Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see http://opensource.org/licenses/MIT.
 
 [confidential-transactions]: https://www.elementsproject.org/elements/confidential-transactions
