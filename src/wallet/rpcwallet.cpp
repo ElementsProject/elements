@@ -428,7 +428,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() < 2 || params.size() > 6)
         throw runtime_error(
-            "sendtoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount )\n"
+            "sendtoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount assetlabel )\n"
             "\nSend an amount to a given address.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
