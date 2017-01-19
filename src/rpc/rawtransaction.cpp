@@ -472,8 +472,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     }
 
     uint256 bitcoinid(BITCOINID);
-    std::map<uint256, CAmount> inputValue;
-    inputValue[bitcoinid] = 0;
+    CAmountMap inputValue;
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
         const UniValue& input = inputs[idx];
@@ -508,16 +507,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         }
 
         const UniValue& vout_value = find_value(o, "nValue");
-        if (inputValue.count(asset))
-            inputValue[asset] = inputValue[asset] + AmountFromValue(vout_value);
-        else
-            inputValue[asset] = AmountFromValue(vout_value);
+        inputValue[asset] += AmountFromValue(vout_value);
 
         rawTx.vin.push_back(in);
     }
 
-    std::map<uint256, CAmount> outputValue;
-    outputValue[bitcoinid] = 0;
+    CAmountMap outputValue;
 
     set<CBitcoinAddress> setAddress;
     vector<string> addrList = sendTo.getKeys();
@@ -547,11 +542,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
             CScript scriptPubKey = GetScriptForDestination(address.Get());
             CAmount nAmount = AmountFromValue(sendTo[name_]);
 
-            if (outputValue.count(asset))
-                outputValue[asset] = outputValue[asset] + nAmount;
-            else
-                outputValue[asset] = nAmount;
-
+            outputValue[asset] += nAmount;
 
             CTxOut out(asset, nAmount, scriptPubKey);
             if (address.IsBlinded()) {
