@@ -555,6 +555,18 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         }
     }
 
+    // Now add fee outputs
+    CAmountMap fees = inputValue - outputValue;
+    for(std::map<CAssetID, CAmount>::const_iterator it = fees.begin(); it != fees.end(); it++) {
+        if (it->second < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid transaction: Value out exceeds value in for some asset type."));
+        }
+        else if (it->second > 0) {
+            CTxOut out(it->first, it->second, CScript());
+            rawTx.vout.push_back(out);
+        }
+    }
+
     return EncodeHexTx(rawTx);
 }
 
