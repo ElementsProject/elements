@@ -124,7 +124,7 @@ public:
     bool IsBlinded(const CChainParams& params = Params()) const;
 };
 
-class CParentBitcoinAddress : public CBitcoinAddress {
+class CParentBitcoinAddress : public CBase58Data {
 public:
     bool Set(const CKeyID &id);
     bool Set(const CScriptID &id);
@@ -138,6 +138,8 @@ public:
     CParentBitcoinAddress(const char* pszAddress) { SetString(pszAddress); }
 
     CTxDestination Get() const;
+    bool GetKeyID(CKeyID &keyID) const;
+    bool IsScript() const;
 };
 
 /**
