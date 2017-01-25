@@ -50,7 +50,6 @@ with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("txindex=1\n")
         f.write("fedpegscript="+fedpeg_pubkey+"\n")
         f.write("daemon=1\n")
-        f.write("blockprioritysize=1000000\n")
         f.write("mainchainrpchost=127.0.0.1\n")
         f.write("mainchainrpcport="+str(bitcoin_port)+"\n")
         f.write("mainchainrpcuser=bitcoinrpc\n")
