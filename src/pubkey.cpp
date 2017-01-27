@@ -114,6 +114,48 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int nChild) const {
     return pubkey.Derive(out.pubkey, out.vchChainCode, nChild, vchChainCode);
 }
 
+int PubKeyTree::Walk(std::vector<unsigned char> *pmerkleroot, size_t pos, std::vector<std::vector<unsigned char> >* pvMerklePath)
+{
+    std::vector<std::vector<unsigned char> > vMerkleLevel;
+
+    assert(pubkeys.size() >= (1 << 1) && pubkeys.size() <= (1 << 16));
+    assert(pos < pubkeys.size());
+
+    for (size_t i = 0; i < pubkeys.size(); i++) {
+        std::vector<unsigned char> node;
+        node.resize(32);
+        CSHA256().Write(&pubkeys[i][0], pubkeys[i].size()).Finalize(&node[0]);
+        vMerkleLevel.push_back(node);
+    }
+
+    int levels = 0;
+    while (vMerkleLevel.size() > 1) {
+       std::vector<std::vector<unsigned char> > vNewMerkleLevel;
+       if (vMerkleLevel.size() % 2 == 1) {
+           vMerkleLevel.push_back(std::vector<unsigned char>(1, 1));
+       }
+       for (size_t  p = 0; p < vMerkleLevel.size(); p += 2) {
+           std::vector<unsigned char> node;
+           node.resize(32);
+           CSHA256().Write(&vMerkleLevel[p][0], vMerkleLevel[p].size()).Write(&vMerkleLevel[p + 1][0], vMerkleLevel[p + 1].size()).Finalize(&node[0]);
+           vNewMerkleLevel.push_back(node);
+           if (pvMerklePath && (p == pos || p + 1 == pos)) {
+               pvMerklePath->push_back(vMerkleLevel[p + (p == pos)]);
+           }
+       }
+       pos >>= 1;
+       levels++;
+       vNewMerkleLevel.swap(vMerkleLevel);
+    }
+
+    if (pmerkleroot) {
+        pmerkleroot->swap(vMerkleLevel[0]);
+    }
+
+    return levels;
+}
+
+
 void ECC_Verify_Start() {
     assert(secp256k1_bitcoin_verify_context == NULL);
 

@@ -280,6 +280,52 @@ CScript _createmultisig_redeemScript(const Array& params)
     return result;
 }
 
+/**
+ * Used by addmultisigaddress / createmultisig:
+ */
+void _createtreesig_redeemScript(const Array& params, CScript* pscript, std::vector<unsigned char>* pmerkleroot, std::vector<CPubKey>* pvPubKeys)
+{
+    const Array& keys = params[0].get_array();
+
+    // Gather public keys
+    if (keys.size() < 2 || keys.size() > 0x100000000ULL)
+        throw runtime_error("Number of keys involved in the multisignature address creation must be between 2 and 2**32");
+    std::vector<CPubKey> pubkeys;
+    pubkeys.resize(keys.size());
+    for (unsigned int i = 0; i < keys.size(); i++)
+    {
+        const std::string& ks = keys[i].get_str();
+        if (IsHex(ks))
+        {
+            CPubKey vchPubKey(ParseHex(ks));
+            if (!vchPubKey.IsFullyValid())
+                throw runtime_error(" Invalid public key: "+ks);
+            pubkeys[i] = vchPubKey;
+        }
+        else
+        {
+            throw runtime_error(" Invalid public key: "+ks);
+        }
+    }
+
+    PubKeyTree tree(pubkeys);
+    CScript result = GetScriptForTreeSig(tree);
+
+    if (result.size() > MAX_SCRIPT_ELEMENT_SIZE)
+        throw runtime_error(
+                strprintf("redeemScript exceeds size limit: %d > %d", result.size(), MAX_SCRIPT_ELEMENT_SIZE));
+
+    if (pscript) {
+        pscript->swap(result);
+    }
+    if (pvPubKeys) {
+        pvPubKeys->swap(pubkeys);
+    }
+    if (pmerkleroot) {
+        *pmerkleroot = tree.GetMerkleRoot();
+    }
+}
+
 Value createmultisig(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 2)
@@ -319,6 +365,46 @@ Value createmultisig(const Array& params, bool fHelp)
     Object result;
     result.push_back(Pair("address", address.ToString()));
     result.push_back(Pair("redeemScript", HexStr(inner.begin(), inner.end())));
+
+    return result;
+}
+
+Value createtreesig(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 1)
+    {
+        string msg = "createmultisig [\"key\",...]\n"
+            "\nCreates a tree multi-signature address with 1 signature of m keys required.\n"
+            "It returns a json object with the address and redeemScript.\n"
+
+            "\nArguments:\n"
+            "1. \"keys\"       (string, required) A json array of keys which are hex-encoded public keys\n"
+            "     [\n"
+            "       \"key\"    (string) hex-encoded public key\n"
+            "       ,...\n"
+            "     ]\n"
+
+            "\nResult:\n"
+            "{\n"
+            "  \"address\":\"multisigaddress\",  (string) The value of the new multisig address.\n"
+            "  \"redeemScript\":\"script\"       (string) The string value of the hex-encoded redemption script.\n"
+            "  \"merkleroot\":\"merkleroot\",    (string) The hex-encoded merkle root of the resulting pubkey tree.\n"
+            "}\n"
+        ;
+        throw runtime_error(msg);
+    }
+
+    // Construct using pay-to-script-hash:
+    CScript inner;
+    std::vector<unsigned char> merkleroot;
+    _createtreesig_redeemScript(params, &inner, &merkleroot, NULL);
+    CScriptID innerID(inner);
+    CBitcoinAddress address(innerID);
+
+    Object result;
+    result.push_back(Pair("address", address.ToString()));
+    result.push_back(Pair("redeemScript", HexStr(inner.begin(), inner.end())));
+    result.push_back(Pair("merkleroot", HexStr(merkleroot.begin(), merkleroot.end())));
 
     return result;
 }

@@ -29,12 +29,43 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_PUBKEYHASH: return "pubkeyhash";
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
+    case TX_TREESIG: return "treesig";
     case TX_NULL_DATA: return "nulldata";
     case TX_WITHDRAW_LOCK: return "withdraw";
     case TX_WITHDRAW_OUT: return "withdrawout";
     case TX_TRUE: return "true";
     }
     return NULL;
+}
+
+bool CheckTreeSig(const CScript& scriptPubKey, vector<vector<unsigned char> >& vSolutionsRet)
+{
+    std::vector<std::vector<unsigned char> > ret;
+    CScript::const_iterator pc = scriptPubKey.begin();
+    opcodetype opcode;
+    std::vector<unsigned char> data;
+    int64_t levels = -1;
+    if (!scriptPubKey.GetOp(pc, opcode, data) || !CScript::DecodeInt(opcode, data, &levels)) return false;
+    if (levels % 2) return false;
+    levels >>= 1;
+    ret.push_back(std::vector<unsigned char>(1, (unsigned char)levels));
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_PICK) return false;
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_SHA256) return false;
+    for (int64_t i = 0; i < levels; i++) {
+        if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_SWAP) return false;
+        if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_IF) return false;
+        if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_SWAP) return false;
+        if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_ENDIF) return false;
+        if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_CAT) return false;
+        if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_SHA256) return false;
+    }
+    if (!scriptPubKey.GetOp(pc, opcode, data) || data.size() != 32) return false;
+    ret.push_back(data);
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_EQUALVERIFY) return false;
+    if (!scriptPubKey.GetOp(pc, opcode) || opcode != OP_CHECKSIG) return false;
+    if (pc != scriptPubKey.end()) return false;
+    vSolutionsRet = ret;
+    return true;
 }
 
 /**
@@ -172,6 +203,12 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         }
     }
 
+    if (CheckTreeSig(scriptPubKey, vSolutionsRet))
+    {
+        typeRet = TX_TREESIG;
+        return true;
+    }
+
     vSolutionsRet.clear();
     typeRet = TX_NONSTANDARD;
     return false;
@@ -190,6 +227,8 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
         return 1;
     case TX_PUBKEYHASH:
         return 2;
+    case TX_TREESIG:
+        return 2 + 2 * vSolutions[0][0];
     case TX_MULTISIG:
         if (vSolutions.size() < 1 || vSolutions[0].size() < 1)
             return -1;
@@ -270,6 +309,10 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
         // This is data, not addresses
         return false;
     }
+    if (typeRet == TX_TREESIG) {
+        // You can't extract the involved keys from their merkle root.
+        return false;
+    }
 
     if (typeRet == TX_MULTISIG)
     {
@@ -343,5 +386,20 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys)
     BOOST_FOREACH(const CPubKey& key, keys)
         script << ToByteVector(key);
     script << CScript::EncodeOP_N(keys.size()) << OP_CHECKMULTISIG;
+    return script;
+}
+
+CScript GetScriptForTreeSig(const PubKeyTree& tree)
+{
+    std::vector<unsigned char> merkleroot = tree.GetMerkleRoot();
+    int levels = tree.GetLevels();
+
+    CScript script;
+    script << (levels * 2) << OP_PICK << OP_SHA256;
+    for (int i = 0; i < levels; i++) {
+        script << OP_SWAP << OP_IF << OP_SWAP << OP_ENDIF << OP_CAT << OP_SHA256;
+    }
+    script << merkleroot << OP_EQUALVERIFY << OP_CHECKSIG;
+
     return script;
 }

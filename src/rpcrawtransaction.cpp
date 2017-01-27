@@ -801,7 +801,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 4)
         throw runtime_error(
-            "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n"
+            "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\",\"pubkeytree\":[\"hex\",\"hex\",...]},...] [\"privatekey1\",...] sighashtype )\n"
             "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
             "The second optional argument (may be null) is an array of previous transaction outputs that\n"
             "this transaction depends on but may not yet be in the block chain.\n"
@@ -821,6 +821,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
             "         \"nValue\": \"hex\",         (string, required) The output's value commitment\n"
             "         \"scriptPubKey\": \"hex\",   (string, required) script key\n"
             "         \"redeemScript\": \"hex\"    (string, required for P2SH) redeem script\n"
+            "         \"pubkeytree\": [...]        (string, required for treesig) list of public keys\n"
             "       }\n"
             "       ,...\n"
             "    ]\n"
@@ -954,12 +955,26 @@ Value signrawtransaction(const Array& params, bool fHelp)
             // if redeemScript given and not using the local wallet (private keys
             // given), add redeemScript to the tempKeystore so it can be signed:
             if (fGivenKeys && (scriptPubKey.IsPayToScriptHash() || scriptPubKey.IsWithdrawOutput())) {
-                RPCTypeCheck(prevOut, map_list_of("txid", str_type)("vout", int_type)("nValue", str_type)("scriptPubKey", str_type)("redeemScript",str_type));
+                RPCTypeCheck(prevOut, map_list_of("txid", str_type)("vout", int_type)("nValue", str_type)("scriptPubKey", str_type)("redeemScript",str_type)("pubkeytree",array_type));
                 Value v = find_value(prevOut, "redeemScript");
                 if (!(v == Value::null)) {
                     vector<unsigned char> rsData(ParseHexV(v, "redeemScript"));
                     CScript redeemScript(rsData.begin(), rsData.end());
                     tempKeystore.AddCScript(redeemScript);
+                }
+                Value vv = find_value(prevOut, "pubkeytree");
+                if (!(v == Value::null)) {
+                    Array a = vv.get_array();
+                    std::vector<CPubKey> pubkeys;
+                    BOOST_FOREACH(Value& v, a) {
+                        string str = v.get_str();
+                        CPubKey pubkey(ParseHex(str));
+                        if (!pubkey.IsValid()) {
+                            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Invalid pubkey: " + str);
+                        }
+                        pubkeys.push_back(pubkey);
+                    }
+                    tempKeystore.AddPubKeyTree(PubKeyTree(pubkeys));
                 }
             }
         }

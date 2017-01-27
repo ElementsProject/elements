@@ -55,6 +55,67 @@ static bool SignN(const vector<valtype>& multisigdata, const BaseSignatureCreato
     return nSigned==nRequired;
 }
 
+static bool SignTreeSig(const BaseSignatureCreator& creator, const std::vector<valtype>& vSolutions, const CScript& scriptCode, CScript& scriptSigRet)
+{
+    if (!creator.KeyStore().HavePubKeyTree(vSolutions[1])) {
+        return false;
+    }
+
+    PubKeyTree pubkeytree;
+    if (!creator.KeyStore().GetPubKeyTree(vSolutions[1], pubkeytree)) {
+        return false;
+    }
+    if (pubkeytree.size() > (1UL << vSolutions[0][0])) {
+        return false;
+    }
+    if (pubkeytree.size() <= (1UL << (vSolutions[0][0] - 1))) {
+        return false;
+    }
+
+    bool found = false;
+    size_t pos = 0;
+    CKeyID keyid;
+    for (size_t i = 0; i < pubkeytree.size(); i++) {
+        keyid = pubkeytree[i].GetID();
+        if (creator.KeyStore().HaveKey(keyid)) {
+            pos = i;
+            found = true;
+        }
+    }
+    if (!found) {
+        return false;
+    }
+
+    CScript ret;
+    if (!Sign1(keyid, creator, scriptCode, ret)) {
+        return false;
+    }
+    ret << ToByteVector(pubkeytree[pos]);
+
+    CScript walk;
+    std::vector<unsigned char> merkleroot = pubkeytree.GetMerkleRoot();
+    std::vector<std::vector<unsigned char> > merklepath = pubkeytree.GetMerklePath(pos);
+    assert(merkleroot == vSolutions[1]);
+    BOOST_FOREACH(const std::vector<unsigned char>& merklenode, merklepath) {
+        CScript add;
+        if (merklenode.size() == 1) {
+            add << OP_1;
+        } else {
+            add << merklenode;
+        }
+        if (pos & 1) {
+            add << OP_0;
+        } else {
+            add << OP_1;
+        }
+        walk = add + walk;
+        pos >>= 1;
+    }
+    ret += walk;
+    scriptSigRet.swap(ret);
+    return true;
+}
+
 /**
  * Sign scriptPubKey using signature made with creator.
  * Signatures are returned in scriptSigRet (or returns false if scriptPubKey can't be signed),
@@ -105,6 +166,8 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     case TX_MULTISIG:
         scriptSigRet << OP_0; // workaround CHECKMULTISIG bug
         return (SignN(vSolutions, creator, scriptPubKey, scriptSigRet));
+    case TX_TREESIG:
+        return SignTreeSig(creator, vSolutions, scriptPubKey, scriptSigRet);
     case TX_TRUE:
         return true;
     }
@@ -231,6 +294,7 @@ static CScript CombineSignatures(const CScript& scriptPubKey, const BaseSignatur
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
     case TX_WITHDRAW_LOCK:
+    case TX_TREESIG:
     case TX_TRUE:
         // Don't know anything about this, assume bigger one is correct:
         if (sigs1.size() >= sigs2.size())

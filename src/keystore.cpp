@@ -86,3 +86,27 @@ bool CBasicKeyStore::HaveWatchOnly() const
     LOCK(cs_KeyStore);
     return (!setWatchOnly.empty());
 }
+
+bool CBasicKeyStore::AddPubKeyTree(const PubKeyTree& keys)
+{
+    LOCK(cs_KeyStore);
+    mapPubKeyTrees[keys.GetMerkleRoot()] = keys;
+    return true;
+}
+
+bool CBasicKeyStore::HavePubKeyTree(const std::vector<unsigned char>& merkleroot) const
+{
+    LOCK(cs_KeyStore);
+    return mapPubKeyTrees.count(merkleroot);
+}
+
+bool CBasicKeyStore::GetPubKeyTree(const std::vector<unsigned char>& merkleroot, PubKeyTree& keysOut) const
+{
+    LOCK(cs_KeyStore);
+    std::map<std::vector<unsigned char>, PubKeyTree>::const_iterator it = mapPubKeyTrees.find(merkleroot);
+    if (it != mapPubKeyTrees.end()) {
+        keysOut = it->second;
+        return true;
+    }
+    return false;
+}

@@ -40,6 +40,11 @@ public:
     virtual bool HaveCScript(const CScriptID &hash) const =0;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const =0;
 
+    //! Support for tree signatures
+    virtual bool AddPubKeyTree(const PubKeyTree& pubkeytree) =0;
+    virtual bool HavePubKeyTree(const std::vector<unsigned char>& merkleroot) const =0;
+    virtual bool GetPubKeyTree(const std::vector<unsigned char>& merkleroot, PubKeyTree& keysOut) const =0;
+
     //! Support for Watch-only addresses
     virtual bool AddWatchOnly(const CScript &dest) =0;
     virtual bool RemoveWatchOnly(const CScript &dest) =0;
@@ -58,6 +63,7 @@ protected:
     KeyMap mapKeys;
     ScriptMap mapScripts;
     WatchOnlySet setWatchOnly;
+    std::map<std::vector<unsigned char>, PubKeyTree> mapPubKeyTrees;
 
 public:
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
@@ -99,6 +105,10 @@ public:
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const;
+
+    virtual bool AddPubKeyTree(const PubKeyTree& pubkeytree);
+    virtual bool HavePubKeyTree(const std::vector<unsigned char>& merkleroot) const;
+    virtual bool GetPubKeyTree(const std::vector<unsigned char>& merkleroot, PubKeyTree& keysOut) const;
 
     virtual bool AddWatchOnly(const CScript &dest);
     virtual bool RemoveWatchOnly(const CScript &dest);

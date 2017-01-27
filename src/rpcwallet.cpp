@@ -928,6 +928,40 @@ Value sendmany(const Array& params, bool fHelp)
 
 // Defined in rpcmisc.cpp
 extern CScript _createmultisig_redeemScript(const Array& params);
+extern void _createtreesig_redeemScript(const Array& params, CScript* pscript, std::vector<unsigned char>* pmerkleroot, std::vector<CPubKey>* pvPubKeys);
+
+Value addtreesigaddress(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 1)
+    {
+        string msg = "addmultisigaddress [\"key\",...]\n"
+            "\nAdd a 1-to-sign tree multisignature address to the wallet.\n"
+            "Each key is a Bitcoin address or hex-encoded public key.\n"
+
+            "\nArguments:\n"
+            "1. \"keysobject\"   (string, required) A json array of hex-encoded public keys\n"
+            "     [\n"
+            "       \"pubkey\"   (string) hex-encoded public key\n"
+            "       ...,\n"
+            "     ]\n"
+
+            "\nResult:\n"
+            "\"bitcoinaddress\"  (string) A bitcoin address associated with the keys.\n"
+        ;
+        throw runtime_error(msg);
+    }
+
+    // Construct using pay-to-script-hash:
+    CScript inner;
+    std::vector<CPubKey> pubkeys;
+    _createtreesig_redeemScript(params, &inner, NULL, &pubkeys);
+    CScriptID innerID(inner);
+    pwalletMain->AddPubKeyTree(pubkeys);
+    pwalletMain->AddCScript(inner);
+
+    pwalletMain->SetAddressBook(innerID, "", "send");
+    return CBitcoinAddress(innerID).ToString();
+}
 
 Value addmultisigaddress(const Array& params, bool fHelp)
 {

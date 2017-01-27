@@ -85,6 +85,23 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey)
             return ISMINE_SPENDABLE;
         break;
     }
+    case TX_TREESIG:
+    {
+        std::vector<unsigned char> merkleroot = vSolutions[1];
+        PubKeyTree pubkeys;
+        bool haveall = true;
+        if (keystore.GetPubKeyTree(merkleroot, pubkeys)) {
+            for (size_t i = 0; haveall && i < pubkeys.size(); i++) {
+                if (!keystore.HaveKey(pubkeys[i].GetID())) {
+                    haveall = false;
+                }
+            }
+        }
+        if (haveall) {
+            return ISMINE_SPENDABLE;
+        }
+        break;
+    }
     case TX_TRUE:
         return ISMINE_SPENDABLE;
     }

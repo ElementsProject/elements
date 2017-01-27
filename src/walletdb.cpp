@@ -115,6 +115,12 @@ bool CWalletDB::WriteCScript(const uint160& hash, const CScript& redeemScript)
     return Write(std::make_pair(std::string("cscript"), hash), redeemScript, false);
 }
 
+bool CWalletDB::WritePubKeyTree(const PubKeyTree& tree)
+{
+    nWalletDBUpdated++;
+    return Write(std::make_pair(std::string("pubkeytree"), tree.GetMerkleRoot()), tree, false);
+}
+
 bool CWalletDB::WriteWatchOnly(const CScript &dest)
 {
     nWalletDBUpdated++;
@@ -581,6 +587,23 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             if (!pwallet->LoadCScript(script))
             {
                 strErr = "Error reading wallet database: LoadCScript failed";
+                return false;
+            }
+        }
+        else if (strType == "pubkeytree")
+        {
+            std::vector<unsigned char> merkleroot;
+            ssKey >> merkleroot;
+            PubKeyTree pubkeys;
+            ssValue >> pubkeys;
+            if (pubkeys.GetMerkleRoot() != merkleroot)
+            {
+                strErr = "Error reading wallet database: pubkeytree mismatch";
+                return false;
+            }
+            if (!pwallet->LoadPubKeyTree(pubkeys))
+            {
+                strErr = "Error reading wallet database: LoadPubKeyTree failed";
                 return false;
             }
         }
