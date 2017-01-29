@@ -1,9 +1,10 @@
 import os
 import subprocess 
 import json
-bc=["./elements-cli", "-datadir=/tmp/elementsdatadir/"]
+import argparse
 
-def sign_block():
+def sign_block(datadir):
+    bc=["./elements-cli", "-datadir=" + datadir]
     new_block = subprocess.check_output(bc + ["getnewblockhex"]).strip('\n')
     blocksig = subprocess.check_output(bc + ["signblock", new_block]).strip('\n')
     signed_block = subprocess.check_output(bc + ["combineblocksigs", new_block, '["' + blocksig + '"]']) 
@@ -11,8 +12,19 @@ def sign_block():
     signed_block_hex = signed_block_json['hex'] 
     subprocess.check_output(bc + ['submitblock', signed_block_hex])
 
-def generate_n_blocks(n): 
+def generate_n_blocks(n,datadir): 
     for i in range(0,n): 
-        sign_block()
+        sign_block(datadir)
 
-generate_n_blocks(100)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num')
+    parser.add_argument("--datadir")
+    datadir="~/.bitcoin/elements.conf"
+    default_num_blocks=100
+    args = vars(parser.parse_args())
+    if args['datadir'] != None:
+        datadir = args['datadir']
+    if args['num'] != None: 
+        num_blocks=int(args['num'])
+    generate_n_blocks(num_blocks,datadir)
