@@ -67,8 +67,8 @@ Other commands:
 -------
 
     ./src/elementsd -daemon # Starts the bitcoin daemon.
-    ./src/elements-cli --help # Outputs a list of command-line options.
-    ./src/elements-cli help # Outputs a list of RPC commands when the daemon is running.
+    ./src/elements --help # Outputs a list of command-line options.
+    ./src/elements help # Outputs a list of RPC commands when the daemon is running.
 
 Using Qt Creator as IDE
 ------------------------
