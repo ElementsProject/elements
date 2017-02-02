@@ -20,7 +20,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--num')
     parser.add_argument("--datadir")
-    datadir="~/.bitcoin/elements.conf"
+    datadir="~/.bitcoin/elements/"
     default_num_blocks=100
     args = vars(parser.parse_args())
     if args['datadir'] != None:
