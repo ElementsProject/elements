@@ -65,7 +65,7 @@ if BUILD_BITCOIND
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += elements-cli elements-tx
+  bin_PROGRAMS += elements elements-tx
 endif
 
 .PHONY: FORCE check-symbols check-security
