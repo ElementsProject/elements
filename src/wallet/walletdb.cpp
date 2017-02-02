@@ -197,6 +197,16 @@ bool CWalletDB::WriteAccountingEntry_Backend(const CAccountingEntry& acentry)
     return WriteAccountingEntry(++nAccountingEntryNumber, acentry);
 }
 
+bool CWalletDB::WriteSpecificBlindingKey(const CScriptID& scriptid, const uint256& key)
+{
+    return Write(make_pair(std::string("specificblindingkey"), scriptid), key);
+}
+
+bool CWalletDB::WriteBlindingDerivationKey(const uint256& key)
+{
+    return Write(std::string("blindingderivationkey"), key);
+}
+
 CAmount CWalletDB::GetAccountCreditDebit(const string& strAccount)
 {
     list<CAccountingEntry> entries;
@@ -609,6 +619,36 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         }
+        /* Only for backward compatibility with older wallets. */
+        else if (strType == "blindingkey")
+        {
+            assert(!pwallet->blinding_key.IsValid());
+            std::vector<unsigned char> vchBlindingKey;
+            ssValue >> vchBlindingKey;
+            pwallet->blinding_key.Set(vchBlindingKey.begin(), vchBlindingKey.end(), true);
+            if (!pwallet->blinding_key.IsValid()) {
+                strErr = "Error reading wallet blinding key";
+                return false;
+            }
+        }
+        else if (strType == "blindingderivationkey")
+        {
+            assert(pwallet->blinding_derivation_key.IsNull());
+            uint256 key;
+            ssValue >> key;
+            pwallet->blinding_derivation_key = key;
+        }
+        else if (strType == "specificblindingkey")
+        {
+            CScriptID scriptid;
+            ssKey >> scriptid;
+            uint256 key;
+            ssValue >> key;
+            if (!pwallet->LoadSpecificBlindingKey(scriptid, key)) {
+                strErr = "Error reading wallet database: LoadSpecificBlindingKey failed";
+                return false;
+            }
+        }
     } catch (...)
     {
         return false;
@@ -724,6 +764,17 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
     ListAccountCreditDebit("*", pwallet->laccentries);
     BOOST_FOREACH(CAccountingEntry& entry, pwallet->laccentries) {
         pwallet->wtxOrdered.insert(make_pair(entry.nOrderPos, CWallet::TxPair((CWalletTx*)0, &entry)));
+    }
+
+    if (result == DB_LOAD_OK && pwallet->blinding_derivation_key.IsNull()) {
+        CKey key;
+        key.MakeNewKey(true);
+        uint256 keybin;
+        memcpy(keybin.begin(), key.begin(), key.size());
+        pwallet->blinding_derivation_key = keybin;
+        if (!WriteBlindingDerivationKey(pwallet->blinding_derivation_key)) {
+            result = DB_LOAD_FAIL;
+        }
     }
 
     return result;

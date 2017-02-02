@@ -7,8 +7,82 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include "primitives/transaction.h"
+#include "script/script.h"
 #include "serialize.h"
 #include "uint256.h"
+
+class CBitcoinProof
+{
+public:
+    uint32_t challenge;
+    uint32_t solution;
+
+    CBitcoinProof()
+    {
+        SetNull();
+    }
+    CBitcoinProof(uint32_t challengeIn, uint32_t solutionIn) :
+        challenge(challengeIn), solution(solutionIn) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(challenge);
+        READWRITE(solution);
+    }
+
+    void SetNull()
+    {
+        challenge = 0;
+        solution = 0;
+    }
+
+    bool IsNull() const
+    {
+        return (challenge == 0);
+    }
+
+    std::string ToString() const;
+};
+
+
+class CProof
+{
+public:
+    CScript challenge;
+    CScript solution;
+
+    CProof()
+    {
+        SetNull();
+    }
+    CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(*(CScriptBase*)(&challenge));
+        if (!(nType & SER_GETHASH))
+            READWRITE(*(CScriptBase*)(&solution));
+    }
+
+    void SetNull()
+    {
+        challenge.clear();
+        solution.clear();
+    }
+
+    bool IsNull() const
+    {
+        return challenge.empty();
+    }
+
+    std::string ToString() const;
+};
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -25,8 +99,9 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
-    uint32_t nBits;
-    uint32_t nNonce;
+    uint32_t nHeight;
+    CBitcoinProof bitcoinproof;
+    CProof proof;
 
     CBlockHeader()
     {
@@ -41,8 +116,12 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        if (IsBitcoinBlock() || (nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX))
+            READWRITE(bitcoinproof);
+        else {
+            READWRITE(nHeight);
+            READWRITE(proof);
+        }
     }
 
     void SetNull()
@@ -51,13 +130,14 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
-        nBits = 0;
-        nNonce = 0;
+        nHeight = 0;
+        bitcoinproof.SetNull();
+        proof.SetNull();
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        return proof.IsNull() && bitcoinproof.IsNull();
     }
 
     uint256 GetHash() const;
@@ -65,6 +145,11 @@ public:
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
+    }
+
+    bool IsBitcoinBlock() const
+    {
+        return !bitcoinproof.IsNull();
     }
 };
 
@@ -111,8 +196,9 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
-        block.nBits          = nBits;
-        block.nNonce         = nNonce;
+        block.nHeight        = nHeight;
+        block.bitcoinproof   = bitcoinproof;
+        block.proof          = proof;
         return block;
     }
 

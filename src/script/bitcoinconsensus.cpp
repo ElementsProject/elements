@@ -69,7 +69,8 @@ struct ECCryptoClosure
 ECCryptoClosure instance_of_eccryptoclosure;
 }
 
-static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, CAmount amount,
+static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, CTxOutValue amount,
+                                    CTxOutValue amountPreviousInput,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
 {
@@ -85,18 +86,34 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         // Regardless of the verification result, the tx did not error.
         set_error(err, bitcoinconsensus_ERR_OK);
         PrecomputedTransactionData txdata(tx);
-        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, txdata), NULL);
+        if (amountPreviousInput.IsAmount() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
+            return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionNoWithdrawsSignatureChecker(&tx, nIn, amount, txdata), NULL);
+        else
+            return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, amountPreviousInput, CScript()), NULL);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }
 }
 
-int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, int64_t amount,
+int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
+                                    const unsigned char* amount,              unsigned int amountLen,
+                                    const unsigned char* amountPreviousInput, unsigned int amountPreviousInputLen,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
 {
-    CAmount am(amount);
-    return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
+    try {
+        TxInputStream stream(SER_NETWORK, PROTOCOL_VERSION, amount, amountLen);
+        CTxOutValue am;
+        stream >> am;
+
+        TxInputStream stream2(SER_NETWORK, PROTOCOL_VERSION, amountPreviousInput, amountPreviousInputLen);
+        CTxOutValue prevInAm;
+        stream >> prevInAm;
+
+        return ::verify_script(scriptPubKey, scriptPubKeyLen, am, prevInAm, txTo, txToLen, nIn, flags, err);
+    } catch (const std::exception&) {
+        return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
+    }
 }
 
 
@@ -108,8 +125,9 @@ int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned i
         return set_error(err, bitcoinconsensus_ERR_AMOUNT_REQUIRED);
     }
 
-    CAmount am(0);
-    return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
+    CTxOutValue am(0);
+    CTxOutValue prevInAm(-2);
+    return ::verify_script(scriptPubKey, scriptPubKeyLen, am, prevInAm, txTo, txToLen, nIn, flags, err);
 }
 
 unsigned int bitcoinconsensus_version()

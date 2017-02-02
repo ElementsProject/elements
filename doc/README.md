@@ -1,5 +1,5 @@
-Bitcoin Core 0.13.1
-=====================
+Elements 0.13.1
+===============
 
 Setup
 ---------------------
@@ -13,16 +13,16 @@ The following are some helpful notes on how to run Bitcoin on your native platfo
 
 Unpack the files into a directory and run:
 
-- `bin/bitcoin-qt` (GUI) or
-- `bin/bitcoind` (headless)
+- `bin/elements-qt` (GUI) or
+- `bin/elementsd` (headless)
 
 ### Windows
 
-Unpack the files into a directory, and then run bitcoin-qt.exe.
+Unpack the files into a directory, and then run elements-qt.exe.
 
 ### OS X
 
-Drag Bitcoin-Core to your applications folder, and then run Bitcoin-Core.
+Drag Elements to your applications folder, and then run Elements.
 
 ### Need Help?
 

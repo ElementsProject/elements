@@ -19,7 +19,10 @@ using namespace std;
 static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
 static const char DB_TXINDEX = 't';
+static const char DB_LOCKS = 'k';
 static const char DB_BLOCK_INDEX = 'b';
+static const char DB_WITHDRAW_FLAG = 'w';
+static const char DB_INVALID_BLOCK_Q = 'q';
 
 static const char DB_BEST_BLOCK = 'B';
 static const char DB_FLAG = 'F';
@@ -39,6 +42,10 @@ bool CCoinsViewDB::HaveCoins(const uint256 &txid) const {
     return db.Exists(make_pair(DB_COINS, txid));
 }
 
+bool CCoinsViewDB::IsWithdrawSpent(const pair<uint256, COutPoint> &outpoint) const {
+    return db.Exists(make_pair(DB_WITHDRAW_FLAG, outpoint));
+}
+
 uint256 CCoinsViewDB::GetBestBlock() const {
     uint256 hashBestChain;
     if (!db.Read(DB_BEST_BLOCK, hashBestChain))
@@ -52,10 +59,17 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            if (it->second.coins.IsPruned())
-                batch.Erase(make_pair(DB_COINS, it->first));
-            else
-                batch.Write(make_pair(DB_COINS, it->first), it->second.coins);
+            if (it->second.flags & CCoinsCacheEntry::WITHDRAW) {
+                if (!it->second.withdrawSpent)
+                    batch.Erase(make_pair(DB_WITHDRAW_FLAG, it->first));
+                else
+                    batch.Write(make_pair(DB_WITHDRAW_FLAG, it->first), '1');
+            } else {
+                if (it->second.coins.IsPruned())
+                    batch.Erase(make_pair(DB_COINS, it->first.first));
+                else
+                    batch.Write(make_pair(DB_COINS, it->first.first), it->second.coins);
+            }
             changed++;
         }
         count++;
@@ -159,6 +173,36 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
     return WriteBatch(batch);
 }
 
+bool CBlockTreeDB::WriteLocksCreated(const std::multimap<uint256, std::pair<COutPoint, CAmount> > &map) {
+    if (map.size() == 0)
+        return true;
+
+    uint256 prevGenesis;
+    CDBBatch batch(*this);
+    std::vector<std::pair<COutPoint, CAmount> > vLocks;
+    for (std::multimap<uint256, std::pair<COutPoint, CAmount> >::const_iterator it=map.begin(); it!=map.end(); it++) {
+        if (prevGenesis != it->first || it == map.begin()) {
+            if (it != map.begin())
+                batch.Write(make_pair(DB_LOCKS, prevGenesis), vLocks);
+            prevGenesis = it->first;
+            if (!Read(make_pair(DB_LOCKS, it->first), vLocks))
+                vLocks.clear();
+        }
+        vLocks.push_back(it->second);
+    }
+    batch.Write(make_pair(DB_LOCKS, prevGenesis), vLocks);
+    return WriteBatch(batch);
+}
+
+
+bool CBlockTreeDB::ReadLocksCreated(const uint256 &genesisHash, std::vector<std::pair<COutPoint, CAmount> > &vLocks) {
+    return Read(make_pair(DB_LOCKS, genesisHash), vLocks);
+}
+
+bool CBlockTreeDB::ReWriteLocksCreated(const uint256 &genesisHash, const std::vector<std::pair<COutPoint, CAmount> > &vLocks) {
+    return Write(make_pair(DB_LOCKS, genesisHash), vLocks);
+}
+
 bool CBlockTreeDB::WriteFlag(const std::string &name, bool fValue) {
     return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
 }
@@ -169,6 +213,14 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
         return false;
     fValue = ch == '1';
     return true;
+}
+
+bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
+    return Read(make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);//FIXME: why uint256 and not ""
+}
+
+bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
+    return Write(make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex)
@@ -194,13 +246,9 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
                 pindexNew->nVersion       = diskindex.nVersion;
                 pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
                 pindexNew->nTime          = diskindex.nTime;
-                pindexNew->nBits          = diskindex.nBits;
-                pindexNew->nNonce         = diskindex.nNonce;
+                pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
-
-                if (!CheckProofOfWork(pindexNew->GetBlockHash(), pindexNew->nBits, Params().GetConsensus()))
-                    return error("LoadBlockIndex(): CheckProofOfWork failed: %s", pindexNew->ToString());
 
                 pcursor->Next();
             } else {

@@ -29,6 +29,8 @@ static const int MAX_PUBKEYS_PER_MULTISIG = 20;
 
 // Maximum script length in bytes
 static const int MAX_SCRIPT_SIZE = 10000;
+class uint256;
+class COutPoint;
 
 // Threshold for nLockTime: below this value it is interpreted as block number,
 // otherwise as UNIX timestamp.
@@ -105,6 +107,7 @@ enum opcodetype
     // splice ops
     OP_CAT = 0x7e,
     OP_SUBSTR = 0x7f,
+    OP_SUBSTR_LAZY = 0xc3,
     OP_LEFT = 0x80,
     OP_RIGHT = 0x81,
     OP_SIZE = 0x82,
@@ -162,6 +165,9 @@ enum opcodetype
     OP_CHECKSIGVERIFY = 0xad,
     OP_CHECKMULTISIG = 0xae,
     OP_CHECKMULTISIGVERIFY = 0xaf,
+    OP_DETERMINISTICRANDOM = 0xc0,
+    OP_CHECKSIGFROMSTACK = 0xc1,
+    OP_CHECKSIGFROMSTACKVERIFY = 0xc2,
 
     // expansion
     OP_NOP1 = 0xb0,
@@ -170,6 +176,7 @@ enum opcodetype
     OP_CHECKSEQUENCEVERIFY = 0xb2,
     OP_NOP3 = OP_CHECKSEQUENCEVERIFY,
     OP_NOP4 = 0xb3,
+    OP_WITHDRAWPROOFVERIFY = OP_NOP4,
     OP_NOP5 = 0xb4,
     OP_NOP6 = 0xb5,
     OP_NOP7 = 0xb6,
@@ -623,6 +630,24 @@ public:
     bool IsPayToScriptHash() const;
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
+    /**
+     * Returns true if this is a withdraw-lock scriptPubKey.
+     * Note that a withdraw-lock could be a plan [re-]lock output *or* a
+     * x-chain transfer lock.
+     */
+    bool IsWithdrawLock() const;
+
+    /** Returns true if this is a proof-of-withdraw, spending an IsWithdrawLock */
+    bool IsWithdrawProof() const;
+
+    //! Push a vector with a length postfix (as used by withdraw proofs)
+    void PushWithdraw(const std::vector<unsigned char> push);
+
+    /** Get the withdraw output spent, asserting IsWithdrawProof first */
+    COutPoint GetWithdrawSpent() const;
+
+    /** Get the genesis hash locked to, asserting IsWithdrawLock first */
+    uint256 GetWithdrawLockGenesisHash() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;

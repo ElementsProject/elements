@@ -7,15 +7,19 @@
 #endif
 
 #include "base58.h"
+#include "blind.h"
 #include "clientversion.h"
 #include "coins.h"
 #include "consensus/consensus.h"
 #include "core_io.h"
 #include "keystore.h"
+#include "merkleblock.h"
 #include "policy/policy.h"
+#include "pow.h"
 #include "primitives/transaction.h"
 #include "script/script.h"
 #include "script/sign.h"
+#include "streams.h"
 #include <univalue.h>
 #include "util.h"
 #include "utilmoneystr.h"
@@ -38,9 +42,9 @@ static bool AppInitRawTx(int argc, char* argv[])
     //
     ParseParameters(argc, argv);
 
-    // Check for -testnet or -regtest parameter (Params() calls are only valid after this clause)
+    // Check for -chain, -testnet or -regtest parameter (Params() calls are only valid after this clause)
     try {
-        SelectParams(ChainNameFromCommandLine());
+        SelectParams(ChainNameFromCommandLine(), mapArgs);
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
         return false;
@@ -51,10 +55,10 @@ static bool AppInitRawTx(int argc, char* argv[])
     if (argc<2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help"))
     {
         // First part of help message is specific to this utility
-        std::string strUsage = strprintf(_("%s bitcoin-tx utility version"), _(PACKAGE_NAME)) + " " + FormatFullVersion() + "\n\n" +
+        std::string strUsage = strprintf(_("%s elements-tx utility version"), _(PACKAGE_NAME)) + " " + FormatFullVersion() + "\n\n" +
             _("Usage:") + "\n" +
-              "  bitcoin-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded bitcoin transaction") + "\n" +
-              "  bitcoin-tx [options] -create [commands]   " + _("Create hex-encoded bitcoin transaction") + "\n" +
+              "  elements-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded bitcoin transaction") + "\n" +
+              "  elements-tx [options] -create [commands]   " + _("Create hex-encoded bitcoin transaction") + "\n" +
               "\n";
 
         fprintf(stdout, "%s", strUsage.c_str());
@@ -71,7 +75,8 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = HelpMessageGroup(_("Commands:"));
         strUsage += HelpMessageOpt("delin=N", _("Delete input N from TX"));
         strUsage += HelpMessageOpt("delout=N", _("Delete output N from TX"));
-        strUsage += HelpMessageOpt("in=TXID:VOUT(:SEQUENCE_NUMBER)", _("Add input to TX"));
+        strUsage += HelpMessageOpt("in=TXID:VOUT:VALUE(:SEQUENCE_NUMBER)", _("Add input to TX"));
+        strUsage += HelpMessageOpt("blind=B1:B2:B3:...", _("Transaction input blinds"));
         strUsage += HelpMessageOpt("locktime=N", _("Set TX lock time to N"));
         strUsage += HelpMessageOpt("nversion=N", _("Set TX version to N"));
         strUsage += HelpMessageOpt("outaddr=VALUE:ADDRESS", _("Add address-based output to TX"));
@@ -185,7 +190,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
     // separate TXID:VOUT in string
-    if (vStrInputParts.size()<2)
+    if (vStrInputParts.size()<3)
         throw runtime_error("TX input missing separator");
 
     // extract and validate TXID
@@ -203,14 +208,21 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     if ((vout < 0) || (vout > (int)maxVout))
         throw runtime_error("invalid TX input vout");
 
+    // extract and validate VALUE
+    string strValue = vStrInputParts[2];
+    CAmount value;
+    if (!ParseMoney(strValue, value))
+        throw runtime_error("invalid TX output value");
+
     // extract the optional sequence number
     uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max();
-    if (vStrInputParts.size() > 2)
-        nSequenceIn = std::stoul(vStrInputParts[2]);
+    if (vStrInputParts.size() > 3)
+        nSequenceIn = std::stoul(vStrInputParts[3]);
 
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequenceIn);
     tx.vin.push_back(txin);
+    tx.nTxFee += value;
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
@@ -239,7 +251,12 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
+    if (addr.IsBlinded()) {
+        CPubKey pubkey = addr.GetBlindingKey();
+        txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+    }
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
 }
 
 static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
@@ -269,6 +286,52 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
 
     CTxOut txout(value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
+}
+
+static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
+{
+    std::vector<std::string> input_blinding_factors;
+    boost::split(input_blinding_factors, strInput, boost::is_any_of(":"));
+
+    if (input_blinding_factors.size() != tx.vin.size())
+        throw runtime_error("One input blinding factor required per transaction input");
+
+    bool fBlindedIns = false;
+    bool fBlindedOuts = false;
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> output_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        uint256 blind;
+        blind.SetHex(input_blinding_factors[nIn]);
+        if (blind.size() == 0) {
+            input_blinds.push_back(blind);
+        } else if (blind.size() == 32) {
+            input_blinds.push_back(blind);
+            fBlindedIns = true;
+        }
+    }
+    for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        if (!tx.vout[nOut].nValue.IsAmount())
+            throw runtime_error("Invalid parameter: transaction outputs must be unblinded");
+        if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
+            output_pubkeys.push_back(CPubKey());
+        } else {
+            CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
+            if (!pubkey.IsValid()) {
+                 throw runtime_error("Invalid parameter: invalid confidentiality public key given");
+            }
+            output_pubkeys.push_back(pubkey);
+            fBlindedOuts = true;
+        }
+        output_blinds.push_back(uint256());
+    }
+
+    if (fBlindedIns && !fBlindedOuts) {
+        throw runtime_error("Confidential inputs without confidential outputs");
+    }
+    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
@@ -292,10 +355,13 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
     // construct TxOut, append to transaction output list
     CTxOut txout(value, scriptPubKey);
     tx.vout.push_back(txout);
+    tx.nTxFee -= value;
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 {
+    // TODO: reduce nTxFee
+
     // parse requested deletion index
     int inIdx = atoi(strInIdx);
     if (inIdx < 0 || inIdx >= (int)tx.vin.size()) {
@@ -309,6 +375,8 @@ static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 
 static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
+    // TODO: increase nTxFee
+
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
     if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
@@ -477,7 +545,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             continue;
         }
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
-        const CAmount& amount = coins->vout[txin.prevout.n].nValue;
+        const CTxOutValue& amount = coins->vout[txin.prevout.n].nValue;
 
         SignatureData sigdata;
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -486,10 +554,10 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
 
         // ... and merge in other signatures:
         BOOST_FOREACH(const CTransaction& txv, txVariants)
-            sigdata = CombineSignatures(prevPubKey, MutableTransactionSignatureChecker(&mergedTx, i, amount), sigdata, DataFromTransaction(txv, i));
+            sigdata = CombineSignatures(prevPubKey, MutableTransactionNoWithdrawsSignatureChecker(&mergedTx, i, amount), sigdata, DataFromTransaction(txv, i));
         UpdateTransaction(mergedTx, i, sigdata);
 
-        if (!VerifyScript(txin.scriptSig, prevPubKey, mergedTx.wit.vtxinwit.size() > i ? &mergedTx.wit.vtxinwit[i].scriptWitness : NULL, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker(&mergedTx, i, amount)))
+        if (!VerifyScript(txin.scriptSig, prevPubKey, mergedTx.wit.vtxinwit.size() > i ? &mergedTx.wit.vtxinwit[i].scriptWitness : NULL, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionNoWithdrawsSignatureChecker(&mergedTx, i, amount)))
             fComplete = false;
     }
 
@@ -499,6 +567,57 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
     }
 
     tx = mergedTx;
+}
+
+static void MutateTxPeginSign(CMutableTransaction& tx, const string& flagStr)
+{
+    if (!registers.count("peginkeys"))
+        throw runtime_error("peginkeys register variable must be set.");
+    UniValue keysObj = registers["peginkeys"];
+
+    if (!keysObj.isObject())
+        throw runtime_error("peginkeysObjs must be an object");
+    map<string,UniValue::VType> types = boost::assign::map_list_of("contract",UniValue::VSTR)("txoutproof",UniValue::VSTR)("tx",UniValue::VSTR)("nout",UniValue::VNUM);
+    if (!keysObj.checkObject(types))
+        throw runtime_error("peginkeysObjs internal object typecheck fail");
+
+    vector<unsigned char> contractData(ParseHexUV(keysObj["contract"], "contract"));
+    vector<unsigned char> txoutproofData(ParseHexUV(keysObj["txoutproof"], "txoutproof"));
+    vector<unsigned char> txData(ParseHexUV(keysObj["tx"], "tx"));
+    int nOut = atoi(keysObj["nout"].getValStr());
+
+    if (contractData.size() != 40)
+        throw runtime_error("contract must be 40 bytes");
+
+    CDataStream ssProof(txoutproofData,SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+    CMerkleBlock merkleBlock;
+    ssProof >> merkleBlock;
+
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+    CTransaction txBTC;
+    ssTx >> txBTC;
+
+    vector<uint256> transactionHashes;
+    vector<unsigned int> transactionIndices;
+    if (!CheckBitcoinProof(merkleBlock.header) ||
+            merkleBlock.txn.ExtractMatches(transactionHashes, transactionIndices) != merkleBlock.header.hashMerkleRoot ||
+            transactionHashes.size() != 1 ||
+            transactionHashes[0] != txBTC.GetHash())
+        throw runtime_error("txoutproof is invalid or did not match tx");
+
+    if (nOut < 0 || (unsigned int) nOut >= txBTC.vout.size())
+        throw runtime_error("nout must be >= 0, < txout count");
+
+    CScript scriptSig;
+    scriptSig << contractData;
+    scriptSig.PushWithdraw(txoutproofData);
+    scriptSig.PushWithdraw(txData);
+    scriptSig << nOut;
+
+    //TODO: Verify the withdraw proof
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        tx.vin[i].scriptSig = scriptSig;
+    }
 }
 
 class Secp256k1Init
@@ -541,7 +660,11 @@ static void MutateTx(CMutableTransaction& tx, const string& command,
     else if (command == "sign") {
         if (!ecc) { ecc.reset(new Secp256k1Init()); }
         MutateTxSign(tx, commandVal);
-    }
+    } else if (command == "blind") {
+        if (!ecc) { ecc.reset(new Secp256k1Init()); }
+        MutateTxBlind(tx, commandVal);
+    } else if (command == "peginsign")
+        MutateTxPeginSign(tx, commandVal);
 
     else if (command == "load")
         RegisterLoad(commandVal);

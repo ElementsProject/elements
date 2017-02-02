@@ -123,6 +123,13 @@ string EncodeHexTx(const CTransaction& tx)
     return HexStr(ssTx.begin(), ssTx.end());
 }
 
+string EncodeHexBlock(const CBlock& block)
+{
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << block;
+    return HexStr(ssBlock.begin(), ssBlock.end());
+}
+
 void ScriptPubKeyToUniv(const CScript& scriptPubKey,
                         UniValue& out, bool fIncludeHex)
 {
@@ -187,8 +194,12 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
 
         UniValue out(UniValue::VOBJ);
 
-        UniValue outValue(UniValue::VNUM, FormatMoney(txout.nValue));
-        out.pushKV("value", outValue);
+        if (txout.nValue.IsAmount()) {
+            UniValue outValue(UniValue::VNUM, FormatMoney(txout.nValue.GetAmount()));
+            out.pushKV("value", outValue);
+        } else {
+            //TODO: Non-Amount values
+        }
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);

@@ -11,6 +11,7 @@
 #include "utilstrencodings.h"
 #include "utiltime.h"
 #include "version.h"
+#include "chainparamsbase.h"
 
 #include <stdint.h>
 #include <fstream>
@@ -75,6 +76,15 @@ boost::filesystem::path GetAuthCookieFile()
     return path;
 }
 
+boost::filesystem::path GetMainchainAuthCookieFile()
+{
+    boost::filesystem::path path(GetArg("-mainchainrpccookiefile", COOKIEAUTH_FILE));
+    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_ELEMENTS) path = "testnet3" / path;
+    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_REGTEST) path = "regtest" / path;
+    if (!path.is_complete()) path = GetDataDir(false) / path;
+    return path;
+}
+
 bool GenerateAuthCookie(std::string *cookie_out)
 {
     const size_t COOKIE_SIZE = 32;
@@ -106,6 +116,23 @@ bool GetAuthCookie(std::string *cookie_out)
     std::ifstream file;
     std::string cookie;
     boost::filesystem::path filepath = GetAuthCookieFile();
+    file.open(filepath.string().c_str());
+    if (!file.is_open())
+        return false;
+    std::getline(file, cookie);
+    file.close();
+
+    if (cookie_out)
+        *cookie_out = cookie;
+    return true;
+}
+
+bool GetMainchainAuthCookie(std::string *cookie_out)
+{
+    std::ifstream file;
+    std::string cookie;
+
+    boost::filesystem::path filepath = GetMainchainAuthCookieFile();
     file.open(filepath.string().c_str());
     if (!file.is_open())
         return false;

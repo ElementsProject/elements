@@ -207,6 +207,10 @@ void RPCExecutor::request(const QString &command)
         return; // Nothing to do
     try
     {
+        //Set rpc user string
+        if (!userInstance.get()) {
+            userInstance.reset(new std::string("QT"));
+        }
         std::string strPrint;
         // Convert argument list to JSON objects in method-dependent way,
         // and pass it along with the method name to the dispatcher.

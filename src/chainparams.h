@@ -46,18 +46,27 @@ public:
     enum Base58Type {
         PUBKEY_ADDRESS,
         SCRIPT_ADDRESS,
+        BLINDED_ADDRESS,
         SECRET_KEY,
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
+        PARENT_PUBKEY_ADDRESS,
+        PARENT_SCRIPT_ADDRESS,
 
         MAX_BASE58_TYPES
     };
+
+    /**
+     * Maps strNetworkID [see BIP70] to chainID (hashGenesisBlock and genesis checkpoint)
+     */
+    static const std::map<std::string, uint256> supportedChains;
 
     const Consensus::Params& GetConsensus() const { return consensus; }
     const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
     const CBlock& GenesisBlock() const { return genesis; }
+    const uint256 ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
     /** Make miner wait to have peers to avoid wasting work */
     bool MiningRequiresPeers() const { return fMiningRequiresPeers; }
     /** Default value for -checkmempool and -checkblockindex argument */
@@ -75,6 +84,17 @@ public:
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
+    /** Only allowed in regtest for testing purposes, otherwise NOP */
+    void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout) {};
+    /** All coinbase outputs (after genesis) must be to this destination */
+    const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
+    /**
+     * Creates and returns a CChainParams* of the chosen chain. The caller has to delete the object.
+     * @param mapArgs A map with the runtime configuration.
+     * @returns a CChainParams* of the chosen chain.
+     * @throws a std::runtime_error if the chain is not supported.
+     */
+    static CChainParams* Factory(const std::string& chain, const std::map<std::string, std::string>& mapArgs);
 protected:
     CChainParams() {}
 
@@ -86,6 +106,7 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string strNetworkID;
     CBlock genesis;
+    uint256 parentGenesisBlockHash;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;
@@ -93,6 +114,7 @@ protected:
     bool fMineBlocksOnDemand;
     bool fTestnetToBeDeprecatedFieldRPC;
     CCheckpointData checkpointData;
+    CScript scriptCoinbaseDestination;
 };
 
 /**
@@ -102,15 +124,10 @@ protected:
 const CChainParams &Params();
 
 /**
- * @returns CChainParams for the given BIP70 chain name.
- */
-CChainParams& Params(const std::string& chain);
-
-/**
  * Sets the params returned by Params() to those for the given BIP70 chain name.
  * @throws std::runtime_error when the chain is not supported.
  */
-void SelectParams(const std::string& chain);
+void SelectParams(const std::string& network, const std::map<std::string, std::string>& mapArgs);
 
 /**
  * Allows modifying the BIP9 regtest parameters.

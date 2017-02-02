@@ -11,6 +11,7 @@ def bctest(testDir, testObj, exeext):
 
 	execprog = testObj['exec'] + exeext
 	execargs = testObj['args']
+	execargs[:0] = ["-chain=main"]
 	execrun = [execprog] + execargs
 	stdinCfg = None
 	inputData = None

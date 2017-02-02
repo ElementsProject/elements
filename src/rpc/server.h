@@ -17,7 +17,12 @@
 
 #include <boost/function.hpp>
 
+#include <boost/thread/tss.hpp>
+
 #include <univalue.h>
+
+//Thread-local rpc user name for logging purposes
+extern boost::thread_specific_ptr<std::string> userInstance;
 
 class CRPCCommand;
 
@@ -187,6 +192,8 @@ extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
 extern std::string HelpRequiringPassphrase();
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
+
+extern std::string getUser();
 
 extern void EnsureWalletIsUnlocked();
 

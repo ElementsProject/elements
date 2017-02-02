@@ -8,16 +8,15 @@
 #include "tinyformat.h"
 #include "util.h"
 
-#include <assert.h>
+#include <boost/scoped_ptr.hpp>
 
-const std::string CBaseChainParams::MAIN = "main";
-const std::string CBaseChainParams::TESTNET = "test";
-const std::string CBaseChainParams::REGTEST = "regtest";
+const std::string CBaseChainParams::MAIN = CHAINPARAMS_OLD_MAIN;
+const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-testnet", _("Use the test chain"));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest"), CHAINPARAMS_ELEMENTS));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.");
@@ -25,7 +24,7 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 }
 
 /**
- * Main network
+ * Old Main network
  */
 class CBaseMainParams : public CBaseChainParams
 {
@@ -33,25 +32,25 @@ public:
     CBaseMainParams()
     {
         nRPCPort = 8332;
+        strDataDir = CHAINPARAMS_OLD_MAIN;
     }
 };
-static CBaseMainParams mainParams;
 
 /**
- * Testnet (v3)
+ * Main network for elements
  */
-class CBaseTestNetParams : public CBaseChainParams
+class CBaseElementsParams : public CBaseChainParams
 {
 public:
-    CBaseTestNetParams()
+    CBaseElementsParams()
     {
-        nRPCPort = 18332;
-        strDataDir = "testnet3";
+        nRPCPort = 9041;
+        nMainchainRPCPort = 18332;
+        strDataDir = CHAINPARAMS_ELEMENTS;
     }
 };
-static CBaseTestNetParams testNetParams;
 
-/*
+/**
  * Regression test
  */
 class CBaseRegTestParams : public CBaseChainParams
@@ -59,52 +58,47 @@ class CBaseRegTestParams : public CBaseChainParams
 public:
     CBaseRegTestParams()
     {
-        nRPCPort = 18332;
-        strDataDir = "regtest";
+        nRPCPort = 7041;
+        nMainchainRPCPort = 18332;
+        strDataDir = CHAINPARAMS_REGTEST;
     }
 };
-static CBaseRegTestParams regTestParams;
 
-static CBaseChainParams* pCurrentBaseParams = 0;
+static boost::scoped_ptr<CBaseChainParams> globalChainBaseParams;
 
 const CBaseChainParams& BaseParams()
 {
-    assert(pCurrentBaseParams);
-    return *pCurrentBaseParams;
+    assert(globalChainBaseParams.get());
+    return *globalChainBaseParams;
 }
 
-CBaseChainParams& BaseParams(const std::string& chain)
+CBaseChainParams* CBaseChainParams::Factory(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-        return mainParams;
-    else if (chain == CBaseChainParams::TESTNET)
-        return testNetParams;
+        return new CBaseMainParams();
+    else if (chain == CHAINPARAMS_ELEMENTS)
+        return new CBaseElementsParams();
     else if (chain == CBaseChainParams::REGTEST)
-        return regTestParams;
+        return new CBaseRegTestParams();
     else
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 
 void SelectBaseParams(const std::string& chain)
 {
-    pCurrentBaseParams = &BaseParams(chain);
+    globalChainBaseParams.reset(CBaseChainParams::Factory(chain));
 }
 
 std::string ChainNameFromCommandLine()
 {
-    bool fRegTest = GetBoolArg("-regtest", false);
-    bool fTestNet = GetBoolArg("-testnet", false);
-
-    if (fTestNet && fRegTest)
-        throw std::runtime_error("Invalid combination of -regtest and -testnet.");
-    if (fRegTest)
+    if (GetBoolArg("-testnet", false))
+        throw std::runtime_error(strprintf("%s: Invalid option -testnet: elements/%s is a testchain too.", __func__, CHAINPARAMS_ELEMENTS));
+    if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    if (fTestNet)
-        return CBaseChainParams::TESTNET;
-    return CBaseChainParams::MAIN;
+    return GetArg("-chain", CHAINPARAMS_ELEMENTS);
 }
 
 bool AreBaseParamsConfigured()
 {
-    return pCurrentBaseParams != NULL;
+    return globalChainBaseParams.get();
 }

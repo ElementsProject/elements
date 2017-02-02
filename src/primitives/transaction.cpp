@@ -43,24 +43,94 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+
+CTxOutValue::CTxOutValue()
+{
+    vchCommitment.resize(nCommitmentSize);
+    vchCommitment[0] = 0xff;
+}
+
+CTxOutValue::CTxOutValue(CAmount nAmountIn)
+{
+    vchCommitment.resize(nCommitmentSize);
+    SetToAmount(nAmountIn);
+}
+
+bool CTxOutValue::IsValid() const
+{
+    switch(vchCommitment[0]) {
+        case 0:
+        case 1:
+            for (size_t i = 0; i < nCommitmentSize - sizeof(CAmount); i++)
+                if (vchCommitment[i])
+                    return false;
+            return true;
+        case 2:
+        case 3:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool CTxOutValue::IsNull() const
+{
+    return vchCommitment[0] == 0xff;
+}
+
+bool CTxOutValue::IsAmount() const
+{
+    return vchCommitment[0] == 0 || vchCommitment[0] == 1;
+}
+
+CAmount CTxOutValue::GetAmount() const
+{
+    assert(IsAmount());
+    CAmount nAmount = 0;
+    for (size_t i = 0; i < sizeof(nAmount); i++)
+        nAmount |= CAmount(vchCommitment[nCommitmentSize - 1 - i]) << (i * 8);
+    return nAmount;
+}
+
+bool operator==(const CTxOutValue& a, const CTxOutValue& b)
+{
+    return a.vchRangeproof == b.vchRangeproof &&
+           a.vchCommitment == b.vchCommitment &&
+           a.vchNonceCommitment == b.vchNonceCommitment;
+}
+
+bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
+    return !(a == b);
+}
+
+void CTxOutValue::SetToBitcoinAmount(const CAmount nAmount) {
+    SetToAmount(nAmount);
+    vchCommitment[0] = 1;
+}
+
+bool CTxOutValue::IsInBitcoinTransaction() const {
+    return vchCommitment[0] == 1;
+}
+
+void CTxOutValue::SetToAmount(const CAmount nAmount) {
+    memset(&vchCommitment[0], 0, nCommitmentSize - sizeof(nAmount));
+    for (size_t i = 0; i < sizeof(nAmount); ++i)
+        vchCommitment[nCommitmentSize - 1 - i] = ((nAmount >> (i * 8)) & 0xff);
+}
+
+CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
 {
     nValue = nValueIn;
     scriptPubKey = scriptPubKeyIn;
 }
 
-uint256 CTxOut::GetHash() const
-{
-    return SerializeHash(*this);
-}
-
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
+    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
 }
 
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), nTxFee(tx.nTxFee), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
 {
@@ -77,32 +147,21 @@ uint256 CTransaction::GetWitnessHash() const
     return SerializeHash(*this, SER_GETHASH, 0);
 }
 
-CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) { }
+CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), vin(), vout(), nLockTime(0) { }
 
-CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
+CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), nTxFee(tx.nTxFee), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
     UpdateHash();
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
+    *const_cast<CAmount*>(&nTxFee) = tx.nTxFee;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     *const_cast<CTxWitness*>(&wit) = tx.wit;
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
     *const_cast<uint256*>(&hash) = tx.hash;
     return *this;
-}
-
-CAmount CTransaction::GetValueOut() const
-{
-    CAmount nValueOut = 0;
-    for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
-    {
-        nValueOut += it->nValue;
-        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
-    }
-    return nValueOut;
 }
 
 double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const
@@ -134,9 +193,10 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
+    str += strprintf("CTransaction(hash=%s, ver=%d, fee=%d.%08d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
         GetHash().ToString().substr(0,10),
         nVersion,
+        nTxFee / COIN, nTxFee % COIN,
         vin.size(),
         vout.size(),
         nLockTime);

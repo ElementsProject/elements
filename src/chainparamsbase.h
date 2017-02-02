@@ -8,6 +8,10 @@
 #include <string>
 #include <vector>
 
+#define CHAINPARAMS_OLD_MAIN "main"
+#define CHAINPARAMS_ELEMENTS "elements"
+#define CHAINPARAMS_REGTEST "elementsregtest"
+
 /**
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
  * of a given instance of the Bitcoin system.
@@ -15,18 +19,23 @@
 class CBaseChainParams
 {
 public:
-    /** BIP70 chain name strings (main, test or regtest) */
     static const std::string MAIN;
-    static const std::string TESTNET;
     static const std::string REGTEST;
 
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
-
+    int MainchainRPCPort() const { return nMainchainRPCPort; }
+    /**
+     * Creates and returns a CBaseChainParams* of the chosen chain. The caller has to delete the object.
+     * @returns A CBaseChainParams* of the chosen chain.
+     * @throws a std::runtime_error if the chain is not supported.
+     */
+    static CBaseChainParams* Factory(const std::string& chain);
 protected:
     CBaseChainParams() {}
 
     int nRPCPort;
+    int nMainchainRPCPort;
     std::string strDataDir;
 };
 
@@ -41,8 +50,6 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp=true);
  * startup, except for unit tests.
  */
 const CBaseChainParams& BaseParams();
-
-CBaseChainParams& BaseParams(const std::string& chain);
 
 /** Sets the params returned by Params() to those for the given network. */
 void SelectBaseParams(const std::string& chain);

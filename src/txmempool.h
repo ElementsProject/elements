@@ -26,7 +26,7 @@ class CBlockIndex;
 
 inline double AllowFreeThreshold()
 {
-    return COIN * 144 / 250;
+    return CENT * 1 / 250;
 }
 
 inline bool AllowFree(double dPriority)
@@ -107,10 +107,12 @@ private:
     int64_t nSigOpCostWithAncestors;
 
 public:
+    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+
     CTxMemPoolEntry(const CTransaction& _tx, const CAmount& _nFee,
                     int64_t _nTime, double _entryPriority, unsigned int _entryHeight,
                     bool poolHasNoInputsOf, CAmount _inChainInputValue, bool spendsCoinbase,
-                    int64_t nSigOpsCost, LockPoints lp);
+                    int64_t nSigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent);
     CTxMemPoolEntry(const CTxMemPoolEntry& other);
 
     const CTransaction& GetTx() const { return *this->tx; }
@@ -473,6 +475,8 @@ public:
 
     const setEntries & GetMemPoolParents(txiter entry) const;
     const setEntries & GetMemPoolChildren(txiter entry) const;
+
+    std::map<std::pair<uint256, COutPoint>, uint256> mapWithdrawsSpentToTxid;
 private:
     typedef std::map<txiter, setEntries, CompareIteratorByHash> cacheMap;
 
@@ -521,6 +525,7 @@ public:
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removed);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
+                        const std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent,
                         std::list<CTransaction>& conflicts, bool fCurrentEstimate = true);
     void clear();
     void _clear(); //lock free
@@ -693,6 +698,7 @@ public:
     CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn);
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
     bool HaveCoins(const uint256 &txid) const;
+    bool IsWithdrawSpent(const std::pair<uint256, COutPoint> &outpoint) const;
 };
 
 // We want to sort transactions by coin age priority

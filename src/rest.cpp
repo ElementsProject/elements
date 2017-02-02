@@ -574,7 +574,9 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
             UniValue utxo(UniValue::VOBJ);
             utxo.push_back(Pair("txvers", (int32_t)coin.nTxVer));
             utxo.push_back(Pair("height", (int32_t)coin.nHeight));
-            utxo.push_back(Pair("value", ValueFromAmount(coin.out.nValue)));
+            if (coin.out.nValue.IsAmount())
+                utxo.push_back(Pair("value", ValueFromAmount(coin.out.nValue.GetAmount())));
+            else {} //TODO: Non-Amount values
 
             // include the script in a json output
             UniValue o(UniValue::VOBJ);

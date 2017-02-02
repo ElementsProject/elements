@@ -12,8 +12,11 @@
 #include "uint256.h"
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
+static const int SERIALIZE_BITCOIN_BLOCK_OR_TX = 0x20000000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
+
+static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
@@ -125,13 +128,60 @@ public:
     std::string ToString() const;
 };
 
+
+class CTxOutValue
+{
+public:
+    static const size_t nCommitmentSize = 33;
+
+    std::vector<unsigned char> vchCommitment;
+    std::vector<unsigned char> vchRangeproof;
+    std::vector<unsigned char> vchNonceCommitment;
+
+    CTxOutValue();
+    CTxOutValue(CAmount);
+    CTxOutValue(const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchRangeproofIn);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
+            CAmount nAmount = 0;
+            if (!ser_action.ForRead())
+                nAmount = GetAmount();
+            READWRITE(nAmount);
+            if (ser_action.ForRead())
+                SetToBitcoinAmount(nAmount);
+        } else {
+            // We only serialize the value commitment here.
+            // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
+            READWRITE(REF(CFlatData(&vchCommitment[0], &vchCommitment[nCommitmentSize])));
+        }
+    }
+
+    bool IsValid() const;
+    bool IsNull() const;
+    bool IsAmount() const; // True for both native Amounts and "Bitcoin amounts"
+
+    CAmount GetAmount() const;
+
+    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b);
+    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b);
+
+private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BITCOIN_BLOCK_OR_TX
+    void SetToBitcoinAmount(const CAmount nAmount);
+    bool IsInBitcoinTransaction() const;
+    void SetToAmount(const CAmount nAmount);
+};
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
 class CTxOut
 {
 public:
-    CAmount nValue;
+    CTxOutValue nValue;
     CScript scriptPubKey;
 
     CTxOut()
@@ -139,7 +189,7 @@ public:
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
@@ -151,16 +201,14 @@ public:
 
     void SetNull()
     {
-        nValue = -1;
+        nValue = CTxOutValue();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return (nValue == -1);
+        return nValue.IsNull() && scriptPubKey.empty();
     }
-
-    uint256 GetHash() const;
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
     {
@@ -196,7 +244,13 @@ public:
 
     bool IsDust(const CFeeRate &minRelayTxFee) const
     {
-        return (nValue < GetDustThreshold(minRelayTxFee));
+        if (!nValue.IsAmount())
+            return false; // FIXME
+        //Withdrawlocks are evaluated at a higher, static feerate
+        //to ensure peg-outs are IsStandard on mainchain
+        if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
+            return true;
+        return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
@@ -212,6 +266,34 @@ public:
 
     std::string ToString() const;
 };
+
+class CTxOutWitnessSerializer
+{
+    CTxOut& ref;
+
+public:
+    CTxOutWitnessSerializer(CTxOut& ref_) : ref(ref_) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    bool IsNull() const {
+        return ref.nValue.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
+    }
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if (!(nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX)) {
+            READWRITE(ref.nValue.vchRangeproof);
+            READWRITE(ref.nValue.vchNonceCommitment);
+        }
+    }
+
+    void SetNull() {
+        std::vector<unsigned char>().swap(ref.nValue.vchRangeproof);
+        std::vector<unsigned char>().swap(ref.nValue.vchNonceCommitment);
+    }
+};
+
 
 class CTxInWitness
 {
@@ -274,23 +356,34 @@ struct CMutableTransaction;
 /**
  * Basic transaction serialization format:
  * - int32_t nVersion
+ * - int32_t nTxFee
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - uint32_t nLockTime
  *
  * Extended transaction serialization format:
  * - int32_t nVersion
+ * - int32_t nTxFee
  * - unsigned char dummy = 0x00
  * - unsigned char flags (!= 0)
  * - std::vector<CTxIn> vin
  * - std::vector<CTxOut> vout
  * - if (flags & 1):
  *   - CTxWitness wit;
+ * - if (flags & 2):
+ *   - CTxOutWitness witout;
  * - uint32_t nLockTime
  */
+static const CAmount TX_FEE_BITCOIN_TX_FLAG = -42;
 template<typename Stream, typename Operation, typename TxType>
 inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, int nType, int nVersion) {
+    const bool fAllowWitness = !(nVersion & SERIALIZE_TRANSACTION_NO_WITNESS);
+    const bool fIsBitcoinTx = (nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX);
     READWRITE(*const_cast<int32_t*>(&tx.nVersion));
+    if ((ser_action.ForRead() || (!ser_action.ForRead() && tx.nTxFee != TX_FEE_BITCOIN_TX_FLAG)) && !fIsBitcoinTx)
+        READWRITE(*const_cast<CAmount*>(&tx.nTxFee));
+    else if (ser_action.ForRead())
+        const_cast<CAmount&>(tx.nTxFee) = TX_FEE_BITCOIN_TX_FLAG;
     unsigned char flags = 0;
     if (ser_action.ForRead()) {
         const_cast<std::vector<CTxIn>*>(&tx.vin)->clear();
@@ -315,6 +408,21 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
             const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
             READWRITE(tx.wit);
         }
+        if ((flags & 2) && fAllowWitness && !fIsBitcoinTx) {
+            /* The witness output flag is present, and we support witnesses. */
+            flags ^= 2;
+            bool fHadOutputWitness = false;
+            for (size_t i = 0; i < tx.vout.size(); i++) {
+                CTxOutWitnessSerializer witser(REF(tx.vout[i]));
+                READWRITE(witser);
+                if (!witser.IsNull()) {
+                    fHadOutputWitness = true;
+                }
+            }
+            if (!fHadOutputWitness) {
+                throw std::ios_base::failure("Superfluous output witness record");
+            }
+        }
         if (flags) {
             /* Unknown flag in the serialization */
             throw std::ios_base::failure("Unknown transaction optional data");
@@ -326,6 +434,14 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
             /* Check whether witnesses need to be serialized. */
             if (!tx.wit.IsNull()) {
                 flags |= 1;
+            }
+            if (!fIsBitcoinTx) {
+                for (size_t i = 0; i < tx.vout.size(); i++) {
+                    if (!CTxOutWitnessSerializer(*const_cast<CTxOut*>(&tx.vout[i])).IsNull()) {
+                        flags |= 2;
+                        break;
+                    }
+                }
             }
         }
         if (flags) {
@@ -339,6 +455,12 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
         if (flags & 1) {
             const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
             READWRITE(tx.wit);
+        }
+        if (flags & 2) {
+            for (size_t i = 0; i < tx.vout.size(); i++) {
+                CTxOutWitnessSerializer witser(*const_cast<CTxOut*>(&tx.vout[i]));
+                READWRITE(witser);
+            }
         }
     }
     READWRITE(*const_cast<uint32_t*>(&tx.nLockTime));
@@ -369,6 +491,7 @@ public:
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
     const int32_t nVersion;
+    const CAmount nTxFee;
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     CTxWitness wit; // Not const: can change without invalidating the txid cache
@@ -403,11 +526,6 @@ public:
     // Compute a hash that includes both transaction and witness data
     uint256 GetWitnessHash() const;
 
-    // Return sum of txouts.
-    CAmount GetValueOut() const;
-    // GetValueIn() is a method on CCoinsViewCache, because
-    // inputs must be known to compute value in.
-
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
 
@@ -438,6 +556,7 @@ public:
 struct CMutableTransaction
 {
     int32_t nVersion;
+    CAmount nTxFee;
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     CTxWitness wit;

@@ -111,3 +111,30 @@ bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsig
     }
     return true;
 }
+
+bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+{
+    static CSignatureCache rangeProofCache;
+
+    CPubKey pubkey(vchCommitment);
+    uint256 entry;
+    rangeProofCache.ComputeEntry(entry, uint256(), vchRangeProof, pubkey);
+
+    if (rangeProofCache.Get(entry)) {
+        if (!store) {
+            rangeProofCache.Erase(entry);
+        }
+        return true;
+    }
+
+    uint64_t min_value, max_value;
+    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &vchCommitment[0], vchRangeProof.data(), vchRangeProof.size())) {
+        return false;
+    }
+
+    if (store) {
+        rangeProofCache.Set(entry);
+    }
+    return true;
+
+}
