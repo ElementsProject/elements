@@ -9,6 +9,7 @@
 #include "checkpoints.h"
 #include "coins.h"
 #include "consensus/validation.h"
+#include "core_io.h"
 #include "main.h"
 #include "policy/policy.h"
 #include "primitives/transaction.h"
@@ -62,7 +63,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("time", (int64_t)blockindex->nTime));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
     result.push_back(Pair("nonce", (uint64_t)GetNonce(blockindex->GetBlockHeader())));
-    result.push_back(Pair("bits", GetChallengeStr(blockindex->GetBlockHeader())));
+    result.push_back(Pair("bits", ScriptToAsmStr(Params().GetConsensus().signblockScript)));
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
 
@@ -106,7 +107,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
     result.push_back(Pair("nonce", (uint64_t)GetNonce(block)));
-    result.push_back(Pair("bits", GetChallengeStr(block)));
+    result.push_back(Pair("bits", ScriptToAsmStr(Params().GetConsensus().signblockScript)));
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
 

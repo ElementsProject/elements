@@ -20,21 +20,20 @@
 #include "wallet/wallet.h"
 #endif
 
-CScript CombineBlockSignatures(const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2)
+CScript CombineBlockSignatures(const Consensus::Params& params, const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2)
 {
     SignatureData sig1(scriptSig1);
     SignatureData sig2(scriptSig2);
-    return GenericCombineSignatures(header.proof.challenge, header, sig1, sig2).scriptSig;
+    return GenericCombineSignatures(params.signblockScript, header, sig1, sig2).scriptSig;
 }
 
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
-    return block.proof.challenge == indexLast.proof.challenge;
+    return true;
 }
 
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
-    block.proof.challenge = indexLast.proof.challenge;
 }
 
 bool CheckBitcoinProof(const CBlockHeader& block)
@@ -62,14 +61,14 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 {
     if (block.GetHash() == params.hashGenesisBlock)
        return true;
-    return GenericVerifyScript(block.proof.solution, block.proof.challenge, SCRIPT_VERIFY_P2SH, block);
+    return GenericVerifyScript(block.proof.solution, params.signblockScript, SCRIPT_VERIFY_P2SH, block);
 }
 
-bool MaybeGenerateProof(CBlockHeader *pblock, CWallet *pwallet)
+bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader *pblock, CWallet *pwallet)
 {
 #ifdef ENABLE_WALLET
     SignatureData solution(pblock->proof.solution);
-    bool res = GenericSignScript(*pwallet, *pblock, pblock->proof.challenge, solution);
+    bool res = GenericSignScript(*pwallet, *pblock, params.signblockScript, solution);
     pblock->proof.solution = solution.scriptSig;
     return res;
 #endif
@@ -84,16 +83,6 @@ void ResetProof(CBlockHeader& block)
 double GetChallengeDifficulty(const CBlockIndex* blockindex)
 {
     return 1;
-}
-
-std::string GetChallengeStr(const CBlockIndex& block)
-{
-    return ScriptToAsmStr(block.proof.challenge);
-}
-
-std::string GetChallengeStrHex(const CBlockIndex& block)
-{
-    return ScriptToAsmStr(block.proof.challenge);
 }
 
 uint32_t GetNonce(const CBlockHeader& block)

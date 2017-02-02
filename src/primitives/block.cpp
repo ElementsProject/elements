@@ -19,8 +19,8 @@ std::string CBitcoinProof::ToString() const
 
 std::string CProof::ToString() const
 {
-    return strprintf("CProof(challenge=%s, solution=%s)",
-                     ScriptToAsmStr(challenge), ScriptToAsmStr(solution));
+    return strprintf("CProof(solution=%s)",
+                     ScriptToAsmStr(solution));
 }
 
 uint256 CBlockHeader::GetHash() const
