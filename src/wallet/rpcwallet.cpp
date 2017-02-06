@@ -2563,6 +2563,9 @@ UniValue listunspent(const JSONRPCRequest& request)
             continue;
 
         CAmount nValue = out.tx->GetValueOut(out.i);
+        if (nValue == -1)
+            continue;
+
         UniValue entry(UniValue::VOBJ);
         entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
         entry.push_back(Pair("vout", out.i));

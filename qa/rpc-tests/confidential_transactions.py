@@ -118,6 +118,8 @@ class CTTest (BitcoinTestFramework):
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
         #Node sees nothing unless it understands the values
         assert_equal(len(received_by_address), 0)
+        assert_equal(len(self.nodes[1].listunspent()), 0)
+
         # Import the blinding key
         blindingkey = self.nodes[2].dumpblindingkey(address)
         self.nodes[1].importblindingkey(address, blindingkey)
@@ -125,6 +127,8 @@ class CTTest (BitcoinTestFramework):
         # Needs rescan to update wallet txns
         assert_equal(self.nodes[1].gettransaction(confidential_tx_id, True)['amount'], value1)
         assert_equal(self.nodes[1].gettransaction(raw_tx_id, True)['amount'], value3)
+        list_unspent = self.nodes[1].listunspent()
+        assert_equal(list_unspent[0]['amount']+list_unspent[1]['amount'], value1+value3)
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
         assert_equal(len(received_by_address), 1)
         assert_equal((received_by_address[0]['address'], received_by_address[0]['amount']),
