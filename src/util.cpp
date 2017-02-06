@@ -373,35 +373,25 @@ int AuditLogPrintStr(const std::string &str)
 
     string strTimestamped = LogTimestampStr(str, &fStartedNewLine);
 
-    if (fPrintToConsole)
-    {
-        // print to console
-        ret = fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
-        fflush(stdout);
+    boost::call_once(&AuditPrintInit, auditPrintInitFlag);
+    boost::mutex::scoped_lock scoped_lock(*mutexAuditLog);
+
+    // buffer if we haven't opened the log yet
+    if (fileout_audit == NULL) {
+        assert(vMsgsBeforeOpenAuditLog);
+        ret = strTimestamped.length();
+        vMsgsBeforeOpenAuditLog->push_back(strTimestamped);
     }
-    else if (fPrintToAuditLog)
+    else
     {
-        boost::call_once(&AuditPrintInit, auditPrintInitFlag);
-        boost::mutex::scoped_lock scoped_lock(*mutexAuditLog);
-
-        // buffer if we haven't opened the log yet
-        if (fileout_audit == NULL) {
-            assert(vMsgsBeforeOpenAuditLog);
-            ret = strTimestamped.length();
-            vMsgsBeforeOpenAuditLog->push_back(strTimestamped);
+        // reopen the log file, if requested
+        if (fReopenAuditLog) {
+            fReopenAuditLog = false;
+            boost::filesystem::path pathAudit = GetDataDir() / "audit.log";
+            if (freopen(pathAudit.string().c_str(),"a",fileout_audit) != NULL)
+                setbuf(fileout_audit, NULL); // unbuffered
         }
-        else
-        {
-            // reopen the log file, if requested
-            if (fReopenAuditLog) {
-                fReopenAuditLog = false;
-                boost::filesystem::path pathAudit = GetDataDir() / "audit.log";
-                if (freopen(pathAudit.string().c_str(),"a",fileout_audit) != NULL)
-                    setbuf(fileout_audit, NULL); // unbuffered
-            }
-
-            ret = FileWriteStr(strTimestamped, fileout_audit);
-        }
+        ret = FileWriteStr(strTimestamped, fileout_audit);
     }
     return ret;
 }
