@@ -96,6 +96,56 @@ private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BI
     void SetToAmount(const CAmount nAmount);
 };
 
+class CAssetGeneration
+{
+public:
+    // This is a 32-byte nonce of no consensus-defined meaning,
+    // but is used as additional entropy to the asset tag calculation.
+    // This is used by higher-layer protocols for defining the
+    // Ricardian contract governing the asset.
+    uint256 hashNonce;
+
+    // Both explicit and blinded issuance amounts are supported
+    // (see class definition for CTxOutValue for details).
+    CTxOutValue nAmount;
+
+    // If nonzero, specifies the number of asset issuance and/or
+    // de-issuance tokens to generate. These tokens are made available
+    // to the outputs of the generating transaction.
+    CAmount nInflationKeys;
+    CAmount nDeflationKeys;
+
+public:
+    // FIXME: constructor and methods
+};
+
+class CAssetReissuance
+{
+public:
+    // The original asset entropy which was used to generate the fixed
+    // asset tag and reissuance tokens.
+    uint256 hashAssetEntropy;
+
+    // This is a revelation of the blinding key for the input,
+    // which shows that the input being spent is of the reissuance
+    // capability type for the asset being inflated.
+    uint256 assetBlindingNonce;
+
+    // The reissuance amount, either positive (inflation) or negative
+    // (deflation). Note that the corresponding reissuance token must
+    // be the output being spent in either case.
+    CTxOutValue nAmount;
+
+    // Set to 1 if the reissuance is increasing the number of asset
+    // tokens in circulation (treated as an input), -1 if the reissuance
+    // is decreasing the number of tokens (treated as an output), and 0
+    // if there is no reissuance (reissuance object is Null).
+    int nSign;
+
+public:
+    // FIXME: constructor and methods
+};
+
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
 {
@@ -426,56 +476,6 @@ public:
         std::vector<unsigned char>().swap(ref.nValue.vchRangeproof);
         std::vector<unsigned char>().swap(ref.nValue.vchNonceCommitment);
     }
-};
-
-class CAssetGeneration
-{
-public:
-    // This is a 32-byte nonce of no consensus-defined meaning,
-    // but is used as additional entropy to the asset tag calculation.
-    // This is used by higher-layer protocols for defining the
-    // Ricardian contract governing the asset.
-    uint256 hashNonce;
-
-    // Both explicit and blinded issuance amounts are supported
-    // (see class definition for CTxOutValue for details).
-    CTxOutValue nAmount;
-
-    // If nonzero, specifies the number of asset issuance and/or
-    // de-issuance tokens to generate. These tokens are made available
-    // to the outputs of the generating transaction.
-    CAmount nInflationKeys;
-    CAmount nDeflationKeys;
-
-public:
-    // FIXME: constructor and methods
-};
-
-class CAssetReissuance
-{
-public:
-    // The original asset entropy which was used to generate the fixed
-    // asset tag and reissuance tokens.
-    uint256 hashAssetEntropy;
-
-    // This is a revelation of the blinding key for the input,
-    // which shows that the input being spent is of the reissuance
-    // capability type for the asset being inflated.
-    uint256 assetBlindingNonce;
-
-    // The reissuance amount, either positive (inflation) or negative
-    // (deflation). Note that the corresponding reissuance token must
-    // be the output being spent in either case.
-    CTxOutValue nAmount;
-
-    // Set to 1 if the reissuance is increasing the number of asset
-    // tokens in circulation (treated as an input), -1 if the reissuance
-    // is decreasing the number of tokens (treated as an output), and 0
-    // if there is no reissuance (reissuance object is Null).
-    int nSign;
-
-public:
-    // FIXME: constructor and methods
 };
 
 class CTxInWitness
