@@ -9,40 +9,6 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
-std::string COutPoint::ToString() const
-{
-    return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
-}
-
-CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
-{
-    prevout = prevoutIn;
-    scriptSig = scriptSigIn;
-    nSequence = nSequenceIn;
-}
-
-CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
-{
-    prevout = COutPoint(hashPrevTx, nOut);
-    scriptSig = scriptSigIn;
-    nSequence = nSequenceIn;
-}
-
-std::string CTxIn::ToString() const
-{
-    std::string str;
-    str += "CTxIn(";
-    str += prevout.ToString();
-    if (prevout.IsNull())
-        str += strprintf(", coinbase %s", HexStr(scriptSig));
-    else
-        str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
-    if (nSequence != SEQUENCE_FINAL)
-        str += strprintf(", nSequence=%u", nSequence);
-    str += ")";
-    return str;
-}
-
 void CTxOutAsset::SetNull()
 {
     vchAssetTag.resize(1);
@@ -133,6 +99,40 @@ std::string CTxOut::ToString() const
     if (nAsset.IsAssetCommitment())
         strAsset = std::string("nAsset=UNKNOWN, ");
     return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
+}
+
+std::string COutPoint::ToString() const
+{
+    return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
+}
+
+CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
+{
+    prevout = prevoutIn;
+    scriptSig = scriptSigIn;
+    nSequence = nSequenceIn;
+}
+
+CTxIn::CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn, uint32_t nSequenceIn)
+{
+    prevout = COutPoint(hashPrevTx, nOut);
+    scriptSig = scriptSigIn;
+    nSequence = nSequenceIn;
+}
+
+std::string CTxIn::ToString() const
+{
+    std::string str;
+    str += "CTxIn(";
+    str += prevout.ToString();
+    if (prevout.IsNull())
+        str += strprintf(", coinbase %s", HexStr(scriptSig));
+    else
+        str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
+    if (nSequence != SEQUENCE_FINAL)
+        str += strprintf(", nSequence=%u", nSequence);
+    str += ")";
+    return str;
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}

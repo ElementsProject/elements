@@ -18,6 +18,86 @@ static const int WITNESS_SCALE_FACTOR = 4;
 
 static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
 
+class CTxOutAsset
+{
+public:
+    static const size_t nAssetTagSize = 33;
+
+    std::vector<unsigned char> vchAssetTag;
+    std::vector<unsigned char> vchSurjectionproof;
+
+    CTxOutAsset()
+    {
+        vchAssetTag.reserve(nAssetTagSize);
+        SetNull();
+    }
+
+    CTxOutAsset(const uint256& assetID)
+    {
+        SetToAssetID(assetID);
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
+            if (ser_action.ForRead()) {
+                vchAssetTag.resize(1);
+                vchAssetTag[0] = 0;
+                vchSurjectionproof.clear();
+            }
+        } else {
+            vchAssetTag.resize(nAssetTagSize);
+            READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
+            // The surjection proof is serialized as part of the witness data
+        }
+    }
+
+    bool IsNull() const
+    {
+        return vchAssetTag.empty() || vchAssetTag[0]==0xff;
+    }
+
+    void SetNull();
+
+    bool IsAssetID() const
+    {
+        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
+    }
+    bool GetAssetID(uint256& assetID) const;
+
+    bool IsAssetCommitment() const
+    {
+        return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==10 || vchAssetTag[0]==11);
+    }
+
+    bool IsAssetGeneration() const
+    {
+        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==12;
+    }
+
+    void SetAsAssetGeneration()
+    {
+        vchAssetTag[0] = 12;
+    }
+
+    friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
+    {
+        return (a.vchAssetTag        == b.vchAssetTag &&
+                a.vchSurjectionproof == b.vchSurjectionproof);
+    }
+
+    friend bool operator!=(const CTxOutAsset& a, const CTxOutAsset& b)
+    {
+        return !(a == b);
+    }
+
+private:
+    bool IsInBitcoinTransaction() const { return vchAssetTag[0] == 0; }
+    void SetToAssetID(const uint256& assetID);
+};
+
 class CTxOutValue
 {
 public:
@@ -94,6 +174,118 @@ private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BI
     void SetToBitcoinAmount(const CAmount nAmount);
     bool IsInBitcoinTransaction() const { return vchCommitment[0] == 0; }
     void SetToAmount(const CAmount nAmount);
+};
+
+/** An output of a transaction.  It contains the public key that the next input
+ * must be able to sign with to claim it.
+ */
+class CTxOut
+{
+public:
+    CTxOutAsset nAsset;
+    CTxOutValue nValue;
+    CScript scriptPubKey;
+
+    // FIXME: Inventory the places this constructor is called, and make sure
+    //        that `nAsset` is being set appropriately.
+    CTxOut()
+    {
+        SetNull();
+    }
+
+    // FIXME: Add `const CTxOutAsset& nAssetIn` as first parameter. This will
+    //        (rightfully) break all code that calls this constructor, which
+    //        will need to be fixed to be asset aware.
+    CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(nAsset);
+        READWRITE(nValue);
+        READWRITE(*(CScriptBase*)(&scriptPubKey));
+    }
+
+    void SetNull()
+    {
+        nAsset = CTxOutAsset();
+        nValue = CTxOutValue();
+        scriptPubKey.clear();
+    }
+
+    bool IsNull() const
+    {
+        return nAsset.IsNull() && nValue.IsNull() && scriptPubKey.empty();
+    }
+
+    CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
+    {
+        // "Dust" is defined in terms of CTransaction::minRelayTxFee,
+        // which has units satoshis-per-kilobyte.
+        // If you'd pay more than 1/3 in fees
+        // to spend something, then we consider it dust.
+        // A typical spendable non-segwit txout is 34 bytes big, and will
+        // need a CTxIn of at least 148 bytes to spend:
+        // so dust is a spendable txout less than
+        // 546*minRelayTxFee/1000 (in satoshis).
+        // A typical spendable segwit txout is 31 bytes big, and will
+        // need a CTxIn of at least 67 bytes to spend:
+        // so dust is a spendable txout less than
+        // 294*minRelayTxFee/1000 (in satoshis).
+        if (scriptPubKey.IsUnspendable())
+            return 0;
+
+        size_t nSize = GetSerializeSize(SER_DISK, 0);
+        int witnessversion = 0;
+        std::vector<unsigned char> witnessprogram;
+
+        if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
+            // sum the sizes of the parts of a transaction input
+            // with 75% segwit discount applied to the script size.
+            nSize += (32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
+        } else {
+            nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
+        }
+
+        return 3 * minRelayTxFee.GetFee(nSize);
+    }
+
+    bool IsDust(const CFeeRate &minRelayTxFee) const
+    {
+        if (!nValue.IsAmount())
+            return false; // FIXME
+        uint256 assetid;
+        if (!nAsset.GetAssetID(assetid) || assetid != BITCOINID)
+            return false;
+        //Withdrawlocks are evaluated at a higher, static feerate
+        //to ensure peg-outs are IsStandard on mainchain
+        if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
+            return true;
+        return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
+    }
+
+    bool IsFee() const
+    {
+        uint256 assetid;
+        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsAssetID())
+            return true;
+        return false;
+    }
+
+    friend bool operator==(const CTxOut& a, const CTxOut& b)
+    {
+        return (a.nValue       == b.nValue &&
+                a.nValue       == b.nValue &&
+                a.scriptPubKey == b.scriptPubKey);
+    }
+
+    friend bool operator!=(const CTxOut& a, const CTxOut& b)
+    {
+        return !(a == b);
+    }
+
+    std::string ToString() const;
 };
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
@@ -256,198 +448,6 @@ public:
     std::string ToString() const;
 };
 
-
-class CTxOutAsset
-{
-public:
-    static const size_t nAssetTagSize = 33;
-
-    std::vector<unsigned char> vchAssetTag;
-    std::vector<unsigned char> vchSurjectionproof;
-
-    CTxOutAsset()
-    {
-        vchAssetTag.reserve(nAssetTagSize);
-        SetNull();
-    }
-
-    CTxOutAsset(const uint256& assetID)
-    {
-        SetToAssetID(assetID);
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
-            if (ser_action.ForRead()) {
-                vchAssetTag.resize(1);
-                vchAssetTag[0] = 0;
-                vchSurjectionproof.clear();
-            }
-        } else {
-            vchAssetTag.resize(nAssetTagSize);
-            READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
-            // The surjection proof is serialized as part of the witness data
-        }
-    }
-
-    bool IsNull() const
-    {
-        return vchAssetTag.empty() || vchAssetTag[0]==0xff;
-    }
-
-    void SetNull();
-
-    bool IsAssetID() const
-    {
-        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
-    }
-    bool GetAssetID(uint256& assetID) const;
-
-    bool IsAssetCommitment() const
-    {
-        return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==10 || vchAssetTag[0]==11);
-    }
-
-    bool IsAssetGeneration() const
-    {
-        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==12;
-    }
-
-    void SetAsAssetGeneration()
-    {
-        vchAssetTag[0] = 12;
-    }
-
-    friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
-    {
-        return (a.vchAssetTag        == b.vchAssetTag &&
-                a.vchSurjectionproof == b.vchSurjectionproof);
-    }
-
-    friend bool operator!=(const CTxOutAsset& a, const CTxOutAsset& b)
-    {
-        return !(a == b);
-    }
-
-private:
-    bool IsInBitcoinTransaction() const { return vchAssetTag[0] == 0; }
-    void SetToAssetID(const uint256& assetID);
-};
-
-/** An output of a transaction.  It contains the public key that the next input
- * must be able to sign with to claim it.
- */
-class CTxOut
-{
-public:
-    CTxOutAsset nAsset;
-    CTxOutValue nValue;
-    CScript scriptPubKey;
-
-    // FIXME: Inventory the places this constructor is called, and make sure
-    //        that `nAsset` is being set appropriately.
-    CTxOut()
-    {
-        SetNull();
-    }
-
-    // FIXME: Add `const CTxOutAsset& nAssetIn` as first parameter. This will
-    //        (rightfully) break all code that calls this constructor, which
-    //        will need to be fixed to be asset aware.
-    CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(nAsset);
-        READWRITE(nValue);
-        READWRITE(*(CScriptBase*)(&scriptPubKey));
-    }
-
-    void SetNull()
-    {
-        nAsset = CTxOutAsset();
-        nValue = CTxOutValue();
-        scriptPubKey.clear();
-    }
-
-    bool IsNull() const
-    {
-        return nAsset.IsNull() && nValue.IsNull() && scriptPubKey.empty();
-    }
-
-    CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
-    {
-        // "Dust" is defined in terms of CTransaction::minRelayTxFee,
-        // which has units satoshis-per-kilobyte.
-        // If you'd pay more than 1/3 in fees
-        // to spend something, then we consider it dust.
-        // A typical spendable non-segwit txout is 34 bytes big, and will
-        // need a CTxIn of at least 148 bytes to spend:
-        // so dust is a spendable txout less than
-        // 546*minRelayTxFee/1000 (in satoshis).
-        // A typical spendable segwit txout is 31 bytes big, and will
-        // need a CTxIn of at least 67 bytes to spend:
-        // so dust is a spendable txout less than
-        // 294*minRelayTxFee/1000 (in satoshis).
-        if (scriptPubKey.IsUnspendable())
-            return 0;
-
-        size_t nSize = GetSerializeSize(SER_DISK, 0);
-        int witnessversion = 0;
-        std::vector<unsigned char> witnessprogram;
-
-        if (scriptPubKey.IsWitnessProgram(witnessversion, witnessprogram)) {
-            // sum the sizes of the parts of a transaction input
-            // with 75% segwit discount applied to the script size.
-            nSize += (32 + 4 + 1 + (107 / WITNESS_SCALE_FACTOR) + 4);
-        } else {
-            nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
-        }
-
-        return 3 * minRelayTxFee.GetFee(nSize);
-    }
-
-    bool IsDust(const CFeeRate &minRelayTxFee) const
-    {
-        if (!nValue.IsAmount())
-            return false; // FIXME
-        uint256 assetid;
-        if (!nAsset.GetAssetID(assetid) || assetid != BITCOINID)
-            return false;
-        //Withdrawlocks are evaluated at a higher, static feerate
-        //to ensure peg-outs are IsStandard on mainchain
-        if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
-            return true;
-        return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
-    }
-
-    bool IsFee() const
-    {
-        uint256 assetid;
-        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsAssetID())
-            return true;
-        return false;
-    }
-
-    friend bool operator==(const CTxOut& a, const CTxOut& b)
-    {
-        return (a.nValue       == b.nValue &&
-                a.nValue       == b.nValue &&
-                a.scriptPubKey == b.scriptPubKey);
-    }
-
-    friend bool operator!=(const CTxOut& a, const CTxOut& b)
-    {
-        return !(a == b);
-    }
-
-    std::string ToString() const;
-};
 
 class CTxOutWitnessSerializer
 {
