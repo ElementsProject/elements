@@ -1146,10 +1146,11 @@ class CRangeCheck : public CCheck
 private:
     const CTxOutValue* val;
     const CTxOutAsset* asset;
+    const CScript* scriptPubKey;
     const bool store;
 
 public:
-    CRangeCheck(const CTxOutValue* val_, const CTxOutAsset* asset_, const bool storeIn) : val(val_), asset(asset_), store(storeIn) {}
+    CRangeCheck(const CTxOutValue* val_, const CTxOutAsset* asset_, const CScript* scriptPubKey_, const bool storeIn) : val(val_), asset(asset_), scriptPubKey(scriptPubKey_), store(storeIn) {}
 
     bool operator()();
 };
@@ -1204,7 +1205,7 @@ bool CRangeCheck::operator()()
         return true;
     }
 
-    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, asset->vchAssetTag, secp256k1_ctx_verify_amounts);
+    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, asset->vchAssetTag, *scriptPubKey, secp256k1_ctx_verify_amounts);
 };
 
 bool CBalanceCheck::operator()()
@@ -1353,7 +1354,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         const CTxOutValue& val = tx.vout[i].nValue;
         if (val.IsAmount())
             continue;
-        if (!QueueCheck(pvChecks, new CRangeCheck(&val, &tx.vout[i].nAsset, cacheStore))) {
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
             return false;
         }
     }

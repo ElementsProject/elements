@@ -112,7 +112,7 @@ bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsig
     return true;
 }
 
-bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const std::vector<unsigned char>& vchAssetTag, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const std::vector<unsigned char>& vchAssetTag, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
 {
     static CSignatureCache rangeProofCache;
 
@@ -136,7 +136,7 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
     if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &tag, &vchAssetTag[0]) != 1)
         return false;
 
-    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &commit, vchRangeProof.data(), vchRangeProof.size(), NULL, 0, &tag)) {
+    if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &commit, vchRangeProof.data(), vchRangeProof.size(), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &tag)) {
         return false;
     }
 
