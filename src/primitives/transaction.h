@@ -96,6 +96,46 @@ private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BI
     void SetToAmount(const CAmount nAmount);
 };
 
+/** An outpoint - a combination of a transaction hash and an index n into its vout */
+class COutPoint
+{
+public:
+    uint256 hash;
+    uint32_t n;
+
+    COutPoint() { SetNull(); }
+    COutPoint(uint256 hashIn, uint32_t nIn) { hash = hashIn; n = nIn; }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(hash);
+        READWRITE(n);
+    }
+
+    void SetNull() { hash.SetNull(); n = (uint32_t) -1; }
+    bool IsNull() const { return (hash.IsNull() && n == (uint32_t) -1); }
+
+    friend bool operator<(const COutPoint& a, const COutPoint& b)
+    {
+        int cmp = a.hash.Compare(b.hash);
+        return cmp < 0 || (cmp == 0 && a.n < b.n);
+    }
+
+    friend bool operator==(const COutPoint& a, const COutPoint& b)
+    {
+        return (a.hash == b.hash && a.n == b.n);
+    }
+
+    friend bool operator!=(const COutPoint& a, const COutPoint& b)
+    {
+        return !(a == b);
+    }
+
+    std::string ToString() const;
+};
+
 class CAssetGeneration
 {
 public:
@@ -144,46 +184,6 @@ public:
 
 public:
     // FIXME: constructor and methods
-};
-
-/** An outpoint - a combination of a transaction hash and an index n into its vout */
-class COutPoint
-{
-public:
-    uint256 hash;
-    uint32_t n;
-
-    COutPoint() { SetNull(); }
-    COutPoint(uint256 hashIn, uint32_t nIn) { hash = hashIn; n = nIn; }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(hash);
-        READWRITE(n);
-    }
-
-    void SetNull() { hash.SetNull(); n = (uint32_t) -1; }
-    bool IsNull() const { return (hash.IsNull() && n == (uint32_t) -1); }
-
-    friend bool operator<(const COutPoint& a, const COutPoint& b)
-    {
-        int cmp = a.hash.Compare(b.hash);
-        return cmp < 0 || (cmp == 0 && a.n < b.n);
-    }
-
-    friend bool operator==(const COutPoint& a, const COutPoint& b)
-    {
-        return (a.hash == b.hash && a.n == b.n);
-    }
-
-    friend bool operator!=(const COutPoint& a, const COutPoint& b)
-    {
-        return !(a == b);
-    }
-
-    std::string ToString() const;
 };
 
 /** An input of a transaction.  It contains the location of the previous
