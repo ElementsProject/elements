@@ -468,6 +468,12 @@ public:
     // be the output being spent in either case.
     CTxOutValue nAmount;
 
+    // Set to 1 if the reissuance is increasing the number of asset
+    // tokens in circulation (treated as an input), -1 if the reissuance
+    // is decreasing the number of tokens (treated as an output), and 0
+    // if there is no reissuance (reissuance object is Null).
+    int nSign;
+
 public:
     // FIXME: constructor and methods
 };
