@@ -18,6 +18,84 @@ static const int WITNESS_SCALE_FACTOR = 4;
 
 static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
 
+class CTxOutValue
+{
+public:
+    static const size_t nExplicitSize = 9;
+    static const size_t nCommittedSize = 33;
+
+    std::vector<unsigned char> vchCommitment;
+    std::vector<unsigned char> vchRangeproof;
+    std::vector<unsigned char> vchNonceCommitment;
+
+    CTxOutValue() { SetNull(); }
+    CTxOutValue(CAmount);
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
+            CAmount nAmount = 0;
+            if (!ser_action.ForRead())
+                nAmount = GetAmount();
+            READWRITE(nAmount);
+            if (ser_action.ForRead())
+                SetToBitcoinAmount(nAmount);
+        } else {
+            // We only serialize the value commitment here.
+            // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
+            READWRITE(vchCommitment.front());
+            if (ser_action.ForRead()) {
+                switch (vchCommitment.front()) {
+                    case 0:
+                    case 1:
+                        vchCommitment.resize(nExplicitSize);
+                        break;
+                    // Alpha used 2 and 3 for value commitments
+                    case 2:
+                    case 3:
+                        break;
+                    case 8:
+                    case 9:
+                        vchCommitment.resize(nCommittedSize);
+                        break;
+                    default:
+                        vchCommitment.resize(1);
+                        return;
+                }
+            }
+            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
+        }
+    }
+
+    void SetNull();
+    bool IsNull() const { return vchCommitment[0] == 0xff; }
+
+    bool IsValid() const;
+
+    // True for both native Amounts and "Bitcoin amounts"
+    bool IsAmount() const { return vchCommitment[0] == 0 || vchCommitment[0] == 1; }
+    CAmount GetAmount() const;
+
+    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
+    {
+        return a.vchRangeproof == b.vchRangeproof &&
+               a.vchCommitment == b.vchCommitment &&
+               a.vchNonceCommitment == b.vchNonceCommitment;
+    }
+
+    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b)
+    {
+        return !(a == b);
+    }
+
+private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BITCOIN_BLOCK_OR_TX
+    void SetToBitcoinAmount(const CAmount nAmount);
+    bool IsInBitcoinTransaction() const { return vchCommitment[0] == 0; }
+    void SetToAmount(const CAmount nAmount);
+};
+
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
 {
@@ -207,84 +285,6 @@ public:
 private:
     bool IsInBitcoinTransaction() const { return vchAssetTag[0] == 0; }
     void SetToAssetID(const uint256& assetID);
-};
-
-class CTxOutValue
-{
-public:
-    static const size_t nExplicitSize = 9;
-    static const size_t nCommittedSize = 33;
-
-    std::vector<unsigned char> vchCommitment;
-    std::vector<unsigned char> vchRangeproof;
-    std::vector<unsigned char> vchNonceCommitment;
-
-    CTxOutValue() { SetNull(); }
-    CTxOutValue(CAmount);
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
-            CAmount nAmount = 0;
-            if (!ser_action.ForRead())
-                nAmount = GetAmount();
-            READWRITE(nAmount);
-            if (ser_action.ForRead())
-                SetToBitcoinAmount(nAmount);
-        } else {
-            // We only serialize the value commitment here.
-            // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
-            READWRITE(vchCommitment.front());
-            if (ser_action.ForRead()) {
-                switch (vchCommitment.front()) {
-                    case 0:
-                    case 1:
-                        vchCommitment.resize(nExplicitSize);
-                        break;
-                    // Alpha used 2 and 3 for value commitments
-                    case 2:
-                    case 3:
-                        break;
-                    case 8:
-                    case 9:
-                        vchCommitment.resize(nCommittedSize);
-                        break;
-                    default:
-                        vchCommitment.resize(1);
-                        return;
-                }
-            }
-            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
-        }
-    }
-
-    void SetNull();
-    bool IsNull() const { return vchCommitment[0] == 0xff; }
-
-    bool IsValid() const;
-
-    // True for both native Amounts and "Bitcoin amounts"
-    bool IsAmount() const { return vchCommitment[0] == 0 || vchCommitment[0] == 1; }
-    CAmount GetAmount() const;
-
-    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
-    {
-        return a.vchRangeproof == b.vchRangeproof &&
-               a.vchCommitment == b.vchCommitment &&
-               a.vchNonceCommitment == b.vchNonceCommitment;
-    }
-
-    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b)
-    {
-        return !(a == b);
-    }
-
-private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BITCOIN_BLOCK_OR_TX
-    void SetToBitcoinAmount(const CAmount nAmount);
-    bool IsInBitcoinTransaction() const { return vchCommitment[0] == 0; }
-    void SetToAmount(const CAmount nAmount);
 };
 
 /** An output of a transaction.  It contains the public key that the next input
