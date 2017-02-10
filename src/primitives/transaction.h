@@ -372,7 +372,7 @@ public:
     // tokens in circulation (treated as an input), -1 if the reissuance
     // is decreasing the number of tokens (treated as an output), and 0
     // if there is no reissuance (reissuance object is Null).
-    int nSign;
+    int sign;
 
 public:
     // FIXME: constructor and methods
