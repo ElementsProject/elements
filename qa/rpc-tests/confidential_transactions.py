@@ -174,5 +174,22 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), node1)
         assert_equal(self.nodes[2].getbalance(), node2)
 
+        # Check createblindedaddress functionality
+        blinded_addr = self.nodes[0].getnewaddress()
+        validated_addr = self.nodes[0].validateaddress(blinded_addr)
+        blinding_key = self.nodes[0].dumpblindingkey(blinded_addr)
+        assert_equal(blinded_addr, self.nodes[1].createblindedaddress(validated_addr["unconfidential"], blinding_key))
+
+        # If a blinding key is over-ridden by a newly imported one, funds may be unaccounted for
+        new_addr = self.nodes[0].getnewaddress()
+        new_validated = self.nodes[0].validateaddress(new_addr)
+        self.nodes[2].sendtoaddress(new_addr, 1)
+        diff_blind = self.nodes[1].createblindedaddress(new_validated["unconfidential"], blinding_key)
+        assert_equal(len(self.nodes[0].listunspent(0, 0, [new_validated["unconfidential"]])), 1)
+        self.nodes[0].importblindingkey(diff_blind, blinding_key)
+        # CT values for this wallet transaction  have been cached via importblindingkey
+        # therefore result will be same even though we change blinding keys
+        assert_equal(len(self.nodes[0].listunspent(0, 0, [new_validated["unconfidential"]])), 1)
+
 if __name__ == '__main__':
     CTTest ().main ()
