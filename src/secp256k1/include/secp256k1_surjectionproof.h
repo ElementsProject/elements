@@ -178,7 +178,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_initial
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_generate(
   const secp256k1_context* ctx,
   secp256k1_surjectionproof* proof,
-  const secp256k1_generator* const* ephemeral_input_tags,
+  const secp256k1_generator* ephemeral_input_tags,
   size_t n_ephemeral_input_tags,
   const secp256k1_generator* ephemeral_output_tag,
   size_t input_index,
@@ -200,7 +200,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_generat
 SECP256K1_API int secp256k1_surjectionproof_verify(
   const secp256k1_context* ctx,
   const secp256k1_surjectionproof* proof,
-  const secp256k1_generator * const* ephemeral_input_tags,
+  const secp256k1_generator* ephemeral_input_tags,
   size_t n_ephemeral_input_tags,
   const secp256k1_generator* ephemeral_output_tag
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);

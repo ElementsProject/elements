@@ -198,7 +198,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
     }
 }
 
-int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, const secp256k1_generator* const* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag, size_t input_index, const unsigned char *input_blinding_key, const unsigned char *output_blinding_key) {
+int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag, size_t input_index, const unsigned char *input_blinding_key, const unsigned char *output_blinding_key) {
     secp256k1_scalar blinding_key;
     secp256k1_scalar tmps;
     secp256k1_scalar nonce;
@@ -251,7 +251,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
 
     secp256k1_generator_load(&output, ephemeral_output_tag);
     for (i = 0; i < n_total_pubkeys; i++) {
-        secp256k1_generator_load(&inputs[i], ephemeral_input_tags[i]);
+        secp256k1_generator_load(&inputs[i], &ephemeral_input_tags[i]);
     }
 
     secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, inputs, n_total_pubkeys, proof->used_inputs, &output, input_index, &ring_input_index);
@@ -277,7 +277,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     return 1;
 }
 
-int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator * const* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag) {
+int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag) {
     size_t rsizes[1];    /* array needed for borromean sig API */
     size_t i;
     size_t n_total_pubkeys;
@@ -302,7 +302,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
 
     secp256k1_generator_load(&output, ephemeral_output_tag);
     for (i = 0; i < n_total_pubkeys; i++) {
-        secp256k1_generator_load(&inputs[i], ephemeral_input_tags[i]);
+        secp256k1_generator_load(&inputs[i], &ephemeral_input_tags[i]);
     }
 
     if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, inputs, n_total_pubkeys, proof->used_inputs, &output, 0, NULL) == 0) {
