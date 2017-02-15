@@ -31,9 +31,10 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
     // Any asset id will do
     uint256 bitcoinID(GetRandHash());
+    uint256 otherID(GetRandHash());
     uint256 unblinded_id;
     uint256 asset_blind;
- 
+
     unsigned char k1[32] = {1,2,3};
     unsigned char k2[32] = {22,33,44};
     unsigned char kDummy[32] = {133,144,155};
@@ -114,6 +115,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         CAmount unblinded_amount;
         BOOST_CHECK(UnblindOutput(key2, tx3.vout[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 0);
+        // Saving unblinded_id and asset_blind for later since we need for input
         BOOST_CHECK(UnblindOutput(key1, tx3.vout[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 1);
         BOOST_CHECK(unblinded_amount == 100);
         BOOST_CHECK(unblinded_id == bitcoinID);
@@ -241,17 +243,22 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         wtx.SetBlindingData(0, 42, output_pubkeys[0], output_blinds[0], unblinded_id, output_asset_blinds[0]);
 
         factor = wtx.GetBlindingFactor(0);
+        asset_factor = wtx.GetAssetBlindingFactor(0);
+        asset_id = wtx.GetAssetID(0);
         pubkey = wtx.GetBlindingPubKey(0);
         amount = wtx.GetValueOut(0);
 
         BOOST_CHECK(factor == output_blinds[0]);
         BOOST_CHECK(asset_factor == output_asset_blinds[0]);
+        BOOST_CHECK(asset_id == unblinded_id);
         BOOST_CHECK(pubkey == output_pubkeys[0]);
         BOOST_CHECK(amount == 42);
 
-        wtx.SetBlindingData(1, 11, output_pubkeys[1], output_blinds[1]);
+        wtx.SetBlindingData(1, 11, output_pubkeys[1], output_blinds[1], otherID, output_asset_blinds[1]);
 
         factor = wtx.GetBlindingFactor(0);
+        asset_factor = wtx.GetAssetBlindingFactor(0);
+        asset_id = wtx.GetAssetID(0);
         pubkey = wtx.GetBlindingPubKey(0);
         amount = wtx.GetValueOut(0);
 
@@ -260,27 +267,37 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(amount == 42);
 
         factor = wtx.GetBlindingFactor(1);
+        asset_factor = wtx.GetAssetBlindingFactor(1);
+        asset_id = wtx.GetAssetID(1);
         pubkey = wtx.GetBlindingPubKey(1);
         amount = wtx.GetValueOut(1);
 
         BOOST_CHECK(factor == output_blinds[1]);
+        BOOST_CHECK(asset_factor == output_asset_blinds[1]);
+        BOOST_CHECK(asset_id == otherID);
         BOOST_CHECK(pubkey == output_pubkeys[1]);
         BOOST_CHECK(amount == 11);
 #endif
         CAmount unblinded_amount;
-        BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], unblinded_amount, blind4) == 0);
-        BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], unblinded_amount, blind4) == 1);
+        uint256 asset_id_out;
+        uint256 asset_blinder_out;
+        BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], unblinded_amount, blind4, asset_id_out, asset_blinder_out) == 0);
+        BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], unblinded_amount, blind4, asset_id_out, asset_blinder_out) == 1);
         BOOST_CHECK(unblinded_amount == 30);
-        BOOST_CHECK(UnblindOutput(key2, tx4.vout[2], unblinded_amount, blind4) == 1);
+        BOOST_CHECK(asset_id_out == unblinded_id);
+        BOOST_CHECK(UnblindOutput(key2, tx4.vout[2], unblinded_amount, blind4, asset_id_out, asset_blinder_out) == 1);
+        BOOST_CHECK(asset_id_out == unblinded_id);
         BOOST_CHECK(unblinded_amount == 50);
 
         CCoinsModifier in4 = cache.ModifyCoins(ArithToUint256(4));
-        in4->vout.resize(3);
+        in4->vout.resize(4);
         in4->vout[0] = tx4.vout[0];
         in4->vout[1] = tx4.vout[1];
         in4->vout[2] = tx4.vout[2];
+        in4->vout[3] = tx4.vout[3];
 
-        BOOST_CHECK(!VerifyAmounts(cache, tx4)); */
+        tx4.vout[3].nValue = CTxOutValue(tx4.vout[3].nValue.GetAmount() - 1);
+        BOOST_CHECK(!VerifyAmounts(cache, tx4));
     }
 }
 
