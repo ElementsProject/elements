@@ -250,12 +250,17 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
         }
     }
 
+    // secp throws a fit if total isn't larger than number of inputs
+    if (nBlindsOut < 1) {
+        return false;
+    }
+
     // Check blinding(even if nothing has been done)
     unsigned char tempFinalBlind[32];
-    memcpy(tempFinalBlind, &blind[nBlinded-1][0], 32);
-    memset(&blind[nBlinded-1][0], 0, 32);
+    memcpy(tempFinalBlind, blindptrs.back(), 32);
+    memset(blindptrs.back(), 0, 32);
     assert(secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
-    if (memcmp(&blind[nBlinded-1][0], tempFinalBlind, 32))
+    if (memcmp(blindptrs.back(), tempFinalBlind, 32))
         return false;
 
     return true;
