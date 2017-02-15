@@ -137,7 +137,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
             assert(secp256k1_surjectionproof_parse(secp256k1_blind_context, &proof, &out.nAsset.vchSurjectionproof[0], out.nAsset.vchSurjectionproof.size()) == 1);
             assert(secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen) == 1);
          } else {
-             if (output_pubkeys[nOut].IsValid()) {
+             if (output_pubkeys[nOut].IsFullyValid()) {
                  nToBlind++;
              }
          }
@@ -154,7 +154,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         CTxOut& out = tx.vout[nOut];
-        if (out.nValue.IsAmount() && output_pubkeys[nOut].IsValid()) {
+        if (out.nValue.IsAmount() && output_pubkeys[nOut].IsFullyValid()) {
             CTxOutValue& value = out.nValue;
             CTxOutAsset& asset = out.nAsset;
             CAmount amount = value.GetAmount();
@@ -174,30 +174,20 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
             // or 0, in the case of 0-value output, insisting on additional output to blind.
             if (nBlinded + 1 == nToBlind) {
 
+                // Can't successfully blind in this case, since -vr = r
+                // This check is assuming blinds are generated randomly
+                // Adversary would need to create all input blinds
+                // therefore would already know all your summed output amount anyways.
+                if (nBlindsOut == 1 && nBlindsIn == 0) {
+                    return false;
+                }
+
                 // Generate value we intend to insert
                 assert(secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn));
 
-                assert(secp256k1_pedersen_commit(secp256k1_blind_context, &commit, (unsigned char*)blindptrs.back(), amount, &gen));
-                unsigned char commitCheck[CTxOutValue::nCommittedSize];
-                secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, commitCheck, &commit);
-
-                // 0-value/0-blind commit is invalid,
-                if (amount == 0) {
-                    if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
-                        return false;
-                    }
-                }
-                else {
-                    // Blank-blind commit
-                    unsigned char blankBlind[CTxOutValue::nCommittedSize] = {0};
-                    assert(secp256k1_generator_generate_blinded(secp256k1_blind_context, &gen, assetID.begin(), blankBlind) == 1);
-                    assert(secp256k1_pedersen_commit(secp256k1_blind_context, &commit, blankBlind, amount, &gen));
-                    unsigned char blankCheck[CTxOutValue::nCommittedSize];
-                    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, blankCheck, &commit);
-                    // Make sure the two commitments don't match. If so, ask for additional output
-                    // and try again
-                    if (memcmp(blankCheck, commitCheck, 32) == 0)
-                        return false;
+                // Resulting blinding factor shouldn't be 0
+                if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
+                   return false;
                 }
             }
 
