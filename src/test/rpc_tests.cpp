@@ -71,9 +71,9 @@ BOOST_AUTO_TEST_CASE(rpc_rawparams)
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction null"), runtime_error);
     BOOST_CHECK_THROW(CallRPC("decoderawtransaction DEADBEEF"), runtime_error);
-    string rawtx = "0100000000000000000000000132313029282726252423222120191817161514131211100908070605040302010000000000ffffffff010100000000000000000069000000";
+    string rawtx = "010000000132313029282726252423222120191817161514131211100908070605040302010000000000ffffffff010121667c3dcc51290904a6a9eae27337e6ff5602d0deb5ca501f77be96de63f609010000000000000000036a01de69000000";
     BOOST_CHECK_NO_THROW(r = CallRPC(string("decoderawtransaction ")+rawtx));
-    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "size").get_int(), 69);
+    BOOST_CHECK_EQUAL(find_value(r.get_obj(), "size").get_int(), 97);
     BOOST_CHECK_EQUAL(find_value(r.get_obj(), "version").get_int(), 1);
     BOOST_CHECK_EQUAL(find_value(r.get_obj(), "locktime").get_int(), 105);
     BOOST_CHECK_THROW(r = CallRPC(string("decoderawtransaction ")+rawtx+" extra"), runtime_error);
