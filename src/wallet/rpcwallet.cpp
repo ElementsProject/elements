@@ -1398,13 +1398,13 @@ UniValue listreceivedbyaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() > 4)
         throw runtime_error(
-            "listreceivedbyaddress ( minconf include_empty include_watchonly)\n"
+            "listreceivedbyaddress ( minconf include_empty include_watchonly, asset)\n"
             "\nList balances by receiving address.\n"
             "\nArguments:\n"
             "1. minconf           (numeric, optional, default=1) The minimum number of confirmations before payments are included.\n"
             "2. include_empty     (bool, optional, default=false) Whether to include addresses that haven't received any payments.\n"
             "3. include_watchonly (bool, optional, default=false) Whether to include watch-only addresses (see 'importaddress').\n"
-            "4. assetlabel       (string, optional) Hex asset id or asset label for balance.\n"
+            "4.  \"asset\"     (string, optional, default=bitcoin) The hex asset id or label to filter for. \"*\" is used to list all results.\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -2552,9 +2552,9 @@ UniValue listunspent(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() > 4)
+    if (request.fHelp || request.params.size() > 5)
         throw runtime_error(
-            "listunspent ( minconf maxconf  [\"addresses\",...] [include_unsafe] )\n"
+            "listunspent ( minconf maxconf  [\"addresses\",...] [include_unsafe] asset )\n"
             "\nReturns array of unspent transaction outputs\n"
             "with between minconf and maxconf (inclusive) confirmations.\n"
             "Optionally filter to only include txouts paid to specified addresses.\n"
@@ -2570,6 +2570,7 @@ UniValue listunspent(const JSONRPCRequest& request)
             "                  because they come from unconfirmed untrusted transactions or unconfirmed\n"
             "                  replacement transactions (cases where we are less sure that a conflicting\n"
             "                  transaction won't be mined).\n"
+            "5.  \"asset\"     (string, optional, default=bitcoin) The hex asset id or label to filter for. \"*\" is used to list all results.\n"
             "\nResult\n"
             "[                   (array of json object)\n"
             "  {\n"
@@ -2629,6 +2630,16 @@ UniValue listunspent(const JSONRPCRequest& request)
         include_unsafe = request.params[3].get_bool();
     }
 
+    std::string asset = "bitcoin";
+    if (request.params.size() > 4 && request.params[4].isStr()) {
+        asset = request.params[3].get_str();
+    }
+    CAssetID id(uint256S(asset));
+    if (asset != "*" && pwalletMain->GetAssetLabelFromID(uint256S(asset)) == "")
+        id = pwalletMain->GetAssetIDFromLabel(asset);
+    if (asset != "*" && id == uint256())
+        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
@@ -2649,6 +2660,10 @@ UniValue listunspent(const JSONRPCRequest& request)
         CAssetID assetid = out.tx->GetAssetID(out.i);
         if (nValue == -1 || assetid == uint256())
             continue;
+
+        if (asset != "*" && id != assetid) {
+            continue;
+        }
 
         UniValue entry(UniValue::VOBJ);
         entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
