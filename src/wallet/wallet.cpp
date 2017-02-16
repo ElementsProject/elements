@@ -1350,7 +1350,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
         COutputEntry output = {address, nValueOut, assetID, (int)i, GetBlindingPubKey(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
-        if (nDebit > CAmountMap())
+        if (nDebit > CAmountMap() && !txout.IsFee())
             listSent.push_back(output);
 
         // If we are receiving the output, add it as a "received" entry
@@ -2656,6 +2656,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
                     output_asset_blinds.push_back(uint256());
+                    output_asset_ids.push_back(BITCOINID);
                     vAmounts.push_back(0);
                     // Now it has to succeed
                     bool ret = BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txNew);
