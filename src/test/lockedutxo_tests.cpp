@@ -32,13 +32,13 @@ BOOST_AUTO_TEST_CASE(Getlocked_validity)
     uint256 gen0 = uint256S("0");
 
     CMutableTransaction mtx0;
-    mtx0.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(1000), CScript()));
+    mtx0.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(1000), CScript() << OP_TRUE));
     CMutableTransaction mtx1;
-    mtx1.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(100), CScript()));
+    mtx1.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(100), CScript() << OP_TRUE));
     CMutableTransaction mtx2;
-    mtx2.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(10), CScript()));
+    mtx2.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(10), CScript() << OP_TRUE));
     CMutableTransaction mtx3;
-    mtx3.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(1), CScript()));
+    mtx3.vout.push_back(CTxOut(CTxOutAsset(BITCOINID), CTxOutValue(1), CScript() << OP_TRUE));
 
     //Push vout of size 1 for each CCoin
     pcoinsTip->ModifyCoins(uint256S("0"))->FromTx(CTransaction(mtx0), 0);
