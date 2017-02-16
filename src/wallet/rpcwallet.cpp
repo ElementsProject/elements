@@ -1371,13 +1371,13 @@ UniValue listreceivedbyaddress(const UniValue& params, bool fHelp)
 
     if (fHelp || params.size() > 4)
         throw runtime_error(
-            "listreceivedbyaddress ( minconf includeempty includeWatchonly)\n"
+            "listreceivedbyaddress ( minconf includeempty includeWatchonly asset)\n"
             "\nList balances by receiving address.\n"
             "\nArguments:\n"
             "1. minconf       (numeric, optional, default=1) The minimum number of confirmations before payments are included.\n"
             "2. includeempty  (bool, optional, default=false) Whether to include addresses that haven't received any payments.\n"
             "3. includeWatchonly (bool, optional, default=false) Whether to include watchonly addresses (see 'importaddress').\n"
-            "4. assetlabel       (string, optional) Hex asset id or asset label for balance.\n"
+            "4.  \"asset\"     (string, optional, default=bitcoin) The hex asset id or label to filter for. \"*\" is used to list all results.\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -2497,9 +2497,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() > 3)
+    if (fHelp || params.size() > 4)
         throw runtime_error(
-            "listunspent ( minconf maxconf  [\"address\",...] )\n"
+            "listunspent ( minconf maxconf  [\"address\",...] asset)\n"
             "\nReturns array of unspent transaction outputs\n"
             "with between minconf and maxconf (inclusive) confirmations.\n"
             "Optionally filter to only include txouts paid to specified addresses.\n"
@@ -2511,6 +2511,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "      \"address\"   (string) bitcoin address\n"
             "      ,...\n"
             "    ]\n"
+            "4.  \"asset\"     (string, optional, default=bitcoin) The hex asset id or label to filter for. \"*\" is used to list all results.\n"
             "\nResult\n"
             "[                   (array of json object)\n"
             "  {\n"
@@ -2561,6 +2562,16 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         }
     }
 
+    std::string asset = "bitcoin";
+    if (params.size() > 3 && params[3].isStr()) {
+        asset = params[3].get_str();
+    }
+    CAssetID id(uint256S(asset));
+    if (asset != "*" && pwalletMain->GetAssetLabelFromID(uint256S(asset)) == "")
+        id = pwalletMain->GetAssetIDFromLabel(asset);
+    if (asset != "*" && id == uint256())
+        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;
     assert(pwalletMain != NULL);
@@ -2581,6 +2592,10 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         CAssetID assetid = out.tx->GetAssetID(out.i);
         if (nValue == -1 || assetid == uint256())
             continue;
+
+        if (asset != "*" && id != assetid) {
+            continue;
+        }
 
         UniValue entry(UniValue::VOBJ);
         entry.push_back(Pair("txid", out.tx->GetHash().GetHex()));
