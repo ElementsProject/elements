@@ -27,6 +27,8 @@ BOOST_FIXTURE_TEST_SUITE(rpc_wallet_tests, WalletTestingSetup)
 
 BOOST_AUTO_TEST_CASE(rpc_addmultisig)
 {
+
+
     rpcfn_type addmultisig = tableRPC["addmultisigaddress"]->actor;
 
     // old, 65-byte-long:
@@ -73,6 +75,9 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     CBitcoinAddress setaccountDemoAddress;
     {
         LOCK(pwalletMain->cs_wallet);
+
+        // Need to set bitcoin asset for listreceivedby* tests
+        pwalletMain->SetAssetPair("bitcoin", BITCOINID);
 
         demoPubkey = pwalletMain->GenerateNewKey();
         demoAddress = CBitcoinAddress(CTxDestination(demoPubkey.GetID()));
