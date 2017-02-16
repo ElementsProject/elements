@@ -77,8 +77,6 @@ bool TestSequenceLocks(const CTransaction &tx, int flags)
 // Note that this test assumes blockprioritysize is 0.
 void TestPackageSelection(const CChainParams& chainparams, CScript scriptPubKey, std::vector<CTransaction *>& txFirst)
 {
-    return;
-    /*
     // Test the ancestor feerate transaction selection.
     TestMemPoolEntryHelper entry;
 
@@ -178,7 +176,6 @@ void TestPackageSelection(const CChainParams& chainparams, CScript scriptPubKey,
     mempool.addUnchecked(tx.GetHash(), entry.Fee(10000).FromTx(tx));
     pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
     BOOST_CHECK(pblocktemplate->block.vtx[8].GetHash() == hashLowFeeTx2);
-    */
 }
 
 // NOTE: These tests rely on CreateNewBlock doing its own self-validation!
