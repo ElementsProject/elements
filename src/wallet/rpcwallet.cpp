@@ -1002,7 +1002,7 @@ UniValue sendmany(const JSONRPCRequest& request)
         CBitcoinAddress address(name_);
 
         std::string strasset = "bitcoin";
-        if (!assetids.isNull()) {
+        if (!assetids.isNull() && assetids[name_].isStr()) {
             strasset = assetids[name_].get_str();
         }
 
