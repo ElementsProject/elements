@@ -173,7 +173,7 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance(), node0)
         assert_equal(self.nodes[1].getbalance(), node1)
         assert_equal(self.nodes[2].getbalance(), node2)
-
+        
         # Testing wallet's ability to deblind its own outputs
         addr = self.nodes[0].getnewaddress()
         addr2 = self.nodes[0].getnewaddress()
@@ -202,6 +202,80 @@ class CTTest (BitcoinTestFramework):
         # CT values for this wallet transaction  have been cached via importblindingkey
         # therefore result will be same even though we change blinding keys
         assert_equal(len(self.nodes[0].listunspent(0, 0, [new_validated["unconfidential"]])), 1)
+
+        #### Confidential Assets Tests ####
+
+        # Generate an asset, check wallet (This is is skeleton issuance API)
+        self.nodes[0].generateasset("testasset", 2)
+        asset_list = self.nodes[0].dumpassetlabels()
+        assert_equal(self.nodes[0].getwalletinfo("testasset")['balance'], Decimal(2))
+        assert_equal(self.nodes[0].getwalletinfo(asset_list["testasset"])['balance'], Decimal(2))
+
+        try:
+            self.nodes[1].getwalletinfo(asset_list["testasset"])
+            raise AssertionError("Wallet has no knowledge of this asset")
+        except JSONRPCException:
+            pass
+
+        self.nodes[1].addassetlabel(asset_list["testasset"], "testasset2")
+        assert_equal(self.nodes[1].getwalletinfo("testasset2")['balance'], Decimal(0))
+
+        # Assets balance checking, note that accounts are completely ignored because
+        # balance queries with accounts are horrifically broken upstream
+        assert_equal(self.nodes[0].getbalance("*", 0, False, "bitcoin"), self.nodes[0].getbalance("accountsareignored", 0, False, "bitcoin"))
+        assert_equal(self.nodes[0].getwalletinfo("*")['balance']['bitcoin'], self.nodes[0].getbalance("accountsareignored", 0, False, "*")['bitcoin'])
+
+        # Now test wallet interaction with unlabeled funds
+        wallet_list = self.nodes[0].getinfo("*")['balance'] # returns list of known non-zero assets in wallet, labels if they exist, hex otherwise
+        otherasset = ""
+        for label in wallet_list:
+            if label != "bitcoin" and label != "testasset":
+                otherasset = label
+        assert(otherasset != "")
+
+        try:
+            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, otherasset)
+            raise AssertionError("Can not send assets that aren't labeled")
+        except JSONRPCException:
+            pass
+        # Now send to another wallet's CT address, check received balance
+        self.nodes[0].addassetlabel(otherasset, "OTHER")
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, "OTHER")
+        self.nodes[0].generate(1)
+
+        assert_equal(self.nodes[2].getinfo("*")['balance'][otherasset], wallet_list[otherasset])
+
+        # Send some bitcoin and other assets over as well to fund wallet
+        addr = self.nodes[2].getnewaddress()
+        self.nodes[0].sendtoaddress(addr, 5)
+        self.nodes[0].sendmany("", {addr:1, self.nodes[2].getnewaddress():13}, 0, "", [], {addr:"testasset"})
+
+        # Should have exactly 1 in change(trusted, though not confirmed) after sending one off
+        assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, "testasset"), 1)
+        self.nodes[2].addassetlabel(asset_list["testasset"], "testasset")
+        assert_equal(self.nodes[2].getunconfirmedbalance("testasset"), Decimal(1))
+
+        b_utxos = self.nodes[2].listunspent(0, 0, [], "bitcoin")
+        assert_equal(b_utxos, self.nodes[2].listunspent(0, 0))
+        t_utxos = self.nodes[2].listunspent(0, 0, [], "testasset")
+
+        assert_equal(len(self.nodes[2].listunspent(0, 0, [], "*")), len(b_utxos)+len(t_utxos))
+
+        # Now craft a blinded transaction via raw api
+        rawaddrs = []
+        for i in range(2):
+            rawaddrs.append(self.nodes[1].getnewaddress())
+
+        set_trace()
+        raw_assets = self.nodes[2].createrawtransaction([{"txid":b_utxos[0]['txid'], "vout":b_utxos[0]['vout'], "nValue":b_utxos[0]['amount']}, {"txid":b_utxos[1]['txid'], "vout":b_utxos[1]['vout'], "nValue":b_utxos[1]['amount'], "assetid":b_utxos[1]['assetid']}, {"txid":t_utxos[0]['txid'], "vout":t_utxos[0]['vout'], "nValue":t_utxos[0]['amount'], "assetid":t_utxos[0]['assetid']}], {rawaddrs[1]:Decimal(t_utxos[0]['amount']), rawaddrs[0]:Decimal(b_utxos[0]['amount']+b_utxos[1]['amount']-Decimal("0.01"))}, 0, {rawaddrs[0]:b_utxos[0]['assetid'], rawaddrs[1]:t_utxos[0]['assetid']})
+
+        # Sign unblinded, then blinded
+        signed_assets = self.nodes[2].signrawtransaction(raw_assets)
+        blind_assets = self.nodes[2].blindrawtransaction(raw_assets)
+        signed_assets = self.nodes[2].signrawtransaction(blind_assets)
+
+        # And finally send
+        self.nodes[2].sendrawtransaction(signed_assets['hex'])
 
 if __name__ == '__main__':
     CTTest ().main ()
