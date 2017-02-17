@@ -29,7 +29,6 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
     def run_test (self):
-        return #TODO
 
         # Check that there's no UTXO on none of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 0)
@@ -61,17 +60,17 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), 0)
         assert_equal(self.nodes[2].getbalance(), 0)
 
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000000)
-        self.nodes[0].generate(1)
-        self.sync_all()
+        #self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000000)
+        #self.nodes[0].generate(1)
+        #self.sync_all()
 
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 100000)
-        self.nodes[0].generate(101)
-        self.sync_all()
+        #self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 100000)
+        #self.nodes[0].generate(101)
+        #self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 21000000-1100000)
-        assert_equal(self.nodes[1].getbalance(), 1000000)
-        assert_equal(self.nodes[2].getbalance(), 100000)
+        #assert_equal(self.nodes[0].getbalance(), 21000000-1100000)
+        #assert_equal(self.nodes[1].getbalance(), 1000000)
+        #assert_equal(self.nodes[2].getbalance(), 100000)
         
 
         # Send 21 BTC from 0 to 2 using sendtoaddress call.
@@ -100,27 +99,29 @@ class WalletTest (BitcoinTestFramework):
 
         # node0 should end up with 100 btc in block rewards plus fees, but
         # minus the 21 plus fees sent to node2
-        assert_equal(self.nodes[0].getbalance(), 21000000-21-1100000)
-        assert_equal(self.nodes[2].getbalance(), 100000+21)
+        assert_equal(self.nodes[0].getbalance(), 21000000-21)
+        assert_equal(self.nodes[2].getbalance(), 21)
 
-        # Node0 should have three unspent outputs.
+        # Node0 should have three non-zero unspent outputs and 101 from generate.
         # Create a couple of transactions to send them to node2, submit them through
         # node1, and make sure both node0 and node2 pick them up properly:
         node0utxos = self.nodes[0].listunspent(1)
-        assert_equal(len(node0utxos), 206)
+        assert_equal(len(node0utxos), 104)
 
         # create both transactions
         txns_to_send = []
         for utxo in node0utxos:
-            if utxo["amount"] == 100000:
+            if utxo["amount"] <= 3:
                 continue
             inputs = []
             outputs = {}
-            inputs.append({ "txid" : utxo["txid"], "vout" : utxo["vout"]})
-            outputs[self.nodes[2].getnewaddress("from1")] = utxo["amount"] - 3
+            inputs.append({ "txid" : utxo["txid"], "vout" : utxo["vout"], "nValue":utxo["amount"]})
+            outputs[self.nodes[2].getnewaddress("from1")] = utxo["amount"] - Decimal(3)
             raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
+            raw_tx = self.nodes[0].blindrawtransaction(raw_tx)
             txns_to_send.append(self.nodes[0].signrawtransaction(raw_tx))
 
+        return #TODO Fix the rest
         # Have node 1 (miner) send the transactions
         self.nodes[1].sendrawtransaction(txns_to_send[0]["hex"], True)
         self.nodes[1].sendrawtransaction(txns_to_send[1]["hex"], True)
