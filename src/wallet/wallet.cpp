@@ -2651,12 +2651,14 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     // We need a dummy output to put a non-zero blinding factor.
                     // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
                     // instead, as this does not actually provide better privacy.
-                    CTxOut newTxOut(BITCOINID, 0, CScript() << OP_RETURN);
+
+                    // We need to make sure to dupe an asset that is in input set
+                    CTxOut newTxOut(output_asset_ids.back(), 0, CScript() << OP_RETURN);
                     txNew.vout.push_back(newTxOut);
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
                     output_asset_blinds.push_back(uint256());
-                    output_asset_ids.push_back(BITCOINID);
+                    output_asset_ids.push_back(output_asset_ids.back());
                     vAmounts.push_back(0);
                     // Now it has to succeed
                     bool ret = BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txNew);
