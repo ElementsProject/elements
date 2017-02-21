@@ -106,27 +106,16 @@ std::string COutPoint::ToString() const
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
 }
 
-std::string CAssetGeneration::ToString() const
+std::string CAssetIssuance::ToString() const
 {
     std::string str;
-    str += "CAssetGeneration(";
-    str += hashNonce.ToString();
+    str += "CAssetIssuance(";
+    str += assetBlindingNonce.ToString();
+    str += ", ";
+    str += hashAssetIdentifier.ToString();
     str += strprintf(", %s", (nAmount.IsAmount() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("UNKNOWN")));
-    if (nInflationKeys)
-        str += strprintf(", nInflationKeys=%d", nInflationKeys);
-    if (nDeflationKeys)
-        str += strprintf(", nDeflationKeys=%d", nDeflationKeys);
-    str += ")";
-    return str;
-}
-
-std::string CAssetReissuance::ToString() const
-{
-    std::string str;
-    str += "CAssetReissuance(";
-    str += hashAssetEntropy.ToString().substr(0,10);
-    str += strprintf(", %s", assetBlindingNonce.ToString());
-    str += strprintf(", %s%s", (sign<0)? "-": "", (nAmount.IsAmount() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("UNKNOWN")));
+    if (!nInflationKeys.IsNull())
+        str += strprintf(", %s", (nInflationKeys.IsAmount() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("UNKNOWN")));
     str += ")";
     return str;
 }
@@ -156,10 +145,8 @@ std::string CTxIn::ToString() const
         str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
     if (nSequence != SEQUENCE_FINAL)
         str += strprintf(", nSequence=%u", nSequence);
-    if (!newasset.IsNull())
-        str += strprintf(", %s", newasset.ToString());
-    if (!reissuance.IsNull())
-        str += strprintf(", %s", reissuance.ToString());
+    if (!assetIssuance.IsNull())
+        str += strprintf(", %s", assetIssuance.ToString());
     str += ")";
     return str;
 }
