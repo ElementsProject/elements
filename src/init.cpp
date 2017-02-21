@@ -1529,7 +1529,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
 
     if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
-        return InitError(_("ERROR: liquid-daemon is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
+        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
     }
 
     uiInterface.InitMessage(_("Done loading"));
