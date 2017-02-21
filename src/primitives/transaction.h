@@ -816,19 +816,6 @@ public:
     const int32_t nVersion;
     const std::vector<CTxIn> vin;
 
-    // The bitfield specifies which inputs of the transaction are used
-    // as entropy sources for generation of the fixed asset tag and any
-    // capability tokens. This is followed by a vector of CAssetGeneration
-    // objects equal to the number of set bits in the bitfield.
-    std::vector<bool> vAssetGenerationBits;
-    std::vector<CAssetGeneration> vAssetGenerations;
-
-    // Like the previous fields, we have a bitfield that specifies which
-    // inputs are asset re-issuance spends, followed by a vector of those
-    // reissuance objects.
-    std::vector<bool> vAssetReissuanceBits;
-    std::vector<CAssetReissuance> vCAssetReissuances;
-
     const std::vector<CTxOut> vout;
     CTxWitness wit; // Not const: can change without invalidating the txid cache
     const uint32_t nLockTime;
