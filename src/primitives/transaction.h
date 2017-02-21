@@ -295,6 +295,15 @@ public:
     uint256 hash;
     uint32_t n;
 
+    /* If this flag set, the CTxIn including this COutPoint has a
+     * CAssetIssuance object. */
+    static const uint32_t OUTPOINT_ISSUANCE_FLAG = (1 << 31);
+
+    /* The inverse of the combination of the preceeding flags. Used to
+     * extract the original meaning of `n` as the index into the
+     * transaction's output array. */
+    static const uint32_t OUTPOINT_INDEX_MASK = 0x7fffffff;
+
     COutPoint() { SetNull(); }
     COutPoint(uint256 hashIn, uint32_t nIn) { hash = hashIn; n = nIn; }
 
@@ -328,40 +337,36 @@ public:
     std::string ToString() const;
 };
 
-enum IssuanceMode : uint32_t {
-    // Nothing
-    ISSUANCE_NONE    = 0x00000000,
-    // Input has CAssetGeneration defining a new asset type
-    ISSUANCE_NEW     = 0x40000000,
-    // Input has CAssetReissuance, treated as input (inflation)
-    ISSUANCE_INFLATE = 0x80000000,
-    // Input has CAssetReissuance, treated as output (deflation)
-    ISSUANCE_DEFLATE = 0xc0000000,
-
-    // The previous enum values were selected in order to simplify
-    // serialization (see CInput::SerializationOp). This mask can be
-    // used to extract the IssauanceMode from the outpoint.n field.
-    ISSUANCE_MASK    = 0xc0000000,
-};
-
-class CAssetGeneration
+class CAssetIssuance
 {
 public:
-    // This is a 32-byte nonce of no consensus-defined meaning,
-    // but is used as additional entropy to the asset tag calculation.
-    // This is used by higher-layer protocols for defining the
-    // Ricardian contract governing the asset.
-    uint256 hashNonce;
+    // == 0
+    //   Indicates new asset issuance.
+    // != 0
+    //   This is a revelation of the blinding key for the input,
+    //   which shows that the input being spent is of the reissuance
+    //   capability type for the asset being inflated.
+    uint256 assetBlindingNonce;
+
+    // New asset issuance:
+    //   This is a 32-byte nonce of no consensus-defined meaning,
+    //   but is used as additional entropy to the asset tag calculation.
+    //   This is used by higher-layer protocols for defining the
+    //   Ricardian contract governing the asset.
+    // Existing asset reissuance:
+    //   The original asset entropy (combination of Ricardian contract
+    //   and outpoint used) which was used to generate the fixed asset
+    //   tag and reissuance tokens.
+    uint256 hashAssetIdentifier;
 
     // Both explicit and blinded issuance amounts are supported
     // (see class definition for CTxOutValue for details).
     CTxOutValue nAmount;
 
-    // If nonzero, specifies the number of asset issuance and/or
-    // de-issuance tokens to generate. These tokens are made available
-    // to the outputs of the generating transaction.
-    CAmount nInflationKeys;
-    CAmount nDeflationKeys;
+    // If nonzero, specifies the number of asset issuance tokens to
+    // generate. These tokens are made available to the outputs of the
+    // generating transaction.
+    CTxOutValue nInflationKeys;
 
 public:
     // FIXME: constructor and methods
@@ -371,80 +376,24 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
-        READWRITE(hashNonce);
+        READWRITE(assetBlindingNonce);
+        READWRITE(hashAssetIdentifier);
         READWRITE(nAmount);
         READWRITE(nInflationKeys);
-        READWRITE(nDeflationKeys);
     }
 
     void SetNull() { nAmount.SetNull(); }
     bool IsNull() const { return nAmount.IsNull(); }
 
-    friend bool operator==(const CAssetGeneration& a, const CAssetGeneration& b)
+    friend bool operator==(const CAssetIssuance& a, const CAssetIssuance& b)
     {
-        return a.hashNonce == b.hashNonce &&
+        return a.assetBlindingNonce == b.assetBlindingNonce &&
+               a.hashAssetIdentifier == b.hashAssetIdentifier &&
                a.nAmount == b.nAmount &&
-               a.nInflationKeys == b.nInflationKeys &&
-               a.nDeflationKeys == b.nDeflationKeys;
+               a.nInflationKeys == b.nInflationKeys;
     }
 
-    friend bool operator!=(const CAssetGeneration& a, const CAssetGeneration& b)
-    {
-        return !(a == b);
-    }
-
-    std::string ToString() const;
-};
-
-class CAssetReissuance
-{
-public:
-    // The original asset entropy which was used to generate the fixed
-    // asset tag and reissuance tokens.
-    uint256 hashAssetEntropy;
-
-    // This is a revelation of the blinding key for the input,
-    // which shows that the input being spent is of the reissuance
-    // capability type for the asset being inflated.
-    uint256 assetBlindingNonce;
-
-    // The reissuance amount, either positive (inflation) or negative
-    // (deflation). Note that the corresponding reissuance token must
-    // be the output being spent in either case.
-    CTxOutValue nAmount;
-
-    // Set to 1 if the reissuance is increasing the number of asset
-    // tokens in circulation (treated as an input), -1 if the reissuance
-    // is decreasing the number of tokens (treated as an output), and 0
-    // if there is no reissuance (reissuance object is Null).
-    int sign;
-
-public:
-    // FIXME: constructor and methods
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
-        READWRITE(hashAssetEntropy);
-        READWRITE(assetBlindingNonce);
-        READWRITE(nAmount);
-        // sign is stored in CTxIn's InflationMode field
-    }
-
-    void SetNull() { nAmount.SetNull(); }
-    bool IsNull() const { return nAmount.IsNull(); }
-
-    friend bool operator==(const CAssetReissuance& a, const CAssetReissuance& b)
-    {
-        return a.hashAssetEntropy == b.hashAssetEntropy &&
-               a.assetBlindingNonce == b.assetBlindingNonce &&
-               a.nAmount == b.nAmount &&
-               a.sign == b.sign;
-    }
-
-    friend bool operator!=(const CAssetReissuance& a, const CAssetReissuance& b)
+    friend bool operator!=(const CAssetIssuance& a, const CAssetIssuance& b)
     {
         return !(a == b);
     }
@@ -462,8 +411,7 @@ public:
     COutPoint prevout;
     CScript scriptSig;
     uint32_t nSequence;
-    CAssetGeneration newasset;
-    CAssetReissuance reissuance;
+    CAssetIssuance assetIssuance;
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -504,85 +452,56 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        bool fHasAssetGeneration;
-        bool fHasAssetReissuance;
-        IssuanceMode mode;
+        bool fHasAssetIssuance;
         COutPoint outpoint;
 
         if (!ser_action.ForRead()) {
-            // None of the issuance mask bits can be set as they are
-            // used to indicate the presence of the asset generation or
-            // reissuance objects. They should never be set anyway as
-            // that would require a parent transaction with over a
-            // billion outputs.
-            assert(!(outpoint.n & ISSUANCE_MASK));
-            // It is only possible for an output to encode EITHER a new
-            // asset issuance or a reissuance of an existing asset type.
-            // The serialization format simply does not allow for both
-            // at once.
-            fHasAssetGeneration = !newasset.IsNull();
-            fHasAssetReissuance = !reissuance.IsNull();
-            assert(!(fHasAssetGeneration && fHasAssetReissuance));
-            // The sign of the issuance (inflation or deflation) is
-            // encoded in the mode field, rather than the serialized
-            // form of the reissuance object itself.
-            if (fHasAssetGeneration) {
-                mode = ISSUANCE_NEW;
-            } else if (fHasAssetReissuance) {
-                mode = reissuance.sign > 0? ISSUANCE_INFLATE: ISSUANCE_DEFLATE;
-            } else {
-                mode = ISSUANCE_NONE;
-            }
+            // The issuance bit can't be set as it is used to indicate
+            // the presence of the asset issuance or objects. It should
+            // never be set anyway as that would require a parent
+            // transaction with over two billion outputs.
+            assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
+            // The assetIssuance object is used to represent both new
+            // asset generation and reissuance of existing asset types.
+            fHasAssetIssuance = !assetIssuance.IsNull();
             // The mode is placed in the upper bits of the outpoint's
             // index field. The IssuanceMode enum values are chosen to
             // make this as simple as a bitwise-OR.
             outpoint.hash = prevout.hash;
-            outpoint.n = prevout.n | mode;
+            outpoint.n = prevout.n & COutPoint::OUTPOINT_INDEX_MASK;
         }
 
         READWRITE(outpoint);
 
         if (ser_action.ForRead()) {
-            // The IssuanceMode enum values are chosen so that they can
-            // be pulled of the outpoint index field with a simple mask:
-            mode = static_cast<IssuanceMode>(outpoint.n & ISSUANCE_MASK);
-            // Either one or none of the asset generation or reissuance
-            // fields can be present, depending on the mode, but not both.
-            fHasAssetGeneration = (mode == ISSUANCE_NEW);
-            fHasAssetReissuance = (mode == ISSUANCE_INFLATE) || (mode == ISSUANCE_DEFLATE);
+            // The presense of the asset issuance object is indicated by
+            // a bit set in the outpoint index field.
+            fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
             // The mode, if set, must be masked out of the outpoint so
             // that the in-memory index field retains its traditional
             // meaning of identifying the index into the output array
             // of the previous transaction.
             prevout.hash = outpoint.hash;
-            prevout.n = outpoint.n & ~ISSUANCE_MASK;
+            prevout.n = outpoint.n & ~COutPoint::OUTPOINT_INDEX_MASK;
         }
 
         READWRITE(*(CScriptBase*)(&scriptSig));
         READWRITE(nSequence);
 
         // The asset fields are deserialized only if they are present.
-        if (fHasAssetGeneration) {
-            READWRITE(newasset);
+        if (fHasAssetIssuance) {
+            READWRITE(assetIssuance);
         } else if (ser_action.ForRead()) {
-            newasset.SetNull();
-        }
-
-        if (fHasAssetReissuance) {
-            READWRITE(reissuance);
-            reissuance.sign = (mode == ISSUANCE_INFLATE)? 1: -1;
-        } else if (ser_action.ForRead()) {
-            reissuance.SetNull();
+            assetIssuance.SetNull();
         }
     }
 
     friend bool operator==(const CTxIn& a, const CTxIn& b)
     {
-        return (a.prevout    == b.prevout &&
-                a.scriptSig  == b.scriptSig &&
-                a.nSequence  == b.nSequence &&
-                a.newasset   == b.newasset &&
-                a.reissuance == b.reissuance);
+        return (a.prevout       == b.prevout &&
+                a.scriptSig     == b.scriptSig &&
+                a.nSequence     == b.nSequence &&
+                a.assetIssuance == b.assetIssuance);
     }
 
     friend bool operator!=(const CTxIn& a, const CTxIn& b)
