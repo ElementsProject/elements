@@ -1234,7 +1234,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     std::vector<secp256k1_pedersen_commitment> vData;
     std::vector<secp256k1_pedersen_commitment *> vpCommitsIn, vpCommitsOut;
 
-    vData.resize((tx.vin.size() + tx.vout.size() + 1)); // 1 for fee
+    vData.resize((tx.vin.size() + tx.vout.size())); // 1 for fee
     secp256k1_pedersen_commitment *p = &vData[0];
     secp256k1_pedersen_commitment commit;
     secp256k1_generator gen;
