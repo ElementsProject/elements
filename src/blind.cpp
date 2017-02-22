@@ -49,7 +49,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     size_t msg_size = 64;
     uint64_t min_value, max_value, amount;
     secp256k1_pedersen_commitment commit;
-    if (!txout.nAsset.IsAssetCommitment())
+    if (!txout.nAsset.IsAssetCommitment() || txout.nValue.IsAmount())
         return false;
 
     secp256k1_generator gen;
