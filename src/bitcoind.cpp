@@ -126,7 +126,7 @@ bool AppInit(int argc, char* argv[])
 
         if (fCommandLine)
         {
-            fprintf(stderr, "Error: There is no RPC client functionality in elementsd anymore. Use the bitcoin-cli utility instead.\n");
+            fprintf(stderr, "Error: There is no RPC client functionality in elementsd anymore. Use the elements-cli utility instead.\n");
             exit(1);
         }
 #ifndef WIN32
