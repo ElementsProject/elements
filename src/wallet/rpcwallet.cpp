@@ -517,6 +517,56 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     return wtx.GetHash().GetHex();
 }
 
+UniValue destroyamount(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() < 1 || params.size() > 3)
+        throw runtime_error(
+            "destroyamount asset amount ( \"comment\" )\n"
+            "\nDestroy an amount of a given asset.\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"asset\"       (string, required) Hex asset id or asset label to destroy.\n"
+            "2. \"amount\"      (numeric or string, required) The amount to destroy in BTC (8 decimals above the minimal unit).\n"
+            "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
+            "                             This is not part of the transaction, just kept in your wallet.\n"
+            "\nResult:\n"
+            "\"transactionid\"  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("destroyamount", "\"bitcoin\" 100")
+            + HelpExampleCli("destroyamount", "\"bitcoin\" 100 \"destroy assets\"")
+            + HelpExampleRpc("destroyamount", "\"bitcoin\" 100 \"destroy assets\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    std::string strasset = params[0].get_str();
+    CAsset asset = GetAssetFromString(strasset);
+
+    CAmount nAmount = AmountFromValue(params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount to destroy");
+
+    CWalletTx wtx;
+    if (params.size() > 2 && !params[2].isNull() && !params[2].get_str().empty())
+        wtx.mapValue["comment"] = params[2].get_str();
+
+    CScript destroyScript(OP_RETURN);
+    CPubKey confidentiality_pubkey;
+
+    EnsureWalletIsUnlocked();
+    SendMoney(destroyScript, nAmount, asset, false, confidentiality_pubkey, wtx);
+
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.vout.size(); i++) {
+        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+    }
+    AuditLogPrintf("%s : destroyamount %s asset %s id %s txid:%s\nblinds:\n%s\n", getUser(), params[1].getValStr(), strasset, asset.GetHex(), wtx.GetHash().GetHex(), blinds);
+
+    return wtx.GetHash().GetHex();
+}
 UniValue listaddressgroupings(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3293,6 +3343,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "move",                     &movecmd,                  false },
     { "wallet",             "sendmany",                 &sendmany,                 false },
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false },
+    { "wallet",             "destroyamount",            &destroyamount,            false },
     { "wallet",             "sendtomainchain",          &sendtomainchain,          false },
     { "wallet",             "setaccount",               &setaccount,               true  },
     { "wallet",             "settxfee",                 &settxfee,                 true  },

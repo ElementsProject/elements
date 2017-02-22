@@ -34,6 +34,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "generateasset", 0 },
     { "sendtoaddress", 1 },
     { "sendtoaddress", 4 },
+    { "destroyamount", 1 },
     { "settxfee", 0 },
     { "getreceivedbyaddress", 1 },
     { "getreceivedbyaccount", 1 },
