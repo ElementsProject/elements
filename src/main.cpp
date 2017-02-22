@@ -1254,6 +1254,20 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (val.IsNull() || asset.IsNull())
                 return false;
 
+            if (asset.IsAssetID() || asset.IsAssetGeneration()) {
+                uint256 fixedAsset;
+                asset.GetAssetID(fixedAsset);
+                assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
+            }
+            else if (asset.IsAssetCommitment()) {
+                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
+                    return false;
+            }
+            else {
+                assert(false);
+                return false;
+            }
+
             if (val.IsAmount()) {
                 if (!MoneyRange(val.GetAmount()))
                     return false;
@@ -1261,24 +1275,10 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 if (val.GetAmount() == 0)
                     continue;
 
-                if (asset.IsAssetID() || asset.IsAssetGeneration()) {
-                    uint256 fixedAsset;
-                    asset.GetAssetID(fixedAsset);
-                    assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
-                }
-                else if (asset.IsAssetCommitment()) {
-                    if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
-                        return false;
-                }
-                else {
-                    assert(false);
-                    return false;
-                }
                 if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                     return false;
             }
-            else
-            {
+            else {
                 assert(val.vchCommitment.size() == CTxOutValue::nCommittedSize);
                 if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                     return false;
@@ -1287,7 +1287,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
             vpCommitsIn.push_back(p);
             p++;
-
         }
     }
     for (size_t i = 0; i < tx.vout.size(); ++i)
@@ -1299,49 +1298,45 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (val.vchNonceCommitment.size() > CTxOutValue::nCommittedSize || val.vchRangeproof.size() > 5000)
             return false;
 
+        if (asset.IsAssetID()) {
+            uint256 fixedAsset;
+            asset.GetAssetID(fixedAsset);
+            assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
+        }
+        else if (asset.IsAssetCommitment()) {
+            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
+                return false;
+        }
+        else if (asset.IsAssetGeneration()) {
+            if (tx.IsCoinBase())
+                return false;
+            // We don't add this to the balance, just assume id is NUMS a-ok
+            continue;
+        }
+        else {
+            assert(false);
+            return false;
+        }
+
         if (val.IsAmount()) {
             if (!MoneyRange(val.GetAmount()))
                 return false;
-
-            if (asset.IsAssetID()) {
-                uint256 fixedAsset;
-                asset.GetAssetID(fixedAsset);
-                assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
-            }
-            else if (asset.IsAssetCommitment()) {
-                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
-                    return false;
-            }
-            else if (asset.IsAssetGeneration()) {
-                if (tx.IsCoinBase())
-                    return false;
-                // We don't add this to the balance, just assume id is NUMS a-ok
-                continue;
-
-            }
-            else {
-                assert(false);
-                return false;
-            }
 
             if (val.GetAmount() == 0)
               continue;
 
             if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                 return false;
-
         }
         else
         {
             if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                 return false;
-
         }
 
         memcpy(p, &commit, sizeof(secp256k1_pedersen_commitment));
         vpCommitsOut.push_back(p);
         p++;
-
     }
 
     // Check balance
