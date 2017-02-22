@@ -482,7 +482,7 @@ public:
             // meaning of identifying the index into the output array
             // of the previous transaction.
             prevout.hash = outpoint.hash;
-            prevout.n = outpoint.n & ~COutPoint::OUTPOINT_INDEX_MASK;
+            prevout.n = outpoint.n & COutPoint::OUTPOINT_INDEX_MASK;
         }
 
         READWRITE(*(CScriptBase*)(&scriptSig));
