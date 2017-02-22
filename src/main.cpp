@@ -2466,6 +2466,49 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 }
 }// namespace Consensus
 
+void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint256& contracthash)
+{
+    // E : entropy
+    // I : prevout
+    // C : contract
+    // E = H( H(I) || H(C) )
+    std::vector<uint256> leaves;
+    leaves.reserve(2);
+    leaves.push_back(SerializeHash(prevout, SER_GETHASH, 0));
+    leaves.push_back(contracthash);
+    entropy = ComputeFastMerkleRoot(leaves);
+}
+
+void CalculateAssetID(uint256& assetID, const uint256& entropy)
+{
+    static const uint256 kZero = uint256S("0x0000000000000000000000000000000000000000000000000000000000000000");
+    // H_a : asset tag
+    // E   : entropy
+    // H_a = H( E || 0 )
+    std::vector<uint256> leaves;
+    leaves.reserve(2);
+    leaves.push_back(entropy);
+    leaves.push_back(kZero);
+    assetID = ComputeFastMerkleRoot(leaves);
+}
+
+void CalculateReissuanceToken(uint256& reissuanceTokenID, const uint256& entropy, bool fConfidential)
+{
+    static const uint256 kOne = uint256S("0x0000000000000000000000000000000000000000000000000000000000000001");
+    static const uint256 kTwo = uint256S("0x0000000000000000000000000000000000000000000000000000000000000002");
+    // H_a : asset reissuance tag
+    // E   : entropy
+    // if not fConfidential:
+    //     H_a = H( E || 1 )
+    // else
+    //     H_a = H( E || 2 )
+    std::vector<uint256> leaves;
+    leaves.reserve(2);
+    leaves.push_back(entropy);
+    leaves.push_back(fConfidential? kTwo: kOne);
+    reissuanceTokenID = ComputeFastMerkleRoot(leaves);
+}
+
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, set<pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks)
 {
     if (!tx.IsCoinBase())
