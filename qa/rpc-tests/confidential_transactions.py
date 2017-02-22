@@ -109,7 +109,7 @@ class CTTest (BitcoinTestFramework):
         # Check 2's listreceivedbyaddress
         received_by_address = self.nodes[2].listreceivedbyaddress()
         validate_by_address = [(unconfidential_address2, value1 + value3), (unconfidential_address, value0 + value2)]
-        assert_equal(sorted([(ele['address'], ele['amount']) for ele in received_by_address], key=lambda t: t[0]), 
+        assert_equal(sorted([(ele['address'], ele['amount']) for ele in received_by_address], key=lambda t: t[0]),
                 sorted(validate_by_address, key = lambda t: t[0]))
 
         # Give an auditor (node 1) a blinding key to allow her to look at
@@ -261,6 +261,17 @@ class CTTest (BitcoinTestFramework):
 
         # And finally send
         self.nodes[2].sendrawtransaction(signed_assets['hex'])
+        self.nodes[2].generate(101)
+
+        # Destroy assets
+        pre_destroy_btc_balance = self.nodes[2].getwalletinfo()['balance']['bitcoin']
+        self.nodes[2].destroyamount('bitcoin', Decimal('43.00000000')) # Destroy 43 BTC
+        self.nodes[2].generate(1)
+
+        assert_equal(self.nodes[2].getwalletinfo()['balance'][otherasset], Decimal('0.00000100'))
+        self.nodes[2].destroyamount(otherasset, Decimal('0.00000100')) # Destroy 100 otherasset units
+        self.nodes[2].generate(1)
+        assert(otherasset not in self.nodes[2].getinfo()['balance'])
 
 if __name__ == '__main__':
     CTTest ().main ()
