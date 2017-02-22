@@ -359,7 +359,10 @@ public:
     CTxOutValue nInflationKeys;
 
 public:
-    // FIXME: constructor and methods
+    CAssetIssuance()
+    {
+        SetNull();
+    }
 
     ADD_SERIALIZE_METHODS;
 
