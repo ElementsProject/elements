@@ -373,6 +373,42 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 } // namespace Consensus
 
 /**
+ * Calculate the asset entropy from an COutPoint and a tx-author specified
+ * Ricardian contract. See Definition 18 of the confidential assets paper.
+ *
+ * @param[out]  entropy       The asset entropy, which is used as input to
+ *                            CalculateAssetID and CalculateReissuanceToken.
+ * @param[in]   prevout       Reference to the UTXO being spent.
+ * @param[in]   contracthash  Root hash of the issuer-specified Ricardian
+ *                            contract.
+ */
+void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint256& contracthash);
+
+/**
+ * Derive the assetID from the entropy. See Definintion 19 of the confidential
+ * assets paper.
+ *
+ * @param[out]  assetID  The nonce used as auxiliary input to the Pedersen
+ *                       commitment setup to derive the unblinded asset tag.
+ * @param[in]   entropy  The asset entropy returned by GenerateAssetEntropy.
+ */
+void CalculateAssetID(uint256& assetID, const uint256& entropy);
+
+/**
+ * Derive the asset reissuance token assetID from the entropy and reissuance
+ * parameters (confidential or explicit). See Definition 21 of the confidential
+ * assets paper.
+ *
+ * @param[out]  reissuanceTokenID  The nonce used as auxiliary input to the
+ *                                 Pedersen commitment setup to derive the
+ *                                 unblinded reissuance asset tag.
+ * @param[in]   entropy            The asset entropy returned by GenerateAssetEntropy.
+ * @param[in]   fConfidential      Set to true if the initial issuance was blinded,
+ *                                 false otherwise.
+ */
+void CalculateReissuanceToken(uint256& reissuanceTokenID, const uint256& entropy, bool fConfidential);
+
+/**
  * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
  *
  * @param[in] view   CCoinsViewCache to find necessary outputs
