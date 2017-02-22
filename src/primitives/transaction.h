@@ -459,33 +459,46 @@ public:
         COutPoint outpoint;
 
         if (!ser_action.ForRead()) {
-            // The issuance bit can't be set as it is used to indicate
-            // the presence of the asset issuance or objects. It should
-            // never be set anyway as that would require a parent
-            // transaction with over two billion outputs.
-            assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
-            // The assetIssuance object is used to represent both new
-            // asset generation and reissuance of existing asset types.
-            fHasAssetIssuance = !assetIssuance.IsNull();
-            // The mode is placed in the upper bits of the outpoint's
-            // index field. The IssuanceMode enum values are chosen to
-            // make this as simple as a bitwise-OR.
-            outpoint.hash = prevout.hash;
-            outpoint.n = prevout.n & COutPoint::OUTPOINT_INDEX_MASK;
+            if (prevout.n == (uint32_t) -1) {
+                // Coinbase inputs do not have asset issuances attached
+                // to them.
+                fHasAssetIssuance = false;
+                outpoint = prevout;
+            } else {
+                // The issuance bit can't be set as it is used to indicate
+                // the presence of the asset issuance or objects. It should
+                // never be set anyway as that would require a parent
+                // transaction with over two billion outputs.
+                assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
+                // The assetIssuance object is used to represent both new
+                // asset generation and reissuance of existing asset types.
+                fHasAssetIssuance = !assetIssuance.IsNull();
+                // The mode is placed in the upper bits of the outpoint's
+                // index field. The IssuanceMode enum values are chosen to
+                // make this as simple as a bitwise-OR.
+                outpoint.hash = prevout.hash;
+                outpoint.n = prevout.n & COutPoint::OUTPOINT_INDEX_MASK;
+            }
         }
 
         READWRITE(outpoint);
 
         if (ser_action.ForRead()) {
-            // The presense of the asset issuance object is indicated by
-            // a bit set in the outpoint index field.
-            fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
-            // The mode, if set, must be masked out of the outpoint so
-            // that the in-memory index field retains its traditional
-            // meaning of identifying the index into the output array
-            // of the previous transaction.
-            prevout.hash = outpoint.hash;
-            prevout.n = outpoint.n & COutPoint::OUTPOINT_INDEX_MASK;
+            if (outpoint.n == (uint32_t) -1) {
+                // No asset issuance for Coinbase inputs.
+                fHasAssetIssuance = false;
+                prevout = outpoint;
+            } else {
+                // The presense of the asset issuance object is indicated by
+                // a bit set in the outpoint index field.
+                fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
+                // The mode, if set, must be masked out of the outpoint so
+                // that the in-memory index field retains its traditional
+                // meaning of identifying the index into the output array
+                // of the previous transaction.
+                prevout.hash = outpoint.hash;
+                prevout.n = outpoint.n & COutPoint::OUTPOINT_INDEX_MASK;
+            }
         }
 
         READWRITE(*(CScriptBase*)(&scriptSig));
