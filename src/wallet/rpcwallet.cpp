@@ -2567,11 +2567,12 @@ UniValue listunspent(const UniValue& params, bool fHelp)
     if (params.size() > 3 && params[3].isStr()) {
         asset = params[3].get_str();
     }
-    CAssetID id(uint256S(asset));
-    if (asset != "*" && pwalletMain->GetAssetLabelFromID(uint256S(asset)) == "")
-        id = pwalletMain->GetAssetIDFromLabel(asset);
-    if (asset != "*" && id == uint256())
-        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+    CAssetID id;
+    if (asset != "*") {
+        id = pwalletMain->GetAssetIDFromString(asset);
+        if (id == uint256())
+            throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+    }
 
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;
