@@ -937,6 +937,12 @@ public:
     std::string GetAssetLabelFromID(const uint256& id) const;
     /* Returns asset id corresponding to asset label */
     uint256 GetAssetIDFromLabel(const std::string& label) const;
+    /**
+     * Returns asset id coresponding to the given asset expression, which is either an asset label or a hex value.
+     * @param  asset A label string or a hex value corresponding to an asset
+     * @return       The asset ID for the given expression
+     */
+    CAssetID GetAssetIDFromString(const std::string& asset) const;
 
     //! script == NULL gives the backward compatible blinding key
     CKey GetBlindingKey(const CScript* script) const;

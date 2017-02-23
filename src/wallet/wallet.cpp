@@ -3957,6 +3957,13 @@ uint256 CWallet::GetAssetIDFromLabel(const std::string& label) const
     return uint256();
 }
 
+CAssetID CWallet::GetAssetIDFromString(const std::string& asset) const
+{
+    // TODO: may be worth LOCK(cs_wallet) here and do GetAsset* inline instead
+    CAssetID id(uint256S(asset));
+    return GetAssetLabelFromID(id) == "" ? GetAssetIDFromLabel(asset) : id;
+}
+
 CKey CWallet::GetBlindingKey(const CScript* script) const
 {
     CKey key;
