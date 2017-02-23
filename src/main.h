@@ -425,6 +425,11 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 */
 bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
 
+/* Counts the number of non-null issuances, one for asset themselves
+ * and one for the reissuance tokens.
+ */
+size_t GetNumIssuances(const CTransaction& tx);
+
 /**
  * Check if transaction is final and can be included in a block with the
  * specified height and time. Consensus critical.
