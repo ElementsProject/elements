@@ -1347,7 +1347,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             continue;
         }
 
-        COutputEntry output = {address, nValueOut, assetID, (int)i, GetBlindingPubKey(i)};
+        COutputEntry output = {address, nValueOut, assetID, (int)i, GetBlindingPubKey(i), GetAssetBlindingFactor(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > CAmountMap() && !txout.IsFee())
