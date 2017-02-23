@@ -1014,7 +1014,7 @@ public:
     /* Returns asset id corresponding to asset label */
     uint256 GetAssetIDFromLabel(const std::string& label) const;
     /**
-     * Returns asset id coresponding to the given asset expression, which is either an asset label or a hex value.
+     * Returns asset id corresponding to the given asset expression, which is either an asset label or a hex value.
      * @param  asset A label string or a hex value corresponding to an asset
      * @return       The asset ID for the given expression
      */
