@@ -1347,7 +1347,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             continue;
         }
 
-        COutputEntry output = {address, nValueOut, assetID, (int)i, GetBlindingPubKey(i), GetAssetBlindingFactor(i)};
+        COutputEntry output = {address, nValueOut, assetID, (int)i, GetBlindingPubKey(i), GetBlindingFactor(i), GetAssetBlindingFactor(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > CAmountMap() && !txout.IsFee())
@@ -1367,13 +1367,13 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
                 if (entry.second > 0)
                     unaccountedID = entry.first;
             }
-            COutputEntry unaccounted = {addressUnaccounted, nValueUnaccounted[unaccountedID], unaccountedID, voutUnaccounted, CPubKey()};
+            COutputEntry unaccounted = {addressUnaccounted, nValueUnaccounted[unaccountedID], unaccountedID, voutUnaccounted, CPubKey(), uint256(), uint256()};
             listSent.push_back(unaccounted);
         } else {
             // It's not simple. Create synthetic unknown output entries for each asset.
             for (const auto &entry : nValueUnaccounted) {
                 if (entry.second > 0) {
-                    COutputEntry unaccounted = {CNoDestination(), entry.second, entry.first, -1, CPubKey()};
+                    COutputEntry unaccounted = {CNoDestination(), entry.second, entry.first, -1, CPubKey(), uint256(), uint256()};
                     listSent.push_back(unaccounted);
                 }
             }

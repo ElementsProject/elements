@@ -161,6 +161,7 @@ struct COutputEntry
     uint256 assetID;
     int vout;
     CPubKey confidentiality_pubkey;
+    uint256 amountBlindingFactor;
     uint256 assetBlindingFactor;
 };
 

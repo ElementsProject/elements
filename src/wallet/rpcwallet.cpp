@@ -129,6 +129,10 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
             rbfStatus = "yes";
     }
     entry.push_back(Pair("bip125-replaceable", rbfStatus));
+
+    // TODO(kalle, 2017-02-23): should move this somewhere else as it is not clear which blinding factors refer
+    // TODO(kalle, 2017-02-23): to which outputs, especially for gettransaction; some (e.g. fee and change) are
+    // TODO(kalle, 2017-02-23): not listed in the output at all so don't really help the user in any way.
     std::string blindfactors;
     for (unsigned int i=0; i<wtx.vout.size(); i++)
         blindfactors += wtx.GetBlindingFactor(i).GetHex() + ":";
@@ -1471,6 +1475,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             MaybePushAddress(entry, s.destination, s.confidentiality_pubkey);
             entry.push_back(Pair("category", "send"));
             entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
+            entry.push_back(Pair("amountblinder", s.amountBlindingFactor.GetHex()));
             entry.push_back(Pair("assetid", s.assetID.GetHex()));
             entry.push_back(Pair("assetblinder", s.assetBlindingFactor.GetHex()));
             if (pwalletMain->mapAddressBook.count(s.destination))
@@ -1513,6 +1518,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                     entry.push_back(Pair("category", "receive"));
                 }
                 entry.push_back(Pair("amount", ValueFromAmount(r.amount)));
+                entry.push_back(Pair("amountblinder", r.amountBlindingFactor.GetHex()));
                 entry.push_back(Pair("assetid", r.assetID.GetHex()));
                 entry.push_back(Pair("assetblinder", r.assetBlindingFactor.GetHex()));
                 if (pwalletMain->mapAddressBook.count(r.destination))
@@ -1874,6 +1880,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
             "      \"address\" : \"bitcoinaddress\",   (string) The bitcoin address involved in the transaction\n"
             "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
             "      \"amount\" : x.xxx,                 (numeric) The amount in the asset below\n"
+            "      \"amountblinder\": \"hex\"            (string) The blinding factor of the amount.\n"
             "      \"assetid\": \"asset\"                (string) The asset id.\n"
             "      \"assetblinder\": \"hex\"             (string) The blinding factor of the asset.\n"
             "      \"label\" : \"label\",              (string) A comment for the address/transaction, if any\n"
