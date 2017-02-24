@@ -665,6 +665,8 @@ UniValue dumpblindingkey(const UniValue& params, bool fHelp)
             "\nDumps the private blinding key for a CT address in hex."
             "\nArguments:\n"
             "1. \"address\"          (string, required) The CT address\n"
+            "\nExample:\n"
+            + HelpExampleCli("dumpblindingkey", "\"my address\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -712,6 +714,8 @@ UniValue importblindingkey(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"address\"          (string, required) The CT address\n"
             "2. \"hexkey\"           (string, required) The blinding key in hex\n"
+            "\nExample:\n"
+            + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);

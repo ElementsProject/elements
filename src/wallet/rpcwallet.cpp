@@ -452,6 +452,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
             + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
             + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
+            + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true \"my asset\"")
             + HelpExampleRpc("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
         );
 
@@ -2785,7 +2786,7 @@ UniValue signblock(const UniValue& params, bool fHelp)
             "\nResult\n"
             " sig      (hex) The signature\n"
             "\nExamples:\n"
-            + HelpExampleCli("getnewblockhex", "")
+            + HelpExampleCli("signblock", "0000002018c6f2f913f9902aeab...5ca501f77be96de63f609010000000000000000015100000000")
         );
 
     CBlock block;
@@ -3214,6 +3215,8 @@ UniValue generateasset(const UniValue& params, bool fHelp)
             "1. \"label\"            (string, required) Label for newly generated asset.\n"
             "2. \"amount\"           (numeric, required) Number of asset to generate.\n"
             "\nExamples:\n"
+            + HelpExampleCli("generateasset", "\"my asset\" 10" )
+            + HelpExampleRpc("generateasset", "\"my asset\" 10" )
         );
     RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VNUM));
 

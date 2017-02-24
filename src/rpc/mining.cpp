@@ -203,7 +203,7 @@ UniValue combineblocksigs(const UniValue& params, bool fHelp)
             "  \"complete\": n       (numeric) if block is complete \n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("combineblocksigs", "")
+            + HelpExampleCli("combineblocksigs", "<hex> [\"signature1\", \"signature2\", ...]")
         );
 
     CBlock block;
