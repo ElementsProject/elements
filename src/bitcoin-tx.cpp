@@ -358,24 +358,28 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
 {
-    // separate VALUE:SCRIPT in string
-    size_t pos = strInput.find(':');
-    if ((pos == string::npos) ||
-        (pos == 0))
-        throw runtime_error("TX output missing separator");
+    // separate VALUE:SCRIPT:ASSET in string
+    std::vector<std::string> vStrOutScriptParts;
+    boost::split(vStrOutScriptParts, strInput, boost::is_any_of(":"));
+    if (vStrOutScriptParts.size()<3)
+        throw runtime_error("TX out script missing separator");
 
     // extract and validate VALUE
-    string strValue = strInput.substr(0, pos);
+    string strValue = vStrOutScriptParts[0];
     CAmount value;
     if (!ParseMoney(strValue, value))
         throw runtime_error("invalid TX output value");
 
     // extract and validate script
-    string strScript = strInput.substr(pos + 1, string::npos);
+    string strScript = vStrOutScriptParts[1];
     CScript scriptPubKey = ParseScript(strScript); // throws on err
 
+    // extract and validate asset
+    string strAsset = vStrOutScriptParts[2];
+    CAssetID asset = uint256S(strAsset);
+
     // construct TxOut, append to transaction output list
-    CTxOut txout(BITCOINID, value, scriptPubKey);
+    CTxOut txout(asset, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
