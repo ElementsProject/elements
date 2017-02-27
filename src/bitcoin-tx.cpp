@@ -226,30 +226,35 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 {
-    // separate VALUE:ADDRESS in string
-    size_t pos = strInput.find(':');
-    if ((pos == string::npos) ||
-        (pos == 0) ||
-        (pos == (strInput.size() - 1)))
+    // separate VALUE:ADDRESS:ASSET in string
+    std::vector<std::string> vStrOutAddrParts;
+    boost::split(vStrOutAddrParts, strInput, boost::is_any_of(":"));
+    if (vStrOutAddrParts.size()<3)
         throw runtime_error("TX output missing separator");
 
     // extract and validate VALUE
-    string strValue = strInput.substr(0, pos);
+    string strValue = vStrOutAddrParts[0];
     CAmount value;
     if (!ParseMoney(strValue, value))
         throw runtime_error("invalid TX output value");
 
     // extract and validate ADDRESS
-    string strAddr = strInput.substr(pos + 1, string::npos);
+    string strAddr = vStrOutAddrParts[1];
     CBitcoinAddress addr(strAddr);
     if (!addr.IsValid())
         throw runtime_error("invalid TX output address");
+
+    // extract and validate ASSET
+    string strAsset = vStrOutAddrParts[2];
+    CAssetID asset = uint256S(strAsset);
+    if (asset == CAssetID())
+        throw runtime_error("invalid TX output asset type");
 
     // build standard output script via GetScriptForDestination()
     CScript scriptPubKey = GetScriptForDestination(addr.Get());
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(BITCOINID, value, scriptPubKey);
+    CTxOut txout(asset, value, scriptPubKey);
     if (addr.IsBlinded()) {
         CPubKey pubkey = addr.GetBlindingKey();
         txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
