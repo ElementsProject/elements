@@ -14,6 +14,7 @@
 #include "validation.h"
 #include "net.h"
 #include "policy/policy.h"
+#include "policy/policy.h"
 #include "policy/rbf.h"
 #include "primitives/bitcoin/merkleblock.h"
 #include "primitives/bitcoin/transaction.h"
@@ -406,7 +407,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     vChangeKey.reserve(2);
     vChangeKey.emplace_back(pwalletMain);
     vpChangeKey.push_back(&vChangeKey[0]);
-    if (pwalletMain->GetAssetFromLabel("bitcoin") != asset) {
+    if (policyAsset != asset) {
         vChangeKey.emplace_back(pwalletMain);
         vpChangeKey.push_back(&vChangeKey[1]);
     }
@@ -1061,7 +1062,7 @@ UniValue sendmany(const JSONRPCRequest& request)
     std::vector<CReserveKey> vChangeKey;
     std::vector<CReserveKey*> vpChangeKey;
     std::set<CAsset> setAssets;
-    setAssets.insert(pwalletMain->GetAssetFromLabel("bitcoin"));
+    setAssets.insert(policyAsset);
     for (auto recipient : vecSend) {
         setAssets.insert(recipient.asset);
     }
@@ -1975,9 +1976,9 @@ UniValue gettransaction(const JSONRPCRequest& request)
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
     assert(wtx.tx->HasValidFee());
-    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee()[BITCOINID] : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee()[policyAsset] : 0);
     CAmountMap nNet = nCredit - nDebit;
-    nNet[pwalletMain->GetAssetFromLabel("bitcoin")] -= nFee;
+    nNet[policyAsset] -= nFee;
 
     entry.push_back(Pair("amount", PushAssetBalance(nNet, pwalletMain, strasset)));
     if (wtx.IsFromMe(filter))

@@ -1029,7 +1029,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         if (!tx.HasValidFee())
             return state.DoS(0, false, REJECT_INVALID, "bad-fees");
-        CAmount nFees = tx.GetFee()[BITCOINID];
+        CAmount nFees = tx.GetFee()[policyAsset];
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -2608,7 +2608,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (!VerifyCoinbaseAmount(*(block.vtx[0]), blockReward))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
-                               blockReward[BITCOINID]),
+                               blockReward[policyAsset]),
                                REJECT_INVALID, "bad-cb-amount");
 
     //Don't DoS ban in case of RPC script check failure
@@ -3663,7 +3663,7 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
             CHash256().Write(witnessroot.begin(), 32).Write(&ret[0], 32).Finalize(witnessroot.begin());
             CTxOut out;
             out.nValue = 0;
-            out.nAsset = BITCOINID;
+            out.nAsset = policyAsset;
             out.scriptPubKey.resize(38);
             out.scriptPubKey[0] = OP_RETURN;
             out.scriptPubKey[1] = 0x24;
