@@ -14,6 +14,8 @@
 
 #include <boost/foreach.hpp>
 
+CAsset policyAsset;
+
     /**
      * Check transaction inputs to mitigate two
      * potential denial-of-service attacks:

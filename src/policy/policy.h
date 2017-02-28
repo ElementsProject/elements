@@ -14,6 +14,10 @@
 
 class CCoinsViewCache;
 
+/** The sha256 of Bitcoin genesis block, for easy reference **/
+extern CAsset policyAsset;
+
+static const std::string DEFAULT_FEE_ASSET = "09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621";
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
