@@ -129,10 +129,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
         if (txout.nValue.IsAmount())
-            if (txout.IsFee())
-                out.push_back(Pair("fee_value", ValueFromAmount(txout.nValue.GetAmount())));
-            else
-                out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
+            out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
         else {
             int exp;
             int mantissa;

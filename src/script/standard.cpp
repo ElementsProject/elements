@@ -35,6 +35,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITHDRAW_LOCK: return "withdraw";
     case TX_TRUE: return "true";
+    case TX_FEE: return "fee";
     }
     return NULL;
 }
@@ -67,6 +68,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         typeRet = TX_SCRIPTHASH;
         vector<unsigned char> hashBytes(scriptPubKey.begin()+2, scriptPubKey.begin()+22);
         vSolutionsRet.push_back(hashBytes);
+        return true;
+    }
+
+    if (scriptPubKey == CScript()) {
+        typeRet = TX_FEE;
         return true;
     }
 
@@ -229,7 +235,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    if (typeRet == TX_NULL_DATA || typeRet == TX_WITHDRAW_LOCK){
+    if (typeRet == TX_NULL_DATA || typeRet == TX_WITHDRAW_LOCK || typeRet == TX_FEE){
         // This is data, not addresses
         return false;
     }
