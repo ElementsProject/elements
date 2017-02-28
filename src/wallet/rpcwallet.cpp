@@ -13,6 +13,7 @@
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
+#include "policy/policy.h"
 #include "policy/rbf.h"
 #include "primitives/bitcoin/merkleblock.h"
 #include "rpc/server.h"
@@ -1922,7 +1923,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
     assert(wtx.HasValidFee());
-    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.GetFee()[BITCOINID] : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.GetFee()[policyAsset] : 0);
     CAmountMap nNet = nCredit - nDebit;
     nNet[pwalletMain->GetAssetFromLabel("bitcoin")] -= nFee;
 
@@ -3250,7 +3251,7 @@ UniValue generateasset(const UniValue& params, bool fHelp)
     confidentiality_pubkey = address.GetBlindingKey();
     
     CWalletTx wtx;
-    SendMoney(GetScriptForDestination(address.Get()), 100000, BITCOINID, false, confidentiality_pubkey, wtx, &id, &nAmount);
+    SendMoney(GetScriptForDestination(address.Get()), 100000, policyAsset, false, confidentiality_pubkey, wtx, &id, &nAmount);
 
     return NullUniValue;
 }

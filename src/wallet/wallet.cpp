@@ -1302,13 +1302,13 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     CAmountMap nDebit = GetDebit(filter);
     if (nDebit > CAmountMap()) // debit>0 means we signed/sent this transaction
     {
-        nFee = GetFee()[BITCOINID];
+        nFee = GetFee()[policyAsset];
     }
 
     CTxDestination addressUnaccounted = CNoDestination();
     int voutUnaccounted = -1;
     CAmountMap nValueUnaccounted = nDebit;
-    nValueUnaccounted[BITCOINID] -= nFee;
+    nValueUnaccounted[policyAsset] -= nFee;
     int nUnaccountedOutputs = 0;
 
     // Sent/received.
@@ -2383,7 +2383,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                                 int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, CAsset* newAsset, int64_t* newAmount)
 {
     CAmountMap mapValue;
-    CAsset BITCOINID = GetAssetFromLabel("bitcoin");
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     BOOST_FOREACH (const CRecipient& recipient, vecSend)
@@ -2462,7 +2461,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 CAmountMap mapValueToSelect = mapValue;
                 if (nSubtractFeeFromAmount == 0)
-                    mapValueToSelect[BITCOINID] += nFeeRet;
+                    mapValueToSelect[policyAsset] += nFeeRet;
                 double dPriority = 0;
                 // vouts to the payees
                 BOOST_FOREACH (const CRecipient& recipient, vecSend)
@@ -2471,8 +2470,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
-                        if (recipient.asset != BITCOINID) {
-                            strFailReason = _("Wallet does not support non-bitcoin fees, therefore can not subtract fee from address amount.");
+                        if (recipient.asset != policyAsset) {
+                            strFailReason = strprintf(_("Wallet does not support more than one type of fee at a time, therefore can not subtract fee from address amount, which is of a different asset id. fee asset: %s recipient asset: %s"), policyAsset.GetHex(), recipient.asset.GetHex());
                             return false;
                         }
                         txout.nValue = recipient.nAmount - (nFeeRet / nSubtractFeeFromAmount); // Subtract fee equally from each selected recipient
@@ -2484,7 +2483,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         }
                     }
 
-                    if (recipient.asset == BITCOINID && txout.IsDust(::minRelayTxFee))
+                    if (recipient.asset == policyAsset && txout.IsDust(::minRelayTxFee))
                     {
                         if (recipient.fSubtractFeeFromAmount && nFeeRet > 0)
                         {
@@ -2565,7 +2564,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         // We do not move dust-change to fees, because the sender would end up paying more than requested.
                         // This would be against the purpose of the all-inclusive feature.
                         // So instead we raise the change and deduct from the recipient.
-                        if (nSubtractFeeFromAmount > 0 && newTxOut.IsDust(::minRelayTxFee) && it->first == BITCOINID)
+                        if (nSubtractFeeFromAmount > 0 && newTxOut.IsDust(::minRelayTxFee) && it->first == policyAsset)
                         {
                             CAmount nDust = newTxOut.GetDustThreshold(::minRelayTxFee) - newTxOut.nValue.GetAmount();
                             newTxOut.nValue = newTxOut.nValue.GetAmount() + nDust; // raise change until no more dust
@@ -2586,7 +2585,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                         // Never create dust outputs; if we would, just
                         // add the dust to the fee.
-                        if (newTxOut.IsDust(::minRelayTxFee) && it->first == BITCOINID)
+                        if (newTxOut.IsDust(::minRelayTxFee) && it->first == policyAsset)
                         {
                             nChangePosInOut = -1;
                             nFeeRet += it->second;
@@ -2687,7 +2686,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 // Add fee
                 if (nFeeRet > 0) {
-                    CTxOut fee(BITCOINID, nFeeRet, CScript());
+                    CTxOut fee(policyAsset, nFeeRet, CScript());
                     assert(fee.IsFee());
                     txNew.vout.push_back(fee);
                 }
@@ -3694,7 +3693,6 @@ bool CWallet::InitLoadWallet()
 
         // All wallets should understand native peg-in currency
         walletInstance->SetAssetPair("bitcoin", BITCOINID);
-
 
         walletInstance->SetBestChain(chainActive.GetLocator());
     }
