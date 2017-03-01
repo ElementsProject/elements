@@ -266,4 +266,17 @@ BOOST_AUTO_TEST_CASE( conversion )
     BOOST_CHECK(R2L.GetHex() == UintToArith256(R2L).GetHex());
 }
 
+BOOST_AUTO_TEST_CASE( reinterpret_bytes )
+{
+    // This test checks that any sequence of bytes inside of a
+    // std::vector<unsigned char> can be safely interpreted as a
+    // uint256. This allows various fast non-allocating (const)
+    // conversions.
+    std::vector<unsigned char> bytes;
+    bytes.resize(33);
+    for (size_t i = 0; i < bytes.size(); ++i)
+        bytes[i] = static_cast<unsigned char>(i);
+    BOOST_CHECK_MESSAGE(*reinterpret_cast<const uint256*>(&bytes[1]) == uint256S("0x201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201"), reinterpret_cast<const uint256*>(&bytes[1])->ToString());
+}
+
 BOOST_AUTO_TEST_SUITE_END()

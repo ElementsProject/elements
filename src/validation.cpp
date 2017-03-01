@@ -684,9 +684,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 return false;
 
             if (asset.IsAsset()) {
-                CAsset fixedAsset;
-                asset.GetAsset(fixedAsset);
-                ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin());
+                ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
                 assert(ret != 0);
             }
             else if (asset.IsAssetCommitment()) {
@@ -729,9 +727,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             return false;
 
         if (asset.IsAsset()) {
-            CAsset fixedAsset;
-            asset.GetAsset(fixedAsset);
-            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin());
+            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
             assert(ret != 0);
         }
         else if (asset.IsAssetCommitment()) {
@@ -788,9 +784,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CTxOutAsset& asset = cache.GetOutputFor(tx.vin[i]).nAsset;
         if (asset.IsAsset()) {
-            CAsset fixedAsset;
-            asset.GetAsset(fixedAsset);
-            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], fixedAsset.begin());
+            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], asset.GetAsset().begin());
             assert(ret != 0);
         }
         else {
@@ -834,9 +828,7 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsAsset())
             return false;
-        CAsset asset;
-        tx.vout[i].nAsset.GetAsset(asset);
-        remaining[asset] -= tx.vout[i].nValue.GetAmount();
+        remaining[tx.vout[i].nAsset.GetAsset()] -= tx.vout[i].nValue.GetAmount();
     }
     return MoneyRange(remaining);
 }
