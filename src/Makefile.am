@@ -282,6 +282,12 @@ libbitcoin_consensus_a_SOURCES = \
   primitives/block.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
+  primitives/bitcoin/block.cpp \
+  primitives/bitcoin/block.h \
+  primitives/bitcoin/merkleblock.cpp \
+  primitives/bitcoin/merkleblock.h \
+  primitives/bitcoin/transaction.cpp \
+  primitives/bitcoin/transaction.h \
   pubkey.cpp \
   pubkey.h \
   rpc/protocol.cpp \
@@ -465,6 +471,7 @@ CLEANFILES += consensus/*.gcda consensus/*.gcno
 CLEANFILES += crypto/*.gcda crypto/*.gcno
 CLEANFILES += policy/*.gcda policy/*.gcno
 CLEANFILES += primitives/*.gcda primitives/*.gcno
+CLEANFILES += primitives/bitcoin/*.gcda primitives/bitcoin/*.gcno
 CLEANFILES += script/*.gcda script/*.gcno
 CLEANFILES += support/*.gcda support/*.gcno
 CLEANFILES += univalue/*.gcda univalue/*.gcno

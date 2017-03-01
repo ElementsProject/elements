@@ -1,21 +1,19 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2016 The Bitcoin Core developers
+// Copyright (c) 2009-2015 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "primitives/block.h"
+// Taken from 27765b6403cece54320374b37afb01a0cfe571c3 with minimal modification.
+
+#include "primitives/bitcoin/block.h"
 
 #include "hash.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 #include "crypto/common.h"
-#include "core_io.h"
 
-std::string CProof::ToString() const
-{
-    return strprintf("CProof(challenge=%s, solution=%s)",
-                     ScriptToAsmStr(challenge), ScriptToAsmStr(solution));
-}
+namespace Sidechain {
+namespace Bitcoin {
 
 uint256 CBlockHeader::GetHash() const
 {
@@ -25,13 +23,12 @@ uint256 CBlockHeader::GetHash() const
 std::string CBlock::ToString() const
 {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, proof=%u, vtx=%u)\n",
+    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
-        nTime,
-        proof.ToString(),
+        nTime, nBits, nNonce,
         vtx.size());
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
@@ -48,3 +45,6 @@ int64_t GetBlockWeight(const CBlock& block)
     // weight = (stripped_size * 3) + total_size.
     return ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1) + ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION);
 }
+
+} // Bitcoin
+} // Sidechain

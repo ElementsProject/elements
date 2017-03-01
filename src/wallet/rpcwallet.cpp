@@ -15,6 +15,8 @@
 #include "net.h"
 #include "policy/policy.h"
 #include "policy/rbf.h"
+#include "primitives/bitcoin/merkleblock.h"
+#include "primitives/bitcoin/transaction.h"
 #include "rpc/server.h"
 #include "script/sign.h"
 #include "random.h"
@@ -3476,19 +3478,19 @@ UniValue claimpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "the last two arguments must be hex strings");
 
     std::vector<unsigned char> txData = ParseHex(request.params[1].get_str());
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CTransactionRef txBTCRef;
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CTransactionRef txBTCRef;
     try {
         ssTx >> txBTCRef;
     }
     catch (...) {
         throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
     }
-    CTransaction txBTC(*txBTCRef);
+    Sidechain::Bitcoin::CTransaction txBTC(*txBTCRef);
 
     std::vector<unsigned char> txOutProofData = ParseHex(request.params[2].get_str());
-    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CMerkleBlock merkleBlock;
+    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CMerkleBlock merkleBlock;
     try {
         ssTxOutProof >> merkleBlock;
     }
@@ -3496,7 +3498,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
     }
 
-    if (!ssTxOutProof.empty() || !CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.bitcoinproof.challenge))
+    if (!ssTxOutProof.empty() || !CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
 
     vector<uint256> txHashes;
@@ -3519,7 +3521,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
             break;
     if (nOut == txBTC.vout.size())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
-    CAmount value = txBTC.vout[nOut].nValue.GetAmount();
+    CAmount value = txBTC.vout[nOut].nValue;
 
     uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
 

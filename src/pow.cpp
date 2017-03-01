@@ -12,6 +12,7 @@
 #include "hash.h"
 #include "keystore.h"
 #include "primitives/block.h"
+#include "primitives/bitcoin/block.h"
 #include "script/generic.hpp"
 #include "script/standard.h"
 #include "uint256.h"
