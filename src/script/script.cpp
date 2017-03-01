@@ -9,6 +9,7 @@
 
 #include "hash.h"
 #include "primitives/transaction.h"
+#include "primitives/bitcoin/transaction.h"
 #include "streams.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
@@ -333,8 +334,8 @@ COutPoint CScript::GetWithdrawSpent() const
         vector<unsigned char> vTx;
         if (!PopWithdrawPush(pushes, &vTx))
             return COutPoint();
-        CTransaction tx;
-        CDataStream(vTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX) >> tx;
+        Sidechain::Bitcoin::CTransaction tx;
+        CDataStream(vTx, SER_NETWORK, PROTOCOL_VERSION) >> tx;
 
         if (ntxOut < 0 || (unsigned int)ntxOut >= tx.vout.size())
             return COutPoint();

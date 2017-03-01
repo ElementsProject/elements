@@ -8,6 +8,7 @@
 #include <secp256k1.h>
 
 #include "primitives/transaction.h"
+#include "primitives/bitcoin/merkleblock.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
@@ -1476,8 +1477,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                             uint256 genesishash(vgenesisHash);
 
                             try {
-                                CMerkleBlock merkleBlock;
-                                CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+                                Sidechain::Bitcoin::CMerkleBlock merkleBlock;
+                                CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION);
                                 merkleBlockStream >> merkleBlock;
                                 if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkleBlock.header))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
@@ -1493,8 +1494,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (merkleBlock.header.GetHash() == genesishash)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
-                                CTransaction locktx;
-                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+                                Sidechain::Bitcoin::CTransaction locktx;
+                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION);
                                 locktxStream >> locktx;
                                 if (!locktxStream.empty())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
@@ -1548,8 +1549,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 // We check values by doing the following:
                                 // * Tx must relock at least <unlocked coins> - <locked-on-bitcoin coins>
                                 // * Tx must send at least the withdraw value to its P2SH withdraw, but may send more
-                                assert(locktx.vout[nlocktxOut].nValue.IsAmount()); // Its a SERIALIZE_BITCOIN_BLOCK_OR_TX
-                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue.GetAmount();
+                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
                                 if (!checker.GetValueIn().IsAmount()) // Heh, you just destroyed coins
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
 

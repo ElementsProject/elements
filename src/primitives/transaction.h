@@ -12,7 +12,6 @@
 #include "uint256.h"
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
-static const int SERIALIZE_BITCOIN_BLOCK_OR_TX = 0x20000000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
 
@@ -41,17 +40,9 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
-            if (ser_action.ForRead()) {
-                vchAssetTag.resize(1);
-                vchAssetTag[0] = 0;
-                vchSurjectionproof.clear();
-            }
-        } else {
-            vchAssetTag.resize(nAssetTagSize);
-            READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
-            // The surjection proof is serialized as part of the witness data
-        }
+        vchAssetTag.resize(nAssetTagSize);
+        READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
+        // The surjection proof is serialized as part of the witness data
     }
 
     bool IsNull() const
@@ -115,38 +106,29 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        if ((nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX) || IsInBitcoinTransaction()) {
-            CAmount nAmount = 0;
-            if (!ser_action.ForRead())
-                nAmount = GetAmount();
-            READWRITE(nAmount);
-            if (ser_action.ForRead())
-                SetToBitcoinAmount(nAmount);
-        } else {
-            // We only serialize the value commitment here.
-            // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
-            READWRITE(vchCommitment.front());
-            if (ser_action.ForRead()) {
-                switch (vchCommitment.front()) {
-                    case 0:
-                    case 1:
-                        vchCommitment.resize(nExplicitSize);
-                        break;
-                    // Alpha used 2 and 3 for value commitments
-                    case 2:
-                    case 3:
-                        break;
-                    case 8:
-                    case 9:
-                        vchCommitment.resize(nCommittedSize);
-                        break;
-                    default:
-                        vchCommitment.resize(1);
-                        return;
-                }
+        // We only serialize the value commitment here.
+        // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
+        READWRITE(vchCommitment.front());
+        if (ser_action.ForRead()) {
+            switch (vchCommitment.front()) {
+                case 0:
+                case 1:
+                    vchCommitment.resize(nExplicitSize);
+                    break;
+                // Alpha used 2 and 3 for value commitments
+                case 2:
+                case 3:
+                    break;
+                case 8:
+                case 9:
+                    vchCommitment.resize(nCommittedSize);
+                    break;
+                default:
+                    vchCommitment.resize(1);
+                    return;
             }
-            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
         }
+        READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
     }
 
     void SetNull();
@@ -170,9 +152,7 @@ public:
         return !(a == b);
     }
 
-private: // "Bitcoin amounts" can only be set by deserializing with SERIALIZE_BITCOIN_BLOCK_OR_TX
-    void SetToBitcoinAmount(const CAmount nAmount);
-    bool IsInBitcoinTransaction() const { return vchCommitment[0] == 0; }
+private:
     void SetToAmount(const CAmount nAmount);
 };
 
@@ -544,11 +524,9 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        if (!(nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX)) {
-            READWRITE(ref.nAsset.vchSurjectionproof);
-            READWRITE(ref.nValue.vchRangeproof);
-            READWRITE(ref.nValue.vchNonceCommitment);
-        }
+        READWRITE(ref.nAsset.vchSurjectionproof);
+        READWRITE(ref.nValue.vchRangeproof);
+        READWRITE(ref.nValue.vchNonceCommitment);
     }
 
     void SetNull() {
@@ -640,7 +618,6 @@ static const CAmount TX_FEE_BITCOIN_TX_FLAG = -42;
 template<typename Stream, typename Operation, typename TxType>
 inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, int nType, int nVersion) {
     const bool fAllowWitness = !(nVersion & SERIALIZE_TRANSACTION_NO_WITNESS);
-    const bool fIsBitcoinTx = (nVersion & SERIALIZE_BITCOIN_BLOCK_OR_TX);
     READWRITE(*const_cast<int32_t*>(&tx.nVersion));
     unsigned char flags = 0;
     if (ser_action.ForRead()) {
@@ -666,7 +643,7 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
             const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
             READWRITE(tx.wit);
         }
-        if ((flags & 2) && fAllowWitness && !fIsBitcoinTx) {
+        if ((flags & 2) && fAllowWitness) {
             /* The witness output flag is present, and we support witnesses. */
             flags ^= 2;
             bool fHadOutputWitness = false;
@@ -693,12 +670,10 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
             if (!tx.wit.IsNull()) {
                 flags |= 1;
             }
-            if (!fIsBitcoinTx) {
-                for (size_t i = 0; i < tx.vout.size(); i++) {
-                    if (!CTxOutWitnessSerializer(*const_cast<CTxOut*>(&tx.vout[i])).IsNull()) {
-                        flags |= 2;
-                        break;
-                    }
+            for (size_t i = 0; i < tx.vout.size(); i++) {
+                if (!CTxOutWitnessSerializer(*const_cast<CTxOut*>(&tx.vout[i])).IsNull()) {
+                    flags |= 2;
+                    break;
                 }
             }
         }

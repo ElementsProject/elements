@@ -7,6 +7,7 @@
 #define BITCOIN_POW_H
 
 #include "consensus/params.h"
+#include "primitives/bitcoin/block.h"
 
 #include <stdint.h>
 #include <string>
@@ -20,7 +21,7 @@ class uint256;
 
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
-bool CheckBitcoinProof(const CBlockHeader& block);
+bool CheckBitcoinProof(const Sidechain::Bitcoin::CBlockHeader& block);
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
 /** Scans nonces looking for a hash with at least some zero bits */
 bool MaybeGenerateProof(CBlockHeader* pblock, CWallet* pwallet);

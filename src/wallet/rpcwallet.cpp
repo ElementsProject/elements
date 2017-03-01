@@ -14,6 +14,7 @@
 #include "net.h"
 #include "netbase.h"
 #include "policy/rbf.h"
+#include "primitives/bitcoin/merkleblock.h"
 #include "rpc/server.h"
 #include "random.h"
 #include "timedata.h"
@@ -3064,8 +3065,8 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
         throw JSONRPCError(RPC_TYPE_ERROR, "the last two arguments must be hex strings");
 
     std::vector<unsigned char> txData = ParseHex(params[1].get_str());
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CTransaction txBTC;
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CTransaction txBTC;
     try {
         ssTx >> txBTC;
     }
@@ -3074,8 +3075,8 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     }
 
     std::vector<unsigned char> txOutProofData = ParseHex(params[2].get_str());
-    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CMerkleBlock merkleBlock;
+    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CMerkleBlock merkleBlock;
     try {
         ssTxOutProof >> merkleBlock;
     }
@@ -3105,7 +3106,7 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
             break;
     if (nOut == txBTC.vout.size())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
-    CAmount value = txBTC.vout[nOut].nValue.GetAmount();
+    CAmount value = txBTC.vout[nOut].nValue;
 
     uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
 

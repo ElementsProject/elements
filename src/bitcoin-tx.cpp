@@ -17,6 +17,7 @@
 #include "policy/policy.h"
 #include "pow.h"
 #include "primitives/transaction.h"
+#include "primitives/bitcoin/merkleblock.h"
 #include "script/script.h"
 #include "script/sign.h"
 #include "streams.h"
@@ -610,12 +611,12 @@ static void MutateTxPeginSign(CMutableTransaction& tx, const string& flagStr)
     if (contractData.size() != 40)
         throw runtime_error("contract must be 40 bytes");
 
-    CDataStream ssProof(txoutproofData,SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CMerkleBlock merkleBlock;
+    CDataStream ssProof(txoutproofData,SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CMerkleBlock merkleBlock;
     ssProof >> merkleBlock;
 
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CTransaction txBTC;
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CTransaction txBTC;
     ssTx >> txBTC;
 
     vector<uint256> transactionHashes;

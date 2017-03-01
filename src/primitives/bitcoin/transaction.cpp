@@ -3,116 +3,22 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "primitives/transaction.h"
+// Taken from
+// //github.com/bitcoin/bitcoin/blob/0d719145b018e28d48d35c2646a5962b87c60436/src/primitives/transaction.cpp
+// with minimal modification.
+
+#include "primitives/bitcoin/transaction.h"
 
 #include "hash.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
-void CTxOutAsset::SetNull()
-{
-    vchAssetTag.resize(1);
-    vchAssetTag[0] = 0xff;
-    vchSurjectionproof.clear();
-}
-
-bool CTxOutAsset::GetAssetID(uint256& assetID) const
-{
-    if (!IsAssetID() && !IsAssetGeneration())
-        return false;
-    std::copy(vchAssetTag.begin() + 1, vchAssetTag.end(), assetID.begin());
-    return true;
-}
-
-void CTxOutAsset::SetToAssetID(const uint256& assetID)
-{
-    vchAssetTag.reserve(nAssetTagSize);
-    vchAssetTag.push_back(1);
-    vchAssetTag.insert(vchAssetTag.end(), assetID.begin(), assetID.end());
-    vchSurjectionproof.clear();
-}
-
-CTxOutValue::CTxOutValue(CAmount nAmountIn)
-{
-    vchCommitment.resize(nExplicitSize);
-    SetToAmount(nAmountIn);
-}
-
-void CTxOutValue::SetNull()
-{
-    vchCommitment.resize(1);
-    vchCommitment[0] = 0xff;
-}
-
-bool CTxOutValue::IsValid() const
-{
-    switch(vchCommitment[0]) {
-        case 0:
-        case 1:
-            if (vchCommitment.size() != nExplicitSize)
-                return false;
-            return true;
-        // Alpha used 2 and 3 for value commitments
-        case 2:
-        case 3:
-            return false;
-        case 8:
-        case 9:
-            if (vchCommitment.size() != nCommittedSize)
-                return false;
-            return true;
-        default:
-            return false;
-    }
-}
-
-CAmount CTxOutValue::GetAmount() const
-{
-    assert(IsAmount());
-    return ReadBE64(&vchCommitment[1]);
-}
-
-void CTxOutValue::SetToAmount(const CAmount nAmount) {
-    vchCommitment.resize(nExplicitSize);
-    vchCommitment[0] = 1;
-    WriteBE64(&vchCommitment[1], nAmount);
-}
-
-CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
-{
-    nAsset = nAssetIn;
-    nValue = nValueIn;
-    scriptPubKey = scriptPubKeyIn;
-}
-
-std::string CTxOut::ToString() const
-{
-    uint256 assetID;
-    std::string strAsset;
-    if ((nAsset.IsAssetID() || nAsset.IsAssetGeneration()) && nAsset.GetAssetID(assetID))
-        strAsset = strprintf("nAsset=%s, ", assetID.ToString());
-    if (nAsset.IsAssetCommitment())
-        strAsset = std::string("nAsset=UNKNOWN, ");
-    return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
-}
+namespace Sidechain {
+namespace Bitcoin {
 
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
-}
-
-std::string CAssetIssuance::ToString() const
-{
-    std::string str;
-    str += "CAssetIssuance(";
-    str += assetBlindingNonce.ToString();
-    str += ", ";
-    str += hashAssetIdentifier.ToString();
-    str += strprintf(", %s", (nAmount.IsAmount() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("UNKNOWN")));
-    if (!nInflationKeys.IsNull())
-        str += strprintf(", %s", (nInflationKeys.IsAmount() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("UNKNOWN")));
-    str += ")";
-    return str;
 }
 
 CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
@@ -140,10 +46,24 @@ std::string CTxIn::ToString() const
         str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
     if (nSequence != SEQUENCE_FINAL)
         str += strprintf(", nSequence=%u", nSequence);
-    if (!assetIssuance.IsNull())
-        str += strprintf(", %s", assetIssuance.ToString());
     str += ")";
     return str;
+}
+
+CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+{
+    nValue = nValueIn;
+    scriptPubKey = scriptPubKeyIn;
+}
+
+uint256 CTxOut::GetHash() const
+{
+    return SerializeHash(*this);
+}
+
+std::string CTxOut::ToString() const
+{
+    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
@@ -164,35 +84,6 @@ uint256 CTransaction::GetWitnessHash() const
     return SerializeHash(*this, SER_GETHASH, 0);
 }
 
-bool CTransaction::HasValidFee() const
-{
-    CAmountMap totalFee;
-    for (unsigned int i = 0; i < vout.size(); i++) {
-        CAmount fee = 0;
-        if (vout[i].IsFee()) {
-            fee = vout[i].nValue.GetAmount();
-            if (fee == 0 || !MoneyRange(fee))
-                return false;
-            uint256 assetid;
-            vout[i].nAsset.GetAssetID(assetid);
-            totalFee[assetid] += fee;
-        }
-    }
-    return MoneyRange(totalFee);
-}
-
-CAmountMap CTransaction::GetFee() const
-{
-    CAmountMap fee;
-    for (unsigned int i = 0; i < vout.size(); i++)
-        if (vout[i].IsFee()) {
-            uint256 assetid;
-            vout[i].nAsset.GetAssetID(assetid);
-            fee[assetid] += vout[i].nValue.GetAmount();
-        }
-    return fee;
-}
-
 CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) { }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
@@ -207,6 +98,18 @@ CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
     *const_cast<uint256*>(&hash) = tx.hash;
     return *this;
+}
+
+CAmount CTransaction::GetValueOut() const
+{
+    CAmount nValueOut = 0;
+    for (std::vector<CTxOut>::const_iterator it(vout.begin()); it != vout.end(); ++it)
+    {
+        nValueOut += it->nValue;
+        if (!MoneyRange(it->nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error(std::string(__func__) + ": value out of range");
+    }
+    return nValueOut;
 }
 
 double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const
@@ -237,16 +140,10 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
 
 std::string CTransaction::ToString() const
 {
-    CAmount fee = 0;
-    for (unsigned int i = 0; i < vout.size(); i++)
-        if (vout[i].IsFee())
-            fee += vout[i].nValue.GetAmount();
-
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, fee=%d.%08d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
+    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
         GetHash().ToString().substr(0,10),
         nVersion,
-        fee / COIN, fee % COIN,
         vin.size(),
         vout.size(),
         nLockTime);
@@ -263,3 +160,6 @@ int64_t GetTransactionWeight(const CTransaction& tx)
 {
     return ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR -1) + ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
 }
+
+} // namespace Bitcoin
+} // namespace Sidechain
