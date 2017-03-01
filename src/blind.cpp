@@ -261,9 +261,9 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
         }
     }
 
-    // secp throws a fit if total isn't larger than number of inputs
-    if (nBlindsOut < 1) {
-        return false;
+    // No known blinding means the blinding attempt is vacuously successful
+    if (nBlindsOut == 0) {
+        return true;
     }
 
     // Check blinding(even if nothing has been done)
