@@ -1241,6 +1241,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     // This is used to add in the explicit values
     unsigned char explBlinds[32];
     memset(explBlinds, 0, sizeof(explBlinds));
+    int ret;
 
     // Tally up value commitments, check balance
     if (!tx.IsCoinBase())
@@ -1257,7 +1258,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (asset.IsAssetID() || asset.IsAssetGeneration()) {
                 uint256 fixedAsset;
                 asset.GetAssetID(fixedAsset);
-                assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
+                ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin());
+                assert(ret != 0);
             }
             else if (asset.IsAssetCommitment()) {
                 if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
@@ -1301,7 +1303,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (asset.IsAssetID()) {
             uint256 fixedAsset;
             asset.GetAssetID(fixedAsset);
-            assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin()));
+            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin());
+            assert(ret != 0);
         }
         else if (asset.IsAssetCommitment()) {
             if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
@@ -1365,7 +1368,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (asset.IsAssetID() || asset.IsAssetGeneration()) {
             uint256 fixedAsset;
             asset.GetAssetID(fixedAsset);
-            assert(secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], fixedAsset.begin()));
+            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], fixedAsset.begin());
+            assert(ret != 0);
         }
         else {
             if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], &asset.vchAssetTag[0]) != 1)
