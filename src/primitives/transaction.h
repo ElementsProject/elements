@@ -85,7 +85,6 @@ public:
     }
 
 private:
-    bool IsInBitcoinTransaction() const { return vchAssetTag[0] == 0; }
     void SetToAssetID(const uint256& assetID);
 };
 
@@ -111,7 +110,6 @@ public:
         READWRITE(vchCommitment.front());
         if (ser_action.ForRead()) {
             switch (vchCommitment.front()) {
-                case 0:
                 case 1:
                     vchCommitment.resize(nExplicitSize);
                     break;
@@ -136,8 +134,7 @@ public:
 
     bool IsValid() const;
 
-    // True for both native Amounts and "Bitcoin amounts"
-    bool IsAmount() const { return vchCommitment[0] == 0 || vchCommitment[0] == 1; }
+    bool IsAmount() const { return vchCommitment[0] == 1; }
     CAmount GetAmount() const;
 
     friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
