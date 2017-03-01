@@ -580,9 +580,9 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(rawTx);
 }
 
-// Retrieve already-existing output blinds for a given transaction (if known to wallet)
-// or blank spots to be filled by BlindOutputs
-void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CAsset>& output_assets, std::vector<CPubKey>& output_pubkeys) {
+// Rewind the outputs to unblinded, and push placeholders for blinding info
+// Failure if any are unable to be unblinded
+void FillOutputBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsExplicit()) {
             uint256 blinding_factor;
@@ -591,10 +591,19 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             CAmount amount;
 #ifdef ENABLE_WALLET
             if (fUseWallet && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], amount, blinding_factor, asset, asset_blinding_factor) != 0) {
-                output_value_blinds.push_back(blinding_factor);
-                output_pubkeys.push_back(CPubKey());
-                output_asset_blinds.push_back(asset_blinding_factor);
-                output_assets.push_back(asset);
+                // Wipe out confidential info from output except nonce
+                CConfidentialNonce nNonce = tx.vout[nOut].nNonce;
+                CScript scriptPubKey = tx.vout[nOut].scriptPubKey;
+                CTxOut newOut(asset, amount, scriptPubKey);
+                newOut.nNonce = nNonce;
+                tx.vout[nOut] = newOut;
+
+                // Pubkey is valid, since we re-wound successfully
+                CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
+                output_pubkeys.push_back(pubkey);
+                output_value_blinds.push_back(uint256());
+                output_asset_blinds.push_back(uint256());
+
             } else if (fUseWallet)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded or to wallet"));
 #endif
@@ -604,7 +613,6 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-            output_assets.push_back(CAsset());
         } else {
             CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
             if (!pubkey.IsValid()) {
@@ -613,7 +621,6 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             output_pubkeys.push_back(pubkey);
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-            output_assets.push_back(CAsset());
         }
     }
 }
@@ -709,11 +716,11 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         input_amounts.push_back(inputAmounts[nIn].get_int64());
     }
 
-    FillOutputBlinds(tx, false, output_value_blinds, output_asset_blinds, output_assets, output_pubkeys);
+    FillOutputBlinds(tx, false, output_value_blinds, output_asset_blinds, output_pubkeys);
 
     // Since we assume all inputs must be unblinded, we can pass in blank input_amounts to BlindOutputs
 
-    if (!BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, tx)) {
+    if (BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, tx) == 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
     }
 
@@ -788,9 +795,18 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         }
     }
 
-    FillOutputBlinds(tx, true, output_blinds, output_asset_blinds, output_assets,  output_pubkeys);
+    FillOutputBlinds(tx, true, output_blinds, output_asset_blinds, output_pubkeys);
 
-    if (!BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx)) {
+    // How many are we trying to blind?
+    int numPubKeys = 0;
+    for (auto&& key : output_pubkeys) {
+        if (key.IsValid()) {
+            numPubKeys++;
+        }
+    }
+
+    // Something must become blinded, and all attempts must work
+    if (numPubKeys == 0 || BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx) != numPubKeys) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
     }
 
