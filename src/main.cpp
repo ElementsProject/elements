@@ -1569,7 +1569,9 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         BOOST_FOREACH(const CTxIn &txin, tx.vin)
         {
             CCoins coins;
-            assert(view.GetCoins(txin.prevout.hash, coins));
+            bool ret;
+            ret = view.GetCoins(txin.prevout.hash, coins);
+            assert(ret);
             if (coins.vout[txin.prevout.n].scriptPubKey.IsWithdrawLock() && txin.scriptSig.IsWithdrawProof()) {
                 if (pool.mapNextTx.count(txin.prevout))
                     return state.Invalid(false, REJECT_CONFLICT, "txn-mempool-replace-withdraw");
