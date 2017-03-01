@@ -2686,8 +2686,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     // Very secure.
                     CTxOut assetout = CTxOut(*newAsset, *newAmount, vecSend[0].scriptPubKey);
                     assetout.nAsset.SetAsAssetGeneration();
-                    CAsset getit;
-                    assetout.nAsset.GetAsset(getit);
                     txNew.vout.push_back(assetout);
                 }
 
