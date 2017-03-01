@@ -2658,7 +2658,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     vAmounts.push_back(txNew.vout[nOut].nValue.GetAmount());
                     output_assets.push_back(txNew.vout[nOut].nAsset.GetAsset());
                 }
-
+                // Keep a backup of transaction in case re-blinding necessary
+                CMutableTransaction txBackup(txNew);
                 if (BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, txNew) != numBlindingKeys) {
                     // We need a dummy output to put a non-zero blinding factor.
                     // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
@@ -2666,15 +2667,16 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                     // We need to make sure to dupe an asset that is in input set
                     CTxOut newTxOut(output_assets.back(), 0, CScript() << OP_RETURN);
-                    txNew.vout.push_back(newTxOut);
+                    txBackup.vout.push_back(newTxOut);
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
                     output_asset_blinds.push_back(uint256());
                     output_assets.push_back(output_assets.back());
                     vAmounts.push_back(0);
                     // Now it has to succeed
-                    bool ret = BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txNew);
+                    int ret = BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txBackup);
                     assert(ret);
+                    txNew = txBackup;
                 }
 
                 if (newAsset != NULL && !newAsset->IsNull()) {

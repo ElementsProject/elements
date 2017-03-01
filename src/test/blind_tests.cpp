@@ -62,6 +62,13 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
     }
 
     {
+        CCoinsModifier tx2_2 = cache.ModifyCoins(ArithToUint256(5));
+        tx2_2->vout.resize(1);
+        tx2_2->vout[0].nValue = 500;
+        tx2_2->vout[0].nAsset = otherID;
+    }
+
+    {
         // Build a transaction that spends 2 unblinded coins (11, 111), and produces a single blinded one (100) and fee (22).
         CMutableTransaction tx3;
         tx3.vin.resize(2);
@@ -70,9 +77,8 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.vin[0].prevout.n = 0;
         tx3.vin[1].prevout.hash = ArithToUint256(2);
         tx3.vin[1].prevout.n = 0;
-        tx3.vout.resize(1);
-        tx3.vout[0].nValue = 100;
-        tx3.vout[0].nAsset = bitcoinID;
+        tx3.vout.resize(0);
+        tx3.vout.push_back(CTxOut(bitcoinID, 100, CScript() << OP_TRUE));
         // Fee outputs are blank scriptpubkeys, and unblinded value/asset
         tx3.vout.push_back(CTxOut(bitcoinID, 22, CScript()));
         BOOST_CHECK(VerifyAmounts(cache, tx3));
@@ -93,20 +99,12 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         input_assets.push_back(bitcoinID);
         input_amounts.push_back(11);
         input_amounts.push_back(111);
-        output_blinds.push_back(uint256());
-        output_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkey1);
         output_pubkeys.push_back(CPubKey());
         BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 0);
 
         // Add a dummy output.
-        tx3.vout.resize(3);
-        tx3.vout[2].nValue = 0;
-        tx3.vout[2].nAsset = bitcoinID;
-        output_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
+        tx3.vout.push_back(CTxOut(bitcoinID, 0, CScript() << OP_TRUE));
         output_pubkeys.push_back(pubkeyDummy);
         BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 2);
         BOOST_CHECK(!tx3.vout[0].nValue.IsExplicit());
@@ -162,12 +160,6 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         input_amounts.push_back(100);
         input_assets.push_back(unblinded_id);
         input_assets.push_back(unblinded_id);
-        output_blinds.push_back(uint256());
-        output_blinds.push_back(uint256());
-        output_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
@@ -206,14 +198,6 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         input_assets.push_back(unblinded_id);
         input_assets.push_back(unblinded_id);
 
-        output_blinds.push_back(uint256());
-        output_blinds.push_back(uint256());
-        output_blinds.push_back(uint256());
-        output_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
-        output_asset_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkey2);
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(pubkey2);
@@ -299,6 +283,87 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx4.vout[3].nValue = CConfidentialValue(tx4.vout[3].nValue.GetAmount() - 1);
         BOOST_CHECK(!VerifyAmounts(cache, tx4));
     }
-}
 
+    {
+        // Spends 100 blinded bitcoin, 500 of unblinded "other"
+        CMutableTransaction tx5;
+        tx5.vin.resize(0);
+        tx5.vout.resize(0);
+        tx5.vin.push_back(CTxIn(COutPoint(ArithToUint256(3), 0)));
+        tx5.vin.push_back(CTxIn(COutPoint(ArithToUint256(5), 0)));
+        tx5.vout.push_back(CTxOut(bitcoinID, 29, CScript() << OP_TRUE));
+        tx5.vout.push_back(CTxOut(bitcoinID, 70, CScript() << OP_TRUE));
+        tx5.vout.push_back(CTxOut(otherID, 250, CScript() << OP_TRUE));
+        tx5.vout.push_back(CTxOut(otherID, 249, CScript() << OP_TRUE));
+        // Fees
+        tx5.vout.push_back(CTxOut(bitcoinID, 1, CScript()));
+        tx5.vout.push_back(CTxOut(otherID, 1, CScript()));
+
+        // Blinds don't balance
+        BOOST_CHECK(!VerifyAmounts(cache, tx5));
+
+        // Blinding setup stuff
+        std::vector<uint256> input_blinds;
+        std::vector<uint256> input_asset_blinds;
+        std::vector<CAsset> input_assets;
+        std::vector<CAmount> input_amounts;
+        std::vector<uint256> output_blinds;
+        std::vector<uint256> output_asset_blinds;
+        std::vector<CPubKey> output_pubkeys;
+        input_blinds.push_back(blind3);
+        input_blinds.push_back(uint256()); //
+        input_asset_blinds.push_back(asset_blind);
+        input_asset_blinds.push_back(uint256());
+        input_amounts.push_back(100);
+        input_amounts.push_back(500);
+        input_assets.push_back(bitcoinID);
+        input_assets.push_back(otherID);
+        for (unsigned int i = 0; i < 6; i++) {
+            output_pubkeys.push_back(pubkey2);
+        }
+
+        CMutableTransaction txtemp(tx5);
+
+        // No blinding keys for fees, bails out blinding nothing, still valid due to imbalance
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == -1);
+        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
+        // Last will be implied blank keys
+        output_pubkeys.resize(4);
+
+        // Blind transaction, verify amounts
+        txtemp = tx5;
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == 4);
+        BOOST_CHECK(VerifyAmounts(cache, txtemp));
+
+        // Create imbalance by removing fees, should still be able to blind
+        txtemp = tx5;
+        txtemp.vout.resize(5);
+        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
+        txtemp.vout.resize(4);
+        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == 4);
+        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
+
+        txtemp = tx5;
+        // Remove other input, make surjection proof impossible for 2 "otherID" outputs
+        std::vector<uint256> t_input_blinds;
+        std::vector<uint256> t_input_asset_blinds;
+        std::vector<CAsset> t_input_assets;
+        std::vector<CAmount> t_input_amounts;
+
+        t_input_blinds = input_blinds;
+        t_input_asset_blinds = input_asset_blinds;
+        t_input_assets = input_assets;
+        t_input_amounts = input_amounts;
+        txtemp.vin.resize(1);
+        t_input_blinds.resize(1);
+        t_input_asset_blinds.resize(1);
+        t_input_assets.resize(1);
+        t_input_amounts.resize(1);
+        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
+        BOOST_CHECK(BlindOutputs(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == 2);
+        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
+        
+    }
+}
 BOOST_AUTO_TEST_SUITE_END()
