@@ -3281,15 +3281,20 @@ CScriptID calculate_contract(const CScript& federationRedeemScript, const CBitco
             {
                 unsigned char tweak[32];
                 size_t pub_len = 33;
+                int ret;
                 unsigned char *pub_start = &(*(sdpc - pub_len));
                 CHMAC_SHA256(pub_start, pub_len).Write(fullcontract, 40).Finalize(tweak);
                 secp256k1_pubkey watchman;
                 secp256k1_pubkey tweaked;
-                assert(secp256k1_ec_pubkey_parse(secp256k1_ctx, &watchman, pub_start, pub_len) == 1);
-                assert(secp256k1_ec_pubkey_parse(secp256k1_ctx, &tweaked, pub_start, pub_len) == 1);
+                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &watchman, pub_start, pub_len);
+                assert(ret == 1);
+                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &tweaked, pub_start, pub_len);
+                assert(ret == 1);
                 // If someone creates a tweak that makes this fail, they broke SHA256
-                assert(secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &tweaked, tweak) == 1);
-                assert(secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED) == 1);
+                ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &tweaked, tweak);
+                assert(ret == 1);
+                ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED);
+                assert(ret == 1);
                 assert(pub_len == 33);
 
                 // Sanity checks to reduce pegin risk. If the tweaked
@@ -3298,13 +3303,16 @@ CScriptID calculate_contract(const CScript& federationRedeemScript, const CBitco
                 // `tweaked - watchman = tweak` to check the computation
                 // two different ways
                 secp256k1_pubkey tweaked2;
-                assert(secp256k1_ec_pubkey_create(secp256k1_ctx, &tweaked2, tweak));
-                assert(secp256k1_ec_pubkey_negate(secp256k1_ctx, &watchman));
+                ret = secp256k1_ec_pubkey_create(secp256k1_ctx, &tweaked2, tweak);
+                assert(ret);
+                ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &watchman);
+                assert(ret);
                 secp256k1_pubkey* pubkey_combined[2];
                 pubkey_combined[0] = &watchman;
                 pubkey_combined[1] = &tweaked;
                 secp256k1_pubkey maybe_tweaked2;
-                assert(secp256k1_ec_pubkey_combine(secp256k1_ctx, &maybe_tweaked2, pubkey_combined, 2));
+                ret = secp256k1_ec_pubkey_combine(secp256k1_ctx, &maybe_tweaked2, pubkey_combined, 2);
+                assert(ret);
                 assert(!memcmp(&maybe_tweaked2, &tweaked2, 64));
             }
         }
