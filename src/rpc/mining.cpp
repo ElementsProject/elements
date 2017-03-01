@@ -146,7 +146,9 @@ UniValue generate(const UniValue& params, bool fHelp)
         if (!CheckProof(pblocktemplate->block, Params().GetConsensus()))
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used with a block-signature-required chain");
         CValidationState state;
-        assert(ProcessNewBlock(state, Params(), NULL, &pblocktemplate->block, true, NULL));
+        bool ret;
+        ret = ProcessNewBlock(state, Params(), NULL, &pblocktemplate->block, true, NULL);
+        assert(ret);
         assert(state.IsValid() && chainActive.Tip()->GetBlockHash() == pblocktemplate->block.GetHash());
         arr.push_back(pblocktemplate->block.GetHash().ToString());
     }
