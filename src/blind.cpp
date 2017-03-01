@@ -240,7 +240,9 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
             secp256k1_surjectionproof proof;
             secp256k1_fixed_asset_tag tag;
             memcpy(&tag, assetID.begin(), 32);
-            assert(secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &inputAssetIDs[0], input_asset_ids.size(), nInputsToSelect, &tag, 100, randseed) != 0);
+            if (secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &inputAssetIDs[0], input_asset_ids.size(), nInputsToSelect, &tag, 100, randseed) == 0) {
+                return false;
+            }
             assert(secp256k1_surjectionproof_generate(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen, input_index, input_asset_blinding_factors[input_index].begin(), assetblindptrs[assetblindptrs.size()-1]) == 1);
             assert(secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen));
 
