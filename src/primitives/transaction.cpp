@@ -47,7 +47,6 @@ void CTxOutValue::SetNull()
 bool CTxOutValue::IsValid() const
 {
     switch(vchCommitment[0]) {
-        case 0:
         case 1:
             if (vchCommitment.size() != nExplicitSize)
                 return false;
