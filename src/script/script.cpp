@@ -274,10 +274,14 @@ uint256 CScript::GetWithdrawLockGenesisHash() const
     opcodetype opcode;
     vector<unsigned char> vchgenesishash;
 
-    assert(GetOp(pc, opcode, vchgenesishash));
+    bool ret;
+    ret = GetOp(pc, opcode, vchgenesishash);
+    assert(ret);
     if (vchgenesishash.size() != 32) {
-        assert(GetOp(pc, opcode) && opcode == OP_DROP);
-        assert(GetOp(pc, opcode, vchgenesishash));
+        ret = GetOp(pc, opcode);
+        assert(ret && opcode == OP_DROP);
+        ret = GetOp(pc, opcode, vchgenesishash);
+        assert(ret);
     }
     assert(vchgenesishash.size() == 32);
     return uint256(vchgenesishash);
