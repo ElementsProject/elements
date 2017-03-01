@@ -996,7 +996,9 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         BOOST_FOREACH(const CTxIn &txin, tx.vin)
         {
             CCoins coins;
-            assert(view.GetCoins(txin.prevout.hash, coins));
+            bool ret;
+            ret = view.GetCoins(txin.prevout.hash, coins);
+            assert(ret);
             if (coins.vout[txin.prevout.n].scriptPubKey.IsWithdrawLock() && txin.scriptSig.IsWithdrawProof()) {
                 std::pair<uint256, COutPoint> outpoint = std::make_pair(coins.vout[txin.prevout.n].scriptPubKey.GetWithdrawLockGenesisHash(), txin.scriptSig.GetWithdrawSpent());
                 if (pool.mapNextTx.count(txin.prevout))
