@@ -16,14 +16,6 @@ void CTxOutAsset::SetNull()
     vchSurjectionproof.clear();
 }
 
-bool CTxOutAsset::GetAsset(CAsset& asset) const
-{
-    if (!IsAsset() && !IsAssetGeneration())
-        return false;
-    std::copy(vchAssetTag.begin() + 1, vchAssetTag.end(), asset.begin());
-    return true;
-}
-
 void CTxOutAsset::SetToAsset(const CAsset& asset)
 {
     vchAssetTag.reserve(nAssetTagSize);
@@ -86,10 +78,9 @@ CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript
 
 std::string CTxOut::ToString() const
 {
-    CAsset asset;
     std::string strAsset;
-    if ((nAsset.IsAsset() || nAsset.IsAssetGeneration()) && nAsset.GetAsset(asset))
-        strAsset = strprintf("nAsset=%s, ", asset.ToString());
+    if (nAsset.IsAsset() || nAsset.IsAssetGeneration())
+        strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().ToString());
     if (nAsset.IsAssetCommitment())
         strAsset = std::string("nAsset=UNKNOWN, ");
     return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
@@ -172,9 +163,7 @@ bool CTransaction::HasValidFee() const
             fee = vout[i].nValue.GetAmount();
             if (fee == 0 || !MoneyRange(fee))
                 return false;
-            CAsset asset;
-            vout[i].nAsset.GetAsset(asset);
-            totalFee[asset] += fee;
+            totalFee[vout[i].nAsset.GetAsset()] += fee;
         }
     }
     return MoneyRange(totalFee);
@@ -185,9 +174,7 @@ CAmountMap CTransaction::GetFee() const
     CAmountMap fee;
     for (unsigned int i = 0; i < vout.size(); i++)
         if (vout[i].IsFee()) {
-            CAsset asset;
-            vout[i].nAsset.GetAsset(asset);
-            fee[asset] += vout[i].nValue.GetAmount();
+            fee[vout[i].nAsset.GetAsset()] += vout[i].nValue.GetAmount();
         }
     return fee;
 }

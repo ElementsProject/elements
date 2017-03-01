@@ -161,7 +161,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             CTxOutValue& value = out.nValue;
             CTxOutAsset& asset = out.nAsset;
             CAmount amount = value.GetAmount();
-            out.nAsset.GetAsset(assetID);
+            assetID = out.nAsset.GetAsset();
             blindedAmounts.push_back(value.GetAmount());
 
             GetRandBytes(&blind[nBlinded][0], 32);

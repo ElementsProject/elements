@@ -148,17 +148,13 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         }
         const CTxOutAsset& asset = txout.nAsset;
         if (asset.IsAsset()) {
-            CAsset assetID;
-            asset.GetAsset(assetID);
-            out.push_back(Pair("asset", assetID.GetHex()));
+            out.push_back(Pair("asset", asset.GetAsset().GetHex()));
         }
         else if (asset.IsAssetCommitment()) {
             out.push_back(Pair("assettag", HexStr(asset.vchAssetTag)));
         }
         else if (asset.IsAssetGeneration()) {
-            CAsset assetID;
-            asset.GetAsset(assetID);
-            out.push_back(Pair("assetgeneration", assetID.GetHex()));
+            out.push_back(Pair("assetgeneration", asset.GetAsset().GetHex()));
         }
 
         {
@@ -768,9 +764,7 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
         input_blinds.push_back(it->second.GetBlindingFactor(tx.vin[nIn].prevout.n));
         input_asset_blinds.push_back(it->second.GetAssetBlindingFactor(tx.vin[nIn].prevout.n));
         if (it->second.vout[tx.vin[nIn].prevout.n].nAsset.IsAsset()) {
-            CAsset asset;
-            it->second.vout[tx.vin[nIn].prevout.n].nAsset.GetAsset(asset);
-            input_assets.push_back(asset);
+            input_assets.push_back(it->second.vout[tx.vin[nIn].prevout.n].nAsset.GetAsset());
         }
         else {
             input_assets.push_back(it->second.GetAsset(tx.vin[nIn].prevout.n));

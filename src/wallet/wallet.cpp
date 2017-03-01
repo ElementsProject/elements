@@ -2329,15 +2329,13 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
-        CAsset asset;
-        txOut.nAsset.GetAsset(asset);
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), asset, CPubKey(txOut.nValue.vchNonceCommitment), false};
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nValue.vchNonceCommitment), false};
         vecSend.push_back(recipient);
 
-        if (setAssets.count(asset) == 0) {
+        if (setAssets.count(txOut.nAsset.GetAsset()) == 0) {
             vChangeKey.push_back(CReserveKey(this));
             vpChangeKey.push_back(&vChangeKey[vChangeKey.size()-1]);
-            setAssets.insert(asset);
+            setAssets.insert(txOut.nAsset.GetAsset());
         }
     }
     // Always add bitcoin, as fees via bitcoin may create change
@@ -2659,9 +2657,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (outAmounts)
                         outAmounts->push_back(txNew.vout[nOut].nValue.GetAmount());
                     vAmounts.push_back(txNew.vout[nOut].nValue.GetAmount());
-                    CAsset asset;
-                    txNew.vout[nOut].nAsset.GetAsset(asset);
-                    output_assets.push_back(asset);
+                    output_assets.push_back(txNew.vout[nOut].nAsset.GetAsset());
                 }
 
                 if (BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, txNew) != numBlindingKeys) {
@@ -4051,7 +4047,7 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
 {
     if (output.nValue.IsAmount() && (output.nAsset.IsAsset() || output.nAsset.IsAssetGeneration())) {
         amount = output.nValue.GetAmount();
-        output.nAsset.GetAsset(asset);
+        asset = output.nAsset.GetAsset();
         pubkey = CPubKey();
         blindingfactor.SetNull();
         assetBlindingFactor.SetNull();

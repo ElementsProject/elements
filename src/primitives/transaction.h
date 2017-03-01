@@ -56,7 +56,11 @@ public:
     {
         return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
     }
-    bool GetAsset(CAsset& asset) const;
+    const CAsset& GetAsset() const
+    {
+        assert(IsAsset() || IsAssetGeneration());
+        return *reinterpret_cast<const CAsset*>(&vchAssetTag[1]);
+    }
 
     bool IsAssetCommitment() const
     {
@@ -232,8 +236,7 @@ public:
     {
         if (!nValue.IsAmount())
             return false; // FIXME
-        CAsset asset;
-        if (!nAsset.GetAsset(asset) || asset != BITCOINID)
+        if (!nAsset.IsAsset() || nAsset.GetAsset() != BITCOINID)
             return false;
         //Withdrawlocks are evaluated at a higher, static feerate
         //to ensure peg-outs are IsStandard on mainchain
