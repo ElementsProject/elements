@@ -2322,7 +2322,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
         }
         uint256 assetID;
         txOut.nAsset.GetAssetID(assetID);
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), assetID, CPubKey(), false};
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), assetID, CPubKey(txOut.nValue.vchNonceCommitment), false};
         vecSend.push_back(recipient);
 
         if (setAssetIDs.count(assetID) == 0) {
