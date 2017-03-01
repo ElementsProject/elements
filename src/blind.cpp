@@ -187,7 +187,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
 
                 // Generate value we intend to insert
                 ret = secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn);
-                assert(ret != 0);
+                assert(ret);
 
                 // Resulting blinding factor shouldn't be 0
                 if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
