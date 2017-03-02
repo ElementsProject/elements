@@ -99,7 +99,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_asset_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkey1);
         output_pubkeys.push_back(CPubKey());
-        BOOST_CHECK(!BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3));
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 0);
 
         // Add a dummy output.
         tx3.vout.resize(3);
@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_blinds.push_back(uint256());
         output_asset_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkeyDummy);
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3));
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 2);
         BOOST_CHECK(!tx3.vout[0].nValue.IsAmount());
         BOOST_CHECK(!tx3.vout[2].nValue.IsAmount());
         BOOST_CHECK(VerifyAmounts(cache, tx3));
@@ -171,7 +171,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
-        BOOST_CHECK(!BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4)); // fails as there is no place to put the blinding factor
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4) == 0); // Blinds nothing
     }
 
     {
@@ -219,7 +219,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(pubkey2);
         output_pubkeys.push_back(CPubKey());
 
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4));
+        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4) == 2);
         BOOST_CHECK(!tx4.vout[0].nValue.IsAmount());
         BOOST_CHECK(tx4.vout[1].nValue.IsAmount());
         BOOST_CHECK(!tx4.vout[2].nValue.IsAmount());

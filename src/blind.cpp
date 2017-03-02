@@ -74,7 +74,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     }
 }
 
-bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
@@ -91,6 +91,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
     assetblindptrs.reserve(tx.vout.size() + tx.vin.size());
 
     int ret;
+    int nBlinded = 0;
 
     //Surjection proof prep
     std::vector<secp256k1_fixed_asset_tag> inputAssetIDs;
@@ -148,7 +149,6 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
 
     //Running total of newly blinded outputs
     static const unsigned char diff_zero[32] = {0};
-    int nBlinded = 0;
     unsigned char blind[tx.vout.size()][32];
     unsigned char asset_blind[tx.vout.size()][32];
     secp256k1_pedersen_commitment commit;
@@ -182,7 +182,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
                 // Adversary would need to create all input blinds
                 // therefore would already know all your summed output amount anyways.
                 if (nBlindsOut == 1 && nBlindsIn == 0) {
-                    return false;
+                    return nBlinded;
                 }
 
                 // Generate value we intend to insert
@@ -191,7 +191,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
 
                 // Resulting blinding factor shouldn't be 0
                 if (memcmp(diff_zero, &blind[nBlinded][0], 32) == 0) {
-                   return false;
+                   return nBlinded;
                 }
             }
 
@@ -248,7 +248,8 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
             secp256k1_fixed_asset_tag tag;
             memcpy(&tag, assetID.begin(), 32);
             if (secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &inputAssetIDs[0], input_asset_ids.size(), nInputsToSelect, &tag, 100, randseed) == 0) {
-                return false;
+                // actually failed to blind this one
+                return nBlinded-1;
             }
             ret = secp256k1_surjectionproof_generate(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen, input_index, input_asset_blinding_factors[input_index].begin(), assetblindptrs[assetblindptrs.size()-1]);
             assert(ret == 1);
@@ -263,7 +264,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
 
     // No known blinding means the blinding attempt is vacuously successful
     if (nBlindsOut == 0) {
-        return true;
+        return nBlinded;
     }
 
     // Check blinding(even if nothing has been done)
@@ -273,7 +274,7 @@ bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vect
     ret = secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindsOut + nBlindsIn, nBlindsIn);
     assert(ret != 0);
     if (memcmp(blindptrs.back(), tempFinalBlind, 32))
-        return false;
+        return -1;
 
-    return true;
+    return nBlinded;
 }

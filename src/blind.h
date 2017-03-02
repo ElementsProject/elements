@@ -7,8 +7,8 @@
 
 bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, uint256& asset_id_out, uint256& asset_blinding_factor_out);
 
-/* Returns false if there is no output to create where the non-zero resultant (inputs - outputs) factor can be put.
- * The caller should retry with an extra blinded output, in that case.
+/* Returns the number of ouputs that were successfully blinded.
+ * In many cases a `0` can be fixed by adding an additional output.
  * @param[in]   input_blinding_factors - A vector of input blinding factors that will be used to create the balanced output blinding factors
  * @param[in]   input_asset_blinding_factors - A vector of input asset blinding factors that will be used to create the balanced output blinding factors
  * @param[in]   input_asset_ids - the asset ids of each corresponding input
@@ -18,6 +18,6 @@ bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amoun
  * @param[in]   output_pubkeys - If non-null, these pubkeys will be used in conjunction with the non-null passed in output blinding factors.
  * @param[in/out]   tx - The transaction to be modified.
  */
-bool BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
+int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
 
 #endif

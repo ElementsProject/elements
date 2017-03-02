@@ -2445,6 +2445,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             {
                 nChangePosInOut = nChangePosRequest;
                 std::vector<CPubKey> output_pubkeys;
+                int numBlindingKeys = 0;
 
                 txNew.vin.clear();
                 txNew.vout.clear();
@@ -2491,6 +2492,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     }
                     txNew.vout.push_back(txout);
                     output_pubkeys.push_back(recipient.confidentiality_key);
+                    if (recipient.confidentiality_key != CPubKey()) {
+                        numBlindingKeys++;
+                    }
                 }
 
                 // Choose coins to use
@@ -2596,7 +2600,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                             vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
                             txNew.vout.insert(position, newTxOut);
-                            output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, GetBlindingPubKey(scriptChange));
+                            CPubKey pubkey = GetBlindingPubKey(scriptChange);
+                            output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, pubkey);
+                            if (pubkey != CPubKey()) {
+                                numBlindingKeys++;
+                            }
                         }
                     }
                     else
@@ -2647,7 +2655,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     output_asset_ids.push_back(asset);
                 }
 
-                if (!BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, txNew)) {
+                if (BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, txNew) != numBlindingKeys) {
                     // We need a dummy output to put a non-zero blinding factor.
                     // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
                     // instead, as this does not actually provide better privacy.
