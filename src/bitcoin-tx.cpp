@@ -248,7 +248,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     // extract and validate ASSET
     string strAsset = vStrOutAddrParts[2];
     CAsset asset(uint256S(strAsset));
-    if (asset == CAsset())
+    if (asset.IsNull())
         throw runtime_error("invalid TX output asset type");
 
     // build standard output script via GetScriptForDestination()

@@ -70,17 +70,17 @@ UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& str
     UniValue obj(UniValue::VOBJ);
     CAsset id = wallet->GetAssetFromLabel(strasset);
     std::string label = wallet->GetLabelFromAsset(CAsset(uint256S(strasset)));
-    if (strasset != "*" && (id == CAsset() && label == "")) {
+    if (strasset != "*" && (id.IsNull() && label == "")) {
        throw JSONRPCError(RPC_WALLET_ERROR, "Input does not match a known asset tag/label pair.");
     }
-    else if (id != CAsset()) {
+    else if (!id.IsNull()) {
         strasset = id.GetHex();
     }
 
     if (strasset == "*") {
         for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
             // Unknown assets
-            if (it->first == CAsset())
+            if (it->first.IsNull())
                 continue;
             UniValue pair(UniValue::VOBJ);
             if (wallet->GetLabelFromAsset(it->first) != "") {
@@ -492,7 +492,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     CAsset id(uint256S(asset));
     if (pwalletMain->GetLabelFromAsset(CAsset(uint256S(asset))) == "")
         id = pwalletMain->GetAssetFromLabel(asset);
-    if (id == CAsset())
+    if (id.IsNull())
         throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
 
     EnsureWalletIsUnlocked();
@@ -991,7 +991,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
         CAsset asset(uint256S(strasset));
         if (pwalletMain->GetLabelFromAsset(CAsset(uint256S(strasset))) == "")
             asset = pwalletMain->GetAssetFromLabel(strasset);
-        if (asset == CAsset())
+        if (asset.IsNull())
             throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
 
         if (!address.IsValid())
@@ -1251,7 +1251,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
     CAsset id(uint256S(asset));
     if (asset != "*" && pwalletMain->GetLabelFromAsset(CAsset(uint256S(asset))) == "")
         id = pwalletMain->GetAssetFromLabel(asset);
-    if (asset != "*" && id == CAsset())
+    if (asset != "*" && id.IsNull())
         throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
 
     // Tally
@@ -2583,7 +2583,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
     CAsset asset;
     if (assetstr != "*") {
         asset = pwalletMain->GetAssetFromString(assetstr);
-        if (asset == CAsset())
+        if (asset.IsNull())
             throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
     }
 
@@ -2605,7 +2605,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
         CAmount nValue = out.tx->GetValueOut(out.i);
         CAsset assetid = out.tx->GetAsset(out.i);
-        if (nValue == -1 || assetid == CAsset())
+        if (nValue == -1 || assetid.IsNull())
             continue;
 
         if (assetstr != "*" && asset != assetid) {

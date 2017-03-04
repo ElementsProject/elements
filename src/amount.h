@@ -42,6 +42,7 @@ struct CAsset {
         READWRITE(id);
     }
 
+    bool IsNull() const { return id.IsNull(); }
     void SetNull() { id.SetNull(); }
 
     unsigned char* begin() { return id.begin(); }

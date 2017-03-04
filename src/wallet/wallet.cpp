@@ -2388,7 +2388,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     unsigned int nSubtractFeeFromAmount = 0;
     BOOST_FOREACH (const CRecipient& recipient, vecSend)
     {
-        if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset == CAsset())
+        if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset.IsNull())
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
@@ -2678,7 +2678,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     assert(ret);
                 }
 
-                if (newAsset != NULL && *newAsset != CAsset()) {
+                if (newAsset != NULL && !newAsset->IsNull()) {
                     // Very secure.
                     CTxOut assetout = CTxOut(*newAsset, *newAmount, vecSend[0].scriptPubKey);
                     assetout.nAsset.SetAsAssetGeneration();
@@ -2736,7 +2736,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 for (unsigned int i = 0; i< vAmounts.size(); i++) {
                     assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
                     assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
-                    assert(output_assets[i] != CAsset());
+                    assert(!output_assets[i].IsNull());
                     wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
                 }
 
