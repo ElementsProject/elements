@@ -52,7 +52,6 @@ struct CAsset {
 
     std::string GetHex() const { return id.GetHex(); }
     void SetHex(const std::string& str) { id.SetHex(str); }
-    std::string ToString() const { return id.ToString(); }
 
     friend bool operator==(const CAsset& a, const CAsset& b)
     {
