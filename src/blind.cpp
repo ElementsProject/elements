@@ -63,7 +63,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
         amount_out = 0;
         blinding_factor_out = uint256();
-        asset_out = CAsset();
+        asset_out.SetNull();
         asset_blinding_factor_out = uint256();
         return false;
     } else {
