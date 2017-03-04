@@ -207,14 +207,14 @@ bool CWalletDB::WriteBlindingDerivationKey(const uint256& key)
     return Write(std::string("blindingderivationkey"), key);
 }
 
-bool CWalletDB::WriteAssetIDLabelPair(const CAssetID& id, const std::string& label)
+bool CWalletDB::WriteAssetLabelPair(const CAsset& asset, const std::string& label)
 {
-    return Write(make_pair(std::string("idlabelmapping"), id), label);
+    return Write(make_pair(std::string("assetlabelmapping"), asset), label);
 }
 
-bool CWalletDB::WriteAssetLabelIDPair(const std::string& label, const CAssetID& id)
+bool CWalletDB::WriteLabelAssetPair(const std::string& label, const CAsset& asset)
 {
-    return Write(make_pair(std::string("labelidmapping"), label), id);
+    return Write(make_pair(std::string("labelassetmapping"), label), asset);
 }
 
 CAmount CWalletDB::GetAccountCreditDebit(const string& strAccount)
@@ -647,25 +647,25 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         }
-        else if (strType == "labelidmapping")
+        else if (strType == "labelassetmapping")
         {
             string label;
             ssKey >> label;
-            CAssetID id;
-            ssValue >> id;
-            if (!pwallet->LoadAssetLabelIDMapping(label, id)) {
-                strErr = "Error reading wallet database: LoadAssetLabelIDMapping failed";
+            CAsset asset;
+            ssValue >> asset;
+            if (!pwallet->LoadLabelAssetMapping(label, asset)) {
+                strErr = "Error reading wallet database: LoadLabelAssetMapping failed";
                 return false;
             }
         }
-        else if (strType == "idlabelmapping")
+        else if (strType == "assetlabelmapping")
         {
-            CAssetID id;
-            ssKey >> id;
+            CAsset asset;
+            ssKey >> asset;
             string label;
             ssValue >> label;
-            if (!pwallet->LoadAssetIDLabelMapping(id, label)) {
-                strErr = "Error reading wallet database: LoadAssetIDLabelMapping failed";
+            if (!pwallet->LoadAssetLabelMapping(asset, label)) {
+                strErr = "Error reading wallet database: LoadAssetLabelMapping failed";
                 return false;
             }
         }

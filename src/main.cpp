@@ -1255,9 +1255,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (val.IsNull() || asset.IsNull())
                 return false;
 
-            if (asset.IsAssetID() || asset.IsAssetGeneration()) {
-                CAssetID fixedAsset;
-                asset.GetAssetID(fixedAsset);
+            if (asset.IsAsset() || asset.IsAssetGeneration()) {
+                CAsset fixedAsset;
+                asset.GetAsset(fixedAsset);
                 ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin());
                 assert(ret != 0);
             }
@@ -1300,9 +1300,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (val.vchNonceCommitment.size() > CTxOutValue::nCommittedSize || val.vchRangeproof.size() > 5000)
             return false;
 
-        if (asset.IsAssetID()) {
-            CAssetID fixedAsset;
-            asset.GetAssetID(fixedAsset);
+        if (asset.IsAsset()) {
+            CAsset fixedAsset;
+            asset.GetAsset(fixedAsset);
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, fixedAsset.begin());
             assert(ret != 0);
         }
@@ -1365,9 +1365,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     for (size_t i = 0; i < tx.vin.size(); i++)
     {
         const CTxOutAsset& asset = cache.GetOutputFor(tx.vin[i]).nAsset;
-        if (asset.IsAssetID() || asset.IsAssetGeneration()) {
-            CAssetID fixedAsset;
-            asset.GetAssetID(fixedAsset);
+        if (asset.IsAsset() || asset.IsAssetGeneration()) {
+            CAsset fixedAsset;
+            asset.GetAsset(fixedAsset);
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], fixedAsset.begin());
             assert(ret != 0);
         }
@@ -1383,7 +1383,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CTxOutAsset& asset = tx.vout[i].nAsset;
         //No need for surjective proof
-        if (asset.IsAssetID() || asset.IsAssetGeneration()) {
+        if (asset.IsAsset() || asset.IsAssetGeneration()) {
             assert(asset.vchSurjectionproof.size() == 0);
             continue;
         }
@@ -1410,11 +1410,11 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
     assert(tx.IsCoinBase());
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsAssetID())
+        if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsAsset())
             return false;
-        CAssetID assetid;
-        tx.vout[i].nAsset.GetAssetID(assetid);
-        remaining[assetid] -= tx.vout[i].nValue.GetAmount();
+        CAsset asset;
+        tx.vout[i].nAsset.GetAsset(asset);
+        remaining[asset] -= tx.vout[i].nValue.GetAmount();
     }
     return MoneyRange(remaining);
 }
@@ -2480,7 +2480,7 @@ void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint
     entropy = ComputeFastMerkleRoot(leaves);
 }
 
-void CalculateAssetID(CAssetID& assetID, const uint256& entropy)
+void CalculateAsset(CAsset& asset, const uint256& entropy)
 {
     static const uint256 kZero = uint256S("0x0000000000000000000000000000000000000000000000000000000000000000");
     // H_a : asset tag
@@ -2490,10 +2490,10 @@ void CalculateAssetID(CAssetID& assetID, const uint256& entropy)
     leaves.reserve(2);
     leaves.push_back(entropy);
     leaves.push_back(kZero);
-    assetID = CAssetID(ComputeFastMerkleRoot(leaves));
+    asset = CAsset(ComputeFastMerkleRoot(leaves));
 }
 
-void CalculateReissuanceToken(CAssetID& reissuanceTokenID, const uint256& entropy, bool fConfidential)
+void CalculateReissuanceToken(CAsset& reissuanceToken, const uint256& entropy, bool fConfidential)
 {
     static const uint256 kOne = uint256S("0x0000000000000000000000000000000000000000000000000000000000000001");
     static const uint256 kTwo = uint256S("0x0000000000000000000000000000000000000000000000000000000000000002");
@@ -2507,7 +2507,7 @@ void CalculateReissuanceToken(CAssetID& reissuanceTokenID, const uint256& entrop
     leaves.reserve(2);
     leaves.push_back(entropy);
     leaves.push_back(fConfidential? kTwo: kOne);
-    reissuanceTokenID = CAssetID(ComputeFastMerkleRoot(leaves));
+    reissuanceToken = CAsset(ComputeFastMerkleRoot(leaves));
 }
 
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, set<pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks)

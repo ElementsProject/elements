@@ -34,7 +34,7 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
-bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, CAssetID& asset_id_out, uint256& asset_blinding_factor_out)
+bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
 {
     if (!key.IsValid()) {
         return false;
@@ -63,25 +63,25 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
         amount_out = 0;
         blinding_factor_out = uint256();
-        asset_id_out = CAssetID();
+        asset_out = CAsset();
         asset_blinding_factor_out = uint256();
         return false;
     } else {
         amount_out = (CAmount)amount;
-        asset_id_out = CAssetID(std::vector<unsigned char>(msg, msg+32));
+        asset_out = CAsset(std::vector<unsigned char>(msg, msg+32));
         asset_blinding_factor_out = uint256(std::vector<unsigned char>(msg+32, msg+64));
         return true;
     }
 }
 
-int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAssetID >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
     assert(tx.vout.size() == output_asset_blinding_factors.size());
     assert(tx.vin.size() == input_blinding_factors.size());
     assert(tx.vin.size() == input_asset_blinding_factors.size());
-    assert(tx.vin.size() == input_asset_ids.size());
+    assert(tx.vin.size() == input_assets.size());
     assert(tx.vin.size() == input_amounts.size());
 
     std::vector<unsigned char*> blindptrs;
@@ -94,13 +94,13 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
     int nBlinded = 0;
 
     //Surjection proof prep
-    std::vector<secp256k1_fixed_asset_tag> inputAssetIDs;
+    std::vector<secp256k1_fixed_asset_tag> inputAssets;
     std::vector<secp256k1_generator> inputAssetGenerators;
-    inputAssetIDs.resize(tx.vin.size());
+    inputAssets.resize(tx.vin.size());
     inputAssetGenerators.resize(tx.vin.size());
     for (size_t i = 0; i < tx.vin.size(); i++) {
-        memcpy(&inputAssetIDs[i], input_asset_ids[i].begin(), 32);
-        ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &inputAssetGenerators[i], input_asset_ids[i].begin(), input_asset_blinding_factors[i].begin());
+        memcpy(&inputAssets[i], input_assets[i].begin(), 32);
+        ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &inputAssetGenerators[i], input_assets[i].begin(), input_asset_blinding_factors[i].begin());
         assert(ret == 1);
     }
 
@@ -125,7 +125,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
         CTxOut& out = tx.vout[nOut];
         // Wallet only understands all-blinded or all-unblinded
         assert((output_blinding_factors[nOut] != uint256()) == !out.nValue.IsAmount());
-        assert(out.nValue.IsAmount() == out.nAsset.IsAssetID() || out.nValue.IsAmount() == out.nAsset.IsAssetGeneration());
+        assert(out.nValue.IsAmount() == out.nAsset.IsAsset() || out.nValue.IsAmount() == out.nAsset.IsAssetGeneration());
         assert(out.nAsset.IsAssetCommitment() == !out.nAsset.vchSurjectionproof.empty());
         if (output_blinding_factors[nOut] != uint256()) {
             assert(output_asset_blinding_factors[nOut] != uint256());
@@ -153,7 +153,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
     unsigned char asset_blind[tx.vout.size()][32];
     secp256k1_pedersen_commitment commit;
     secp256k1_generator gen;
-    CAssetID assetID;
+    CAsset assetID;
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         CTxOut& out = tx.vout[nOut];
@@ -161,7 +161,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             CTxOutValue& value = out.nValue;
             CTxOutAsset& asset = out.nAsset;
             CAmount amount = value.GetAmount();
-            out.nAsset.GetAssetID(assetID);
+            out.nAsset.GetAsset(assetID);
             blindedAmounts.push_back(value.GetAmount());
 
             GetRandBytes(&blind[nBlinded][0], 32);
@@ -240,14 +240,14 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             assert(res);
 
             // Create surjection proof
-            size_t nInputsToSelect = std::min((size_t)3, input_asset_ids.size());
+            size_t nInputsToSelect = std::min((size_t)3, input_assets.size());
             unsigned char randseed[32];
             GetRandBytes(randseed, 32);
             size_t input_index;
             secp256k1_surjectionproof proof;
             secp256k1_fixed_asset_tag tag;
             memcpy(&tag, assetID.begin(), 32);
-            if (secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &inputAssetIDs[0], input_asset_ids.size(), nInputsToSelect, &tag, 100, randseed) == 0) {
+            if (secp256k1_surjectionproof_initialize(secp256k1_blind_context, &proof, &input_index, &inputAssets[0], input_assets.size(), nInputsToSelect, &tag, 100, randseed) == 0) {
                 // actually failed to blind this one
                 return nBlinded-1;
             }

@@ -16,19 +16,19 @@ void CTxOutAsset::SetNull()
     vchSurjectionproof.clear();
 }
 
-bool CTxOutAsset::GetAssetID(CAssetID& assetID) const
+bool CTxOutAsset::GetAsset(CAsset& asset) const
 {
-    if (!IsAssetID() && !IsAssetGeneration())
+    if (!IsAsset() && !IsAssetGeneration())
         return false;
-    std::copy(vchAssetTag.begin() + 1, vchAssetTag.end(), assetID.begin());
+    std::copy(vchAssetTag.begin() + 1, vchAssetTag.end(), asset.begin());
     return true;
 }
 
-void CTxOutAsset::SetToAssetID(const CAssetID& assetID)
+void CTxOutAsset::SetToAsset(const CAsset& asset)
 {
     vchAssetTag.reserve(nAssetTagSize);
     vchAssetTag.push_back(1);
-    vchAssetTag.insert(vchAssetTag.end(), assetID.begin(), assetID.end());
+    vchAssetTag.insert(vchAssetTag.end(), asset.begin(), asset.end());
     vchSurjectionproof.clear();
 }
 
@@ -86,10 +86,10 @@ CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript
 
 std::string CTxOut::ToString() const
 {
-    CAssetID assetID;
+    CAsset asset;
     std::string strAsset;
-    if ((nAsset.IsAssetID() || nAsset.IsAssetGeneration()) && nAsset.GetAssetID(assetID))
-        strAsset = strprintf("nAsset=%s, ", assetID.ToString());
+    if ((nAsset.IsAsset() || nAsset.IsAssetGeneration()) && nAsset.GetAsset(asset))
+        strAsset = strprintf("nAsset=%s, ", asset.ToString());
     if (nAsset.IsAssetCommitment())
         strAsset = std::string("nAsset=UNKNOWN, ");
     return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
@@ -172,9 +172,9 @@ bool CTransaction::HasValidFee() const
             fee = vout[i].nValue.GetAmount();
             if (fee == 0 || !MoneyRange(fee))
                 return false;
-            CAssetID assetid;
-            vout[i].nAsset.GetAssetID(assetid);
-            totalFee[assetid] += fee;
+            CAsset asset;
+            vout[i].nAsset.GetAsset(asset);
+            totalFee[asset] += fee;
         }
     }
     return MoneyRange(totalFee);
@@ -185,9 +185,9 @@ CAmountMap CTransaction::GetFee() const
     CAmountMap fee;
     for (unsigned int i = 0; i < vout.size(); i++)
         if (vout[i].IsFee()) {
-            CAssetID assetid;
-            vout[i].nAsset.GetAssetID(assetid);
-            fee[assetid] += vout[i].nValue.GetAmount();
+            CAsset asset;
+            vout[i].nAsset.GetAsset(asset);
+            fee[asset] += vout[i].nValue.GetAmount();
         }
     return fee;
 }

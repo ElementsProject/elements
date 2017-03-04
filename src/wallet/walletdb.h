@@ -171,8 +171,8 @@ public:
     bool WriteSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
     bool WriteBlindingDerivationKey(const uint256& key);
 
-    bool WriteAssetIDLabelPair(const CAssetID& id, const std::string& label);
-    bool WriteAssetLabelIDPair(const std::string& label, const CAssetID& id);
+    bool WriteAssetLabelPair(const CAsset& asset, const std::string& label);
+    bool WriteLabelAssetPair(const std::string& label, const CAsset& asset);
 
     DBErrors ReorderTransactions(CWallet* pwallet);
     DBErrors LoadWallet(CWallet* pwallet);
