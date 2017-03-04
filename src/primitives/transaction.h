@@ -31,7 +31,7 @@ public:
         SetNull();
     }
 
-    CTxOutAsset(const uint256& assetID)
+    CTxOutAsset(const CAssetID& assetID)
     {
         SetToAssetID(assetID);
     }
@@ -56,7 +56,7 @@ public:
     {
         return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
     }
-    bool GetAssetID(uint256& assetID) const;
+    bool GetAssetID(CAssetID& assetID) const;
 
     bool IsAssetCommitment() const
     {
@@ -85,7 +85,7 @@ public:
     }
 
 private:
-    void SetToAssetID(const uint256& assetID);
+    void SetToAssetID(const CAssetID& assetID);
 };
 
 class CTxOutValue
@@ -232,7 +232,7 @@ public:
     {
         if (!nValue.IsAmount())
             return false; // FIXME
-        uint256 assetid;
+        CAssetID assetid;
         if (!nAsset.GetAssetID(assetid) || assetid != BITCOINID)
             return false;
         //Withdrawlocks are evaluated at a higher, static feerate
@@ -244,7 +244,7 @@ public:
 
     bool IsFee() const
     {
-        uint256 assetid;
+        CAssetID assetid;
         if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsAssetID())
             return true;
         return false;

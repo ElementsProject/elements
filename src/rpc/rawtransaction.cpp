@@ -148,7 +148,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         }
         const CTxOutAsset& asset = txout.nAsset;
         if (asset.IsAssetID()) {
-            uint256 assetID;
+            CAssetID assetID;
             asset.GetAssetID(assetID);
             out.push_back(Pair("assetid", assetID.GetHex()));
         }
@@ -156,7 +156,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             out.push_back(Pair("assettag", HexStr(asset.vchAssetTag)));
         }
         else if (asset.IsAssetGeneration()) {
-            uint256 assetID;
+            CAssetID assetID;
             asset.GetAssetID(assetID);
             out.push_back(Pair("assetgeneration", assetID.GetHex()));
         }
@@ -470,7 +470,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
         assetids = params[3].get_obj();
     }
 
-    uint256 bitcoinid(BITCOINID);
+    CAssetID bitcoinid(BITCOINID);
     CAmountMap inputValue;
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -499,10 +499,10 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
-        uint256 asset(bitcoinid);
+        CAssetID asset(bitcoinid);
         const UniValue& asset_val = find_value(o, "assetid");
         if (asset_val.isStr()) {
-            asset = ParseHashO(o, "assetid");
+            asset = CAssetID(ParseHashO(o, "assetid"));
         }
 
         UniValue vout_value = find_value(o, "amount");
@@ -521,11 +521,11 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
     vector<string> addrList = sendTo.getKeys();
     BOOST_FOREACH(const string& name_, addrList) {
         // Defaults to bitcoin
-        uint256 asset(bitcoinid);
+        CAssetID asset(bitcoinid);
         if (!assetids.isNull()) {
             if (find_value(assetids, name_).isNull())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Given output_assetid address is not a valid given output address: ")+name_);
-            asset = ParseHashO(assetids, name_);
+            asset = CAssetID(ParseHashO(assetids, name_));
         }
 
         if (name_ == "data") {
@@ -575,12 +575,12 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 
 // Retrieve already-existing output blinds for a given transaction (if known to wallet)
 // or blank spots to be filled by BlindOutputs
-void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<uint256>& output_asset_ids, std::vector<CPubKey>& output_pubkeys) {
+void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CAssetID>& output_asset_ids, std::vector<CPubKey>& output_pubkeys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsAmount()) {
             uint256 blinding_factor;
             uint256 asset_blinding_factor;
-            uint256 asset_id;
+            CAssetID asset_id;
             CAmount amount;
 #ifdef ENABLE_WALLET
             if (fUseWallet && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], amount, blinding_factor, asset_id, asset_blinding_factor) != 0) {
@@ -597,7 +597,7 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-            output_asset_ids.push_back(uint256());
+            output_asset_ids.push_back(CAssetID());
         } else {
             CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
             if (!pubkey.IsValid()) {
@@ -606,7 +606,7 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             output_pubkeys.push_back(pubkey);
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-            output_asset_ids.push_back(uint256());
+            output_asset_ids.push_back(CAssetID());
         }
     }
 }
@@ -671,10 +671,10 @@ UniValue rawblindrawtransaction(const UniValue& params, bool fHelp)
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
-    std::vector<uint256> input_asset_ids;
+    std::vector<CAssetID> input_asset_ids;
     std::vector<uint256> output_value_blinds;
     std::vector<uint256> output_asset_blinds;
-    std::vector<uint256> output_asset_ids;
+    std::vector<CAssetID> output_asset_ids;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         if (!inputBlinds[nIn].isStr())
@@ -698,7 +698,7 @@ UniValue rawblindrawtransaction(const UniValue& params, bool fHelp)
 
         input_blinds.push_back(uint256S(blind));
         input_asset_blinds.push_back(uint256S(assetblind));
-        input_asset_ids.push_back(uint256S(assetid));
+        input_asset_ids.push_back(CAssetID(uint256S(assetid)));
         input_amounts.push_back(inputAmounts[nIn].get_int64());
     }
 
@@ -751,11 +751,11 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
 
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
-    std::vector<uint256> input_asset_ids;
+    std::vector<CAssetID> input_asset_ids;
     std::vector<CAmount> input_amounts;
     std::vector<uint256> output_blinds;
     std::vector<uint256> output_asset_blinds;
-    std::vector<uint256> output_asset_ids;
+    std::vector<CAssetID> output_asset_ids;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.find(tx.vin[nIn].prevout.hash);
@@ -768,7 +768,7 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
         input_blinds.push_back(it->second.GetBlindingFactor(tx.vin[nIn].prevout.n));
         input_asset_blinds.push_back(it->second.GetAssetBlindingFactor(tx.vin[nIn].prevout.n));
         if (it->second.vout[tx.vin[nIn].prevout.n].nAsset.IsAssetID()) {
-            uint256 assetID;
+            CAssetID assetID;
             it->second.vout[tx.vin[nIn].prevout.n].nAsset.GetAssetID(assetID);
             input_asset_ids.push_back(assetID);
         }

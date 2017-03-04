@@ -247,7 +247,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 
     // extract and validate ASSET
     string strAsset = vStrOutAddrParts[2];
-    CAssetID asset = uint256S(strAsset);
+    CAssetID asset(uint256S(strAsset));
     if (asset == CAssetID())
         throw runtime_error("invalid TX output asset type");
 
@@ -308,7 +308,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
     std::vector<CPubKey> output_pubkeys;
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_asset_blinds;
-    std::vector<uint256> input_asset_ids;
+    std::vector<CAssetID> input_asset_ids;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         std::vector<std::string> entry;
         boost::split(entry, input_blinding[nIn], boost::is_any_of(","));
@@ -319,7 +319,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
         uint256 assetblind;
         assetblind.SetHex(entry[2]);
         input_asset_blinds.push_back(assetblind);
-        uint256 id;
+        CAssetID id;
         id.SetHex(entry[3]);
         input_asset_ids.push_back(id);
         CAmount value;
@@ -377,7 +377,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput
 
     // extract and validate asset
     string strAsset = vStrOutScriptParts[2];
-    CAssetID asset = uint256S(strAsset);
+    CAssetID asset(uint256S(strAsset));
 
     // construct TxOut, append to transaction output list
     CTxOut txout(asset, value, scriptPubKey);

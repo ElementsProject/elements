@@ -392,7 +392,7 @@ void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint
  *                       commitment setup to derive the unblinded asset tag.
  * @param[in]   entropy  The asset entropy returned by GenerateAssetEntropy.
  */
-void CalculateAssetID(uint256& assetID, const uint256& entropy);
+void CalculateAssetID(CAssetID& assetID, const uint256& entropy);
 
 /**
  * Derive the asset reissuance token assetID from the entropy and reissuance
@@ -406,7 +406,7 @@ void CalculateAssetID(uint256& assetID, const uint256& entropy);
  * @param[in]   fConfidential      Set to true if the initial issuance was blinded,
  *                                 false otherwise.
  */
-void CalculateReissuanceToken(uint256& reissuanceTokenID, const uint256& entropy, bool fConfidential);
+void CalculateReissuanceToken(CAssetID& reissuanceTokenID, const uint256& entropy, bool fConfidential);
 
 /**
  * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.

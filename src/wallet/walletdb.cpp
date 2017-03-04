@@ -207,12 +207,12 @@ bool CWalletDB::WriteBlindingDerivationKey(const uint256& key)
     return Write(std::string("blindingderivationkey"), key);
 }
 
-bool CWalletDB::WriteAssetIDLabelPair(const uint256& id, const std::string& label)
+bool CWalletDB::WriteAssetIDLabelPair(const CAssetID& id, const std::string& label)
 {
     return Write(make_pair(std::string("idlabelmapping"), id), label);
 }
 
-bool CWalletDB::WriteAssetLabelIDPair(const std::string& label, const uint256& id)
+bool CWalletDB::WriteAssetLabelIDPair(const std::string& label, const CAssetID& id)
 {
     return Write(make_pair(std::string("labelidmapping"), label), id);
 }
@@ -651,7 +651,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         {
             string label;
             ssKey >> label;
-            uint256 id;
+            CAssetID id;
             ssValue >> id;
             if (!pwallet->LoadAssetLabelIDMapping(label, id)) {
                 strErr = "Error reading wallet database: LoadAssetLabelIDMapping failed";
@@ -660,7 +660,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         }
         else if (strType == "idlabelmapping")
         {
-            uint256 id;
+            CAssetID id;
             ssKey >> id;
             string label;
             ssValue >> label;

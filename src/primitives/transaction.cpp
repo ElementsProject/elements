@@ -16,7 +16,7 @@ void CTxOutAsset::SetNull()
     vchSurjectionproof.clear();
 }
 
-bool CTxOutAsset::GetAssetID(uint256& assetID) const
+bool CTxOutAsset::GetAssetID(CAssetID& assetID) const
 {
     if (!IsAssetID() && !IsAssetGeneration())
         return false;
@@ -24,7 +24,7 @@ bool CTxOutAsset::GetAssetID(uint256& assetID) const
     return true;
 }
 
-void CTxOutAsset::SetToAssetID(const uint256& assetID)
+void CTxOutAsset::SetToAssetID(const CAssetID& assetID)
 {
     vchAssetTag.reserve(nAssetTagSize);
     vchAssetTag.push_back(1);
@@ -86,7 +86,7 @@ CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript
 
 std::string CTxOut::ToString() const
 {
-    uint256 assetID;
+    CAssetID assetID;
     std::string strAsset;
     if ((nAsset.IsAssetID() || nAsset.IsAssetGeneration()) && nAsset.GetAssetID(assetID))
         strAsset = strprintf("nAsset=%s, ", assetID.ToString());
@@ -172,7 +172,7 @@ bool CTransaction::HasValidFee() const
             fee = vout[i].nValue.GetAmount();
             if (fee == 0 || !MoneyRange(fee))
                 return false;
-            uint256 assetid;
+            CAssetID assetid;
             vout[i].nAsset.GetAssetID(assetid);
             totalFee[assetid] += fee;
         }
@@ -185,7 +185,7 @@ CAmountMap CTransaction::GetFee() const
     CAmountMap fee;
     for (unsigned int i = 0; i < vout.size(); i++)
         if (vout[i].IsFee()) {
-            uint256 assetid;
+            CAssetID assetid;
             vout[i].nAsset.GetAssetID(assetid);
             fee[assetid] += vout[i].nValue.GetAmount();
         }

@@ -30,9 +30,9 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
     CKey keyDummy;
 
     // Any asset id will do
-    uint256 bitcoinID(GetRandHash());
-    uint256 otherID(GetRandHash());
-    uint256 unblinded_id;
+    CAssetID bitcoinID(GetRandHash());
+    CAssetID otherID(GetRandHash());
+    CAssetID unblinded_id;
     uint256 asset_blind;
 
     unsigned char k1[32] = {1,2,3};
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         // Try to blind with a single non-fee output, which fails as its blinding factor ends up being zero.
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
-        std::vector<uint256> input_asset_ids;
+        std::vector<CAssetID> input_asset_ids;
         std::vector<CAmount> input_amounts;
         std::vector<uint256> output_blinds;
         std::vector<uint256> output_asset_blinds;
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(UnblindOutput(key1, tx3.vout[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 1);
         BOOST_CHECK(unblinded_amount == 100);
         BOOST_CHECK(unblinded_id == bitcoinID);
-        uint256 temp_asset_id;
+        CAssetID temp_asset_id;
         uint256 temp_asset_blinder;
         BOOST_CHECK(UnblindOutput(keyDummy, tx3.vout[2], unblinded_amount, blindDummy, temp_asset_id, temp_asset_blinder) == 1);
         BOOST_CHECK(unblinded_amount == 0);
@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
-        std::vector<uint256> input_asset_ids;
+        std::vector<CAssetID> input_asset_ids;
         std::vector<CAmount> input_amounts;
         std::vector<uint256> output_blinds;
         std::vector<uint256> output_asset_blinds;
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
-        std::vector<uint256> input_asset_ids;
+        std::vector<CAssetID> input_asset_ids;
         std::vector<CAmount> input_amounts;
         std::vector<uint256> output_blinds;
         std::vector<uint256> output_asset_blinds;
@@ -230,13 +230,13 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         CWalletTx wtx(&wallet, tx4);
         uint256 factor = wtx.GetBlindingFactor(0);
         uint256 asset_factor = wtx.GetAssetBlindingFactor(0);
-        uint256 asset_id = wtx.GetAssetID(0);
+        CAssetID asset_id = wtx.GetAssetID(0);
         CPubKey pubkey = wtx.GetBlindingPubKey(0);
         CAmount amount = wtx.GetValueOut(0);
 
         BOOST_CHECK(factor == uint256());
         BOOST_CHECK(asset_factor == uint256());
-        BOOST_CHECK(asset_id == uint256());
+        BOOST_CHECK(asset_id == CAssetID());
         BOOST_CHECK(pubkey == CPubKey());
         BOOST_CHECK(amount == -1);
 
@@ -279,7 +279,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(amount == 11);
 #endif
         CAmount unblinded_amount;
-        uint256 asset_id_out;
+        CAssetID asset_id_out;
         uint256 asset_blinder_out;
         BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], unblinded_amount, blind4, asset_id_out, asset_blinder_out) == 0);
         BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], unblinded_amount, blind4, asset_id_out, asset_blinder_out) == 1);

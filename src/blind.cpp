@@ -34,7 +34,7 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
-bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, uint256& asset_id_out, uint256& asset_blinding_factor_out)
+bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, CAssetID& asset_id_out, uint256& asset_blinding_factor_out)
 {
     if (!key.IsValid()) {
         return false;
@@ -63,18 +63,18 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
         amount_out = 0;
         blinding_factor_out = uint256();
-        asset_id_out = uint256();
+        asset_id_out = CAssetID();
         asset_blinding_factor_out = uint256();
         return false;
     } else {
         amount_out = (CAmount)amount;
-        asset_id_out = uint256(std::vector<unsigned char>(msg, msg+32));
+        asset_id_out = CAssetID(std::vector<unsigned char>(msg, msg+32));
         asset_blinding_factor_out = uint256(std::vector<unsigned char>(msg+32, msg+64));
         return true;
     }
 }
 
-int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
+int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAssetID >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx)
 {
     assert(tx.vout.size() == output_blinding_factors.size());
     assert(tx.vout.size() == output_pubkeys.size());
@@ -153,7 +153,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
     unsigned char asset_blind[tx.vout.size()][32];
     secp256k1_pedersen_commitment commit;
     secp256k1_generator gen;
-    uint256 assetID;
+    CAssetID assetID;
 
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         CTxOut& out = tx.vout[nOut];
