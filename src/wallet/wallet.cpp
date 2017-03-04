@@ -1398,7 +1398,7 @@ bool CWallet::IsHDEnabled()
     return !hdChain.masterKeyID.IsNull();
 }
 
-bool CWallet::SetAssetPair(const std::string& label, const uint256& id)
+bool CWallet::SetAssetPair(const std::string& label, const CAssetID& id)
 {
     LOCK(cs_wallet);
     if (!CWalletDB(strWalletFile).WriteAssetIDLabelPair(id, label) ||
@@ -1480,7 +1480,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     {
         const CTxOut& txout = tx->vout[i];
         CAmount nValueOut = GetValueOut(i);
-        uint256 assetID = GetAssetID(i);
+        CAssetID assetID = GetAssetID(i);
 
         if (nValueOut >= 0) {
             nValueUnaccounted[assetID] -= nValueOut;
@@ -1747,7 +1747,7 @@ CAmountMap CWalletTx::GetCredit(unsigned int nTxOut, const isminefilter& filter)
     if (pwallet->IsMine(tx->vout[nTxOut]) & filter)
         amount[GetAssetID(nTxOut)] = GetValueOut(nTxOut);
     // Can be -1 if someone sent us a transaction using a wrong scanning key:
-    if (amount[uint256()] == -1)
+    if (amount[CAssetID()] == -1)
         return CAmountMap();
     if (!MoneyRange(amount))
         throw std::runtime_error("CWallet::GetCredit(): value out of range");
@@ -1940,7 +1940,7 @@ bool CWalletTx::IsEquivalentTo(const CWalletTx& _tx) const
         return CTransaction(tx1) == CTransaction(tx2);
 }
 
-void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn, uint256 assetIDIn, uint256 assetBlindingFactorIn) const
+void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn, const CAssetID& assetIn, uint256 assetBlindingFactorIn) const
 {
     assert(nOut < tx->vout.size());
     if (mapValue["blindingdata"].size() < (nOut + 1) * 138) {
@@ -1953,7 +1953,7 @@ void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pub
     memcpy(&*(it + 1), &amountIn, 8);
     memcpy(&*(it + 9), blindingfactorIn.begin(), 32);
     memcpy(&*(it + 41), assetBlindingFactorIn.begin(), 32);
-    memcpy(&*(it + 73), assetIDIn.begin(), 32);
+    memcpy(&*(it + 73), assetIn.begin(), 32);
     if (pubkeyIn.IsValid() && pubkeyIn.size() == 33) {
         memcpy(&*(it + 105), pubkeyIn.begin(), 33);
     } else {
@@ -1962,7 +1962,7 @@ void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pub
 
 }
 
-void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, uint256* pAssetIDOut, uint256* passetBlindingFactorOut) const
+void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAssetID* pAssetOut, uint256* passetBlindingFactorOut) const
 {
     // Blinding data is cached in a serialized record mapWallet["blindingdata"].
     // It contains a concatenation byte vectors, 74 bytes per txout.
@@ -1985,22 +1985,22 @@ void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey*
     CAmount amount = -1;
     CPubKey pubkey;
     uint256 blindingfactor;
-    uint256 assetID;
+    CAssetID asset;
     uint256 assetBlindingFactor;
 
     if (*it == 1) {
         memcpy(&amount, &*(it + 1), 8);
         memcpy(blindingfactor.begin(), &*(it + 9), 32);
         memcpy(assetBlindingFactor.begin(), &*(it + 41), 32);
-        memcpy(assetID.begin(), &*(it + 73), 32);
+        memcpy(asset.begin(), &*(it + 73), 32);
         pubkey.Set(it + 105, it + 138);
     } else {
-        pwallet->ComputeBlindingData(tx->vout[nOut], amount, pubkey, blindingfactor, assetID, assetBlindingFactor);
+        pwallet->ComputeBlindingData(tx->vout[nOut], amount, pubkey, blindingfactor, asset, assetBlindingFactor);
         *it = 1;
         memcpy(&*(it + 1), &amount, 8);
         memcpy(&*(it + 9), blindingfactor.begin(), 32);
         memcpy(&*(it + 41), assetBlindingFactor.begin(), 32);
-        memcpy(&*(it + 73), assetID.begin(), 32);
+        memcpy(&*(it + 73), asset.begin(), 32);
         if (pubkey.IsValid() && pubkey.size() == 33) {
             memcpy(&*(it + 105), pubkey.begin(), 33);
         } else {
@@ -2012,7 +2012,7 @@ void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey*
     if (ppubkeyOut) *ppubkeyOut = pubkey;
     if (pblindingfactorOut) *pblindingfactorOut = blindingfactor;
     if (passetBlindingFactorOut) *passetBlindingFactorOut = assetBlindingFactor;
-    if (pAssetIDOut) *pAssetIDOut = assetID;
+    if (pAssetOut) *pAssetOut = asset;
 }
 
 CAmount CWalletTx::GetValueOut(unsigned int nOut) const {
@@ -2033,8 +2033,8 @@ uint256 CWalletTx::GetAssetBlindingFactor(unsigned int nOut) const {
     return ret;
 }
 
-uint256 CWalletTx::GetAssetID(unsigned int nOut) const {
-    uint256 ret;
+CAssetID CWalletTx::GetAssetID(unsigned int nOut) const {
+    CAssetID ret;
     GetBlindingData(nOut, NULL, NULL, NULL, &ret, NULL);
     return ret;
 }
@@ -2549,7 +2549,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
-        uint256 assetID;
+        CAssetID assetID;
         txOut.nAsset.GetAssetID(assetID);
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), assetID, CPubKey(txOut.nValue.vchNonceCommitment), false};
         vecSend.push_back(recipient);
@@ -2620,7 +2620,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset == uint256())
+        if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset == CAssetID())
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
@@ -2876,17 +2876,17 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 // Create blinded outputs
                 std::vector<uint256> input_blinds;
                 std::vector<uint256> input_asset_blinds;
-                std::vector<uint256> input_asset_ids;
+                std::vector<CAssetID> input_asset_ids;
                 std::vector<uint256> output_blinds;
                 std::vector<CAmount> input_amounts;
                 std::vector<uint256> output_asset_blinds;
-                std::vector<uint256> output_asset_ids;
+                std::vector<CAssetID> output_asset_ids;
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins) {
                     uint256 blind = coin.first->GetBlindingFactor(coin.second);
                     input_blinds.push_back(blind);
                     uint256 asset_blind = coin.first->GetAssetBlindingFactor(coin.second);
                     input_asset_blinds.push_back(asset_blind);
-                    uint256 asset_id = coin.first->GetAssetID(coin.second);
+                    CAssetID asset_id = coin.first->GetAssetID(coin.second);
                     input_asset_ids.push_back(asset_id);
                     CAmount amount = coin.first->GetValueOut(coin.second);
                     input_amounts.push_back(amount);
@@ -2899,7 +2899,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (outAmounts)
                         outAmounts->push_back(txNew.vout[nOut].nValue.GetAmount());
                     vAmounts.push_back(txNew.vout[nOut].nValue.GetAmount());
-                    uint256 asset;
+                    CAssetID asset;
                     txNew.vout[nOut].nAsset.GetAssetID(asset);
                     output_asset_ids.push_back(asset);
                 }
@@ -2948,7 +2948,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 for (unsigned int i = 0; i< vAmounts.size(); i++) {
                     assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
                     assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
-                    assert(output_asset_ids[i] != uint256());
+                    assert(output_asset_ids[i] != CAssetID());
                     wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_asset_ids[i], output_asset_blinds[i]);
                 }
 
@@ -4317,22 +4317,22 @@ bool CMerkleTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& 
     return ::AcceptToMemoryPool(mempool, state, tx, true, NULL, NULL, false, nAbsurdFee);
 }
 
-std::string CWallet::GetAssetLabelFromID(const uint256& id) const
+std::string CWallet::GetAssetLabelFromID(const CAssetID& id) const
 {
     LOCK(cs_wallet);
-    std::map<uint256, std::string>::const_iterator it = mapAssetLabels.find(id);
+    std::map<CAssetID, std::string>::const_iterator it = mapAssetLabels.find(id);
     if (it != mapAssetLabels.end())
         return it->second;
     return "";
 }
 
-uint256 CWallet::GetAssetIDFromLabel(const std::string& label) const
+CAssetID CWallet::GetAssetIDFromLabel(const std::string& label) const
 {
     LOCK(cs_wallet);
-    std::map<std::string, uint256>::const_iterator it = mapAssetIDs.find(label);
+    std::map<std::string, CAssetID>::const_iterator it = mapAssetIDs.find(label);
     if (it != mapAssetIDs.end())
         return it->second;
-    return uint256();
+    return CAssetID();
 }
 
 CAssetID CWallet::GetAssetIDFromString(const std::string& asset) const
@@ -4396,21 +4396,21 @@ bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& k
     return CWalletDB(strWalletFile).WriteSpecificBlindingKey(scriptid, key);
 }
 
-bool CWallet::LoadAssetLabelIDMapping(const std::string& label, const uint256& id)
+bool CWallet::LoadAssetLabelIDMapping(const std::string& label, const CAssetID& id)
 {
     AssertLockHeld(cs_wallet);
     mapAssetIDs[label] = id;
     return true;
 }
 
-bool CWallet::LoadAssetIDLabelMapping(const uint256& id, const std::string& label)
+bool CWallet::LoadAssetIDLabelMapping(const CAssetID& id, const std::string& label)
 {
     AssertLockHeld(cs_wallet);
     mapAssetLabels[id] = label;
     return true;
 }
 
-void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, uint256& assetID, uint256& assetBlindingFactor) const
+void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAssetID& assetID, uint256& assetBlindingFactor) const
 {
     if (output.nValue.IsAmount() && output.nAsset.IsAssetID()) {
         amount = output.nValue.GetAmount();

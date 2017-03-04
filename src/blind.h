@@ -5,7 +5,7 @@
 #include "pubkey.h"
 #include "primitives/transaction.h"
 
-bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, uint256& asset_id_out, uint256& asset_blinding_factor_out);
+bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, CAssetID& asset_id_out, uint256& asset_blinding_factor_out);
 
 /* Returns the number of ouputs that were successfully blinded.
  * In many cases a `0` can be fixed by adding an additional output.
@@ -18,6 +18,6 @@ bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amoun
  * @param[in]   output_pubkeys - If non-null, these pubkeys will be used in conjunction with the non-null passed in output blinding factors.
  * @param[in/out]   tx - The transaction to be modified.
  */
-int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<uint256 >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
+int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAssetID >& input_asset_ids, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, CMutableTransaction& tx);
 
 #endif
