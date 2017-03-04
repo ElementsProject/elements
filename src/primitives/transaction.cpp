@@ -106,7 +106,7 @@ std::string CAssetIssuance::ToString() const
     str += "CAssetIssuance(";
     str += assetBlindingNonce.ToString();
     str += ", ";
-    str += hashAssetIdentifier.ToString();
+    str += assetEntropy.ToString();
     str += strprintf(", %s", (nAmount.IsAmount() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("UNKNOWN")));
     if (!nInflationKeys.IsNull())
         str += strprintf(", %s", (nInflationKeys.IsAmount() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("UNKNOWN")));

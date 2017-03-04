@@ -324,7 +324,7 @@ public:
     //   The original asset entropy (combination of Ricardian contract
     //   and outpoint used) which was used to generate the fixed asset
     //   tag and reissuance tokens.
-    uint256 hashAssetIdentifier;
+    uint256 assetEntropy;
 
     // Both explicit and blinded issuance amounts are supported
     // (see class definition for CTxOutValue for details).
@@ -347,7 +347,7 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
         READWRITE(assetBlindingNonce);
-        READWRITE(hashAssetIdentifier);
+        READWRITE(assetEntropy);
         READWRITE(nAmount);
         READWRITE(nInflationKeys);
     }
@@ -358,7 +358,7 @@ public:
     friend bool operator==(const CAssetIssuance& a, const CAssetIssuance& b)
     {
         return a.assetBlindingNonce == b.assetBlindingNonce &&
-               a.hashAssetIdentifier == b.hashAssetIdentifier &&
+               a.assetEntropy == b.assetEntropy &&
                a.nAmount == b.nAmount &&
                a.nInflationKeys == b.nInflationKeys;
     }
