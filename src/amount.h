@@ -28,7 +28,46 @@ extern const std::string CURRENCY_UNIT;
  *  For the host currency, the similarly-calculated hash of the chain’s genesis
  *  block is used instead.
 **/
-typedef uint256 CAsset;
+struct CAsset {
+    uint256 id;
+
+    CAsset() { }
+    explicit CAsset(const uint256& idIn) : id(idIn) { }
+    explicit CAsset(const std::vector<unsigned char>& vchIDIn) : id(vchIDIn) { }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(id);
+    }
+
+    void SetNull() { id.SetNull(); }
+
+    unsigned char* begin() { return id.begin(); }
+    unsigned char* end() { return id.end(); }
+    const unsigned char* begin() const { return id.begin(); }
+    const unsigned char* end() const { return id.end(); }
+
+    std::string GetHex() const { return id.GetHex(); }
+    void SetHex(const std::string& str) { id.SetHex(str); }
+    std::string ToString() const { return id.ToString(); }
+
+    friend bool operator==(const CAsset& a, const CAsset& b)
+    {
+        return a.id == b.id;
+    }
+
+    friend bool operator!=(const CAsset& a, const CAsset& b)
+    {
+        return !(a == b);
+    }
+
+    friend bool operator<(const CAsset& a, const CAsset& b)
+    {
+        return a.id < b.id;
+    }
+};
 
 /** The sha256 of Bitcoin genesis block, for easy reference **/
 static const CAsset BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621"));
