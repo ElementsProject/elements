@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         BOOST_CHECK(factor == uint256());
         BOOST_CHECK(asset_factor == uint256());
-        BOOST_CHECK(asset == CAsset());
+        BOOST_CHECK(asset.IsNull());
         BOOST_CHECK(pubkey == CPubKey());
         BOOST_CHECK(amount == -1);
 
