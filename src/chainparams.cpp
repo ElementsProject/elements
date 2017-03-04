@@ -29,7 +29,7 @@ static CScript StrHexToScriptWithDefault(std::string strScript, const CScript de
     return returnScript;
 }
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const CAssetID& assetID)
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const CAsset& asset)
 {
     // Shards must be evenly divisible
     assert(MAX_MONEY % rewardShards == 0);
@@ -40,7 +40,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     txNew.vout.resize(rewardShards);
     for (unsigned int i = 0; i < rewardShards; i++) {
         txNew.vout[i].nValue = genesisReward/rewardShards;
-        txNew.vout[i].nAsset = assetID;
+        txNew.vout[i].nAsset = asset;
         txNew.vout[i].scriptPubKey = genesisOutputScript;
     }
 

@@ -144,10 +144,10 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             }
         }
         const CTxOutAsset& asset = txout.nAsset;
-        if (asset.IsAssetID()) {
-            CAssetID assetID;
-            asset.GetAssetID(assetID);
-            out.push_back(Pair("assetid", assetID.GetHex()));
+        if (asset.IsAsset()) {
+            CAsset assetID;
+            asset.GetAsset(assetID);
+            out.push_back(Pair("asset", assetID.GetHex()));
         }
         else if (asset.IsAssetCommitment()) {
             out.push_back(Pair("assettag", HexStr(asset.vchAssetTag)));
@@ -230,7 +230,7 @@ UniValue getrawtransaction(const JSONRPCRequest& request)
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"fee_value\" : x.xxx,        (numeric) The fee value in " + CURRENCY_UNIT + "\n"
             "       \"n\" : n,                    (numeric) index\n"
-            "       \"assetid\" : \"hex\"         (string) the asset id, if unblinded\n"
+            "       \"asset\" : \"hex\"           (string) the asset id, if unblinded\n"
             "       \"assettag\" : \"hex\"        (string) the asset tag, if blinded\n"
             "       \"scriptPubKey\" : {          (json object)\n"
             "         \"asm\" : \"asm\",          (string) the asm\n"
@@ -415,7 +415,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
         throw runtime_error(
-            "createrawtransaction [{\"txid\":\"id\",\"vout\":n,\"amount\":n},...] {\"address\":amount,\"data\":\"hex\",...} ( locktime {\"address\":assetid} )\n"
+            "createrawtransaction [{\"txid\":\"id\",\"vout\":n,\"amount\":n},...] {\"address\":amount,\"data\":\"hex\",...} ( locktime {\"address\":asset} )\n"
             "\nCreate a transaction spending the given inputs and creating new outputs.\n"
             "Outputs can be addresses or data.\n"
             "Returns hex-encoded raw transaction.\n"
@@ -429,7 +429,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             "         \"txid\":\"id\",    (string, required) The transaction id\n"
             "         \"vout\":n,         (numeric, required) The output number\n"
             "         \"amount\": x.xxx,    (numeric, required) The amount being spent\n"
-            "         \"assetid\": \"string\" (string, optional, default=bitcoin) The asset of the input, as a tag string or a hex value\n"
+            "         \"asset\": \"string\"   (string, optional, default=bitcoin) The asset of the input, as a tag string or a hex value\n"
             "         \"sequence\":n      (numeric, optional) The sequence number\n"
             "       } \n"
             "       ,...\n"
@@ -441,7 +441,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             "      ,...\n"
             "    }\n"
             "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
-            "4. \"output_assetids\"         (strings, optional, default=bitcoin) A json object of assetids to addresses\n"
+            "4. \"output_assets\"           (strings, optional, default=bitcoin) A json object of assets to addresses\n"
             "   {\n"
             "       \"address\": \"hex\" \n"
             "       ...\n"
@@ -451,10 +451,10 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
             "\nExamples:\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5}]\" \"{\\\"address\\\":2.41}\"")
-            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5,\\\"assetid\\\":\\\"myassetid\\\"}]\" \"{\\\"address\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myassetid\\\"}\"")
+            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5,\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"address\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myasset\\\"}\"")
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5}]\" \"{\\\"data\\\":\\\"00010203\\\"}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5}]\", \"{\\\"address\\\":2.41}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5,\\\"assetid\\\":\\\"myassetid\\\"}]\", \"{\\\"address\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myassetid\\\"}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5,\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"address\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myasset\\\"}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0,\\\"amount\\\":2.5}]\", \"{\\\"data\\\":\\\"00010203\\\"}\"")
         );
 
@@ -474,12 +474,12 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
         rawTx.nLockTime = nLockTime;
     }
 
-    UniValue assetids;
+    UniValue assets;
     if (request.params.size() > 3 && !request.params[3].isNull()) {
-        assetids = request.params[3].get_obj();
+        assets = request.params[3].get_obj();
     }
 
-    CAssetID bitcoinid(BITCOINID);
+    CAsset bitcoinid(BITCOINID);
     CAmountMap inputValue;
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -508,10 +508,10 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
-        CAssetID asset(bitcoinid);
-        const UniValue& asset_val = find_value(o, "assetid");
+        CAsset asset(bitcoinid);
+        const UniValue& asset_val = find_value(o, "asset");
         if (asset_val.isStr()) {
-            asset = CAssetID(ParseHashO(o, "assetid"));
+            asset = CAsset(ParseHashO(o, "asset"));
         }
 
         UniValue vout_value = find_value(o, "amount");
@@ -530,11 +530,11 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
     vector<string> addrList = sendTo.getKeys();
     BOOST_FOREACH(const string& name_, addrList) {
         // Defaults to bitcoin
-        CAssetID asset(bitcoinid);
-        if (!assetids.isNull()) {
-            if (find_value(assetids, name_).isNull())
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Given output_assetid address is not a valid given output address: ")+name_);
-            asset = CAssetID(ParseHashO(assetids, name_));
+        CAsset asset(bitcoinid);
+        if (!assets.isNull()) {
+            if (find_value(assets, name_).isNull())
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Given output_asset address is not a valid given output address: ")+name_);
+            asset = CAsset(ParseHashO(assets, name_));
         }
 
         if (name_ == "data") {
@@ -569,7 +569,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
     // Now add fee outputs
     CAmountMap fees = inputValue - outputValue;
-    for(std::map<CAssetID, CAmount>::const_iterator it = fees.begin(); it != fees.end(); it++) {
+    for(std::map<CAsset, CAmount>::const_iterator it = fees.begin(); it != fees.end(); it++) {
         if (it->second < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid transaction: Value out exceeds value in for some asset type."));
         }
@@ -584,19 +584,19 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
 // Retrieve already-existing output blinds for a given transaction (if known to wallet)
 // or blank spots to be filled by BlindOutputs
-void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CAssetID>& output_asset_ids, std::vector<CPubKey>& output_pubkeys) {
+void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CAsset>& output_assets, std::vector<CPubKey>& output_pubkeys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsAmount()) {
             uint256 blinding_factor;
             uint256 asset_blinding_factor;
-            CAssetID asset_id;
+            CAsset asset;
             CAmount amount;
 #ifdef ENABLE_WALLET
-            if (fUseWallet && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], amount, blinding_factor, asset_id, asset_blinding_factor) != 0) {
+            if (fUseWallet && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], amount, blinding_factor, asset, asset_blinding_factor) != 0) {
                 output_value_blinds.push_back(blinding_factor);
                 output_pubkeys.push_back(CPubKey());
                 output_asset_blinds.push_back(asset_blinding_factor);
-                output_asset_ids.push_back(asset_id);
+                output_assets.push_back(asset);
             } else if (fUseWallet)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded or to wallet"));
 #endif
@@ -606,7 +606,7 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-            output_asset_ids.push_back(CAssetID());
+            output_assets.push_back(CAsset());
         } else {
             CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
             if (!pubkey.IsValid()) {
@@ -615,7 +615,7 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             output_pubkeys.push_back(pubkey);
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-            output_asset_ids.push_back(CAssetID());
+            output_assets.push_back(CAsset());
         }
     }
 }
@@ -641,7 +641,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
             "   \"inputamount\"       (numeric, required) An amount for each input.\n"
             "   ],\n"
             "4. [                     (array, required) An array with one entry per transaction input.\n"
-            "   \"inputassetid\"      (string, required) A hex-encoded asset id, one for each input.\n"
+            "   \"inputasset\"        (string, required) A hex-encoded asset id, one for each input.\n"
             "   ],\n"
             "5. [                     (array, required) An array with one entry per transaction input.\n"
             "   \"inputassetblinder\" (string, required) A hex-encoded asset blinding factor, one for each input.\n"
@@ -669,53 +669,53 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     UniValue inputBlinds = request.params[1].get_array();
     UniValue inputAmounts = request.params[2].get_array();
-    UniValue inputAssetIDs = request.params[3].get_array();
+    UniValue inputAssets = request.params[3].get_array();
     UniValue inputAssetBlinds = request.params[4].get_array();
 
     if (inputBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input blind for each input must be provided"));
     if (inputAmounts.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input blind for each input must be provided"));
-    if (inputAssetIDs.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input asset id for each input must be provided"));
+    if (inputAssets.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input asset id for each input must be provided"));
     if (inputAssetBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input asset blind for each input must be provided"));
 
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
-    std::vector<CAssetID> input_asset_ids;
+    std::vector<CAsset> input_assets;
     std::vector<uint256> output_value_blinds;
     std::vector<uint256> output_asset_blinds;
-    std::vector<CAssetID> output_asset_ids;
+    std::vector<CAsset> output_assets;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         if (!inputBlinds[nIn].isStr())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of hex strings");
         if (!inputAssetBlinds[nIn].isStr())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of hex strings");
-        if (!inputAssetIDs[nIn].isStr())
+        if (!inputAssets[nIn].isStr())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset ids must be an array of hex strings");
         if (!inputAmounts[nIn].isNum())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Amounts must be numeric.");
 
         std::string blind(inputBlinds[nIn].get_str());
         std::string assetblind(inputAssetBlinds[nIn].get_str());
-        std::string assetid(inputAssetIDs[nIn].get_str());
+        std::string asset(inputAssets[nIn].get_str());
         if (!IsHex(blind) || blind.length() != 32*2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of 32-byte hex-encoded strings");
         if (!IsHex(assetblind) || assetblind.length() != 32*2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
-        if (!IsHex(assetid) || assetid.length() != 32*2)
+        if (!IsHex(asset) || asset.length() != 32*2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
 
         input_blinds.push_back(uint256S(blind));
         input_asset_blinds.push_back(uint256S(assetblind));
-        input_asset_ids.push_back(CAssetID(uint256S(assetid)));
+        input_assets.push_back(CAsset(uint256S(asset)));
         input_amounts.push_back(inputAmounts[nIn].get_int64());
     }
 
-    FillOutputBlinds(tx, false, output_value_blinds, output_asset_blinds, output_asset_ids, output_pubkeys);
+    FillOutputBlinds(tx, false, output_value_blinds, output_asset_blinds, output_assets, output_pubkeys);
 
     // Since we assume all inputs must be unblinded, we can pass in blank input_amounts to BlindOutputs
 
-    if (!BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, tx)) {
+    if (!BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, tx)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
     }
 
@@ -760,11 +760,11 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
 
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
-    std::vector<CAssetID> input_asset_ids;
+    std::vector<CAsset> input_assets;
     std::vector<CAmount> input_amounts;
     std::vector<uint256> output_blinds;
     std::vector<uint256> output_asset_blinds;
-    std::vector<CAssetID> output_asset_ids;
+    std::vector<CAsset> output_assets;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.find(tx.vin[nIn].prevout.hash);
@@ -776,13 +776,13 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         }
         input_blinds.push_back(it->second.GetBlindingFactor(tx.vin[nIn].prevout.n));
         input_asset_blinds.push_back(it->second.GetAssetBlindingFactor(tx.vin[nIn].prevout.n));
-        if (it->second.tx->vout[tx.vin[nIn].prevout.n].nAsset.IsAssetID()) {
-            CAssetID assetID;
-            it->second.tx->vout[tx.vin[nIn].prevout.n].nAsset.GetAssetID(assetID);
-            input_asset_ids.push_back(assetID);
+        if (it->second.tx->vout[tx.vin[nIn].prevout.n].nAsset.IsAsset()) {
+            CAsset asset;
+            it->second.tx->vout[tx.vin[nIn].prevout.n].nAsset.GetAsset(asset);
+            input_assets.push_back(asset);
         }
         else {
-            input_asset_ids.push_back(it->second.GetAssetID(tx.vin[nIn].prevout.n));
+            input_assets.push_back(it->second.GetAsset(tx.vin[nIn].prevout.n));
         }
         if (it->second.tx->vout[tx.vin[nIn].prevout.n].nValue.IsAmount()) {
             input_amounts.push_back(it->second.tx->vout[tx.vin[nIn].prevout.n].nValue.GetAmount());
@@ -792,9 +792,9 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         }
     }
 
-    FillOutputBlinds(tx, true, output_blinds, output_asset_blinds, output_asset_ids,  output_pubkeys);
+    FillOutputBlinds(tx, true, output_blinds, output_asset_blinds, output_assets,  output_pubkeys);
 
-    if (!BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx)) {
+    if (!BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
     }
 
@@ -838,7 +838,7 @@ UniValue decoderawtransaction(const JSONRPCRequest& request)
             "     {\n"
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
             "       \"n\" : n,                    (numeric) index\n"
-            "       \"assetid\" : \"hex\"         (string) the asset id, if unblinded\n"
+            "       \"asset\" : \"hex\"           (string) the asset id, if unblinded\n"
             "       \"assettag\" : \"hex\"        (string) the asset tag, if blinded\n"
             "       \"scriptPubKey\" : {          (json object)\n"
             "         \"asm\" : \"asm\",          (string) the asm\n"

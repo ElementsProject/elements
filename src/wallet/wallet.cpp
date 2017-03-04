@@ -1230,7 +1230,7 @@ CAmountMap CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) cons
             if (txin.prevout.n < prev.tx->vout.size()) {
                 if (IsMine(prev.tx->vout[txin.prevout.n]) & filter) {
                     CAmountMap map;
-                    map[prev.GetAssetID(txin.prevout.n)] = std::max<CAmount>(0, prev.GetValueOut(txin.prevout.n));
+                    map[prev.GetAsset(txin.prevout.n)] = std::max<CAmount>(0, prev.GetValueOut(txin.prevout.n));
                     return map;
                 }
             }
@@ -1398,14 +1398,14 @@ bool CWallet::IsHDEnabled()
     return !hdChain.masterKeyID.IsNull();
 }
 
-bool CWallet::SetAssetPair(const std::string& label, const CAssetID& id)
+bool CWallet::SetAssetPair(const std::string& label, const CAsset& id)
 {
     LOCK(cs_wallet);
-    if (!CWalletDB(strWalletFile).WriteAssetIDLabelPair(id, label) ||
-        !CWalletDB(strWalletFile).WriteAssetLabelIDPair(label, id))
+    if (!CWalletDB(strWalletFile).WriteAssetLabelPair(id, label) ||
+        !CWalletDB(strWalletFile).WriteLabelAssetPair(label, id))
         throw runtime_error(std::string(__func__) + ": writing asset pair failed");
     mapAssetLabels[id] = label;
-    mapAssetIDs[label] = id;
+    mapAssets[label] = id;
     return true;
 }
 
@@ -1480,10 +1480,10 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     {
         const CTxOut& txout = tx->vout[i];
         CAmount nValueOut = GetValueOut(i);
-        CAssetID assetID = GetAssetID(i);
+        CAsset asset = GetAsset(i);
 
         if (nValueOut >= 0) {
-            nValueUnaccounted[assetID] -= nValueOut;
+            nValueUnaccounted[asset] -= nValueOut;
         }
         isminetype fIsMine = nValueOut >= 0 ? pwallet->IsMine(txout) : ISMINE_NO;
         // Only need to handle txouts if AT LEAST one of these is true:
@@ -1520,7 +1520,7 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
             continue;
         }
 
-        COutputEntry output = {address, nValueOut, assetID, (int)i, GetBlindingPubKey(i), GetBlindingFactor(i), GetAssetBlindingFactor(i)};
+        COutputEntry output = {address, nValueOut, asset, (int)i, GetBlindingPubKey(i), GetBlindingFactor(i), GetAssetBlindingFactor(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > CAmountMap() && !txout.IsFee())
@@ -1535,12 +1535,12 @@ void CWalletTx::GetAmounts(list<COutputEntry>& listReceived,
     if (nValueUnaccounted != CAmountMap() && nDebit > CAmountMap()) {
         if (nValueUnaccounted > CAmountMap() && nUnaccountedOutputs == 1) {
             // There is exactly one sent output with unknown value. Reconstruct it.
-            CAssetID unaccountedID;
+            CAsset unaccountedAsset;
             for (const auto &entry : nValueUnaccounted) {
                 if (entry.second > 0)
-                    unaccountedID = entry.first;
+                    unaccountedAsset = entry.first;
             }
-            COutputEntry unaccounted = {addressUnaccounted, nValueUnaccounted[unaccountedID], unaccountedID, voutUnaccounted, CPubKey(), uint256(), uint256()};
+            COutputEntry unaccounted = {addressUnaccounted, nValueUnaccounted[unaccountedAsset], unaccountedAsset, voutUnaccounted, CPubKey(), uint256(), uint256()};
             listSent.push_back(unaccounted);
         } else {
             // It's not simple. Create synthetic unknown output entries for each asset.
@@ -1745,9 +1745,9 @@ CAmountMap CWalletTx::GetCredit(unsigned int nTxOut, const isminefilter& filter)
 {
     CAmountMap amount;
     if (pwallet->IsMine(tx->vout[nTxOut]) & filter)
-        amount[GetAssetID(nTxOut)] = GetValueOut(nTxOut);
+        amount[GetAsset(nTxOut)] = GetValueOut(nTxOut);
     // Can be -1 if someone sent us a transaction using a wrong scanning key:
-    if (amount[CAssetID()] == -1)
+    if (amount[CAsset()] == -1)
         return CAmountMap();
     if (!MoneyRange(amount))
         throw std::runtime_error("CWallet::GetCredit(): value out of range");
@@ -1876,7 +1876,7 @@ CAmountMap CWalletTx::GetChange(unsigned int nTxOut) const
 {
     CAmountMap amount;
     if (pwallet->IsChange(tx->vout[nTxOut]))
-        amount[GetAssetID(nTxOut)] = GetValueOut(nTxOut);
+        amount[GetAsset(nTxOut)] = GetValueOut(nTxOut);
     if (!MoneyRange(amount))
         throw std::runtime_error("CWallet::GetChange(): value out of range");
     return amount;
@@ -1940,7 +1940,7 @@ bool CWalletTx::IsEquivalentTo(const CWalletTx& _tx) const
         return CTransaction(tx1) == CTransaction(tx2);
 }
 
-void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn, const CAssetID& assetIn, uint256 assetBlindingFactorIn) const
+void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn, const CAsset& assetIn, uint256 assetBlindingFactorIn) const
 {
     assert(nOut < tx->vout.size());
     if (mapValue["blindingdata"].size() < (nOut + 1) * 138) {
@@ -1962,7 +1962,7 @@ void CWalletTx::SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pub
 
 }
 
-void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAssetID* pAssetOut, uint256* passetBlindingFactorOut) const
+void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAsset* pAssetOut, uint256* passetBlindingFactorOut) const
 {
     // Blinding data is cached in a serialized record mapWallet["blindingdata"].
     // It contains a concatenation byte vectors, 74 bytes per txout.
@@ -1985,7 +1985,7 @@ void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey*
     CAmount amount = -1;
     CPubKey pubkey;
     uint256 blindingfactor;
-    CAssetID asset;
+    CAsset asset;
     uint256 assetBlindingFactor;
 
     if (*it == 1) {
@@ -2033,8 +2033,8 @@ uint256 CWalletTx::GetAssetBlindingFactor(unsigned int nOut) const {
     return ret;
 }
 
-CAssetID CWalletTx::GetAssetID(unsigned int nOut) const {
-    CAssetID ret;
+CAsset CWalletTx::GetAsset(unsigned int nOut) const {
+    CAsset ret;
     GetBlindingData(nOut, NULL, NULL, NULL, &ret, NULL);
     return ret;
 }
@@ -2322,13 +2322,13 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
     mapValueRet = CAmountMap();
     assert(mapTargetValue >= CAmountMap());
     CAmountMap mapTotalLower;
-    std::map<CAssetID, std::vector<SelectCoin> > mapVValue;
+    std::map<CAsset, std::vector<SelectCoin> > mapVValue;
 
     // List of values less than target
-    std::map<CAssetID, SelectCoin> mapCoinLowestLarger;
+    std::map<CAsset, SelectCoin > mapCoinLowestLarger;
     // For all positive assets
-    std::set<CAssetID> setAssetsToMatch;
-    for(std::map<CAssetID, CAmount>::const_iterator it = mapTargetValue.begin(); it != mapTargetValue.end(); it++) {
+    std::set<CAsset> setAssetsToMatch;
+    for(std::map<CAsset, CAmount>::const_iterator it = mapTargetValue.begin(); it != mapTargetValue.end(); it++) {
         if (it->second <= 0)
             continue;
         setAssetsToMatch.insert(it->first);
@@ -2343,7 +2343,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
 
     // TODO Remove dust rule, remove need for this
     CAmountMap mapTargetValuePlusMinChange = mapTargetValue;
-    mapTargetValuePlusMinChange[GetAssetIDFromLabel("bitcoin")] += MIN_CHANGE;
+    mapTargetValuePlusMinChange[GetAssetFromLabel("bitcoin")] += MIN_CHANGE;
 
     BOOST_FOREACH(const COutput &output, vCoins)
     {
@@ -2360,7 +2360,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
 
         int i = output.i;
         CAmount n = pcoin->GetValueOut(i);
-        CAssetID asset = pcoin->GetAssetID(i);
+        CAsset asset = pcoin->GetAsset(i);
 
         if (mapTargetValue.count(asset) && mapTargetValue.at(asset) <= 0)
             continue;
@@ -2390,8 +2390,8 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
     }
 
     // Exact match using all coins lower than value
-    for (std::set<CAssetID>::iterator it = setAssetsToMatch.begin(); it != setAssetsToMatch.end(); ) {
-        CAssetID asset = *it;
+    for (std::set<CAsset>::iterator it = setAssetsToMatch.begin(); it != setAssetsToMatch.end(); ) {
+        CAsset asset = *it;
         if (mapTotalLower.at(asset) == mapTargetValue.at(asset))
         {
             for (unsigned int i = 0; i < mapVValue[asset].size(); ++i)
@@ -2406,8 +2406,8 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
     }
 
     // For any particular asset, if sum of small isn't enough, take smallest larger
-    for (std::set<CAssetID>::iterator it = setAssetsToMatch.begin(); it != setAssetsToMatch.end(); ) {
-        CAssetID asset = *it;
+    for (std::set<CAsset>::iterator it = setAssetsToMatch.begin(); it != setAssetsToMatch.end(); ) {
+        CAsset asset = *it;
         if (mapTotalLower.at(asset) < mapTargetValue.at(asset))
         {
             if (mapCoinLowestLarger.at(asset).second.first == NULL)
@@ -2421,8 +2421,8 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
     }
 
     // For the assets we haven't yet solved for, we throw each into the stochastic approx section
-    for (std::set<CAssetID>::iterator it = setAssetsToMatch.begin(); it != setAssetsToMatch.end(); ) {
-        CAssetID asset = *it;
+    for (std::set<CAsset>::iterator it = setAssetsToMatch.begin(); it != setAssetsToMatch.end(); ) {
+        CAsset asset = *it;
         std::vector<SelectCoin> vValue = mapVValue[asset];
         // Solve subset sum by stochastic approximation
         std::sort(vValue.begin(), vValue.end(), CompareValueOnly());
@@ -2474,7 +2474,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
         {
             if (!out.fSpendable)
                 continue;
-            mapValueRet[out.tx->GetAssetID(out.i)] += out.tx->GetValueOut(out.i);
+            mapValueRet[out.tx->GetAsset(out.i)] += out.tx->GetValueOut(out.i);
             setCoinsRet.insert(make_pair(out.tx, out.i));
         }
         return (mapValueRet >= mapTargetValue);
@@ -2496,7 +2496,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
-            mapValueFromPresetInputs[pcoin->GetAssetID(outpoint.n)] += pcoin->GetValueOut(outpoint.n);
+            mapValueFromPresetInputs[pcoin->GetAsset(outpoint.n)] += pcoin->GetValueOut(outpoint.n);
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -2539,29 +2539,29 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     vector<CRecipient> vecSend;
     std::vector<CReserveKey> vChangeKey;
     std::vector<CReserveKey*> vpChangeKey;
-    std::set<CAssetID> setAssetIDs;
+    std::set<CAsset> setAssets;
 
     // Turn the txout set into a CRecipient vector
     for (size_t idx = 0; idx < tx.vout.size(); idx++)
     {
         const CTxOut& txOut = tx.vout[idx];
-        if (!txOut.nValue.IsAmount() || !txOut.nAsset.IsAssetID()) {
+        if (!txOut.nValue.IsAmount() || !txOut.nAsset.IsAsset()) {
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
-        CAssetID assetID;
-        txOut.nAsset.GetAssetID(assetID);
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), assetID, CPubKey(txOut.nValue.vchNonceCommitment), false};
+        CAsset asset;
+        txOut.nAsset.GetAsset(asset);
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), asset, CPubKey(txOut.nValue.vchNonceCommitment), false};
         vecSend.push_back(recipient);
 
-        if (setAssetIDs.count(assetID) == 0) {
+        if (setAssets.count(asset) == 0) {
             vChangeKey.push_back(CReserveKey(this));
             vpChangeKey.push_back(&vChangeKey[vChangeKey.size()-1]);
-            setAssetIDs.insert(assetID);
+            setAssets.insert(asset);
         }
     }
     // Always add bitcoin, as fees via bitcoin may create change
-    if (setAssetIDs.count(GetAssetIDFromLabel("bitcoin")) == 0) {
+    if (setAssets.count(GetAssetFromLabel("bitcoin")) == 0) {
         vChangeKey.push_back(CReserveKey(this));
         vpChangeKey.push_back(&vChangeKey[vChangeKey.size()-1]);
     }
@@ -2615,12 +2615,12 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                                 int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts)
 {
     CAmountMap mapValue;
-    CAssetID BITCOINID = GetAssetIDFromLabel("bitcoin");
+    CAsset BITCOINID = GetAssetFromLabel("bitcoin");
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
-        if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset == CAssetID())
+        if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset == CAsset())
         {
             strFailReason = _("Transaction amounts must not be negative");
             return false;
@@ -2761,7 +2761,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 const CAmountMap mapChange = mapValueIn - mapValueToSelect;
                 assert(!hasNegativeValue(mapChange));
                 unsigned int changeCounter = 0;
-                for(std::map<CAssetID, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
+                for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
                     if (it->second > 0)
                     {
                         // Fill a vout to ourself
@@ -2876,18 +2876,18 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 // Create blinded outputs
                 std::vector<uint256> input_blinds;
                 std::vector<uint256> input_asset_blinds;
-                std::vector<CAssetID> input_asset_ids;
+                std::vector<CAsset> input_assets;
                 std::vector<uint256> output_blinds;
                 std::vector<CAmount> input_amounts;
                 std::vector<uint256> output_asset_blinds;
-                std::vector<CAssetID> output_asset_ids;
+                std::vector<CAsset> output_assets;
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins) {
                     uint256 blind = coin.first->GetBlindingFactor(coin.second);
                     input_blinds.push_back(blind);
                     uint256 asset_blind = coin.first->GetAssetBlindingFactor(coin.second);
                     input_asset_blinds.push_back(asset_blind);
-                    CAssetID asset_id = coin.first->GetAssetID(coin.second);
-                    input_asset_ids.push_back(asset_id);
+                    CAsset asset = coin.first->GetAsset(coin.second);
+                    input_assets.push_back(asset);
                     CAmount amount = coin.first->GetValueOut(coin.second);
                     input_amounts.push_back(amount);
                 }
@@ -2899,26 +2899,26 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (outAmounts)
                         outAmounts->push_back(txNew.vout[nOut].nValue.GetAmount());
                     vAmounts.push_back(txNew.vout[nOut].nValue.GetAmount());
-                    CAssetID asset;
-                    txNew.vout[nOut].nAsset.GetAssetID(asset);
-                    output_asset_ids.push_back(asset);
+                    CAsset asset;
+                    txNew.vout[nOut].nAsset.GetAsset(asset);
+                    output_assets.push_back(asset);
                 }
 
-                if (BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, txNew) != numBlindingKeys) {
+                if (BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, txNew) != numBlindingKeys) {
                     // We need a dummy output to put a non-zero blinding factor.
                     // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
                     // instead, as this does not actually provide better privacy.
 
                     // We need to make sure to dupe an asset that is in input set
-                    CTxOut newTxOut(output_asset_ids.back(), 0, CScript() << OP_RETURN);
+                    CTxOut newTxOut(output_assets.back(), 0, CScript() << OP_RETURN);
                     txNew.vout.push_back(newTxOut);
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
                     output_asset_blinds.push_back(uint256());
-                    output_asset_ids.push_back(output_asset_ids.back());
+                    output_assets.push_back(output_assets.back());
                     vAmounts.push_back(0);
                     // Now it has to succeed
-                    bool ret = BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txNew);
+                    bool ret = BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txNew);
                     assert(ret);
                 }
 
@@ -2943,13 +2943,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 assert(vAmounts.size() == output_pubkeys.size());
                 assert(output_pubkeys.size() == output_blinds.size());
                 assert(output_blinds.size() == output_asset_blinds.size());
-                assert(output_asset_blinds.size() == output_asset_ids.size());
+                assert(output_asset_blinds.size() == output_assets.size());
 
                 for (unsigned int i = 0; i< vAmounts.size(); i++) {
                     assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
                     assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
-                    assert(output_asset_ids[i] != CAssetID());
-                    wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_asset_ids[i], output_asset_blinds[i]);
+                    assert(output_assets[i] != CAsset());
+                    wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
                 }
 
                 // Remove scriptSigs to eliminate the fee calculation dummy signatures
@@ -4317,29 +4317,29 @@ bool CMerkleTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& 
     return ::AcceptToMemoryPool(mempool, state, tx, true, NULL, NULL, false, nAbsurdFee);
 }
 
-std::string CWallet::GetAssetLabelFromID(const CAssetID& id) const
+std::string CWallet::GetLabelFromAsset(const CAsset& id) const
 {
     LOCK(cs_wallet);
-    std::map<CAssetID, std::string>::const_iterator it = mapAssetLabels.find(id);
+    std::map<CAsset, std::string>::const_iterator it = mapAssetLabels.find(id);
     if (it != mapAssetLabels.end())
         return it->second;
     return "";
 }
 
-CAssetID CWallet::GetAssetIDFromLabel(const std::string& label) const
+CAsset CWallet::GetAssetFromLabel(const std::string& label) const
 {
     LOCK(cs_wallet);
-    std::map<std::string, CAssetID>::const_iterator it = mapAssetIDs.find(label);
-    if (it != mapAssetIDs.end())
+    std::map<std::string, CAsset>::const_iterator it = mapAssets.find(label);
+    if (it != mapAssets.end())
         return it->second;
-    return CAssetID();
+    return CAsset();
 }
 
-CAssetID CWallet::GetAssetIDFromString(const std::string& asset) const
+CAsset CWallet::GetAssetFromString(const std::string& asset) const
 {
     // TODO: may be worth LOCK(cs_wallet) here and do GetAsset* inline instead
-    CAssetID id(uint256S(asset));
-    return GetAssetLabelFromID(id) == "" ? GetAssetIDFromLabel(asset) : id;
+    CAsset id(uint256S(asset));
+    return GetLabelFromAsset(id) == "" ? GetAssetFromLabel(asset) : id;
 }
 
 CKey CWallet::GetBlindingKey(const CScript* script) const
@@ -4396,25 +4396,25 @@ bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& k
     return CWalletDB(strWalletFile).WriteSpecificBlindingKey(scriptid, key);
 }
 
-bool CWallet::LoadAssetLabelIDMapping(const std::string& label, const CAssetID& id)
+bool CWallet::LoadLabelAssetMapping(const std::string& label, const CAsset& id)
 {
     AssertLockHeld(cs_wallet);
-    mapAssetIDs[label] = id;
+    mapAssets[label] = id;
     return true;
 }
 
-bool CWallet::LoadAssetIDLabelMapping(const CAssetID& id, const std::string& label)
+bool CWallet::LoadAssetLabelMapping(const CAsset& id, const std::string& label)
 {
     AssertLockHeld(cs_wallet);
     mapAssetLabels[id] = label;
     return true;
 }
 
-void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAssetID& assetID, uint256& assetBlindingFactor) const
+void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
 {
-    if (output.nValue.IsAmount() && output.nAsset.IsAssetID()) {
+    if (output.nValue.IsAmount() && output.nAsset.IsAsset()) {
         amount = output.nValue.GetAmount();
-        output.nAsset.GetAssetID(assetID);
+        output.nAsset.GetAsset(asset);
         pubkey = CPubKey();
         blindingfactor.SetNull();
         assetBlindingFactor.SetNull();
@@ -4425,7 +4425,7 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
     if ((blinding_key = GetBlindingKey(&output.scriptPubKey)).IsValid()) {
         // For outputs using derived blinding.
         if (UnblindOutput(blinding_key, output, amount, blindingfactor,
-                assetID, assetBlindingFactor)) {
+                asset, assetBlindingFactor)) {
             pubkey = blinding_key.GetPubKey();
             return;
         }
@@ -4434,7 +4434,7 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
     amount = -1;
     pubkey = CPubKey();
     blindingfactor.SetNull();
-    assetID.SetNull();
+    asset.SetNull();
     assetBlindingFactor.SetNull();
 }
 

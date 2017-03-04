@@ -141,7 +141,7 @@ struct CRecipient
 {
     CScript scriptPubKey;
     CAmount nAmount;
-    CAssetID asset;
+    CAsset asset;
     CPubKey confidentiality_key;
     bool fSubtractFeeFromAmount;
 };
@@ -171,7 +171,7 @@ struct COutputEntry
 {
     CTxDestination destination;
     CAmount amount;
-    CAssetID asset;
+    CAsset asset;
     int vout;
     CPubKey confidentiality_pubkey;
     uint256 amountBlindingFactor;
@@ -447,10 +447,10 @@ public:
     std::set<uint256> GetConflicts() const;
 
     // For use in wallet transaction creation to remember 3rd party values
-    void SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn, const CAssetID& assetIn, uint256 assetBlindingFactorIn) const;
+    void SetBlindingData(unsigned int nOut, CAmount amountIn, CPubKey pubkeyIn, uint256 blindingfactorIn, const CAsset& assetIn, uint256 assetBlindingFactorIn) const;
 
 private:
-    void GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAssetID* pAssetOut, uint256* passetBlindingFactorOut) const;
+    void GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAsset* pAssetOut, uint256* passetBlindingFactorOut) const;
     void WipeUnknownBlindingData() const;
 
 public:
@@ -460,7 +460,7 @@ public:
     //! Returns either the blinding factor (if it is to us) or 0
     uint256 GetBlindingFactor(unsigned int nOut) const;
     uint256 GetAssetBlindingFactor(unsigned int nOut) const;
-    CAssetID GetAssetID(unsigned int nOut) const;
+    CAsset GetAsset(unsigned int nOut) const;
     CPubKey GetBlindingPubKey(unsigned int nOut) const;
 };
 
@@ -692,8 +692,8 @@ public:
     MasterKeyMap mapMasterKeys;
     unsigned int nMasterKeyMaxID;
     std::map<CScriptID, uint256> mapSpecificBlindingKeys;
-    std::map<CAssetID, std::string> mapAssetLabels;
-    std::map<std::string, CAssetID> mapAssetIDs;
+    std::map<CAsset, std::string> mapAssetLabels;
+    std::map<std::string, CAsset> mapAssets;
 
 
     CWallet()
@@ -920,9 +920,9 @@ public:
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     void SetBestChain(const CBlockLocator& loc) override;
 
-    bool SetAssetPair(const std::string& label, const CAssetID& id);
-    bool LoadAssetLabelIDMapping(const std::string& label, const CAssetID& id);
-    bool LoadAssetIDLabelMapping(const CAssetID&, const std::string&);
+    bool SetAssetPair(const std::string& label, const CAsset& id);
+    bool LoadLabelAssetMapping(const std::string& label, const CAsset& id);
+    bool LoadAssetLabelMapping(const CAsset&, const std::string&);
 
     DBErrors LoadWallet(bool& fFirstRunRet);
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);
@@ -1011,21 +1011,21 @@ public:
     bool AbandonTransaction(const uint256& hashTx);
 
     /* Returns the label of associated asset id */
-    std::string GetAssetLabelFromID(const CAssetID& id) const;
+    std::string GetLabelFromAsset(const CAsset& id) const;
     /* Returns asset id corresponding to asset label */
-    CAssetID GetAssetIDFromLabel(const std::string& label) const;
+    CAsset GetAssetFromLabel(const std::string& label) const;
     /**
      * Returns asset id corresponding to the given asset expression, which is either an asset label or a hex value.
      * @param  asset A label string or a hex value corresponding to an asset
      * @return       The asset ID for the given expression
      */
-    CAssetID GetAssetIDFromString(const std::string& asset) const;
+    CAsset GetAssetFromString(const std::string& asset) const;
 
     //! script == NULL gives the backward compatible blinding key
     CKey GetBlindingKey(const CScript* script) const;
     CPubKey GetBlindingPubKey(const CScript& script) const;
 
-    void ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAssetID& asset, uint256& assetBlindingFactor) const;
+    void ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const;
 
     /** Mark a transaction as replaced by another transaction (e.g., BIP 125). */
     bool MarkReplaced(const uint256& originalHash, const uint256& newHash);

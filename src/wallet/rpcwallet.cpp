@@ -71,30 +71,30 @@ void EnsureWalletIsUnlocked()
 UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& strasset)
 {
     UniValue obj(UniValue::VOBJ);
-    CAssetID id = wallet->GetAssetIDFromLabel(strasset);
-    std::string label = wallet->GetAssetLabelFromID(CAssetID(uint256S(strasset)));
-    if (strasset != "*" && (id == CAssetID() && label == "")) {
+    CAsset id = wallet->GetAssetFromLabel(strasset);
+    std::string label = wallet->GetLabelFromAsset(CAsset(uint256S(strasset)));
+    if (strasset != "*" && (id == CAsset() && label == "")) {
        throw JSONRPCError(RPC_WALLET_ERROR, "Input does not match a known asset tag/label pair.");
     }
-    else if (id != CAssetID()) {
+    else if (id != CAsset()) {
         strasset = id.GetHex();
     }
 
     if (strasset == "*") {
-        for(std::map<CAssetID, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
+        for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
             // Unknown assets
-            if (it->first == CAssetID())
+            if (it->first == CAsset())
                 continue;
             UniValue pair(UniValue::VOBJ);
             if (wallet->mapAssetLabels.count(it->first)) {
-                obj.push_back((Pair(wallet->GetAssetLabelFromID(it->first), ValueFromAmount(it->second))));
+                obj.push_back((Pair(wallet->GetLabelFromAsset(it->first), ValueFromAmount(it->second))));
             }
             else
                 obj.push_back(Pair(it->first.GetHex(), ValueFromAmount(it->second)));
         }
     }
     else {
-        return ValueFromAmount(balance[CAssetID(uint256S(strasset))]);
+        return ValueFromAmount(balance[CAsset(uint256S(strasset))]);
     }
     return obj;
 }
@@ -386,9 +386,9 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAssetID assetID, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
 {
-    CAmount curBalance = pwalletMain->GetBalance()[assetID];
+    CAmount curBalance = pwalletMain->GetBalance()[asset];
 
     // Check amount
     if (nValue <= 0)
@@ -406,7 +406,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAssetID asse
     vChangeKey.reserve(2);
     vChangeKey.emplace_back(pwalletMain);
     vpChangeKey.push_back(&vChangeKey[0]);
-    if (pwalletMain->GetAssetIDFromLabel("bitcoin") != assetID) {
+    if (pwalletMain->GetAssetFromLabel("bitcoin") != asset) {
         vChangeKey.emplace_back(pwalletMain);
         vpChangeKey.push_back(&vChangeKey[1]);
     }
@@ -415,7 +415,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAssetID asse
     std::string strError;
     vector<CRecipient> vecSend;
     int nChangePosRet = -1;
-    CRecipient recipient = {scriptPubKey, nValue, assetID, confidentiality_key, fSubtractFeeFromAmount};
+    CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
     if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
@@ -429,9 +429,9 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAssetID asse
     }
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAssetID assetID, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
 {
-    SendMoney(GetScriptForDestination(address), nValue, assetID, fSubtractFeeFromAmount, confidentiality_key, wtxNew);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew);
 }
 
 UniValue sendtoaddress(const JSONRPCRequest& request)
@@ -497,10 +497,10 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
         asset = request.params[5].get_str();
     }
 
-    CAssetID id(uint256S(asset));
-    if (pwalletMain->GetAssetLabelFromID(CAssetID(uint256S(asset))) == "")
-        id = pwalletMain->GetAssetIDFromLabel(asset);
-    if (id == CAssetID())
+    CAsset id(uint256S(asset));
+    if (pwalletMain->GetLabelFromAsset(CAsset(uint256S(asset))) == "")
+        id = pwalletMain->GetAssetFromLabel(asset);
+    if (id == CAsset())
         throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
 
     EnsureWalletIsUnlocked();
@@ -679,7 +679,7 @@ UniValue getreceivedbyaddress(const JSONRPCRequest& request)
             if (wtx.tx->vout[i].scriptPubKey == scriptPubKey)
                 if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetValueOut(i) >= 0) {
                     CAmountMap wtxValue;
-                    wtxValue[wtx.GetAssetID(i)] = wtx.GetValueOut(i);
+                    wtxValue[wtx.GetAsset(i)] = wtx.GetValueOut(i);
                     mapAmount += wtxValue;
                 }
     }
@@ -792,7 +792,7 @@ UniValue getbalance(const JSONRPCRequest& request)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     if (request.params.size() == 0)
-        return  ValueFromAmount(pwalletMain->GetBalance()[pwalletMain->mapAssetIDs["bitcoin"]]);
+        return  ValueFromAmount(pwalletMain->GetBalance()[pwalletMain->mapAssets["bitcoin"]]);
 
     int nMinDepth = 1;
     if (request.params.size() > 1)
@@ -873,7 +873,7 @@ UniValue getunconfirmedbalance(const JSONRPCRequest &request)
         return PushAssetBalance(balance, pwalletMain, strasset);
     }
 
-    return ValueFromAmount(balance[pwalletMain->mapAssetIDs["bitcoin"]]);
+    return ValueFromAmount(balance[pwalletMain->mapAssets["bitcoin"]]);
 }
 
 
@@ -950,7 +950,7 @@ UniValue sendmany(const JSONRPCRequest& request)
             "      \"address\"          (string) Subtract fee from this address\n"
             "      ,...\n"
             "    ]\n"
-            "6. \"output_assetids\"     (string, optional, default=bitcoin) a json object of assetids to addresses\n"
+            "6. \"output_assets\"     (string, optional, default=bitcoin) a json object of assets to addresses\n"
             "   {\n"
             "       \"address\": \"hex\" \n"
             "       ...\n"
@@ -989,11 +989,11 @@ UniValue sendmany(const JSONRPCRequest& request)
     if (request.params.size() > 4)
         subtractFeeFromAmount = request.params[4].get_array();
 
-    UniValue assetids;
+    UniValue assets;
     if (request.params.size() > 5 && !request.params[5].isNull()) {
         if (strAccount != "")
            throw JSONRPCError(RPC_TYPE_ERROR, "Accounts can not be used with assets.");
-        assetids = request.params[5].get_obj();
+        assets = request.params[5].get_obj();
     }
 
     set<CBitcoinAddress> setAddress;
@@ -1009,14 +1009,14 @@ UniValue sendmany(const JSONRPCRequest& request)
         CBitcoinAddress address(name_);
 
         std::string strasset = "bitcoin";
-        if (!assetids.isNull() && assetids[name_].isStr()) {
-            strasset = assetids[name_].get_str();
+        if (!assets.isNull() && assets[name_].isStr()) {
+            strasset = assets[name_].get_str();
         }
 
-        CAssetID asset(uint256S(strasset));
-        if (pwalletMain->GetAssetLabelFromID(CAssetID(uint256S(strasset))) == "")
-            asset = pwalletMain->GetAssetIDFromLabel(strasset);
-        if (asset == CAssetID())
+        CAsset asset(uint256S(strasset));
+        if (pwalletMain->GetLabelFromAsset(CAsset(uint256S(strasset))) == "")
+            asset = pwalletMain->GetAssetFromLabel(strasset);
+        if (asset == CAsset())
             throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
 
         if (!address.IsValid())
@@ -1060,14 +1060,14 @@ UniValue sendmany(const JSONRPCRequest& request)
     // Send
     std::vector<CReserveKey> vChangeKey;
     std::vector<CReserveKey*> vpChangeKey;
-    std::set<CAssetID> setAssetIDs;
-    setAssetIDs.insert(pwalletMain->GetAssetIDFromLabel("bitcoin"));
+    std::set<CAsset> setAssets;
+    setAssets.insert(pwalletMain->GetAssetFromLabel("bitcoin"));
     for (auto recipient : vecSend) {
-        setAssetIDs.insert(recipient.asset);
+        setAssets.insert(recipient.asset);
     }
     // Need to reserve or possibly segfault? TODO Diagnose
-    vChangeKey.reserve(setAssetIDs.size());
-    for (unsigned int i = 0; i < setAssetIDs.size(); i++) {
+    vChangeKey.reserve(setAssets.size());
+    for (unsigned int i = 0; i < setAssets.size(); i++) {
         vChangeKey.emplace_back(pwalletMain);
         vpChangeKey.push_back(&vChangeKey[i]);
     }
@@ -1276,10 +1276,10 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             throw JSONRPCError(RPC_WALLET_ERROR, "Accounts are completely disabled for assets.");
         asset = params[3].get_str();
     }
-    CAssetID id(uint256S(asset));
-    if (asset != "*" && pwalletMain->GetAssetLabelFromID(CAssetID(uint256S(asset))) == "")
-        id = pwalletMain->GetAssetIDFromLabel(asset);
-    if (asset != "*" && id == CAssetID())
+    CAsset id(uint256S(asset));
+    if (asset != "*" && pwalletMain->GetLabelFromAsset(CAsset(uint256S(asset))) == "")
+        id = pwalletMain->GetAssetFromLabel(asset);
+    if (asset != "*" && id == CAsset())
         throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
 
     // Tally
@@ -1308,7 +1308,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             if (wtx.GetValueOut(i) < 0)
                 continue;
 
-            if (wtx.GetAssetID(i) != id && asset != "*")
+            if (wtx.GetAsset(i) != id && asset != "*")
                 continue;
 
             CBitcoinAddress bitcoinaddress(address);
@@ -1510,7 +1510,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
             entry.push_back(Pair("category", "send"));
             entry.push_back(Pair("amount", ValueFromAmount(-s.amount)));
             entry.push_back(Pair("amountblinder", s.amountBlindingFactor.GetHex()));
-            entry.push_back(Pair("assetid", s.asset.GetHex()));
+            entry.push_back(Pair("asset", s.asset.GetHex()));
             entry.push_back(Pair("assetblinder", s.assetBlindingFactor.GetHex()));
             if (pwalletMain->mapAddressBook.count(s.destination))
                 entry.push_back(Pair("label", pwalletMain->mapAddressBook[s.destination].name));
@@ -1553,7 +1553,7 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                 }
                 entry.push_back(Pair("amount", ValueFromAmount(r.amount)));
                 entry.push_back(Pair("amountblinder", r.amountBlindingFactor.GetHex()));
-                entry.push_back(Pair("assetid", r.asset.GetHex()));
+                entry.push_back(Pair("asset", r.asset.GetHex()));
                 entry.push_back(Pair("assetblinder", r.assetBlindingFactor.GetHex()));
                 if (pwalletMain->mapAddressBook.count(r.destination))
                     entry.push_back(Pair("label", account));
@@ -1610,7 +1610,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
             "                                                associated with an address, transaction id and block details\n"
             "    \"amount\": x.xxx,          (numeric) The amount in " + CURRENCY_UNIT + ". This is negative for the 'send' category, and for the\n"
             "                                         'move' category for moves outbound. It is positive for the 'receive' category,\n"
-            "    \"assetid\"                 (string) The asset id of the amount being moved.)\n"
+            "    \"asset\"                 (string) The asset id of the amount being moved.)\n"
             "                                         and for the 'move' category for inbound funds.\n"
             "    \"label\": \"label\",       (string) A comment for the address/transaction, if any\n"
             "    \"vout\": n,                (numeric) the vout value\n"
@@ -1932,7 +1932,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
             "      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n"
             "      \"amount\" : x.xxx,                 (numeric) The amount in the asset below\n"
             "      \"amountblinder\": \"hex\"            (string) The blinding factor of the amount.\n"
-            "      \"assetid\": \"asset\"                (string) The asset id.\n"
+            "      \"asset\": \"asset\"                (string) The asset id.\n"
             "      \"assetblinder\": \"hex\"             (string) The blinding factor of the asset.\n"
             "      \"label\" : \"label\",              (string) A comment for the address/transaction, if any\n"
             "      \"vout\" : n,                       (numeric) the vout value\n"
@@ -1977,7 +1977,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
     assert(wtx.tx->HasValidFee());
     CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee()[BITCOINID] : 0);
     CAmountMap nNet = nCredit - nDebit;
-    nNet[pwalletMain->GetAssetIDFromLabel("bitcoin")] -= nFee;
+    nNet[pwalletMain->GetAssetFromLabel("bitcoin")] -= nFee;
 
     entry.push_back(Pair("amount", PushAssetBalance(nNet, pwalletMain, strasset)));
     if (wtx.IsFromMe(filter))
@@ -2592,7 +2592,7 @@ UniValue listunspent(const JSONRPCRequest& request)
             "    \"account\": \"account\",  (string) DEPRECATED. The associated account, or \"\" for the default account\n"
             "    \"scriptPubKey\": \"key\", (string) the script key\n"
             "    \"amount\" : x.xxx,         (numeric) the transaction output amount in " + CURRENCY_UNIT + "\n"
-            "    \"assetid\": \"hex\"       (string) the asset id for this output\n"
+            "    \"asset\": \"hex\"       (string) the asset id for this output\n"
             "    \"confirmations\": n,    (numeric) The number of confirmations\n"
             "    \"serValue\": \"hex\",     (string) the output's value commitment\n"
             "    \"blinder\": \"blind\"     (string) The blinding factor used for a confidential output (or \"\")\n"
@@ -2606,7 +2606,7 @@ UniValue listunspent(const JSONRPCRequest& request)
             "\nExamples:\n"
             + HelpExampleCli("listunspent", "")
             + HelpExampleCli("listunspent", "6 9999999 \"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
-            + HelpExampleCli("listunspent", "6 9999999 \"[]\" \"myassetid\"")
+            + HelpExampleCli("listunspent", "6 9999999 \"[]\" \"myasset\"")
             + HelpExampleCli("listunspent", "6 9999999 \"[]\" \"*\"")
             + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
         );
@@ -2644,14 +2644,14 @@ UniValue listunspent(const JSONRPCRequest& request)
         include_unsafe = request.params[3].get_bool();
     }
 
-    std::string asset = "bitcoin";
+    std::string assetstr = "bitcoin";
     if (request.params.size() > 4 && request.params[4].isStr()) {
-        asset = request.params[3].get_str();
+        assetstr = request.params[4].get_str();
     }
-    CAssetID id;
-    if (asset != "*") {
-        id = pwalletMain->GetAssetIDFromString(asset);
-        if (id == CAssetID())
+    CAsset asset;
+    if (assetstr != "*") {
+        asset = pwalletMain->GetAssetFromString(assetstr);
+        if (asset == CAsset())
             throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
     }
 
@@ -2672,11 +2672,11 @@ UniValue listunspent(const JSONRPCRequest& request)
             continue;
 
         CAmount nValue = out.tx->GetValueOut(out.i);
-        CAssetID assetid = out.tx->GetAssetID(out.i);
-        if (nValue == -1 || assetid == CAssetID())
+        CAsset assetid = out.tx->GetAsset(out.i);
+        if (nValue == -1 || assetid == CAsset())
             continue;
 
-        if (asset != "*" && id != assetid) {
+        if (assetstr != "*" && asset != assetid) {
             continue;
         }
 
@@ -2700,7 +2700,7 @@ UniValue listunspent(const JSONRPCRequest& request)
 
         entry.push_back(Pair("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
         entry.push_back(Pair("amount", ValueFromAmount(nValue)));
-        entry.push_back(Pair("assetid", assetid.GetHex()));
+        entry.push_back(Pair("asset", assetid.GetHex()));
         entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         entry.push_back(Pair("solvable", out.fSolvable));
@@ -3635,7 +3635,7 @@ UniValue addassetlabel(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Please pick a label between 3 and 32 characters.");
     }
 
-    pwalletMain->SetAssetPair(label, CAssetID(uint256S(id)));
+    pwalletMain->SetAssetPair(label, CAsset(uint256S(id)));
 
     return NullUniValue;
 }
@@ -3653,7 +3653,7 @@ UniValue dumpassetlabels(const JSONRPCRequest& request)
             + HelpExampleRpc("generateasset", "\"my asset\" 10" )
         );
     UniValue obj(UniValue::VOBJ);
-    for (std::map<std::string, CAssetID>::const_iterator it = pwalletMain->mapAssetIDs.begin(); it != pwalletMain->mapAssetIDs.end(); it++) {
+    for (std::map<std::string, CAsset>::const_iterator it = pwalletMain->mapAssets.begin(); it != pwalletMain->mapAssets.end(); it++) {
         obj.push_back(Pair(it->first, it->second.GetHex()));
     }
     return obj;

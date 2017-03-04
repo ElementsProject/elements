@@ -271,8 +271,8 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
 
     // extract and validate ASSET
     std::string strAsset = vStrOutAddrParts[2];
-    CAssetID asset(uint256S(strAsset));
-    if (asset == CAssetID())
+    CAsset asset(uint256S(strAsset));
+    if (asset == CAsset())
         throw std::runtime_error("invalid TX output asset type");
 
     // build standard output script via GetScriptForDestination()
@@ -441,7 +441,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const std::string& strInput)
     std::vector<CPubKey> output_pubkeys;
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_asset_blinds;
-    std::vector<CAssetID> input_asset_ids;
+    std::vector<CAsset> input_assets;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
         std::vector<std::string> entry;
         boost::split(entry, input_blinding[nIn], boost::is_any_of(","));
@@ -452,9 +452,9 @@ static void MutateTxBlind(CMutableTransaction& tx, const std::string& strInput)
         uint256 assetblind;
         assetblind.SetHex(entry[2]);
         input_asset_blinds.push_back(assetblind);
-        CAssetID id;
+        CAsset id;
         id.SetHex(entry[3]);
-        input_asset_ids.push_back(id);
+        input_assets.push_back(id);
         CAmount value;
         if (!ParseMoney(entry[0].data(), value))
             throw std::runtime_error("invalid TX input value");
@@ -487,7 +487,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const std::string& strInput)
     if (fBlindedIns && !fBlindedOuts) {
         throw std::runtime_error("Confidential inputs without confidential outputs");
     }
-    BlindOutputs(input_blinds, input_asset_blinds, input_asset_ids, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx);
+    BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& strInput)
@@ -510,7 +510,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& str
 
     // extract and validate asset
     std::string strAsset = vStrOutScriptParts[2];
-    CAssetID asset(uint256S(strAsset));
+    CAsset asset(uint256S(strAsset));
 
     // construct TxOut, append to transaction output list
     CTxOut txout(asset, value, scriptPubKey);
