@@ -81,19 +81,19 @@ class ReceivedByTest(BitcoinTestFramework):
         self.sync_all()
 
         #Check balance is 0 because of 0 confirmations
-        balance = self.nodes[1].getreceivedbyaddress(unblinded)
+        balance = self.nodes[1].getreceivedbyaddress(unblinded, 1, "bitcoin")
         if balance != Decimal("0.0"):
             raise AssertionError("Wrong balance returned by getreceivedbyaddress, %0.2f"%(balance))
 
         #Check balance is 0.1
-        balance = self.nodes[1].getreceivedbyaddress(unblinded,0)
+        balance = self.nodes[1].getreceivedbyaddress(unblinded,0, "bitcoin")
         if balance != Decimal("0.1"):
             raise AssertionError("Wrong balance returned by getreceivedbyaddress, %0.2f"%(balance))
 
         #Bury Tx under 10 block so it will be returned by the default getreceivedbyaddress
         self.nodes[1].generate(10)
         self.sync_all()
-        balance = self.nodes[1].getreceivedbyaddress(unblinded)
+        balance = self.nodes[1].getreceivedbyaddress(unblinded, 1, "bitcoin")
         if balance != Decimal("0.1"):
             raise AssertionError("Wrong balance returned by getreceivedbyaddress, %0.2f"%(balance))
 

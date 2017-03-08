@@ -67,21 +67,21 @@ void EnsureWalletIsUnlocked()
 }
 
 // Attaches labeled balance reports to UniValue obj with asset filter
-// "*" displays *all* assets as VOBJ pairs, while named assets must have
+// "" displays *all* assets as VOBJ pairs, while named assets must have
 // been entered via addassetlabel RPC command and are returns as VNUM.
-UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& strasset)
+UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string strasset)
 {
     UniValue obj(UniValue::VOBJ);
     CAsset id = wallet->GetAssetFromLabel(strasset);
     std::string label = wallet->GetLabelFromAsset(CAsset(uint256S(strasset)));
-    if (strasset != "*" && (id.IsNull() && label == "")) {
+    if (strasset != "" && (id.IsNull() && label == "")) {
        throw JSONRPCError(RPC_WALLET_ERROR, "Input does not match a known asset tag/label pair.");
     }
     else if (!id.IsNull()) {
         strasset = id.GetHex();
     }
 
-    if (strasset == "*") {
+    if (strasset == "") {
         for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
             // Unknown assets
             if (it->first.IsNull())
@@ -638,7 +638,7 @@ UniValue getreceivedbyaddress(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"address\"         (string, required) The bitcoin address for transactions.\n"
             "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
-            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances.\n"
+            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
             "\nExamples:\n"
@@ -685,7 +685,7 @@ UniValue getreceivedbyaddress(const JSONRPCRequest& request)
                 }
     }
 
-    std::string asset = "bitcoin";
+    std::string asset = "";
     if (request.params.size() > 2 && request.params[2].isStr()) {
         asset = request.params[2].get_str();
     }
@@ -792,8 +792,10 @@ UniValue getbalance(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    CAmountMap balance = pwalletMain->GetBalance();
+
     if (request.params.size() == 0)
-        return ValueFromAmount(pwalletMain->GetBalance()[pwalletMain->GetAssetFromLabel("bitcoin")]);
+        return PushAssetBalance(balance, pwalletMain, "");
 
     int nMinDepth = 1;
     if (request.params.size() > 1)
@@ -808,7 +810,6 @@ UniValue getbalance(const JSONRPCRequest& request)
     if (request.params.size() > 3) {
         if (request.params[3].isStr()) {
             std::string assettype = request.params[3].get_str();
-            CAmountMap balance = pwalletMain->GetBalance();
             UniValue obj(UniValue::VOBJ);
             return PushAssetBalance(balance, pwalletMain, assettype);
         }
@@ -821,7 +822,7 @@ UniValue getbalance(const JSONRPCRequest& request)
         // unspent TxOuts paying to the wallet, and then subtracts the values of
         // TxIns spending from the wallet. This also has fewer restrictions on
         // which unconfirmed transactions are considered trusted.
-        CAmount nBalance = 0;
+        CAmountMap mapBalance;
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
         {
             const CWalletTx& wtx = (*it).second;
@@ -836,13 +837,13 @@ UniValue getbalance(const JSONRPCRequest& request)
             if (wtx.GetDepthInMainChain() >= nMinDepth)
             {
                 BOOST_FOREACH(const COutputEntry& r, listReceived)
-                    nBalance += r.amount;
+                    mapBalance[r.asset] += r.amount;
             }
             BOOST_FOREACH(const COutputEntry& s, listSent)
-                nBalance -= s.amount;
-            nBalance -= allFee;
+                mapBalance[s.asset] -= s.amount;
+            mapBalance[BITCOINID] -= allFee;
         }
-        return  ValueFromAmount(nBalance);
+        return PushAssetBalance(mapBalance, pwalletMain, "");
     }
 
     string strAccount = AccountFromValue(request.params[0]);
@@ -859,22 +860,21 @@ UniValue getunconfirmedbalance(const JSONRPCRequest &request)
 
     if (request.fHelp || request.params.size() > 1)
         throw runtime_error(
-            "getunconfirmedbalance\n"
+            "getunconfirmedbalance ( asset )\n"
             "\nArguments:\n"
-            "1. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances.\n"
+            "1. \"asset\"               (string, optional) Hex asset id or asset label for balance.\n"
             "Returns the server's total unconfirmed balance\n");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     CAmountMap balance = pwalletMain->GetUnconfirmedBalance();
 
+    std::string strasset = "";
     if (request.params.size() > 0) {
-        UniValue obj(UniValue::VOBJ);
-        std::string strasset = request.params[0].get_str();
-        return PushAssetBalance(balance, pwalletMain, strasset);
+        strasset = request.params[0].get_str();
     }
 
-    return ValueFromAmount(balance[pwalletMain->GetAssetFromLabel("bitcoin")]);
+    return PushAssetBalance(balance, pwalletMain, strasset);
 }
 
 
@@ -1963,7 +1963,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
         if(request.params[1].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
-    std::string strasset = "bitcoin";
+    std::string strasset = "";
     if (request.params.size() > 2) {
         strasset = request.params[2].get_str();
     }
@@ -2512,7 +2512,7 @@ UniValue getwalletinfo(const JSONRPCRequest& request)
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
 
-    std::string asset = "bitcoin";
+    std::string asset = "";
     if (request.params.size() > 0 && request.params[0].isStr()) {
         asset = request.params[0].get_str();
     }
@@ -2645,12 +2645,12 @@ UniValue listunspent(const JSONRPCRequest& request)
         include_unsafe = request.params[3].get_bool();
     }
 
-    std::string assetstr = "bitcoin";
+    std::string assetstr = "";
     if (request.params.size() > 4 && request.params[4].isStr()) {
         assetstr = request.params[4].get_str();
     }
     CAsset asset;
-    if (assetstr != "*") {
+    if (assetstr != "") {
         asset = pwalletMain->GetAssetFromString(assetstr);
         if (asset.IsNull())
             throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
@@ -2677,7 +2677,7 @@ UniValue listunspent(const JSONRPCRequest& request)
         if (nValue == -1 || assetid.IsNull())
             continue;
 
-        if (assetstr != "*" && asset != assetid) {
+        if (assetstr != "" && asset != assetid) {
             continue;
         }
 
