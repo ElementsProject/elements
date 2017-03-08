@@ -615,6 +615,8 @@ private:
 
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
+    std::map<CAsset, std::string> mapAssetLabels;
+    std::map<std::string, CAsset> mapAssets;
 
 public:
     /*
@@ -632,8 +634,6 @@ public:
     std::set<int64_t> setKeyPool;
     std::map<CKeyID, CKeyMetadata> mapKeyMetadata;
     std::map<CScriptID, uint256> mapSpecificBlindingKeys;
-    std::map<CAsset, std::string> mapAssetLabels;
-    std::map<std::string, CAsset> mapAssets;
 
     typedef std::map<unsigned int, CMasterKey> MasterKeyMap;
     MasterKeyMap mapMasterKeys;
@@ -697,6 +697,7 @@ public:
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
+    std::vector<CAsset> GetKnownAssets() const;
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 

@@ -83,7 +83,7 @@ UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& str
             if (it->first == CAsset())
                 continue;
             UniValue pair(UniValue::VOBJ);
-            if (wallet->mapAssetLabels.count(it->first)) {
+            if (wallet->GetLabelFromAsset(it->first) != "") {
                 obj.push_back((Pair(wallet->GetLabelFromAsset(it->first), ValueFromAmount(it->second))));
             }
             else
@@ -773,7 +773,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     if (params.size() == 0)
-        return  ValueFromAmount(pwalletMain->GetBalance()[pwalletMain->mapAssets["bitcoin"]]);
+        return ValueFromAmount(pwalletMain->GetBalance()[pwalletMain->GetAssetFromLabel("bitcoin")]);
 
     int nMinDepth = 1;
     if (params.size() > 1)
@@ -851,7 +851,7 @@ UniValue getunconfirmedbalance(const UniValue &params, bool fHelp)
         return PushAssetBalance(balance, pwalletMain, strasset);
     }
 
-    return ValueFromAmount(balance[pwalletMain->mapAssets["bitcoin"]]);
+    return ValueFromAmount(balance[pwalletMain->GetAssetFromLabel("bitcoin")]);
 }
 
 
@@ -3266,8 +3266,8 @@ UniValue dumpassetlabels(const UniValue& params, bool fHelp)
             "\nLists all known asset id/label pairs in this wallet. This list can be modified by `addassetlabel` command.\n"
         );
     UniValue obj(UniValue::VOBJ);
-    for (std::map<std::string, CAsset>::const_iterator it = pwalletMain->mapAssets.begin(); it != pwalletMain->mapAssets.end(); it++) {
-        obj.push_back(Pair(it->first, it->second.GetHex()));
+    for (CAsset as : pwalletMain->GetKnownAssets()) {
+        obj.push_back(Pair(pwalletMain->GetLabelFromAsset(as), as.GetHex()));
     }
     return obj;
 }
