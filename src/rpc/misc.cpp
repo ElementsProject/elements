@@ -26,7 +26,7 @@
 
 using namespace std;
 
-extern UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& strasset);
+UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string strasset);
 
 /**
  * @note Do not add or change anything in the information returned by this
@@ -91,7 +91,7 @@ UniValue getinfo(const UniValue& params, bool fHelp)
     if (pwalletMain) {
         obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
         CAmountMap balance = pwalletMain->GetBalance();
-        std::string strasset = "bitcoin";
+        std::string strasset = "";
         if (params.size() > 0) {
             strasset = params[0].get_str();
         }

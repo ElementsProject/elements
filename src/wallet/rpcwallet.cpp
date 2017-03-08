@@ -64,21 +64,21 @@ void EnsureWalletIsUnlocked()
 }
 
 // Attaches labeled balance reports to UniValue obj with asset filter
-// "*" displays *all* assets as VOBJ pairs, while named assets must have
+// "" displays *all* assets as VOBJ pairs, while named assets must have
 // been entered via addassetlabel RPC command and are returns as VNUM.
-UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string& strasset)
+UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string strasset)
 {
     UniValue obj(UniValue::VOBJ);
     CAsset id = wallet->GetAssetFromLabel(strasset);
     std::string label = wallet->GetLabelFromAsset(CAsset(uint256S(strasset)));
-    if (strasset != "*" && (id.IsNull() && label == "")) {
+    if (strasset != "" && (id.IsNull() && label == "")) {
        throw JSONRPCError(RPC_WALLET_ERROR, "Input does not match a known asset tag/label pair.");
     }
     else if (!id.IsNull()) {
         strasset = id.GetHex();
     }
 
-    if (strasset == "*") {
+    if (strasset == "") {
         for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
             // Unknown assets
             if (it->first.IsNull())
@@ -630,7 +630,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
             "\nArguments:\n"
             "1. \"bitcoinaddress\"  (string, required) The bitcoin address for transactions.\n"
             "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
-            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances.\n"
+            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
             "\nExamples:\n"
@@ -677,7 +677,7 @@ UniValue getreceivedbyaddress(const UniValue& params, bool fHelp)
                 }
     }
 
-    std::string asset = "bitcoin";
+    std::string asset = "";
     if (params.size() > 2 && params[2].isStr()) {
         asset = params[2].get_str();
     }
@@ -773,8 +773,10 @@ UniValue getbalance(const UniValue& params, bool fHelp)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    CAmountMap balance = pwalletMain->GetBalance();
+
     if (params.size() == 0)
-        return ValueFromAmount(pwalletMain->GetBalance()[pwalletMain->GetAssetFromLabel("bitcoin")]);
+        return PushAssetBalance(balance, pwalletMain, "");
 
     int nMinDepth = 1;
     if (params.size() > 1)
@@ -789,7 +791,6 @@ UniValue getbalance(const UniValue& params, bool fHelp)
     if (params.size() > 3) {
         if (params[3].isStr()) {
             std::string assettype = params[3].get_str();
-            CAmountMap balance = pwalletMain->GetBalance();
             UniValue obj(UniValue::VOBJ);
             return PushAssetBalance(balance, pwalletMain, assettype);
         }
@@ -799,7 +800,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
         // Calculate total balance a different way from GetBalance()
         // (GetBalance() sums up all unspent TxOuts)
         // getbalance and "getbalance * 1 true" should return the same number
-        CAmount nBalance = 0;
+        CAmountMap mapBalance;
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
         {
             const CWalletTx& wtx = (*it).second;
@@ -814,13 +815,13 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             if (wtx.GetDepthInMainChain() >= nMinDepth)
             {
                 BOOST_FOREACH(const COutputEntry& r, listReceived)
-                    nBalance += r.amount;
+                    mapBalance[r.asset] += r.amount;
             }
             BOOST_FOREACH(const COutputEntry& s, listSent)
-                nBalance -= s.amount;
-            nBalance -= allFee;
+                mapBalance[s.asset] -= s.amount;
+            mapBalance[BITCOINID] -= allFee;
         }
-        return  ValueFromAmount(nBalance);
+        return PushAssetBalance(mapBalance, pwalletMain, "");
     }
 
     string strAccount = AccountFromValue(params[0]);
@@ -837,22 +838,21 @@ UniValue getunconfirmedbalance(const UniValue &params, bool fHelp)
 
     if (fHelp || params.size() > 1)
         throw runtime_error(
-            "getunconfirmedbalance\n"
+            "getunconfirmedbalance ( asset )\n"
             "\nArguments:\n"
-            "1. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances.\n"
+            "1. \"asset\"               (string, optional) Hex asset id or asset label for balance.\n"
             "Returns the server's total unconfirmed balance\n");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     CAmountMap balance = pwalletMain->GetUnconfirmedBalance();
 
+    std::string strasset = "";
     if (params.size() > 0) {
-        UniValue obj(UniValue::VOBJ);
-        std::string strasset = params[0].get_str();
-        return PushAssetBalance(balance, pwalletMain, strasset);
+        strasset = params[0].get_str();
     }
 
-    return ValueFromAmount(balance[pwalletMain->GetAssetFromLabel("bitcoin")]);
+    return PushAssetBalance(balance, pwalletMain, strasset);
 }
 
 
@@ -1910,7 +1910,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
         if(params[1].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
-    std::string strasset = "bitcoin";
+    std::string strasset = "";
     if (params.size() > 2) {
         strasset = params[2].get_str();
     }
@@ -2459,7 +2459,7 @@ UniValue getwalletinfo(const UniValue& params, bool fHelp)
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
 
-    std::string asset = "bitcoin";
+    std::string asset = "";
     if (params.size() > 0 && params[0].isStr()) {
         asset = params[0].get_str();
     }
@@ -2577,12 +2577,12 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         }
     }
 
-    std::string assetstr = "bitcoin";
+    std::string assetstr = "";
     if (params.size() > 3 && params[3].isStr()) {
         assetstr = params[3].get_str();
     }
     CAsset asset;
-    if (assetstr != "*") {
+    if (assetstr != "") {
         asset = pwalletMain->GetAssetFromString(assetstr);
         if (asset.IsNull())
             throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
@@ -2609,7 +2609,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         if (nValue == -1 || assetid.IsNull())
             continue;
 
-        if (assetstr != "*" && asset != assetid) {
+        if (assetstr != "" && asset != assetid) {
             continue;
         }
 

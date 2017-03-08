@@ -38,27 +38,26 @@ class WalletTest (BitcoinTestFramework):
         print("Mining blocks...")
 
         self.nodes[0].generate(1)
-
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance'], 21000000)
-        assert_equal(walletinfo['balance'], 0)
+        assert_equal(walletinfo['immature_balance']["bitcoin"], 21000000)
+        assert("bitcoin" not in walletinfo['balance'])
 
         self.sync_all()
         self.nodes[1].generate(101)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 21000000)
-        assert_equal(self.nodes[1].getbalance(), 21000000)
-        assert_equal(self.nodes[2].getbalance(), 21000000)
+        assert_equal(self.nodes[0].getbalance("", 0, False, "bitcoin"), 21000000)
+        assert_equal(self.nodes[1].getbalance("", 0, False, "bitcoin"), 21000000)
+        assert_equal(self.nodes[2].getbalance("", 0, False, "bitcoin"), 21000000)
 
         #Set all OP_TRUE genesis outputs to single node
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 21000000, "", "", True)
         self.nodes[0].generate(101)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 21000000)
-        assert_equal(self.nodes[1].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 0)
+        assert_equal(self.nodes[0].getbalance("", 0, False, "bitcoin"), 21000000)
+        assert_equal(self.nodes[1].getbalance("", 0, False, "bitcoin"), 0)
+        assert_equal(self.nodes[2].getbalance("", 0, False, "bitcoin"), 0)
 
         #self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1000000)
         #self.nodes[0].generate(1)
@@ -77,7 +76,7 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
 
-        walletinfo = self.nodes[0].getwalletinfo()
+        walletinfo = self.nodes[0].getwalletinfo("bitcoin")
         assert_equal(walletinfo['immature_balance'], 0)
 
         # Have node0 mine a block, thus it will collect its own fee.
@@ -85,7 +84,7 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         # Exercise locking of unspent outputs
-        unspent_0 = self.nodes[2].listunspent()[0]
+        unspent_0 = self.nodes[2].listunspent(1, 9999999, [], "bitcoin")[0]
         unspent_0 = {"txid": unspent_0["txid"], "vout": unspent_0["vout"]}
         self.nodes[2].lockunspent(False, [unspent_0])
         assert_raises(JSONRPCException, self.nodes[2].sendtoaddress, self.nodes[2].getnewaddress(), 20)
@@ -99,13 +98,13 @@ class WalletTest (BitcoinTestFramework):
 
         # node0 should end up with 100 btc in block rewards plus fees, but
         # minus the 21 plus fees sent to node2
-        assert_equal(self.nodes[0].getbalance(), 21000000-21)
-        assert_equal(self.nodes[2].getbalance(), 21)
+        assert_equal(self.nodes[0].getbalance("", 0, False, "bitcoin"), 21000000-21)
+        assert_equal(self.nodes[2].getbalance("", 0, False, "bitcoin"), 21)
 
         # Node0 should have three non-zero unspent outputs and 101 from generate.
         # Create a couple of transactions to send them to node2, submit them through
         # node1, and make sure both node0 and node2 pick them up properly:
-        node0utxos = self.nodes[0].listunspent(1)
+        node0utxos = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
         assert_equal(len(node0utxos), 104)
 
         # create both transactions
