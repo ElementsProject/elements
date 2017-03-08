@@ -72,6 +72,7 @@ endif
 # bitcoin core #
 BITCOIN_CORE_H = \
   addrman.h \
+  assetsdir.h \
   base58.h \
   blind.h \
   bloom.h \
@@ -297,6 +298,7 @@ libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   amount.cpp \
+  assetsdir.cpp \
   base58.cpp \
   blind.cpp \
   bloom.cpp \
