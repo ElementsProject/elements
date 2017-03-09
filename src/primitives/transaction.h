@@ -144,10 +144,6 @@ public:
                 case 1:
                     vchCommitment.resize(nExplicitSize);
                     break;
-                // Alpha used 2 and 3 for value commitments
-                case 2:
-                case 3:
-                    break;
                 /* Committed value */
                 case 8:
                 case 9:
