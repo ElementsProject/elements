@@ -41,10 +41,6 @@ bool CTxOutValue::IsValid() const
             if (vchCommitment.size() != nExplicitSize)
                 return false;
             return true;
-        // Alpha used 2 and 3 for value commitments
-        case 2:
-        case 3:
-            return false;
         case 8:
         case 9:
             if (vchCommitment.size() != nCommittedSize)
