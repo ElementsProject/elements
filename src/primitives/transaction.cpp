@@ -75,7 +75,7 @@ std::string CTxOut::ToString() const
     std::string strAsset;
     if (nAsset.IsAsset() || nAsset.IsAssetGeneration())
         strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().GetHex());
-    if (nAsset.IsAssetCommitment())
+    if (nAsset.IsCommitment())
         strAsset = std::string("nAsset=UNKNOWN, ");
     return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
 }

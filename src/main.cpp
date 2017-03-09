@@ -1259,7 +1259,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
                 assert(ret != 0);
             }
-            else if (asset.IsAssetCommitment()) {
+            else if (asset.IsCommitment()) {
                 if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
                     return false;
             }
@@ -1302,7 +1302,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
             assert(ret != 0);
         }
-        else if (asset.IsAssetCommitment()) {
+        else if (asset.IsCommitment()) {
             if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
                 return false;
         }

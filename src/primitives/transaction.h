@@ -84,7 +84,7 @@ public:
         return *reinterpret_cast<const CAsset*>(&vchAssetTag[1]);
     }
 
-    bool IsAssetCommitment() const
+    bool IsCommitment() const
     {
         return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==10 || vchAssetTag[0]==11);
     }

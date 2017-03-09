@@ -150,7 +150,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         if (asset.IsAsset()) {
             out.push_back(Pair("asset", asset.GetAsset().GetHex()));
         }
-        else if (asset.IsAssetCommitment()) {
+        else if (asset.IsCommitment()) {
             out.push_back(Pair("assettag", HexStr(asset.vchAssetTag)));
         }
         else if (asset.IsAssetGeneration()) {
