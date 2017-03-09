@@ -23,7 +23,6 @@ public:
     static const size_t nCommittedSize = 33;
 
     std::vector<unsigned char> vchCommitment;
-    std::vector<unsigned char> vchSurjectionproof;
 
     CTxOutAsset()
     {
@@ -64,7 +63,6 @@ public:
         }
         if (vchCommitment.size() > 1)
             READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
-        // The surjection proof is serialized as part of the witness data
     }
 
     bool IsNull() const
@@ -91,8 +89,7 @@ public:
 
     friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
     {
-        return (a.vchCommitment      == b.vchCommitment &&
-                a.vchSurjectionproof == b.vchSurjectionproof);
+        return a.vchCommitment == b.vchCommitment;
     }
 
     friend bool operator!=(const CTxOutAsset& a, const CTxOutAsset& b)
@@ -180,6 +177,7 @@ class CTxOut
 {
 public:
     CTxOutAsset nAsset;
+    std::vector<unsigned char> vchSurjectionproof;
     CTxOutValue nValue;
     CScript scriptPubKey;
 
@@ -200,6 +198,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nAsset);
+        // The surjection proof is serialized as part of the witness data
         READWRITE(nValue);
         READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
@@ -207,13 +206,14 @@ public:
     void SetNull()
     {
         nAsset = CTxOutAsset();
+        vchSurjectionproof.clear();
         nValue = CTxOutValue();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nAsset.IsNull() && nValue.IsNull() && scriptPubKey.empty();
+        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -271,8 +271,9 @@ public:
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
-        return (a.nValue       == b.nValue &&
-                a.nValue       == b.nValue &&
+        return (a.nAsset == b.nAsset &&
+                a.vchSurjectionproof == b.vchSurjectionproof &&
+                a.nValue == b.nValue &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -536,18 +537,18 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.nAsset.vchSurjectionproof.empty() && ref.nValue.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
+        return ref.vchSurjectionproof.empty() && ref.nValue.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
     }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(ref.nAsset.vchSurjectionproof);
+        READWRITE(ref.vchSurjectionproof);
         READWRITE(ref.nValue.vchRangeproof);
         READWRITE(ref.nValue.vchNonceCommitment);
     }
 
     void SetNull() {
-        std::vector<unsigned char>().swap(ref.nAsset.vchSurjectionproof);
+        std::vector<unsigned char>().swap(ref.vchSurjectionproof);
         std::vector<unsigned char>().swap(ref.nValue.vchRangeproof);
         std::vector<unsigned char>().swap(ref.nValue.vchNonceCommitment);
     }

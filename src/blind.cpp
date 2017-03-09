@@ -126,7 +126,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
         // Wallet only understands all-blinded or all-unblinded
         assert((output_blinding_factors[nOut] != uint256()) == !out.nValue.IsExplicit());
         assert(out.nValue.IsExplicit() == out.nAsset.IsExplicit());
-        assert(out.nAsset.IsCommitment() == !out.nAsset.vchSurjectionproof.empty());
+        assert(out.nAsset.IsCommitment() == !out.vchSurjectionproof.empty());
         if (output_blinding_factors[nOut] != uint256()) {
             assert(output_asset_blinding_factors[nOut] != uint256());
             blindptrs.push_back(output_blinding_factors[nOut].begin());
@@ -138,7 +138,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             secp256k1_generator gen;
             secp256k1_surjectionproof proof;
             assert(secp256k1_generator_parse(secp256k1_blind_context, &gen, &out.nAsset.vchCommitment[0]) == 1);
-            assert(secp256k1_surjectionproof_parse(secp256k1_blind_context, &proof, &out.nAsset.vchSurjectionproof[0], out.nAsset.vchSurjectionproof.size()) == 1);
+            assert(secp256k1_surjectionproof_parse(secp256k1_blind_context, &proof, &out.vchSurjectionproof[0], out.vchSurjectionproof.size()) == 1);
             assert(secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen) == 1);
          } else {
              if (output_pubkeys[nOut].IsFullyValid()) {
@@ -257,8 +257,8 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             assert(ret != 0);
 
             size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
-            tx.vout[nOut].nAsset.vchSurjectionproof.resize(output_len);
-            secp256k1_surjectionproof_serialize(secp256k1_blind_context, &asset.vchSurjectionproof[0], &output_len, &proof);
+            out.vchSurjectionproof.resize(output_len);
+            secp256k1_surjectionproof_serialize(secp256k1_blind_context, &out.vchSurjectionproof[0], &output_len, &proof);
         }
     }
 

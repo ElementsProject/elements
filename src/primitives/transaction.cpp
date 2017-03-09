@@ -12,7 +12,6 @@
 void CTxOutAsset::SetNull()
 {
     vchCommitment.clear();
-    vchSurjectionproof.clear();
 }
 
 void CTxOutAsset::SetToAsset(const CAsset& asset)
@@ -20,7 +19,6 @@ void CTxOutAsset::SetToAsset(const CAsset& asset)
     vchCommitment.reserve(nCommittedSize);
     vchCommitment.push_back(1);
     vchCommitment.insert(vchCommitment.end(), asset.begin(), asset.end());
-    vchSurjectionproof.clear();
 }
 
 CTxOutValue::CTxOutValue(CAmount nAmountIn)
