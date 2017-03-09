@@ -11,15 +11,15 @@
 
 void CTxOutAsset::SetNull()
 {
-    vchAssetTag.clear();
+    vchCommitment.clear();
     vchSurjectionproof.clear();
 }
 
 void CTxOutAsset::SetToAsset(const CAsset& asset)
 {
-    vchAssetTag.reserve(nAssetTagSize);
-    vchAssetTag.push_back(1);
-    vchAssetTag.insert(vchAssetTag.end(), asset.begin(), asset.end());
+    vchCommitment.reserve(nCommittedSize);
+    vchCommitment.push_back(1);
+    vchCommitment.insert(vchCommitment.end(), asset.begin(), asset.end());
     vchSurjectionproof.clear();
 }
 

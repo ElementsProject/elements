@@ -1205,7 +1205,7 @@ bool CRangeCheck::operator()()
         return true;
     }
 
-    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, asset->vchAssetTag, *scriptPubKey, secp256k1_ctx_verify_amounts);
+    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, asset->vchCommitment, *scriptPubKey, secp256k1_ctx_verify_amounts);
 };
 
 bool CBalanceCheck::operator()()
@@ -1260,7 +1260,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 assert(ret != 0);
             }
             else if (asset.IsCommitment()) {
-                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
+                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                     return false;
             }
             else {
@@ -1303,7 +1303,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             assert(ret != 0);
         }
         else if (asset.IsCommitment()) {
-            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
+            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
         }
         else if (asset.IsAssetGeneration()) {
@@ -1366,7 +1366,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             assert(ret != 0);
         }
         else {
-            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], &asset.vchAssetTag[0]) != 1)
+            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], &asset.vchCommitment[0]) != 1)
                 return false;
         }
     }
@@ -1381,7 +1381,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             assert(asset.vchSurjectionproof.size() == 0);
             continue;
         }
-        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchAssetTag[0]) != 1)
+        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
 
         secp256k1_surjectionproof proof;

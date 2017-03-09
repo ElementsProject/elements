@@ -112,11 +112,11 @@ bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsig
     return true;
 }
 
-bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const std::vector<unsigned char>& vchAssetTag, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* secp256k1_ctx_verify_amounts) const
 {
     static CSignatureCache rangeProofCache;
 
-    CPubKey pubkey(vchCommitment);
+    CPubKey pubkey(vchValueCommitment);
     uint256 entry;
     rangeProofCache.ComputeEntry(entry, uint256(), vchRangeProof, pubkey);
 
@@ -129,11 +129,11 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
 
     uint64_t min_value, max_value;
     secp256k1_pedersen_commitment commit;
-    if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &vchCommitment[0]) != 1)
+    if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &vchValueCommitment[0]) != 1)
             return false;
 
     secp256k1_generator tag;
-    if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &tag, &vchAssetTag[0]) != 1)
+    if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &tag, &vchAssetCommitment[0]) != 1)
         return false;
 
     if (!secp256k1_rangeproof_verify(secp256k1_ctx_verify_amounts, &min_value, &max_value, &commit, vchRangeProof.data(), vchRangeProof.size(), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &tag)) {
