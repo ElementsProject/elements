@@ -444,7 +444,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 
 /**
  * Verify the amounts of coinbase transactions. It will fail for any blinded amount or type.
- * Each output must be IsAmount && IsAsset.
+ * Each output must be explicit in both nValue and nAsset.
 */
 bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
 

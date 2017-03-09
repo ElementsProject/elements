@@ -74,13 +74,13 @@ public:
 
     void SetNull();
 
-    bool IsAsset() const
+    bool IsExplicit() const
     {
         return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
     }
     const CAsset& GetAsset() const
     {
-        assert(IsAsset());
+        assert(IsExplicit());
         return *reinterpret_cast<const CAsset*>(&vchAssetTag[1]);
     }
 
@@ -252,7 +252,7 @@ public:
     {
         if (!nValue.IsAmount())
             return false; // FIXME
-        if (!nAsset.IsAsset() || nAsset.GetAsset() != BITCOINID)
+        if (!nAsset.IsExplicit() || nAsset.GetAsset() != BITCOINID)
             return false;
         //Withdrawlocks are evaluated at a higher, static feerate
         //to ensure peg-outs are IsStandard on mainchain
@@ -264,7 +264,7 @@ public:
     bool IsFee() const
     {
         CAsset asset;
-        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsAsset())
+        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsExplicit())
             return true;
         return false;
     }

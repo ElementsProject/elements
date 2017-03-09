@@ -73,7 +73,7 @@ CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript
 std::string CTxOut::ToString() const
 {
     std::string strAsset;
-    if (nAsset.IsAsset())
+    if (nAsset.IsExplicit())
         strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().GetHex());
     if (nAsset.IsCommitment())
         strAsset = std::string("nAsset=UNKNOWN, ");
