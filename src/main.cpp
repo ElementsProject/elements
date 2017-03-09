@@ -1378,14 +1378,14 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         const CTxOutAsset& asset = tx.vout[i].nAsset;
         //No need for surjective proof
         if (asset.IsExplicit() || asset.IsAssetGeneration()) {
-            assert(asset.vchSurjectionproof.size() == 0);
+            assert(tx.vout[i].vchSurjectionproof.size() == 0);
             continue;
         }
         if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
 
         secp256k1_surjectionproof proof;
-        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &asset.vchSurjectionproof[0], asset.vchSurjectionproof.size()) != 1)
+        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &tx.vout[i].vchSurjectionproof[0], tx.vout[i].vchSurjectionproof.size()) != 1)
             return false;
 
         if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, ephemeral_input_tags, gen, cacheStore))) {
