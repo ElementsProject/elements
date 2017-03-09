@@ -20,14 +20,14 @@ static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
 class CTxOutAsset
 {
 public:
-    static const size_t nAssetTagSize = 33;
+    static const size_t nCommittedSize = 33;
 
-    std::vector<unsigned char> vchAssetTag;
+    std::vector<unsigned char> vchCommitment;
     std::vector<unsigned char> vchSurjectionproof;
 
     CTxOutAsset()
     {
-        vchAssetTag.reserve(nAssetTagSize);
+        vchCommitment.reserve(nCommittedSize);
         SetNull();
     }
 
@@ -40,13 +40,13 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        unsigned char version = vchAssetTag.empty()? 0: vchAssetTag[0];
+        unsigned char version = vchCommitment.empty()? 0: vchCommitment[0];
         READWRITE(version);
         if (ser_action.ForRead()) {
             switch (version) {
                 /* Null */
                 case 0:
-                    vchAssetTag.clear();
+                    vchCommitment.clear();
                     return;
                 /* Explicit asset */
                 case 1:
@@ -55,43 +55,43 @@ public:
                 /* Confidential asset */
                 case 10:
                 case 11:
-                    vchAssetTag.resize(nAssetTagSize);
+                    vchCommitment.resize(nCommittedSize);
                     break;
                 default:
                     throw std::ios_base::failure("Unrecognized serialization prefix");
             }
-            vchAssetTag[0] = version;
+            vchCommitment[0] = version;
         }
-        if (vchAssetTag.size() > 1)
-            READWRITE(REF(CFlatData(&vchAssetTag[1], &vchAssetTag[vchAssetTag.size()])));
+        if (vchCommitment.size() > 1)
+            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
         // The surjection proof is serialized as part of the witness data
     }
 
     bool IsNull() const
     {
-        return vchAssetTag.empty();
+        return vchCommitment.empty();
     }
 
     void SetNull();
 
     bool IsExplicit() const
     {
-        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==1;
+        return vchCommitment.size()==nCommittedSize && vchCommitment[0]==1;
     }
     const CAsset& GetAsset() const
     {
         assert(IsExplicit());
-        return *reinterpret_cast<const CAsset*>(&vchAssetTag[1]);
+        return *reinterpret_cast<const CAsset*>(&vchCommitment[1]);
     }
 
     bool IsCommitment() const
     {
-        return vchAssetTag.size()==nAssetTagSize && (vchAssetTag[0]==10 || vchAssetTag[0]==11);
+        return vchCommitment.size()==nCommittedSize && (vchCommitment[0]==10 || vchCommitment[0]==11);
     }
 
     friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
     {
-        return (a.vchAssetTag        == b.vchAssetTag &&
+        return (a.vchCommitment      == b.vchCommitment &&
                 a.vchSurjectionproof == b.vchSurjectionproof);
     }
 

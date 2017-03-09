@@ -53,7 +53,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
         return false;
 
     secp256k1_generator gen;
-    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, &txout.nAsset.vchAssetTag[0]) != 1)
+    if (secp256k1_generator_parse(secp256k1_blind_context, &gen, &txout.nAsset.vchCommitment[0]) != 1)
         return false;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &commit, &txout.nValue.vchCommitment[0]) != 1)
         return false;
@@ -137,7 +137,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             //Assert-check surjective proofs
             secp256k1_generator gen;
             secp256k1_surjectionproof proof;
-            assert(secp256k1_generator_parse(secp256k1_blind_context, &gen, &out.nAsset.vchAssetTag[0]) == 1);
+            assert(secp256k1_generator_parse(secp256k1_blind_context, &gen, &out.nAsset.vchCommitment[0]) == 1);
             assert(secp256k1_surjectionproof_parse(secp256k1_blind_context, &proof, &out.nAsset.vchSurjectionproof[0], out.nAsset.vchSurjectionproof.size()) == 1);
             assert(secp256k1_surjectionproof_verify(secp256k1_blind_context, &proof, &inputAssetGenerators[0], inputAssetGenerators.size(), &gen) == 1);
          } else {
@@ -203,7 +203,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             //Blind the asset ID
             ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &gen, assetID.begin(), assetblindptrs[assetblindptrs.size()-1]);
             assert(ret == 1);
-            ret = secp256k1_generator_serialize(secp256k1_blind_context, &asset.vchAssetTag[0], &gen);
+            ret = secp256k1_generator_serialize(secp256k1_blind_context, &asset.vchCommitment[0], &gen);
             assert(ret != 0);
 
             // Create value commitment
