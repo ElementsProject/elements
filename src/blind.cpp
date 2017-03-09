@@ -49,7 +49,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     size_t msg_size = 64;
     uint64_t min_value, max_value, amount;
     secp256k1_pedersen_commitment commit;
-    if (!txout.nAsset.IsAssetCommitment() || txout.nValue.IsAmount())
+    if (!txout.nAsset.IsCommitment() || txout.nValue.IsAmount())
         return false;
 
     secp256k1_generator gen;
@@ -126,7 +126,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
         // Wallet only understands all-blinded or all-unblinded
         assert((output_blinding_factors[nOut] != uint256()) == !out.nValue.IsAmount());
         assert(out.nValue.IsAmount() == out.nAsset.IsAsset());
-        assert(out.nAsset.IsAssetCommitment() == !out.nAsset.vchSurjectionproof.empty());
+        assert(out.nAsset.IsCommitment() == !out.nAsset.vchSurjectionproof.empty());
         if (output_blinding_factors[nOut] != uint256()) {
             assert(output_asset_blinding_factors[nOut] != uint256());
             blindptrs.push_back(output_blinding_factors[nOut].begin());
