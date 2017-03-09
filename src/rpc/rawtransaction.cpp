@@ -147,7 +147,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             }
         }
         const CTxOutAsset& asset = txout.nAsset;
-        if (asset.IsAsset()) {
+        if (asset.IsExplicit()) {
             out.push_back(Pair("asset", asset.GetAsset().GetHex()));
         }
         else if (asset.IsCommitment()) {
@@ -763,7 +763,7 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
         }
         input_blinds.push_back(it->second.GetBlindingFactor(tx.vin[nIn].prevout.n));
         input_asset_blinds.push_back(it->second.GetAssetBlindingFactor(tx.vin[nIn].prevout.n));
-        if (it->second.vout[tx.vin[nIn].prevout.n].nAsset.IsAsset()) {
+        if (it->second.vout[tx.vin[nIn].prevout.n].nAsset.IsExplicit()) {
             input_assets.push_back(it->second.vout[tx.vin[nIn].prevout.n].nAsset.GetAsset());
         }
         else {

@@ -1255,7 +1255,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (val.IsNull() || asset.IsNull())
                 return false;
 
-            if (asset.IsAsset() || asset.IsAssetGeneration()) {
+            if (asset.IsExplicit() || asset.IsAssetGeneration()) {
                 ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
                 assert(ret != 0);
             }
@@ -1298,7 +1298,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (val.vchNonceCommitment.size() > CTxOutValue::nCommittedSize || val.vchRangeproof.size() > 5000)
             return false;
 
-        if (asset.IsAsset()) {
+        if (asset.IsExplicit()) {
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
             assert(ret != 0);
         }
@@ -1361,7 +1361,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     for (size_t i = 0; i < tx.vin.size(); i++)
     {
         const CTxOutAsset& asset = cache.GetOutputFor(tx.vin[i]).nAsset;
-        if (asset.IsAsset() || asset.IsAssetGeneration()) {
+        if (asset.IsExplicit() || asset.IsAssetGeneration()) {
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], asset.GetAsset().begin());
             assert(ret != 0);
         }
@@ -1377,7 +1377,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CTxOutAsset& asset = tx.vout[i].nAsset;
         //No need for surjective proof
-        if (asset.IsAsset() || asset.IsAssetGeneration()) {
+        if (asset.IsExplicit() || asset.IsAssetGeneration()) {
             assert(asset.vchSurjectionproof.size() == 0);
             continue;
         }
@@ -1404,7 +1404,7 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
     assert(tx.IsCoinBase());
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsAsset())
+        if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsExplicit())
             return false;
         remaining[tx.vout[i].nAsset.GetAsset()] -= tx.vout[i].nValue.GetAmount();
     }
