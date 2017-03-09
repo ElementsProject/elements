@@ -40,14 +40,37 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        vchAssetTag.resize(nAssetTagSize);
-        READWRITE(REF(CFlatData(&vchAssetTag[0], &vchAssetTag[nAssetTagSize])));
+        unsigned char version = vchAssetTag.empty()? 0: vchAssetTag[0];
+        READWRITE(version);
+        if (ser_action.ForRead()) {
+            switch (version) {
+                /* Null */
+                case 0:
+                    vchAssetTag.clear();
+                    return;
+                /* Explicit asset */
+                case 1:
+                /* Trust-me! asset generation */
+                case 0xff:
+                /* Confidential asset */
+                case 10:
+                case 11:
+                    vchAssetTag.resize(nAssetTagSize);
+                    break;
+                default:
+                    throw std::ios_base::failure("Unrecognized serialization prefix");
+                    return;
+            }
+            vchAssetTag[0] = version;
+        }
+        if (vchAssetTag.size() > 1)
+            READWRITE(REF(CFlatData(&vchAssetTag[1], &vchAssetTag[vchAssetTag.size()])));
         // The surjection proof is serialized as part of the witness data
     }
 
     bool IsNull() const
     {
-        return vchAssetTag.empty() || vchAssetTag[0]==0xff;
+        return vchAssetTag.empty();
     }
 
     void SetNull();
@@ -69,12 +92,12 @@ public:
 
     bool IsAssetGeneration() const
     {
-        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==12;
+        return vchAssetTag.size()==nAssetTagSize && vchAssetTag[0]==0xff;
     }
 
     void SetAsAssetGeneration()
     {
-        vchAssetTag[0] = 12;
+        vchAssetTag[0] = 0xff;
     }
 
     friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
@@ -109,11 +132,15 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        // We only serialize the value commitment here.
-        // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
-        READWRITE(vchCommitment.front());
+        unsigned char version = vchCommitment.empty()? 0: vchCommitment[0];
+        READWRITE(version);
         if (ser_action.ForRead()) {
-            switch (vchCommitment.front()) {
+            switch (version) {
+                /* Null */
+                case 0:
+                    vchCommitment.clear();
+                    return;
+                /* Explicit value */
                 case 1:
                     vchCommitment.resize(nExplicitSize);
                     break;
@@ -121,20 +148,25 @@ public:
                 case 2:
                 case 3:
                     break;
+                /* Committed value */
                 case 8:
                 case 9:
                     vchCommitment.resize(nCommittedSize);
                     break;
                 default:
-                    vchCommitment.resize(1);
+                    throw std::ios_base::failure("Unrecognized serialization prefix");
                     return;
             }
+            vchCommitment[0] = version;
         }
-        READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
+        if (vchCommitment.size() > 1)
+            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
+        // We only serialize the value commitment here.
+        // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
     }
 
     void SetNull();
-    bool IsNull() const { return vchCommitment[0] == 0xff; }
+    bool IsNull() const { return vchCommitment.empty(); }
 
     bool IsValid() const;
 
