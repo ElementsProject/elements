@@ -1443,17 +1443,17 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         CScript relockScript = CScript() << vgenesisHash << OP_WITHDRAWPROOFVERIFY;
 
                         if (stack.size() == 1) { // increasing value of locked coins
-                            if (!checker.GetValueIn().IsAmount())
+                            if (!checker.GetValueIn().IsExplicit())
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                             CAmount minValue = checker.GetValueIn().GetAmount();
                             CTxOut newOutput = checker.GetOutputOffsetFromCurrent(0);
                             if (newOutput.IsNull()) {
                                 newOutput = checker.GetOutputOffsetFromCurrent(-1);
-                                if (!checker.GetValueInPrevIn().IsAmount())
+                                if (!checker.GetValueInPrevIn().IsExplicit())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                 minValue += checker.GetValueInPrevIn().GetAmount();
                             }
-                            if (!newOutput.nValue.IsAmount())
+                            if (!newOutput.nValue.IsExplicit())
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                             if (newOutput.scriptPubKey != relockScript || newOutput.nValue.GetAmount() < minValue)
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
@@ -1550,20 +1550,20 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 // * Tx must relock at least <unlocked coins> - <locked-on-bitcoin coins>
                                 // * Tx must send at least the withdraw value to its P2SH withdraw, but may send more
                                 CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
-                                if (!checker.GetValueIn().IsAmount()) // Heh, you just destroyed coins
+                                if (!checker.GetValueIn().IsExplicit()) // Heh, you just destroyed coins
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
 
                                 CAmount lockValueRequired = checker.GetValueIn().GetAmount() - withdrawVal;
                                 if (lockValueRequired > 0) {
                                     const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(1);
-                                    if (!newLockOutput.nValue.IsAmount())
+                                    if (!newLockOutput.nValue.IsExplicit())
                                         return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                     if (newLockOutput.IsNull() || newLockOutput.scriptPubKey != relockScript || newLockOutput.nValue.GetAmount() < lockValueRequired)
                                         return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_RELOCK_SCRIPTVAL);
                                 }
 
                                 const CTxOut withdrawOutput = checker.GetOutputOffsetFromCurrent(0);
-                                if (!withdrawOutput.nValue.IsAmount())
+                                if (!withdrawOutput.nValue.IsExplicit())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                 if (withdrawOutput.nValue.GetAmount() < withdrawVal)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_VAL);

@@ -164,7 +164,7 @@ public:
 
     bool IsValid() const;
 
-    bool IsAmount() const { return vchCommitment[0] == 1; }
+    bool IsExplicit() const { return vchCommitment[0] == 1; }
     CAmount GetAmount() const;
 
     friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
@@ -260,7 +260,7 @@ public:
 
     bool IsDust(const CFeeRate &minRelayTxFee) const
     {
-        if (!nValue.IsAmount())
+        if (!nValue.IsExplicit())
             return false; // FIXME
         if (!nAsset.IsExplicit() || nAsset.GetAsset() != BITCOINID)
             return false;
@@ -274,7 +274,7 @@ public:
     bool IsFee() const
     {
         CAsset asset;
-        if (scriptPubKey == CScript() && nValue.IsAmount() && nAsset.IsExplicit())
+        if (scriptPubKey == CScript() && nValue.IsExplicit() && nAsset.IsExplicit())
             return true;
         return false;
     }

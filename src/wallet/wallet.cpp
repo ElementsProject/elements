@@ -2325,7 +2325,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     // Turn the txout set into a CRecipient vector
     BOOST_FOREACH(const CTxOut& txOut, tx.vout)
     {
-        if (!txOut.nValue.IsAmount() || !txOut.nAsset.IsExplicit()) {
+        if (!txOut.nValue.IsExplicit() || !txOut.nAsset.IsExplicit()) {
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
@@ -4043,7 +4043,7 @@ bool CWallet::LoadAssetLabelMapping(const CAsset& id, const std::string& label)
 
 void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
 {
-    if (output.nValue.IsAmount() && (output.nAsset.IsExplicit() || output.nAsset.IsAssetGeneration())) {
+    if (output.nValue.IsExplicit() && (output.nAsset.IsExplicit() || output.nAsset.IsAssetGeneration())) {
         amount = output.nValue.GetAmount();
         asset = output.nAsset.GetAsset();
         pubkey = CPubKey();

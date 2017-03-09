@@ -639,7 +639,7 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
                     stats.nTransactionOutputs++;
                     ss << VARINT(i+1);
                     ss << out;
-                    if (out.nValue.IsAmount())
+                    if (out.nValue.IsExplicit())
                         nTotalAmount += out.nValue.GetAmount();
                 }
             }
@@ -763,7 +763,7 @@ UniValue gettxout(const UniValue& params, bool fHelp)
         ret.push_back(Pair("confirmations", 0));
     else
         ret.push_back(Pair("confirmations", pindex->nHeight - coins.nHeight + 1));
-    if (coins.vout[n].nValue.IsAmount()) {
+    if (coins.vout[n].nValue.IsExplicit()) {
         ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue.GetAmount())));
     } else {
         ret.push_back(Pair("valuecommitment", uint256(coins.vout[n].nValue.vchCommitment).GetHex()));

@@ -128,7 +128,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
-        if (txout.nValue.IsAmount())
+        if (txout.nValue.IsExplicit())
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
         else {
             int exp;
@@ -573,7 +573,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 // or blank spots to be filled by BlindOutputs
 void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CAsset>& output_assets, std::vector<CPubKey>& output_pubkeys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-        if (!tx.vout[nOut].nValue.IsAmount()) {
+        if (!tx.vout[nOut].nValue.IsExplicit()) {
             uint256 blinding_factor;
             uint256 asset_blinding_factor;
             CAsset asset;
@@ -769,7 +769,7 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
         else {
             input_assets.push_back(it->second.GetAsset(tx.vin[nIn].prevout.n));
         }
-        if (it->second.vout[tx.vin[nIn].prevout.n].nValue.IsAmount()) {
+        if (it->second.vout[tx.vin[nIn].prevout.n].nValue.IsExplicit()) {
             input_amounts.push_back(it->second.vout[tx.vin[nIn].prevout.n].nValue.GetAmount());
         }
         else {
@@ -1222,7 +1222,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp)
     if (!fOverrideBlindable) {
         for (unsigned i = 0; i < tx.vout.size(); i++) {
             const CTxOut& txout = tx.vout[i];
-            if (txout.nValue.IsAmount() && txout.nValue.vchNonceCommitment.size() != 0)
+            if (txout.nValue.IsExplicit() && txout.nValue.vchNonceCommitment.size() != 0)
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Output %u is unblinded, but has blinding pubkey attached, please use [raw]blindrawtransaction", i));
         }
     }

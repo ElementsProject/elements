@@ -109,8 +109,8 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_asset_blinds.push_back(uint256());
         output_pubkeys.push_back(pubkeyDummy);
         BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 2);
-        BOOST_CHECK(!tx3.vout[0].nValue.IsAmount());
-        BOOST_CHECK(!tx3.vout[2].nValue.IsAmount());
+        BOOST_CHECK(!tx3.vout[0].nValue.IsExplicit());
+        BOOST_CHECK(!tx3.vout[2].nValue.IsExplicit());
         BOOST_CHECK(VerifyAmounts(cache, tx3));
 
         CAmount unblinded_amount;
@@ -220,9 +220,9 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(CPubKey());
 
         BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4) == 2);
-        BOOST_CHECK(!tx4.vout[0].nValue.IsAmount());
-        BOOST_CHECK(tx4.vout[1].nValue.IsAmount());
-        BOOST_CHECK(!tx4.vout[2].nValue.IsAmount());
+        BOOST_CHECK(!tx4.vout[0].nValue.IsExplicit());
+        BOOST_CHECK(tx4.vout[1].nValue.IsExplicit());
+        BOOST_CHECK(!tx4.vout[2].nValue.IsExplicit());
         BOOST_CHECK(VerifyAmounts(cache, tx4));
 
 #ifdef ENABLE_WALLET

@@ -86,7 +86,7 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         // Regardless of the verification result, the tx did not error.
         set_error(err, bitcoinconsensus_ERR_OK);
         PrecomputedTransactionData txdata(tx);
-        if (amountPreviousInput.IsAmount() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
+        if (amountPreviousInput.IsExplicit() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
             return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionNoWithdrawsSignatureChecker(&tx, nIn, amount, txdata), NULL);
         else
             return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), nIn < tx.wit.vtxinwit.size() ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, amountPreviousInput, CScript()), NULL);
