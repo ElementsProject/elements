@@ -11,8 +11,7 @@
 
 void CTxOutAsset::SetNull()
 {
-    vchAssetTag.resize(1);
-    vchAssetTag[0] = 0xff;
+    vchAssetTag.clear();
     vchSurjectionproof.clear();
 }
 
@@ -32,8 +31,7 @@ CTxOutValue::CTxOutValue(CAmount nAmountIn)
 
 void CTxOutValue::SetNull()
 {
-    vchCommitment.resize(1);
-    vchCommitment[0] = 0xff;
+    vchCommitment.clear();
 }
 
 bool CTxOutValue::IsValid() const
