@@ -96,7 +96,7 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         set_error(err, bitcoinconsensus_ERR_OK);
 
         PrecomputedTransactionData txdata(tx);
-        if (amountPreviousInput.IsAmount() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
+        if (amountPreviousInput.IsExplicit() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
             return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), &tx.vin[nIn].scriptWitness, flags, TransactionNoWithdrawsSignatureChecker(&tx, nIn, amount, txdata), NULL);
         else
             return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), &tx.vin[nIn].scriptWitness, flags, TransactionSignatureChecker(&tx, nIn, amount, amountPreviousInput, txdata, CScript()), NULL);

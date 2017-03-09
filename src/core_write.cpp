@@ -192,7 +192,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
 
         UniValue out(UniValue::VOBJ);
 
-        if (txout.nValue.IsAmount()) {
+        if (txout.nValue.IsExplicit()) {
             UniValue outValue(UniValue::VNUM, FormatMoney(txout.nValue.GetAmount()));
             out.pushKV("value", outValue);
         } else {

@@ -125,7 +125,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         if (prev.scriptPubKey.IsWithdrawLock()) {
             if (!tx.vin[i].scriptSig.IsWithdrawProof()) {
                 if (tx.vout.size() < i)
-                    if (!tx.vout[i].nValue.IsAmount() || tx.vout[i].nValue.GetAmount() > MAX_MONEY / 100)
+                    if (!tx.vout[i].nValue.IsExplicit() || tx.vout[i].nValue.GetAmount() > MAX_MONEY / 100)
                         return false;
             }
             continue;

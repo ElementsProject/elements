@@ -468,7 +468,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const std::string& strInput)
         }
     }
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-        if (!tx.vout[nOut].nValue.IsAmount())
+        if (!tx.vout[nOut].nValue.IsExplicit())
             throw std::runtime_error("Invalid parameter: transaction outputs must be unblinded");
         if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
             output_pubkeys.push_back(CPubKey());

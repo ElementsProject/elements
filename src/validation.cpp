@@ -510,7 +510,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {
         if (!txout.nValue.IsValid())
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
-        if (!txout.nValue.IsAmount())
+        if (!txout.nValue.IsExplicit())
             continue;
         // Each output is turned into a value commitment, no overflow detection needed
         if (!MoneyRange(txout.nValue.GetAmount()))
@@ -629,7 +629,7 @@ static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
 
 bool CRangeCheck::operator()()
 {
-    if (val->IsAmount()) {
+    if (val->IsExplicit()) {
         return true;
     }
 
@@ -696,7 +696,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 return false;
             }
 
-            if (val.IsAmount()) {
+            if (val.IsExplicit()) {
                 if (!MoneyRange(val.GetAmount()))
                     return false;
 
@@ -739,7 +739,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             return false;
         }
 
-        if (val.IsAmount()) {
+        if (val.IsExplicit()) {
             if (!MoneyRange(val.GetAmount()))
                 return false;
 
@@ -768,7 +768,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     // Range proofs
     for (size_t i = 0; i < tx.vout.size(); i++) {
         const CTxOutValue& val = tx.vout[i].nValue;
-        if (val.IsAmount())
+        if (val.IsExplicit())
             continue;
         if (!QueueCheck(pvChecks, new CRangeCheck(&val, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
             return false;
@@ -826,7 +826,7 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
     assert(tx.IsCoinBase());
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        if (!tx.vout[i].nValue.IsAmount() || !tx.vout[i].nAsset.IsExplicit())
+        if (!tx.vout[i].nValue.IsExplicit() || !tx.vout[i].nAsset.IsExplicit())
             return false;
         remaining[tx.vout[i].nAsset.GetAsset()] -= tx.vout[i].nValue.GetAmount();
     }
@@ -1465,7 +1465,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
             continue;
         }
 
-        assert(coins.vout[lock.first.n].nValue.IsAmount() && coins.vout[lock.first.n].nValue.GetAmount() == lock.second);
+        assert(coins.vout[lock.first.n].nValue.IsExplicit() && coins.vout[lock.first.n].nValue.GetAmount() == lock.second);
         res.push_back(lock);
         break;
     }
@@ -1492,7 +1492,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
         if (mempool.mapNextTx.count(COutPoint(it->first.hash, it->first.n)))
             continue;
 
-        assert(coins.vout[it->first.n].nValue.IsAmount() && coins.vout[it->first.n].nValue.GetAmount() == it->second);
+        assert(coins.vout[it->first.n].nValue.IsExplicit() && coins.vout[it->first.n].nValue.GetAmount() == it->second);
         res.push_back(*it);
 
         nTotal += it->second;
@@ -1527,7 +1527,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
                 if (mempool.mapWithdrawsSpentToTxid.count(std::make_pair(withdrawGenHash, COutPoint(tx.GetHash(), j))))
                     continue;
 
-                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount()) {
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit()) {
                     res.push_back(std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount()));
                     nTotal += txout.nValue.GetAmount();
                     if (nTotal >= nAmount)
@@ -1851,7 +1851,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
             // Check for negative or overflow input values
             const CTxOutValue& value = coins->vout[prevout.n].nValue;
-            if (value.IsAmount()) {
+            if (value.IsExplicit()) {
                 nValueIn += value.GetAmount();
                 if (!MoneyRange(value.GetAmount()) || !MoneyRange(nValueIn))
                     return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
@@ -1986,7 +1986,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
                 }
                 const CTxOutValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
-                if (value.IsAmount())
+                if (value.IsExplicit())
                     prevValueIn = value.GetAmount();
                 else
                     prevValueIn = -1;
@@ -2398,7 +2398,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             vPos.push_back(std::make_pair(tx.GetHash(), pos));
             for (unsigned int i = 0; i < tx.vout.size(); i++) {
                 CTxOut txout= tx.vout[i];
-                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit())
                     mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), i), txout.nValue.GetAmount())));
             }
 
@@ -2418,7 +2418,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Check that all non-zero coinbase outputs pay to the required destination
     BOOST_FOREACH(const CTxOut& txout, block.vtx[0]->vout) {
-        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination() && !(txout.nValue.IsAmount() && txout.nValue.GetAmount() == 0))
+        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination() && !(txout.nValue.IsExplicit() && txout.nValue.GetAmount() == 0))
             return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
                              REJECT_INVALID, "bad-coinbase-txos");
     }
@@ -2590,7 +2590,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         for (unsigned int j = 0; j < tx.vout.size(); j++) {
             CTxOut txout = tx.vout[j];
-            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
+            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit())
                 mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
         }
         if (!tx.HasValidFee())
