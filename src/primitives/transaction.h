@@ -59,7 +59,6 @@ public:
                     break;
                 default:
                     throw std::ios_base::failure("Unrecognized serialization prefix");
-                    return;
             }
             vchAssetTag[0] = version;
         }
@@ -141,7 +140,6 @@ public:
                     break;
                 default:
                     throw std::ios_base::failure("Unrecognized serialization prefix");
-                    return;
             }
             vchCommitment[0] = version;
         }
