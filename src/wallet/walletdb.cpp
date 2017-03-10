@@ -549,18 +549,6 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         }
-        /* Only for backward compatibility with older wallets. */
-        else if (strType == "blindingkey")
-        {
-            assert(!pwallet->blinding_key.IsValid());
-            std::vector<unsigned char> vchBlindingKey;
-            ssValue >> vchBlindingKey;
-            pwallet->blinding_key.Set(vchBlindingKey.begin(), vchBlindingKey.end(), true);
-            if (!pwallet->blinding_key.IsValid()) {
-                strErr = "Error reading wallet blinding key";
-                return false;
-            }
-        }
         else if (strType == "blindingderivationkey")
         {
             assert(pwallet->blinding_derivation_key.IsNull());
