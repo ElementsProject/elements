@@ -174,6 +174,17 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[1].getbalance(), node1)
         assert_equal(self.nodes[2].getbalance(), node2)
 
+        # Testing wallet's ability to deblind its own outputs
+        addr = self.nodes[0].getnewaddress()
+        addr2 = self.nodes[0].getnewaddress()
+        # We add two to-blind outputs, fundraw adds an already-blinded change output
+        # If we only add one, the newly blinded will be 0-blinded because input = -output
+        raw = self.nodes[0].createrawtransaction([], {addr:Decimal('1.1'), addr2:1})
+        funded = self.nodes[0].fundrawtransaction(raw)
+        blinded = self.nodes[0].blindrawtransaction(funded["hex"])
+        # blind again to make sure we know output blinders
+        blinded2 = self.nodes[0].blindrawtransaction(blinded)
+
         # Check createblindedaddress functionality
         blinded_addr = self.nodes[0].getnewaddress()
         validated_addr = self.nodes[0].validateaddress(blinded_addr)
