@@ -1280,7 +1280,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                     return false;
             }
             else {
-                assert(val.vchCommitment.size() == CConfidentialValue::nCommittedSize);
+                assert(val.IsCommitment());
                 if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                     return false;
             }
