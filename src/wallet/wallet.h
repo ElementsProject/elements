@@ -659,7 +659,6 @@ public:
         nLastResend = 0;
         nTimeFirstKey = 0;
         fBroadcastTransactions = false;
-        blinding_key = CKey();
         blinding_derivation_key = uint256();
     }
 
@@ -684,9 +683,6 @@ public:
     //! The actual blinding key is computed as HMAC-SHA256(key=blinding_derivation_key, msg=scriptPubKey).
     //! There can be exceptions in mapSpecificBlindingKeys.
     uint256 blinding_derivation_key;
-
-    //! Only for backward compatibility with older wallets (superseded by blinding_derivation_key).
-    CKey blinding_key;
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
