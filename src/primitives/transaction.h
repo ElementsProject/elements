@@ -118,7 +118,6 @@ public:
     static const size_t nCommittedSize = 33;
 
     std::vector<unsigned char> vchCommitment;
-    std::vector<unsigned char> vchNonceCommitment;
 
     CTxOutValue() { SetNull(); }
     CTxOutValue(CAmount);
@@ -165,8 +164,7 @@ public:
 
     friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
     {
-        return a.vchCommitment == b.vchCommitment &&
-               a.vchNonceCommitment == b.vchNonceCommitment;
+        return a.vchCommitment == b.vchCommitment;
     }
 
     friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b)
@@ -188,6 +186,7 @@ public:
     std::vector<unsigned char> vchSurjectionproof;
     CTxOutValue nValue;
     std::vector<unsigned char> vchRangeproof;
+    std::vector<unsigned char> vchNonceCommitment;
     CScript scriptPubKey;
 
     // FIXME: Inventory the places this constructor is called, and make sure
@@ -219,12 +218,13 @@ public:
         vchSurjectionproof.clear();
         nValue = CTxOutValue();
         vchRangeproof.clear();
+        vchNonceCommitment.clear();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && vchRangeproof.empty() && scriptPubKey.empty();
+        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && vchRangeproof.empty() && vchNonceCommitment.empty() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -286,6 +286,7 @@ public:
                 a.vchSurjectionproof == b.vchSurjectionproof &&
                 a.nValue == b.nValue &&
                 a.vchRangeproof == b.vchRangeproof &&
+                a.vchNonceCommitment == b.vchNonceCommitment &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -548,20 +549,20 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
+        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.vchNonceCommitment.empty();
     }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(ref.vchSurjectionproof);
         READWRITE(ref.vchRangeproof);
-        READWRITE(ref.nValue.vchNonceCommitment);
+        READWRITE(ref.vchNonceCommitment);
     }
 
     void SetNull() {
         std::vector<unsigned char>().swap(ref.vchSurjectionproof);
         std::vector<unsigned char>().swap(ref.vchRangeproof);
-        std::vector<unsigned char>().swap(ref.nValue.vchNonceCommitment);
+        std::vector<unsigned char>().swap(ref.vchNonceCommitment);
     }
 };
 

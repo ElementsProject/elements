@@ -258,7 +258,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
     CTxOut txout(asset, value, scriptPubKey);
     if (addr.IsBlinded()) {
         CPubKey pubkey = addr.GetBlindingKey();
-        txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+        txout.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
     tx.vout.push_back(txout);
 }
@@ -337,10 +337,10 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsExplicit())
             throw runtime_error("Invalid parameter: transaction outputs must be unblinded");
-        if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
+        if (tx.vout[nOut].vchNonceCommitment.size() == 0) {
             output_pubkeys.push_back(CPubKey());
         } else {
-            CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
+            CPubKey pubkey(tx.vout[nOut].vchNonceCommitment);
             if (!pubkey.IsValid()) {
                  throw runtime_error("Invalid parameter: invalid confidentiality public key given");
             }
