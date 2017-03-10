@@ -133,6 +133,16 @@ public:
     void SetToAmount(CAmount nAmount);
 };
 
+/**
+ * An 33-byte data field that typically is used to convey to the
+ * recipient the ECDH ephemeral key (an EC point) for deriving the
+ * transaction output blinding factor. */
+class CConfidentialNonce : public CConfidentialCommitment<33, 2, 3>
+{
+public:
+    CConfidentialNonce() { SetNull(); }
+};
+
 /** An output of a transaction.  It contains the public key that the next input
  * must be able to sign with to claim it.
  */
@@ -143,7 +153,7 @@ public:
     std::vector<unsigned char> vchSurjectionproof;
     CConfidentialValue nValue;
     std::vector<unsigned char> vchRangeproof;
-    std::vector<unsigned char> vchNonceCommitment;
+    CConfidentialNonce nNonce;
     CScript scriptPubKey;
 
     // FIXME: Inventory the places this constructor is called, and make sure
@@ -175,13 +185,13 @@ public:
         vchSurjectionproof.clear();
         nValue.SetNull();
         vchRangeproof.clear();
-        vchNonceCommitment.clear();
+        nNonce.SetNull();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && vchRangeproof.empty() && vchNonceCommitment.empty() && scriptPubKey.empty();
+        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && vchRangeproof.empty() && nNonce.IsNull() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -243,7 +253,7 @@ public:
                 a.vchSurjectionproof == b.vchSurjectionproof &&
                 a.nValue == b.nValue &&
                 a.vchRangeproof == b.vchRangeproof &&
-                a.vchNonceCommitment == b.vchNonceCommitment &&
+                a.nNonce == b.nNonce &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -507,20 +517,20 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.vchNonceCommitment.empty();
+        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.nNonce.IsNull();
     }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(ref.vchSurjectionproof);
         READWRITE(ref.vchRangeproof);
-        READWRITE(ref.vchNonceCommitment);
+        READWRITE(ref.nNonce.vchCommitment);
     }
 
     void SetNull() {
         std::vector<unsigned char>().swap(ref.vchSurjectionproof);
         std::vector<unsigned char>().swap(ref.vchRangeproof);
-        std::vector<unsigned char>().swap(ref.vchNonceCommitment);
+        std::vector<unsigned char>().swap(ref.nNonce.vchCommitment);
     }
 };
 

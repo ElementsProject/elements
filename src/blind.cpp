@@ -39,7 +39,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
     if (!key.IsValid()) {
         return false;
     }
-    CPubKey ephemeral_key(txout.vchNonceCommitment);
+    CPubKey ephemeral_key(txout.nNonce.vchCommitment);
     if (!ephemeral_key.IsValid()) {
         return false;
     }
@@ -217,8 +217,8 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             CKey ephemeral_key;
             ephemeral_key.MakeNewKey(true);
             CPubKey ephemeral_pubkey = ephemeral_key.GetPubKey();
-            out.vchNonceCommitment.resize(33);
-            memcpy(&out.vchNonceCommitment[0], &ephemeral_pubkey[0], 33);
+            out.nNonce.vchCommitment.resize(33);
+            memcpy(&out.nNonce.vchCommitment[0], &ephemeral_pubkey[0], 33);
             // Generate nonce
             uint256 nonce = ephemeral_key.ECDH(output_pubkeys[nOut]);
             CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());

@@ -559,7 +559,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
                 CPubKey confidentiality_pubkey = address.GetBlindingKey();
                 if (!confidentiality_pubkey.IsValid())
                      throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
-                out.vchNonceCommitment = std::vector<unsigned char>(confidentiality_pubkey.begin(), confidentiality_pubkey.end());
+                out.nNonce.vchCommitment = std::vector<unsigned char>(confidentiality_pubkey.begin(), confidentiality_pubkey.end());
             }
             rawTx.vout.push_back(out);
         }
@@ -600,13 +600,13 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
 #endif
             if (!fUseWallet)
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded"));
-        } else if (tx.vout[nOut].vchNonceCommitment.size() == 0) {
+        } else if (tx.vout[nOut].nNonce.vchCommitment.size() == 0) {
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
             output_assets.push_back(CAsset());
         } else {
-            CPubKey pubkey(tx.vout[nOut].vchNonceCommitment);
+            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
             if (!pubkey.IsValid()) {
                  throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
             }
@@ -1245,7 +1245,7 @@ UniValue sendrawtransaction(const JSONRPCRequest& request)
     if (!fOverrideBlindable) {
         for (unsigned i = 0; i < tx->vout.size(); i++) {
             const CTxOut& txout = tx->vout[i];
-            if (txout.nValue.IsExplicit() && txout.vchNonceCommitment.size() != 0)
+            if (txout.nValue.IsExplicit() && txout.nNonce.vchCommitment.size() != 0)
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Output %u is unblinded, but has blinding pubkey attached, please use [raw]blindrawtransaction", i));
         }
     }
