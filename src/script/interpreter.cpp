@@ -1438,7 +1438,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         if (vgenesisHash.size() != 32)
                             return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
-                        assert(checker.GetValueIn() != -1); // Not using a NoWithdrawSignatureChecker
+                        assert(checker.GetValueIn() != CConfidentialValue(-1)); // Not using a NoWithdrawSignatureChecker
 
                         CScript relockScript = CScript() << vgenesisHash << OP_WITHDRAWPROOFVERIFY;
 
@@ -1742,7 +1742,7 @@ PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo)
     hashOutputs = GetOutputsHash(txTo);
 }
 
-uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CTxOutValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache)
+uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache)
 {
     if (sigversion == SIGVERSION_WITNESS_V0) {
         uint256 hashPrevouts;
@@ -1943,12 +1943,12 @@ COutPoint TransactionSignatureChecker::GetPrevOut() const
     return txTo->vin[nIn].prevout;
 }
 
-CTxOutValue TransactionSignatureChecker::GetValueIn() const
+CConfidentialValue TransactionSignatureChecker::GetValueIn() const
 {
     return amount;
 }
 
-CTxOutValue TransactionSignatureChecker::GetValueInPrevIn() const
+CConfidentialValue TransactionSignatureChecker::GetValueInPrevIn() const
 {
     return amountPreviousInput;
 }

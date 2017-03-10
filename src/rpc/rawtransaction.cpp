@@ -146,7 +146,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                 out.push_back(Pair("ct-bits", mantissa));
             }
         }
-        const CTxOutAsset& asset = txout.nAsset;
+        const CConfidentialAsset& asset = txout.nAsset;
         if (asset.IsExplicit()) {
             out.push_back(Pair("asset", asset.GetAsset().GetHex()));
         }
@@ -1145,7 +1145,7 @@ UniValue signrawtransaction(const UniValue& params, bool fHelp)
             continue;
         }
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
-        const CTxOutValue& amount = coins->vout[txin.prevout.n].nValue;
+        const CConfidentialValue& amount = coins->vout[txin.prevout.n].nValue;
 
         SignatureData sigdata;
         // Only sign SIGHASH_SINGLE if there's a corresponding output:

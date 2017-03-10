@@ -17,110 +17,19 @@ static const int WITNESS_SCALE_FACTOR = 4;
 
 static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
 
-class CTxOutAsset
+/**
+ * Confidential assets, values, and nonces all share enough code in common
+ * that it makes sense to define a common abstract base class. */
+template<size_t ExplicitSize, unsigned char PrefixA, unsigned char PrefixB>
+class CConfidentialCommitment
 {
 public:
+    static const size_t nExplicitSize = ExplicitSize;
     static const size_t nCommittedSize = 33;
 
     std::vector<unsigned char> vchCommitment;
 
-    CTxOutAsset()
-    {
-        vchCommitment.reserve(nCommittedSize);
-        SetNull();
-    }
-
-    CTxOutAsset(const CAsset& asset)
-    {
-        SetToAsset(asset);
-    }
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        unsigned char version = vchCommitment.empty()? 0: vchCommitment[0];
-        READWRITE(version);
-        if (ser_action.ForRead()) {
-            switch (version) {
-                /* Null */
-                case 0:
-                    vchCommitment.clear();
-                    return;
-                /* Explicit asset */
-                case 1:
-                /* Trust-me! asset generation */
-                case 0xff:
-                /* Confidential asset */
-                case 10:
-                case 11:
-                    vchCommitment.resize(nCommittedSize);
-                    break;
-                default:
-                    throw std::ios_base::failure("Unrecognized serialization prefix");
-            }
-            vchCommitment[0] = version;
-        }
-        if (vchCommitment.size() > 1)
-            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
-    }
-
-    bool IsNull() const
-    {
-        return vchCommitment.empty();
-    }
-
-    void SetNull();
-
-    bool IsExplicit() const
-    {
-        return vchCommitment.size()==nCommittedSize && vchCommitment[0]==1;
-    }
-    const CAsset& GetAsset() const
-    {
-        assert(IsExplicit() || IsAssetGeneration());
-        return *reinterpret_cast<const CAsset*>(&vchCommitment[1]);
-    }
-
-    bool IsCommitment() const
-    {
-        return vchCommitment.size()==nCommittedSize && (vchCommitment[0]==10 || vchCommitment[0]==11);
-    }
-
-    bool IsAssetGeneration() const
-    {
-        return vchCommitment.size()==nCommittedSize && vchCommitment[0]==0xff;
-    }
-
-    void SetAsAssetGeneration()
-    {
-        vchCommitment[0] = 0xff;
-    }
-
-    friend bool operator==(const CTxOutAsset& a, const CTxOutAsset& b)
-    {
-        return a.vchCommitment == b.vchCommitment;
-    }
-
-    friend bool operator!=(const CTxOutAsset& a, const CTxOutAsset& b)
-    {
-        return !(a == b);
-    }
-
-private:
-    void SetToAsset(const CAsset& asset);
-};
-
-class CTxOutValue
-{
-public:
-    static const size_t nExplicitSize = 9;
-    static const size_t nCommittedSize = 33;
-
-    std::vector<unsigned char> vchCommitment;
-
-    CTxOutValue() { SetNull(); }
-    CTxOutValue(CAmount);
+    CConfidentialCommitment() { SetNull(); }
 
     ADD_SERIALIZE_METHODS;
 
@@ -136,13 +45,16 @@ public:
                     return;
                 /* Explicit value */
                 case 1:
+                /* Trust-me! asset generation */
+                case 0xff:
                     vchCommitment.resize(nExplicitSize);
                     break;
-                /* Committed value */
-                case 8:
-                case 9:
+                /* Confidential commitment */
+                case PrefixA:
+                case PrefixB:
                     vchCommitment.resize(nCommittedSize);
                     break;
+                /* Invalid serialization! */
                 default:
                     throw std::ios_base::failure("Unrecognized serialization prefix");
             }
@@ -150,30 +62,85 @@ public:
         }
         if (vchCommitment.size() > 1)
             READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
-        // We only serialize the value commitment here.
-        // The ECDH key is serialized through CTxOutWitnessSerializer.
     }
 
-    void SetNull();
+    /* Null is the default state when no explicit asset or confidential
+     * asset commitment has been set. */
     bool IsNull() const { return vchCommitment.empty(); }
+    void SetNull() { vchCommitment.clear(); }
 
-    bool IsValid() const;
+    bool IsExplicit() const
+    {
+        return vchCommitment.size()==nExplicitSize && vchCommitment[0]==1;
+    }
 
-    bool IsExplicit() const { return vchCommitment[0] == 1; }
-    CAmount GetAmount() const;
+    bool IsCommitment() const
+    {
+        return vchCommitment.size()==nCommittedSize && (vchCommitment[0]==PrefixA || vchCommitment[0]==PrefixB);
+    }
 
-    friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
+    bool IsValid() const
+    {
+        return IsNull() || IsExplicit() || IsCommitment()
+            || (vchCommitment.size()==nExplicitSize && vchCommitment[0]==0xff);
+    }
+
+    friend bool operator==(const CConfidentialCommitment& a, const CConfidentialCommitment& b)
     {
         return a.vchCommitment == b.vchCommitment;
     }
 
-    friend bool operator!=(const CTxOutValue& a, const CTxOutValue& b)
+    friend bool operator!=(const CConfidentialCommitment& a, const CConfidentialCommitment& b)
     {
         return !(a == b);
     }
+};
 
-private:
-    void SetToAmount(const CAmount nAmount);
+/** A commitment to a blinded asset, or an explicit asset NUMS identifier */
+class CConfidentialAsset : public CConfidentialCommitment<33, 10, 11>
+{
+public:
+    CConfidentialAsset() { SetNull(); }
+    CConfidentialAsset(CAsset asset) { SetToAsset(asset); }
+
+    /* An explicit asset identifier is a 256-bit nothing-up-my-sleeve number
+     * that used as auxiliary input to the Pedersen commitment setup to create
+     * a generator which acts as the asset tag. */
+    const CAsset& GetAsset() const
+    {
+        assert(IsExplicit() || IsAssetGeneration());
+        return *reinterpret_cast<const CAsset*>(&vchCommitment[1]);
+    }
+    void SetToAsset(const CAsset& asset);
+
+    /** Remove when we switch to real asset issuance. */
+    bool IsAssetGeneration() const
+    {
+        return vchCommitment.size()==nExplicitSize && vchCommitment[0]==0xff;
+    }
+    void SetAsAssetGeneration()
+    {
+        assert(IsExplicit() || IsAssetGeneration());
+        vchCommitment[0] = 0xff;
+    }
+};
+
+/** A 33-byte commitment to a confidential value, or a 64-bit explicit value. */
+class CConfidentialValue : public CConfidentialCommitment<9, 8, 9>
+{
+public:
+    CConfidentialValue() { SetNull(); }
+    CConfidentialValue(CAmount nAmount) { SetToAmount(nAmount); }
+
+    /* An explicit value is called an amount. The first byte indicates it is
+     * an explicit value, and the remaining 8 bytes is the value serialized as
+     * a 64-bit big-endian integer. */
+    CAmount GetAmount() const
+    {
+        assert(IsExplicit());;
+        return ReadBE64(&vchCommitment[1]);
+    }
+    void SetToAmount(CAmount nAmount);
 };
 
 /** An output of a transaction.  It contains the public key that the next input
@@ -182,9 +149,9 @@ private:
 class CTxOut
 {
 public:
-    CTxOutAsset nAsset;
+    CConfidentialAsset nAsset;
     std::vector<unsigned char> vchSurjectionproof;
-    CTxOutValue nValue;
+    CConfidentialValue nValue;
     std::vector<unsigned char> vchRangeproof;
     std::vector<unsigned char> vchNonceCommitment;
     CScript scriptPubKey;
@@ -199,7 +166,7 @@ public:
     // FIXME: Add `const CTxOutAsset& nAssetIn` as first parameter. This will
     //        (rightfully) break all code that calls this constructor, which
     //        will need to be fixed to be asset aware.
-    CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
@@ -214,9 +181,9 @@ public:
 
     void SetNull()
     {
-        nAsset = CTxOutAsset();
+        nAsset.SetNull();
         vchSurjectionproof.clear();
-        nValue = CTxOutValue();
+        nValue.SetNull();
         vchRangeproof.clear();
         vchNonceCommitment.clear();
         scriptPubKey.clear();
@@ -370,13 +337,13 @@ public:
     uint256 assetEntropy;
 
     // Both explicit and blinded issuance amounts are supported
-    // (see class definition for CTxOutValue for details).
-    CTxOutValue nAmount;
+    // (see class definition for CConfidentialValue for details).
+    CConfidentialValue nAmount;
 
     // If nonzero, specifies the number of asset issuance tokens to
     // generate. These tokens are made available to the outputs of the
     // generating transaction.
-    CTxOutValue nInflationKeys;
+    CConfidentialValue nInflationKeys;
 
 public:
     CAssetIssuance()

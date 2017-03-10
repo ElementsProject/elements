@@ -177,7 +177,7 @@ return;
     CDataStream streamVal1(SER_NETWORK, PROTOCOL_VERSION);
     stream << txCredit.vout[0].nValue;
     CDataStream streamVal2(SER_NETWORK, PROTOCOL_VERSION);
-    stream << CTxOutValue();
+    stream << CConfidentialValue();
 
     if (flags & bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS) {
         BOOST_CHECK_MESSAGE(bitcoinconsensus_verify_script_with_amount(begin_ptr(scriptPubKey), scriptPubKey.size(), (const unsigned char*)&streamVal1[0], streamVal1.size(), (const unsigned char*)&streamVal2[0], streamVal2.size(), (const unsigned char*)&stream[0], stream.size(), 0, flags, NULL) == expect,message);

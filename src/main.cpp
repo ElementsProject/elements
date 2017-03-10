@@ -1144,14 +1144,14 @@ static Secp256k1Ctx instance_of_secp256k1ctx;
 class CRangeCheck : public CCheck
 {
 private:
-    const CTxOutValue* val;
+    const CConfidentialValue* val;
     const std::vector<unsigned char>& rangeproof;
-    const CTxOutAsset* asset;
+    const CConfidentialAsset* asset;
     const CScript* scriptPubKey;
     const bool store;
 
 public:
-    CRangeCheck(const CTxOutValue* val_, const std::vector<unsigned char>& rangeproof_, const CTxOutAsset* asset_, const CScript* scriptPubKey_, const bool storeIn) : val(val_), rangeproof(rangeproof_), asset(asset_), scriptPubKey(scriptPubKey_), store(storeIn) {}
+    CRangeCheck(const CConfidentialValue* val_, const std::vector<unsigned char>& rangeproof_, const CConfidentialAsset* asset_, const CScript* scriptPubKey_, const bool storeIn) : val(val_), rangeproof(rangeproof_), asset(asset_), scriptPubKey(scriptPubKey_), store(storeIn) {}
 
     bool operator()();
 };
@@ -1250,8 +1250,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         for (size_t i = 0; i < tx.vin.size(); ++i)
         {
             const CTxOut out = cache.GetOutputFor(tx.vin[i]);
-            const CTxOutValue& val = out.nValue;
-            const CTxOutAsset& asset = out.nAsset;
+            const CConfidentialValue& val = out.nValue;
+            const CConfidentialAsset& asset = out.nAsset;
 
             if (val.IsNull() || asset.IsNull())
                 return false;
@@ -1280,7 +1280,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                     return false;
             }
             else {
-                assert(val.vchCommitment.size() == CTxOutValue::nCommittedSize);
+                assert(val.vchCommitment.size() == CConfidentialValue::nCommittedSize);
                 if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                     return false;
             }
@@ -1292,11 +1292,11 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     }
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
-        const CTxOutValue& val = tx.vout[i].nValue;
-        const CTxOutAsset& asset = tx.vout[i].nAsset;
-        assert(val.vchCommitment.size() == CTxOutValue::nCommittedSize ||
-            val.vchCommitment.size() == CTxOutValue::nExplicitSize);
-        if (tx.vout[i].vchNonceCommitment.size() > CTxOutValue::nCommittedSize || tx.vout[i].vchRangeproof.size() > 5000)
+        const CConfidentialValue& val = tx.vout[i].nValue;
+        const CConfidentialAsset& asset = tx.vout[i].nAsset;
+        assert(val.vchCommitment.size() == CConfidentialValue::nCommittedSize ||
+            val.vchCommitment.size() == CConfidentialValue::nExplicitSize);
+        if (tx.vout[i].vchNonceCommitment.size() > 33 || tx.vout[i].vchRangeproof.size() > 5000)
             return false;
 
         if (asset.IsExplicit()) {
@@ -1346,7 +1346,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 
     // Range proofs
     for (size_t i = 0; i < tx.vout.size(); i++) {
-        const CTxOutValue& val = tx.vout[i].nValue;
+        const CConfidentialValue& val = tx.vout[i].nValue;
         if (val.IsExplicit())
             continue;
         if (!QueueCheck(pvChecks, new CRangeCheck(&val, tx.vout[i].vchRangeproof, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
@@ -1361,7 +1361,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 
     for (size_t i = 0; i < tx.vin.size(); i++)
     {
-        const CTxOutAsset& asset = cache.GetOutputFor(tx.vin[i]).nAsset;
+        const CConfidentialAsset& asset = cache.GetOutputFor(tx.vin[i]).nAsset;
         if (asset.IsExplicit() || asset.IsAssetGeneration()) {
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &ephemeral_input_tags[i], asset.GetAsset().begin());
             assert(ret != 0);
@@ -1376,7 +1376,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
-        const CTxOutAsset& asset = tx.vout[i].nAsset;
+        const CConfidentialAsset& asset = tx.vout[i].nAsset;
         //No need for surjective proof
         if (asset.IsExplicit() || asset.IsAssetGeneration()) {
             assert(tx.vout[i].vchSurjectionproof.size() == 0);
@@ -2429,7 +2429,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             }
 
             // Check for negative or overflow input values
-            const CTxOutValue& value = coins->vout[prevout.n].nValue;
+            const CConfidentialValue& value = coins->vout[prevout.n].nValue;
             if (value.IsExplicit()) {
                 nValueIn += value.GetAmount();
                 if (!MoneyRange(value.GetAmount()) || !MoneyRange(nValueIn))
@@ -2568,7 +2568,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     else
                         return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
                 }
-                const CTxOutValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
+                const CConfidentialValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
                 if (value.IsExplicit())
                     prevValueIn = value.GetAmount();
                 else

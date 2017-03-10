@@ -132,7 +132,7 @@ enum SigVersion
     SIGVERSION_WITNESS_V0 = 1,
 };
 
-uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CTxOutValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache = NULL);
+uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache = NULL);
 
 class BaseSignatureChecker
 {
@@ -156,7 +156,7 @@ public:
     virtual CTxOut GetOutputOffsetFromCurrent(const int offset) const;
     virtual COutPoint GetPrevOut() const;
 
-    virtual CTxOutValue GetValueIn() const
+    virtual CConfidentialValue GetValueIn() const
     {
         return -1;
     }
@@ -166,7 +166,7 @@ public:
          return false;
     }
 
-    virtual CTxOutValue GetValueInPrevIn() const
+    virtual CConfidentialValue GetValueInPrevIn() const
     {
         return -1;
     }
@@ -184,14 +184,14 @@ class TransactionNoWithdrawsSignatureChecker : public BaseSignatureChecker
 protected:
     const CTransaction* txTo;
     const unsigned int nIn;
-    const CTxOutValue amount;
+    const CConfidentialValue amount;
     const PrecomputedTransactionData* txdata;
 
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(NULL) {}
-    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(&txdataIn) {}
+    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(NULL) {}
+    TransactionNoWithdrawsSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(&txdataIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const;
     bool CheckLockTime(const CScriptNum& nLockTime) const;
     bool CheckSequence(const CScriptNum& nSequence) const;
@@ -203,22 +203,22 @@ private:
     const CTransaction txTo;
 
 public:
-    MutableTransactionNoWithdrawsSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amount) : TransactionNoWithdrawsSignatureChecker(&txTo, nInIn, amount), txTo(*txToIn) {}
+    MutableTransactionNoWithdrawsSignatureChecker(const CMutableTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amount) : TransactionNoWithdrawsSignatureChecker(&txTo, nInIn, amount), txTo(*txToIn) {}
 };
 
 class TransactionSignatureChecker : public TransactionNoWithdrawsSignatureChecker
 {
 private:
-    const CTxOutValue amountPreviousInput;
+    const CConfidentialValue amountPreviousInput;
     const CScript fedpegScript;
 
 public:
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amountIn, const CTxOutValue& amountPreviousInputIn, const CScript& fedpegScriptIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn, amountIn), amountPreviousInput(amountPreviousInputIn), fedpegScript(fedpegScriptIn) {}
-    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amountIn, const CTxOutValue& amountPreviousInputIn, const PrecomputedTransactionData& txdataIn, const CScript& fedpegScriptIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn, amountIn, txdataIn), amountPreviousInput(amountPreviousInputIn), fedpegScript(fedpegScriptIn) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const CConfidentialValue& amountPreviousInputIn, const CScript& fedpegScriptIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn, amountIn), amountPreviousInput(amountPreviousInputIn), fedpegScript(fedpegScriptIn) {}
+    TransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const CConfidentialValue& amountPreviousInputIn, const PrecomputedTransactionData& txdataIn, const CScript& fedpegScriptIn) : TransactionNoWithdrawsSignatureChecker(txToIn, nInIn, amountIn, txdataIn), amountPreviousInput(amountPreviousInputIn), fedpegScript(fedpegScriptIn) {}
     CTxOut GetOutputOffsetFromCurrent(const int offset) const;
     COutPoint GetPrevOut() const;
-    CTxOutValue GetValueIn() const;
-    CTxOutValue GetValueInPrevIn() const;
+    CConfidentialValue GetValueIn() const;
+    CConfidentialValue GetValueInPrevIn() const;
     bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements) const;
     virtual CScript GetFedpegScript() const
     {

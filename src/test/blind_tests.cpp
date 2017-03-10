@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         in3->vout[1] = tx3.vout[1];
         in3->vout[2] = tx3.vout[2];
 
-        tx3.vout[1].nValue = CTxOutValue(tx3.vout[1].nValue.GetAmount() - 1);
+        tx3.vout[1].nValue = CConfidentialValue(tx3.vout[1].nValue.GetAmount() - 1);
         BOOST_CHECK(!VerifyAmounts(cache, tx3));
     }
 
@@ -296,7 +296,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         in4->vout[2] = tx4.vout[2];
         in4->vout[3] = tx4.vout[3];
 
-        tx4.vout[3].nValue = CTxOutValue(tx4.vout[3].nValue.GetAmount() - 1);
+        tx4.vout[3].nValue = CConfidentialValue(tx4.vout[3].nValue.GetAmount() - 1);
         BOOST_CHECK(!VerifyAmounts(cache, tx4));
     }
 }
