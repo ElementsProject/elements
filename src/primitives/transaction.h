@@ -118,7 +118,6 @@ public:
     static const size_t nCommittedSize = 33;
 
     std::vector<unsigned char> vchCommitment;
-    std::vector<unsigned char> vchRangeproof;
     std::vector<unsigned char> vchNonceCommitment;
 
     CTxOutValue() { SetNull(); }
@@ -153,7 +152,7 @@ public:
         if (vchCommitment.size() > 1)
             READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
         // We only serialize the value commitment here.
-        // The ECDH key and range proof are serialized through CTxOutWitnessSerializer.
+        // The ECDH key is serialized through CTxOutWitnessSerializer.
     }
 
     void SetNull();
@@ -166,8 +165,7 @@ public:
 
     friend bool operator==(const CTxOutValue& a, const CTxOutValue& b)
     {
-        return a.vchRangeproof == b.vchRangeproof &&
-               a.vchCommitment == b.vchCommitment &&
+        return a.vchCommitment == b.vchCommitment &&
                a.vchNonceCommitment == b.vchNonceCommitment;
     }
 
@@ -189,6 +187,7 @@ public:
     CTxOutAsset nAsset;
     std::vector<unsigned char> vchSurjectionproof;
     CTxOutValue nValue;
+    std::vector<unsigned char> vchRangeproof;
     CScript scriptPubKey;
 
     // FIXME: Inventory the places this constructor is called, and make sure
@@ -210,6 +209,7 @@ public:
         READWRITE(nAsset);
         // The surjection proof is serialized as part of the witness data
         READWRITE(nValue);
+        // The range proof is serialized as part of the witness data
         READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
 
@@ -218,12 +218,13 @@ public:
         nAsset = CTxOutAsset();
         vchSurjectionproof.clear();
         nValue = CTxOutValue();
+        vchRangeproof.clear();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && scriptPubKey.empty();
+        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && vchRangeproof.empty() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -284,6 +285,7 @@ public:
         return (a.nAsset == b.nAsset &&
                 a.vchSurjectionproof == b.vchSurjectionproof &&
                 a.nValue == b.nValue &&
+                a.vchRangeproof == b.vchRangeproof &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -546,19 +548,19 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.vchSurjectionproof.empty() && ref.nValue.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
+        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.nValue.vchNonceCommitment.empty();
     }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(ref.vchSurjectionproof);
-        READWRITE(ref.nValue.vchRangeproof);
+        READWRITE(ref.vchRangeproof);
         READWRITE(ref.nValue.vchNonceCommitment);
     }
 
     void SetNull() {
         std::vector<unsigned char>().swap(ref.vchSurjectionproof);
-        std::vector<unsigned char>().swap(ref.nValue.vchRangeproof);
+        std::vector<unsigned char>().swap(ref.vchRangeproof);
         std::vector<unsigned char>().swap(ref.nValue.vchNonceCommitment);
     }
 };
