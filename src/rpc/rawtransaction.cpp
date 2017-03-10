@@ -538,7 +538,7 @@ void FillOutputBlinds(const CMutableTransaction& tx, bool fUseWallet, std::vecto
             uint256 blinding_factor;
             CAmount amount;
 #ifdef ENABLE_WALLET
-            if (fUseWallet && UnblindOutput(pwalletMain->blinding_key, tx.vout[nOut], amount, blinding_factor) != 0) {
+            if (fUseWallet && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], amount, blinding_factor) != 0) {
                 output_blinds.push_back(blinding_factor);
                 output_pubkeys.push_back(CPubKey());
             } else if (fUseWallet)
