@@ -523,7 +523,7 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.nNonce.vchCommitment.empty();
+        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.nNonce.IsNull();
     }
 
     template <typename Stream, typename Operation>
