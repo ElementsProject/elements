@@ -581,7 +581,6 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 }
 
 // Rewind the outputs to unblinded, and push placeholders for blinding info
-// Failure if any are unable to be unblinded
 void FillOutputBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsExplicit()) {
@@ -603,12 +602,13 @@ void FillOutputBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint
                 output_pubkeys.push_back(pubkey);
                 output_value_blinds.push_back(uint256());
                 output_asset_blinds.push_back(uint256());
-
-            } else if (fUseWallet)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded or to wallet"));
+                continue;
+            }
 #endif
-            if (!fUseWallet)
-                throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: transaction outputs must be unblinded"));
+            // If no wallet, or unable to unblind, leave it alone in next blinding step
+            output_pubkeys.push_back(CPubKey());
+            output_value_blinds.push_back(uint256());
+            output_asset_blinds.push_back(uint256());
         } else if (tx.vout[nOut].nNonce.vchCommitment.size() == 0) {
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
