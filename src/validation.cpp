@@ -573,12 +573,13 @@ class CRangeCheck : public CCheck
 {
 private:
     const CTxOutValue* val;
+    const std::vector<unsigned char>& rangeproof;
     const CTxOutAsset* asset;
     const CScript* scriptPubKey;
     const bool store;
 
 public:
-    CRangeCheck(const CTxOutValue* val_, const CTxOutAsset* asset_, const CScript* scriptPubKey_, const bool storeIn) : val(val_), asset(asset_), scriptPubKey(scriptPubKey_), store(storeIn) {}
+    CRangeCheck(const CTxOutValue* val_, const std::vector<unsigned char>& rangeproof_, const CTxOutAsset* asset_, const CScript* scriptPubKey_, const bool storeIn) : val(val_), rangeproof(rangeproof_), asset(asset_), scriptPubKey(scriptPubKey_), store(storeIn) {}
 
     bool operator()();
 };
@@ -633,7 +634,7 @@ bool CRangeCheck::operator()()
         return true;
     }
 
-    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, asset->vchCommitment, *scriptPubKey, secp256k1_ctx_verify_amounts);
+    return CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, asset->vchCommitment, *scriptPubKey, secp256k1_ctx_verify_amounts);
 };
 
 bool CBalanceCheck::operator()()
@@ -723,7 +724,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         const CTxOutAsset& asset = tx.vout[i].nAsset;
         assert(val.vchCommitment.size() == CTxOutValue::nCommittedSize ||
             val.vchCommitment.size() == CTxOutValue::nExplicitSize);
-        if (val.vchNonceCommitment.size() > CTxOutValue::nCommittedSize || val.vchRangeproof.size() > 5000)
+        if (val.vchNonceCommitment.size() > CTxOutValue::nCommittedSize || tx.vout[i].vchRangeproof.size() > 5000)
             return false;
 
         if (asset.IsExplicit()) {
@@ -770,7 +771,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         const CTxOutValue& val = tx.vout[i].nValue;
         if (val.IsExplicit())
             continue;
-        if (!QueueCheck(pvChecks, new CRangeCheck(&val, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val, tx.vout[i].vchRangeproof, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
             return false;
         }
     }

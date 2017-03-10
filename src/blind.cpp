@@ -57,7 +57,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
         return false;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &commit, &txout.nValue.vchCommitment[0]) != 1)
         return false;
-    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size(), txout.scriptPubKey.size() ? &txout.scriptPubKey.front() : NULL, txout.scriptPubKey.size(), &gen);
+    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &txout.vchRangeproof[0], txout.vchRangeproof.size(), txout.scriptPubKey.size() ? &txout.scriptPubKey.front() : NULL, txout.scriptPubKey.size(), &gen);
     secp256k1_generator recoveredGen;
 
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
@@ -226,7 +226,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             // Prep range proof
             size_t nRangeProofLen = 5134;
             // TODO: smarter min_value selection
-            value.vchRangeproof.resize(nRangeProofLen);
+            out.vchRangeproof.resize(nRangeProofLen);
 
             // Compose sidechannel message to convey asset info (ID and asset blinds)
             unsigned char assetsMessage[64];
@@ -234,8 +234,8 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             memcpy(assetsMessage+32,  assetblindptrs[assetblindptrs.size()-1], 32);
 
             // Sign rangeproof
-            int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &value.vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), out.scriptPubKey.size() ? &out.scriptPubKey.front() : NULL, out.scriptPubKey.size(), &gen);
-            value.vchRangeproof.resize(nRangeProofLen);
+            int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &out.vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), out.scriptPubKey.size() ? &out.scriptPubKey.front() : NULL, out.scriptPubKey.size(), &gen);
+            out.vchRangeproof.resize(nRangeProofLen);
             // TODO: do something smarter here
             assert(res);
 

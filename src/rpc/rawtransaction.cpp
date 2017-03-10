@@ -132,7 +132,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             int mantissa;
             uint64_t minv;
             uint64_t maxv;
-            if (secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &txout.nValue.vchRangeproof[0], txout.nValue.vchRangeproof.size())) {
+            if (secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &txout.vchRangeproof[0], txout.vchRangeproof.size())) {
                 if (exp == -1) {
                     out.push_back(Pair("value", ValueFromAmount((CAmount)minv)));
                 } else {
