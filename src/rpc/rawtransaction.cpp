@@ -601,7 +601,7 @@ void FillOutputBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-        } else if (tx.vout[nOut].nNonce.vchCommitment.size() == 0) {
+        } else if (tx.vout[nOut].nNonce.IsNull()) {
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());

@@ -337,7 +337,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsExplicit())
             throw runtime_error("Invalid parameter: transaction outputs must be unblinded");
-        if (tx.vout[nOut].nNonce.vchCommitment.size() == 0) {
+        if (tx.vout[nOut].nNonce.IsNull()) {
             output_pubkeys.push_back(CPubKey());
         } else {
             CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
