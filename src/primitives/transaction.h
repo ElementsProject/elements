@@ -173,9 +173,6 @@ public:
         SetNull();
     }
 
-    // FIXME: Add `const CTxOutAsset& nAssetIn` as first parameter. This will
-    //        (rightfully) break all code that calls this constructor, which
-    //        will need to be fixed to be asset aware.
     CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
