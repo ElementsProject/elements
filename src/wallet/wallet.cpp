@@ -2329,7 +2329,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.vchNonceCommitment), false};
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), false};
         vecSend.push_back(recipient);
 
         if (setAssets.count(txOut.nAsset.GetAsset()) == 0) {
