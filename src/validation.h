@@ -511,8 +511,8 @@ class CScriptCheck : public CCheck
 {
 private:
     CScript scriptPubKey;
-    CTxOutValue amount;
-    CTxOutValue amountPreviousInput;
+    CConfidentialValue amount;
+    CConfidentialValue amountPreviousInput;
     const CTransaction *ptxTo;
     unsigned int nIn;
     unsigned int nFlags;
@@ -520,7 +520,7 @@ private:
     PrecomputedTransactionData *txdata;
 
 public:
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CTxOutValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CConfidentialValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
         amountPreviousInput(amountPreviousInputIn),
         ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), txdata(txdataIn) { }

@@ -3117,7 +3117,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
     }
 
     // If the output would become dust, discard it (converting the dust to fee)
-    poutput->nValue = CTxOutValue(poutput->nValue.GetAmount() - nDelta);
+    poutput->nValue = CConfidentialValue(poutput->nValue.GetAmount() - nDelta);
     if (poutput->nValue.GetAmount() <= poutput->GetDustThreshold(::dustRelayFee)) {
         LogPrint("rpc", "Bumping fee and discarding dust output\n");
         nNewFee += poutput->nValue.GetAmount();

@@ -158,8 +158,8 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         CTxOut& out = tx.vout[nOut];
         if (out.nValue.IsExplicit() && output_pubkeys[nOut].IsFullyValid()) {
-            CTxOutValue& value = out.nValue;
-            CTxOutAsset& asset = out.nAsset;
+            CConfidentialAsset& asset = out.nAsset;
+            CConfidentialValue& value = out.nValue;
             CAmount amount = value.GetAmount();
             assetID = out.nAsset.GetAsset();
             blindedAmounts.push_back(value.GetAmount());
@@ -207,7 +207,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             assert(ret != 0);
 
             // Create value commitment
-            value.vchCommitment.resize(CTxOutValue::nCommittedSize);
+            value.vchCommitment.resize(CConfidentialValue::nCommittedSize);
             ret = secp256k1_pedersen_commit(secp256k1_blind_context, &commit, (unsigned char*)blindptrs.back(), amount, &gen);
             assert(ret != 0);
             secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, &value.vchCommitment[0], &commit);

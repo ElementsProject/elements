@@ -3006,7 +3006,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
                         vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
-                        change_position->nValue = CTxOutValue(change_position->nValue.GetAmount() + extraFeePaid);
+                        change_position->nValue = CConfidentialValue(change_position->nValue.GetAmount() + extraFeePaid);
                         nFeeRet -= extraFeePaid;
                     }
                     break; // Done, enough fee included.
@@ -3018,7 +3018,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                     // Only reduce change if remaining amount is still a large enough output.
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
-                        change_position->nValue = CTxOutValue(change_position->nValue.GetAmount() - additionalFeeNeeded);
+                        change_position->nValue = CConfidentialValue(change_position->nValue.GetAmount() - additionalFeeNeeded);
                         nFeeRet += additionalFeeNeeded;
                         break; // Done, able to increase fee from change
                     }

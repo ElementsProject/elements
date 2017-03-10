@@ -9,59 +9,21 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
-void CTxOutAsset::SetNull()
+void CConfidentialAsset::SetToAsset(const CAsset& asset)
 {
-    vchCommitment.clear();
-}
-
-void CTxOutAsset::SetToAsset(const CAsset& asset)
-{
-    vchCommitment.reserve(nCommittedSize);
+    vchCommitment.reserve(nExplicitSize);
     vchCommitment.push_back(1);
     vchCommitment.insert(vchCommitment.end(), asset.begin(), asset.end());
 }
 
-CTxOutValue::CTxOutValue(CAmount nAmountIn)
+void CConfidentialValue::SetToAmount(const CAmount amount)
 {
-    vchCommitment.resize(nExplicitSize);
-    SetToAmount(nAmountIn);
-}
-
-void CTxOutValue::SetNull()
-{
-    vchCommitment.clear();
-}
-
-bool CTxOutValue::IsValid() const
-{
-    switch(vchCommitment[0]) {
-        case 1:
-            if (vchCommitment.size() != nExplicitSize)
-                return false;
-            return true;
-        case 8:
-        case 9:
-            if (vchCommitment.size() != nCommittedSize)
-                return false;
-            return true;
-        default:
-            return false;
-    }
-}
-
-CAmount CTxOutValue::GetAmount() const
-{
-    assert(IsExplicit());
-    return ReadBE64(&vchCommitment[1]);
-}
-
-void CTxOutValue::SetToAmount(const CAmount nAmount) {
     vchCommitment.resize(nExplicitSize);
     vchCommitment[0] = 1;
-    WriteBE64(&vchCommitment[1], nAmount);
+    WriteBE64(&vchCommitment[1], amount);
 }
 
-CTxOut::CTxOut(const CTxOutAsset& nAssetIn, const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn)
 {
     nAsset = nAssetIn;
     nValue = nValueIn;

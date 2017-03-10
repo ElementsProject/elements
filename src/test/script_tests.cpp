@@ -174,7 +174,7 @@ return;
     CDataStream streamVal1(SER_NETWORK, PROTOCOL_VERSION);
     streamVal1 << txCredit.vout[0].nValue;
     CDataStream streamVal2(SER_NETWORK, PROTOCOL_VERSION);
-    streamVal2 << CTxOutValue();
+    streamVal2 << CConfidentialValue();
     int libconsensus_flags = flags & bitcoinconsensus_SCRIPT_FLAGS_VERIFY_ALL;
     if (libconsensus_flags == flags) {
         if (flags & bitcoinconsensus_SCRIPT_FLAGS_VERIFY_WITNESS) {

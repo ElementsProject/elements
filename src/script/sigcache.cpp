@@ -177,7 +177,7 @@ bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionpr
     secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
 
     std::vector<unsigned char> vchGen;
-    vchGen.resize(CTxOutValue::nCommittedSize);
+    vchGen.resize(CConfidentialValue::nCommittedSize);
     secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchGen[0], &gen);
 
     CPubKey pubkey(vchGen);
