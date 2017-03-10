@@ -1294,9 +1294,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        assert(val.vchCommitment.size() == CConfidentialValue::nCommittedSize ||
-            val.vchCommitment.size() == CConfidentialValue::nExplicitSize);
-        if (!tx.vout[i].nNonce.IsValid())
+        if (!asset.IsValid() || !val.IsValid() || !tx.vout[i].nNonce.IsValid())
             return false;
         if (tx.vout[i].vchRangeproof.size() > 5000)
             return false;
