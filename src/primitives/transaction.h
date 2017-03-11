@@ -314,6 +314,7 @@ public:
     std::string ToString() const;
 };
 
+/** A new asset issuance, or a reissuance (inflation) of an existing asset */
 class CAssetIssuance
 {
 public:
@@ -630,7 +631,6 @@ struct CMutableTransaction;
  *
  * Extended transaction serialization format:
  * - int32_t nVersion
- * - int32_t nTxFee
  * - unsigned char dummy = 0x00
  * - unsigned char flags (!= 0)
  * - std::vector<CTxIn> vin
