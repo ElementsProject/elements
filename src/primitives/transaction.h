@@ -160,9 +160,7 @@ class CTxOut
 {
 public:
     CConfidentialAsset nAsset;
-    std::vector<unsigned char> vchSurjectionproof;
     CConfidentialValue nValue;
-    std::vector<unsigned char> vchRangeproof;
     CConfidentialNonce nNonce;
     CScript scriptPubKey;
 
@@ -180,9 +178,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
         READWRITE(nAsset);
-        // The surjection proof is serialized as part of the witness data
         READWRITE(nValue);
-        // The range proof is serialized as part of the witness data
         READWRITE(nNonce);
         READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
@@ -190,16 +186,14 @@ public:
     void SetNull()
     {
         nAsset.SetNull();
-        vchSurjectionproof.clear();
         nValue.SetNull();
-        vchRangeproof.clear();
         nNonce.SetNull();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nAsset.IsNull() && vchSurjectionproof.empty() && nValue.IsNull() && vchRangeproof.empty() && nNonce.IsNull() && scriptPubKey.empty();
+        return nAsset.IsNull() && nValue.IsNull() && nNonce.IsNull() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -258,9 +252,7 @@ public:
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
         return (a.nAsset == b.nAsset &&
-                a.vchSurjectionproof == b.vchSurjectionproof &&
                 a.nValue == b.nValue &&
-                a.vchRangeproof == b.vchRangeproof &&
                 a.nNonce == b.nNonce &&
                 a.scriptPubKey == b.scriptPubKey);
     }
@@ -513,35 +505,11 @@ public:
     std::string ToString() const;
 };
 
-
-class CTxOutWitnessSerializer
-{
-    CTxOut& ref;
-
-public:
-    CTxOutWitnessSerializer(CTxOut& ref_) : ref(ref_) {}
-
-    ADD_SERIALIZE_METHODS;
-
-    bool IsNull() const {
-        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty();
-    }
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
-        READWRITE(ref.vchSurjectionproof);
-        READWRITE(ref.vchRangeproof);
-    }
-
-    void SetNull() {
-        std::vector<unsigned char>().swap(ref.vchSurjectionproof);
-        std::vector<unsigned char>().swap(ref.vchRangeproof);
-    }
-};
-
 class CTxInWitness
 {
 public:
+    std::vector<unsigned char> vchIssuanceAmountRangeproof;
+    std::vector<unsigned char> vchInflationKeysRangeproof;
     CScriptWitness scriptWitness;
 
     ADD_SERIALIZE_METHODS;
@@ -549,12 +517,55 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
     {
+        READWRITE(vchIssuanceAmountRangeproof);
+        READWRITE(vchInflationKeysRangeproof);
         READWRITE(scriptWitness.stack);
     }
 
-    bool IsNull() const { return scriptWitness.IsNull(); }
-
     CTxInWitness() { }
+
+    bool IsNull() const
+    {
+        return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull();
+    }
+    void SetNull()
+    {
+        vchIssuanceAmountRangeproof.clear();
+        vchInflationKeysRangeproof.clear();
+        scriptWitness.stack.clear();
+    }
+
+    uint256 GetHash() const;
+};
+
+class CTxOutWitness
+{
+public:
+    std::vector<unsigned char> vchSurjectionproof;
+    std::vector<unsigned char> vchRangeproof;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        READWRITE(vchSurjectionproof);
+        READWRITE(vchRangeproof);
+    }
+
+    CTxOutWitness() { }
+
+    bool IsNull() const
+    {
+        return vchSurjectionproof.empty() && vchRangeproof.empty();
+    }
+    void SetNull()
+    {
+        vchSurjectionproof.clear();
+        vchRangeproof.clear();
+    }
+
+    uint256 GetHash() const;
 };
 
 class CTxWitness
@@ -562,15 +573,39 @@ class CTxWitness
 public:
     /** In case vtxinwit is missing, all entries are treated as if they were empty CTxInWitnesses */
     std::vector<CTxInWitness> vtxinwit;
+    std::vector<CTxOutWitness> vtxoutwit;
 
     ADD_SERIALIZE_METHODS;
 
-    bool IsEmpty() const { return vtxinwit.empty(); }
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
+    {
+        for (size_t n = 0; n < vtxinwit.size(); n++) {
+            READWRITE(vtxinwit[n]);
+        }
+        for (size_t n = 0; n < vtxoutwit.size(); n++) {
+            READWRITE(vtxoutwit[n]);
+        }
+        if (IsNull()) {
+            /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */
+            throw std::ios_base::failure("Superfluous witness record");
+        }
+    }
+
+    bool IsEmpty() const
+    {
+        return vtxinwit.empty() && vtxoutwit.empty();
+    }
 
     bool IsNull() const
     {
         for (size_t n = 0; n < vtxinwit.size(); n++) {
             if (!vtxinwit[n].IsNull()) {
+                return false;
+            }
+        }
+        for (size_t n = 0; n < vtxoutwit.size(); n++) {
+            if (!vtxoutwit[n].IsNull()) {
                 return false;
             }
         }
@@ -580,18 +615,7 @@ public:
     void SetNull()
     {
         vtxinwit.clear();
-    }
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion)
-    {
-        for (size_t n = 0; n < vtxinwit.size(); n++) {
-            READWRITE(vtxinwit[n]);
-        }
-        if (IsNull()) {
-            /* It's illegal to encode a witness when all vtxinwit entries are empty. */
-            throw std::ios_base::failure("Superfluous witness record");
-        }
+        vtxoutwit.clear();
     }
 };
 
@@ -613,8 +637,6 @@ struct CMutableTransaction;
  * - std::vector<CTxOut> vout
  * - if (flags & 1):
  *   - CTxWitness wit;
- * - if (flags & 2):
- *   - CTxOutWitness witout;
  * - uint32_t nLockTime
  */
 static const CAmount TX_FEE_BITCOIN_TX_FLAG = -42;
@@ -644,22 +666,8 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
             /* The witness flag is present, and we support witnesses. */
             flags ^= 1;
             const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
+            const_cast<CTxWitness*>(&tx.wit)->vtxoutwit.resize(tx.vout.size());
             READWRITE(tx.wit);
-        }
-        if ((flags & 2) && fAllowWitness) {
-            /* The witness output flag is present, and we support witnesses. */
-            flags ^= 2;
-            bool fHadOutputWitness = false;
-            for (size_t i = 0; i < tx.vout.size(); i++) {
-                CTxOutWitnessSerializer witser(REF(tx.vout[i]));
-                READWRITE(witser);
-                if (!witser.IsNull()) {
-                    fHadOutputWitness = true;
-                }
-            }
-            if (!fHadOutputWitness) {
-                throw std::ios_base::failure("Superfluous output witness record");
-            }
         }
         if (flags) {
             /* Unknown flag in the serialization */
@@ -668,16 +676,11 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
     } else {
         // Consistency check
         assert(tx.wit.vtxinwit.size() <= tx.vin.size());
+        assert(tx.wit.vtxoutwit.size() <= tx.vout.size());
         if (fAllowWitness) {
             /* Check whether witnesses need to be serialized. */
             if (!tx.wit.IsNull()) {
                 flags |= 1;
-            }
-            for (size_t i = 0; i < tx.vout.size(); i++) {
-                if (!CTxOutWitnessSerializer(*const_cast<CTxOut*>(&tx.vout[i])).IsNull()) {
-                    flags |= 2;
-                    break;
-                }
             }
         }
         if (flags) {
@@ -690,13 +693,8 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
         READWRITE(*const_cast<std::vector<CTxOut>*>(&tx.vout));
         if (flags & 1) {
             const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
+            const_cast<CTxWitness*>(&tx.wit)->vtxoutwit.resize(tx.vout.size());
             READWRITE(tx.wit);
-        }
-        if (flags & 2) {
-            for (size_t i = 0; i < tx.vout.size(); i++) {
-                CTxOutWitnessSerializer witser(*const_cast<CTxOut*>(&tx.vout[i]));
-                READWRITE(witser);
-            }
         }
     }
     READWRITE(*const_cast<uint32_t*>(&tx.nLockTime));
@@ -761,6 +759,9 @@ public:
 
     // Compute a hash that includes both transaction and witness data
     uint256 GetHashWithWitness() const;
+
+    // Compute a hash of just the witness data
+    uint256 ComputeWitnessHash() const;
 
     // Check if explicit TX fees overflow or are negative
     bool HasValidFee() const;

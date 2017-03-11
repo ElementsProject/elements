@@ -90,6 +90,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
     entry.push_back(Pair("hash", tx.GetHashWithWitness().GetHex()));
+    entry.push_back(Pair("withash", tx.ComputeWitnessHash().GetHex()));
     entry.push_back(Pair("size", (int)::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION)));
     entry.push_back(Pair("vsize", (int)::GetVirtualTransactionSize(tx)));
     entry.push_back(Pair("version", tx.nVersion));
@@ -111,12 +112,12 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         }
         if (!tx.wit.IsNull()) {
             if (!tx.wit.vtxinwit[i].IsNull()) {
-                UniValue txinwitness(UniValue::VARR);
+                UniValue scriptWitness(UniValue::VARR);
                 for (unsigned int j = 0; j < tx.wit.vtxinwit[i].scriptWitness.stack.size(); j++) {
                     std::vector<unsigned char> item = tx.wit.vtxinwit[i].scriptWitness.stack[j];
-                    txinwitness.push_back(HexStr(item.begin(), item.end()));
+                    scriptWitness.push_back(HexStr(item.begin(), item.end()));
                 }
-                in.push_back(Pair("txinwitness", txinwitness));
+                in.push_back(Pair("scriptWitness", scriptWitness));
             }
 
         }
@@ -135,7 +136,8 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             int mantissa;
             uint64_t minv;
             uint64_t maxv;
-            if (secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &txout.vchRangeproof[0], txout.vchRangeproof.size())) {
+            const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+            if (ptxoutwit && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
                 if (exp == -1) {
                     out.push_back(Pair("value", ValueFromAmount((CAmount)minv)));
                 } else {
@@ -573,12 +575,13 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp)
 void FillOutputBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsExplicit()) {
+            const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= nOut? NULL: &tx.wit.vtxoutwit[nOut];
             uint256 blinding_factor;
             uint256 asset_blinding_factor;
             CAsset asset;
             CAmount amount;
 #ifdef ENABLE_WALLET
-            if (fUseWallet && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], amount, blinding_factor, asset, asset_blinding_factor) != 0) {
+            if (fUseWallet && ptxoutwit && UnblindOutput(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut], *ptxoutwit, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
                 // Wipe out confidential info from output except nonce
                 CConfidentialNonce nNonce = tx.vout[nOut].nNonce;
                 CScript scriptPubKey = tx.vout[nOut].scriptPubKey;

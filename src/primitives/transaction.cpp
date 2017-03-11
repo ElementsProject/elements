@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "consensus/merkle.h"
 #include "primitives/transaction.h"
 
 #include "hash.h"
@@ -90,6 +91,52 @@ std::string CTxIn::ToString() const
     return str;
 }
 
+/**
+ * The input witness consists of three elements, two of which are
+ * optional. The optional elements have to do with asset issuance
+ * and are not normally present, most of the time. For this reason
+ * the optional elements are places in a lower branch of the Merkle
+ * tree. When not present, they take on constant values in the hash
+ * tree.
+ *
+ *     S : script witness
+ *     A : issuance amount rangeproof
+ *     I : inflation keys rangeproof
+ *
+ *             .
+ *            / \
+ *           .   S
+ *          / \
+ *         A   I
+ */
+uint256 CTxInWitness::GetHash() const
+{
+    std::vector<uint256> leaves;
+    leaves.push_back(SerializeHash(vchIssuanceAmountRangeproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(vchInflationKeysRangeproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(scriptWitness.stack, SER_GETHASH, 0));
+    return ComputeFastMerkleRoot(leaves);
+}
+
+/**
+ * The output witness consists of two elements: the surjection proof and
+ * the range proof.
+ *
+ *     S : asset surjection proof
+ *     R : value range proof
+ *
+ *           .
+ *          / \
+ *         S   R
+ */
+uint256 CTxOutWitness::GetHash() const
+{
+    std::vector<uint256> leaves;
+    leaves.push_back(SerializeHash(vchSurjectionproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(vchRangeproof, SER_GETHASH, 0));
+    return ComputeFastMerkleRoot(leaves);
+}
+
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
 
@@ -106,6 +153,26 @@ void CTransaction::UpdateHash() const
 uint256 CTransaction::GetHashWithWitness() const
 {
     return SerializeHash(*this, SER_GETHASH, 0);
+}
+
+uint256 CTransaction::ComputeWitnessHash() const
+{
+    std::vector<uint256> leaves;
+    leaves.reserve(std::max(vin.size(), vout.size()));
+    /* Inputs */
+    for (size_t i = 0; i < vin.size(); ++i)
+        leaves.push_back(((wit.vtxinwit.size() <= i || vin[i].prevout.IsNull())? CTxInWitness(): wit.vtxinwit[i]).GetHash());
+    uint256 hashIn = ComputeFastMerkleRoot(leaves);
+    leaves.clear();
+    /* Outputs */
+    for (size_t i = 0; i < vout.size(); ++i)
+        leaves.push_back((wit.vtxoutwit.size() <= i? CTxOutWitness(): wit.vtxoutwit[i]).GetHash());
+    uint256 hashOut = ComputeFastMerkleRoot(leaves);
+    leaves.clear();
+    /* Combined */
+    leaves.push_back(hashIn);
+    leaves.push_back(hashOut);
+    return ComputeFastMerkleRoot(leaves);
 }
 
 bool CTransaction::HasValidFee() const

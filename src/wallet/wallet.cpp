@@ -1815,7 +1815,7 @@ void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey*
         memcpy(asset.begin(), &*(it + 73), 32);
         pubkey.Set(it + 105, it + 138);
     } else {
-        pwallet->ComputeBlindingData(vout[nOut], amount, pubkey, blindingfactor,
+        pwallet->ComputeBlindingData(vout[nOut], wit.vtxoutwit.size() <= nOut? CTxOutWitness(): wit.vtxoutwit[nOut], amount, pubkey, blindingfactor,
             asset, assetBlindingFactor);
         *it = 1;
         memcpy(&*(it + 1), &amount, 8);
@@ -4043,7 +4043,7 @@ bool CWallet::LoadAssetLabelMapping(const CAsset& id, const std::string& label)
     return true;
 }
 
-void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
+void CWallet::ComputeBlindingData(const CTxOut& output, const CTxOutWitness& witness, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
 {
     if (output.nValue.IsExplicit() && (output.nAsset.IsExplicit() || output.nAsset.IsAssetGeneration())) {
         amount = output.nValue.GetAmount();
@@ -4057,7 +4057,7 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
     CKey blinding_key;
     if ((blinding_key = GetBlindingKey(&output.scriptPubKey)).IsValid()) {
         // For outputs using derived blinding.
-        if (UnblindOutput(blinding_key, output, amount, blindingfactor,
+        if (UnblindOutput(blinding_key, output, witness, amount, blindingfactor,
                 asset, assetBlindingFactor)) {
             pubkey = blinding_key.GetPubKey();
             return;
