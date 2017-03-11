@@ -339,6 +339,48 @@ UniValue createmultisig(const UniValue& params, bool fHelp)
     return result;
 }
 
+UniValue createblindedaddress(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 2)
+    {
+        string msg = "createblindedaddress address blinding_key\n"
+            "\nCreates a blinded address using the provided blinding key.\n"
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The unblinded address to be blinded.\n"
+            "2. \"key\"            (string, required) The blinding private key.\n"
+            "\nResult:\n"
+            "\"blinded_address\"   (string) The blinded address.\n"
+            "\nExamples:\n"
+            "\nCreate a multisig address from 2 addresses\n"
+            + HelpExampleCli("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16 ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d") +
+            "\nAs a json rpc call\n"
+            + HelpExampleRpc("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16, ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d")
+        ;
+        throw runtime_error(msg);
+    }
+
+    CBitcoinAddress address(params[0].get_str());
+    if (!address.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address or script");
+    }
+    if (address.IsBlinded()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not an unblinded address");
+    }
+
+    if (!IsHex(params[1].get_str())) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
+    }
+    std::vector<unsigned char> keydata = ParseHex(params[1].get_str());
+    if (keydata.size() != 32) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length, must be 32 bytes long.");
+    }
+
+    CKey key;
+    key.Set(keydata.begin(), keydata.end(), true);
+
+    return address.AddBlindingKey(key.GetPubKey()).ToString();
+}
+
 UniValue verifymessage(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 3)
@@ -472,6 +514,7 @@ static const CRPCCommand commands[] =
     { "control",            "getinfo",                &getinfo,                true  }, /* uses wallet if enabled */
     { "util",               "validateaddress",        &validateaddress,        true  }, /* uses wallet if enabled */
     { "util",               "createmultisig",         &createmultisig,         true  },
+    { "util",               "createblindedaddress",   &createblindedaddress,   true  },
     { "util",               "verifymessage",          &verifymessage,          true  },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, true  },
 
