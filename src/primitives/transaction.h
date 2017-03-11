@@ -304,6 +304,7 @@ public:
     std::string ToString() const;
 };
 
+/** A new asset issuance, or a reissuance (inflation) of an existing asset */
 class CAssetIssuance
 {
 public:
