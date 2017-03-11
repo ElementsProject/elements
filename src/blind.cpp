@@ -269,6 +269,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
             txoutwit.vchSurjectionproof.resize(output_len);
             secp256k1_surjectionproof_serialize(secp256k1_blind_context, &txoutwit.vchSurjectionproof[0], &output_len, &proof);
+            assert(output_len == txoutwit.vchSurjectionproof.size());
 
             // Successfully blinded this output
             nSuccessfullyBlinded++;
