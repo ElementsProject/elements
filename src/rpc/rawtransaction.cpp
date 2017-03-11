@@ -119,7 +119,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                 }
                 in.push_back(Pair("scriptWitness", scriptWitness));
             }
-
+            // FIXME: issuance goes here
         }
         in.push_back(Pair("sequence", (int64_t)txin.nSequence));
         vin.push_back(in);
