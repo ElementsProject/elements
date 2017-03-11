@@ -173,6 +173,7 @@ public:
         // The surjection proof is serialized as part of the witness data
         READWRITE(nValue);
         // The range proof is serialized as part of the witness data
+        READWRITE(nNonce);
         READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
 
@@ -514,20 +515,18 @@ public:
     ADD_SERIALIZE_METHODS;
 
     bool IsNull() const {
-        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty() && ref.nNonce.IsNull();
+        return ref.vchSurjectionproof.empty() && ref.vchRangeproof.empty();
     }
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(ref.vchSurjectionproof);
         READWRITE(ref.vchRangeproof);
-        READWRITE(ref.nNonce.vchCommitment);
     }
 
     void SetNull() {
         std::vector<unsigned char>().swap(ref.vchSurjectionproof);
         std::vector<unsigned char>().swap(ref.vchRangeproof);
-        std::vector<unsigned char>().swap(ref.nNonce.vchCommitment);
     }
 };
 
