@@ -143,7 +143,8 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
     txSpend.nLockTime = 0;
     txSpend.vin.resize(1);
     txSpend.vout.resize(1);
-    txSpend.vin[0].scriptWitness = scriptWitness;
+    txSpend.wit.vtxinwit.resize(1);
+    txSpend.wit.vtxinwit[0].scriptWitness = scriptWitness;
     txSpend.vin[0].prevout.hash = txCredit.GetHash();
     txSpend.vin[0].prevout.n = 0;
     txSpend.vin[0].scriptSig = scriptSig;

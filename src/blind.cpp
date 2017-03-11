@@ -34,7 +34,7 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
-bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
+bool UnblindOutput(const CKey &key, const CTxOut& txout, const CTxOutWitness& txoutwit, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
 {
     if (!key.IsValid()) {
         return false;
@@ -57,7 +57,7 @@ bool UnblindOutput(const CKey &key, const CTxOut& txout, CAmount& amount_out, ui
         return false;
     if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &commit, &txout.nValue.vchCommitment[0]) != 1)
         return false;
-    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &txout.vchRangeproof[0], txout.vchRangeproof.size(), txout.scriptPubKey.size() ? &txout.scriptPubKey.front() : NULL, txout.scriptPubKey.size(), &gen);
+    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &txoutwit.vchRangeproof[0], txoutwit.vchRangeproof.size(), txout.scriptPubKey.size()? &txout.scriptPubKey.front(): NULL, txout.scriptPubKey.size(), &gen);
     secp256k1_generator recoveredGen;
 
     if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
@@ -202,6 +202,10 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
                 }
             }
 
+            if (tx.wit.vtxoutwit.size() <= nOut) {
+                tx.wit.vtxoutwit.resize(tx.vout.size());
+            }
+            CTxOutWitness& txoutwit = tx.wit.vtxoutwit[nOut];
 
             output_blinding_factors[nOut] = uint256(std::vector<unsigned char>(blindptrs[blindptrs.size()-1], blindptrs[blindptrs.size()-1]+32));
             output_asset_blinding_factors[nOut] = uint256(std::vector<unsigned char>(assetblindptrs[assetblindptrs.size()-1], assetblindptrs[assetblindptrs.size()-1]+32));
@@ -233,7 +237,7 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             // Prep range proof
             size_t nRangeProofLen = 5134;
             // TODO: smarter min_value selection
-            out.vchRangeproof.resize(nRangeProofLen);
+            txoutwit.vchRangeproof.resize(nRangeProofLen);
 
             // Compose sidechannel message to convey asset info (ID and asset blinds)
             unsigned char assetsMessage[64];
@@ -241,8 +245,8 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             memcpy(assetsMessage+32,  assetblindptrs[assetblindptrs.size()-1], 32);
 
             // Sign rangeproof
-            int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &out.vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), out.scriptPubKey.size() ? &out.scriptPubKey.front() : NULL, out.scriptPubKey.size(), &gen);
-            out.vchRangeproof.resize(nRangeProofLen);
+            int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &txoutwit.vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), out.scriptPubKey.size() ? &out.scriptPubKey.front() : NULL, out.scriptPubKey.size(), &gen);
+            txoutwit.vchRangeproof.resize(nRangeProofLen);
             // TODO: do something smarter here
             assert(res);
 
@@ -263,8 +267,8 @@ int BlindOutputs(std::vector<uint256 >& input_blinding_factors, const std::vecto
             assert(ret != 0);
 
             size_t output_len = secp256k1_surjectionproof_serialized_size(secp256k1_blind_context, &proof);
-            out.vchSurjectionproof.resize(output_len);
-            secp256k1_surjectionproof_serialize(secp256k1_blind_context, &out.vchSurjectionproof[0], &output_len, &proof);
+            txoutwit.vchSurjectionproof.resize(output_len);
+            secp256k1_surjectionproof_serialize(secp256k1_blind_context, &txoutwit.vchSurjectionproof[0], &output_len, &proof);
 
             // Successfully blinded this output
             nSuccessfullyBlinded++;

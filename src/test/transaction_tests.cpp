@@ -169,7 +169,7 @@ return;
                     amount = mapprevOutValues[tx.vin[i].prevout];
                 }
                 unsigned int verify_flags = ParseScriptFlags(test[2].get_str());
-                const CScriptWitness *witness = &tx.vin[i].scriptWitness;
+                const CScriptWitness *witness = (tx.wit.vtxinwit.size() > i) ? &tx.wit.vtxinwit[i].scriptWitness : NULL;
                 BOOST_CHECK_MESSAGE(VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
                                                  witness, verify_flags, TransactionNoWithdrawsSignatureChecker(&tx, i, amount, txdata), &err),
                                     strTest);
@@ -254,7 +254,7 @@ return;
                 if (mapprevOutValues.count(tx.vin[i].prevout)) {
                     amount = mapprevOutValues[tx.vin[i].prevout];
                 }
-                const CScriptWitness *witness = &tx.vin[i].scriptWitness;
+                const CScriptWitness *witness = (tx.wit.vtxinwit.size() > i) ? &tx.wit.vtxinwit[i].scriptWitness : NULL;
                 fValid = VerifyScript(tx.vin[i].scriptSig, mapprevOutScriptPubKeys[tx.vin[i].prevout],
                                       witness, verify_flags, TransactionNoWithdrawsSignatureChecker(&tx, i, amount, txdata), &err);
             }
@@ -380,6 +380,7 @@ void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outscript, C
     inputm.vout.resize(1);
     inputm.vout[0].nValue = 1;
     inputm.vout[0].scriptPubKey = CScript();
+    inputm.wit.vtxinwit.resize(1);
     bool ret = SignSignature(keystore, *output, inputm, 0, SIGHASH_ALL);
     assert(ret == success);
     CDataStream ssin(SER_NETWORK, PROTOCOL_VERSION);
@@ -389,14 +390,16 @@ void CreateCreditAndSpend(const CKeyStore& keystore, const CScript& outscript, C
     assert(input.vin[0] == inputm.vin[0]);
     assert(input.vout.size() == 1);
     assert(input.vout[0] == inputm.vout[0]);
-    assert(input.vin[0].scriptWitness.stack == inputm.vin[0].scriptWitness.stack);
+    // serialization round-trip blows away empty witnesses
+    assert(input.HasWitness() == inputm.HasWitness());
+    assert(!inputm.HasWitness() || (input.wit.vtxinwit[0].scriptWitness.stack == inputm.wit.vtxinwit[0].scriptWitness.stack));
 }
 
 void CheckWithFlag(const CTransactionRef& output, const CMutableTransaction& input, int flags, bool success)
 {
     ScriptError error;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output->vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionNoWithdrawsSignatureChecker(&inputi, 0, output->vout[0].nValue), &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output->vout[0].scriptPubKey, (inputi.wit.vtxinwit.size() > 0) ? &inputi.wit.vtxinwit[0].scriptWitness : NULL, flags, TransactionNoWithdrawsSignatureChecker(&inputi, 0, output->vout[0].nValue), &error);
     assert(ret == success);
 }
 
@@ -492,7 +495,7 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction) {
     CScriptCheck* checks[mtx.vin.size()];
     for(uint32_t i = 0; i < mtx.vin.size(); i++) {
         std::vector<CScriptCheck*> vChecks;
-        checks[i] = new CScriptCheck(coins, tx, i, -1, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false, &txdata);
+        checks[i] = new CScriptCheck(coins, tx, i, 0, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false, &txdata);
         vChecks.push_back(checks[i]);
         control.Add(vChecks);
     }

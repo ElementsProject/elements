@@ -5,7 +5,7 @@
 #include "pubkey.h"
 #include "primitives/transaction.h"
 
-bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out);
+bool UnblindOutput(const CKey& blinding_key, const CTxOut& txout, const CTxOutWitness& txoutwit, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out);
 
 /* Returns the number of ouputs that were successfully blinded.
  * In many cases a `0` can be fixed by adding an additional output.

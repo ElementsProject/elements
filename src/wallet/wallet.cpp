@@ -2004,7 +2004,8 @@ void CWalletTx::GetBlindingData(unsigned int nOut, CAmount* pamountOut, CPubKey*
         memcpy(asset.begin(), &*(it + 73), 32);
         pubkey.Set(it + 105, it + 138);
     } else {
-        pwallet->ComputeBlindingData(tx->vout[nOut], amount, pubkey, blindingfactor, asset, assetBlindingFactor);
+        pwallet->ComputeBlindingData(tx->vout[nOut], tx->wit.vtxoutwit.size() <= nOut? CTxOutWitness(): tx->wit.vtxoutwit[nOut], amount, pubkey, blindingfactor,
+            asset, assetBlindingFactor);
         *it = 1;
         memcpy(&*(it + 1), &amount, 8);
         memcpy(&*(it + 9), blindingfactor.begin(), 32);
@@ -2587,12 +2588,19 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     if (!CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false))
         return false;
 
-    if (nChangePosInOut != -1)
+    // Append fee output if any
+    // This assumes fee is appended to end, and only one fee added by the CreateTransaction call
+    if (wtx.tx->vout.back().IsFee()) {
+        tx.vout.push_back(wtx.tx->vout.back());
+    }
+
+    if (nChangePosInOut != -1) {
         tx.vout.insert(tx.vout.begin() + nChangePosInOut, wtx.tx->vout[nChangePosInOut]);
 
-    // Copy output sizes from new transaction; they may have had the fee subtracted from them
-    for (unsigned int idx = 0; idx < tx.vout.size(); idx++)
-        tx.vout[idx].nValue = wtx.tx->vout[idx].nValue;
+        // Insert change witness
+        tx.wit.vtxoutwit.resize(tx.vout.size()-1);
+        tx.wit.vtxoutwit.insert(tx.wit.vtxoutwit.begin() + nChangePosInOut,  wtx.tx->wit.vtxoutwit[nChangePosInOut]);
+    }
 
     // Add new txins (keeping original txin scriptSig/order)
     BOOST_FOREACH(const CTxIn& txin, wtx.tx->vin)
@@ -2695,6 +2703,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 txNew.vin.clear();
                 txNew.vout.clear();
+                txNew.wit.SetNull();
                 wtxNew.fFromMe = true;
                 bool fFirst = true;
 
@@ -2961,8 +2970,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 // Remove scriptSigs to eliminate the fee calculation dummy signatures
                 for (auto& vin : txNew.vin) {
                     vin.scriptSig = CScript();
-                    vin.scriptWitness.SetNull();
                 }
+                txNew.wit.vtxinwit.clear();
 
                 // Allow to override the default confirmation target over the CoinControl instance
                 int currentConfirmationTarget = nTxConfirmTarget;
@@ -3052,6 +3061,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 nIn++;
             }
         }
+        //TODO !sign -> remove blinding
 
         // Embed the constructed transaction data in wtxNew.
         wtxNew.SetTx(MakeTransactionRef(std::move(txNew)));
@@ -4415,7 +4425,7 @@ bool CWallet::LoadAssetLabelMapping(const CAsset& id, const std::string& label)
     return true;
 }
 
-void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
+void CWallet::ComputeBlindingData(const CTxOut& output, const CTxOutWitness& witness, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
 {
     if (output.nValue.IsExplicit() && output.nAsset.IsExplicit()) {
         amount = output.nValue.GetAmount();
@@ -4429,7 +4439,7 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
     CKey blinding_key;
     if ((blinding_key = GetBlindingKey(&output.scriptPubKey)).IsValid()) {
         // For outputs using derived blinding.
-        if (UnblindOutput(blinding_key, output, amount, blindingfactor,
+        if (UnblindOutput(blinding_key, output, witness, amount, blindingfactor,
                 asset, assetBlindingFactor)) {
             pubkey = blinding_key.GetPubKey();
             return;

@@ -198,21 +198,22 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     SignatureData data;
     assert(tx.vin.size() > nIn);
     data.scriptSig = tx.vin[nIn].scriptSig;
-    data.scriptWitness = tx.vin[nIn].scriptWitness;
+    data.scriptWitness = (tx.wit.vtxinwit.size() > nIn) ? tx.wit.vtxinwit[nIn].scriptWitness : CScriptWitness();
     return data;
 }
 
 void UpdateTransaction(CMutableTransaction& tx, unsigned int nIn, const SignatureData& data)
 {
     assert(tx.vin.size() > nIn);
+    tx.wit.vtxinwit.resize(tx.vin.size());
     tx.vin[nIn].scriptSig = data.scriptSig;
-    tx.vin[nIn].scriptWitness = data.scriptWitness;
+    tx.wit.vtxinwit[nIn].scriptWitness = data.scriptWitness;
 }
 
 bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const CConfidentialValue& amount, int nHashType)
 {
     assert(nIn < txTo.vin.size());
-
+    txTo.wit.vtxinwit.resize(txTo.vin.size());
     CTransaction txToConst(txTo);
     TransactionSignatureCreator creator(&keystore, &txToConst, nIn, amount, nHashType);
 
@@ -225,6 +226,7 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CMutabl
 bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CMutableTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());
+    txTo.wit.vtxinwit.resize(txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];
     assert(txin.prevout.n < txFrom.vout.size());
     const CTxOut& txout = txFrom.vout[txin.prevout.n];

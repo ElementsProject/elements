@@ -112,14 +112,14 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(VerifyAmounts(cache, tx3));
 
         CAmount unblinded_amount;
-        BOOST_CHECK(UnblindOutput(key2, tx3.vout[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 0);
+        BOOST_CHECK(UnblindOutput(key2, tx3.vout[0], tx3.wit.vtxoutwit[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 0);
         // Saving unblinded_id and asset_blind for later since we need for input
-        BOOST_CHECK(UnblindOutput(key1, tx3.vout[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 1);
+        BOOST_CHECK(UnblindOutput(key1, tx3.vout[0], tx3.wit.vtxoutwit[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 1);
         BOOST_CHECK(unblinded_amount == 100);
         BOOST_CHECK(unblinded_id == bitcoinID);
         CAsset temp_asset;
         uint256 temp_asset_blinder;
-        BOOST_CHECK(UnblindOutput(keyDummy, tx3.vout[2], unblinded_amount, blindDummy, temp_asset, temp_asset_blinder) == 1);
+        BOOST_CHECK(UnblindOutput(keyDummy, tx3.vout[2], tx3.wit.vtxoutwit[2], unblinded_amount, blindDummy, temp_asset, temp_asset_blinder) == 1);
         BOOST_CHECK(unblinded_amount == 0);
 
         CCoinsModifier in3 = cache.ModifyCoins(ArithToUint256(3));
@@ -265,11 +265,11 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         CAmount unblinded_amount;
         CAsset asset_out;
         uint256 asset_blinder_out;
-        BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
-        BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
+        BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], tx4.wit.vtxoutwit[0], unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
+        BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], tx4.wit.vtxoutwit[0], unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
         BOOST_CHECK(unblinded_amount == 30);
         BOOST_CHECK(asset_out == unblinded_id);
-        BOOST_CHECK(UnblindOutput(key2, tx4.vout[2], unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
+        BOOST_CHECK(UnblindOutput(key2, tx4.vout[2], tx4.wit.vtxoutwit[2], unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
         BOOST_CHECK(asset_out == unblinded_id);
         BOOST_CHECK(unblinded_amount == 50);
 

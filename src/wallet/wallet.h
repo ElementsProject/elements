@@ -1026,7 +1026,7 @@ public:
     CKey GetBlindingKey(const CScript* script) const;
     CPubKey GetBlindingPubKey(const CScript& script) const;
 
-    void ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const;
+    void ComputeBlindingData(const CTxOut& output, const CTxOutWitness& witness, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const;
 
     /** Mark a transaction as replaced by another transaction (e.g., BIP 125). */
     bool MarkReplaced(const uint256& originalHash, const uint256& newHash);

@@ -485,7 +485,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
         const CTxOut &prevout = inputs.GetOutputFor(tx.vin[i]);
-        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
+        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, tx.wit.vtxinwit.size() > i ? &tx.wit.vtxinwit[i].scriptWitness : NULL, flags);
     }
     return nSigOps;
 }
@@ -722,9 +722,12 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        if (!asset.IsValid() || !val.IsValid() || !tx.vout[i].nNonce.IsValid())
+        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+        if (!asset.IsValid() || (ptxoutwit && ptxoutwit->vchSurjectionproof.size() > 5000))
             return false;
-        if (tx.vout[i].vchRangeproof.size() > 5000)
+        if (!val.IsValid() || (ptxoutwit && ptxoutwit->vchRangeproof.size() > 5000))
+            return false;
+        if (!tx.vout[i].nNonce.IsValid())
             return false;
 
         if (asset.IsExplicit()) {
@@ -769,9 +772,17 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     // Range proofs
     for (size_t i = 0; i < tx.vout.size(); i++) {
         const CConfidentialValue& val = tx.vout[i].nValue;
+        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
         if (val.IsExplicit())
+        {
+            if (ptxoutwit && !ptxoutwit->vchRangeproof.empty())
+                return false;
             continue;
-        if (!QueueCheck(pvChecks, new CRangeCheck(&val, tx.vout[i].vchRangeproof, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
+        }
+        if (!ptxoutwit || ptxoutwit->vchRangeproof.size() > 5000) {
+            return false;
+        }
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val, ptxoutwit->vchRangeproof, &tx.vout[i].nAsset, &tx.vout[i].scriptPubKey, cacheStore))) {
             return false;
         }
     }
@@ -799,16 +810,21 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
+        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
         //No need for surjective proof
         if (asset.IsExplicit()) {
-            assert(tx.vout[i].vchSurjectionproof.size() == 0);
+            if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {
+                return false;
+            }
             continue;
         }
+        if (!ptxoutwit || ptxoutwit->vchSurjectionproof.size() > 5000)
+            return false;
         if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
 
         secp256k1_surjectionproof proof;
-        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &tx.vout[i].vchSurjectionproof[0], tx.vout[i].vchSurjectionproof.size()) != 1)
+        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
             return false;
 
         if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, ephemeral_input_tags, gen, cacheStore))) {
@@ -1813,7 +1829,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
 
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
-    const CScriptWitness *witness = &ptxTo->vin[nIn].scriptWitness;
+    const CScriptWitness *witness = (nIn < ptxTo->wit.vtxinwit.size()) ? &ptxTo->wit.vtxinwit[nIn].scriptWitness : NULL;
     if (!VerifyScript(scriptSig, scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, amount, amountPreviousInput, Params().GetConsensus().fedpegScript, cacheStore, *txdata), &error)) {
         return false;
     }
@@ -3647,8 +3663,9 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
     static const std::vector<unsigned char> nonce(32, 0x00);
     if (commitpos != -1 && IsWitnessEnabled(pindexPrev, consensusParams) && !block.vtx[0]->HasWitness()) {
         CMutableTransaction tx(*block.vtx[0]);
-        tx.vin[0].scriptWitness.stack.resize(1);
-        tx.vin[0].scriptWitness.stack[0] = nonce;
+        tx.wit.vtxinwit.resize(1);
+        tx.wit.vtxinwit[0].scriptWitness.stack.resize(1);
+        tx.wit.vtxinwit[0].scriptWitness.stack[0] = nonce;
         block.vtx[0] = MakeTransactionRef(std::move(tx));
     }
 }
@@ -3660,7 +3677,10 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     std::vector<unsigned char> ret(32, 0x00);
     if (consensusParams.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout != 0) {
         if (commitpos == -1) {
-            uint256 witnessroot = BlockWitnessMerkleRoot(block, NULL);
+            CMutableTransaction tx0(*block.vtx[0]);
+            tx0.vout.push_back(CTxOut());
+            block.vtx[0] = MakeTransactionRef(std::move(tx0));
+            uint256 witnessroot = BlockWitnessMerkleRoot(block);
             CHash256().Write(witnessroot.begin(), 32).Write(&ret[0], 32).Finalize(witnessroot.begin());
             CTxOut out;
             out.nValue = 0;
@@ -3675,7 +3695,7 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
             memcpy(&out.scriptPubKey[6], witnessroot.begin(), 32);
             commitment = std::vector<unsigned char>(out.scriptPubKey.begin(), out.scriptPubKey.end());
             CMutableTransaction tx(*block.vtx[0]);
-            tx.vout.push_back(out);
+            tx.vout[tx.vout.size()-1] = out;
             block.vtx[0] = MakeTransactionRef(std::move(tx));
         }
     }
@@ -3755,15 +3775,11 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
     if (VersionBitsState(pindexPrev, consensusParams, Consensus::DEPLOYMENT_SEGWIT, versionbitscache) == THRESHOLD_ACTIVE) {
         int commitpos = GetWitnessCommitmentIndex(block);
         if (commitpos != -1) {
-            bool malleated = false;
-            uint256 hashWitness = BlockWitnessMerkleRoot(block, &malleated);
-            // The malleation check is ignored; as the transaction tree itself
-            // already does not permit it, it is impossible to trigger in the
-            // witness tree.
-            if (block.vtx[0]->vin[0].scriptWitness.stack.size() != 1 || block.vtx[0]->vin[0].scriptWitness.stack[0].size() != 32) {
+            uint256 hashWitness = BlockWitnessMerkleRoot(block);
+            if ((block.vtx[0]->wit.vtxinwit.size() > 0 &&block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack.size() != 1) || block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack[0].size() != 32) {
                 return state.DoS(100, false, REJECT_INVALID, "bad-witness-nonce-size", true, strprintf("%s : invalid witness nonce size", __func__));
             }
-            CHash256().Write(hashWitness.begin(), 32).Write(&block.vtx[0]->vin[0].scriptWitness.stack[0][0], 32).Finalize(hashWitness.begin());
+            CHash256().Write(hashWitness.begin(), 32).Write(&block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack[0][0], 32).Finalize(hashWitness.begin());
             if (memcmp(hashWitness.begin(), &block.vtx[0]->vout[commitpos].scriptPubKey[6], 32)) {
                 return state.DoS(100, false, REJECT_INVALID, "bad-witness-merkle-match", true, strprintf("%s : witness merkle commitment mismatch", __func__));
             }
@@ -3776,11 +3792,6 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
         for (size_t i = 0; i < block.vtx.size(); i++) {
             if (block.vtx[i]->HasWitness()) {
                 return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected witness data found", __func__));
-            }
-            for (size_t o = 0; o < block.vtx[i]->vout.size(); o++) {
-                if (!CTxOutWitnessSerializer(REF(block.vtx[i]->vout[o])).IsNull()) {
-                    return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected output witness data found", __func__));
-                }
             }
         }
     }

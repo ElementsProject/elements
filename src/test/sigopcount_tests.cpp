@@ -71,7 +71,7 @@ ScriptError VerifyWithFlag(const CTransaction& output, const CMutableTransaction
 {
     ScriptError error;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue, -1, CScript()), &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output.vout[0].scriptPubKey, inputi.wit.vtxinwit.size() > 0 ? &inputi.wit.vtxinwit[0].scriptWitness : NULL, flags, TransactionSignatureChecker(&inputi, 0, output.vout[0].nValue, -1, CScript()), &error);
     BOOST_CHECK((ret == true) == (error == SCRIPT_ERR_OK));
 
     return error;
@@ -97,7 +97,8 @@ void BuildTxs(CMutableTransaction& spendingTx, CCoinsViewCache& coins, CMutableT
     spendingTx.vin[0].prevout.hash = creationTx.GetHash();
     spendingTx.vin[0].prevout.n = 0;
     spendingTx.vin[0].scriptSig = scriptSig;
-    spendingTx.vin[0].scriptWitness = witness;
+    spendingTx.wit.vtxinwit.resize(1);
+    spendingTx.wit.vtxinwit[0].scriptWitness = witness;
     spendingTx.vout.resize(1);
     spendingTx.vout[0].nValue = 1;
     spendingTx.vout[0].scriptPubKey = CScript();

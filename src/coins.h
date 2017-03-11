@@ -91,7 +91,6 @@ public:
         fCoinBase = tx.IsCoinBase();
         vout = tx.vout;
         for (size_t i = 0; i < vout.size(); i++) {
-            CTxOutWitnessSerializer(vout[i]).SetNull();
             vout[i].nNonce.SetNull();
         }
         nHeight = nHeightIn;
