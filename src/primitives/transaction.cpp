@@ -37,8 +37,8 @@ std::string CTxOut::ToString() const
     if (nAsset.IsExplicit() || nAsset.IsAssetGeneration())
         strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().GetHex());
     if (nAsset.IsCommitment())
-        strAsset = std::string("nAsset=UNKNOWN, ");
-    return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsExplicit() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
+        strAsset = std::string("nAsset=CONFIDENTIAL, ");
+    return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsExplicit() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("CONFIDENTIAL")), HexStr(scriptPubKey).substr(0, 30));
 }
 
 std::string COutPoint::ToString() const
@@ -53,9 +53,9 @@ std::string CAssetIssuance::ToString() const
     str += assetBlindingNonce.ToString();
     str += ", ";
     str += assetEntropy.ToString();
-    str += strprintf(", %s", (nAmount.IsExplicit() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("UNKNOWN")));
+    str += strprintf(", %s", (nAmount.IsExplicit() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("CONFIDENTIAL")));
     if (!nInflationKeys.IsNull())
-        str += strprintf(", %s", (nInflationKeys.IsExplicit() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("UNKNOWN")));
+        str += strprintf(", %s", (nInflationKeys.IsExplicit() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("CONFIDENTIAL")));
     str += ")";
     return str;
 }
