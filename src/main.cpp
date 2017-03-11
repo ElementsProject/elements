@@ -1399,7 +1399,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (!ptxoutwit || ptxoutwit->vchSurjectionproof.size() > 5000)
             return false;
         if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
-                return false;
+            return false;
 
         secp256k1_surjectionproof proof;
         if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
