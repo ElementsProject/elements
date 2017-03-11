@@ -103,7 +103,7 @@ uint256 CTransaction::ComputeHash() const
     return SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
-uint256 CTransaction::GetWitnessHash() const
+uint256 CTransaction::GetHashWithWitness() const
 {
     if (!HasWitness()) {
         return GetHash();
