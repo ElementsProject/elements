@@ -760,7 +760,7 @@ public:
     }
 
     // Compute a hash that includes both transaction and witness data
-    uint256 GetWitnessHash() const;
+    uint256 GetHashWithWitness() const;
 
     // Check if explicit TX fees overflow or are negative
     bool HasValidFee() const;
