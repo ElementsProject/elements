@@ -92,6 +92,7 @@ public:
         vout = tx.vout;
         for (size_t i = 0; i < vout.size(); i++) {
             CTxOutWitnessSerializer(vout[i]).SetNull();
+            vout[i].nNonce.SetNull();
         }
         nHeight = nHeightIn;
         nVersion = tx.nVersion;
