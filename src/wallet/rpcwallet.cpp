@@ -3217,30 +3217,23 @@ UniValue generateasset(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
-            "generateasset label amount\n"
-            "\nCreate an asset. Must have funds in wallet to do so.\n"
+            "generateasset amount\n"
+            "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
             "\nArguments:\n"
-            "1. \"label\"            (string, required) Label for newly generated asset.\n"
-            "2. \"amount\"           (numeric, required) Number of asset to generate.\n"
+            "1. \"amount\"           (numeric, required) Number of asset to generate.\n"
             "\nExamples:\n"
-            + HelpExampleCli("generateasset", "\"my asset\" 10" )
-            + HelpExampleRpc("generateasset", "\"my asset\" 10" )
+            + HelpExampleCli("generateasset", "10" )
+            + HelpExampleRpc("generateasset", "10" )
         );
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VNUM));
+    RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM));
 
-    std::string label = params[0].get_str();
-    // Look ma, NUMS!
-    CAsset id(GetRandHash());
-
-    pwalletMain->SetAssetPair(label, id);
-
-     // Amount
-    CAmount nAmount = AmountFromValue(params[1]);
+    CAmount nAmount = AmountFromValue(params[0]);
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 
+    CAsset id(GetRandHash());
     UniValue nothing(UniValue::VARR);
     std::string addr = getnewaddress(nothing, fHelp).get_str();
     CBitcoinAddress address(addr);
@@ -3253,7 +3246,7 @@ UniValue generateasset(const UniValue& params, bool fHelp)
     CWalletTx wtx;
     SendMoney(GetScriptForDestination(address.Get()), 100000, policyAsset, false, confidentiality_pubkey, wtx, &id, &nAmount);
 
-    return NullUniValue;
+    return id.GetHex();
 }
 
 UniValue dumpassetlabels(const UniValue& params, bool fHelp)
