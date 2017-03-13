@@ -27,8 +27,6 @@ BOOST_FIXTURE_TEST_SUITE(rpc_wallet_tests, WalletTestingSetup)
 
 BOOST_AUTO_TEST_CASE(rpc_addmultisig)
 {
-
-
     rpcfn_type addmultisig = tableRPC["addmultisigaddress"]->actor;
 
     // old, 65-byte-long:
