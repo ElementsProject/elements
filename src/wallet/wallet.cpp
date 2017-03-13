@@ -2133,7 +2133,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, int nConfMine
 
     // TODO Remove dust rule, remove need for this
     CAmountMap mapTargetValuePlusMinChange = mapTargetValue;
-    mapTargetValuePlusMinChange[GetAssetFromLabel("bitcoin")] += MIN_CHANGE;
+    mapTargetValuePlusMinChange[policyAsset] += MIN_CHANGE;
 
     BOOST_FOREACH(const COutput &output, vCoins)
     {
@@ -2338,8 +2338,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             setAssets.insert(txOut.nAsset.GetAsset());
         }
     }
-    // Always add bitcoin, as fees via bitcoin may create change
-    if (setAssets.count(GetAssetFromLabel("bitcoin")) == 0) {
+    // Always add policyAsset, as fees via policyAsset may create change
+    if (setAssets.count(policyAsset) == 0) {
         vChangeKey.push_back(CReserveKey(this));
         vpChangeKey.push_back(&vChangeKey[vChangeKey.size()-1]);
     }
