@@ -206,7 +206,8 @@ class CTTest (BitcoinTestFramework):
         #### Confidential Assets Tests ####
 
         # Generate an asset, check wallet (This is is skeleton issuance API)
-        self.nodes[0].generateasset("testasset", 2)
+        testAssetHex = self.nodes[0].generateasset(2)
+        self.nodes[0].addassetlabel(testAssetHex, "testasset")
         asset_list = self.nodes[0].dumpassetlabels()
         assert_equal(self.nodes[0].getwalletinfo("testasset")['balance'], Decimal(2))
         assert_equal(self.nodes[0].getwalletinfo(asset_list["testasset"])['balance'], Decimal(2))
