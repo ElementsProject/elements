@@ -953,8 +953,8 @@ UniValue getbalance(const JSONRPCRequest& request)
                 mapBalance[s.asset] -= s.amount;
             mapBalance[policyAsset] -= allFee;
             // Tally issuances since there are no corresponding "receives"
-            for (unsigned int i = 0; i < wtx.vin.size(); i++) {
-                const CTxIn& txin = wtx.vin[i];
+            for (unsigned int i = 0; i < wtx.tx->vin.size(); i++) {
+                const CTxIn& txin = wtx.tx->vin[i];
                 const CAssetIssuance& issuance = txin.assetIssuance;
                 if (pwalletMain->IsMine(txin) == ISMINE_NO) {
                     continue;
