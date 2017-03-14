@@ -2535,6 +2535,7 @@ UniValue listunspent(const UniValue& params, bool fHelp)
             "    \"scriptPubKey\": \"key\", (string) the script key\n"
             "    \"amount\": x.xxx,       (numeric) the transaction amount in " + CURRENCY_UNIT + "\n"
             "    \"asset\": \"hex\"       (string) the asset id for this output\n"
+            "    \"assetcommitment\": \"hex\" (string) the asset commitment for this output\n"
             "    \"confirmations\": n,    (numeric) The number of confirmations\n"
             "    \"serValue\": \"hex\",     (string) the output's value commitment\n"
             "    \"blinder\": \"blind\"     (string) The blinding factor used for a confidential output (or \"\")\n"
@@ -2634,6 +2635,9 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         entry.push_back(Pair("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
         entry.push_back(Pair("amount", ValueFromAmount(nValue)));
         entry.push_back(Pair("asset", assetid.GetHex()));
+        if (out.tx->vout[out.i].nAsset.IsCommitment()) {
+            entry.push_back(Pair("assetcommitment", HexStr(out.tx->vout[out.i].nAsset.vchCommitment)));
+        }
         entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         entry.push_back(Pair("solvable", out.fSolvable));
