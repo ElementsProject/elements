@@ -187,6 +187,9 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
     assert(tx.vin.size() == input_asset_blinding_factors.size());
     assert(tx.vin.size() == input_assets.size());
     assert(tx.vin.size() == input_amounts.size());
+    if (auxiliary_generators) {
+        assert(auxiliary_generators->size() >= tx.vin.size());
+    }
 
     std::vector<unsigned char*> blindptrs;
     std::vector<const unsigned char*> assetblindptrs;
@@ -214,18 +217,19 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
 
     size_t totalTargets = 0;
     for (size_t i = 0; i < tx.vin.size(); i++) {
-        // If non-empty generator exists, parse
-        if (auxiliary_generators && auxiliary_generators->size() > totalTargets && auxiliary_generators[totalTargets].size() == 33) {
-            // Parse generator here
-            ret = secp256k1_generator_parse(secp256k1_blind_context, &targetAssetGenerators[totalTargets], &(*auxiliary_generators)[totalTargets][0]);
-            if (ret != 1) {
+        // For each input we either need the asset/blinds or the generator
+        if (input_assets[i].IsNull()) {
+            // If non-empty generator exists, parse
+            if (auxiliary_generators) {
+                // Parse generator here
+                ret = secp256k1_generator_parse(secp256k1_blind_context, &targetAssetGenerators[totalTargets], &(*auxiliary_generators)[i][0]);
+                if (ret != 1) {
+                    return -1;
+                }
+            } else {
                 return -1;
             }
         } else {
-            // Needs to be non-null
-            if (input_assets[i].IsNull()) {
-                return -1;
-            }
             ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &targetAssetGenerators[totalTargets], input_assets[i].begin(), input_asset_blinding_factors[i].begin());
             assert(ret == 1);
         }
@@ -269,6 +273,20 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
                 targetAssetBlinders.push_back(uint256());
                 totalTargets++;
             }
+        }
+    }
+
+    if (auxiliary_generators) {
+        // Process any additional targets from auxiliary_generators
+        // we know nothing about it other than the generator itself
+        for (size_t i = tx.vin.size(); i < auxiliary_generators->size(); i++) {
+            ret = secp256k1_generator_parse(secp256k1_blind_context, &targetAssetGenerators[totalTargets], &(*auxiliary_generators)[i][0]);
+            if (ret != 1) {
+                return -1;
+            }
+            memset(&surjectionTargets[totalTargets], 0, 32);
+            targetAssetBlinders.push_back(uint256());
+            totalTargets++;
         }
     }
 

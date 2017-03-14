@@ -78,6 +78,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createrawtransaction", 1 },
     { "createrawtransaction", 2 },
     { "createrawtransaction", 3},
+    { "blindrawtransaction", 1 },
     { "dumpissuanceblindingkey", 1},
     { "importissuanceblindingkey", 1},
     { "rawblindrawtransaction", 1 },
