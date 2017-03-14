@@ -4,12 +4,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "amount.h"
+#include "assetsdir.h"
 #include "base58.h"
 #include "chain.h"
 #include "consensus/validation.h"
 #include "core_io.h"
 #include "consensus/validation.h"
 #include "crypto/hmac_sha256.h"
+#include "global/common.h"
 #include "init.h"
 #include "validation.h"
 #include "net.h"
@@ -48,7 +50,7 @@ static CCriticalSection cs_nWalletUnlockTime;
  */
 static CAsset GetAssetFromString(const std::string& strasset)
 {
-    CAsset asset = pwalletMain->GetAssetFromLabel(strasset);
+    CAsset asset = gAssetsDir.GetAsset(strasset);
     if (asset.IsNull() && strasset.size() == 64 && IsHex(strasset)) {
         asset = CAsset(uint256S(strasset));
     }
@@ -95,11 +97,12 @@ UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string stra
             if (it->first.IsNull())
                 continue;
             UniValue pair(UniValue::VOBJ);
-            if (wallet->GetLabelFromAsset(it->first) != "") {
-                obj.push_back((Pair(wallet->GetLabelFromAsset(it->first), ValueFromAmount(it->second))));
-            }
-            else
+            const std::string label = gAssetsDir.GetLabel(it->first);
+            if (label != "") {
+                obj.push_back(Pair(label, ValueFromAmount(it->second)));
+            } else {
                 obj.push_back(Pair(it->first.GetHex(), ValueFromAmount(it->second)));
+            }
         }
     } else {
         CAsset asset = GetAssetFromString(strasset);
@@ -3620,8 +3623,8 @@ UniValue dumpassetlabels(const JSONRPCRequest& request)
             + HelpExampleRpc("generateasset", "\"my asset\" 10" )
         );
     UniValue obj(UniValue::VOBJ);
-    for (CAsset as : pwalletMain->GetKnownAssets()) {
-        obj.push_back(Pair(pwalletMain->GetLabelFromAsset(as), as.GetHex()));
+    for (CAsset as : gAssetsDir.GetKnownAssets()) {
+        obj.push_back(Pair(gAssetsDir.GetLabel(as), as.GetHex()));
     }
     return obj;
 }

@@ -5,7 +5,6 @@
 
 #include "wallet/wallet.h"
 
-#include "assetsdir.h"
 #include "base58.h"
 #include "checkpoints.h"
 #include "chain.h"
@@ -13,7 +12,6 @@
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
 #include "crypto/hmac_sha256.h"
-#include "global/common.h"
 #include "key.h"
 #include "keystore.h"
 #include "validation.h"
@@ -90,11 +88,6 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
     if (it == mapWallet.end())
         return NULL;
     return &(it->second);
-}
-
-std::vector<CAsset> CWallet::GetKnownAssets() const
-{
-    return gAssetsDir.GetKnownAssets();
 }
 
 CPubKey CWallet::GenerateNewKey()
@@ -4314,18 +4307,6 @@ int CMerkleTx::GetBlocksToMaturity() const
 bool CMerkleTx::AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state)
 {
     return ::AcceptToMemoryPool(mempool, state, tx, true, NULL, NULL, false, nAbsurdFee);
-}
-
-std::string CWallet::GetLabelFromAsset(const CAsset& id) const
-{
-    LOCK(cs_wallet);
-    return gAssetsDir.GetLabel(id);
-}
-
-CAsset CWallet::GetAssetFromLabel(const std::string& label) const
-{
-    LOCK(cs_wallet);
-    return gAssetsDir.GetAsset(label);
 }
 
 CKey CWallet::GetBlindingKey(const CScript* script) const

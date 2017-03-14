@@ -750,7 +750,6 @@ public:
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
-    std::vector<CAsset> GetKnownAssets() const;
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
@@ -1006,11 +1005,6 @@ public:
 
     /* Mark a transaction (and it in-wallet descendants) as abandoned so its inputs may be respent. */
     bool AbandonTransaction(const uint256& hashTx);
-
-    /* Returns the label of associated asset id */
-    std::string GetLabelFromAsset(const CAsset& id) const;
-    /* Returns asset id corresponding to asset label */
-    CAsset GetAssetFromLabel(const std::string& label) const;
 
     //! script == NULL gives the backward compatible blinding key
     CKey GetBlindingKey(const CScript* script) const;
