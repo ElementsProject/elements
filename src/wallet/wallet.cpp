@@ -3794,10 +3794,6 @@ CKey CWallet::GetBlindingKey(const CScript* script) const
         }
     }
 
-    if (script == NULL && blinding_key.IsValid()) {
-        return blinding_key;
-    }
-
     return CKey();
 }
 
@@ -3841,13 +3837,6 @@ void CWallet::ComputeBlindingData(const CTxOut& output, CAmount& amount, CPubKey
     CKey blinding_key;
     if ((blinding_key = GetBlindingKey(&output.scriptPubKey)).IsValid()) {
         // For outputs using derived blinding.
-        if (UnblindOutput(blinding_key, output, amount, blindingfactor)) {
-            pubkey = blinding_key.GetPubKey();
-            return;
-        }
-    }
-    if ((blinding_key = GetBlindingKey(NULL)).IsValid()) {
-        // For outputs using deprecated static blinding.
         if (UnblindOutput(blinding_key, output, amount, blindingfactor)) {
             pubkey = blinding_key.GetPubKey();
             return;
