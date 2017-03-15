@@ -5,6 +5,7 @@
 
 #include "wallet/wallet.h"
 
+#include "assetsdir.h"
 #include "base58.h"
 #include "checkpoints.h"
 #include "chain.h"
@@ -12,6 +13,7 @@
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
 #include "crypto/hmac_sha256.h"
+#include "global/common.h"
 #include "key.h"
 #include "keystore.h"
 #include "main.h"
@@ -91,11 +93,7 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
 
 std::vector<CAsset> CWallet::GetKnownAssets() const
 {
-    std::vector<CAsset> lAssets;
-    for (auto knownAsset : this->mapAssets) {
-        lAssets.push_back(knownAsset.second);
-    }
-    return lAssets;
+    return gAssetsDir.GetKnownAssets();
 }
 
 CPubKey CWallet::GenerateNewKey()
@@ -1231,17 +1229,6 @@ bool CWallet::SetHDChain(const CHDChain& chain, bool memonly)
         throw runtime_error(std::string(__func__) + ": writing chain failed");
 
     hdChain = chain;
-    return true;
-}
-
-bool CWallet::SetAssetPair(const std::string& label, const CAsset& id)
-{
-    LOCK(cs_wallet);
-    if (!CWalletDB(strWalletFile).WriteAssetLabelPair(id, label) ||
-        !CWalletDB(strWalletFile).WriteLabelAssetPair(label, id))
-        throw runtime_error(std::string(__func__) + ": writing asset pair failed");
-    mapAssetLabels[id] = label;
-    mapAssets[label] = id;
     return true;
 }
 
@@ -3693,9 +3680,6 @@ bool CWallet::InitLoadWallet()
                 return InitError(_("Cannot write default address") += "\n");
         }
 
-        // All wallets should understand native peg-in currency
-        walletInstance->SetAssetPair("bitcoin", BITCOINID);
-
         walletInstance->SetBestChain(chainActive.GetLocator());
     }
     else if (mapArgs.count("-usehd")) {
@@ -3953,19 +3937,13 @@ bool CMerkleTx::AcceptToMemoryPool(bool fLimitFree, CAmount nAbsurdFee)
 std::string CWallet::GetLabelFromAsset(const CAsset& id) const
 {
     LOCK(cs_wallet);
-    std::map<CAsset, std::string>::const_iterator it = mapAssetLabels.find(id);
-    if (it != mapAssetLabels.end())
-        return it->second;
-    return "";
+    return gAssetsDir.GetLabel(id);
 }
 
 CAsset CWallet::GetAssetFromLabel(const std::string& label) const
 {
     LOCK(cs_wallet);
-    std::map<std::string, CAsset>::const_iterator it = mapAssets.find(label);
-    if (it != mapAssets.end())
-        return it->second;
-    return CAsset();
+    return gAssetsDir.GetAsset(label);
 }
 
 CKey CWallet::GetBlindingKey(const CScript* script) const
@@ -4020,20 +3998,6 @@ bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& k
     if (!fFileBacked)
         return true;
     return CWalletDB(strWalletFile).WriteSpecificBlindingKey(scriptid, key);
-}
-
-bool CWallet::LoadLabelAssetMapping(const std::string& label, const CAsset& id)
-{
-    AssertLockHeld(cs_wallet);
-    mapAssets[label] = id;
-    return true;
-}
-
-bool CWallet::LoadAssetLabelMapping(const CAsset& id, const std::string& label)
-{
-    AssertLockHeld(cs_wallet);
-    mapAssetLabels[id] = label;
-    return true;
 }
 
 void CWallet::ComputeBlindingData(const CTxOut& output, const CTxOutWitness& witness, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const

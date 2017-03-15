@@ -615,8 +615,6 @@ private:
 
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
-    std::map<CAsset, std::string> mapAssetLabels;
-    std::map<std::string, CAsset> mapAssets;
 
 public:
     /*
@@ -848,10 +846,6 @@ public:
     CAmountMap GetCredit(const CWalletTx& tx, const isminefilter& filter) const;
     CAmountMap GetChange(const CWalletTx& tx) const;
     void SetBestChain(const CBlockLocator& loc);
-
-    bool SetAssetPair(const std::string& label, const CAsset& id);
-    bool LoadLabelAssetMapping(const std::string& label, const CAsset& id);
-    bool LoadAssetLabelMapping(const CAsset&, const std::string&);
 
     DBErrors LoadWallet(bool& fFirstRunRet);
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);

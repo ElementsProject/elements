@@ -207,16 +207,6 @@ bool CWalletDB::WriteBlindingDerivationKey(const uint256& key)
     return Write(std::string("blindingderivationkey"), key);
 }
 
-bool CWalletDB::WriteAssetLabelPair(const CAsset& asset, const std::string& label)
-{
-    return Write(make_pair(std::string("assetlabelmapping"), asset), label);
-}
-
-bool CWalletDB::WriteLabelAssetPair(const std::string& label, const CAsset& asset)
-{
-    return Write(make_pair(std::string("labelassetmapping"), label), asset);
-}
-
 CAmount CWalletDB::GetAccountCreditDebit(const string& strAccount)
 {
     list<CAccountingEntry> entries;
@@ -644,28 +634,6 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssValue >> key;
             if (!pwallet->LoadSpecificBlindingKey(scriptid, key)) {
                 strErr = "Error reading wallet database: LoadSpecificBlindingKey failed";
-                return false;
-            }
-        }
-        else if (strType == "labelassetmapping")
-        {
-            string label;
-            ssKey >> label;
-            CAsset asset;
-            ssValue >> asset;
-            if (!pwallet->LoadLabelAssetMapping(label, asset)) {
-                strErr = "Error reading wallet database: LoadLabelAssetMapping failed";
-                return false;
-            }
-        }
-        else if (strType == "assetlabelmapping")
-        {
-            CAsset asset;
-            ssKey >> asset;
-            string label;
-            ssValue >> label;
-            if (!pwallet->LoadAssetLabelMapping(asset, label)) {
-                strErr = "Error reading wallet database: LoadAssetLabelMapping failed";
                 return false;
             }
         }

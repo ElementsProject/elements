@@ -82,7 +82,7 @@ void EnsureWalletIsUnlocked()
 
 // Attaches labeled balance reports to UniValue obj with asset filter
 // "" displays *all* assets as VOBJ pairs, while named assets must have
-// been entered via addassetlabel RPC command and are returns as VNUM.
+// been entered via -assetdir configuration argument and are returned as VNUM.
 UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string strasset)
 {
     UniValue obj(UniValue::VOBJ);
@@ -3178,40 +3178,6 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     return finalTxn.GetHash().GetHex();
 }
 
-UniValue addassetlabel(const UniValue& params, bool fHelp)
-{
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
-    // TODO: Add basic protection against over-writing asset
-    if (fHelp || params.size() != 2)
-        throw runtime_error(
-            "addassetlabel id label\n"
-            "\nAdd a label to a known asset ID. This label can be used in place of the ID for all asset-compatible RPC calls.\n"
-            "\nArguments:\n"
-            "1. \"id\"            (string, required) Hex ID that will be given label.\n"
-            "2. \"label\"         (string, required) Label that will be assigned to ID.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("addassetlabel", "\"fa821b0be5e1387adbcb69dbb3ad33edb5e470831c7c938c4e7b344edbe8bb11\", \"ethereum\"")
-            + HelpExampleRpc("addassetlabel", "\"fa821b0be5e1387adbcb69dbb3ad33edb5e470831c7c938c4e7b344edbe8bb11\", \"ethereum\"")
-        );
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR)(UniValue::VSTR));
-
-    std::string id = params[0].get_str();
-    std::string label = params[1].get_str();
-    if (!IsHex(id) || id.size() != 64)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Asset ID must be hex of length 64");
-    if (label == "bitcoin" || label == "Bitcoin" || label == "btc")
-        throw JSONRPCError(RPC_TYPE_ERROR, "'bitcoin' label is protected");
-    else if (label.size() > 32 || label.size() < 3) {
-        throw JSONRPCError(RPC_TYPE_ERROR, "Please pick a label between 3 and 32 characters.");
-    }
-
-    pwalletMain->SetAssetPair(label, CAsset(uint256S(id)));
-
-    return NullUniValue;
-}
-
 UniValue generateasset(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3257,7 +3223,7 @@ UniValue dumpassetlabels(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "dumpassetlabels\n"
-            "\nLists all known asset id/label pairs in this wallet. This list can be modified by `addassetlabel` command.\n"
+            "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n"
         );
     UniValue obj(UniValue::VOBJ);
     for (CAsset as : pwalletMain->GetKnownAssets()) {
@@ -3283,7 +3249,6 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "fundrawtransaction",       &fundrawtransaction,       false },
     { "hidden",             "resendwallettransactions", &resendwallettransactions, true  },
     { "wallet",             "abandontransaction",       &abandontransaction,       false },
-    { "wallet",             "addassetlabel",            &addassetlabel,            true  },
     { "wallet",             "addmultisigaddress",       &addmultisigaddress,       true  },
     { "wallet",             "addwitnessaddress",        &addwitnessaddress,        true  },
     { "wallet",             "backupwallet",             &backupwallet,             true  },

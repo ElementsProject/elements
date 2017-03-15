@@ -5,7 +5,9 @@
 #include "rpc/server.h"
 #include "rpc/client.h"
 
+#include "assetsdir.h"
 #include "base58.h"
+#include "global/common.h"
 #include "main.h"
 #include "wallet/wallet.h"
 
@@ -22,6 +24,7 @@ extern UniValue createArgs(int nRequired, const char* address1 = NULL, const cha
 extern UniValue CallRPC(string args);
 
 extern CWallet* pwalletMain;
+extern CAssetsDir _gAssetsDir;
 
 BOOST_FIXTURE_TEST_SUITE(rpc_wallet_tests, WalletTestingSetup)
 
@@ -64,6 +67,9 @@ BOOST_AUTO_TEST_CASE(rpc_addmultisig)
 
 BOOST_AUTO_TEST_CASE(rpc_wallet)
 {
+    // Need to set bitcoin asset for listreceivedby* tests
+    std::vector<std::string> assetsToInit = {};
+    _gAssetsDir.InitFromStrings(assetsToInit);
     // Test RPC calls for various wallet statistics
     UniValue r;
     CPubKey demoPubkey;
@@ -73,9 +79,6 @@ BOOST_AUTO_TEST_CASE(rpc_wallet)
     CBitcoinAddress setaccountDemoAddress;
     {
         LOCK(pwalletMain->cs_wallet);
-
-        // Need to set bitcoin asset for listreceivedby* tests
-        pwalletMain->SetAssetPair("bitcoin", BITCOINID);
 
         demoPubkey = pwalletMain->GenerateNewKey();
         demoAddress = CBitcoinAddress(CTxDestination(demoPubkey.GetID()));
