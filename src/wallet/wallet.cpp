@@ -3968,13 +3968,6 @@ CAsset CWallet::GetAssetFromLabel(const std::string& label) const
     return CAsset();
 }
 
-CAsset CWallet::GetAssetFromString(const std::string& asset) const
-{
-    // TODO: may be worth LOCK(cs_wallet) here and do GetAsset* inline instead
-    CAsset id(uint256S(asset));
-    return GetLabelFromAsset(id) == "" ? GetAssetFromLabel(asset) : id;
-}
-
 CKey CWallet::GetBlindingKey(const CScript* script) const
 {
     CKey key;
