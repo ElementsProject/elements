@@ -212,12 +212,6 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getwalletinfo("testasset")['balance'], Decimal(2))
         assert_equal(self.nodes[0].getwalletinfo(asset_list["testasset"])['balance'], Decimal(2))
 
-        try:
-            self.nodes[1].getwalletinfo(asset_list["testasset"])
-            raise AssertionError("Wallet has no knowledge of this asset")
-        except JSONRPCException:
-            pass
-
         self.nodes[1].addassetlabel(asset_list["testasset"], "testasset2")
         assert_equal(self.nodes[1].getwalletinfo("testasset2")['balance'], Decimal(0))
 
@@ -234,11 +228,6 @@ class CTTest (BitcoinTestFramework):
                 otherasset = label
         assert(otherasset != "")
 
-        try:
-            self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, otherasset)
-            raise AssertionError("Can not send assets that aren't labeled")
-        except JSONRPCException:
-            pass
         # Now send to another wallet's CT address, check received balance
         self.nodes[0].addassetlabel(otherasset, "OTHER")
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, "OTHER")
