@@ -410,7 +410,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     vChangeKey.reserve(2);
     vChangeKey.emplace_back(pwalletMain);
     vpChangeKey.push_back(&vChangeKey[0]);
-    if (pwalletMain->GetAssetFromLabel("bitcoin") != asset) {
+    if (policyAsset != asset) {
         vChangeKey.emplace_back(pwalletMain);
         vpChangeKey.push_back(&vChangeKey[1]);
     }
@@ -1037,7 +1037,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     std::vector<CReserveKey> vChangeKey;
     std::vector<CReserveKey*> vpChangeKey;
     std::set<CAsset> setAssets;
-    setAssets.insert(pwalletMain->GetAssetFromLabel("bitcoin"));
+    setAssets.insert(policyAsset);
     for (auto recipient : vecSend) {
         setAssets.insert(recipient.asset);
     }
@@ -1923,7 +1923,7 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
     assert(wtx.HasValidFee());
     CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.GetFee()[policyAsset] : 0);
     CAmountMap nNet = nCredit - nDebit;
-    nNet[pwalletMain->GetAssetFromLabel("bitcoin")] -= nFee;
+    nNet[policyAsset] -= nFee;
 
     entry.push_back(Pair("amount", PushAssetBalance(nNet, pwalletMain, strasset)));
     if (wtx.IsFromMe(filter))
