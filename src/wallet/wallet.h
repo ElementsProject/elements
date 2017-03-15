@@ -921,10 +921,6 @@ public:
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     void SetBestChain(const CBlockLocator& loc) override;
 
-    bool SetAssetPair(const std::string& label, const CAsset& id);
-    bool LoadLabelAssetMapping(const std::string& label, const CAsset& id);
-    bool LoadAssetLabelMapping(const CAsset&, const std::string&);
-
     DBErrors LoadWallet(bool& fFirstRunRet);
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);
     DBErrors ZapSelectTx(std::vector<uint256>& vHashIn, std::vector<uint256>& vHashOut);
