@@ -206,14 +206,11 @@ class CTTest (BitcoinTestFramework):
         #### Confidential Assets Tests ####
 
         # Generate an asset, check wallet (This is is skeleton issuance API)
-        testAssetHex = self.nodes[0].generateasset(2)
-        self.nodes[0].addassetlabel(testAssetHex, "testasset")
         asset_list = self.nodes[0].dumpassetlabels()
-        assert_equal(self.nodes[0].getwalletinfo("testasset")['balance'], Decimal(2))
+        asset_list["testasset"] = self.nodes[0].generateasset(2)
         assert_equal(self.nodes[0].getwalletinfo(asset_list["testasset"])['balance'], Decimal(2))
 
-        self.nodes[1].addassetlabel(asset_list["testasset"], "testasset2")
-        assert_equal(self.nodes[1].getwalletinfo("testasset2")['balance'], Decimal(0))
+        assert_equal(self.nodes[1].getwalletinfo(asset_list["testasset"])['balance'], Decimal(0))
 
         # Assets balance checking, note that accounts are completely ignored because
         # balance queries with accounts are horrifically broken upstream
@@ -224,13 +221,12 @@ class CTTest (BitcoinTestFramework):
         wallet_list = self.nodes[0].getinfo()['balance'] # returns list of known non-zero assets in wallet, labels if they exist, hex otherwise
         otherasset = ""
         for label in wallet_list:
-            if label != "bitcoin" and label != "testasset":
+            if label != "bitcoin" and label != asset_list["testasset"]:
                 otherasset = label
         assert(otherasset != "")
 
         # Now send to another wallet's CT address, check received balance
-        self.nodes[0].addassetlabel(otherasset, "OTHER")
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, "OTHER")
+        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, otherasset)
         self.nodes[0].generate(1)
 
         assert_equal(self.nodes[2].getinfo()['balance'][otherasset], wallet_list[otherasset])
@@ -238,17 +234,16 @@ class CTTest (BitcoinTestFramework):
         # Send some bitcoin and other assets over as well to fund wallet
         addr = self.nodes[2].getnewaddress()
         self.nodes[0].sendtoaddress(addr, 5)
-        self.nodes[0].sendmany("", {addr:1, self.nodes[2].getnewaddress():13}, 0, "", [], {addr:"testasset"})
+        self.nodes[0].sendmany("", {addr:1, self.nodes[2].getnewaddress():13}, 0, "", [], {addr:asset_list["testasset"]})
 
         self.sync_all()
 
         # Should have exactly 1 in change(trusted, though not confirmed) after sending one off
-        assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, "testasset"), 1)
-        self.nodes[2].addassetlabel(asset_list["testasset"], "testasset")
-        assert_equal(self.nodes[2].getunconfirmedbalance("testasset"), Decimal(1))
+        assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, asset_list["testasset"]), 1)
+        assert_equal(self.nodes[2].getunconfirmedbalance(asset_list["testasset"]), Decimal(1))
 
         b_utxos = self.nodes[2].listunspent(0, 0, [], "bitcoin")
-        t_utxos = self.nodes[2].listunspent(0, 0, [], "testasset")
+        t_utxos = self.nodes[2].listunspent(0, 0, [], asset_list["testasset"])
 
         assert_equal(len(self.nodes[2].listunspent(0, 0, [])), len(b_utxos)+len(t_utxos))
 
