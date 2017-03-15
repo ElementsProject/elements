@@ -41,6 +41,23 @@ using namespace std;
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
 
+/**
+ * Returns asset id corresponding to the given asset expression, which is either an asset label or a hex value.
+ * @param  strasset A label string or a hex value corresponding to an asset
+ * @return       The asset ID for the given expression
+ */
+static CAsset GetAssetFromString(const std::string& strasset)
+{
+    CAsset asset = pwalletMain->GetAssetFromLabel(strasset);
+    if (asset.IsNull() && strasset.size() == 64 && IsHex(strasset)) {
+        asset = CAsset(uint256S(strasset));
+    }
+    if (asset.IsNull()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown label and invalid asset hex");
+    }
+    return asset;
+}
+
 std::string HelpRequiringPassphrase()
 {
     return pwalletMain && pwalletMain->IsCrypted()
@@ -72,15 +89,6 @@ void EnsureWalletIsUnlocked()
 UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string strasset)
 {
     UniValue obj(UniValue::VOBJ);
-    CAsset id = wallet->GetAssetFromLabel(strasset);
-    std::string label = wallet->GetLabelFromAsset(CAsset(uint256S(strasset)));
-    if (strasset != "" && (id.IsNull() && label == "")) {
-       throw JSONRPCError(RPC_WALLET_ERROR, "Input does not match a known asset tag/label pair.");
-    }
-    else if (!id.IsNull()) {
-        strasset = id.GetHex();
-    }
-
     if (strasset == "") {
         for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
             // Unknown assets
@@ -93,9 +101,9 @@ UniValue PushAssetBalance(CAmountMap& balance, CWallet* wallet, std::string stra
             else
                 obj.push_back(Pair(it->first.GetHex(), ValueFromAmount(it->second)));
         }
-    }
-    else {
-        return ValueFromAmount(balance[CAsset(uint256S(strasset))]);
+    } else {
+        CAsset asset = GetAssetFromString(strasset);
+        return ValueFromAmount(balance[asset]);
     }
     return obj;
 }
@@ -493,20 +501,16 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     if (request.params.size() > 4)
         fSubtractFeeFromAmount = request.params[4].get_bool();
 
-    std::string asset = "bitcoin";
+    std::string strasset = "bitcoin";
     if (request.params.size() > 5 && request.params[5].isStr()) {
-        asset = request.params[5].get_str();
+        strasset = request.params[5].get_str();
     }
 
-    CAsset id(uint256S(asset));
-    if (pwalletMain->GetLabelFromAsset(CAsset(uint256S(asset))) == "")
-        id = pwalletMain->GetAssetFromLabel(asset);
-    if (id.IsNull())
-        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+    CAsset asset = GetAssetFromString(strasset);
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(address.Get(), nAmount, id, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
+    SendMoney(address.Get(), nAmount, asset, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
@@ -1014,11 +1018,7 @@ UniValue sendmany(const JSONRPCRequest& request)
             strasset = assets[name_].get_str();
         }
 
-        CAsset asset(uint256S(strasset));
-        if (pwalletMain->GetLabelFromAsset(CAsset(uint256S(strasset))) == "")
-            asset = pwalletMain->GetAssetFromLabel(strasset);
-        if (asset.IsNull())
-            throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+        CAsset asset = GetAssetFromString(strasset);
 
         if (!address.IsValid())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ")+name_);
@@ -1271,17 +1271,15 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
         if(params[2].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
-    std::string asset = "bitcoin";
+    std::string strasset = "bitcoin";
     if (params.size() > 3 && params[3].isStr()) {
         if (fByAccounts)
             throw JSONRPCError(RPC_WALLET_ERROR, "Accounts are completely disabled for assets.");
-        asset = params[3].get_str();
+        strasset = params[3].get_str();
     }
-    CAsset id(uint256S(asset));
-    if (asset != "*" && pwalletMain->GetLabelFromAsset(CAsset(uint256S(asset))) == "")
-        id = pwalletMain->GetAssetFromLabel(asset);
-    if (asset != "*" && id.IsNull())
-        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+    CAsset asset;
+    if (strasset != "*")
+        asset = GetAssetFromString(strasset);
 
     // Tally
     map<CTxDestination, tallyitem> mapTally;
@@ -1309,7 +1307,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             if (wtx.GetValueOut(i) < 0)
                 continue;
 
-            if (wtx.GetAsset(i) != id && asset != "*")
+            if (strasset != "*" && wtx.GetAsset(i) != asset)
                 continue;
 
             CBitcoinAddress bitcoinaddress(address);
@@ -2652,9 +2650,7 @@ UniValue listunspent(const JSONRPCRequest& request)
     }
     CAsset asset;
     if (assetstr != "") {
-        asset = pwalletMain->GetAssetFromString(assetstr);
-        if (asset.IsNull())
-            throw JSONRPCError(RPC_WALLET_ERROR, "Unknown or invalid asset id/label");
+        asset = GetAssetFromString(assetstr);
     }
 
     UniValue results(UniValue::VARR);
