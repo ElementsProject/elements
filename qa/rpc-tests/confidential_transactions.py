@@ -196,6 +196,7 @@ class CTTest (BitcoinTestFramework):
         new_validated = self.nodes[0].validateaddress(new_addr)
         self.nodes[2].sendtoaddress(new_addr, 1)
         diff_blind = self.nodes[1].createblindedaddress(new_validated["unconfidential"], blinding_key)
+        self.sync_all()
         assert_equal(len(self.nodes[0].listunspent(0, 0, [new_validated["unconfidential"]])), 1)
         self.nodes[0].importblindingkey(diff_blind, blinding_key)
         # CT values for this wallet transaction  have been cached via importblindingkey
