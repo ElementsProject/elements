@@ -311,7 +311,7 @@ public:
     // == 0
     //   Indicates new asset issuance.
     // != 0
-    //   This is a revelation of the blinding key for the input,
+    //   This is a revelation of the blinding factor for the input,
     //   which shows that the input being spent is of the reissuance
     //   capability type for the asset being inflated.
     uint256 assetBlindingNonce;
