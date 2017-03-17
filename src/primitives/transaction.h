@@ -353,8 +353,8 @@ public:
         READWRITE(nInflationKeys);
     }
 
-    void SetNull() { nAmount.SetNull(); }
-    bool IsNull() const { return nAmount.IsNull(); }
+    void SetNull() { nAmount.SetNull(); nInflationKeys.SetNull(); }
+    bool IsNull() const { return (nAmount.IsNull() && nInflationKeys.IsNull()); }
 
     friend bool operator==(const CAssetIssuance& a, const CAssetIssuance& b)
     {
