@@ -222,7 +222,7 @@ public:
     {
         if (!nValue.IsExplicit())
             return false; // FIXME
-        if (!nAsset.IsExplicit() || nAsset.GetAsset() != BITCOINID)
+        if (!nAsset.IsExplicit())
             return false;
         if (IsFee())
             return false;
