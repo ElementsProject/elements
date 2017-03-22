@@ -446,6 +446,9 @@ public:
                 // make this as simple as a bitwise-OR.
                 outpoint.hash = prevout.hash;
                 outpoint.n = prevout.n & COutPoint::OUTPOINT_INDEX_MASK;
+                if (fHasAssetIssuance) {
+                    outpoint.n |= COutPoint::OUTPOINT_ISSUANCE_FLAG;
+                }
             }
         }
 
