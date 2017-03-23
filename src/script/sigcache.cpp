@@ -45,7 +45,7 @@ public:
 class CSignatureCache
 {
 private:
-     //! Entries are SHA256(nonce || signature hash || public key || signature):
+     //! Entries are SHA256(nonce || signature hash || public key || signature || additional commit || CScript). They are used in various ways for different checks
     uint256 nonce;
     typedef CuckooCache::cache<uint256, SignatureCacheHasher> map_type;
     map_type setValid;
@@ -58,9 +58,9 @@ public:
     }
 
     void
-    ComputeEntry(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& vchSig, const CPubKey& pubkey)
+    ComputeEntry(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const std::vector<unsigned char>& vchCommitment, const CScript& scriptPubKey)
     {
-        CSHA256().Write(nonce.begin(), 32).Write(hash.begin(), 32).Write(&pubkey[0], pubkey.size()).Write(&vchSig[0], vchSig.size()).Finalize(entry.begin());
+        CSHA256().Write(nonce.begin(), 32).Write(hash.begin(), 32).Write(&pubkey[0], pubkey.size()).Write(&vchSig[0], vchSig.size()).Write(&vchCommitment[0], vchCommitment.size()).Write(&scriptPubKey[0], scriptPubKey.size()).Finalize(entry.begin());
     }
 
     bool
@@ -133,7 +133,7 @@ void InitSurjectionproofCache()
 bool CachingTransactionSignatureChecker::VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& pubkey, const uint256& sighash) const
 {
     uint256 entry;
-    signatureCache.ComputeEntry(entry, sighash, vchSig, pubkey);
+    signatureCache.ComputeEntry(entry, sighash, vchSig, pubkey, vchSig, CScript());
     if (signatureCache.Get(entry, !store))
         return true;
     if (!TransactionSignatureChecker::VerifySignature(vchSig, pubkey, sighash))
@@ -147,7 +147,7 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
 {
     CPubKey pubkey(vchValueCommitment);
     uint256 entry;
-    rangeProofCache.ComputeEntry(entry, uint256(), vchRangeProof, pubkey);
+    rangeProofCache.ComputeEntry(entry, uint256(), vchRangeProof, pubkey, vchAssetCommitment, scriptPubKey);
 
     if (rangeProofCache.Get(entry, !store)) {
         return true;
@@ -171,10 +171,21 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
 
 bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts) const
 {
+    // Serialize objects
     std::vector<unsigned char> vchproof;
     size_t proof_len = 0;
     vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
     secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
+
+    std::vector<unsigned char> tagCommit;
+    tagCommit.resize(33);
+    CSHA256 sha2;
+    for (unsigned int i = 0; i <vTags.size(); i++) {
+        secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, tagCommit.data(), &vTags[i]);
+        sha2.Write(tagCommit.data(), tagCommit.size());
+    }
+    tagCommit.resize(32);
+    sha2.Finalize(tagCommit.data());
 
     std::vector<unsigned char> vchGen;
     vchGen.resize(CConfidentialValue::nCommittedSize);
@@ -182,7 +193,7 @@ bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionpr
 
     CPubKey pubkey(vchGen);
     uint256 entry;
-    surjectionProofCache.ComputeEntry(entry, uint256(), vchproof, pubkey);
+    surjectionProofCache.ComputeEntry(entry, uint256(tagCommit), vchproof, pubkey, vchGen, CScript());
 
     if (surjectionProofCache.Get(entry, !store)) {
         return true;
