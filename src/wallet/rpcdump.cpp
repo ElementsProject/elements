@@ -702,6 +702,67 @@ UniValue dumpblindingkey(const UniValue& params, bool fHelp)
     throw JSONRPCError(RPC_WALLET_ERROR, "Blinding key for address is unknown");
 }
 
+UniValue dumpissuanceblindingkey(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "dumpissuanceblindingkey \"txid\" vin\n"
+            "\nDumps the private blinding key for an asset issuance in wallet."
+            "\nArguments:\n"
+            "1. \"txid\"          (string, required) The transaction id of the issuance\n"
+            "2. \"vin\"           (numeric, required) The input number of the issuance in the transaction.\n"
+            "\nResult:\n"
+            "\"blindingkey\"      (string) The blinding key\n"
+            "\nExample:\n"
+            + HelpExampleCli("dumpissuanceblindingkey", "\"<txid>\", 0")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    if (!params[0].isStr() || !IsHex(params[0].get_str()) || params[0].get_str().size() != 64) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "First argument must be a txid string");
+    }
+    std::string txidstr = params[0].get_str();
+    uint256 txid;
+    txid.SetHex(txidstr);
+
+    uint32_t vindex;
+    if (!params[1].isNum()) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "vin must be an integer");
+    }
+    vindex = params[1].get_int();
+
+    // Process as issuance key dump
+    for (map<uint256, CWalletTx>::const_iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it) {
+        const CWalletTx* pcoin = &(*it).second;
+        if (pcoin->GetHash() != txid) {
+            continue;
+        }
+        if (pcoin->vin.size() <= vindex) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Transaction is in wallet but vin does not exist");
+        }
+        if (pcoin->vin[vindex].assetIssuance.IsNull()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Transaction input has no issuance");
+        }
+        // We can actually deblinds the input
+        if (pcoin->GetIssuanceAmount(vindex, false) != -1 ) {
+            CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(pcoin->vin[vindex].prevout.hash.begin(), pcoin->vin[vindex].prevout.hash.end()) << pcoin->vin[vindex].prevout.n);
+            CKey key;
+            key = pwalletMain->GetBlindingKey(&blindingScript);
+            AuditLogPrintf("%s : dumpissuanceblindingkey %s %s\n", getUser(), txid.GetHex(), params[1].getValStr());
+            return HexStr(key.begin(), key.end());
+        } else {
+            // We don't know how to deblind this using our wallet
+            throw JSONRPCError(RPC_WALLET_ERROR, "Unable to unblind issuance with wallet blinding key.");
+        }
+    }
+    throw JSONRPCError(RPC_WALLET_ERROR, "Transaction is unknown to wallet.");
+}
+
+
 UniValue importblindingkey(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -750,4 +811,76 @@ UniValue importblindingkey(const UniValue& params, bool fHelp)
     pwalletMain->MarkDirty();
 
     return NullUniValue;
+}
+
+UniValue importissuanceblindingkey(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 3)
+        throw runtime_error(
+            "importissuanceblindingkey \"txid\" vin \"blindingkey\"\n"
+            "\nImports a private blinding key in hex for an asset issuance."
+            "\nArguments:\n"
+
+            "1. \"txid\"          (string, required) The transaction id of the issuance\n"
+            "2. \"vin\"           (numeric, required) The input number of the issuance in the transaction.\n"
+            "3. \"blindingkey\"           (string, required) The blinding key in hex\n"
+            "\nExample:\n"
+            + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    if (!params[0].isStr() || !IsHex(params[0].get_str()) || params[0].get_str().size() != 64) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "First argument must be a txid string");
+    }
+    std::string txidstr = params[0].get_str();
+    uint256 txid;
+    txid.SetHex(txidstr);
+
+    uint32_t vindex;
+    if (!params[1].isNum()) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "vin must be an integer");
+    }
+    vindex = params[1].get_int();
+
+    if (!params[2].isStr() || !IsHex(params[2].get_str()) || params[2].get_str().size() != 64) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "blinding key must be a hex string of length 64");
+    }
+
+    std::vector<unsigned char> keydata = ParseHex(params[2].get_str());
+    if (keydata.size() != 32) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length");
+    }
+    CKey key;
+    key.Set(keydata.begin(), keydata.end(), true);
+
+    // Process as issuance key dump
+    for (map<uint256, CWalletTx>::const_iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it) {
+        const CWalletTx* pcoin = &(*it).second;
+        if (pcoin->GetHash() != txid) {
+            continue;
+        }
+        if (pcoin->vin.size() <= vindex) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Transaction is in wallet but vin does not exist");
+        }
+        if (pcoin->vin[vindex].assetIssuance.IsNull()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Transaction input has no issuance");
+        }
+
+        // Import the key in that slot
+        uint256 keyval;
+        memcpy(keyval.begin(), &keydata[0], 32);
+        CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(pcoin->vin[vindex].prevout.hash.begin(), pcoin->vin[vindex].prevout.hash.end()) << pcoin->vin[vindex].prevout.n);
+        if (!pwalletMain->AddSpecificBlindingKey(CScriptID(blindingScript), keyval)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import blinding key");
+        }
+        pwalletMain->MarkDirty();
+        AuditLogPrintf("%s : importissuanceblindingkey %s %s\n", getUser(), txid.GetHex(), params[1].getValStr());
+        return NullUniValue;
+    }
+
+    throw JSONRPCError(RPC_WALLET_ERROR, "Transaction is unknown to wallet.");
 }

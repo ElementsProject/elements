@@ -3614,7 +3614,9 @@ extern UniValue importwallet(const UniValue& params, bool fHelp);
 extern UniValue importprunedfunds(const UniValue& params, bool fHelp);
 extern UniValue removeprunedfunds(const UniValue& params, bool fHelp);
 extern UniValue dumpblindingkey(const UniValue& params, bool fHelp);
+extern UniValue dumpissuanceblindingkey(const UniValue& params, bool fHelp);
 extern UniValue importblindingkey(const UniValue& params, bool fHelp);
+extern UniValue importissuanceblindingkey(const UniValue& params, bool fHelp);
 
 static const CRPCCommand commands[] =
 { //  category              name                        actor (function)           okSafeMode
@@ -3627,6 +3629,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "backupwallet",             &backupwallet,             true  },
     { "wallet",             "dumpassetlabels",          &dumpassetlabels,          true  },
     { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true  },
+    { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,  true  },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true  },
     { "wallet",             "dumpwallet",               &dumpwallet,               true  },
     { "wallet",             "claimpegin",               &claimpegin,               false },
@@ -3648,6 +3651,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "importwallet",             &importwallet,             true  },
     { "wallet",             "importaddress",            &importaddress,            true  },
     { "wallet",             "importblindingkey",        &importblindingkey,        true  },
+    { "wallet",             "importissuanceblindingkey",&importissuanceblindingkey,true  },
     { "wallet",             "importprunedfunds",        &importprunedfunds,        true  },
     { "wallet",             "importpubkey",             &importpubkey,             true  },
     { "wallet",             "issueasset",               &issueasset,               true  },
