@@ -4011,7 +4011,9 @@ extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue dumpblindingkey(const JSONRPCRequest& request);
+extern UniValue dumpissuanceblindingkey(const JSONRPCRequest& request);
 extern UniValue importblindingkey(const JSONRPCRequest& request);
+extern UniValue importissuanceblindingkey(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                        actor (function)           okSafeMode
@@ -4025,6 +4027,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true,   {} },
     { "wallet",             "dumpassetlabels",          &dumpassetlabels,          true,   {} },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true,   {"address"}  },
+    { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,  true,   {"txid", "vin"} },
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "claimpegin",               &claimpegin,               false,  {} },
@@ -4047,6 +4050,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "importblindingkey",        &importblindingkey,        true,   {} },
     { "wallet",             "importprunedfunds",        &importprunedfunds,        true,   {"rawtransaction","txoutproof"} },
     { "wallet",             "importpubkey",             &importpubkey,             true,   {"pubkey","label","rescan"} },
+    { "wallet",             "importissuanceblindingkey",&importissuanceblindingkey,true,   {"txid", "vin", "blindingkey"} },
     { "wallet",             "keypoolrefill",            &keypoolrefill,            true,   {"newsize"} },
     { "wallet",             "issueasset",               &issueasset,               true,   {"assetamount", "tokenamount", "blind"} },
     { "wallet",             "listaccounts",             &listaccounts,             false,  {"minconf","include_watchonly"} },
