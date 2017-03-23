@@ -205,7 +205,18 @@ class CTTest (BitcoinTestFramework):
 
         #### Confidential Assets Tests ####
 
-        # Generate an asset, check wallet (This is is skeleton issuance API)
+        print("Assets tests...")
+
+        # Unblinded issuance of asset
+        issued = self.nodes[0].issueasset(1, 1, False)
+        assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["asset"]], 1)
+        assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
+        # Quick unblinded reissuance check, making 2*COIN total
+        self.nodes[0].reissueasset(issued["asset"], 1)
+
+        testAssetHex = issued["asset"]
+        self.nodes[0].generate(1)
+        self.sync_all()
         asset_list = self.nodes[0].dumpassetlabels()
         asset_list["testasset"] = self.nodes[0].generateasset(2)
         assert_equal(self.nodes[0].getwalletinfo(asset_list["testasset"])['balance'], Decimal(2))
@@ -216,20 +227,6 @@ class CTTest (BitcoinTestFramework):
         # balance queries with accounts are horrifically broken upstream
         assert_equal(self.nodes[0].getbalance("*", 0, False, "bitcoin"), self.nodes[0].getbalance("accountsareignored", 0, False, "bitcoin"))
         assert_equal(self.nodes[0].getwalletinfo()['balance']['bitcoin'], self.nodes[0].getbalance("accountsareignored", 0, False, "bitcoin"))
-
-        # Now test wallet interaction with unlabeled funds
-        wallet_list = self.nodes[0].getinfo()['balance'] # returns list of known non-zero assets in wallet, labels if they exist, hex otherwise
-        otherasset = ""
-        for label in wallet_list:
-            if label != "bitcoin" and label != asset_list["testasset"]:
-                otherasset = label
-        assert(otherasset != "")
-
-        # Now send to another wallet's CT address, check received balance
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), wallet_list[otherasset], "", "", False, otherasset)
-        self.nodes[0].generate(1)
-
-        assert_equal(self.nodes[2].getinfo()['balance'][otherasset], wallet_list[otherasset])
 
         # Send some bitcoin and other assets over as well to fund wallet
         addr = self.nodes[2].getnewaddress()
@@ -262,16 +259,109 @@ class CTTest (BitcoinTestFramework):
         # And finally send
         self.nodes[2].sendrawtransaction(signed_assets['hex'])
         self.nodes[2].generate(101)
+        self.sync_all()
 
         # Destroy assets
         pre_destroy_btc_balance = self.nodes[2].getwalletinfo()['balance']['bitcoin']
         self.nodes[2].destroyamount('bitcoin', Decimal('43.00000000')) # Destroy 43 BTC
         self.nodes[2].generate(1)
+        self.sync_all()
 
-        assert_equal(self.nodes[2].getwalletinfo()['balance'][otherasset], Decimal('0.00000100'))
-        self.nodes[2].destroyamount(otherasset, Decimal('0.00000100')) # Destroy 100 otherasset units
+        issuedamount = self.nodes[0].getwalletinfo()['balance'][issued["token"]]
+        assert_equal(issuedamount, Decimal('1.0'))
+        self.nodes[0].destroyamount(issued["token"], issuedamount) # Destroy all reissuance tokens of one type
+
+        self.nodes[0].generate(1)
+        self.sync_all()
+        assert(issued["token"] not in self.nodes[0].getinfo()['balance'])
+
+        # Test various issuance and auditing paths
+
+        issuancedata = self.nodes[0].issueasset(Decimal('0.00000002'), Decimal('0.00000001')) #2 of asset, 1 reissuance token
+        self.nodes[1].generate(1)
+        self.sync_all()
+        assert_equal(self.nodes[0].getwalletinfo()["balance"][issuancedata["asset"]], Decimal('0.00000002'))
+        assert_equal(self.nodes[0].getwalletinfo()["balance"][issuancedata["token"]], Decimal('0.00000001'))
+        self.nodes[0].reissueasset(issuancedata["asset"], Decimal('0.00000001'))
+        self.sync_all()
+        assert_equal(self.nodes[0].getwalletinfo()["balance"][issuancedata["asset"]], Decimal('0.00000003'))
+        # Can't reissue an issuance token (yet)
+        try:
+            self.nodes[0].reissueasset(issuancedata["token"], Decimal('0.00000001'))
+            raise AssertionError("You shouldn't be able to reissue a token yet")
+        except JSONRPCException:
+            pass
+
+
+        issuancedata = self.nodes[2].issueasset(Decimal('0.00000005'), 0) #5 of asset, 0 reissuance token
+        # No reissuance tokens
+        try:
+            self.nodes[2].reissueasset(issuancedata["token"], 5)
+            raise AssertionError("You shouldn't be able to reissue without a token")
+        except JSONRPCException:
+            pass
+
+        issuancedata = self.nodes[2].issueasset(0, Decimal('0.00000006')) #0 of asset, 6 reissuance token
+
+        # Node 2 will send node 1 a reissuance token, both will generate assets
+        self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), Decimal('0.00000001'), "", "", False, issuancedata["token"])
+        # node 1 needs to know about a (re)issuance to reissue itself
+        self.nodes[1].importaddress(self.nodes[2].gettransaction(issuancedata["txid"])["details"][0]["address"])
+        # also send some bitcoin
         self.nodes[2].generate(1)
-        assert(otherasset not in self.nodes[2].getinfo()['balance'])
+        self.sync_all()
+
+        assert_equal(self.nodes[2].getwalletinfo()["balance"][issuancedata["token"]], Decimal('0.00000005'))
+        assert_equal(self.nodes[1].getwalletinfo()["balance"][issuancedata["token"]], Decimal('0.00000001'))
+        redata1 = self.nodes[1].reissueasset(issuancedata["asset"], Decimal('0.05'))
+        redata2 = self.nodes[2].reissueasset(issuancedata["asset"], Decimal('0.025'))
+
+        self.sync_all()
+        # Watch-only issuances won't show up in wallet until confirmed
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        # Now have node 0 audit these issuances
+        blindingkey1 = self.nodes[1].dumpissuanceblindingkey(redata1["txid"], redata1["vin"])
+        blindingkey2 = self.nodes[2].dumpissuanceblindingkey(redata2["txid"], redata2["vin"])
+
+        # Need addr to get transactions in wallet. TODO: importissuances?
+        txdet1 = self.nodes[1].gettransaction(redata1["txid"])["details"]
+        txdet2 = self.nodes[2].gettransaction(redata2["txid"])["details"]
+
+        # Receive addresses added last
+        addr1 = txdet1[len(txdet1)-1]["address"]
+        addr2 = txdet2[len(txdet2)-1]["address"]
+
+        assert_equal(len(self.nodes[0].listissuances()), 4);
+        self.nodes[0].importaddress(addr1)
+        self.nodes[0].importaddress(addr2)
+
+        issuances = self.nodes[0].listissuances()
+        assert_equal(len(issuances), 6)
+
+        for issue in issuances:
+            if issue['txid'] == redata1["txid"] and issue['vin'] == redata1["vin"]:
+                assert_equal(issue['assetamount'], Decimal('-1E-8'))
+            if issue['txid'] == redata2["txid"] and issue['vin'] == redata2["vin"]:
+                assert_equal(issue['assetamount'], Decimal('-1E-8'))
+
+        self.nodes[0].importissuanceblindingkey(redata1["txid"], redata1["vin"], blindingkey1)
+        self.nodes[0].importissuanceblindingkey(redata2["txid"], redata2["vin"], blindingkey2)
+
+        issuances = self.nodes[0].listissuances()
+
+        for issue in issuances:
+            if issue['txid'] == redata1["txid"] and issue['vin'] == redata1["vin"]:
+                assert_equal(issue['assetamount'], Decimal('0.05'))
+            if issue['txid'] == redata2["txid"] and issue['vin'] == redata2["vin"]:
+                assert_equal(issue['assetamount'], Decimal('0.025'))
+
+        # Check for value accounting when asset issuance is null but token not, ie unblinded
+        issued = self.nodes[0].issueasset(0, 1, False)
+        assert(issued["asset"] not in self.nodes[0].getwalletinfo()["balance"])
+        assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
+
 
 if __name__ == '__main__':
     CTTest ().main ()
