@@ -354,7 +354,7 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
     if (fBlindedIns && !fBlindedOuts) {
         throw runtime_error("Confidential inputs without confidential outputs");
     }
-    BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx);
+    BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)

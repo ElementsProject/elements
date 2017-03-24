@@ -507,7 +507,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         nQuantity++;
 
         // Amount
-        nAmount += out.tx->GetValueOut(out.i);
+        nAmount += out.tx->GetOutputValueOut(out.i);
 
         // Priority
         dPriorityInputs += (double)COIN * (out.nDepth+1);
@@ -736,7 +736,7 @@ void CoinControlDialog::updateView()
         int nInputSum = 0;
         BOOST_FOREACH(const COutput& out, coins.second) {
             int nInputSize = 0;
-            nSum += out.tx->GetValueOut(out.i);
+            nSum += out.tx->GetOutputValueOut(out.i);
             nChildren++;
 
             QTreeWidgetItem *itemOutput;
@@ -778,8 +778,8 @@ void CoinControlDialog::updateView()
             }
 
             // amount
-            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.tx->GetValueOut(out.i)));
-            itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->GetValueOut(out.i)), 15, " ")); // padding so that sorting works correctly
+            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.tx->GetOutputValueOut(out.i)));
+            itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->GetOutputValueOut(out.i)), 15, " ")); // padding so that sorting works correctly
 
             // date
             itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.tx->GetTxTime()));

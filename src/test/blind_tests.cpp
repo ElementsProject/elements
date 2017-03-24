@@ -34,6 +34,8 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
     CAsset otherID(GetRandHash());
     CAsset unblinded_id;
     uint256 asset_blind;
+    CScript scriptCommit(OP_TRUE);
+    std::vector<CKey> vDummy;
 
     unsigned char k1[32] = {1,2,3};
     unsigned char k2[32] = {22,33,44};
@@ -101,25 +103,25 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         input_amounts.push_back(111);
         output_pubkeys.push_back(pubkey1);
         output_pubkeys.push_back(CPubKey());
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 0);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 0);
 
         // Add a dummy output.
         tx3.vout.push_back(CTxOut(bitcoinID, 0, CScript() << OP_TRUE));
         output_pubkeys.push_back(pubkeyDummy);
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx3) == 2);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 2);
         BOOST_CHECK(!tx3.vout[0].nValue.IsExplicit());
         BOOST_CHECK(!tx3.vout[2].nValue.IsExplicit());
         BOOST_CHECK(VerifyAmounts(cache, tx3));
 
         CAmount unblinded_amount;
-        BOOST_CHECK(UnblindOutput(key2, tx3.vout[0], tx3.wit.vtxoutwit[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 0);
+        BOOST_CHECK(UnblindConfidentialPair(key2, tx3.vout[0].nValue, tx3.vout[0].nAsset, tx3.vout[0].nNonce, scriptCommit, tx3.wit.vtxoutwit[0].vchRangeproof, unblinded_amount, blind3, unblinded_id, asset_blind) == 0);
         // Saving unblinded_id and asset_blind for later since we need for input
-        BOOST_CHECK(UnblindOutput(key1, tx3.vout[0], tx3.wit.vtxoutwit[0], unblinded_amount, blind3, unblinded_id, asset_blind) == 1);
+        BOOST_CHECK(UnblindConfidentialPair(key1, tx3.vout[0].nValue, tx3.vout[0].nAsset, tx3.vout[0].nNonce, scriptCommit, tx3.wit.vtxoutwit[0].vchRangeproof, unblinded_amount, blind3, unblinded_id, asset_blind) == 1);
         BOOST_CHECK(unblinded_amount == 100);
         BOOST_CHECK(unblinded_id == bitcoinID);
         CAsset temp_asset;
         uint256 temp_asset_blinder;
-        BOOST_CHECK(UnblindOutput(keyDummy, tx3.vout[2], tx3.wit.vtxoutwit[2], unblinded_amount, blindDummy, temp_asset, temp_asset_blinder) == 1);
+        BOOST_CHECK(UnblindConfidentialPair(keyDummy, tx3.vout[2].nValue, tx3.vout[2].nAsset, tx3.vout[2].nNonce, scriptCommit, tx3.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blindDummy, temp_asset, temp_asset_blinder) == 1);
         BOOST_CHECK(unblinded_amount == 0);
 
         CCoinsModifier in3 = cache.ModifyCoins(ArithToUint256(3));
@@ -163,7 +165,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
         output_pubkeys.push_back(CPubKey());
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4) == 0); // Blinds nothing
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx4) == 0); // Blinds nothing
     }
 
     {
@@ -203,7 +205,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(pubkey2);
         output_pubkeys.push_back(CPubKey());
 
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, tx4) == 2);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx4) == 2);
         BOOST_CHECK(!tx4.vout[0].nValue.IsExplicit());
         BOOST_CHECK(tx4.vout[1].nValue.IsExplicit());
         BOOST_CHECK(!tx4.vout[2].nValue.IsExplicit());
@@ -212,11 +214,11 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 #ifdef ENABLE_WALLET
         //This tests the wallet blinding caching functionality
         CWalletTx wtx(&wallet, tx4);
-        uint256 factor = wtx.GetBlindingFactor(0);
-        uint256 asset_factor = wtx.GetAssetBlindingFactor(0);
-        CAsset asset = wtx.GetAsset(0);
-        CPubKey pubkey = wtx.GetBlindingPubKey(0);
-        CAmount amount = wtx.GetValueOut(0);
+        uint256 factor = wtx.GetOutputBlindingFactor(0);
+        uint256 asset_factor = wtx.GetOutputAssetBlindingFactor(0);
+        CAsset asset = wtx.GetOutputAsset(0);
+        CPubKey pubkey = wtx.GetOutputBlindingPubKey(0);
+        CAmount amount = wtx.GetOutputValueOut(0);
 
         BOOST_CHECK(factor == uint256());
         BOOST_CHECK(asset_factor == uint256());
@@ -226,11 +228,11 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         wtx.SetBlindingData(0, 42, output_pubkeys[0], output_blinds[0], unblinded_id, output_asset_blinds[0]);
 
-        factor = wtx.GetBlindingFactor(0);
-        asset_factor = wtx.GetAssetBlindingFactor(0);
-        asset = wtx.GetAsset(0);
-        pubkey = wtx.GetBlindingPubKey(0);
-        amount = wtx.GetValueOut(0);
+        factor = wtx.GetOutputBlindingFactor(0);
+        asset_factor = wtx.GetOutputAssetBlindingFactor(0);
+        asset = wtx.GetOutputAsset(0);
+        pubkey = wtx.GetOutputBlindingPubKey(0);
+        amount = wtx.GetOutputValueOut(0);
 
         BOOST_CHECK(factor == output_blinds[0]);
         BOOST_CHECK(asset_factor == output_asset_blinds[0]);
@@ -240,21 +242,21 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         wtx.SetBlindingData(1, 11, output_pubkeys[1], output_blinds[1], otherID, output_asset_blinds[1]);
 
-        factor = wtx.GetBlindingFactor(0);
-        asset_factor = wtx.GetAssetBlindingFactor(0);
-        asset = wtx.GetAsset(0);
-        pubkey = wtx.GetBlindingPubKey(0);
-        amount = wtx.GetValueOut(0);
+        factor = wtx.GetOutputBlindingFactor(0);
+        asset_factor = wtx.GetOutputAssetBlindingFactor(0);
+        asset = wtx.GetOutputAsset(0);
+        pubkey = wtx.GetOutputBlindingPubKey(0);
+        amount = wtx.GetOutputValueOut(0);
 
         BOOST_CHECK(factor == output_blinds[0]);
         BOOST_CHECK(pubkey == output_pubkeys[0]);
         BOOST_CHECK(amount == 42);
 
-        factor = wtx.GetBlindingFactor(1);
-        asset_factor = wtx.GetAssetBlindingFactor(1);
-        asset = wtx.GetAsset(1);
-        pubkey = wtx.GetBlindingPubKey(1);
-        amount = wtx.GetValueOut(1);
+        factor = wtx.GetOutputBlindingFactor(1);
+        asset_factor = wtx.GetOutputAssetBlindingFactor(1);
+        asset = wtx.GetOutputAsset(1);
+        pubkey = wtx.GetOutputBlindingPubKey(1);
+        amount = wtx.GetOutputValueOut(1);
 
         BOOST_CHECK(factor == output_blinds[1]);
         BOOST_CHECK(asset_factor == output_asset_blinds[1]);
@@ -265,11 +267,11 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         CAmount unblinded_amount;
         CAsset asset_out;
         uint256 asset_blinder_out;
-        BOOST_CHECK(UnblindOutput(key1, tx4.vout[0], tx4.wit.vtxoutwit[0], unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
-        BOOST_CHECK(UnblindOutput(key2, tx4.vout[0], tx4.wit.vtxoutwit[0], unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
+        BOOST_CHECK(UnblindConfidentialPair(key1, tx4.vout[0].nValue, tx4.vout[0].nAsset, tx4.vout[0].nNonce, scriptCommit, tx4.wit.vtxoutwit[0].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
+        BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[0].nValue, tx4.vout[0].nAsset, tx4.vout[0].nNonce, scriptCommit, tx4.wit.vtxoutwit[0].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
         BOOST_CHECK(unblinded_amount == 30);
         BOOST_CHECK(asset_out == unblinded_id);
-        BOOST_CHECK(UnblindOutput(key2, tx4.vout[2], tx4.wit.vtxoutwit[2], unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
+        BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, scriptCommit, tx4.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 1);
         BOOST_CHECK(asset_out == unblinded_id);
         BOOST_CHECK(unblinded_amount == 50);
 
@@ -325,14 +327,14 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         CMutableTransaction txtemp(tx5);
 
         // No blinding keys for fees, bails out blinding nothing, still valid due to imbalance
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == -1);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == -1);
         BOOST_CHECK(!VerifyAmounts(cache, txtemp));
         // Last will be implied blank keys
         output_pubkeys.resize(4);
 
         // Blind transaction, verify amounts
         txtemp = tx5;
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == 4);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
         BOOST_CHECK(VerifyAmounts(cache, txtemp));
 
         // Create imbalance by removing fees, should still be able to blind
@@ -341,7 +343,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(!VerifyAmounts(cache, txtemp));
         txtemp.vout.resize(4);
         BOOST_CHECK(!VerifyAmounts(cache, txtemp));
-        BOOST_CHECK(BlindOutputs(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == 4);
+        BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
         BOOST_CHECK(!VerifyAmounts(cache, txtemp));
 
         txtemp = tx5;
@@ -361,7 +363,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         t_input_assets.resize(1);
         t_input_amounts.resize(1);
         BOOST_CHECK(!VerifyAmounts(cache, txtemp));
-        BOOST_CHECK(BlindOutputs(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, txtemp) == 2);
+        BOOST_CHECK(BlindTransaction(t_input_blinds, t_input_asset_blinds, t_input_assets, t_input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 2);
         BOOST_CHECK(!VerifyAmounts(cache, txtemp));
         
     }
