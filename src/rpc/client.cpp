@@ -120,6 +120,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "issueasset", 0, "assetamount" },
     { "issueasset", 1, "tokenamount" },
     { "issueasset", 2, "blind" },
+    { "reissueasset", 1, "assetamount" },
     { "setban", 3, "absolute" },
     { "setnetworkactive", 0, "state" },
     { "getmempoolancestors", 1, "verbose" },
