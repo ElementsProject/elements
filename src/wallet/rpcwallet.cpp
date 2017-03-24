@@ -3497,6 +3497,97 @@ UniValue reissueasset(const UniValue& params, bool fHelp)
     return obj;
 }
 
+UniValue listissuances(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "listissuances ( asset ) \n"
+            "\nList all issuances known to the wallet for the given asset, or for all issued assets if none provided.\n"
+            "\nArguments:\n"
+            "1. \"asset\"                 (string, optional) The asset whose issaunces you wish to list.\n"
+            "\nResult:\n"
+            "[                     (json array of objects)\n"
+            "  {\n"
+            "    \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "    \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
+            "    \"asset\":\"<asset>\", (string) Asset type for issuance if known.\n"
+            "    \"assetlabel\":\"<assetlabel>\", (string) Asset label for issuance if set.\n"
+            "    \"token\":\"<token>\", (string) Token type for issuance.\n"
+            "    \"vin\":\"<vin>\",     (numeric) The vin for the issuance.\n"
+            "    \"assetamount\":\"X.XX\",     (numeric) The amount of asset issued. Is -1 if blinded and unknown to wallet.\n"
+            "    \"tokenamount\":\"X.XX\",     (numeric) The reissuance token amount issued. Is -1 if blinded and unknown to wallet.\n"
+            "    \"isreissuance\":\"<bool>\",  (bool) True if this is a reissuance.\n"
+            "    \"assetblinds\":\"<blinder>\" (string) Hex blinding factor for asset amounts.\n"
+            "    \"tokenblinds\":\"<blinder>\" (string) Hex blinding factor for token amounts.\n"
+            "  }\n"
+            "  ,...\n"
+            "]\n"
+            "\"\"                 (array) List of transaction issuances and information in wallet\n"
+            + HelpExampleCli("listissuances", "<asset>")
+            + HelpExampleRpc("listissuances", "<asset>")
+        );
+    RPCTypeCheck(params, boost::assign::list_of(UniValue::VSTR));
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    std::string assetstr;
+    CAsset assetfilter;
+    if (params.size() > 0) {
+        assetstr = params[0].get_str();
+        if (!IsHex(assetstr) || assetstr.size() != 64)
+            throw JSONRPCError(RPC_TYPE_ERROR, "Asset must be a hex string of length 64");
+        assetfilter.SetHex(assetstr);
+    }
+
+    UniValue issuancelist(UniValue::VARR);
+    for (const auto& it : pwalletMain->mapWallet) {
+        const CWalletTx* pcoin = &it.second;
+        CAsset asset;
+        CAsset token;
+        uint256 entropy;
+        for (uint64_t vinIndex = 0; vinIndex < pcoin->vin.size(); vinIndex++) {
+            UniValue item(UniValue::VOBJ);
+            const CAssetIssuance& issuance = pcoin->vin[vinIndex].assetIssuance;
+            if (issuance.IsNull()) {
+                continue;
+            }
+            if (issuance.assetBlindingNonce.IsNull()) {
+                GenerateAssetEntropy(entropy, pcoin->vin[vinIndex].prevout, issuance.assetEntropy);
+                CalculateAsset(asset, entropy);
+                // Null is considered explicit
+                CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
+                item.push_back(Pair("isreissuance", false));
+                item.push_back(Pair("token", token.GetHex()));
+                item.push_back(Pair("tokenamount", ValueFromAmount(pcoin->GetIssuanceAmount(vinIndex, true))));
+                item.push_back(Pair("tokenblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, true).GetHex()));
+                item.push_back(Pair("entropy", entropy.GetHex()));
+            } else {
+                CalculateAsset(asset, issuance.assetEntropy);
+                item.push_back(Pair("isreissuance", true));
+                item.push_back(Pair("entropy", issuance.assetEntropy.GetHex()));
+            }
+            item.push_back(Pair("txid", pcoin->GetHash().GetHex()));
+            item.push_back(Pair("vin", vinIndex));
+            item.push_back(Pair("asset", asset.GetHex()));
+            const std::string label = gAssetsDir.GetLabel(asset);
+            if (label != "") {
+                item.push_back(Pair("assetlabel", label));
+            }
+            item.push_back(Pair("assetamount", ValueFromAmount(pcoin->GetIssuanceAmount(vinIndex, false))));
+            item.push_back(Pair("assetblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, false).GetHex()));
+            if (!assetfilter.IsNull() && assetfilter != asset) {
+                continue;
+            }
+            issuancelist.push_back(item);
+        }
+    }
+    return issuancelist;
+
+}
+
 UniValue dumpassetlabels(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3563,6 +3654,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "keypoolrefill",            &keypoolrefill,            true  },
     { "wallet",             "listaccounts",             &listaccounts,             false },
     { "wallet",             "listaddressgroupings",     &listaddressgroupings,     false },
+    { "wallet",             "listissuances",            &listissuances,            false },
     { "wallet",             "listlockunspent",          &listlockunspent,          false },
     { "wallet",             "listreceivedbyaccount",    &listreceivedbyaccount,    false },
     { "wallet",             "listreceivedbyaddress",    &listreceivedbyaddress,    false },
