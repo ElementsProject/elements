@@ -471,7 +471,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         nQuantity++;
 
         // Amount
-        nAmount += out.tx->GetValueOut(out.i);
+        nAmount += out.tx->GetOutputValueOut(out.i);
 
         // Priority
         dPriorityInputs += (double)COIN * (out.nDepth+1);
@@ -677,7 +677,7 @@ void CoinControlDialog::updateView()
         int nChildren = 0;
         BOOST_FOREACH(const COutput& out, coins.second) {
             nSum += out.tx->tx->vout[out.i].nValue.GetAmount();
-            nSum += out.tx->GetValueOut(out.i);
+            nSum += out.tx->GetOutputValueOut(out.i);
             nChildren++;
 
             CCoinControlWidgetItem *itemOutput;
@@ -714,8 +714,8 @@ void CoinControlDialog::updateView()
             }
 
             // amount
-            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.tx->GetValueOut(out.i)));
-            itemOutput->setText(COLUMN_AMOUNT_INT64, strPad(QString::number(out.tx->GetValueOut(out.i)), 15, " ")); // padding so that sorting works correctly
+            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.tx->GetOutputValueOut(out.i)));
+            itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.tx->GetOutputValueOut(out.i))); // padding so that sorting works correctly
 
             // date
             itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.tx->GetTxTime()));

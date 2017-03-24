@@ -197,9 +197,9 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
                     }
                 }
 
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wtx.GetValueOut(i)) + "<br>";
+                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wtx.GetOutputValueOut(i)) + "<br>";
                 if(toSelf)
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wtx.GetValueOut(i)) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wtx.GetOutputValueOut(i)) + "<br>";
             }
 
             if (fAllToMe)
@@ -225,7 +225,7 @@ QString TransactionDesc::toHTML(CWallet *wallet, CWalletTx &wtx, TransactionReco
                     strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(txin, ISMINE_ALL)[BITCOINID]) + "<br>";
             for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
                 if (wallet->IsMine(wtx.tx->vout[i]) & ISMINE_ALL)
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wtx.GetValueOut(i)) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wtx.GetOutputValueOut(i)) + "<br>";
         }
     }
 

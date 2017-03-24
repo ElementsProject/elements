@@ -151,7 +151,7 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     // TODO(kalle, 2017-02-23): not listed in the output at all so don't really help the user in any way.
     std::string blindfactors;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++)
-        blindfactors += wtx.GetBlindingFactor(i).GetHex() + ":";
+        blindfactors += wtx.GetOutputBlindingFactor(i).GetHex() + ":";
     entry.push_back(Pair("blindingfactors", blindfactors));
 }
 
@@ -429,7 +429,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -517,7 +517,7 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
-        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+        blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
     }
 
     AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), request.params[0].get_str(), request.params[1].getValStr(), wtx.GetHash().GetHex(), blinds);
@@ -569,7 +569,7 @@ UniValue destroyamount(const JSONRPCRequest& request)
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
-        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+        blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
     }
     AuditLogPrintf("%s : destroyamount %s asset %s id %s txid:%s\nblinds:\n%s\n", getUser(), request.params[1].getValStr(), strasset, asset.GetHex(), wtx.GetHash().GetHex(), blinds);
 
@@ -736,9 +736,9 @@ UniValue getreceivedbyaddress(const JSONRPCRequest& request)
 
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
             if (wtx.tx->vout[i].scriptPubKey == scriptPubKey)
-                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetValueOut(i) >= 0) {
+                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetOutputValueOut(i) >= 0) {
                     CAmountMap wtxValue;
-                    wtxValue[wtx.GetAsset(i)] = wtx.GetValueOut(i);
+                    wtxValue[wtx.GetOutputAsset(i)] = wtx.GetOutputValueOut(i);
                     mapAmount += wtxValue;
                 }
     }
@@ -799,8 +799,8 @@ UniValue getreceivedbyaccount(const JSONRPCRequest& request)
         {
             CTxDestination address;
             if (ExtractDestination(wtx.tx->vout[i].scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
-                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetValueOut(i) >= 0)
-                    nAmount += wtx.GetValueOut(i);
+                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetOutputValueOut(i) >= 0)
+                    nAmount += wtx.GetOutputValueOut(i);
         }
     }
 
@@ -1120,7 +1120,6 @@ UniValue sendmany(const JSONRPCRequest& request)
     for (auto recipient : vecSend) {
         setAssets.insert(recipient.asset);
     }
-    // Need to reserve or possibly segfault? TODO Diagnose
     vChangeKey.reserve(setAssets.size());
     for (unsigned int i = 0; i < setAssets.size(); i++) {
         vChangeKey.emplace_back(pwalletMain);
@@ -1140,7 +1139,7 @@ UniValue sendmany(const JSONRPCRequest& request)
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
-        blinds += "blind:" + wtx.GetBlindingFactor(i).ToString() + "\n";
+        blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
     }
 
     AuditLogPrintf("%s\nblinds:\n%s\n", strAudit, blinds);
@@ -1358,17 +1357,17 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             if(!(mine & filter))
                 continue;
 
-            if (wtx.GetValueOut(i) < 0)
+            if (wtx.GetOutputValueOut(i) < 0)
                 continue;
 
-            if (strasset != "*" && wtx.GetAsset(i) != asset)
+            if (strasset != "*" && wtx.GetOutputAsset(i) != asset)
                 continue;
 
             CBitcoinAddress bitcoinaddress(address);
 
             tallyitem& item = mapTally[address];
             item.address = bitcoinaddress;
-            item.nAmount += wtx.GetValueOut(i);
+            item.nAmount += wtx.GetOutputValueOut(i);
             item.nConf = min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -2723,8 +2722,8 @@ UniValue listunspent(const JSONRPCRequest& request)
         if (setAddress.size() && (!fValidAddress || !setAddress.count(address)))
             continue;
 
-        CAmount nValue = out.tx->GetValueOut(out.i);
-        CAsset assetid = out.tx->GetAsset(out.i);
+        CAmount nValue = out.tx->GetOutputValueOut(out.i);
+        CAsset assetid = out.tx->GetOutputAsset(out.i);
         if (nValue == -1 || assetid.IsNull())
             continue;
 
@@ -2762,7 +2761,7 @@ UniValue listunspent(const JSONRPCRequest& request)
         CDataStream ssValue(SER_NETWORK, PROTOCOL_VERSION);
         ssValue << nValue;
         entry.push_back(Pair("serValue", HexStr(ssValue.begin(), ssValue.end())));
-        entry.push_back(Pair("blinder",out.tx->GetBlindingFactor(out.i).ToString()));
+        entry.push_back(Pair("blinder",out.tx->GetOutputBlindingFactor(out.i).ToString()));
         results.push_back(entry);
     }
 
@@ -3494,7 +3493,7 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
 
     std::string blinds;
     for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {
-        blinds += "blind:" + wtxNew.GetBlindingFactor(i).ToString() + "\n";
+        blinds += "blind:" + wtxNew.GetOutputBlindingFactor(i).ToString() + "\n";
     }
 
     AuditLogPrintf("%s : sendtomainchain %s\nblinds:\n%s\n", getUser(), wtxNew.tx->GetHash().GetHex(), blinds);
