@@ -12,6 +12,7 @@
 #include "crypto/hmac_sha256.h"
 #include "global/common.h"
 #include "init.h"
+#include "issuance.h"
 #include "main.h"
 #include "net.h"
 #include "netbase.h"
@@ -437,6 +438,56 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asse
 {
     SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, newAsset, assetAmount);
 }
+
+static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
+{
+
+    CAmount curBalance = pwalletMain->GetBalance()[reissuanceToken];
+
+    if (!reissuanceToken.IsNull() && curBalance <= 0) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "No available reissuance tokens in wallet.");
+    }
+
+    // Create and send the transaction
+    std::vector<CReserveKey*> vpChangeKey;
+    std::vector<CReserveKey> vChangeKey;
+    // Need to be careful to not copy CReserveKeys or bad things happen
+    // We need 2 change outputs possibly for reissuance case:
+    // one for policyAsset, the other for reissuance token
+    vChangeKey.reserve(2);
+    vChangeKey.emplace_back(pwalletMain);
+    vpChangeKey.push_back(&vChangeKey[0]);
+    if (!reissuanceAsset.IsNull()) {
+        vChangeKey.emplace_back(pwalletMain);
+        vpChangeKey.push_back(&vChangeKey[1]);
+    }
+
+    CAmount nFeeRequired;
+    std::string strError;
+    vector<CRecipient> vecSend;
+    int nChangePosRet = -1;
+    // Signal outputs to skip "funding" with fixed asset numbers 1, 2, ...
+    // We don't know the asset during initial issuance until inputs are chosen
+    CRecipient recipient = {assetScriptPubKey, nAmountAsset, CAsset(uint256S("1")), assetKey, false};
+    if (assetScriptPubKey.size() > 0) {
+        vecSend.push_back(recipient);
+    }
+    if (tokenScriptPubKey.size() > 0) {
+        recipient = {tokenScriptPubKey, nTokens, CAsset(uint256S("2")), tokenKey, false};
+        // We need to select the issuance token(s) to spend
+        if (!reissuanceToken.IsNull()) {
+            recipient.asset = reissuanceToken;
+            recipient.nAmount = curBalance; // Or 1?
+        }
+        vecSend.push_back(recipient);
+    }
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+    if (!pwalletMain->CommitTransaction(wtxNew, vpChangeKey))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
+}
+
 
 UniValue sendtoaddress(const UniValue& params, bool fHelp)
 {
@@ -3267,6 +3318,97 @@ UniValue generateasset(const UniValue& params, bool fHelp)
     return id.GetHex();
 }
 
+UniValue issueasset(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() < 2 || params.size() > 3)
+        throw runtime_error(
+            "issueasset assetamount tokenamount ( blind )\n"
+            "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
+            "\nArguments:\n"
+            "1. \"assetamount\"           (numeric or string, required) Amount of asset to generate.\n"
+            "2. \"tokenamount\"           (numeric or string, required) Amount of reissuance tokens to generate. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance.\n"
+            "3. \"blind\"                 (bool, optional, default=true) Whether to blind the issuances.\n"
+            "\nResult:\n"
+            "{                        (json object)\n"
+            "  \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "  \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
+            "  \"asset\":\"<asset>\", (string) Asset type for issuance if known.\n"
+            "  \"token\":\"<token>\", (string) Token type for issuance.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("issueasset", "10 0")
+            + HelpExampleRpc("issueasset", "10, 0")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    CAmount nAmount = AmountFromValue(params[0]);
+    if (nAmount < 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Asset creation amount must be non-negative");
+
+    CAmount nTokens = AmountFromValue(params[1]);
+    if (nTokens < 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Reissuance token creation amount must be non-negative");
+
+    if (nAmount == 0 && nTokens == 0) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
+    }
+
+    bool fBlindIssuances = params.size() < 3 || params[2].get_bool();
+
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    CKeyID keyID;
+    CBitcoinAddress assetAddr;
+    CBitcoinAddress tokenAddr;
+    CPubKey assetKey;
+    CPubKey tokenKey;
+
+    if (nAmount > 0) {
+        if (!pwalletMain->GetKeyFromPool(newKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        keyID = newKey.GetID();
+        pwalletMain->SetAddressBook(keyID, "", "receive");
+        assetAddr = CBitcoinAddress(keyID);
+        assetKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get()));
+    }
+    if (nTokens > 0) {
+        if (!pwalletMain->GetKeyFromPool(newKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        keyID = newKey.GetID();
+        pwalletMain->SetAddressBook(keyID, "", "receive");
+        tokenAddr = CBitcoinAddress(keyID);
+        tokenKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)));
+    }
+
+    CWalletTx wtx;
+    uint256 dummyentropy;
+    CAsset dummyasset;
+    SendGenerationTransaction(GetScriptForDestination(assetAddr.Get()), assetKey, GetScriptForDestination(tokenAddr.Get()), tokenKey, nAmount, nTokens, fBlindIssuances, dummyentropy, dummyasset, dummyasset, wtx);
+
+    // Calculate asset type, assumes first vin is used for issuance
+    uint256 entropy;
+    CAsset asset;
+    CAsset token;
+    GenerateAssetEntropy(entropy, wtx.vin[0].prevout, uint256());
+    CalculateAsset(asset, entropy);
+    CalculateReissuanceToken(token, entropy, fBlindIssuances);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("txid", wtx.GetHash().GetHex()));
+    ret.push_back(Pair("vin", "0"));
+    ret.push_back(Pair("entropy", entropy.GetHex()));
+    ret.push_back(Pair("asset", asset.GetHex()));
+    ret.push_back(Pair("token", token.GetHex()));
+    return ret;
+}
+
 UniValue dumpassetlabels(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3329,6 +3471,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "importblindingkey",        &importblindingkey,        true  },
     { "wallet",             "importprunedfunds",        &importprunedfunds,        true  },
     { "wallet",             "importpubkey",             &importpubkey,             true  },
+    { "wallet",             "issueasset",               &issueasset,               true  },
     { "wallet",             "keypoolrefill",            &keypoolrefill,            true  },
     { "wallet",             "listaccounts",             &listaccounts,             false },
     { "wallet",             "listaddressgroupings",     &listaddressgroupings,     false },
