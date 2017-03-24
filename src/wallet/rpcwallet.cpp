@@ -3409,6 +3409,94 @@ UniValue issueasset(const UniValue& params, bool fHelp)
     return ret;
 }
 
+UniValue reissueasset(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() != 2)
+        throw runtime_error(
+            "reissueasset asset assetamount\n"
+            "\nCreate more of an already issued asset. Must have reissuance token in wallet to do so. Reissuing does not affect your reissuance token balance, only asset.\n"
+            "\nArguments:\n"
+            "1. \"asset\"                 (string, required) The asset you want to re-issue. The corresponding token must be in your wallet.\n"
+            "2. \"assetamount\"           (numeric or string, required) Amount of additional asset to generate.\n"
+            "\nResult:\n"
+            "\"txid\"                 (string) Txid of the issuance transaction\n"
+            "\nExamples:\n"
+            + HelpExampleCli("reissueasset", "<asset> 0")
+            + HelpExampleRpc("reissueasset", "<asset>, 0")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    std::string assetstr = params[0].get_str();
+
+    CAsset asset = GetAssetFromString(assetstr);
+
+    CAmount nAmount = AmountFromValue(params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Reissuance must create a non-zero amount.");
+
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    // Find the entropy and reissuance token in wallet
+    std::map<uint256, std::pair<CAsset, CAsset> > tokenMap = pwalletMain->GetReissuanceTokenTypes();
+    CAsset reissuanceToken;
+    uint256 entropy;
+    for (const auto& it : tokenMap) {
+        if (it.second.second == asset) {
+            reissuanceToken = it.second.first;
+            entropy = it.first;
+        }
+        if (it.second.first == asset) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Asset given is a reissuance token type and can not be reissued.");
+        }
+    }
+    if (reissuanceToken.IsNull()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Asset reissuance token definition could not be found in wallet.");
+    }
+
+    CPubKey newKey;
+    CKeyID keyID;
+    CBitcoinAddress assetAddr;
+    CPubKey assetKey;
+    CBitcoinAddress tokenAddr;
+    CPubKey tokenKey;
+
+    // Add destination for the to-be-created asset
+    if (!pwalletMain->GetKeyFromPool(newKey))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    keyID = newKey.GetID();
+    pwalletMain->SetAddressBook(keyID, "", "receive");
+    assetAddr = CBitcoinAddress(keyID);
+    assetKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get()));
+
+    // Add destination for tokens we are moving
+    if (!pwalletMain->GetKeyFromPool(newKey))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    keyID = newKey.GetID();
+    pwalletMain->SetAddressBook(keyID, "", "receive");
+    tokenAddr = CBitcoinAddress(keyID);
+    tokenKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)));
+
+    // Attempt a send.
+    CWalletTx wtx;
+    SendGenerationTransaction(GetScriptForDestination(assetAddr.Get()), assetKey, GetScriptForDestination(tokenAddr.Get()), tokenKey, nAmount, -1, true, entropy, asset, reissuanceToken, wtx);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.push_back(Pair("txid", wtx.GetHash().GetHex()));
+    for (uint64_t i = 0; i < wtx.vin.size(); i++) {
+        if (!wtx.vin[i].assetIssuance.IsNull()) {
+            obj.push_back(Pair("vin", i));
+            break;
+        }
+    }
+
+    return obj;
+}
+
 UniValue dumpassetlabels(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3483,6 +3571,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listunspent",              &listunspent,              false },
     { "wallet",             "lockunspent",              &lockunspent,              true  },
     { "wallet",             "move",                     &movecmd,                  false },
+    { "wallet",             "reissueasset",             &reissueasset,             true  },
     { "wallet",             "sendmany",                 &sendmany,                 false },
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false },
     { "wallet",             "destroyamount",            &destroyamount,            false },

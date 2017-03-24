@@ -110,6 +110,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "issueasset", 0},
     { "issueasset", 1},
     { "issueasset", 2},
+    { "reissueasset", 1},
 };
 
 class CRPCConvertTable
