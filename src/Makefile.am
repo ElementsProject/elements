@@ -261,6 +261,8 @@ libbitcoin_consensus_a_SOURCES = \
   core_write.cpp \
   hash.cpp \
   hash.h \
+  issuance.h \
+  issuance.cpp \
   merkleblock.cpp \
   pow.cpp \
   prevector.h \
@@ -311,6 +313,7 @@ libbitcoin_common_a_SOURCES = \
   global/common.cpp \
   key.cpp \
   keystore.cpp \
+  issuance.cpp \
   merkleblock.cpp \
   netbase.cpp \
   pow.cpp \
