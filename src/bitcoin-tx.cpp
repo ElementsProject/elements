@@ -76,7 +76,7 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = HelpMessageGroup(_("Commands:"));
         strUsage += HelpMessageOpt("delin=N", _("Delete input N from TX"));
         strUsage += HelpMessageOpt("delout=N", _("Delete output N from TX"));
-        strUsage += HelpMessageOpt("in=TXID:VOUT:VALUE(:SEQUENCE_NUMBER)", _("Add input to TX"));
+        strUsage += HelpMessageOpt("in=TXID:VOUT(:SEQUENCE_NUMBER)", _("Add input to TX"));
         strUsage += HelpMessageOpt("blind=V1,B1,AB1,ID1:V2,B2,AB2,ID2:VB3...", _("Transaction input blinds(4-tuple of value, blinding, asset blinding, asset id required)"));
         strUsage += HelpMessageOpt("locktime=N", _("Set TX lock time to N"));
         strUsage += HelpMessageOpt("nversion=N", _("Set TX version to N"));
@@ -191,7 +191,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
     // separate TXID:VOUT in string
-    if (vStrInputParts.size()<3)
+    if (vStrInputParts.size()<2)
         throw runtime_error("TX input missing separator");
 
     // extract and validate TXID
@@ -209,16 +209,10 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     if ((vout < 0) || (vout > (int)maxVout))
         throw runtime_error("invalid TX input vout");
 
-    // extract and validate VALUE
-    string strValue = vStrInputParts[2];
-    CAmount value;
-    if (!ParseMoney(strValue, value))
-        throw runtime_error("invalid TX output value");
-
     // extract the optional sequence number
     uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max();
-    if (vStrInputParts.size() > 3)
-        nSequenceIn = std::stoul(vStrInputParts[3]);
+    if (vStrInputParts.size() > 2)
+        nSequenceIn = std::stoul(vStrInputParts[2]);
 
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequenceIn);
