@@ -951,7 +951,7 @@ UniValue getbalance(const JSONRPCRequest& request)
             }
             BOOST_FOREACH(const COutputEntry& s, listSent)
                 mapBalance[s.asset] -= s.amount;
-            mapBalance[BITCOINID] -= allFee;
+            mapBalance[policyAsset] -= allFee;
         }
         return PushAssetBalance(mapBalance, pwalletMain, "");
     }
