@@ -866,7 +866,7 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             "1. \"account\"      (string, optional) DEPRECATED. The selected account, or \"*\" for entire wallet. It may be the default account using \"\".\n"
             "2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
             "3. includeWatchonly (bool, optional, default=false) Also include balance in watchonly addresses (see 'importaddress')\n"
-            "4. \"assetlabel\"   (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances. IF THIS IS USED ALL ACCOUNT ARGUMENTS ARE IGNORED\n"
+            "4. \"assetlabel\"   (string, optional) Hex asset id or asset label for balance. IF THIS IS USED ALL ACCOUNT ARGUMENTS ARE IGNORED\n"
             "\nResult:\n"
 
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this account.\n"
