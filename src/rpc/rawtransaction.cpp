@@ -120,7 +120,39 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                     }
                 }
                 in.push_back(Pair("scriptWitness", scriptWitness));
-                // FIXME: issuance goes here
+        }
+        const CAssetIssuance& issuance = txin.assetIssuance;
+        if (!issuance.IsNull()) {
+            UniValue issue(UniValue::VOBJ);
+            issue.push_back(Pair("assetBlindingNonce", issuance.assetBlindingNonce.GetHex()));
+            issue.push_back(Pair("assetEntropy", issuance.assetEntropy.GetHex()));
+            CAsset asset;
+            CAsset token;
+            uint256 entropy;
+            if (issuance.assetBlindingNonce.IsNull()) {
+                GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
+                CalculateAsset(asset, entropy);
+                CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
+                issue.push_back(Pair("isreissuance", false));
+                issue.push_back(Pair("token", token.GetHex()));
+            }
+            else {
+                issue.push_back(Pair("isreissuance", true));
+                CalculateAsset(asset, issuance.assetEntropy);
+            }
+            issue.push_back(Pair("asset", asset.GetHex()));
+
+            if (issuance.nAmount.IsExplicit()) {
+                issue.push_back(Pair("assetamount", ValueFromAmount(issuance.nAmount.GetAmount())));
+            } else if (issuance.nAmount.IsCommitment()) {
+                issue.push_back(Pair("assetvaluecommitment", HexStr(issuance.nAmount.vchCommitment)));
+            }
+            if (issuance.nInflationKeys.IsExplicit()) {
+                issue.push_back(Pair("tokenamount", ValueFromAmount(issuance.nInflationKeys.GetAmount())));
+            } else if (issuance.nInflationKeys.IsCommitment()) {
+                issue.push_back(Pair("tokenvaluecommitment", HexStr(issuance.nInflationKeys.vchCommitment)));
+            }
+            in.push_back(Pair("issuance", issue));
         }
         in.push_back(Pair("sequence", (int64_t)txin.nSequence));
         vin.push_back(in);
