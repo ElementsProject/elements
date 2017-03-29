@@ -2759,7 +2759,8 @@ UniValue listunspent(const UniValue& params, bool fHelp)
 
         entry.push_back(Pair("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
         entry.push_back(Pair("amount", ValueFromAmount(nValue)));
-        entry.push_back(Pair("asset", assetid.GetHex()));
+        const std::string label = gAssetsDir.GetLabel(assetid);
+        entry.push_back(Pair("asset", (label != "") ? label : assetid.GetHex()));
         if (out.tx->vout[out.i].nAsset.IsCommitment()) {
             entry.push_back(Pair("assetcommitment", HexStr(out.tx->vout[out.i].nAsset.vchCommitment)));
         }
