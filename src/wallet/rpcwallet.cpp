@@ -928,6 +928,32 @@ UniValue getbalance(const UniValue& params, bool fHelp)
             BOOST_FOREACH(const COutputEntry& s, listSent)
                 mapBalance[s.asset] -= s.amount;
             mapBalance[policyAsset] -= allFee;
+            // Tally issuances since there are no corresponding "receives"
+            for (unsigned int i = 0; i < wtx.vin.size(); i++) {
+                const CTxIn& txin = wtx.vin[i];
+                const CAssetIssuance& issuance = txin.assetIssuance;
+                if (pwalletMain->IsMine(txin) == ISMINE_NO) {
+                    continue;
+                }
+                CAsset asset;
+                CAsset token;
+                uint256 entropy;
+                if (!issuance.IsNull()) {
+                    if (issuance.assetBlindingNonce.IsNull()) {
+                        GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
+                        CalculateAsset(asset, entropy);
+                        CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
+                    } else {
+                        CalculateAsset(asset, issuance.assetEntropy);
+                    }
+                }
+                if (!issuance.nAmount.IsNull()) {
+                    mapBalance[asset] += wtx.GetIssuanceAmount(i, false);
+                }
+                if (!issuance.nInflationKeys.IsNull()) {
+                    mapBalance[token] += wtx.GetIssuanceAmount(i, true);
+                }
+            }
         }
         return PushAssetBalance(mapBalance, pwalletMain, "");
     }
