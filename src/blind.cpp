@@ -148,7 +148,8 @@ bool GenerateRangeproof(std::vector<unsigned char>& vchRangeproof, const std::ve
     memcpy(assetsMessage+32, assetblindptrs[assetblindptrs.size()-1], 32);
 
     // Sign rangeproof
-    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &vchRangeproof[0], &nRangeProofLen, 0, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
+    // If min_value is 0, scriptPubKey must be unspendable
+    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, &vchRangeproof[0], &nRangeProofLen, scriptPubKey.IsUnspendable() ? 0 : 1, &commit, blindptrs.back(), nonce.begin(), std::min(std::max((int)GetArg("-ct_exponent", 0), -1),18), std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51), amount, assetsMessage, sizeof(assetsMessage), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
     vchRangeproof.resize(nRangeProofLen);
     // TODO: do something smarter here
     return (res == 1);
