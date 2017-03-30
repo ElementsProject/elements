@@ -2763,6 +2763,10 @@ UniValue listunspent(const UniValue& params, bool fHelp)
         if (out.tx->vout[out.i].nAsset.IsCommitment()) {
             entry.push_back(Pair("assetcommitment", HexStr(out.tx->vout[out.i].nAsset.vchCommitment)));
         }
+        const std::string label = gAssetsDir.GetLabel(assetid);
+        if (label != "") {
+            entry.push_back(Pair("assetlabel", label));
+        }
         entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         entry.push_back(Pair("solvable", out.fSolvable));
