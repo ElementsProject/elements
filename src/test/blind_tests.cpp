@@ -105,8 +105,8 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         output_pubkeys.push_back(CPubKey());
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 0);
 
-        // Add a dummy output.
-        tx3.vout.push_back(CTxOut(bitcoinID, 0, CScript() << OP_TRUE));
+        // Add a dummy output. Must be unspendable since it's 0-valued.
+        tx3.vout.push_back(CTxOut(bitcoinID, 0, CScript() << OP_RETURN));
         output_pubkeys.push_back(pubkeyDummy);
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, tx3) == 2);
         BOOST_CHECK(!tx3.vout[0].nValue.IsExplicit());
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(unblinded_id == bitcoinID);
         CAsset temp_asset;
         uint256 temp_asset_blinder;
-        BOOST_CHECK(UnblindConfidentialPair(keyDummy, tx3.vout[2].nValue, tx3.vout[2].nAsset, tx3.vout[2].nNonce, scriptCommit, tx3.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blindDummy, temp_asset, temp_asset_blinder) == 1);
+        BOOST_CHECK(UnblindConfidentialPair(keyDummy, tx3.vout[2].nValue, tx3.vout[2].nAsset, tx3.vout[2].nNonce, CScript() << OP_RETURN, tx3.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blindDummy, temp_asset, temp_asset_blinder) == 1);
         BOOST_CHECK(unblinded_amount == 0);
 
         CCoinsModifier in3 = cache.ModifyCoins(ArithToUint256(3));

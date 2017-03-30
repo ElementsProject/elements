@@ -140,6 +140,15 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
         return false;
     }
 
+    // An rangeproof is not valid if the output is spendable but the minimum number
+    // is 0. This is to prevent people passing 0-value tokens around, or conjuring
+    // reissuance tokens from nothing then attempting to reissue an asset.
+    // ie reissuance doesn't require revealing value of reissuance output
+    // Issuances proofs are always "unspendable" as they commit to an empty script.
+    if (min_value == 0 && !scriptPubKey.IsUnspendable()) {
+        return false;
+    }
+
     if (store) {
         rangeProofCache.Set(entry);
     }
