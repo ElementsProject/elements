@@ -396,7 +396,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, CAsset* newAsset = NULL, int64_t* assetAmount = NULL)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
 {
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
@@ -425,7 +425,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, newAsset, assetAmount)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -434,9 +434,9 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, CAsset* newAsset = NULL, int64_t* assetAmount = NULL)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
 {
-    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, newAsset, assetAmount);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -3314,43 +3314,6 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
     return finalTxn.GetHash().GetHex();
 }
 
-UniValue generateasset(const UniValue& params, bool fHelp)
-{
-    if (!EnsureWalletIsAvailable(fHelp))
-        return NullUniValue;
-
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "generateasset amount\n"
-            "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
-            "\nArguments:\n"
-            "1. \"amount\"           (numeric, required) Number of asset to generate.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("generateasset", "10" )
-            + HelpExampleRpc("generateasset", "10" )
-        );
-    RPCTypeCheck(params, boost::assign::list_of(UniValue::VNUM));
-
-    CAmount nAmount = AmountFromValue(params[0]);
-    if (nAmount <= 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
-
-    CAsset id(GetRandHash());
-    UniValue nothing(UniValue::VARR);
-    std::string addr = getnewaddress(nothing, fHelp).get_str();
-    CBitcoinAddress address(addr);
-    if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
-
-    CPubKey confidentiality_pubkey;
-    confidentiality_pubkey = address.GetBlindingKey();
-
-    CWalletTx wtx;
-    SendMoney(GetScriptForDestination(address.Get()), 100000, policyAsset, false, confidentiality_pubkey, wtx, &id, &nAmount);
-
-    return id.GetHex();
-}
-
 UniValue issueasset(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))
@@ -3686,7 +3649,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpwallet",               &dumpwallet,               true  },
     { "wallet",             "claimpegin",               &claimpegin,               false },
     { "wallet",             "encryptwallet",            &encryptwallet,            true  },
-    { "wallet",             "generateasset",            &generateasset,            true  },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true  },
     { "wallet",             "getaccount",               &getaccount,               true  },
     { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,    true  },

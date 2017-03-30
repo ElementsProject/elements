@@ -108,21 +108,11 @@ public:
      * a generator which acts as the asset tag. */
     const CAsset& GetAsset() const
     {
-        assert(IsExplicit() || IsAssetGeneration());
+        assert(IsExplicit());
         return *reinterpret_cast<const CAsset*>(&vchCommitment[1]);
     }
     void SetToAsset(const CAsset& asset);
 
-    /** Remove when we switch to real asset issuance. */
-    bool IsAssetGeneration() const
-    {
-        return vchCommitment.size()==nExplicitSize && vchCommitment[0]==0xff;
-    }
-    void SetAsAssetGeneration()
-    {
-        assert(IsExplicit() || IsAssetGeneration());
-        vchCommitment[0] = 0xff;
-    }
 };
 
 /** A 33-byte commitment to a confidential value, or a 64-bit explicit value. */

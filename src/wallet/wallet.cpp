@@ -2426,7 +2426,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 }
 
 bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey*>& vpChangeKey, CAmount& nFeeRet,
-                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, CAsset* newAsset, int64_t* newAmount)
+                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken)
 {
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;
@@ -2828,13 +2828,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vassetKeys, vtokenKeys, txBackup);
                     assert(ret == numToBlind);
                     txNew = txBackup;
-                }
-
-                if (newAsset != NULL && !newAsset->IsNull()) {
-                    // Very secure.
-                    CTxOut assetout = CTxOut(*newAsset, *newAmount, vecSend[0].scriptPubKey);
-                    assetout.nAsset.SetAsAssetGeneration();
-                    txNew.vout.push_back(assetout);
                 }
 
                 // Sign
@@ -4166,7 +4159,7 @@ bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& k
 
 void CWallet::ComputeBlindingData(const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce& nonce, const CScript& scriptPubKey, const std::vector<unsigned char>& vchRangeproof, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
 {
-    if (confValue.IsExplicit() && (confAsset.IsExplicit() || confAsset.IsAssetGeneration())) {
+    if (confValue.IsExplicit() && confAsset.IsExplicit()) {
         amount = confValue.GetAmount();
         asset = confAsset.GetAsset();
         pubkey = CPubKey();

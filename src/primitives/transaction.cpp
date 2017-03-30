@@ -34,7 +34,7 @@ CTxOut::CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nVa
 std::string CTxOut::ToString() const
 {
     std::string strAsset;
-    if (nAsset.IsExplicit() || nAsset.IsAssetGeneration())
+    if (nAsset.IsExplicit())
         strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().GetHex());
     if (nAsset.IsCommitment())
         strAsset = std::string("nAsset=CONFIDENTIAL, ");

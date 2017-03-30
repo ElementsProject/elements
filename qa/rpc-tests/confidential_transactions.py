@@ -217,11 +217,12 @@ class CTTest (BitcoinTestFramework):
         testAssetHex = issued["asset"]
         self.nodes[0].generate(1)
         self.sync_all()
-        asset_list = self.nodes[0].dumpassetlabels()
-        asset_list["testasset"] = self.nodes[0].generateasset(2)
-        assert_equal(self.nodes[0].getwalletinfo(asset_list["testasset"])['balance'], Decimal(2))
 
-        assert_equal(self.nodes[1].getwalletinfo(asset_list["testasset"])['balance'], Decimal(0))
+        issued2 = self.nodes[0].issueasset(2, 1)
+        test_asset = issued2["asset"]
+        assert_equal(self.nodes[0].getwalletinfo(test_asset)['balance'], Decimal(2))
+
+        assert_equal(self.nodes[1].getwalletinfo(test_asset)['balance'], Decimal(0))
 
         # Assets balance checking, note that accounts are completely ignored because
         # balance queries with accounts are horrifically broken upstream
@@ -231,16 +232,16 @@ class CTTest (BitcoinTestFramework):
         # Send some bitcoin and other assets over as well to fund wallet
         addr = self.nodes[2].getnewaddress()
         self.nodes[0].sendtoaddress(addr, 5)
-        self.nodes[0].sendmany("", {addr:1, self.nodes[2].getnewaddress():13}, 0, "", [], {addr:asset_list["testasset"]})
+        self.nodes[0].sendmany("", {addr:1, self.nodes[2].getnewaddress():13}, 0, "", [], {addr:test_asset})
 
         self.sync_all()
 
         # Should have exactly 1 in change(trusted, though not confirmed) after sending one off
-        assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, asset_list["testasset"]), 1)
-        assert_equal(self.nodes[2].getunconfirmedbalance(asset_list["testasset"]), Decimal(1))
+        assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, test_asset), 1)
+        assert_equal(self.nodes[2].getunconfirmedbalance(test_asset), Decimal(1))
 
         b_utxos = self.nodes[2].listunspent(0, 0, [], "bitcoin")
-        t_utxos = self.nodes[2].listunspent(0, 0, [], asset_list["testasset"])
+        t_utxos = self.nodes[2].listunspent(0, 0, [], test_asset)
 
         assert_equal(len(self.nodes[2].listunspent(0, 0, [])), len(b_utxos)+len(t_utxos))
 
@@ -333,12 +334,12 @@ class CTTest (BitcoinTestFramework):
         addr1 = txdet1[len(txdet1)-1]["address"]
         addr2 = txdet2[len(txdet2)-1]["address"]
 
-        assert_equal(len(self.nodes[0].listissuances()), 4);
+        assert_equal(len(self.nodes[0].listissuances()), 5);
         self.nodes[0].importaddress(addr1)
         self.nodes[0].importaddress(addr2)
 
         issuances = self.nodes[0].listissuances()
-        assert_equal(len(issuances), 6)
+        assert_equal(len(issuances), 7)
 
         for issue in issuances:
             if issue['txid'] == redata1["txid"] and issue['vin'] == redata1["vin"]:

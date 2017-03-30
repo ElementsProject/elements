@@ -1281,7 +1281,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (val.IsNull() || asset.IsNull())
                 return false;
 
-            if (asset.IsExplicit() || asset.IsAssetGeneration()) {
+            if (asset.IsExplicit()) {
                 ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
                 assert(ret != 0);
             }
@@ -1465,12 +1465,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
         }
-        else if (asset.IsAssetGeneration()) {
-            if (tx.IsCoinBase())
-                return false;
-            // We don't add this to the balance, just assume id is NUMS a-ok
-            continue;
-        }
         else {
             assert(false);
             return false;
@@ -1534,7 +1528,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
         const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
         //No need for surjective proof
-        if (asset.IsExplicit() || asset.IsAssetGeneration()) {
+        if (asset.IsExplicit()) {
             if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {
                 return false;
             }
