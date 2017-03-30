@@ -561,6 +561,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     std::string blinds;
     for (unsigned int i=0; i<wtx.vout.size(); i++) {
         blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+        blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
     }
 
     AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), params[0].get_str(), params[1].getValStr(), wtx.GetHash().GetHex(), blinds);
@@ -613,6 +614,7 @@ UniValue destroyamount(const UniValue& params, bool fHelp)
     std::string blinds;
     for (unsigned int i=0; i<wtx.vout.size(); i++) {
         blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+        blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
     }
     AuditLogPrintf("%s : destroyamount %s asset %s id %s txid:%s\nblinds:\n%s\n", getUser(), params[1].getValStr(), strasset, asset.GetHex(), wtx.GetHash().GetHex(), blinds);
 
@@ -1188,6 +1190,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     std::string blinds;
     for (unsigned int i=0; i<wtx.vout.size(); i++) {
         blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+        blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
     }
 
     AuditLogPrintf("%s\nblinds:\n%s\n", strAudit, blinds);
@@ -3430,6 +3433,16 @@ UniValue issueasset(const UniValue& params, bool fHelp)
     CalculateAsset(asset, entropy);
     CalculateReissuanceToken(token, entropy, fBlindIssuances);
 
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.vout.size(); i++) {
+        blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+        blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+    }
+    blinds += "issuanceblind:" + wtx.GetIssuanceBlindingFactor(0, false).ToString() + "\n";
+    blinds += "tokenblind:" + wtx.GetIssuanceBlindingFactor(0, true).ToString() + "\n";
+
+    AuditLogPrintf("%s : issueasset txid:%s\nblinds:\n%s\n", getUser(), wtx.GetHash().GetHex(), blinds);
+
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("txid", wtx.GetHash().GetHex()));
     ret.push_back(Pair("vin", "0"));
@@ -3515,14 +3528,23 @@ UniValue reissueasset(const UniValue& params, bool fHelp)
     CWalletTx wtx;
     SendGenerationTransaction(GetScriptForDestination(assetAddr.Get()), assetKey, GetScriptForDestination(tokenAddr.Get()), tokenKey, nAmount, -1, true, entropy, asset, reissuanceToken, wtx);
 
+    std::string blinds;
+    for (unsigned int i=0; i<wtx.vout.size(); i++) {
+        blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+        blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+    }
+
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("txid", wtx.GetHash().GetHex()));
     for (uint64_t i = 0; i < wtx.vin.size(); i++) {
         if (!wtx.vin[i].assetIssuance.IsNull()) {
             obj.push_back(Pair("vin", i));
+            blinds += "issuanceblind:" + wtx.GetIssuanceBlindingFactor(i, false).ToString() + "\n";
             break;
         }
     }
+
+    AuditLogPrintf("%s : reissueasset txid:%s\nblinds:\n%s\n", getUser(), wtx.GetHash().GetHex(), blinds);
 
     return obj;
 }
