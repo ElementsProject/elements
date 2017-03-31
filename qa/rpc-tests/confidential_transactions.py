@@ -87,12 +87,12 @@ class CTTest (BitcoinTestFramework):
         unspent = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
         unspent = [i for i in unspent if i['amount'] > value23]
         assert_equal(len(unspent), 1)
-        fee = Decimal(0.0001)
+        fee = Decimal('0.0001')
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
                                                 {unconfidential_address: value2, address: value3,
-                                                change_address: unspent[0]["amount"] - value2 - value3 - fee})
+                                                change_address: unspent[0]["amount"] - value2 - value3 - fee, "fee":fee})
         tx = self.nodes[0].blindrawtransaction(tx)
         tx_signed = self.nodes[0].signrawtransaction(tx)
         raw_tx_id = self.nodes[0].sendrawtransaction(tx_signed['hex'])
@@ -143,7 +143,7 @@ class CTTest (BitcoinTestFramework):
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
-                                                  {unconfidential_address: unspent[0]["amount"] - fee});
+                                                  {unconfidential_address: unspent[0]["amount"] - fee, "fee":fee});
 
         # Test that blindrawtransaction returns an exception
         try:
@@ -160,7 +160,7 @@ class CTTest (BitcoinTestFramework):
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
                                                   {unconfidential_address: value4,
-                                                   change_address: unspent[0]["amount"] - value4 - fee});
+                                                   change_address: unspent[0]["amount"] - value4 - fee, "fee":fee});
         tx = self.nodes[0].blindrawtransaction(tx)
 
         tx_signed = self.nodes[0].signrawtransaction(tx)
@@ -249,8 +249,7 @@ class CTTest (BitcoinTestFramework):
         rawaddrs = []
         for i in range(2):
             rawaddrs.append(self.nodes[1].getnewaddress())
-
-        raw_assets = self.nodes[2].createrawtransaction([{"txid":b_utxos[0]['txid'], "vout":b_utxos[0]['vout'], "nValue":b_utxos[0]['amount']}, {"txid":b_utxos[1]['txid'], "vout":b_utxos[1]['vout'], "nValue":b_utxos[1]['amount'], "asset":b_utxos[1]['asset']}, {"txid":t_utxos[0]['txid'], "vout":t_utxos[0]['vout'], "nValue":t_utxos[0]['amount'], "asset":t_utxos[0]['asset']}], {rawaddrs[1]:Decimal(t_utxos[0]['amount']), rawaddrs[0]:Decimal(b_utxos[0]['amount']+b_utxos[1]['amount']-Decimal("0.01"))}, 0, {rawaddrs[0]:b_utxos[0]['asset'], rawaddrs[1]:t_utxos[0]['asset']})
+        raw_assets = self.nodes[2].createrawtransaction([{"txid":b_utxos[0]['txid'], "vout":b_utxos[0]['vout'], "nValue":b_utxos[0]['amount']}, {"txid":b_utxos[1]['txid'], "vout":b_utxos[1]['vout'], "nValue":b_utxos[1]['amount'], "asset":b_utxos[1]['asset']}, {"txid":t_utxos[0]['txid'], "vout":t_utxos[0]['vout'], "nValue":t_utxos[0]['amount'], "asset":t_utxos[0]['asset']}], {rawaddrs[1]:Decimal(t_utxos[0]['amount']), rawaddrs[0]:Decimal(b_utxos[0]['amount']+b_utxos[1]['amount']-Decimal("0.01")), "fee":Decimal("0.01")}, 0, {rawaddrs[0]:b_utxos[0]['asset'], rawaddrs[1]:t_utxos[0]['asset'], "fee":b_utxos[0]['asset']})
 
         # Sign unblinded, then blinded
         signed_assets = self.nodes[2].signrawtransaction(raw_assets)

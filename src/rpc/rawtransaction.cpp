@@ -474,12 +474,14 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             "    {\n"
             "      \"address\": x.xxx,    (numeric or string, required) The key is the bitcoin address, the numeric value (can be string) is the " + CURRENCY_UNIT + " amount\n"
             "      \"data\": \"hex\"      (string, required) The key is \"data\", the value is hex encoded data\n"
+            "      \"fee\": x.xxx           (numeric or string, required) The key is \"fee\", the value the fee output you want to add.\n"
             "      ,...\n"
             "    }\n"
             "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
             "4. \"output_assets\"           (strings, optional, default=bitcoin) A json object of assets to addresses\n"
             "   {\n"
             "       \"address\": \"hex\" \n"
+            "        \"fee\": \"hex\" \n"
             "       ...\n"
             "   }\n"
             "\nResult:\n"
@@ -515,7 +517,6 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
         assets = request.params[3].get_obj();
     }
 
-    CAsset bitcoinid(BITCOINID);
     CAmountMap inputValue;
 
     for (unsigned int idx = 0; idx < inputs.size(); idx++) {
@@ -544,7 +545,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
 
-        CAsset asset(bitcoinid);
+        CAsset asset(policyAsset);
         const UniValue& asset_val = find_value(o, "asset");
         if (asset_val.isStr()) {
             asset = CAsset(ParseHashO(o, "asset"));
@@ -560,13 +561,11 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
         rawTx.vin.push_back(in);
     }
 
-    CAmountMap outputValue;
-
     set<CBitcoinAddress> setAddress;
     vector<string> addrList = sendTo.getKeys();
     BOOST_FOREACH(const string& name_, addrList) {
-        // Defaults to bitcoin
-        CAsset asset(bitcoinid);
+        // Defaults to policyAsset
+        CAsset asset(policyAsset);
         if (!assets.isNull()) {
             if (find_value(assets, name_).isNull())
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Given output_asset address is not a valid given output address: ")+name_);
@@ -577,6 +576,10 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             std::vector<unsigned char> data = ParseHexV(sendTo[name_].getValStr(),"Data");
 
             CTxOut out(asset, 0, CScript() << OP_RETURN << data);
+            rawTx.vout.push_back(out);
+        } else if (name_ == "fee") {
+            CAmount nAmount = AmountFromValue(sendTo[name_]);
+            CTxOut out(asset, nAmount, CScript());
             rawTx.vout.push_back(out);
         } else {
             CBitcoinAddress address(name_);
@@ -590,8 +593,6 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             CScript scriptPubKey = GetScriptForDestination(address.Get());
             CAmount nAmount = AmountFromValue(sendTo[name_]);
 
-            outputValue[asset] += nAmount;
-
             CTxOut out(asset, nAmount, scriptPubKey);
             if (address.IsBlinded()) {
                 CPubKey confidentiality_pubkey = address.GetBlindingKey();
@@ -599,18 +600,6 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
                      throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
                 out.nNonce.vchCommitment = std::vector<unsigned char>(confidentiality_pubkey.begin(), confidentiality_pubkey.end());
             }
-            rawTx.vout.push_back(out);
-        }
-    }
-
-    // Now add fee outputs
-    CAmountMap fees = inputValue - outputValue;
-    for(std::map<CAsset, CAmount>::const_iterator it = fees.begin(); it != fees.end(); it++) {
-        if (it->second < 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid transaction: Value out exceeds value in for some asset type."));
-        }
-        else if (it->second > 0) {
-            CTxOut out(it->first, it->second, CScript());
             rawTx.vout.push_back(out);
         }
     }
