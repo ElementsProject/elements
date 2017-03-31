@@ -264,7 +264,7 @@ class CTTest (BitcoinTestFramework):
 
         # Destroy assets
         pre_destroy_btc_balance = self.nodes[2].getwalletinfo()['balance']['bitcoin']
-        self.nodes[2].destroyamount('bitcoin', Decimal('43.00000000')) # Destroy 43 BTC
+        self.nodes[2].destroyamount('bitcoin', 2) # Destroy 2 BTC
         self.nodes[2].generate(1)
         self.sync_all()
 
