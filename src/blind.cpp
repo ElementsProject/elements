@@ -37,7 +37,7 @@ static Blind_ECC_Init ecc_init_on_load;
 
 bool UnblindConfidentialPair(const CKey &key, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce& nNonce, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
 {
-    if (!key.IsValid()) {
+    if (!key.IsValid() || vchRangeproof.size() == 0) {
         return false;
     }
     CPubKey ephemeral_key(nNonce.vchCommitment);

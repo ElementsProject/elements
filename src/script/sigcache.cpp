@@ -127,6 +127,10 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
         return true;
     }
 
+    if (vchRangeProof.size() == 0) {
+        return false;
+    }
+
     uint64_t min_value, max_value;
     secp256k1_pedersen_commitment commit;
     if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &vchValueCommitment[0]) != 1)
