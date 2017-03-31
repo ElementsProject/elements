@@ -53,7 +53,7 @@ static CAsset GetAssetFromString(const std::string& strasset)
         asset = CAsset(uint256S(strasset));
     }
     if (asset.IsNull()) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Unknown label and invalid asset hex");
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", strasset.c_str()));
     }
     return asset;
 }
