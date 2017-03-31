@@ -2404,8 +2404,19 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     if (!CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false))
         return false;
 
-    if (nChangePosInOut != -1)
+    // Append fee output if any
+    // This assumes fee is appended to end, and only one fee added by the CreateTransaction call
+    if (wtx.vout.back().IsFee()) {
+        tx.vout.push_back(wtx.vout.back());
+    }
+
+    if (nChangePosInOut != -1) {
         tx.vout.insert(tx.vout.begin() + nChangePosInOut, wtx.vout[nChangePosInOut]);
+
+        // Insert change witness
+        tx.wit.vtxoutwit.resize(tx.vout.size()-1);
+        tx.wit.vtxoutwit.insert(tx.wit.vtxoutwit.begin() + nChangePosInOut,  wtx.wit.vtxoutwit[nChangePosInOut]);
+    }
 
     // Add new txins (keeping original txin scriptSig/order)
     BOOST_FOREACH(const CTxIn& txin, wtx.vin)
@@ -2860,7 +2871,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 if (!sign) {
                     BOOST_FOREACH (CTxIn& vin, txNew.vin)
                         vin.scriptSig = CScript();
-                    txNew.wit.SetNull();
+                    // Only clear our script witness
+                    BOOST_FOREACH (CTxInWitness& txinwit, txNew.wit.vtxinwit)
+                        txinwit.scriptWitness.stack.clear();
                 }
 
                 // Embed the constructed transaction data in wtxNew.
