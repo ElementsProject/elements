@@ -7,6 +7,8 @@
 #ifndef _SECP256K1_SCALAR_REPR_IMPL_H_
 #define _SECP256K1_SCALAR_REPR_IMPL_H_
 
+#include "scalar.h"
+
 /* Limbs of the secp256k1 order. */
 #define SECP256K1_N_0 ((uint64_t)0xBFD25E8CD0364141ULL)
 #define SECP256K1_N_1 ((uint64_t)0xBAAEDCE6AF48A03BULL)
@@ -32,6 +34,13 @@ SECP256K1_INLINE static void secp256k1_scalar_clear(secp256k1_scalar *r) {
 }
 
 SECP256K1_INLINE static void secp256k1_scalar_set_int(secp256k1_scalar *r, unsigned int v) {
+    r->d[0] = v;
+    r->d[1] = 0;
+    r->d[2] = 0;
+    r->d[3] = 0;
+}
+
+SECP256K1_INLINE static void secp256k1_scalar_set_u64(secp256k1_scalar *r, uint64_t v) {
     r->d[0] = v;
     r->d[1] = 0;
     r->d[2] = 0;
@@ -282,8 +291,8 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "movq 56(%%rsi), %%r14\n"
     /* Initialize r8,r9,r10 */
     "movq 0(%%rsi), %%r8\n"
-    "movq $0, %%r9\n"
-    "movq $0, %%r10\n"
+    "xorq %%r9, %%r9\n"
+    "xorq %%r10, %%r10\n"
     /* (r8,r9) += n0 * c0 */
     "movq %8, %%rax\n"
     "mulq %%r11\n"
@@ -291,7 +300,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq %%rdx, %%r9\n"
     /* extract m0 */
     "movq %%r8, %q0\n"
-    "movq $0, %%r8\n"
+    "xorq %%r8, %%r8\n"
     /* (r9,r10) += l1 */
     "addq 8(%%rsi), %%r9\n"
     "adcq $0, %%r10\n"
@@ -309,7 +318,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq $0, %%r8\n"
     /* extract m1 */
     "movq %%r9, %q1\n"
-    "movq $0, %%r9\n"
+    "xorq %%r9, %%r9\n"
     /* (r10,r8,r9) += l2 */
     "addq 16(%%rsi), %%r10\n"
     "adcq $0, %%r8\n"
@@ -332,7 +341,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq $0, %%r9\n"
     /* extract m2 */
     "movq %%r10, %q2\n"
-    "movq $0, %%r10\n"
+    "xorq %%r10, %%r10\n"
     /* (r8,r9,r10) += l3 */
     "addq 24(%%rsi), %%r8\n"
     "adcq $0, %%r9\n"
@@ -355,7 +364,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq $0, %%r10\n"
     /* extract m3 */
     "movq %%r8, %q3\n"
-    "movq $0, %%r8\n"
+    "xorq %%r8, %%r8\n"
     /* (r9,r10,r8) += n3 * c1 */
     "movq %9, %%rax\n"
     "mulq %%r14\n"
@@ -387,8 +396,8 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "movq %q11, %%r13\n"
     /* Initialize (r8,r9,r10) */
     "movq %q5, %%r8\n"
-    "movq $0, %%r9\n"
-    "movq $0, %%r10\n"
+    "xorq %%r9, %%r9\n"
+    "xorq %%r10, %%r10\n"
     /* (r8,r9) += m4 * c0 */
     "movq %12, %%rax\n"
     "mulq %%r11\n"
@@ -396,7 +405,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq %%rdx, %%r9\n"
     /* extract p0 */
     "movq %%r8, %q0\n"
-    "movq $0, %%r8\n"
+    "xorq %%r8, %%r8\n"
     /* (r9,r10) += m1 */
     "addq %q6, %%r9\n"
     "adcq $0, %%r10\n"
@@ -414,7 +423,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq $0, %%r8\n"
     /* extract p1 */
     "movq %%r9, %q1\n"
-    "movq $0, %%r9\n"
+    "xorq %%r9, %%r9\n"
     /* (r10,r8,r9) += m2 */
     "addq %q7, %%r10\n"
     "adcq $0, %%r8\n"
@@ -472,7 +481,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "movq %%rax, 0(%q6)\n"
     /* Move to (r8,r9) */
     "movq %%rdx, %%r8\n"
-    "movq $0, %%r9\n"
+    "xorq %%r9, %%r9\n"
     /* (r8,r9) += p1 */
     "addq %q2, %%r8\n"
     "adcq $0, %%r9\n"
@@ -483,7 +492,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq %%rdx, %%r9\n"
     /* Extract r1 */
     "movq %%r8, 8(%q6)\n"
-    "movq $0, %%r8\n"
+    "xorq %%r8, %%r8\n"
     /* (r9,r8) += p4 */
     "addq %%r10, %%r9\n"
     "adcq $0, %%r8\n"
@@ -492,7 +501,7 @@ static void secp256k1_scalar_reduce_512(secp256k1_scalar *r, const uint64_t *l) 
     "adcq $0, %%r8\n"
     /* Extract r2 */
     "movq %%r9, 16(%q6)\n"
-    "movq $0, %%r9\n"
+    "xorq %%r9, %%r9\n"
     /* (r8,r9) += p3 */
     "addq %q4, %%r8\n"
     "adcq $0, %%r9\n"

@@ -3,15 +3,62 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "consensus/merkle.h"
 #include "primitives/transaction.h"
 
 #include "hash.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
+void CConfidentialAsset::SetToAsset(const CAsset& asset)
+{
+    vchCommitment.reserve(nExplicitSize);
+    vchCommitment.push_back(1);
+    vchCommitment.insert(vchCommitment.end(), asset.begin(), asset.end());
+}
+
+void CConfidentialValue::SetToAmount(const CAmount amount)
+{
+    vchCommitment.resize(nExplicitSize);
+    vchCommitment[0] = 1;
+    WriteBE64(&vchCommitment[1], amount);
+}
+
+CTxOut::CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn)
+{
+    nAsset = nAssetIn;
+    nValue = nValueIn;
+    scriptPubKey = scriptPubKeyIn;
+}
+
+std::string CTxOut::ToString() const
+{
+    std::string strAsset;
+    if (nAsset.IsExplicit())
+        strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().GetHex());
+    if (nAsset.IsCommitment())
+        strAsset = std::string("nAsset=CONFIDENTIAL, ");
+    return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsExplicit() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("CONFIDENTIAL")), HexStr(scriptPubKey).substr(0, 30));
+}
+
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);
+}
+
+std::string CAssetIssuance::ToString() const
+{
+    std::string str;
+    str += "CAssetIssuance(";
+    str += assetBlindingNonce.ToString();
+    str += ", ";
+    str += assetEntropy.ToString();
+    if (!nAmount.IsNull())
+        str += strprintf(", amount=%s", (nAmount.IsExplicit() ? strprintf("%d.%08d", nAmount.GetAmount() / COIN, nAmount.GetAmount() % COIN) : std::string("CONFIDENTIAL")));
+    if (!nInflationKeys.IsNull())
+        str += strprintf(", inflationkeys=%s", (nInflationKeys.IsExplicit() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("CONFIDENTIAL")));
+    str += ")";
+    return str;
 }
 
 CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)
@@ -39,98 +86,60 @@ std::string CTxIn::ToString() const
         str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
     if (nSequence != SEQUENCE_FINAL)
         str += strprintf(", nSequence=%u", nSequence);
+    if (!assetIssuance.IsNull())
+        str += strprintf(", %s", assetIssuance.ToString());
     str += ")";
     return str;
 }
 
-
-CTxOutValue::CTxOutValue()
+/**
+ * The input witness consists of three elements, two of which are
+ * optional. The optional elements have to do with asset issuance
+ * and are not normally present, most of the time. For this reason
+ * the optional elements are places in a lower branch of the Merkle
+ * tree. When not present, they take on constant values in the hash
+ * tree.
+ *
+ *     S : script witness
+ *     A : issuance amount rangeproof
+ *     I : inflation keys rangeproof
+ *
+ *             .
+ *            / \
+ *           .   S
+ *          / \
+ *         A   I
+ */
+uint256 CTxInWitness::GetHash() const
 {
-    vchCommitment.resize(nCommitmentSize);
-    vchCommitment[0] = 0xff;
+    std::vector<uint256> leaves;
+    leaves.push_back(SerializeHash(vchIssuanceAmountRangeproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(vchInflationKeysRangeproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(scriptWitness.stack, SER_GETHASH, 0));
+    return ComputeFastMerkleRoot(leaves);
 }
 
-CTxOutValue::CTxOutValue(CAmount nAmountIn)
+/**
+ * The output witness consists of two elements: the surjection proof and
+ * the range proof.
+ *
+ *     S : asset surjection proof
+ *     R : value range proof
+ *
+ *           .
+ *          / \
+ *         S   R
+ */
+uint256 CTxOutWitness::GetHash() const
 {
-    vchCommitment.resize(nCommitmentSize);
-    SetToAmount(nAmountIn);
+    std::vector<uint256> leaves;
+    leaves.push_back(SerializeHash(vchSurjectionproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(vchRangeproof, SER_GETHASH, 0));
+    return ComputeFastMerkleRoot(leaves);
 }
 
-bool CTxOutValue::IsValid() const
-{
-    switch(vchCommitment[0]) {
-        case 0:
-        case 1:
-            for (size_t i = 0; i < nCommitmentSize - sizeof(CAmount); i++)
-                if (vchCommitment[i])
-                    return false;
-            return true;
-        case 2:
-        case 3:
-            return true;
-        default:
-            return false;
-    }
-}
-
-bool CTxOutValue::IsNull() const
-{
-    return vchCommitment[0] == 0xff;
-}
-
-bool CTxOutValue::IsAmount() const
-{
-    return vchCommitment[0] == 0 || vchCommitment[0] == 1;
-}
-
-CAmount CTxOutValue::GetAmount() const
-{
-    assert(IsAmount());
-    CAmount nAmount = 0;
-    for (size_t i = 0; i < sizeof(nAmount); i++)
-        nAmount |= CAmount(vchCommitment[nCommitmentSize - 1 - i]) << (i * 8);
-    return nAmount;
-}
-
-bool operator==(const CTxOutValue& a, const CTxOutValue& b)
-{
-    return a.vchRangeproof == b.vchRangeproof &&
-           a.vchCommitment == b.vchCommitment &&
-           a.vchNonceCommitment == b.vchNonceCommitment;
-}
-
-bool operator!=(const CTxOutValue& a, const CTxOutValue& b) {
-    return !(a == b);
-}
-
-void CTxOutValue::SetToBitcoinAmount(const CAmount nAmount) {
-    SetToAmount(nAmount);
-    vchCommitment[0] = 1;
-}
-
-bool CTxOutValue::IsInBitcoinTransaction() const {
-    return vchCommitment[0] == 1;
-}
-
-void CTxOutValue::SetToAmount(const CAmount nAmount) {
-    memset(&vchCommitment[0], 0, nCommitmentSize - sizeof(nAmount));
-    for (size_t i = 0; i < sizeof(nAmount); ++i)
-        vchCommitment[nCommitmentSize - 1 - i] = ((nAmount >> (i * 8)) & 0xff);
-}
-
-CTxOut::CTxOut(const CTxOutValue& nValueIn, CScript scriptPubKeyIn)
-{
-    nValue = nValueIn;
-    scriptPubKey = scriptPubKeyIn;
-}
-
-std::string CTxOut::ToString() const
-{
-    return strprintf("CTxOut(nValue=%s, scriptPubKey=%s)", (nValue.IsAmount() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("UNKNOWN")), HexStr(scriptPubKey).substr(0, 30));
-}
-
-CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), nLockTime(0) {}
-CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), nTxFee(tx.nTxFee), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
+CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
+CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
 
 uint256 CMutableTransaction::GetHash() const
 {
@@ -142,20 +151,64 @@ void CTransaction::UpdateHash() const
     *const_cast<uint256*>(&hash) = SerializeHash(*this, SER_GETHASH, SERIALIZE_TRANSACTION_NO_WITNESS);
 }
 
-uint256 CTransaction::GetWitnessHash() const
+uint256 CTransaction::GetHashWithWitness() const
 {
     return SerializeHash(*this, SER_GETHASH, 0);
 }
 
-CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), nTxFee(0), vin(), vout(), nLockTime(0) { }
+uint256 CTransaction::ComputeWitnessHash() const
+{
+    std::vector<uint256> leaves;
+    leaves.reserve(std::max(vin.size(), vout.size()));
+    /* Inputs */
+    for (size_t i = 0; i < vin.size(); ++i)
+        leaves.push_back(((wit.vtxinwit.size() <= i || vin[i].prevout.IsNull())? CTxInWitness(): wit.vtxinwit[i]).GetHash());
+    uint256 hashIn = ComputeFastMerkleRoot(leaves);
+    leaves.clear();
+    /* Outputs */
+    for (size_t i = 0; i < vout.size(); ++i)
+        leaves.push_back((wit.vtxoutwit.size() <= i? CTxOutWitness(): wit.vtxoutwit[i]).GetHash());
+    uint256 hashOut = ComputeFastMerkleRoot(leaves);
+    leaves.clear();
+    /* Combined */
+    leaves.push_back(hashIn);
+    leaves.push_back(hashOut);
+    return ComputeFastMerkleRoot(leaves);
+}
 
-CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), nTxFee(tx.nTxFee), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
+bool CTransaction::HasValidFee() const
+{
+    CAmountMap totalFee;
+    for (unsigned int i = 0; i < vout.size(); i++) {
+        CAmount fee = 0;
+        if (vout[i].IsFee()) {
+            fee = vout[i].nValue.GetAmount();
+            if (fee == 0 || !MoneyRange(fee))
+                return false;
+            totalFee[vout[i].nAsset.GetAsset()] += fee;
+        }
+    }
+    return MoneyRange(totalFee);
+}
+
+CAmountMap CTransaction::GetFee() const
+{
+    CAmountMap fee;
+    for (unsigned int i = 0; i < vout.size(); i++)
+        if (vout[i].IsFee()) {
+            fee[vout[i].nAsset.GetAsset()] += vout[i].nValue.GetAmount();
+        }
+    return fee;
+}
+
+CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) { }
+
+CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {
     UpdateHash();
 }
 
 CTransaction& CTransaction::operator=(const CTransaction &tx) {
     *const_cast<int*>(&nVersion) = tx.nVersion;
-    *const_cast<CAmount*>(&nTxFee) = tx.nTxFee;
     *const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
     *const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
     *const_cast<CTxWitness*>(&wit) = tx.wit;
@@ -192,11 +245,16 @@ unsigned int CTransaction::CalculateModifiedSize(unsigned int nTxSize) const
 
 std::string CTransaction::ToString() const
 {
+    CAmount fee = 0;
+    for (unsigned int i = 0; i < vout.size(); i++)
+        if (vout[i].IsFee())
+            fee += vout[i].nValue.GetAmount();
+
     std::string str;
     str += strprintf("CTransaction(hash=%s, ver=%d, fee=%d.%08d, vin.size=%u, vout.size=%u, nLockTime=%u)\n",
         GetHash().ToString().substr(0,10),
         nVersion,
-        nTxFee / COIN, nTxFee % COIN,
+        fee / COIN, fee % COIN,
         vin.size(),
         vout.size(),
         nLockTime);

@@ -12,6 +12,7 @@
 #include "primitives/transaction.h"
 #include "init.h"
 #include "main.h" // For minRelayTxFee
+#include "policy/policy.h"
 #include "protocol.h"
 #include "script/script.h"
 #include "script/standard.h"
@@ -255,7 +256,7 @@ bool isDust(const QString& address, const CAmount& amount)
 {
     CTxDestination dest = CBitcoinAddress(address.toStdString()).Get();
     CScript script = GetScriptForDestination(dest);
-    CTxOut txOut(amount, script);
+    CTxOut txOut(policyAsset, amount, script);
     return txOut.IsDust(::minRelayTxFee);
 }
 

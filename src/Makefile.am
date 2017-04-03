@@ -72,6 +72,7 @@ endif
 # bitcoin core #
 BITCOIN_CORE_H = \
   addrman.h \
+  assetsdir.h \
   base58.h \
   blind.h \
   bloom.h \
@@ -94,6 +95,7 @@ BITCOIN_CORE_H = \
   consensus/consensus.h \
   core_io.h \
   core_memusage.h \
+  global/common.h \
   httprpc.h \
   httpserver.h \
   indirectmap.h \
@@ -259,6 +261,8 @@ libbitcoin_consensus_a_SOURCES = \
   core_write.cpp \
   hash.cpp \
   hash.h \
+  issuance.h \
+  issuance.cpp \
   merkleblock.cpp \
   pow.cpp \
   prevector.h \
@@ -266,6 +270,12 @@ libbitcoin_consensus_a_SOURCES = \
   primitives/block.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
+  primitives/bitcoin/block.cpp \
+  primitives/bitcoin/block.h \
+  primitives/bitcoin/merkleblock.cpp \
+  primitives/bitcoin/merkleblock.h \
+  primitives/bitcoin/transaction.cpp \
+  primitives/bitcoin/transaction.h \
   pubkey.cpp \
   pubkey.h \
   rpc/protocol.cpp \
@@ -291,6 +301,7 @@ libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   amount.cpp \
+  assetsdir.cpp \
   base58.cpp \
   blind.cpp \
   bloom.cpp \
@@ -299,8 +310,10 @@ libbitcoin_common_a_SOURCES = \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
+  global/common.cpp \
   key.cpp \
   keystore.cpp \
+  issuance.cpp \
   merkleblock.cpp \
   netbase.cpp \
   pow.cpp \
@@ -444,6 +457,7 @@ CLEANFILES += consensus/*.gcda consensus/*.gcno
 CLEANFILES += crypto/*.gcda crypto/*.gcno
 CLEANFILES += policy/*.gcda policy/*.gcno
 CLEANFILES += primitives/*.gcda primitives/*.gcno
+CLEANFILES += primitives/bitcoin/*.gcda primitives/bitcoin/*.gcno
 CLEANFILES += script/*.gcda script/*.gcno
 CLEANFILES += support/*.gcda support/*.gcno
 CLEANFILES += univalue/*.gcda univalue/*.gcno

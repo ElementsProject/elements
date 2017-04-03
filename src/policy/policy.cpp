@@ -14,6 +14,8 @@
 
 #include <boost/foreach.hpp>
 
+CAsset policyAsset;
+
     /**
      * Check transaction inputs to mitigate two
      * potential denial-of-service attacks:
@@ -86,7 +88,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason, const bool witnes
     unsigned int nDataOut = 0;
     txnouttype whichType;
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
-        if (!::IsStandard(txout.scriptPubKey, whichType, witnessEnabled)) {
+        if (!txout.IsFee() && !::IsStandard(txout.scriptPubKey, whichType, witnessEnabled)) {
             reason = "scriptpubkey";
             return false;
         }
@@ -96,7 +98,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason, const bool witnes
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
-        } else if (txout.IsDust(::minRelayTxFee)) {
+        } else if ((txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == policyAsset) && txout.IsDust(::minRelayTxFee)) {
             reason = "dust";
             return false;
         }
@@ -123,7 +125,7 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         if (prev.scriptPubKey.IsWithdrawLock()) {
             if (!tx.vin[i].scriptSig.IsWithdrawProof()) {
                 if (tx.vout.size() < i)
-                    if (!tx.vout[i].nValue.IsAmount() || tx.vout[i].nValue.GetAmount() > MAX_MONEY / 100)
+                    if (!tx.vout[i].nValue.IsExplicit() || tx.vout[i].nValue.GetAmount() > MAX_MONEY / 100)
                         return false;
             }
             continue;

@@ -442,7 +442,7 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     totalTxSize += entry.GetTxSize();
     minerPolicyEstimator->processTransaction(entry, fCurrentEstimate);
 
-    vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
+    vTxHashes.emplace_back(tx.GetHashWithWitness(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
 
     typedef std::pair<uint256, COutPoint> WithdrawPair;

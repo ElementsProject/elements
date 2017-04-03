@@ -11,11 +11,14 @@
 #include "scalar.h"
 #include "field.h"
 #include "group.h"
+#include "hash.h"
+#include "eckey.h"
 #include "ecmult.h"
 #include "ecmult_gen.h"
 #include "borromean.h"
 
 #include <limits.h>
+#include <string.h>
 
 #ifdef WORDS_BIGENDIAN
 #define BE32(x) (x)
@@ -23,8 +26,8 @@
 #define BE32(p) ((((p) & 0xFF) << 24) | (((p) & 0xFF00) << 8) | (((p) & 0xFF0000) >> 8) | (((p) & 0xFF000000) >> 24))
 #endif
 
-SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const unsigned char *m, int mlen, const unsigned char *e, int elen,
- int ridx, int eidx) {
+SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const unsigned char *m, size_t mlen, const unsigned char *e, size_t elen,
+ size_t ridx, size_t eidx) {
     uint32_t ring;
     uint32_t epos;
     secp256k1_sha256_t sha256_en;
@@ -53,15 +56,15 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const
  *   | return e_0 ==== H(r_{0..i}||m)
  */
 int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp256k1_scalar *evalues, const unsigned char *e0,
- const secp256k1_scalar *s, const secp256k1_gej *pubs, const int *rsizes, int nrings, const unsigned char *m, int mlen) {
+ const secp256k1_scalar *s, const secp256k1_gej *pubs, const size_t *rsizes, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_gej rgej;
     secp256k1_ge rge;
     secp256k1_scalar ens;
     secp256k1_sha256_t sha256_e0;
     unsigned char tmp[33];
-    int i;
-    int j;
-    int count;
+    size_t i;
+    size_t j;
+    size_t count;
     size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_ctx != NULL);
@@ -108,15 +111,15 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
 
 int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const secp256k1_ecmult_gen_context *ecmult_gen_ctx,
  unsigned char *e0, secp256k1_scalar *s, const secp256k1_gej *pubs, const secp256k1_scalar *k, const secp256k1_scalar *sec,
- const int *rsizes, const int *secidx, int nrings, const unsigned char *m, int mlen) {
+ const size_t *rsizes, const size_t *secidx, size_t nrings, const unsigned char *m, size_t mlen) {
     secp256k1_gej rgej;
     secp256k1_ge rge;
     secp256k1_scalar ens;
     secp256k1_sha256_t sha256_e0;
     unsigned char tmp[33];
-    int i;
-    int j;
-    int count;
+    size_t i;
+    size_t j;
+    size_t count;
     size_t size;
     int overflow;
     VERIFY_CHECK(ecmult_ctx != NULL);

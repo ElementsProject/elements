@@ -377,13 +377,22 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
  *
  * @param[in] view   CCoinsViewCache to find necessary outputs
  * @param[in] tx     transaction for which we are checking totals
- * @param[in] excess additional amount to consider as input value (eg fees), can be negative
  * @param[in] pvChecks  multithreaded rangeproof and commitment checker
  * @param[in] cacheStore signal if rangeproof verification should be cached
  * @return  True if totals are identical
 */
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
 
+/**
+ * Verify the amounts of coinbase transactions. It will fail for any blinded amount or type.
+ * Each output must be explicit in both nValue and nAsset.
+*/
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
+
+/* Counts the number of non-null issuances, one for asset themselves
+ * and one for the reissuance tokens.
+ */
+size_t GetNumIssuances(const CTransaction& tx);
 
 /**
  * Check if transaction is final and can be included in a block with the
@@ -448,8 +457,8 @@ class CScriptCheck : public CCheck
 {
 private:
     CScript scriptPubKey;
-    CTxOutValue amount;
-    CTxOutValue amountPreviousInput;
+    CConfidentialValue amount;
+    CConfidentialValue amountPreviousInput;
     const CTransaction *ptxTo;
     unsigned int nIn;
     unsigned int nFlags;
@@ -457,7 +466,7 @@ private:
     PrecomputedTransactionData *txdata;
 
 public:
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CTxOutValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CConfidentialValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
         amountPreviousInput(amountPreviousInputIn),
         ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), txdata(txdataIn) { }

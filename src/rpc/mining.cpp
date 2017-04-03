@@ -146,7 +146,9 @@ UniValue generate(const UniValue& params, bool fHelp)
         if (!CheckProof(pblocktemplate->block, Params().GetConsensus()))
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used with a block-signature-required chain");
         CValidationState state;
-        assert(ProcessNewBlock(state, Params(), NULL, &pblocktemplate->block, true, NULL));
+        bool ret;
+        ret = ProcessNewBlock(state, Params(), NULL, &pblocktemplate->block, true, NULL);
+        assert(ret);
         assert(state.IsValid() && chainActive.Tip()->GetBlockHash() == pblocktemplate->block.GetHash());
         arr.push_back(pblocktemplate->block.GetHash().ToString());
     }
@@ -203,7 +205,7 @@ UniValue combineblocksigs(const UniValue& params, bool fHelp)
             "  \"complete\": n       (numeric) if block is complete \n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("combineblocksigs", "")
+            + HelpExampleCli("combineblocksigs", "<hex> [\"signature1\", \"signature2\", ...]")
         );
 
     CBlock block;
@@ -631,7 +633,8 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
 
         entry.push_back(Pair("data", EncodeHexTx(tx)));
         entry.push_back(Pair("txid", txHash.GetHex()));
-        entry.push_back(Pair("hash", tx.GetWitnessHash().GetHex()));
+        entry.push_back(Pair("hash", tx.GetHashWithWitness().GetHex()));
+        entry.push_back(Pair("withash", tx.ComputeWitnessHash().GetHex()));
 
         UniValue deps(UniValue::VARR);
         BOOST_FOREACH (const CTxIn &in, tx.vin)

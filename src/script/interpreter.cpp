@@ -8,6 +8,7 @@
 #include <secp256k1.h>
 
 #include "primitives/transaction.h"
+#include "primitives/bitcoin/merkleblock.h"
 #include "crypto/ripemd160.h"
 #include "crypto/sha1.h"
 #include "crypto/sha256.h"
@@ -1437,22 +1438,22 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                         if (vgenesisHash.size() != 32)
                             return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT);
 
-                        assert(checker.GetValueIn() != -1); // Not using a NoWithdrawSignatureChecker
+                        assert(checker.GetValueIn() != CConfidentialValue(-1)); // Not using a NoWithdrawSignatureChecker
 
                         CScript relockScript = CScript() << vgenesisHash << OP_WITHDRAWPROOFVERIFY;
 
                         if (stack.size() == 1) { // increasing value of locked coins
-                            if (!checker.GetValueIn().IsAmount())
+                            if (!checker.GetValueIn().IsExplicit())
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                             CAmount minValue = checker.GetValueIn().GetAmount();
                             CTxOut newOutput = checker.GetOutputOffsetFromCurrent(0);
                             if (newOutput.IsNull()) {
                                 newOutput = checker.GetOutputOffsetFromCurrent(-1);
-                                if (!checker.GetValueInPrevIn().IsAmount())
+                                if (!checker.GetValueInPrevIn().IsExplicit())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                 minValue += checker.GetValueInPrevIn().GetAmount();
                             }
-                            if (!newOutput.nValue.IsAmount())
+                            if (!newOutput.nValue.IsExplicit())
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                             if (newOutput.scriptPubKey != relockScript || newOutput.nValue.GetAmount() < minValue)
                                 return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT);
@@ -1476,8 +1477,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                             uint256 genesishash(vgenesisHash);
 
                             try {
-                                CMerkleBlock merkleBlock;
-                                CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+                                Sidechain::Bitcoin::CMerkleBlock merkleBlock;
+                                CDataStream merkleBlockStream(vmerkleBlock, SER_NETWORK, PROTOCOL_VERSION);
                                 merkleBlockStream >> merkleBlock;
                                 if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkleBlock.header))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
@@ -1493,8 +1494,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 if (merkleBlock.header.GetHash() == genesishash)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK);
 
-                                CTransaction locktx;
-                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
+                                Sidechain::Bitcoin::CTransaction locktx;
+                                CDataStream locktxStream(vlockTx, SER_NETWORK, PROTOCOL_VERSION);
                                 locktxStream >> locktx;
                                 if (!locktxStream.empty())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX);
@@ -1522,13 +1523,17 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                         {
                                             unsigned char tweak[32];
                                             size_t pub_len = 33;
+                                            int ret;
                                             unsigned char *pub_start = &(*(sdpc - pub_len));
                                             CHMAC_SHA256(pub_start, pub_len).Write(&vcontract[0], 40).Finalize(tweak);
                                             secp256k1_pubkey pubkey;
-                                            assert(secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey, pub_start, pub_len) == 1);
+                                            ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey, pub_start, pub_len);
+                                            assert(ret == 1);
                                             // If someone creates a tweak that makes this fail, they broke SHA256
-                                            assert(secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &pubkey, tweak) == 1);
-                                            assert(secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &pubkey, SECP256K1_EC_COMPRESSED) == 1);
+                                            ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &pubkey, tweak);
+                                            assert(ret == 1);
+                                            ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &pubkey, SECP256K1_EC_COMPRESSED);
+                                            assert(ret == 1);
                                             assert(pub_len == 33);
                                         }
                                     }
@@ -1544,22 +1549,21 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                 // We check values by doing the following:
                                 // * Tx must relock at least <unlocked coins> - <locked-on-bitcoin coins>
                                 // * Tx must send at least the withdraw value to its P2SH withdraw, but may send more
-                                assert(locktx.vout[nlocktxOut].nValue.IsAmount()); // Its a SERIALIZE_BITCOIN_BLOCK_OR_TX
-                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue.GetAmount();
-                                if (!checker.GetValueIn().IsAmount()) // Heh, you just destroyed coins
+                                CAmount withdrawVal = locktx.vout[nlocktxOut].nValue;
+                                if (!checker.GetValueIn().IsExplicit()) // Heh, you just destroyed coins
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
 
                                 CAmount lockValueRequired = checker.GetValueIn().GetAmount() - withdrawVal;
                                 if (lockValueRequired > 0) {
                                     const CTxOut newLockOutput = checker.GetOutputOffsetFromCurrent(1);
-                                    if (!newLockOutput.nValue.IsAmount())
+                                    if (!newLockOutput.nValue.IsExplicit())
                                         return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                     if (newLockOutput.IsNull() || newLockOutput.scriptPubKey != relockScript || newLockOutput.nValue.GetAmount() < lockValueRequired)
                                         return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_RELOCK_SCRIPTVAL);
                                 }
 
                                 const CTxOut withdrawOutput = checker.GetOutputOffsetFromCurrent(0);
-                                if (!withdrawOutput.nValue.IsAmount())
+                                if (!withdrawOutput.nValue.IsExplicit())
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS);
                                 if (withdrawOutput.nValue.GetAmount() < withdrawVal)
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_VAL);
@@ -1673,6 +1677,9 @@ public:
             ::Serialize(s, (int)0, nType, nVersion);
         else
             ::Serialize(s, txTo.vin[nInput].nSequence, nType, nVersion);
+        // Serialize the asset issuance object
+        if (!txTo.vin[nInput].assetIssuance.IsNull())
+            ::Serialize(s, txTo.vin[nInput].assetIssuance, nType, nVersion);
     }
 
     /** Serialize an output of txTo */
@@ -1721,6 +1728,17 @@ uint256 GetSequenceHash(const CTransaction& txTo) {
     return ss.GetHash();
 }
 
+uint256 GetIssuanceHash(const CTransaction& txTo) {
+    CHashWriter ss(SER_GETHASH, 0);
+    for (unsigned int n = 0; n < txTo.vin.size(); n++) {
+        if (txTo.vin[n].assetIssuance.IsNull())
+            ss << (unsigned char)0;
+        else
+            ss << txTo.vin[n].assetIssuance;
+    }
+    return ss.GetHash();
+}
+
 uint256 GetOutputsHash(const CTransaction& txTo) {
     CHashWriter ss(SER_GETHASH, 0);
     for (unsigned int n = 0; n < txTo.vout.size(); n++) {
@@ -1735,14 +1753,16 @@ PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo)
 {
     hashPrevouts = GetPrevoutHash(txTo);
     hashSequence = GetSequenceHash(txTo);
+    hashIssuance = GetIssuanceHash(txTo);
     hashOutputs = GetOutputsHash(txTo);
 }
 
-uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CTxOutValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache)
+uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache)
 {
     if (sigversion == SIGVERSION_WITNESS_V0) {
         uint256 hashPrevouts;
         uint256 hashSequence;
+        uint256 hashIssuance;
         uint256 hashOutputs;
 
         if (!(nHashType & SIGHASH_ANYONECANPAY)) {
@@ -1753,6 +1773,9 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
             hashSequence = cache ? cache->hashSequence : GetSequenceHash(txTo);
         }
 
+        if (!(nHashType & SIGHASH_ANYONECANPAY)) {
+            hashIssuance = cache ? cache->hashIssuance : GetIssuanceHash(txTo);
+        }
 
         if ((nHashType & 0x1f) != SIGHASH_SINGLE && (nHashType & 0x1f) != SIGHASH_NONE) {
             hashOutputs = cache ? cache->hashOutputs : GetOutputsHash(txTo);
@@ -1768,6 +1791,7 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
         // Input prevouts/nSequence (none/all, depending on flags)
         ss << hashPrevouts;
         ss << hashSequence;
+        ss << hashIssuance;
         // The input being signed (replacing the scriptSig with scriptCode + amount)
         // The prevout may already be contained in hashPrevout, and the nSequence
         // may already be contain in hashSequence.
@@ -1775,6 +1799,8 @@ uint256 SignatureHash(const CScript& scriptCode, const CTransaction& txTo, unsig
         ss << static_cast<const CScriptBase&>(scriptCode);
         ss << amount;
         ss << txTo.vin[nIn].nSequence;
+        if (!txTo.vin[nIn].assetIssuance.IsNull())
+            ss << txTo.vin[nIn].assetIssuance;
         // Outputs (none/one/all, depending on flags)
         ss << hashOutputs;
         // Locktime
@@ -1939,12 +1965,12 @@ COutPoint TransactionSignatureChecker::GetPrevOut() const
     return txTo->vin[nIn].prevout;
 }
 
-CTxOutValue TransactionSignatureChecker::GetValueIn() const
+CConfidentialValue TransactionSignatureChecker::GetValueIn() const
 {
     return amount;
 }
 
-CTxOutValue TransactionSignatureChecker::GetValueInPrevIn() const
+CConfidentialValue TransactionSignatureChecker::GetValueInPrevIn() const
 {
     return amountPreviousInput;
 }

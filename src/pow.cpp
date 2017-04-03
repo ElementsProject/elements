@@ -12,6 +12,7 @@
 #include "hash.h"
 #include "keystore.h"
 #include "primitives/block.h"
+#include "primitives/bitcoin/block.h"
 #include "script/generic.hpp"
 #include "script/standard.h"
 #include "uint256.h"
@@ -37,15 +38,13 @@ void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Con
     block.proof.challenge = indexLast.proof.challenge;
 }
 
-bool CheckBitcoinProof(const CBlockHeader& block)
+bool CheckBitcoinProof(const Sidechain::Bitcoin::CBlockHeader& block)
 {
-    assert(block.IsBitcoinBlock());
-
     bool fNegative;
     bool fOverflow;
     arith_uint256 bnTarget;
 
-    bnTarget.SetCompact(block.bitcoinproof.challenge, &fNegative, &fOverflow);
+    bnTarget.SetCompact(block.nBits, &fNegative, &fOverflow);
 
     // Check range
     if (fNegative || bnTarget == 0 || fOverflow || bnTarget > UintToArith256(Params().GetConsensus().parentChainPowLimit))

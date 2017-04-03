@@ -17,6 +17,7 @@
 #include "policy/policy.h"
 #include "pow.h"
 #include "primitives/transaction.h"
+#include "primitives/bitcoin/merkleblock.h"
 #include "script/script.h"
 #include "script/sign.h"
 #include "streams.h"
@@ -75,8 +76,8 @@ static bool AppInitRawTx(int argc, char* argv[])
         strUsage = HelpMessageGroup(_("Commands:"));
         strUsage += HelpMessageOpt("delin=N", _("Delete input N from TX"));
         strUsage += HelpMessageOpt("delout=N", _("Delete output N from TX"));
-        strUsage += HelpMessageOpt("in=TXID:VOUT:VALUE(:SEQUENCE_NUMBER)", _("Add input to TX"));
-        strUsage += HelpMessageOpt("blind=B1:B2:B3:...", _("Transaction input blinds"));
+        strUsage += HelpMessageOpt("in=TXID:VOUT(:SEQUENCE_NUMBER)", _("Add input to TX"));
+        strUsage += HelpMessageOpt("blind=V1,B1,AB1,ID1:V2,B2,AB2,ID2:VB3...", _("Transaction input blinds(4-tuple of value, blinding, asset blinding, asset id required)"));
         strUsage += HelpMessageOpt("locktime=N", _("Set TX lock time to N"));
         strUsage += HelpMessageOpt("nversion=N", _("Set TX version to N"));
         strUsage += HelpMessageOpt("outaddr=VALUE:ADDRESS", _("Add address-based output to TX"));
@@ -190,7 +191,7 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
     // separate TXID:VOUT in string
-    if (vStrInputParts.size()<3)
+    if (vStrInputParts.size()<2)
         throw runtime_error("TX input missing separator");
 
     // extract and validate TXID
@@ -208,55 +209,52 @@ static void MutateTxAddInput(CMutableTransaction& tx, const string& strInput)
     if ((vout < 0) || (vout > (int)maxVout))
         throw runtime_error("invalid TX input vout");
 
-    // extract and validate VALUE
-    string strValue = vStrInputParts[2];
-    CAmount value;
-    if (!ParseMoney(strValue, value))
-        throw runtime_error("invalid TX output value");
-
     // extract the optional sequence number
     uint32_t nSequenceIn=std::numeric_limits<unsigned int>::max();
-    if (vStrInputParts.size() > 3)
-        nSequenceIn = std::stoul(vStrInputParts[3]);
+    if (vStrInputParts.size() > 2)
+        nSequenceIn = std::stoul(vStrInputParts[2]);
 
     // append to transaction input list
     CTxIn txin(txid, vout, CScript(), nSequenceIn);
     tx.vin.push_back(txin);
-    tx.nTxFee += value;
 }
 
 static void MutateTxAddOutAddr(CMutableTransaction& tx, const string& strInput)
 {
-    // separate VALUE:ADDRESS in string
-    size_t pos = strInput.find(':');
-    if ((pos == string::npos) ||
-        (pos == 0) ||
-        (pos == (strInput.size() - 1)))
+    // separate VALUE:ADDRESS:ASSET in string
+    std::vector<std::string> vStrOutAddrParts;
+    boost::split(vStrOutAddrParts, strInput, boost::is_any_of(":"));
+    if (vStrOutAddrParts.size()<3)
         throw runtime_error("TX output missing separator");
 
     // extract and validate VALUE
-    string strValue = strInput.substr(0, pos);
+    string strValue = vStrOutAddrParts[0];
     CAmount value;
     if (!ParseMoney(strValue, value))
         throw runtime_error("invalid TX output value");
 
     // extract and validate ADDRESS
-    string strAddr = strInput.substr(pos + 1, string::npos);
+    string strAddr = vStrOutAddrParts[1];
     CBitcoinAddress addr(strAddr);
     if (!addr.IsValid())
         throw runtime_error("invalid TX output address");
+
+    // extract and validate ASSET
+    string strAsset = vStrOutAddrParts[2];
+    CAsset asset(uint256S(strAsset));
+    if (asset.IsNull())
+        throw runtime_error("invalid TX output asset type");
 
     // build standard output script via GetScriptForDestination()
     CScript scriptPubKey = GetScriptForDestination(addr.Get());
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(asset, value, scriptPubKey);
     if (addr.IsBlinded()) {
         CPubKey pubkey = addr.GetBlindingKey();
-        txout.nValue.vchNonceCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+        txout.nNonce.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
@@ -284,41 +282,59 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const string& strInput)
 
     std::vector<unsigned char> data = ParseHex(strData);
 
-    CTxOut txout(value, CScript() << OP_RETURN << data);
+    CTxOut txout(BITCOINID, value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
 {
-    std::vector<std::string> input_blinding_factors;
-    boost::split(input_blinding_factors, strInput, boost::is_any_of(":"));
+    std::vector<std::string> input_blinding;
+    boost::split(input_blinding, strInput, boost::is_any_of(":"));
 
-    if (input_blinding_factors.size() != tx.vin.size())
+    if (input_blinding.size() != tx.vin.size())
         throw runtime_error("One input blinding factor required per transaction input");
 
     bool fBlindedIns = false;
     bool fBlindedOuts = false;
     std::vector<uint256> input_blinds;
     std::vector<uint256> output_blinds;
+    std::vector<uint256> output_asset_blinds;
     std::vector<CPubKey> output_pubkeys;
+    std::vector<CAmount> input_amounts;
+    std::vector<uint256> input_asset_blinds;
+    std::vector<CAsset> input_assets;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        std::vector<std::string> entry;
+        boost::split(entry, input_blinding[nIn], boost::is_any_of(","));
+        if (entry.size() != 4)
+            throw runtime_error("Each blinding input entry must have value:blinding:assetblinding:asset attached");
         uint256 blind;
-        blind.SetHex(input_blinding_factors[nIn]);
-        if (blind.size() == 0) {
-            input_blinds.push_back(blind);
-        } else if (blind.size() == 32) {
-            input_blinds.push_back(blind);
+        blind.SetHex(entry[1]);
+        uint256 assetblind;
+        assetblind.SetHex(entry[2]);
+        input_asset_blinds.push_back(assetblind);
+        CAsset id;
+        id.SetHex(entry[3]);
+        input_assets.push_back(id);
+        CAmount value;
+        if (!ParseMoney(entry[0].data(), value))
+            throw runtime_error("invalid TX input value");
+        input_amounts.push_back(value);
+        input_blinds.push_back(blind);
+        if (!(blind == uint256() && assetblind == uint256()) ||
+            !(blind != uint256() && assetblind != uint256()))
+            throw runtime_error("Each input must have both zero or non-zero blindings");
+        if (blind != uint256()) {
             fBlindedIns = true;
         }
     }
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
-        if (!tx.vout[nOut].nValue.IsAmount())
+        if (!tx.vout[nOut].nValue.IsExplicit())
             throw runtime_error("Invalid parameter: transaction outputs must be unblinded");
-        if (tx.vout[nOut].nValue.vchNonceCommitment.size() == 0) {
+        if (tx.vout[nOut].nNonce.IsNull()) {
             output_pubkeys.push_back(CPubKey());
         } else {
-            CPubKey pubkey(tx.vout[nOut].nValue.vchNonceCommitment);
+            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
             if (!pubkey.IsValid()) {
                  throw runtime_error("Invalid parameter: invalid confidentiality public key given");
             }
@@ -326,42 +342,44 @@ static void MutateTxBlind(CMutableTransaction& tx, const string& strInput)
             fBlindedOuts = true;
         }
         output_blinds.push_back(uint256());
+        output_asset_blinds.push_back(uint256());
     }
 
     if (fBlindedIns && !fBlindedOuts) {
         throw runtime_error("Confidential inputs without confidential outputs");
     }
-    BlindOutputs(input_blinds, output_blinds, output_pubkeys, tx);
+    BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx);
 }
 
 static void MutateTxAddOutScript(CMutableTransaction& tx, const string& strInput)
 {
-    // separate VALUE:SCRIPT in string
-    size_t pos = strInput.find(':');
-    if ((pos == string::npos) ||
-        (pos == 0))
-        throw runtime_error("TX output missing separator");
+    // separate VALUE:SCRIPT:ASSET in string
+    std::vector<std::string> vStrOutScriptParts;
+    boost::split(vStrOutScriptParts, strInput, boost::is_any_of(":"));
+    if (vStrOutScriptParts.size()<3)
+        throw runtime_error("TX out script missing separator");
 
     // extract and validate VALUE
-    string strValue = strInput.substr(0, pos);
+    string strValue = vStrOutScriptParts[0];
     CAmount value;
     if (!ParseMoney(strValue, value))
         throw runtime_error("invalid TX output value");
 
     // extract and validate script
-    string strScript = strInput.substr(pos + 1, string::npos);
+    string strScript = vStrOutScriptParts[1];
     CScript scriptPubKey = ParseScript(strScript); // throws on err
 
+    // extract and validate asset
+    string strAsset = vStrOutScriptParts[2];
+    CAsset asset(uint256S(strAsset));
+
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(asset, value, scriptPubKey);
     tx.vout.push_back(txout);
-    tx.nTxFee -= value;
 }
 
 static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 {
-    // TODO: reduce nTxFee
-
     // parse requested deletion index
     int inIdx = atoi(strInIdx);
     if (inIdx < 0 || inIdx >= (int)tx.vin.size()) {
@@ -375,8 +393,6 @@ static void MutateTxDelInput(CMutableTransaction& tx, const string& strInIdx)
 
 static void MutateTxDelOutput(CMutableTransaction& tx, const string& strOutIdx)
 {
-    // TODO: increase nTxFee
-
     // parse requested deletion index
     int outIdx = atoi(strOutIdx);
     if (outIdx < 0 || outIdx >= (int)tx.vout.size()) {
@@ -545,7 +561,7 @@ static void MutateTxSign(CMutableTransaction& tx, const string& flagStr)
             continue;
         }
         const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
-        const CTxOutValue& amount = coins->vout[txin.prevout.n].nValue;
+        const CConfidentialValue& amount = coins->vout[txin.prevout.n].nValue;
 
         SignatureData sigdata;
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -589,12 +605,12 @@ static void MutateTxPeginSign(CMutableTransaction& tx, const string& flagStr)
     if (contractData.size() != 40)
         throw runtime_error("contract must be 40 bytes");
 
-    CDataStream ssProof(txoutproofData,SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CMerkleBlock merkleBlock;
+    CDataStream ssProof(txoutproofData,SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CMerkleBlock merkleBlock;
     ssProof >> merkleBlock;
 
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX);
-    CTransaction txBTC;
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CTransaction txBTC;
     ssTx >> txBTC;
 
     vector<uint256> transactionHashes;

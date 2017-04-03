@@ -10,6 +10,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
+#include <secp256k1_surjectionproof.h>
 #include <vector>
 
 // DoS prevention: limit cache size to less than 40MB (over 500000
@@ -24,7 +25,7 @@ private:
     bool store;
 
 public:
-    CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CTxOutValue& amount, const CTxOutValue& amountPreviousInput, const CScript& scriptFedRedeem, bool storeIn, PrecomputedTransactionData& txdataIn) : TransactionSignatureChecker(txToIn, nInIn, amount, amountPreviousInput, scriptFedRedeem), store(storeIn) {}
+    CachingTransactionSignatureChecker(const CTransaction* txToIn, unsigned int nInIn, const CConfidentialValue& amount, const CConfidentialValue& amountPreviousInput, const CScript& scriptFedRedeem, bool storeIn, PrecomputedTransactionData& txdataIn) : TransactionSignatureChecker(txToIn, nInIn, amount, amountPreviousInput, scriptFedRedeem), store(storeIn) {}
 
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 };
@@ -38,7 +39,20 @@ public:
         store = storeIn;
     };
 
-    bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchCommitment, const secp256k1_context* ctx) const;
+    bool VerifyRangeProof(const std::vector<unsigned char>& vchRangeProof, const std::vector<unsigned char>& vchValueCommitment, const std::vector<unsigned char>& vchAssetCommitment, const CScript& scriptPubKey, const secp256k1_context* ctx) const;
+
+};
+
+class CachingSurjectionProofChecker
+{
+private:
+    bool store;
+public:
+    CachingSurjectionProofChecker(bool storeIn){
+        store = storeIn;
+    };
+
+    bool VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* ctx) const;
 
 };
 

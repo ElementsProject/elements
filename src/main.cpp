@@ -18,6 +18,7 @@
 #include "consensus/validation.h"
 #include "hash.h"
 #include "init.h"
+#include "issuance.h"
 #include "merkleblock.h"
 #include "net.h"
 #include "policy/fees.h"
@@ -51,6 +52,7 @@
 #include <boost/thread.hpp>
 #include <secp256k1.h>
 #include <secp256k1_rangeproof.h>
+#include <secp256k1_surjectionproof.h>
 
 using namespace std;
 
@@ -1078,15 +1080,14 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values
-    CAmount nValueOut = 0;
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         if (!txout.nValue.IsValid())
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
-        if (!txout.nValue.IsAmount())
+        if (!txout.nValue.IsExplicit())
             continue;
-        nValueOut += txout.nValue.GetAmount();
-        if (!MoneyRange(nValueOut))
+        // Each output is turned into a value commitment, no overflow detection needed
+        if (!MoneyRange(txout.nValue.GetAmount()))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
@@ -1101,11 +1102,13 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
 
     if (tx.IsCoinBase())
     {
-        // Coinbase transactions may not have eccessive scriptSigs or fees
+        // Coinbase transactions may not have eccessive scriptSigs or any fee outputs
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
-        if (tx.nTxFee != 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
+
+        for (unsigned int i = 0; i < tx.vout.size(); i++)
+            if (tx.vout[i].IsFee())
+                return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
     }
     else
     {
@@ -1126,9 +1129,7 @@ class Secp256k1Ctx
 public:
     Secp256k1Ctx() {
         assert(secp256k1_ctx_verify_amounts == NULL);
-        secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-        secp256k1_pedersen_context_initialize(secp256k1_ctx_verify_amounts);
-        secp256k1_rangeproof_context_initialize(secp256k1_ctx_verify_amounts);
+        secp256k1_ctx_verify_amounts = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
         assert(secp256k1_ctx_verify_amounts != NULL);
     }
 
@@ -1144,11 +1145,15 @@ static Secp256k1Ctx instance_of_secp256k1ctx;
 class CRangeCheck : public CCheck
 {
 private:
-    const CTxOutValue* val;
+    const CConfidentialValue* val;
+    const std::vector<unsigned char>& rangeproof;
+    // *Must* be a commitment, not an explicit value
+    const std::vector<unsigned char> assetCommitment;
+    const CScript scriptPubKey;
     const bool store;
 
 public:
-    CRangeCheck(const CTxOutValue* val_, const bool storeIn) : val(val_), store(storeIn) {}
+    CRangeCheck(const CConfidentialValue* val_, const std::vector<unsigned char>& rangeproof_, const std::vector<unsigned char>& assetCommitment_, const CScript& scriptPubKey_, const bool storeIn) : val(val_), rangeproof(rangeproof_), assetCommitment(assetCommitment_), scriptPubKey(scriptPubKey_), store(storeIn) {}
 
     bool operator()();
 };
@@ -1157,15 +1162,29 @@ public:
 class CBalanceCheck : public CCheck
 {
 private:
-    std::vector<unsigned char> vchData;
-    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
-    CAmount nPlainAmount;
+    std::vector<secp256k1_pedersen_commitment> vData;
+    std::vector<secp256k1_pedersen_commitment *> vpCommitsIn, vpCommitsOut;
 
 public:
-    CBalanceCheck(std::vector<unsigned char>& vchData_, std::vector<unsigned char*>& vpchCommitsIn_, std::vector<unsigned char*>& vpchCommitsOut_, const CAmount& nPlainAmount_) : nPlainAmount(nPlainAmount_) {
-        vchData.swap(vchData_);
-        vpchCommitsIn.swap(vpchCommitsIn_);
-        vpchCommitsOut.swap(vpchCommitsOut_);
+    CBalanceCheck(std::vector<secp256k1_pedersen_commitment>& vData_, std::vector<secp256k1_pedersen_commitment*>& vpCommitsIn_, std::vector<secp256k1_pedersen_commitment*>& vpCommitsOut_)  {
+        vData.swap(vData_);
+        vpCommitsIn.swap(vpCommitsIn_);
+        vpCommitsOut.swap(vpCommitsOut_);
+    }
+
+    bool operator()();
+};
+
+class CSurjectionCheck : public CCheck
+{
+private:
+    secp256k1_surjectionproof proof;
+    std::vector<secp256k1_generator> vTags;
+    secp256k1_generator gen;
+    const bool store;
+public:
+    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& vTags_, secp256k1_generator& genIn, const bool storeIn) : proof(proofIn), gen(genIn), store(storeIn) {
+        vTags.swap(vTags_);
     }
 
     bool operator()();
@@ -1185,16 +1204,16 @@ static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
 
 bool CRangeCheck::operator()()
 {
-    if (val->IsAmount()) {
+    if (val->IsExplicit()) {
         return true;
     }
 
-    return CachingRangeProofChecker(store).VerifyRangeProof(val->vchRangeproof, val->vchCommitment, secp256k1_ctx_verify_amounts);
+    return CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts);
 };
 
 bool CBalanceCheck::operator()()
 {
-    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpchCommitsIn.data(), vpchCommitsIn.size(), vpchCommitsOut.data(), vpchCommitsOut.size(), nPlainAmount)) {
+    if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpCommitsIn.data(), vpCommitsIn.size(), vpCommitsOut.data(), vpCommitsOut.size())) {
         fAmountError = true;
         return false;
     }
@@ -1202,91 +1221,350 @@ bool CBalanceCheck::operator()()
     return true;
 }
 
+bool CSurjectionCheck::operator()()
+{
+    return CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts);
+}
+
 } // namespace
 
-
-
-bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, const CAmount& excess, std::vector<CCheck*>* pvChecks, const bool cacheStore)
+size_t GetNumIssuances(const CTransaction& tx)
 {
-    bool fNeedNoRangeProof = false;
-    CAmount nPlainAmount = excess;
+    unsigned int numIssuances = 0;
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        if (!tx.vin[i].assetIssuance.IsNull()) {
+            if (!tx.vin[i].assetIssuance.nAmount.IsNull()) {
+                numIssuances++;
+            }
+            if (!tx.vin[i].assetIssuance.nInflationKeys.IsNull()) {
+                numIssuances++;
+            }
+        }
+    }
+    return numIssuances;
+}
 
-    {
-    std::vector<unsigned char> vchData;
-    std::vector<unsigned char *> vpchCommitsIn, vpchCommitsOut;
-    bool fNullRangeproof = false;
-    vchData.resize(CTxOutValue::nCommitmentSize * (tx.vin.size() + tx.vout.size()));
-    unsigned char *p = vchData.data();
+bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore)
+{
+    assert(!tx.IsCoinBase());
+
+    std::vector<secp256k1_pedersen_commitment> vData;
+    std::vector<secp256k1_pedersen_commitment *> vpCommitsIn, vpCommitsOut;
+
+    vData.reserve((tx.vin.size() + tx.vout.size() + GetNumIssuances(tx)));
+    secp256k1_pedersen_commitment *p = vData.data();
+    secp256k1_pedersen_commitment commit;
+    secp256k1_generator gen, gencmp;
+    // This is used to add in the explicit values
+    unsigned char explBlinds[32];
+    memset(explBlinds, 0, sizeof(explBlinds));
+    int ret;
+
+    // This list is used to verify surjection proofs.
+    // Proofs must be constructed with the list being in
+    // order of input and non-null issuance pseudo-inputs, with
+    // input first, asset issuance second, reissuance token third.
+    std::vector<secp256k1_generator> targetGenerators;
+    targetGenerators.reserve(tx.vin.size() + GetNumIssuances(tx));
+
+    // Tally up value commitments, check balance
     if (!tx.IsCoinBase())
     {
+
         for (size_t i = 0; i < tx.vin.size(); ++i)
         {
-            const CTxOutValue& val = cache.GetOutputFor(tx.vin[i]).nValue;
-            if (val.IsAmount()) {
-                nPlainAmount -= val.GetAmount();
-                if (!MoneyRange(val.GetAmount()) || (!MoneyRange(nPlainAmount) && !MoneyRange(-nPlainAmount)))
+
+            const CTxOut out = cache.GetOutputFor(tx.vin[i]);
+            const CConfidentialValue& val = out.nValue;
+            const CConfidentialAsset& asset = out.nAsset;
+
+            if (val.IsNull() || asset.IsNull())
+                return false;
+
+            if (asset.IsExplicit()) {
+                ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
+                assert(ret != 0);
+            }
+            else if (asset.IsCommitment()) {
+                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                     return false;
             }
-            else
-            {
-                assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
-                memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-                vpchCommitsIn.push_back(p);
-                p += CTxOutValue::nCommitmentSize;
+            else {
+                return false;
+            }
+
+            targetGenerators.push_back(gen);
+
+            if (val.IsExplicit()) {
+                if (!MoneyRange(val.GetAmount()))
+                    return false;
+
+                if (val.GetAmount() == 0)
+                    continue;
+
+                if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
+                    return false;
+            }
+            else {
+                assert(val.IsCommitment());
+                if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
+                    return false;
+            }
+
+            vData.push_back(commit);
+            vpCommitsIn.push_back(p);
+            p++;
+
+            // Each transaction input may have up to two "pseudo-inputs" to add to the LHS
+            // for (re)issuance and may require up to two rangeproof checks:
+            // blinded value of the new assets being made
+            // blinded value of the issuance tokens being made (only for initial issuance)
+            const CAssetIssuance& issuance = tx.vin[i].assetIssuance;
+
+            // No issuances to process, continue to next input
+            if (issuance.IsNull()) {
+                continue;
+            }
+
+            CAsset assetID;
+            CAsset assetTokenID;
+
+            // First construct the assets of the issuances and reissuance token
+            // These are calculated differently depending on if initial issuance or followup
+
+            // New issuance, compute the asset ids
+            if (issuance.assetBlindingNonce.IsNull()) {
+                uint256 entropy;
+                GenerateAssetEntropy(entropy, tx.vin[i].prevout, issuance.assetEntropy);
+                CalculateAsset(assetID, entropy);
+                // Null nAmount is considered explicit 0, so just check for commitment
+                CalculateReissuanceToken(assetTokenID, entropy, issuance.nAmount.IsCommitment());
+            } else {
+                //Re-issuance
+
+                // hashAssetIdentifier doubles as the entropy on reissuance
+                CalculateAsset(assetID, issuance.assetEntropy);
+                CalculateReissuanceToken(assetTokenID, issuance.assetEntropy, issuance.nAmount.IsCommitment());
+
+                // Must check that prevout is the blinded issuance token
+                // prevout's asset tag = assetTokenID + assetBlindingNonce
+
+                if (secp256k1_generator_generate_blinded(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin(), issuance.assetBlindingNonce.begin()) != 1)
+                    return false;
+                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gencmp, &asset.vchCommitment[0]) != 1)
+                    return false;
+                if (memcmp(&gen, &gencmp, 33))
+                    return false;
+            }
+
+            // Process issuance of asset
+            if (!issuance.nAmount.IsNull()) {
+
+                // Generate asset generator and add to list of surjection targets
+                ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetID.begin());
+                assert(ret == 1);
+                CConfidentialAsset issuanceAsset;
+                issuanceAsset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
+                secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &issuanceAsset.vchCommitment[0], &gen);
+                targetGenerators.push_back(gen);
+
+                // Build value commitment and add to tally
+                if (issuance.nAmount.IsExplicit()) {
+                    if (!MoneyRange(issuance.nAmount.GetAmount())) {
+                        return false;
+                    }
+
+                    if (issuance.nAmount.GetAmount() == 0) {
+                        continue;
+                    }
+
+                    if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nAmount.GetAmount(), &gen) != 1) {
+                        return false;
+                    }
+                }
+                else if (issuance.nAmount.IsCommitment()) {
+                    if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nAmount.vchCommitment[0]) != 1) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+
+                vData.push_back(commit);
+                vpCommitsIn.push_back(p);
+                p++;
+
+                // Rangecheck must be done for blinded amount
+                if (issuance.nAmount.IsCommitment() && !QueueCheck(pvChecks, new CRangeCheck(&issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, issuanceAsset.vchCommitment, CScript(), cacheStore))) {
+                    return false;
+                }
+            }
+
+            // Only initial issuance can have reissuance tokens
+            if (issuance.assetBlindingNonce.IsNull() && !issuance.nInflationKeys.IsNull()) {
+
+                ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin());
+                assert(ret == 1);
+                CConfidentialAsset tokenAsset(assetTokenID);
+                tokenAsset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
+                secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &tokenAsset.vchCommitment[0], &gen);
+
+                targetGenerators.push_back(gen);
+
+                if (issuance.nInflationKeys.IsExplicit()) {
+                    if (!MoneyRange(issuance.nInflationKeys.GetAmount())) {
+                        return false;
+                    }
+
+                    if (issuance.nInflationKeys.GetAmount() == 0) {
+                        continue;
+                    }
+
+                    if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nInflationKeys.GetAmount(), &gen) != 1) {
+                        return false;
+                    }
+                }
+                else if (issuance.nInflationKeys.IsCommitment()) {
+                    if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nInflationKeys.vchCommitment[0]) != 1) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+
+                vData.push_back(commit);
+                vpCommitsIn.push_back(p);
+                p++;
+
+                if (issuance.nInflationKeys.IsCommitment() && !QueueCheck(pvChecks, new CRangeCheck(&issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, tokenAsset.vchCommitment, CScript(), cacheStore))) {
+                    return false;
+                }
+            } else if (!issuance.nInflationKeys.IsNull()) {
+                // Token amount field must be null for reissuance
+                return false;
             }
         }
     }
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
-        const CTxOutValue& val = tx.vout[i].nValue;
-        assert(val.vchCommitment.size() == CTxOutValue::nCommitmentSize);
-        if (val.vchNonceCommitment.size() > CTxOutValue::nCommitmentSize || val.vchRangeproof.size() > 5000)
+        const CConfidentialValue& val = tx.vout[i].nValue;
+        const CConfidentialAsset& asset = tx.vout[i].nAsset;
+        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+        if (!asset.IsValid() || (ptxoutwit && ptxoutwit->vchSurjectionproof.size() > 5000))
             return false;
-        if (val.IsAmount()) {
-            nPlainAmount += val.GetAmount();
-            if (!MoneyRange(val.GetAmount()) || (!MoneyRange(nPlainAmount) && !MoneyRange(-nPlainAmount)))
+        if (!val.IsValid() || (ptxoutwit && ptxoutwit->vchRangeproof.size() > 5000))
+            return false;
+        if (!tx.vout[i].nNonce.IsValid())
+            return false;
+
+        if (asset.IsExplicit()) {
+            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
+            assert(ret != 0);
+        }
+        else if (asset.IsCommitment()) {
+            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
+                return false;
+        }
+        else {
+            assert(false);
+            return false;
+        }
+
+        if (val.IsExplicit()) {
+            if (!MoneyRange(val.GetAmount()))
+                return false;
+
+            if (val.GetAmount() == 0)
+              continue;
+
+            if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                 return false;
         }
         else
         {
-            memcpy(p, &val.vchCommitment[0], CTxOutValue::nCommitmentSize);
-            vpchCommitsOut.push_back(p);
-            p += CTxOutValue::nCommitmentSize;
-
-            if (val.vchRangeproof.empty())
-                fNullRangeproof = true;
+            if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
+                return false;
         }
+
+        vData.push_back(commit);
+        vpCommitsOut.push_back(p);
+        p++;
     }
 
-    // If there are no encrypted input or output values, we can do simple math
-    if (vpchCommitsIn.size() + vpchCommitsOut.size() == 0)
-        return (nPlainAmount == 0);
-
-    fNeedNoRangeProof = ((!vpchCommitsIn.empty()) && vpchCommitsOut.size() == 1 && nPlainAmount <= 0 && fNullRangeproof);
-
-    if (!QueueCheck(pvChecks, new CBalanceCheck(vchData, vpchCommitsIn, vpchCommitsOut, nPlainAmount))) {
+    // Check balance
+    if (!QueueCheck(pvChecks, new CBalanceCheck(vData, vpCommitsIn, vpCommitsOut))) {
         return false;
     }
-    }
 
-    // Rangeproof is optional in this case
-    if (fNeedNoRangeProof)
-        return true;
-
-    for (size_t i = 0; i < tx.vout.size(); ++i)
-    {
-        const CTxOutValue& val = tx.vout[i].nValue;
-        if (val.IsAmount())
+    // Range proofs
+    for (size_t i = 0; i < tx.vout.size(); i++) {
+        const CConfidentialValue& val = tx.vout[i].nValue;
+        const CConfidentialAsset& asset = tx.vout[i].nAsset;
+        std::vector<unsigned char> vchAssetCommitment = asset.vchCommitment;
+        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+        if (val.IsExplicit())
+        {
+            if (ptxoutwit && !ptxoutwit->vchRangeproof.empty())
+                return false;
             continue;
-        if (!QueueCheck(pvChecks, new CRangeCheck(&val, cacheStore))) {
+        }
+        if (asset.IsExplicit()) {
+            int ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
+            assert(ret != 0);
+            secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchAssetCommitment[0], &gen);
+        }
+        if (!ptxoutwit || ptxoutwit->vchRangeproof.size() > 5000) {
             return false;
         }
+        if (!QueueCheck(pvChecks, new CRangeCheck(&val, ptxoutwit->vchRangeproof, vchAssetCommitment, tx.vout[i].scriptPubKey, cacheStore))) {
+            return false;
+        }
+    }
+
+    std::vector<secp256k1_generator> copy_targetGenerators(targetGenerators);
+
+    for (size_t i = 0; i < tx.vout.size(); i++)
+    {
+        const CConfidentialAsset& asset = tx.vout[i].nAsset;
+        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
+        //No need for surjective proof
+        if (asset.IsExplicit()) {
+            if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {
+                return false;
+            }
+            continue;
+        }
+        if (!ptxoutwit || ptxoutwit->vchSurjectionproof.size() > 5000)
+            return false;
+        if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
+            return false;
+
+        secp256k1_surjectionproof proof;
+        if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
+            return false;
+
+        if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, cacheStore))) {
+            return false;
+        }
+        // Each CSurjectionCheck uses swap to keep pointers valid.
+        // Original values need to put back in place for next output
+        targetGenerators = copy_targetGenerators;
     }
 
     return true;
 }
 
-
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
+{
+    assert(tx.IsCoinBase());
+    CAmountMap remaining = mapFees;
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        if (!tx.vout[i].nValue.IsExplicit() || !tx.vout[i].nAsset.IsExplicit())
+            return false;
+        remaining[tx.vout[i].nAsset.GetAsset()] -= tx.vout[i].nValue.GetAmount();
+    }
+    return MoneyRange(remaining);
+}
 
 void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age) {
     int expired = pool.Expire(GetTime() - age);
@@ -1438,7 +1716,9 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         BOOST_FOREACH(const CTxIn &txin, tx.vin)
         {
             CCoins coins;
-            assert(view.GetCoins(txin.prevout.hash, coins));
+            bool ret;
+            ret = view.GetCoins(txin.prevout.hash, coins);
+            assert(ret);
             if (coins.vout[txin.prevout.n].scriptPubKey.IsWithdrawLock() && txin.scriptSig.IsWithdrawProof()) {
                 if (pool.mapNextTx.count(txin.prevout))
                     return state.Invalid(false, REJECT_CONFLICT, "txn-mempool-replace-withdraw");
@@ -1475,8 +1755,11 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
+        if (!tx.HasValidFee())
+            return state.DoS(0, false, REJECT_INVALID, "bad-fees");
+        CAmount nFees = tx.GetFee()[policyAsset];
+
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
-        CAmount nFees = tx.nTxFee;
         CAmount nModifiedFees = nFees;
         double nPriorityDummy = 0;
         pool.ApplyDeltas(hash, nPriorityDummy, nModifiedFees);
@@ -1884,7 +2167,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
             continue;
         }
 
-        assert(coins.vout[lock.first.n].nValue.IsAmount() && coins.vout[lock.first.n].nValue.GetAmount() == lock.second);
+        assert(coins.vout[lock.first.n].nValue.IsExplicit() && coins.vout[lock.first.n].nValue.GetAmount() == lock.second);
         res.push_back(lock);
         break;
     }
@@ -1911,7 +2194,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
         if (mempool.mapNextTx.count(COutPoint(it->first.hash, it->first.n)))
             continue;
 
-        assert(coins.vout[it->first.n].nValue.IsAmount() && coins.vout[it->first.n].nValue.GetAmount() == it->second);
+        assert(coins.vout[it->first.n].nValue.IsExplicit() && coins.vout[it->first.n].nValue.GetAmount() == it->second);
         res.push_back(*it);
 
         nTotal += it->second;
@@ -1946,7 +2229,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
                 if (mempool.mapWithdrawsSpentToTxid.count(std::make_pair(withdrawGenHash, COutPoint(tx.GetHash(), j))))
                     continue;
 
-                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount()) {
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit()) {
                     res.push_back(std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount()));
                     nTotal += txout.nValue.GetAmount();
                     if (nTotal >= nAmount)
@@ -2300,8 +2583,8 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             }
 
             // Check for negative or overflow input values
-            const CTxOutValue& value = coins->vout[prevout.n].nValue;
-            if (value.IsAmount()) {
+            const CConfidentialValue& value = coins->vout[prevout.n].nValue;
+            if (value.IsExplicit()) {
                 nValueIn += value.GetAmount();
                 if (!MoneyRange(value.GetAmount()) || !MoneyRange(nValueIn))
                     return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
@@ -2321,11 +2604,9 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         }
 
         // Tally transaction fees
-        CAmount nTxFee = tx.nTxFee;
-        if (!MoneyRange(nTxFee))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
-
-        if (!VerifyAmounts(inputs, tx, nTxFee, pvChecks, cacheStore))
+        if (!tx.HasValidFee())
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+        if (!VerifyAmounts(inputs, tx, pvChecks, cacheStore))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
 
@@ -2342,6 +2623,9 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
+
+        // Tally validity checked in CheckTxInputs
+        CAmountMap fee = tx.GetFee();
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -2395,8 +2679,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     else
                         return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
                 }
-                const CTxOutValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
-                if (value.IsAmount())
+                const CConfidentialValue& value = coins->vout[tx.vin[i].prevout.n].nValue;
+                if (value.IsExplicit())
                     prevValueIn = value.GetAmount();
                 else
                     prevValueIn = -1;
@@ -2812,7 +3096,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             vPos.push_back(std::make_pair(tx.GetHash(), pos));
             for (unsigned int i = 0; i < tx.vout.size(); i++) {
                 CTxOut txout= tx.vout[i];
-                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit())
                     mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), i), txout.nValue.GetAmount())));
             }
 
@@ -2828,7 +3112,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Check that all non-zero-value coinbase outputs pay to the required destination
     BOOST_FOREACH(const CTxOut& txout, block.vtx[0].vout) {
-        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination() && !(txout.nValue.IsAmount() && txout.nValue.GetAmount() == 0))
+        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination() && !(txout.nValue.IsExplicit() && txout.nValue.GetAmount() == 0))
             return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
                              REJECT_INVALID, "bad-coinbase-txos");
     }
@@ -2914,7 +3198,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     std::vector<uint256> vOrphanErase;
     std::vector<int> prevheights;
-    CAmount nFees = 0;
+    CAmountMap mapFees;
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
     CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
@@ -2976,10 +3260,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         txdata.emplace_back(tx);
         if (!tx.IsCoinBase())
         {
-            nFees += tx.nTxFee;
-            if (!MoneyRange(nFees))
-                return state.DoS(100, error("ConnectBlock(): total tx fee overflowed"), REJECT_INVALID, "bad-txns-fee-outofrange");
-
             std::vector<CCheck*> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, txdata[i], setWithdrawsSpent == NULL ? setWithdrawsSpentDummy : *setWithdrawsSpent, nScriptCheckThreads ? &vChecks : NULL))
@@ -2999,20 +3279,25 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         for (unsigned int j = 0; j < tx.vout.size(); j++) {
             CTxOut txout = tx.vout[j];
-            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsAmount())
+            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit())
                 mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
         }
+        if (!tx.HasValidFee())
+            return state.DoS(100, error("ConnectBlock(): transaction fee overflowed"), REJECT_INVALID, "bad-fee-outofrange");
+        mapFees += tx.GetFee();
+        if (!MoneyRange(mapFees))
+            return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     }
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
 
-    CAmount blockReward = nFees;
+    CAmountMap blockReward = mapFees;
     if (!MoneyRange(blockReward))
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
-    if (!VerifyAmounts(view, block.vtx[0], -blockReward))
+    if (!VerifyCoinbaseAmount(block.vtx[0], blockReward))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
-                               blockReward),
+                               blockReward[policyAsset]),
                                REJECT_INVALID, "bad-cb-amount");
 
     //Don't DoS ban in case of RPC script check failure
@@ -4034,20 +4319,16 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
             fHaveWitness = true;
             break;
         }
-        for (size_t o = 0; o < block.vtx[t].vout.size(); o++) {
-            if (!CTxOutWitnessSerializer(REF(block.vtx[t].vout[o])).IsNull()) {
-                fHaveWitness = true;
-                break;
-            }
-        }
     }
     std::vector<unsigned char> ret(32, 0x00);
     if (fHaveWitness && IsWitnessEnabled(pindexPrev, consensusParams)) {
         if (commitpos == -1) {
-            uint256 witnessroot = BlockWitnessMerkleRoot(block, NULL);
+            const_cast<std::vector<CTxOut>*>(&block.vtx[0].vout)->push_back(CTxOut());
+            uint256 witnessroot = BlockWitnessMerkleRoot(block);
             CHash256().Write(witnessroot.begin(), 32).Write(&ret[0], 32).Finalize(witnessroot.begin());
-            CTxOut out;
+            CTxOut& out = const_cast<std::vector<CTxOut>*>(&block.vtx[0].vout)->back();
             out.nValue = 0;
+            out.nAsset = policyAsset;
             out.scriptPubKey.resize(38);
             out.scriptPubKey[0] = OP_RETURN;
             out.scriptPubKey[1] = 0x24;
@@ -4057,7 +4338,6 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
             out.scriptPubKey[5] = 0xed;
             memcpy(&out.scriptPubKey[6], witnessroot.begin(), 32);
             commitment = std::vector<unsigned char>(out.scriptPubKey.begin(), out.scriptPubKey.end());
-            const_cast<std::vector<CTxOut>*>(&block.vtx[0].vout)->push_back(out);
             block.vtx[0].UpdateHash();
         }
     }
@@ -4136,11 +4416,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     if (IsWitnessEnabled(pindexPrev, consensusParams)) {
         int commitpos = GetWitnessCommitmentIndex(block);
         if (commitpos != -1) {
-            bool malleated = false;
-            uint256 hashWitness = BlockWitnessMerkleRoot(block, &malleated);
-            // The malleation check is ignored; as the transaction tree itself
-            // already does not permit it, it is impossible to trigger in the
-            // witness tree.
+            uint256 hashWitness = BlockWitnessMerkleRoot(block);
             if (block.vtx[0].wit.vtxinwit.size() != 1 || block.vtx[0].wit.vtxinwit[0].scriptWitness.stack.size() != 1 || block.vtx[0].wit.vtxinwit[0].scriptWitness.stack[0].size() != 32) {
                 return state.DoS(100, error("%s : invalid witness nonce size", __func__), REJECT_INVALID, "bad-witness-nonce-size", true);
             }
@@ -4157,11 +4433,6 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
         for (size_t i = 0; i < block.vtx.size(); i++) {
             if (!block.vtx[i].wit.IsNull()) {
                 return state.DoS(100, error("%s : unexpected witness data found", __func__), REJECT_INVALID, "unexpected-witness", true);
-            }
-            for (size_t o = 0; o < block.vtx[i].vout.size(); o++) {
-                if (!CTxOutWitnessSerializer(REF(block.vtx[i].vout[o])).IsNull()) {
-                    return state.DoS(100, false, REJECT_INVALID, "unexpected-witness", true, strprintf("%s : unexpected output witness data found", __func__));
-                }
             }
         }
     }
@@ -6113,10 +6384,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 }
             }
             if (!fRejectedParents) {
+                uint32_t nFetchFlags = GetFetchFlags(pfrom, chainActive.Tip(), chainparams.GetConsensus());
                 BOOST_FOREACH(const CTxIn& txin, tx.vin) {
-                    CInv inv(MSG_TX, txin.prevout.hash);
-                    pfrom->AddInventoryKnown(inv);
-                    if (!AlreadyHave(inv)) pfrom->AskFor(inv);
+                    CInv _inv(MSG_TX | nFetchFlags, txin.prevout.hash);
+                    pfrom->AddInventoryKnown(_inv);
+                    if (!AlreadyHave(_inv)) pfrom->AskFor(_inv);
                 }
                 AddOrphanTx(tx, pfrom->GetId());
 

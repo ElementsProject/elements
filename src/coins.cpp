@@ -320,9 +320,9 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight, CAmount
         assert(coins);
         if (!coins->IsAvailable(txin.prevout.n)) continue;
         if (coins->nHeight <= nHeight) {
-            const CTxOutValue& val = coins->vout[txin.prevout.n].nValue;
+            const CConfidentialValue& val = coins->vout[txin.prevout.n].nValue;
             CAmount nAmount = COIN;
-            if (val.IsAmount())
+            if (val.IsExplicit())
                 nAmount = val.GetAmount();
             dResult += nAmount * (nHeight-coins->nHeight);
             inChainInputValue += nAmount;

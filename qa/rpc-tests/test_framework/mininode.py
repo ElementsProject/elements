@@ -475,7 +475,6 @@ class CTransaction(object):
     def __init__(self, tx=None):
         if tx is None:
             self.nVersion = 1
-            self.nTxFee = 0
             self.vin = []
             self.vout = []
             self.wit = CTxWitness()
@@ -484,7 +483,6 @@ class CTransaction(object):
             self.hash = None
         else:
             self.nVersion = tx.nVersion
-            self.nTxFee = tx.nTxFee
             self.vin = copy.deepcopy(tx.vin)
             self.vout = copy.deepcopy(tx.vout)
             self.nLockTime = tx.nLockTime
@@ -494,7 +492,6 @@ class CTransaction(object):
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
-        self.nTxFee = struct.unpack("<q", f.read(8))[0]
         self.vin = deser_vector(f, CTxIn)
         self.vout = deser_vector(f, CTxOut)
         self.nLockTime = struct.unpack("<I", f.read(4))[0]
@@ -503,7 +500,6 @@ class CTransaction(object):
 
     def deserialize_with_witness(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
-        self.nTxFee = struct.unpack("<q", f.read(8))[0]
         self.vin = deser_vector(f, CTxIn)
         flags = 0
         if len(self.vin) == 0:
@@ -571,7 +567,6 @@ class CTransaction(object):
                 flags |= 2
         r = b""
         r += struct.pack("<i", self.nVersion)
-        r += struct.pack("<q", self.nTxFee)
         if flags:
             dummy = []
             r += ser_vector(dummy)

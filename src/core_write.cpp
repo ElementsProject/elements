@@ -158,7 +158,7 @@ void ScriptPubKeyToUniv(const CScript& scriptPubKey,
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
-    entry.pushKV("hash", tx.GetWitnessHash().GetHex());
+    entry.pushKV("hash", tx.GetHashWithWitness().GetHex());
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("locktime", (int64_t)tx.nLockTime);
 
@@ -194,7 +194,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry)
 
         UniValue out(UniValue::VOBJ);
 
-        if (txout.nValue.IsAmount()) {
+        if (txout.nValue.IsExplicit()) {
             UniValue outValue(UniValue::VNUM, FormatMoney(txout.nValue.GetAmount()));
             out.pushKV("value", outValue);
         } else {

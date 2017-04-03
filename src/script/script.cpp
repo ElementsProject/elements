@@ -9,6 +9,7 @@
 
 #include "hash.h"
 #include "primitives/transaction.h"
+#include "primitives/bitcoin/transaction.h"
 #include "streams.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
@@ -274,10 +275,14 @@ uint256 CScript::GetWithdrawLockGenesisHash() const
     opcodetype opcode;
     vector<unsigned char> vchgenesishash;
 
-    assert(GetOp(pc, opcode, vchgenesishash));
+    bool ret;
+    ret = GetOp(pc, opcode, vchgenesishash);
+    assert(ret);
     if (vchgenesishash.size() != 32) {
-        assert(GetOp(pc, opcode) && opcode == OP_DROP);
-        assert(GetOp(pc, opcode, vchgenesishash));
+        ret = GetOp(pc, opcode);
+        assert(ret && opcode == OP_DROP);
+        ret = GetOp(pc, opcode, vchgenesishash);
+        assert(ret);
     }
     assert(vchgenesishash.size() == 32);
     return uint256(vchgenesishash);
@@ -329,8 +334,8 @@ COutPoint CScript::GetWithdrawSpent() const
         vector<unsigned char> vTx;
         if (!PopWithdrawPush(pushes, &vTx))
             return COutPoint();
-        CTransaction tx;
-        CDataStream(vTx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_BITCOIN_BLOCK_OR_TX) >> tx;
+        Sidechain::Bitcoin::CTransaction tx;
+        CDataStream(vTx, SER_NETWORK, PROTOCOL_VERSION) >> tx;
 
         if (ntxOut < 0 || (unsigned int)ntxOut >= tx.vout.size())
             return COutPoint();
