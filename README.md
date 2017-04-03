@@ -1,42 +1,30 @@
-The Elements Project
+Elements blockchain platform
 =================================
-This is the integration and staging tree for the Elements Project, a series of
-improvements and extensions to the Bitcoin protocol.
+This is the integration and staging tree for the Elements blockchain platform,
+a collection of feature experiments and extensions to the Bitcoin protocol.
+This platform enables anyone to build their own businesses or networks
+involving sidechain pegged Bitcoin or arbitrary asset tokens.
 
-What is the Elements Project?
------------------
-Elements is an open source collaborative project where we work on a collection
-of experiments to more rapidly bring technical innovation to Bitcoin.  Elements
-are features that are proposed and developed in this technical community that in
-arbitrary combinations can be fashioned into sidechains.
-
-https://github.com/ElementsProject/elementsproject.github.io
-
-Learn more on [the Elements Project website](https://www.elementsproject.org).
-
-What is Bitcoin?
+Confidential Assets
 ----------------
-https://www.bitcoin.org
+The latest feature in the Elements blockchain platform is Confidential Assets,
+the ability to issue multiple assets on a blockchain where asset identifiers
+and amounts are blinded yet auditable through the use of applied cryptography.
 
-Bitcoin is an experimental new digital currency that enables instant payments to
-anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate
-with no central authority: managing transactions and issuing money are carried
-out collectively by the network. Elements Alpha is the name of open source
-software which enables the use of this currency.
+ * [Confidential Assets Tutorial](share/rpcuser/assets_tutorial.sh)
+ * [Confidential Assets Demo](https://github.com/ElementsProject/confidential-assets-demo)
 
-For more information, as well as an immediately useable, binary version of
-the Bitcoin Core software, see https://www.bitcoin.org/en/download.
-
-What is Elements?
+Features of the Elements blockchain platform
 ----------------
 
 Compared to Bitcoin itself, it adds the following features:
+ * [Confidential Assets][issued-assets]
  * [Confidential Transactions][confidential-transactions]
  * [Additional opcodes][opcodes]
  * [Deterministic Peg][deterministic-peg]
  * [Signed Blocks][signed-blocks]
 
-Previous elements that have been integrated into Core:
+Previous elements that have been integrated into Bitcoin:
  * [Segregated Witness][segregated-witness]
  * [Relative Lock Time][relative-lock-time]
 
@@ -55,3 +43,12 @@ information or see http://opensource.org/licenses/MIT.
 [opcodes]: https://www.elementsproject.org/elements/opcodes
 [deterministic-peg]: https://www.elementsproject.org/elements/deterministic-pegs
 [signed-blocks]: https://www.elementsproject.org/elements/signed-blocks
+
+What is the Elements Project?
+-----------------
+Elements is an open source collaborative project where we work on a collection
+of experiments to more rapidly bring technical innovation to the Bitcoin ecosystem.
+
+https://github.com/ElementsProject/elementsproject.org
+
+Learn more on [the Elements Project website](https://www.elementsproject.org).
