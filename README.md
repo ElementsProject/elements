@@ -11,7 +11,7 @@ The latest feature in the Elements blockchain platform is Confidential Assets,
 the ability to issue multiple assets on a blockchain where asset identifiers
 and amounts are blinded yet auditable through the use of applied cryptography.
 
- * [Confidential Assets Tutorial](share/rpcuser/assets_tutorial.sh)
+ * [Confidential Assets Tutorial](contrib/assets_tutorial/assets_tutorial.sh)
  * [Confidential Assets Demo](https://github.com/ElementsProject/confidential-assets-demo)
 
 Features of the Elements blockchain platform
