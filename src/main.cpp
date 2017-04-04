@@ -1559,9 +1559,14 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
     assert(tx.IsCoinBase());
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        if (!tx.vout[i].nValue.IsExplicit() || !tx.vout[i].nAsset.IsExplicit())
+        const CTxOut& out = tx.vout[i];
+        if (!out.nValue.IsExplicit() || !out.nAsset.IsExplicit()) {
             return false;
-        remaining[tx.vout[i].nAsset.GetAsset()] -= tx.vout[i].nValue.GetAmount();
+        }
+        if (!MoneyRange(out.nValue.GetAmount())) {
+            return false;
+        }
+        remaining[out.nAsset.GetAsset()] -= out.nValue.GetAmount();
     }
     return MoneyRange(remaining);
 }
