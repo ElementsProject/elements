@@ -105,7 +105,7 @@ class WalletTest (BitcoinTestFramework):
         # Create a couple of transactions to send them to node2, submit them through
         # node1, and make sure both node0 and node2 pick them up properly:
         node0utxos = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
-        assert_equal(len(node0utxos), 104)
+        assert_equal(len(node0utxos), 3)
 
         # create both transactions
         txns_to_send = []
