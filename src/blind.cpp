@@ -164,11 +164,11 @@ void BlindAsset(CConfidentialAsset& confAsset, secp256k1_generator& gen, const C
     assert(ret != 0);
 }
 
-void CreateValueCommitment(CConfidentialValue& confValue, secp256k1_pedersen_commitment& commit, const std::vector<unsigned char*> blindptrs, const secp256k1_generator& gen, const CAmount amount)
+void CreateValueCommitment(CConfidentialValue& confValue, secp256k1_pedersen_commitment& commit, const unsigned char* blindptr, const secp256k1_generator& gen, const CAmount amount)
 {
     int ret;
     confValue.vchCommitment.resize(CConfidentialValue::nCommittedSize);
-    ret = secp256k1_pedersen_commit(secp256k1_blind_context, &commit, (unsigned char*)blindptrs.back(), amount, &gen);
+    ret = secp256k1_pedersen_commit(secp256k1_blind_context, &commit, blindptr, amount, &gen);
     assert(ret != 0);
     secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, &confValue.vchCommitment[0], &commit);
     assert(confValue.IsValid());
@@ -416,7 +416,7 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
                 BlindAsset(confAsset, gen, asset, assetblindptrs.back());
 
                 // Create value commitment
-                CreateValueCommitment(confValue, commit, blindptrs, gen, amount);
+                CreateValueCommitment(confValue, commit, blindptrs.back(), gen, amount);
 
                 // nonce should just be blinding key
                 uint256 nonce = nPseudo ? uint256(std::vector<unsigned char>(vBlindIssuanceToken[nIn].begin(), vBlindIssuanceToken[nIn].end())) : uint256(std::vector<unsigned char>(vBlindIssuanceAsset[nIn].begin(), vBlindIssuanceAsset[nIn].end()));
@@ -485,7 +485,7 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
             BlindAsset(confAsset, gen, asset, assetblindptrs.back());
 
             // Create value commitment
-            CreateValueCommitment(confValue, commit, blindptrs, gen, amount);
+            CreateValueCommitment(confValue, commit, blindptrs.back(), gen, amount);
 
             // Generate nonce for rewind by owner
             uint256 nonce = GenerateOutputRangeproofNonce(out, output_pubkeys[nOut]);
