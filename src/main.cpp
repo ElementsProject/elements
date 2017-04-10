@@ -1190,15 +1190,17 @@ public:
     bool operator()();
 };
 
-// Does *not* destroy the check in the case of no queue, or passes its ownership to the queue.
-static inline bool QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
+// Destroys the check in the case of no queue, or passes its ownership to the queue.
+static inline ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check)
 {
     if (queue != NULL) {
         queue->push_back(check);
-        return true;
+        return SCRIPT_ERR_OK;
     }
-    bool ret = (*check)();
-    return ret;
+    bool success = (*check)();
+    ScriptError err = check->GetScriptError();
+    delete check;
+    return success ? SCRIPT_ERR_OK : err;
 }
 
 
@@ -1208,13 +1210,19 @@ bool CRangeCheck::operator()()
         return true;
     }
 
-    return CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts);
+    if (!CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts)) {
+        error = SCRIPT_ERR_RANGEPROOF;
+        return false;
+    }
+
+    return true;
 };
 
 bool CBalanceCheck::operator()()
 {
     if (!secp256k1_pedersen_verify_tally(secp256k1_ctx_verify_amounts, vpCommitsIn.data(), vpCommitsIn.size(), vpCommitsOut.data(), vpCommitsOut.size())) {
         fAmountError = true;
+        error = SCRIPT_ERR_PEDERSEN_TALLY;
         return false;
     }
 
@@ -1395,7 +1403,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 p++;
 
                 // Rangecheck must be done for blinded amount
-                if (issuance.nAmount.IsCommitment() && !QueueCheck(pvChecks, new CRangeCheck(&issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, issuanceAsset.vchCommitment, CScript(), cacheStore))) {
+                if (issuance.nAmount.IsCommitment() && QueueCheck(pvChecks, new CRangeCheck(&issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, issuanceAsset.vchCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
                     return false;
                 }
             }
@@ -1436,7 +1444,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 vpCommitsIn.push_back(p);
                 p++;
 
-                if (issuance.nInflationKeys.IsCommitment() && !QueueCheck(pvChecks, new CRangeCheck(&issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, tokenAsset.vchCommitment, CScript(), cacheStore))) {
+                if (issuance.nInflationKeys.IsCommitment() && QueueCheck(pvChecks, new CRangeCheck(&issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, tokenAsset.vchCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
                     return false;
                 }
             } else if (!issuance.nInflationKeys.IsNull()) {
@@ -1492,7 +1500,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     }
 
     // Check balance
-    if (!QueueCheck(pvChecks, new CBalanceCheck(vData, vpCommitsIn, vpCommitsOut))) {
+    if (QueueCheck(pvChecks, new CBalanceCheck(vData, vpCommitsIn, vpCommitsOut)) != SCRIPT_ERR_OK) {
         return false;
     }
 
@@ -1516,7 +1524,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (!ptxoutwit || ptxoutwit->vchRangeproof.size() > 5000) {
             return false;
         }
-        if (!QueueCheck(pvChecks, new CRangeCheck(&val, ptxoutwit->vchRangeproof, vchAssetCommitment, tx.vout[i].scriptPubKey, cacheStore))) {
+        if (QueueCheck(pvChecks, new CRangeCheck(&val, ptxoutwit->vchRangeproof, vchAssetCommitment, tx.vout[i].scriptPubKey, cacheStore)) != SCRIPT_ERR_OK) {
             return false;
         }
     }
@@ -1543,7 +1551,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
             return false;
 
-        if (!QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, cacheStore))) {
+        if (QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, cacheStore)) != SCRIPT_ERR_OK) {
             return false;
         }
         // Each CSurjectionCheck uses swap to keep pointers valid.
@@ -2646,7 +2654,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
                 // Verify signature
                 CCheck* check = new CScriptCheck(*coins, tx, i, prevValueIn, flags, cacheStore, &txdata);
-                if (!QueueCheck(pvChecks, check)) {
+                ScriptError serror = QueueCheck(pvChecks, check);
+                if (serror != SCRIPT_ERR_OK) {
                     if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
                         // Check whether the failure was caused by a
                         // non-mandatory script verification check, such as
@@ -2657,7 +2666,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         CScriptCheck check2(*coins, tx, i, prevValueIn,
                                 flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheStore, &txdata);
                         if (check2())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check->GetScriptError())));
+                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(serror)));
                     }
                     // Failures of other flags indicate a transaction that is
                     // invalid in new blocks, e.g. a invalid P2SH. We DoS ban
@@ -2666,14 +2675,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                     // as to the correct behavior - we may want to continue
                     // peering with non-upgraded nodes even after soft-fork
                     // super-majority signaling has occurred.
-
-                    // If the check was deleted already, we have no idea what is
-                    // wrong with it. This should only happen during ConnectBlock
-                    // with a non-NULL queue. Since this code is only reached in
-                    // the one-shot mempool case it will never be deleted.
-                    assert(check);
-                    ScriptError serror = check->GetScriptError();
-                    delete check;
                     if (serror == SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED)
                         return state.Invalid(false, REJECT_SCRIPT, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(serror)));
                     else
