@@ -143,14 +143,6 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
             rbfStatus = "yes";
     }
     entry.push_back(Pair("bip125-replaceable", rbfStatus));
-
-    // TODO(kalle, 2017-02-23): should move this somewhere else as it is not clear which blinding factors refer
-    // TODO(kalle, 2017-02-23): to which outputs, especially for gettransaction; some (e.g. fee and change) are
-    // TODO(kalle, 2017-02-23): not listed in the output at all so don't really help the user in any way.
-    std::string blindfactors;
-    for (unsigned int i=0; i<wtx.vout.size(); i++)
-        blindfactors += wtx.GetOutputBlindingFactor(i).GetHex() + ":";
-    entry.push_back(Pair("blindingfactors", blindfactors));
 }
 
 string AccountFromValue(const UniValue& value)
