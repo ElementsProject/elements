@@ -65,6 +65,7 @@ def initialize_datadir(dirname, n):
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
     with open(os.path.join(datadir, "bitcoin.conf"), 'w') as f:
+        f.write("testnet=0\n");
         f.write("regtest=1\n");
         f.write("rpcuser=rt\n");
         f.write("rpcpassword=rt\n");

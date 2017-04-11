@@ -6,16 +6,6 @@
 #
 # Exercise the wallet.  Ported from wallet.sh.  
 # Does the following:
-#   a) creates 3 nodes, with an empty chain (no blocks).
-#   b) node0 mines a block
-#   c) node1 mines 101 blocks, so now nodes 0 and 1 have 50btc, node2 has none. 
-#   d) node0 sends 21 btc to node2, in two transactions (11 btc, then 10 btc).
-#   e) node0 mines a block, collects the fee on the second transaction
-#   f) node1 mines 100 blocks, to mature node0's just-mined block
-#   g) check that node0 has 100-21, node2 has 21
-#   h) node0 should now have 2 unspent outputs;  send these to node2 via raw tx broadcast by node1
-#   i) have node1 mine a block
-#   j) check balances - node0 should have 0, node2 should have 100
 #
 
 from test_framework import BitcoinTestFramework
@@ -45,9 +35,10 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].setgenerate(True, 101)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 50)
-        assert_equal(self.nodes[1].getbalance(), 50)
-        assert_equal(self.nodes[2].getbalance(), 0)
+        genesis_balance = 10500000
+        assert_equal(self.nodes[0].getbalance(), genesis_balance)
+        assert_equal(self.nodes[1].getbalance(), genesis_balance)
+        assert_equal(self.nodes[2].getbalance(), genesis_balance)
 
         # Send 21 BTC from 0 to 2 using sendtoaddress call.
         # Second transaction will be child of first, and will require a fee
@@ -62,9 +53,8 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].setgenerate(True, 100)
         self.sync_all()
 
-        # node0 should end up with 100 btc in block rewards plus fees, but
-        # minus the 21 plus fees sent to node2
-        assert_equal(self.nodes[0].getbalance(), 100-21)
+        assert_equal(self.nodes[0].getbalance(), genesis_balance - 21)
+        assert_equal(self.nodes[1].getbalance(), 0)
         assert_equal(self.nodes[2].getbalance(), 21)
 
         # Node0 should have two unspent outputs.
@@ -75,12 +65,14 @@ class WalletTest (BitcoinTestFramework):
 
         # create both transactions
         txns_to_send = []
-        for utxo in node0utxos: 
+        fee = Decimal(20000)/Decimal(100000000)
+        for utxo in node0utxos:
             inputs = []
             outputs = {}
-            inputs.append({ "txid" : utxo["txid"], "vout" : utxo["vout"]})
-            outputs[self.nodes[2].getnewaddress("from1")] = utxo["amount"]
+            inputs.append({ "txid" : utxo["txid"], "vout" : utxo["vout"], "nValue": utxo["amount"]})
+            outputs[self.nodes[2].getnewaddress("from1")] = utxo["amount"] - fee/len(node0utxos)
             raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
+            raw_tx = self.nodes[0].blindrawtransaction(raw_tx)
             txns_to_send.append(self.nodes[0].signrawtransaction(raw_tx))
 
         # Have node 1 (miner) send the transactions
@@ -92,8 +84,8 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         assert_equal(self.nodes[0].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 100)
-        assert_equal(self.nodes[2].getbalance("from1"), 100-21)
+        assert_equal(self.nodes[2].getbalance(), genesis_balance - fee)
+        assert_equal(self.nodes[2].getbalance("from1"), genesis_balance - fee - 21)
 
 
 if __name__ == '__main__':
