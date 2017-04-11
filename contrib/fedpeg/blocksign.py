@@ -52,6 +52,9 @@ class WatchPeerController(RotatingConsensus):
 		self.round_local_block_hex = ""
 		return
 
+	def report_error(self, msg):
+		settings.report_error(msg)
+
 sidechain.importprivkey(settings.blocksigning_private_key)
 
 settings.nodes.remove(settings.my_node)

@@ -82,11 +82,11 @@ class RotatingConsensus:
 				sleep(self.interval / 10)
 				msg = self._gen_master_msg()
 				if msg == None:
-					print("gen_master_msg threw or returned None")
+					self.report_error("gen_master_msg threw or returned None")
 					self._round_failed()
 					continue
 				if time() - start_time > self.interval / 5:
-					print("gen_master_msg took longer than interval/5: Skipping round!")
+					self.report_error("gen_master_msg took longer than interval/5: Skipping round!")
 					self._round_failed()
 					continue
 				self.publisher.send_message(msg)
@@ -98,17 +98,17 @@ class RotatingConsensus:
 				msg = self.nodes[step].read_message()
 
 				if msg == None:
-					print("Missed message from master")
+					self.report_error("Missed message from master")
 					self._round_failed()
 					continue
 
 				broadcast_msg = self._recv_master_msg(msg)
 				if broadcast_msg == None:
-					print("recv_master_msg threw or returned None")
+					self.report_error("recv_master_msg threw or returned None")
 					self._round_failed()
 					continue
 				if time() - start_time > self.interval / 2:
-					print("recv_master_msg took longer than interval/4: Skipping round!")
+					self.report_error("recv_master_msg took longer than interval/4: Skipping round!")
 					self._round_failed()
 					continue
 				self.publisher.send_message(broadcast_msg)
@@ -120,10 +120,12 @@ class RotatingConsensus:
 				msg = node.read_message()
 				if msg != None:
 					msgs.append((node.host, msg))
+				elif node != self.nodes[step] and not node.isSelf:
+					self.report_error("Missed message from %s" % node.host)
 
 			self._round_done(msgs)
 			if time() > start_time + self.interval:
-				print("round_done took longer than interval/2: We skipped a round!")
+				self.report_error("round_done took longer than interval/2: We skipped a round!")
 
 	def _gen_master_msg(self):
 		try:
@@ -179,3 +181,6 @@ class RotatingConsensus:
 
 	def round_failed(self):
 		return
+
+	def report_error(self, msg):
+		print("Error: %s" % msg)
