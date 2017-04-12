@@ -27,6 +27,7 @@ class GetChainTipsTest (BitcoinTestFramework):
         # Split the network and build two chains of different lengths.
         self.split_network ()
         self.nodes[0].generate(10)
+        # Need a send to split the chains since empty blocks are identical
         self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 1)
         self.nodes[2].generate(20)
         self.sync_all ()
