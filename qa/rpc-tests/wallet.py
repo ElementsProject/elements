@@ -101,7 +101,7 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance("", 0, False, "bitcoin"), 21000000-21)
         assert_equal(self.nodes[2].getbalance("", 0, False, "bitcoin"), 21)
 
-        # Node0 should have three non-zero unspent outputs and 101 from generate.
+        # Node0 should have three spendable outputs since 0-value coinbase outputs will be OP_RETURN.
         # Create a couple of transactions to send them to node2, submit them through
         # node1, and make sure both node0 and node2 pick them up properly:
         node0utxos = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
