@@ -1299,8 +1299,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 if (!MoneyRange(val.GetAmount()))
                     return false;
 
-                if (val.GetAmount() == 0)
-                    continue;
+                assert(val.GetAmount() != 0);
 
                 if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                     return false;
@@ -1474,8 +1473,14 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (!MoneyRange(val.GetAmount()))
                 return false;
 
-            if (val.GetAmount() == 0)
-              continue;
+            if (val.GetAmount() == 0) {
+                if (tx.vout[i].scriptPubKey.IsUnspendable()) {
+                    continue;
+                } else {
+                    // No spendable 0-value outputs
+                    return false;
+                }
+            }
 
             if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                 return false;
@@ -1559,9 +1564,14 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees)
     assert(tx.IsCoinBase());
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
-        if (!tx.vout[i].nValue.IsExplicit() || !tx.vout[i].nAsset.IsExplicit())
+        const CTxOut& out = tx.vout[i];
+        if (!out.nValue.IsExplicit() || !out.nAsset.IsExplicit()) {
             return false;
-        remaining[tx.vout[i].nAsset.GetAsset()] -= tx.vout[i].nValue.GetAmount();
+        }
+        if (!MoneyRange(out.nValue.GetAmount()) || (out.nValue.GetAmount() == 0 && !out.scriptPubKey.IsUnspendable())) {
+            return false;
+        }
+        remaining[out.nAsset.GetAsset()] -= out.nValue.GetAmount();
     }
     return MoneyRange(remaining);
 }

@@ -17,7 +17,7 @@ uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey);
 
 void BlindAsset(CConfidentialAsset& confAsset, secp256k1_generator& gen, const CAsset& asset, const unsigned char* assetblindptr);
 
-void CreateValueCommitment(CConfidentialValue& value, secp256k1_pedersen_commitment& commit, const std::vector<unsigned char*> blindptrs, const secp256k1_generator& gen, const CAmount amount);
+void CreateValueCommitment(CConfidentialValue& value, secp256k1_pedersen_commitment& commit, const unsigned char* blindptr, const secp256k1_generator& gen, const CAmount amount);
 
 /*
  * blinding_key is used to create the nonce to rewind the rangeproof in conjunction with the nNonce commitment. In the case of a 0-length nNonce, the blinding key is directly used as the nonce.
