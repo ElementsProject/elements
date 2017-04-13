@@ -2044,7 +2044,6 @@ UniValue gettransaction(const UniValue& params, bool fHelp)
 
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
-    assert(wtx.HasValidFee());
     CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.GetFee()[policyAsset] : 0);
     CAmountMap nNet = nCredit - nDebit;
     nNet[policyAsset] -= nFee;

@@ -1765,8 +1765,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
-        if (!tx.HasValidFee())
-            return state.DoS(0, false, REJECT_INVALID, "bad-fees");
         CAmount nFees = tx.GetFee()[policyAsset];
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
@@ -2613,9 +2611,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             }
         }
 
-        // Tally transaction fees
-        if (!tx.HasValidFee())
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
         if (!VerifyAmounts(inputs, tx, pvChecks, cacheStore))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
@@ -3289,8 +3284,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit())
                 mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
         }
-        if (!tx.HasValidFee())
-            return state.DoS(100, error("ConnectBlock(): transaction fee overflowed"), REJECT_INVALID, "bad-fee-outofrange");
         mapFees += tx.GetFee();
         if (!MoneyRange(mapFees))
             return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");

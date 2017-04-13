@@ -85,6 +85,17 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.vout.push_back(CTxOut(bitcoinID, 22, CScript()));
         BOOST_CHECK(VerifyAmounts(cache, tx3));
 
+        // Fees must have non-negative value
+        tx3.vout.push_back(CTxOut(bitcoinID, 0, CScript()));
+        BOOST_CHECK(VerifyAmounts(cache, tx3));
+
+        tx3.vout.push_back(CTxOut(bitcoinID, -1, CScript()));
+        BOOST_CHECK(!VerifyAmounts(cache, tx3));
+
+        tx3.vout.pop_back();
+        tx3.vout.pop_back();
+        BOOST_CHECK(VerifyAmounts(cache, tx3));
+
         // Try to blind with a single non-fee output, which fails as its blinding factor ends up being zero.
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
