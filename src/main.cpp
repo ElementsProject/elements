@@ -3296,7 +3296,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     if (!VerifyCoinbaseAmount(block.vtx[0], blockReward))
         return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (limit=%d)",
+                         error("ConnectBlock(): coinbase pays too much, has fee or blinded outputs (limit=%d)",
                                blockReward[policyAsset]),
                                REJECT_INVALID, "bad-cb-amount");
 
