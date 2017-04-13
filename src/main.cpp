@@ -4201,8 +4201,8 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const 
 {
     // Check proof of work matches claimed amount
     if (fCheckPOW && !CheckProof(block, Params().GetConsensus()))
-        return state.DoS(50, error("CheckBlockHeader(): proof of work failed"),
-                         REJECT_INVALID, "high-hash", true);
+        return state.DoS(50, error("CheckBlockHeader(): block proof invalid"),
+                         REJECT_INVALID, "block-proof-invalid", true);
 
     // Check timestamp
     if (block.GetBlockTime() > GetAdjustedTime() + 2 * 60 * 60)
