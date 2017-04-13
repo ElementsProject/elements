@@ -2634,9 +2634,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
 
-        // Tally validity checked in CheckTxInputs
-        CAmountMap fee = tx.GetFee();
-
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
         // Helps prevent CPU exhaustion attacks.
