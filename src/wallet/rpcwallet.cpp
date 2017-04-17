@@ -2797,7 +2797,7 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
                             "2. options               (object, optional)\n"
                             "   {\n"
                             "     \"changeAddress\"     (string, optional, default pool address) The bitcoin address to receive the change\n"
-                            "     \"changePosition\"    (numeric, optional, default random) The index of the change output\n"
+                            "     \"changePosition\"    (numeric, optional, default random) The index of the change output (DISABLED)\n"
                             "     \"includeWatching\"   (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"      (boolean, optional, default false) Lock selected unspent outputs\n"
                             "     \"feeRate\"           (numeric, optional, default not set: makes wallet determine the fee) Set a specific feerate (" + CURRENCY_UNIT + " per KB)\n"
@@ -2807,7 +2807,6 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
                             "{\n"
                             "  \"hex\":       \"value\", (string)  The resulting raw transaction (hex-encoded string)\n"
                             "  \"fee\":       n,         (numeric) Fee in " + CURRENCY_UNIT + " the resulting transaction pays\n"
-                            "  \"changepos\": n          (numeric) The position of the added change output, or -1\n"
                             "}\n"
                             "\"hex\"             \n"
                             "\nExamples:\n"
@@ -2860,7 +2859,8 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
         }
 
         if (options.exists("changePosition"))
-            changePosition = options["changePosition"].get_int();
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "changePosition argument is disabled");
+            //changePosition = options["changePosition"].get_int();
 
         if (options.exists("includeWatching"))
             includeWatching = options["includeWatching"].get_bool();
@@ -2896,7 +2896,6 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
 
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("hex", EncodeHexTx(tx)));
-    result.push_back(Pair("changepos", changePosition));
     result.push_back(Pair("fee", ValueFromAmount(nFeeOut)));
 
     return result;

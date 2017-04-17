@@ -2439,6 +2439,13 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey*>& vpChangeKey, CAmount& nFeeRet,
                                 int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken)
 {
+    // TODO re-enable to support multiple assets in a logical fashion, since the number of possible
+    // change positions are number of assets being spent.
+    if (nChangePosInOut != -1) {
+        strFailReason = _("change position argument has been disabled");
+        return false;
+    }
+
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -2673,6 +2680,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             if (pubkey != CPubKey()) {
                                 numToBlind++;
                             }
+                            // reset nChangePosInOut for next asset
+                            nChangePosInOut = -1;
                         }
                     }
                     else
