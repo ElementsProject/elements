@@ -2375,6 +2375,10 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
+        // Fee outputs should not be added to avoid overpayment of fees
+        if (txOut.IsFee()) {
+            continue;
+        }
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), false};
         vecSend.push_back(recipient);
 
