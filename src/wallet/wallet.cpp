@@ -2646,18 +2646,19 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     if (!CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false))
         return false;
 
-    // Append fee output if any
-    // This assumes fee is appended to end, and only one fee added by the CreateTransaction call
-    if (wtx.tx->vout.back().IsFee()) {
-        tx.vout.push_back(wtx.tx->vout.back());
-    }
-
-    if (nChangePosInOut != -1) {
-        tx.vout.insert(tx.vout.begin() + nChangePosInOut, wtx.tx->vout[nChangePosInOut]);
-
-        // Insert change witness
-        tx.wit.vtxoutwit.resize(tx.vout.size()-1);
-        tx.wit.vtxoutwit.insert(tx.wit.vtxoutwit.begin() + nChangePosInOut,  wtx.tx->wit.vtxoutwit[nChangePosInOut]);
+    // Wipe outputs and output witness and re-add one by one
+    tx.vout.clear();
+    tx.wit.vtxoutwit.clear();
+    for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+        const CTxOut& out = wtx.tx->vout[i];
+        tx.vout.push_back(out);
+        if (wtx.tx->wit.vtxoutwit.size() <= i) {
+            break;
+        }
+        // We want to re-add previously existing outwitnesses
+        // even though we don't create any new ones
+        const CTxOutWitness& outwit = wtx.tx->wit.vtxoutwit[i];
+        tx.wit.vtxoutwit.push_back(outwit);
     }
 
     // Add new txins (keeping original txin scriptSig/order)
@@ -2758,6 +2759,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
     {
         set<pair<const CWalletTx*,unsigned int> > setCoins;
+        // We need to store an unblinded and unsigned version of the transaction
+        // in case of !sign
+        CMutableTransaction txUnblindedAndUnsigned;
         LOCK2(cs_main, cs_wallet);
         {
             std::vector<COutput> vAvailableCoins;
@@ -2785,6 +2789,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 for (const auto& recipient : vecSend)
                 {
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
+                    txout.nNonce.vchCommitment = std::vector<unsigned char>(recipient.confidentiality_key.begin(), recipient.confidentiality_key.end());
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
@@ -2927,8 +2932,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             }
 
                             vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
-                            txNew.vout.insert(position, newTxOut);
                             CPubKey pubkey = GetBlindingPubKey(scriptChange);
+                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+                            txNew.vout.insert(position, newTxOut);
                             output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, pubkey);
                             if (pubkey != CPubKey()) {
                                 numToBlind++;
@@ -3085,6 +3091,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 }
 
                 // Keep a backup of transaction in case re-blinding necessary
+                txUnblindedAndUnsigned = txNew;
                 CMutableTransaction txBackup(txNew);
                 int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, vassetKeys, vtokenKeys, txNew);
                 // TODO remove?
@@ -3125,11 +3132,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 assert(output_blinds.size() == output_asset_blinds.size());
                 assert(output_asset_blinds.size() == output_assets.size());
 
-                for (unsigned int i = 0; i< vAmounts.size(); i++) {
-                    assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
-                    assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
-                    assert(!output_assets[i].IsNull());
-                    wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
+                if (sign) {
+                    for (unsigned int i = 0; i< vAmounts.size(); i++) {
+                        assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
+                        assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
+                        assert(!output_assets[i].IsNull());
+                        wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
+                    }
                 }
 
                 // Remove scriptSigs to eliminate the fee calculation dummy signatures
@@ -3225,8 +3234,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 nIn++;
             }
+        } else {
+            // Revert to pre-blinded transaction
+            txNew = txUnblindedAndUnsigned;
         }
-        //TODO !sign -> remove blinding
 
         // Embed the constructed transaction data in wtxNew.
         wtxNew.SetTx(MakeTransactionRef(std::move(txNew)));
