@@ -181,6 +181,8 @@ class CTTest (BitcoinTestFramework):
         # If we only add one, the newly blinded will be 0-blinded because input = -output
         raw = self.nodes[0].createrawtransaction([], {addr:Decimal('1.1'), addr2:1})
         funded = self.nodes[0].fundrawtransaction(raw)
+        # fund again to make sure no blinded outputs were created (would fail)
+        funded = self.nodes[0].fundrawtransaction(funded["hex"])
         blinded = self.nodes[0].blindrawtransaction(funded["hex"])
         # blind again to make sure we know output blinders
         blinded2 = self.nodes[0].blindrawtransaction(blinded)
