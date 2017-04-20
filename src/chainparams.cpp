@@ -19,6 +19,8 @@
 
 #include "chainparamsseeds.h"
 
+static const uint32_t MAX_GENESIS_OUTPUTS = 500;
+
 // Safer for users if they load incorrect parameters via arguments.
 static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID)
 {
@@ -43,20 +45,38 @@ static CScript StrHexToScriptWithDefault(std::string strScript, const CScript de
     return returnScript;
 }
 
-static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, const CScript& genesisOutputScript, uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const CAsset& genesisAsset)
+struct GenesisReward
 {
-    // Shards must be evenly divisible
-    assert(MAX_MONEY % rewardShards == 0);
+    const CAmount nTotalAmount;
+    const CScript outputScript;
+    const CAsset asset;
+    const uint32_t nShards;
+  
+    GenesisReward(const CAmount& nTotalAmountIn, const CScript& outputScriptIn, const CAsset& assetIn, const uint32_t nShardsIn=1) :
+        nTotalAmount(nTotalAmountIn), outputScript(outputScriptIn), asset(assetIn), nShards(nShardsIn) {};
+};
+
+static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, uint32_t nTime, int32_t nVersion, const std::vector<GenesisReward>& genesisRewards)
+{
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     // Any consensus-related values that are command-line set can be added here for anti-footgun
     txNew.vin[0].scriptSig = CScript(CommitToArguments(params, networkID));
-    txNew.vout.resize(rewardShards);
-    for (unsigned int i = 0; i < rewardShards; i++) {
-        txNew.vout[i].nValue = genesisReward/rewardShards;
-        txNew.vout[i].nAsset = genesisAsset;
-        txNew.vout[i].scriptPubKey = genesisOutputScript;
+
+    unsigned int totalOutputs = 0;
+    for (GenesisReward gReward : genesisRewards) totalOutputs += gReward.nShards;
+    assert(totalOutputs <= MAX_GENESIS_OUTPUTS);
+    txNew.vout.resize(totalOutputs);
+
+    for (GenesisReward gReward : genesisRewards) {
+        for (unsigned int i = 0; i < gReward.nShards; i++) {
+            // Shards must be evenly divisible
+            assert(gReward.nTotalAmount % gReward.nShards == 0);
+            txNew.vout[i].nValue = gReward.nTotalAmount / gReward.nShards;
+            txNew.vout[i].nAsset = gReward.asset;
+            txNew.vout[i].scriptPubKey = gReward.outputScript;
+        }
     }
 
     CBlock genesis;
@@ -139,7 +159,10 @@ public:
 
         parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, 1, MAX_MONEY, 100, BITCOINID);
+        const std::vector<GenesisReward> genesisRewards = {
+            GenesisReward(MAX_MONEY, scriptDestination, BITCOINID, 100),
+        };
+        genesis = CreateGenesisBlock(consensus, strNetworkID, 1231006505, 1, genesisRewards);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
@@ -241,7 +264,10 @@ public:
         nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
 
-        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, 1, MAX_MONEY, 100, BITCOINID);
+        const std::vector<GenesisReward> genesisRewards = {
+            GenesisReward(MAX_MONEY, consensus.fedpegScript, BITCOINID, 100),
+        };
+        genesis = CreateGenesisBlock(consensus, strNetworkID, 1296688602, 1, genesisRewards);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
