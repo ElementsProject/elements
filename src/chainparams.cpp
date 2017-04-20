@@ -137,12 +137,9 @@ public:
         nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
-        // SHA256 of Bitcoin genesis mainnet hash for NUMS bitcoin asset id
-        bitcoinID = BITCOINID;
-
         parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, 1, MAX_MONEY, 100, bitcoinID);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, 1, MAX_MONEY, 100, BITCOINID);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
@@ -244,10 +241,7 @@ public:
         nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
 
-        // SHA256 of Bitcoin genesis mainnet hash for NUMS bitcoin asset id
-        bitcoinID = BITCOINID;
-
-        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, 1, MAX_MONEY, 100, bitcoinID);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, 1, MAX_MONEY, 100, BITCOINID);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
