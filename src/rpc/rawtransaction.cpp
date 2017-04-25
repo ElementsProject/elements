@@ -726,14 +726,14 @@ void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& 
 
 UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 {
-    if (request.fHelp || (request.params.size() < 5 || request.params.size() > 6))
+    if (request.fHelp || (request.params.size() < 5 || request.params.size() > 7))
         throw std::runtime_error(
-            "rawblindrawtransaction \"hexstring\" [\"inputblinder\",...] [\"totalblinder\"]\n"
+            "rawblindrawtransaction \"hexstring\" [\"inputblinder\",...] [\"totalblinder\"] ignoreblindfail\n"
             "\nConvert one or more outputs of a raw transaction into confidential ones.\n"
             "Returns the hex-encoded raw transaction.\n"
-            "If at least one of the inputs is confidential, at least one of the outputs must be.\n"
             "The input raw transaction cannot have already-blinded outputs.\n"
             "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
+            "If an additional blinded output is required to make a balanced blinding, a 0-value unspendable output will be added. Since there is no access to the wallet the blinding pubkey from the last output with blinding key will be repeated.\n"
 
             "\nArguments:\n"
             "1. \"hexstring\",          (string, required) A hex-encoded raw transaction.\n"
@@ -751,6 +751,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
             "   \"inputassetblinder\" (string, required) A hex-encoded asset blinding factor, one for each input.\n"
             "   ],\n"
             "6. \"totalblinder\"        (string, optional) Ignored for now.\n"
+            "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
 
             "\nResult:\n"
             "\"transaction\"              (string) hex string of the transaction\n"
@@ -758,8 +759,10 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     if (request.params.size() == 5) {
         RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR));
-    } else {
+    } else if (request.params.size() == 6) {
         RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VSTR));
+    } else {
+        RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VARR)(UniValue::VSTR)(UniValue::VBOOL));
     }
 
     vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
@@ -775,6 +778,13 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
     UniValue inputAmounts = request.params[2].get_array();
     UniValue inputAssets = request.params[3].get_array();
     UniValue inputAssetBlinds = request.params[4].get_array();
+
+    bool fIgnoreBlindFail = true;
+    if (request.params.size() > 6) {
+        fIgnoreBlindFail = request.params[6].get_bool();
+    }
+
+    int n_blinded_ins = 0;
 
     if (inputBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input blind for each input must be provided"));
     if (inputAmounts.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: one (potentially empty) input blind for each input must be provided"));
@@ -813,6 +823,10 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         input_asset_blinds.push_back(uint256S(assetblind));
         input_assets.push_back(CAsset(uint256S(asset)));
         input_amounts.push_back(inputAmounts[nIn].get_int64());
+
+        if (!input_blinds.back().IsNull()) {
+            n_blinded_ins++;
+        }
     }
 
     std::vector<CKey> asset_keys;
@@ -821,14 +835,40 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     // How many are we trying to blind?
     int numPubKeys = 0;
-    for (auto&& key : output_pubkeys) {
+    unsigned int keyIndex = 0;
+    for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
+        const CPubKey& key = output_pubkeys[i];
         if (key.IsValid()) {
             numPubKeys++;
+            keyIndex = i;
         }
     }
 
-    if (numPubKeys == 0 || BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx) != numPubKeys) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
+    if (numPubKeys == 0 && n_blinded_ins == 0) {
+        // Vacuous, just return the transaction
+        return EncodeHexTx(tx);
+    } else if (n_blinded_ins > 0 && numPubKeys == 0) {
+        // Blinded inputs need to balanced with something to be valid, make a dummy.
+        // No privacy lost because all outputs are explicit anyways.
+        CTxOut newTxOut(tx.vout.back().nAsset.GetAsset(), 0, CScript() << OP_RETURN);
+        tx.vout.push_back(newTxOut);
+        numPubKeys++;
+        // Just copy some non-zero key
+        output_pubkeys.push_back(output_pubkeys[keyIndex]);
+    } else if (n_blinded_ins == 0 && numPubKeys == 1) {
+        if (fIgnoreBlindFail) {
+            // Just get rid of the ECDH key in the nonce field and return
+            tx.vout[keyIndex].nNonce.SetNull();
+            return EncodeHexTx(tx);
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Add another output to blind in order to complete the blinding."));
+        }
+    }
+
+    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx) != numPubKeys) {
+        // TODO Have more rich return values, communicating to user what has been blinded
+        // User may be ok not blinding something that for instance has no corresponding type on input
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?"));
     }
 
     return EncodeHexTx(tx);
@@ -837,21 +877,22 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 #ifdef ENABLE_WALLET
 UniValue blindrawtransaction(const JSONRPCRequest& request)
 {
-    if (request.fHelp || (request.params.size() != 1 && request.params.size() != 2))
+    if (request.fHelp || (request.params.size() < 1 || request.params.size() > 4))
         throw runtime_error(
-            "blindrawtransaction \"hexstring\" [\"totalblinder\"]\n"
+            "blindrawtransaction \"hexstring\" [\"assetcommitments\"] [\"totalblinder\"] ignoreblindfail\n"
             "\nConvert one or more outputs of a raw transaction into confidential ones using only wallet inputs.\n"
             "Returns the hex-encoded raw transaction.\n"
-            "If at least one of the inputs is confidential, at least one of the outputs must be.\n"
             "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
+            "This call may add an additional 0-value unspendable output in order to balance the blinders.\n"
 
             "\nArguments:\n"
             "1. \"hexstring\",          (string, required) A hex-encoded raw transaction.\n"
-            "2. [                       (array, optional) An array of input asset generators. If provided, this list must match the final input commitment list, including ordering, to make a valid surjection proof. This list does not include generators for issuances, as these assets are inherently unblinded.\n"
+            "2. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
+            "3. [                       (array, optional) An array of input asset generators. If provided, this list must be empty, or match the final input commitment list, including ordering, to make a valid surjection proof. This list does not include generators for issuances, as these assets are inherently unblinded.\n"
             "    \"assetcommitments\"   (string, optional) A hex-encoded asset commitment, one for each input.\n"
             "                        Null commitments must be \"\".\n"
             "   ],\n"
-            "3. \"totalblinder\"        (string, optional) Ignored for now.\n"
+            "4. \"totalblinder\"        (string, optional) Ignored for now.\n"
 
             "\nResult:\n"
             "\"transaction\"              (string) hex string of the transaction\n"
@@ -860,9 +901,11 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     if (request.params.size() == 1) {
         RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR));
     } else if (request.params.size() == 2){
-        RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR));
+        RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VBOOL));
     } else if (request.params.size() == 3){
-        RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VARR)(UniValue::VSTR));
+        RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VBOOL)(UniValue::VARR));
+    } else {
+        RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR)(UniValue::VBOOL)(UniValue::VARR)(UniValue::VSTR));
     }
 
     vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
@@ -874,10 +917,15 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
 
-    std::vector<std::vector<unsigned char> > auxiliary_generators;
+    bool fIgnoreBlindFail = true;
     if (request.params.size() > 1) {
-        UniValue assetCommitments = request.params[1].get_array();
-        if (assetCommitments.size() < tx.vin.size()) {
+        fIgnoreBlindFail = request.params[1].get_bool();
+    }
+
+    std::vector<std::vector<unsigned char> > auxiliary_generators;
+    if (request.params.size() > 2) {
+        UniValue assetCommitments = request.params[2].get_array();
+        if (assetCommitments.size() != 0 && assetCommitments.size() < tx.vin.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Asset commitment array must have at least as many entries as transaction inputs.");
         }
         for (size_t nIn = 0; nIn < assetCommitments.size(); nIn++) {
@@ -902,6 +950,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     std::vector<uint256> output_asset_blinds;
     std::vector<CAsset> output_assets;
     std::vector<CPubKey> output_pubkeys;
+    int n_blinded_ins = 0;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
 
         std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.find(tx.vin[nIn].prevout.hash);
@@ -933,6 +982,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         }
         else {
             input_amounts.push_back(it->second.GetOutputValueOut(tx.vin[nIn].prevout.n));
+            n_blinded_ins += 1;
         }
     }
 
@@ -942,15 +992,39 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
 
     // How many are we trying to blind?
     int numPubKeys = 0;
-    for (auto&& key : output_pubkeys) {
+    unsigned int keyIndex = 0;
+    for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
+        const CPubKey& key = output_pubkeys[i];
         if (key.IsValid()) {
             numPubKeys++;
+            keyIndex = i;
         }
     }
 
-    // Something must become blinded, and all attempts must work
-    if (numPubKeys == 0 || BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != numPubKeys) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: add an additional output with a blinding pubkey"));
+    if (numPubKeys == 0 && n_blinded_ins == 0) {
+        // Vacuous, just return the transaction
+        return EncodeHexTx(tx);
+    } else if (n_blinded_ins > 0 && numPubKeys == 0) {
+        // Blinded inputs need to balanced with something to be valid, make a dummy.
+        // No privacy lost because all outputs are explicit anyways.
+        CTxOut newTxOut(tx.vout.back().nAsset.GetAsset(), 0, CScript() << OP_RETURN);
+        tx.vout.push_back(newTxOut);
+        numPubKeys++;
+        output_pubkeys.push_back(pwalletMain->GetBlindingPubKey(newTxOut.scriptPubKey));
+    } else if (n_blinded_ins == 0 && numPubKeys == 1) {
+        if (fIgnoreBlindFail) {
+            // Just get rid of the ECDH key in the nonce field and return
+            tx.vout[keyIndex].nNonce.SetNull();
+            return EncodeHexTx(tx);
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Add another output to blind in order to complete the blinding."));
+        }
+    }
+
+    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != numPubKeys) {
+        // TODO Have more rich return values, communicating to user what has been blinded
+        // User may be ok not blinding something that for instance has no corresponding type on input
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?"));
     }
 
     return EncodeHexTx(tx);

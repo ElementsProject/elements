@@ -391,7 +391,7 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
 {
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
@@ -422,7 +422,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, fIgnoreBlindFail)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -434,9 +434,9 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     }
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
 {
-    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -495,9 +495,9 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 6)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
         throw runtime_error(
-            "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" subtractfeefromamount assetlabel)\n"
+            "sendtoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount assetlabel ignoreblindfail )\n"
             "\nSend an amount to a given address.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
@@ -509,8 +509,9 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "6. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
             "                             The recipient will receive less bitcoins than you enter in the amount field.\n"
+            "6. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
+            "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -553,11 +554,15 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
         strasset = request.params[5].get_str();
     }
 
+    bool fIgnoreBlindFail = true;
+    if (request.params.size() > 6)
+        fIgnoreBlindFail = request.params[6].get_bool();
+
     CAsset asset = GetAssetFromString(strasset);
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(address.Get(), nAmount, asset, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
+    SendMoney(address.Get(), nAmount, asset, fSubtractFeeFromAmount, confidentiality_pubkey, wtx, fIgnoreBlindFail);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
@@ -610,7 +615,7 @@ UniValue destroyamount(const JSONRPCRequest& request)
     CPubKey confidentiality_pubkey;
 
     EnsureWalletIsUnlocked();
-    SendMoney(destroyScript, nAmount, asset, false, confidentiality_pubkey, wtx);
+    SendMoney(destroyScript, nAmount, asset, false, confidentiality_pubkey, wtx, true);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
@@ -1086,6 +1091,7 @@ UniValue sendmany(const JSONRPCRequest& request)
             "       \"address\": \"hex\" \n"
             "       ...\n"
             "   }\n"
+            "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "\nResult:\n"
             "\"txid\"                   (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -1125,6 +1131,11 @@ UniValue sendmany(const JSONRPCRequest& request)
         if (strAccount != "")
            throw JSONRPCError(RPC_TYPE_ERROR, "Accounts can not be used with assets.");
         assets = request.params[5].get_obj();
+    }
+
+    bool fIgnoreBlindFail = true;
+    if (request.params.size() > 6) {
+        fIgnoreBlindFail = request.params[6].get_bool();
     }
 
     set<CBitcoinAddress> setAddress;
@@ -1200,7 +1211,7 @@ UniValue sendmany(const JSONRPCRequest& request)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRequired, nChangePosRet, strFailReason);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, fIgnoreBlindFail);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
@@ -2862,6 +2873,7 @@ UniValue fundrawtransaction(const JSONRPCRequest& request)
                             "in the wallet using importaddress or addmultisigaddress (to calculate fees).\n"
                             "You can see whether this is the case by checking the \"solvable\" field in the listunspent output.\n"
                             "Only pay-to-pubkey, multisig, and P2SH versions thereof are currently supported for watch-only\n"
+                            "Note: Existing fee outputs will be dropped to aid fee estimation\n"
                             "\nArguments:\n"
                             "1. \"hexstring\"           (string, required) The hex string of the raw transaction\n"
                             "2. options                 (object, optional)\n"
@@ -3564,7 +3576,7 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked();
 
     CWalletTx wtxNew;
-    SendMoney(scriptPubKey, nAmount, BITCOINID, false, CPubKey(), wtxNew);
+    SendMoney(scriptPubKey, nAmount, BITCOINID, false, CPubKey(), wtxNew, true);
 
     std::string blinds;
     for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {

@@ -145,12 +145,11 @@ class CTTest (BitcoinTestFramework):
                                                   "nValue": unspent[0]["amount"]}],
                                                   {unconfidential_address: unspent[0]["amount"] - fee, "fee":fee});
 
-        # Test that blindrawtransaction returns an exception
-        try:
-            tx = self.nodes[0].blindrawtransaction(tx)
-            raise AssertionError("blindrawtransaction RPC should fail, but it doesn't")
-        except JSONRPCException:
-            pass
+        # Test that blindrawtransaction adds an OP_RETURN output to balance blinders
+        temptx = self.nodes[0].blindrawtransaction(tx)
+        decodedtx = self.nodes[0].decoderawtransaction(temptx)
+        assert_equal(decodedtx["vout"][-1]["scriptPubKey"]["asm"], "OP_RETURN")
+        assert_equal(len(decodedtx["vout"]), 3)
 
         # Create same transaction but with a change/dummy output.
         # It should pass the blinding step.
