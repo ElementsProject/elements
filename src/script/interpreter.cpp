@@ -1580,7 +1580,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPT);
 
 #ifndef BITCOIN_SCRIPT_NO_CALLRPC
-                                if (GetBoolArg("-validatepegin", false) && !checker.IsConfirmedBitcoinBlock(genesishash, merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED))
+                                if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN) && !checker.IsConfirmedBitcoinBlock(genesishash, merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED);
 #endif
                             } catch (std::exception& e) {
