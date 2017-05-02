@@ -424,6 +424,8 @@ std::string HelpMessage(HelpMessageMode mode)
     {
         strUsage += HelpMessageOpt("-checkblocks=<n>", strprintf(_("How many blocks to check at startup (default: %u, 0 = all)"), DEFAULT_CHECKBLOCKS));
         strUsage += HelpMessageOpt("-checklevel=<n>", strprintf(_("How thorough the block verification of -checkblocks is (0-4, default: %u)"), DEFAULT_CHECKLEVEL));
+        strUsage += HelpMessageOpt("-signblockscript=<hex>", _("Change chain to be signed and validated with a different script.") +
+            " " + _(" This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-checkblockindex", strprintf("Do a full consistency check for mapBlockIndex, setBlockIndexCandidates, chainActive and mapBlocksUnlinked occasionally. Also sets -checkmempool (default: %u)", defaultChainParams->DefaultConsistencyChecks()));
         strUsage += HelpMessageOpt("-checkmempool=<n>", strprintf("Run checks every <n> transactions (default: %u)", defaultChainParams->DefaultConsistencyChecks()));
         strUsage += HelpMessageOpt("-checkpoints", strprintf("Disable expensive verification for known chain history (default: %u)", DEFAULT_CHECKPOINTS_ENABLED));
@@ -508,6 +510,10 @@ std::string HelpMessage(HelpMessageMode mode)
     }
 
     strUsage += HelpMessageGroup(_("Federated peg options:"));
+    if (showDebug) {
+        strUsage += HelpMessageOpt("-fedpegscript=<hex>", _("Change federated peg to use a different script.") +
+            " " + _("This creates a new chain with a different genesis block."));
+    }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
 
     return strUsage;
