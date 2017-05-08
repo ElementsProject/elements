@@ -27,6 +27,10 @@ static const int MAX_OPS_PER_SCRIPT = 201;
 // Maximum number of public keys per multisig
 static const int MAX_PUBKEYS_PER_MULTISIG = 20;
 
+// Validate pegin proof by checking Bitcoin transaction inclusion in
+// mainchain.
+static const bool DEFAULT_VALIDATE_PEGIN = false;
+
 // Maximum script length in bytes
 static const int MAX_SCRIPT_SIZE = 10000;
 class uint256;
