@@ -2375,6 +2375,10 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
+        // Fee outputs should not be added to avoid overpayment of fees
+        if (txOut.IsFee()) {
+            continue;
+        }
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), false};
         vecSend.push_back(recipient);
 
@@ -2404,18 +2408,15 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     if (!CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false))
         return false;
 
-    // Append fee output if any
-    // This assumes fee is appended to end, and only one fee added by the CreateTransaction call
-    if (wtx.vout.back().IsFee()) {
-        tx.vout.push_back(wtx.vout.back());
-    }
-
-    if (nChangePosInOut != -1) {
-        tx.vout.insert(tx.vout.begin() + nChangePosInOut, wtx.vout[nChangePosInOut]);
-
-        // Insert change witness
-        tx.wit.vtxoutwit.resize(tx.vout.size()-1);
-        tx.wit.vtxoutwit.insert(tx.wit.vtxoutwit.begin() + nChangePosInOut,  wtx.wit.vtxoutwit[nChangePosInOut]);
+    // Wipe outputs and output witness and re-add one by one
+    wtx.wit.vtxoutwit.resize(wtx.vout.size());
+    tx.vout.clear();
+    tx.wit.vtxoutwit.clear();
+    for (unsigned int i = 0; i < wtx.vout.size(); i++) {
+        const CTxOut& out = wtx.vout[i];
+        const CTxOutWitness& outwit = wtx.wit.vtxoutwit[i];
+        tx.vout.push_back(out);
+        tx.wit.vtxoutwit.push_back(outwit);
     }
 
     // Add new txins (keeping original txin scriptSig/order)
@@ -2437,8 +2438,15 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 }
 
 bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey*>& vpChangeKey, CAmount& nFeeRet,
-                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken)
+                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, bool fIgnoreBlindFail)
 {
+    // TODO re-enable to support multiple assets in a logical fashion, since the number of possible
+    // change positions are number of assets being spent.
+    if (nChangePosInOut != -1) {
+        strFailReason = _("change position argument has been disabled");
+        return false;
+    }
+
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -2514,6 +2522,12 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 nChangePosInOut = nChangePosRequest;
                 std::vector<CPubKey> output_pubkeys;
                 int numToBlind = 0;
+                int changeToBlind = 0;
+                int numInputsBlinded = 0;
+                // Needed in case of one blinded output that is change and no blind inputs
+                int onlyChangePos = -1;
+                // Only used to strip blinding if its the only blind output in certain situations
+                int onlyRecipientBlindIndex = -1;
 
                 txNew.vin.clear();
                 txNew.vout.clear();
@@ -2529,6 +2543,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 BOOST_FOREACH (const CRecipient& recipient, vecSend)
                 {
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
+                    txout.nNonce.vchCommitment = std::vector<unsigned char>(recipient.confidentiality_key.begin(), recipient.confidentiality_key.end());
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
@@ -2562,6 +2577,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     output_pubkeys.push_back(recipient.confidentiality_key);
                     if (recipient.confidentiality_key != CPubKey()) {
                         numToBlind++;
+                        onlyRecipientBlindIndex = txNew.vout.size()-1;
                     }
                 }
 
@@ -2667,12 +2683,17 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             }
 
                             vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
-                            txNew.vout.insert(position, newTxOut);
                             CPubKey pubkey = GetBlindingPubKey(scriptChange);
+                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+                            txNew.vout.insert(position, newTxOut);
                             output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, pubkey);
                             if (pubkey != CPubKey()) {
                                 numToBlind++;
+                                changeToBlind++;
                             }
+                            onlyChangePos = nChangePosInOut;
+                            // reset nChangePosInOut for next asset
+                            nChangePosInOut = -1;
                         }
                     }
                     else
@@ -2804,6 +2825,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     input_assets.push_back(asset);
                     CAmount amount = coin.first->GetOutputValueOut(coin.second);
                     input_amounts.push_back(amount);
+                    if (coin.first->vout[coin.second].nValue.IsCommitment() || coin.first->vout[coin.second].nAsset.IsCommitment()) {
+                        numInputsBlinded++;
+                    }
                 }
                 if(outAmounts)
                     outAmounts->clear();
@@ -2816,29 +2840,63 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     output_assets.push_back(txNew.vout[nOut].nAsset.GetAsset());
                 }
 
-                // Keep a backup of transaction in case re-blinding necessary
-                CMutableTransaction txBackup(txNew);
-                int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, vassetKeys, vtokenKeys, txNew);
-                // TODO remove?
-                assert(ret != -1);
-                if (ret != numToBlind) {
-                    // We need a dummy output to put a non-zero blinding factor.
-                    // TODO: if fBlindedOutputs, don't use an OP_RETURN but create an (extra) change output
-                    // instead, as this does not actually provide better privacy.
-
+                // There are a few edge-cases of blinding we need to take care of
+                //
+                // First, if there are blinded inputs but not outputs to blind
+                // We need this to go through, even though no privacy is gained.
+                if (numInputsBlinded > 0 &&  numToBlind == 0) {
                     // We need to make sure to dupe an asset that is in input set
+                    // TODO Have blinding do some extremely minimal rangeproof
                     CTxOut newTxOut(output_assets.back(), 0, CScript() << OP_RETURN);
-                    txBackup.vout.push_back(newTxOut);
+                    txNew.vout.push_back(newTxOut);
                     output_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
                     output_blinds.push_back(uint256());
                     output_asset_blinds.push_back(uint256());
                     output_assets.push_back(output_assets.back());
                     vAmounts.push_back(0);
                     numToBlind++;
-                    // Now it has to succeed
-                    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vassetKeys, vtokenKeys, txBackup);
-                    assert(ret == numToBlind);
-                    txNew = txBackup;
+
+                    // No blinded inputs, but 1 blinded output
+                } else if (numInputsBlinded == 0 && numToBlind == 1) {
+                    if (changeToBlind == 1) {
+                        // Only 1 blinded change, unblinded the change
+                        // TODO Split up change instead if possible
+                        if (fIgnoreBlindFail) {
+                            numToBlind--;
+                            changeToBlind--;
+                            txNew.vout[onlyChangePos].nNonce.SetNull();
+                            output_pubkeys[onlyChangePos] = CPubKey();
+                            output_blinds[onlyChangePos] = uint256();
+                            output_asset_blinds[onlyChangePos] = uint256();
+                        } else {
+                            strFailReason = _("Change output could not be blinded as there are no blinded inputs and no other blinded outputs.");
+                            return false;
+                        }
+                    } else {
+                        // 1 blinded destination
+                        // TODO Attempt to get a blinded input, OR add unblinded coin to make blinded change
+                        assert(onlyRecipientBlindIndex != -1);
+                        if (fIgnoreBlindFail) {
+                            numToBlind--;
+                            txNew.vout[onlyRecipientBlindIndex].nNonce.SetNull();
+                            output_pubkeys[onlyRecipientBlindIndex] = CPubKey();
+                            output_blinds[onlyRecipientBlindIndex] = uint256();
+                            output_asset_blinds[onlyRecipientBlindIndex] = uint256();
+                        } else {
+                            strFailReason = _("Transaction output could not be blinded as there are no blinded inputs and no other blinded outputs.");
+                            return false;
+                        }
+                    }
+                }
+                // All other combinations should work.
+
+                // Keep a backup of transaction in case re-blinding necessary
+                CMutableTransaction txUnblindedAndUnsigned(txNew);
+                int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, vassetKeys, vtokenKeys, txNew);
+                assert(ret != -1);
+                if (ret != numToBlind) {
+                    strFailReason = _("Unable to blind the transaction properly. This should not happen.");
+                    return false;
                 }
 
                 // Sign
@@ -2867,13 +2925,9 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 unsigned int nBytes = GetVirtualTransactionSize(txNew);
 
-                // Remove scriptSigs if we used dummy signatures for fee calculation
+                // Revert scriptSigs and blinding if we used dummy signatures for fee calculation
                 if (!sign) {
-                    BOOST_FOREACH (CTxIn& vin, txNew.vin)
-                        vin.scriptSig = CScript();
-                    // Only clear our script witness
-                    BOOST_FOREACH (CTxInWitness& txinwit, txNew.wit.vtxinwit)
-                        txinwit.scriptWitness.stack.clear();
+                    txNew = txUnblindedAndUnsigned;
                 }
 
                 // Embed the constructed transaction data in wtxNew.
@@ -2884,11 +2938,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 assert(output_blinds.size() == output_asset_blinds.size());
                 assert(output_asset_blinds.size() == output_assets.size());
 
-                for (unsigned int i = 0; i< vAmounts.size(); i++) {
-                    assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
-                    assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
-                    assert(!output_assets[i].IsNull());
-                    wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
+                if (sign) {
+                    for (unsigned int i = 0; i< vAmounts.size(); i++) {
+                        assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
+                        assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
+                        assert(!output_assets[i].IsNull());
+                        wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
+                    }
                 }
 
                 // Limit size

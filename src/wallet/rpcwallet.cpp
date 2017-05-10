@@ -388,7 +388,7 @@ UniValue getaddressesbyaccount(const UniValue& params, bool fHelp)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
 {
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
@@ -417,7 +417,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, fIgnoreBlindFail)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s because of its amount, complexity, or use of recently received funds!", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -426,9 +426,9 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
 {
-    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -486,9 +486,9 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 2 || params.size() > 6)
+    if (fHelp || params.size() < 2 || params.size() > 7)
         throw runtime_error(
-            "sendtoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount assetlabel )\n"
+            "sendtoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount assetlabel ignoreblindfail )\n"
             "\nSend an amount to a given address.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
@@ -500,8 +500,9 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "6. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
             "                             The recipient will receive less bitcoins than you enter in the amount field.\n"
+            "6. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
+            "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "\nResult:\n"
             "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -544,11 +545,15 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
         strasset = params[5].get_str();
     }
 
+    bool fIgnoreBlindFail = true;
+    if (params.size() > 6)
+        fIgnoreBlindFail = params[6].get_bool();
+
     CAsset asset = GetAssetFromString(strasset);
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(address.Get(), nAmount, asset, fSubtractFeeFromAmount, confidentiality_pubkey, wtx);
+    SendMoney(address.Get(), nAmount, asset, fSubtractFeeFromAmount, confidentiality_pubkey, wtx, fIgnoreBlindFail);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.vout.size(); i++) {
@@ -601,7 +606,7 @@ UniValue destroyamount(const UniValue& params, bool fHelp)
     CPubKey confidentiality_pubkey;
 
     EnsureWalletIsUnlocked();
-    SendMoney(destroyScript, nAmount, asset, false, confidentiality_pubkey, wtx);
+    SendMoney(destroyScript, nAmount, asset, false, confidentiality_pubkey, wtx, true);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.vout.size(); i++) {
@@ -1062,6 +1067,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
             "       \"address\": \"hex\" \n"
             "       ...\n"
             "   }\n"
+            "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "\nResult:\n"
             "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -1099,6 +1105,10 @@ UniValue sendmany(const UniValue& params, bool fHelp)
            throw JSONRPCError(RPC_TYPE_ERROR, "Accounts can not be used with assets.");
         assets = params[5].get_obj();
     }
+
+    bool fIgnoreBlindFail = true;
+    if (params.size() > 6)
+        fIgnoreBlindFail = params[6].get_bool();
 
     set<CBitcoinAddress> setAddress;
     vector<CRecipient> vecSend;
@@ -1173,7 +1183,7 @@ UniValue sendmany(const UniValue& params, bool fHelp)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRequired, nChangePosRet, strFailReason);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, fIgnoreBlindFail);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     if (!pwalletMain->CommitTransaction(wtx, vpChangeKey))
@@ -2784,7 +2794,7 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
         throw runtime_error(
                             "fundrawtransaction \"hexstring\" ( options )\n"
                             "\nAdd inputs to a transaction until it has enough in value to meet its out value.\n"
-                            "This will not modify existing inputs, and will add one change output to the outputs.\n"
+                            "This will not modify existing inputs, and will add change outputs to the json output.\n"
                             "Note that inputs which were signed may need to be resigned after completion since in/outputs have been added.\n"
                             "The inputs added will not be signed, use signrawtransaction for that.\n"
                             "Note that all existing inputs must have their previous output transaction be in the wallet.\n"
@@ -2792,12 +2802,13 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
                             "in the wallet using importaddress or addmultisigaddress (to calculate fees).\n"
                             "You can see whether this is the case by checking the \"solvable\" field in the listunspent output.\n"
                             "Only pay-to-pubkey, multisig, and P2SH versions thereof are currently supported for watch-only\n"
+                            "Note: Existing fee outputs will be dropped to aid fee estimation\n"
                             "\nArguments:\n"
                             "1. \"hexstring\"           (string, required) The hex string of the raw transaction\n"
                             "2. options               (object, optional)\n"
                             "   {\n"
                             "     \"changeAddress\"     (string, optional, default pool address) The bitcoin address to receive the change\n"
-                            "     \"changePosition\"    (numeric, optional, default random) The index of the change output\n"
+                            "     \"changePosition\"    (numeric, optional, default random) The index of the change output (DISABLED)\n"
                             "     \"includeWatching\"   (boolean, optional, default false) Also select inputs which are watch only\n"
                             "     \"lockUnspents\"      (boolean, optional, default false) Lock selected unspent outputs\n"
                             "     \"feeRate\"           (numeric, optional, default not set: makes wallet determine the fee) Set a specific feerate (" + CURRENCY_UNIT + " per KB)\n"
@@ -2807,7 +2818,6 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
                             "{\n"
                             "  \"hex\":       \"value\", (string)  The resulting raw transaction (hex-encoded string)\n"
                             "  \"fee\":       n,         (numeric) Fee in " + CURRENCY_UNIT + " the resulting transaction pays\n"
-                            "  \"changepos\": n          (numeric) The position of the added change output, or -1\n"
                             "}\n"
                             "\"hex\"             \n"
                             "\nExamples:\n"
@@ -2860,7 +2870,8 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
         }
 
         if (options.exists("changePosition"))
-            changePosition = options["changePosition"].get_int();
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "changePosition argument is disabled");
+            //changePosition = options["changePosition"].get_int();
 
         if (options.exists("includeWatching"))
             includeWatching = options["includeWatching"].get_bool();
@@ -2896,7 +2907,6 @@ UniValue fundrawtransaction(const UniValue& params, bool fHelp)
 
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("hex", EncodeHexTx(tx)));
-    result.push_back(Pair("changepos", changePosition));
     result.push_back(Pair("fee", ValueFromAmount(nFeeOut)));
 
     return result;
@@ -3151,7 +3161,7 @@ UniValue sendtomainchain(const UniValue& params, bool fHelp)
     EnsureWalletIsUnlocked();
 
     CWalletTx wtxNew;
-    SendMoney(scriptPubKey, nAmount, BITCOINID, false, CPubKey(), wtxNew);
+    SendMoney(scriptPubKey, nAmount, BITCOINID, false, CPubKey(), wtxNew, true);
 
     std::string blinds;
     for (unsigned int i=0; i<wtxNew.vout.size(); i++) {
