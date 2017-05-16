@@ -372,7 +372,7 @@ UniValue createblindedaddress(const JSONRPCRequest& request)
             "\nCreates a blinded address using the provided blinding key.\n"
             "\nArguments:\n"
             "1. \"address\"        (string, required) The unblinded address to be blinded.\n"
-            "2. \"key\"            (string, required) The blinding private key.\n"
+            "2. \"key\"            (string, required) The blinding public key. This can be obtained for a given address using `validateaddress`.\n"
             "\nResult:\n"
             "\"blinded_address\"   (string) The blinded address.\n"
             "\nExamples:\n"
@@ -396,14 +396,14 @@ UniValue createblindedaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
     }
     std::vector<unsigned char> keydata = ParseHex(request.params[1].get_str());
-    if (keydata.size() != 32) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length, must be 32 bytes long.");
+    if (keydata.size() != 33) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length, must be length 66.");
     }
 
-    CKey key;
-    key.Set(keydata.begin(), keydata.end(), true);
+    CPubKey key;
+    key.Set(keydata.begin(), keydata.end());
 
-    return address.AddBlindingKey(key.GetPubKey()).ToString();
+    return address.AddBlindingKey(key).ToString();
 }
 
 UniValue verifymessage(const JSONRPCRequest& request)
