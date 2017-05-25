@@ -114,7 +114,9 @@ UniValue generate(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    CScript coinbaseDest(CScript() << OP_TRUE);
+    CScript coinbaseDest(Params().CoinbaseDestination());
+    if (coinbaseDest == CScript())
+        coinbaseDest = CScript() << OP_TRUE;
 
     UniValue arr(UniValue::VARR);
     for (int i = 0; i < request.params[0].get_int(); i++) {
