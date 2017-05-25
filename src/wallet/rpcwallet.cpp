@@ -3196,6 +3196,10 @@ UniValue claimpegin(const UniValue& params, bool fHelp)
             + HelpExampleRpc("claimpegin", "\"2NEqRzqBst5rWrVx7SpwG37T17mvehLhKaN\", \"010000000151ef48c69a67700e6b30a4413eda4b631802c4514d7a09971dc12c703917e39f000000006c4730440220158c57dc3e80a826e4e348b7f530a9a9a3bb6b2913b089c03d08d0bdbf4e0d5b02201a8acf14cecbb74373894816fa69efa96e8f4e0ca633dcf99c99251200149c7b8323210214fd9d286f6aa8a7bdd043b1d5f3e3cdf754e9f1e50b65e5648704b01b2febb0acffffffff0100000000000000000000000000\", \"d50c8eec366e98b258414509d88e72ed0d2b24f63256e076d2b9d0ac3d55abc1\"")
         );
 
+    if (IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Peg-ins cannot be completed during initial sync or reindexing.");
+    }
+
     CBitcoinAddress sidechainAddress(params[0].get_str());
     if (!sidechainAddress.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid sidechain_address");
