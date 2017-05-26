@@ -711,7 +711,7 @@ UniValue rawblindrawtransaction(const UniValue& params, bool fHelp)
 {
     if (fHelp || (params.size() < 5 || params.size() > 7))
         throw runtime_error(
-            "rawblindrawtransaction \"hexstring\" [\"inputblinder\",...] [\"totalblinder\"] ignoreblindfail\n"
+            "rawblindrawtransaction \"hexstring\" [\"inputblinder\",...] [\"inputamount\",...] [\"inputasset\",...] [\"inputassetblinder\",...] ( totalblinder, ignoreblindfail )\n"
             "\nConvert one or more outputs of a raw transaction into confidential ones.\n"
             "Returns the hex-encoded raw transaction.\n"
             "The input raw transaction cannot have already-blinded outputs.\n"
@@ -734,7 +734,7 @@ UniValue rawblindrawtransaction(const UniValue& params, bool fHelp)
             "   \"inputassetblinder\" (string, required) A hex-encoded asset blinding factor, one for each input.\n"
             "   ],\n"
             "6. \"totalblinder\"        (string, optional) Ignored for now.\n"
-            "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
+            "7. \"ignoreblindfail\"\"   (bool, optional, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
 
             "\nResult:\n"
             "\"transaction\"              (string) hex string of the transaction\n"
@@ -862,7 +862,7 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
 {
     if (fHelp || (params.size() < 1 || params.size() > 4))
         throw runtime_error(
-            "blindrawtransaction \"hexstring\" [\"assetcommitments\"] [\"totalblinder\"] ignoreblindfail\n"
+            "blindrawtransaction \"hexstring\" ( ignoreblindfail [\"assetcommitment,...\"] totalblinder )\n"
             "\nConvert one or more outputs of a raw transaction into confidential ones using only wallet inputs.\n"
             "Returns the hex-encoded raw transaction.\n"
             "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
@@ -870,9 +870,9 @@ UniValue blindrawtransaction(const UniValue& params, bool fHelp)
 
             "\nArguments:\n"
             "1. \"hexstring\",          (string, required) A hex-encoded raw transaction.\n"
-            "2. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
+            "2. \"ignoreblindfail\"\"   (bool, optional, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "3. [                       (array, optional) An array of input asset generators. If provided, this list must be empty, or match the final input commitment list, including ordering, to make a valid surjection proof. This list does not include generators for issuances, as these assets are inherently unblinded.\n"
-            "    \"assetcommitments\"   (string, optional) A hex-encoded asset commitment, one for each input.\n"
+            "    \"assetcommitment\"   (string, optional) A hex-encoded asset commitment, one for each input.\n"
             "                        Null commitments must be \"\".\n"
             "   ],\n"
             "4. \"totalblinder\"        (string, optional) Ignored for now.\n"
