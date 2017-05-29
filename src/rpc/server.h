@@ -23,6 +23,7 @@
 
 //Thread-local rpc user name for logging purposes
 extern boost::thread_specific_ptr<std::string> userInstance;
+static const unsigned int DEFAULT_RPC_AMOUNT_DECIMALS = 8;
 
 class CRPCCommand;
 
@@ -186,6 +187,7 @@ extern std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strNa
 extern std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey);
 
 extern int64_t nWalletUnlockTime;
+bool SetRpcAmountDecimals(unsigned int decimals);
 extern CAmount AmountFromValue(const UniValue& value);
 extern UniValue ValueFromAmount(const CAmount& amount);
 extern double GetDifficulty(const CBlockIndex* blockindex = NULL);
