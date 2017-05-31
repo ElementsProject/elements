@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-from test_framework.authproxy import AuthServiceProxy
+from test_framework.authproxy import AuthServiceProxy, JSONRPCException
 import os
 import random
 import sys
@@ -38,6 +38,7 @@ with open(os.path.join(bitcoin_datadir, "bitcoin.conf"), 'w') as f:
         f.write("testnet=0\n")
         f.write("txindex=1\n")
         f.write("daemon=1\n")
+        f.write("listen=0\n")
 
 with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("regtest=1\n")
@@ -56,49 +57,67 @@ with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("mainchainrpcpassword="+bitcoin_pass+"\n")
         f.write("validatepegin=1\n")
         f.write("validatepegout=0\n")
+        f.write("listen=0\n")
 
-# Start daemons
-print("Starting daemons at "+bitcoin_datadir+" and "+sidechain_datadir)
-bitcoindstart = sys.argv[1]+"/bitcoind -datadir="+bitcoin_datadir
-subprocess.Popen(bitcoindstart.split(), stdout=subprocess.PIPE)
+try:
 
-sidechainstart = sys.argv[2]+"/elementsd -datadir="+sidechain_datadir
-subprocess.Popen(sidechainstart.split(), stdout=subprocess.PIPE)
+    # Start daemons
+    print("Starting daemons at "+bitcoin_datadir+" and "+sidechain_datadir)
+    bitcoindstart = sys.argv[1]+"/bitcoind -datadir="+bitcoin_datadir
+    subprocess.Popen(bitcoindstart.split(), stdout=subprocess.PIPE)
 
-print("Daemons started")
-time.sleep(2)
+    sidechainstart = sys.argv[2]+"/elementsd -datadir="+sidechain_datadir
+    subprocess.Popen(sidechainstart.split(), stdout=subprocess.PIPE)
 
-bitcoin = AuthServiceProxy("http://bitcoinrpc:"+bitcoin_pass+"@127.0.0.1:"+str(bitcoin_port))
-sidechain = AuthServiceProxy("http://sidechainrpc:"+sidechain_pass+"@127.0.0.1:"+str(sidechain_port))
-print("Daemons started, making blocks to get funds")
+    print("Daemons started")
+    time.sleep(2)
 
-bitcoin.generate(101)
-sidechain.generate(101)
+    bitcoin = AuthServiceProxy("http://bitcoinrpc:"+bitcoin_pass+"@127.0.0.1:"+str(bitcoin_port))
+    sidechain = AuthServiceProxy("http://sidechainrpc:"+sidechain_pass+"@127.0.0.1:"+str(sidechain_port))
+    print("Daemons started, making blocks to get funds")
 
-addr = bitcoin.getnewaddress()
+    bitcoin.generate(101)
+    sidechain.generate(101)
 
-# Lockup some funds to unlock later
-sidechain.sendtomainchain(addr, 50)
-sidechain.generate(101)
+    addr = bitcoin.getnewaddress()
 
-addrs = sidechain.getpeginaddress()
-txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 49)
-bitcoin.generate(10)
-proof = bitcoin.gettxoutproof([txid])
-raw = bitcoin.getrawtransaction(txid)
+    # Lockup some funds to unlock later
+    sidechain.sendtomainchain(addr, 50)
+    sidechain.generate(101)
 
-print("Attempting peg-in")
-pegtxid = sidechain.claimpegin(addrs["sidechain_address"], raw, proof)
-sidechain.generate(1)
+    addrs = sidechain.getpeginaddress()
+    txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 49)
+    bitcoin.generate(10)
+    proof = bitcoin.gettxoutproof([txid])
+    raw = bitcoin.getrawtransaction(txid)
 
-tx = sidechain.gettransaction(pegtxid)
+    print("Attempting peg-in")
 
-if "confirmations" in tx and tx["confirmations"] > 0:
-    print("Peg-in is confirmed: Success!")
-else:
-    print("Peg-in has failed.")
+    # Should fail due to non-matching address
+    try:
+        pegtxid = sidechain.claimpegin(raw, proof, sidechain.getnewaddress())
+        raise Exception("Peg-in with non-matching address should fail.")
+    except JSONRPCException:
+        pass
 
+    # Should succeed via wallet lookup for address match
+    pegtxid = sidechain.claimpegin(raw, proof)
 
+    sidechain.generate(1)
+
+    tx = sidechain.gettransaction(pegtxid)
+
+    if "confirmations" in tx and tx["confirmations"] > 0:
+        print("Peg-in is confirmed: Success!")
+    else:
+        raise Exception("Peg-in confirmation has failed.")
+
+except JSONRPCException as e:
+        print("Pegging testing failed, aborting:")
+        print(e.error)
+except Exception as e:
+        print("Pegging testing failed, aborting:")
+        print(e)
 
 print("Stopping daemons and cleaning up")
 bitcoin.stop()
