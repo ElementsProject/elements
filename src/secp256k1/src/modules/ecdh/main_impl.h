@@ -16,10 +16,10 @@ int secp256k1_ecdh(const secp256k1_context* ctx, unsigned char *result, const se
     secp256k1_gej res;
     secp256k1_ge pt;
     secp256k1_scalar s;
+    VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(result != NULL);
     ARG_CHECK(point != NULL);
     ARG_CHECK(scalar != NULL);
-    (void)ctx;
 
     secp256k1_pubkey_load(ctx, &pt, point);
     secp256k1_scalar_set_b32(&s, scalar, &overflow);
@@ -30,7 +30,7 @@ int secp256k1_ecdh(const secp256k1_context* ctx, unsigned char *result, const se
         unsigned char y[1];
         secp256k1_sha256_t sha;
 
-        secp256k1_ecmult_const(&res, &pt, &s);
+        secp256k1_ecmult_const(&res, &pt, &s, 256);
         secp256k1_ge_set_gej(&pt, &res);
         /* Compute a hash of the point in compressed form
          * Note we cannot use secp256k1_eckey_pubkey_serialize here since it does not

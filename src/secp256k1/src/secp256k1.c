@@ -18,7 +18,12 @@
 #include "eckey_impl.h"
 #include "hash_impl.h"
 
+#ifdef ENABLE_MODULE_GENERATOR
+# include "include/secp256k1_generator.h"
+#endif
+
 #ifdef ENABLE_MODULE_RANGEPROOF
+# include "include/secp256k1_rangeproof.h"
 # include "modules/rangeproof/pedersen.h"
 # include "modules/rangeproof/rangeproof.h"
 #endif
@@ -56,10 +61,6 @@ static const secp256k1_callback default_error_callback = {
 struct secp256k1_context_struct {
     secp256k1_ecmult_context ecmult_ctx;
     secp256k1_ecmult_gen_context ecmult_gen_ctx;
-#ifdef ENABLE_MODULE_RANGEPROOF
-    secp256k1_pedersen_context pedersen_ctx;
-    secp256k1_rangeproof_context rangeproof_ctx;
-#endif
     secp256k1_callback illegal_callback;
     secp256k1_callback error_callback;
 };
@@ -78,10 +79,6 @@ secp256k1_context* secp256k1_context_create(unsigned int flags) {
 
     secp256k1_ecmult_context_init(&ret->ecmult_ctx);
     secp256k1_ecmult_gen_context_init(&ret->ecmult_gen_ctx);
-#ifdef ENABLE_MODULE_RANGEPROOF
-    secp256k1_pedersen_context_init(&ret->pedersen_ctx);
-    secp256k1_rangeproof_context_init(&ret->rangeproof_ctx);
-#endif
 
     if (flags & SECP256K1_FLAGS_BIT_CONTEXT_SIGN) {
         secp256k1_ecmult_gen_context_build(&ret->ecmult_gen_ctx, &ret->error_callback);
@@ -99,10 +96,6 @@ secp256k1_context* secp256k1_context_clone(const secp256k1_context* ctx) {
     ret->error_callback = ctx->error_callback;
     secp256k1_ecmult_context_clone(&ret->ecmult_ctx, &ctx->ecmult_ctx, &ctx->error_callback);
     secp256k1_ecmult_gen_context_clone(&ret->ecmult_gen_ctx, &ctx->ecmult_gen_ctx, &ctx->error_callback);
-#ifdef ENABLE_MODULE_RANGEPROOF
-    secp256k1_pedersen_context_clone(&ret->pedersen_ctx, &ctx->pedersen_ctx, &ctx->error_callback);
-    secp256k1_rangeproof_context_clone(&ret->rangeproof_ctx, &ctx->rangeproof_ctx, &ctx->error_callback);
-#endif
     return ret;
 }
 
@@ -110,10 +103,6 @@ void secp256k1_context_destroy(secp256k1_context* ctx) {
     if (ctx != NULL) {
         secp256k1_ecmult_context_clear(&ctx->ecmult_ctx);
         secp256k1_ecmult_gen_context_clear(&ctx->ecmult_gen_ctx);
-#ifdef ENABLE_MODULE_RANGEPROOF
-        secp256k1_pedersen_context_clear(&ctx->pedersen_ctx);
-        secp256k1_rangeproof_context_clear(&ctx->rangeproof_ctx);
-#endif
 
         free(ctx);
     }
@@ -464,8 +453,11 @@ int secp256k1_ec_pubkey_negate(const secp256k1_context* ctx, secp256k1_pubkey *p
     ARG_CHECK(pubkey != NULL);
 
     ret = secp256k1_pubkey_load(ctx, &p, pubkey);
-    secp256k1_ge_neg(&p, &p);
-    secp256k1_pubkey_save(pubkey, &p);
+    memset(pubkey, 0, sizeof(*pubkey));
+    if (ret) {
+        secp256k1_ge_neg(&p, &p);
+        secp256k1_pubkey_save(pubkey, &p);
+    }
     return ret;
 }
 
@@ -605,6 +597,18 @@ int secp256k1_ec_pubkey_combine(const secp256k1_context* ctx, secp256k1_pubkey *
 # include "modules/recovery/main_impl.h"
 #endif
 
+#ifdef ENABLE_MODULE_GENERATOR
+# include "modules/generator/main_impl.h"
+#endif
+
 #ifdef ENABLE_MODULE_RANGEPROOF
 # include "modules/rangeproof/main_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_WHITELIST
+# include "modules/whitelist/main_impl.h"
+#endif
+
+#ifdef ENABLE_MODULE_SURJECTIONPROOF
+# include "modules/surjection/main_impl.h"
 #endif

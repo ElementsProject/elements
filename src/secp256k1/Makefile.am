@@ -93,7 +93,10 @@ TESTS =
 if USE_TESTS
 noinst_PROGRAMS += tests
 tests_SOURCES = src/tests.c
-tests_CPPFLAGS = -DSECP256K1_BUILD -DVERIFY -I$(top_srcdir)/src -I$(top_srcdir)/include $(SECP_INCLUDES) $(SECP_TEST_INCLUDES)
+tests_CPPFLAGS = -DSECP256K1_BUILD -I$(top_srcdir)/src -I$(top_srcdir)/include $(SECP_INCLUDES) $(SECP_TEST_INCLUDES)
+if !ENABLE_COVERAGE
+tests_CPPFLAGS += -DVERIFY
+endif
 tests_LDADD = $(SECP_LIBS) $(SECP_TEST_LIBS) $(COMMON_LIB)
 tests_LDFLAGS = -static
 TESTS += tests
@@ -102,7 +105,10 @@ endif
 if USE_EXHAUSTIVE_TESTS
 noinst_PROGRAMS += exhaustive_tests
 exhaustive_tests_SOURCES = src/tests_exhaustive.c
-exhaustive_tests_CPPFLAGS = -DSECP256K1_BUILD -DVERIFY -I$(top_srcdir)/src $(SECP_INCLUDES)
+exhaustive_tests_CPPFLAGS = -DSECP256K1_BUILD -I$(top_srcdir)/src $(SECP_INCLUDES)
+if !ENABLE_COVERAGE
+exhaustive_tests_CPPFLAGS += -DVERIFY
+endif
 exhaustive_tests_LDADD = $(SECP_LIBS)
 exhaustive_tests_LDFLAGS = -static
 TESTS += exhaustive_tests
@@ -170,6 +176,18 @@ if ENABLE_MODULE_RECOVERY
 include src/modules/recovery/Makefile.am.include
 endif
 
+if ENABLE_MODULE_GENERATOR
+include src/modules/generator/Makefile.am.include
+endif
+
 if ENABLE_MODULE_RANGEPROOF
 include src/modules/rangeproof/Makefile.am.include
+endif
+
+if ENABLE_MODULE_WHITELIST
+include src/modules/whitelist/Makefile.am.include
+endif
+
+if ENABLE_MODULE_SURJECTIONPROOF
+include src/modules/surjection/Makefile.am.include
 endif
