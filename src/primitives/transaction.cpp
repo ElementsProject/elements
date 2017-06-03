@@ -201,6 +201,17 @@ CAmountMap CTransaction::GetFee() const
     return fee;
 }
 
+CAmount CTransaction::GetFee(const CAsset& asset) const
+{
+    CAmount fee = 0;
+    for (unsigned int i = 0; i < vout.size(); i++) {        
+        if (vout[i].IsFee() && vout[i].nAsset.GetAsset() == asset) {
+            fee += vout[i].nValue.GetAmount();
+        }
+    }
+    return fee;
+}
+
 CTransaction::CTransaction() : nVersion(CTransaction::CURRENT_VERSION), vin(), vout(), nLockTime(0) { }
 
 CTransaction::CTransaction(const CMutableTransaction &tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {

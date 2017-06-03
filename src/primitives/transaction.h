@@ -763,6 +763,7 @@ public:
 
     // Compute the fee from the explicit fee outputs. Must call HasValidFee first
     CAmountMap GetFee() const;
+    CAmount GetFee(const CAsset& asset) const;
 
     // Compute priority, given priority of inputs and (optionally) tx size
     double ComputePriority(double dPriorityInputs, unsigned int nTxSize=0) const;
