@@ -2766,6 +2766,18 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         // We need to store an unblinded and unsigned version of the transaction
         // in case of !sign
         CMutableTransaction txUnblindedAndUnsigned;
+        // Store amounts for storage in mapValue
+        std::vector<CAmount> vAmounts;
+
+        std::vector<uint256> input_blinds;
+        std::vector<uint256> input_asset_blinds;
+        std::vector<CAsset> input_assets;
+        std::vector<CAmount> input_amounts;
+        std::vector<uint256> output_blinds;
+        std::vector<CPubKey> output_pubkeys;
+        std::vector<uint256> output_asset_blinds;
+        std::vector<CAsset> output_assets;
+
         LOCK2(cs_main, cs_wallet);
         {
             std::vector<COutput> vAvailableCoins;
@@ -2776,7 +2788,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             while (true)
             {
                 nChangePosInOut = nChangePosRequest;
-                std::vector<CPubKey> output_pubkeys;
+                output_pubkeys.clear();
                 int numToBlind = 0;
                 int changeToBlind = 0;
                 int numInputsBlinded = 0;
@@ -2784,6 +2796,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 int onlyChangePos = -1;
                 // Only used to strip blinding if its the only blind output in certain situations
                 int onlyRecipientBlindIndex = -1;
+
+                vAmounts.clear();
 
                 txNew.vin.clear();
                 txNew.vout.clear();
@@ -3071,17 +3085,14 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                 LogPrintf("Created transaction (before blinding): %s", CTransaction(txNew).ToString());
 
-                // Store amounts for storage in mapValue
-                std::vector<CAmount> vAmounts;
-
                 // Create blinded outputs
-                std::vector<uint256> input_blinds;
-                std::vector<uint256> input_asset_blinds;
-                std::vector<CAsset> input_assets;
-                std::vector<uint256> output_blinds;
-                std::vector<CAmount> input_amounts;
-                std::vector<uint256> output_asset_blinds;
-                std::vector<CAsset> output_assets;
+                input_blinds.clear();
+                input_asset_blinds.clear();
+                input_assets.clear();
+                output_blinds.clear();
+                input_amounts.clear();
+                output_asset_blinds.clear();
+                output_assets.clear();
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins) {
                     uint256 blind = coin.first->GetOutputBlindingFactor(coin.second);
                     input_blinds.push_back(blind);
@@ -3180,15 +3191,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 assert(output_pubkeys.size() == output_blinds.size());
                 assert(output_blinds.size() == output_asset_blinds.size());
                 assert(output_asset_blinds.size() == output_assets.size());
-
-                if (sign) {
-                    for (unsigned int i = 0; i< vAmounts.size(); i++) {
-                        assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
-                        assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
-                        assert(!output_assets[i].IsNull());
-                        wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
-                    }
-                }
 
                 // Remove scriptSigs to eliminate the fee calculation dummy signatures
                 for (auto& vin : txNew.vin) {
@@ -3292,6 +3294,15 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
         // Embed the constructed transaction data in wtxNew.
         wtxNew.SetTx(MakeTransactionRef(std::move(txNew)));
+
+        if (sign) {
+            for (unsigned int i = 0; i< vAmounts.size(); i++) {
+                assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
+                assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
+                assert(!output_assets[i].IsNull());
+                wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
+            }
+        }
 
         // Limit size
         if (GetTransactionWeight(wtxNew) >= MAX_STANDARD_TX_WEIGHT)
