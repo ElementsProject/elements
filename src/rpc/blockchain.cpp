@@ -959,7 +959,7 @@ UniValue gettxout(const JSONRPCRequest& request)
     if (coins.vout[n].nValue.IsExplicit()) {
         ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue.GetAmount())));
     } else {
-        ret.push_back(Pair("valuecommitment", uint256(coins.vout[n].nValue.vchCommitment).GetHex()));
+        ret.push_back(Pair("valuecommitment", HexStr(coins.vout[n].nValue.vchCommitment)));
     }
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
