@@ -3168,7 +3168,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 // All other combinations should work.
 
                 // Keep a backup of transaction in case re-blinding necessary
-                CMutableTransaction txUnblindedAndUnsigned(txNew);
+                txUnblindedAndUnsigned = txNew;
                 int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds,  output_pubkeys, vassetKeys, vtokenKeys, txNew);
                 assert(ret != -1);
                 if (ret != numToBlind) {
@@ -3196,7 +3196,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 for (auto& vin : txNew.vin) {
                     vin.scriptSig = CScript();
                 }
-                txNew.wit.vtxinwit.clear();
+
+                // Remove blinding as well if we're not actually signing
+                if (!sign) {
+                    txNew = txUnblindedAndUnsigned;
+                }
 
                 // Allow to override the default confirmation target over the CoinControl instance
                 int currentConfirmationTarget = nTxConfirmTarget;
