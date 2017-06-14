@@ -31,7 +31,7 @@ class WalletAccountsTest(BitcoinTestFramework):
         
         node.generate(101)
         
-        assert_equal(node.getbalance(), 50)
+        assert_equal(node.getbalance()["bitcoin"], 21000000)
         
         accounts = ["a","b","c","d","e"]
         amount_to_send = 1.0

@@ -84,7 +84,7 @@ class CTTest (BitcoinTestFramework):
         value2 = 7
         value3 = 11
         value23 = value2 + value3
-        unspent = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
+        unspent = self.nodes[0].listunspent(1, 9999999, [], True, "bitcoin")
         unspent = [i for i in unspent if i['amount'] > value23]
         assert_equal(len(unspent), 1)
         fee = Decimal('0.0001')
@@ -118,7 +118,7 @@ class CTTest (BitcoinTestFramework):
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
         #Node sees nothing unless it understands the values
         assert_equal(len(received_by_address), 0)
-        assert_equal(len(self.nodes[1].listunspent(1, 9999999, [], "bitcoin")), 0)
+        assert_equal(len(self.nodes[1].listunspent(1, 9999999, [], True, "bitcoin")), 0)
 
         # Import the blinding key
         blindingkey = self.nodes[2].dumpblindingkey(address)
@@ -127,7 +127,7 @@ class CTTest (BitcoinTestFramework):
         # Needs rescan to update wallet txns
         assert_equal(self.nodes[1].gettransaction(confidential_tx_id, True)['amount']["bitcoin"], value1)
         assert_equal(self.nodes[1].gettransaction(raw_tx_id, True)['amount']["bitcoin"], value3)
-        list_unspent = self.nodes[1].listunspent(1, 9999999, [], "bitcoin")
+        list_unspent = self.nodes[1].listunspent(1, 9999999, [], True, "bitcoin")
         assert_equal(list_unspent[0]['amount']+list_unspent[1]['amount'], value1+value3)
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
         assert_equal(len(received_by_address), 1)
@@ -137,7 +137,7 @@ class CTTest (BitcoinTestFramework):
         # Spending a single confidential output and sending it to a
         # unconfidential output is not possible with CT. Test the
         # correct behavior of blindrawtransaction.
-        unspent = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
+        unspent = self.nodes[0].listunspent(1, 9999999, [], True, "bitcoin")
         unspent = [i for i in unspent if i['amount'] > value23]
         assert_equal(len(unspent), 1)
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
@@ -241,8 +241,8 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, test_asset), 1)
         assert_equal(self.nodes[2].getunconfirmedbalance(test_asset), Decimal(1))
 
-        b_utxos = self.nodes[2].listunspent(0, 0, [], "bitcoin")
-        t_utxos = self.nodes[2].listunspent(0, 0, [], test_asset)
+        b_utxos = self.nodes[2].listunspent(0, 0, [], True, "bitcoin")
+        t_utxos = self.nodes[2].listunspent(0, 0, [], True, test_asset)
 
         assert_equal(len(self.nodes[2].listunspent(0, 0, [])), len(b_utxos)+len(t_utxos))
 

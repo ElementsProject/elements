@@ -44,12 +44,14 @@ class ListSinceBlockTest (BitcoinTestFramework):
 
         assert_equal(self.is_network_split, False)
         self.nodes[2].generate(101)
+        self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), 21000000, "", "", True)
+        self.nodes[2].generate(101)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance(), 0)
-        assert_equal(self.nodes[1].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 50)
-        assert_equal(self.nodes[3].getbalance(), 0)
+        assert_equal(self.nodes[0].getbalance(), {})
+        assert_equal(self.nodes[1].getbalance(), {})
+        assert_equal(self.nodes[2].getbalance()["bitcoin"], 21000000)
+        assert_equal(self.nodes[3].getbalance(), {})
 
         # Split network into two
         self.split_network()

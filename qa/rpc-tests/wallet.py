@@ -84,7 +84,7 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         # Exercise locking of unspent outputs
-        unspent_0 = self.nodes[2].listunspent(1, 9999999, [], "bitcoin")[0]
+        unspent_0 = self.nodes[2].listunspent(1, 9999999, [], True, "bitcoin")[0]
         unspent_0 = {"txid": unspent_0["txid"], "vout": unspent_0["vout"]}
         self.nodes[2].lockunspent(False, [unspent_0])
         assert_raises_message(JSONRPCException, "Insufficient funds", self.nodes[2].sendtoaddress, self.nodes[2].getnewaddress(), 20)
@@ -104,7 +104,7 @@ class WalletTest (BitcoinTestFramework):
         # Node0 should have three spendable outputs since 0-value coinbase outputs will be OP_RETURN.
         # Create a couple of transactions to send them to node2, submit them through
         # node1, and make sure both node0 and node2 pick them up properly:
-        node0utxos = self.nodes[0].listunspent(1, 9999999, [], "bitcoin")
+        node0utxos = self.nodes[0].listunspent(1, 9999999, [], True, "bitcoin")
         assert_equal(len(node0utxos), 3)
 
         # create both transactions

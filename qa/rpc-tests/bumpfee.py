@@ -44,20 +44,24 @@ class BumpFeeTest(BitcoinTestFramework):
     def run_test(self):
         peer_node, rbf_node = self.nodes
         rbf_node_address = rbf_node.getnewaddress()
+        rbf_node_address = rbf_node.validateaddress(rbf_node_address)["unconfidential"]
 
         # fund rbf node with 10 coins of 0.001 btc (100,000 satoshis)
         print("Mining blocks...")
         peer_node.generate(110)
+        peer_node.sendtoaddress(peer_node.getnewaddress(), 21000000, "", "", True)
+        peer_node.generate(101)
         self.sync_all()
         for i in range(25):
             peer_node.sendtoaddress(rbf_node_address, 0.001)
         self.sync_all()
         peer_node.generate(1)
         self.sync_all()
-        assert_equal(rbf_node.getbalance(), Decimal("0.025"))
+        assert_equal(rbf_node.getbalance()['bitcoin'], Decimal("0.025"))
 
         print("Running tests")
         dest_address = peer_node.getnewaddress()
+        dest_address = peer_node.validateaddress(dest_address)["unconfidential"]
         test_small_output_fails(rbf_node, dest_address)
         test_dust_to_fee(rbf_node, dest_address)
         test_simple_bumpfee_succeeds(rbf_node, peer_node, dest_address)
@@ -101,7 +105,7 @@ def test_segwit_bumpfee_succeeds(rbf_node, dest_address):
 
     segwit_in = next(u for u in rbf_node.listunspent() if u["amount"] == Decimal("0.001"))
     segwit_out = rbf_node.validateaddress(rbf_node.getnewaddress())
-    rbf_node.addwitnessaddress(segwit_out["address"])
+    rbf_node.addwitnessaddress(segwit_out["unconfidential"])
     segwitid = send_to_witness(
         version=0,
         node=rbf_node,
@@ -296,8 +300,9 @@ def get_change_address(node):
     dummy transaction, calls fundrawtransaction to give add an input and change
     output, then returns the change address."""
     dest_address = node.getnewaddress()
+    unblinded_dest_address = node.validateaddress(dest_address)["unconfidential"]
     dest_amount = Decimal("0.00012345")
-    rawtx = node.createrawtransaction([], {dest_address: dest_amount})
+    rawtx = node.createrawtransaction([], {unblinded_dest_address: dest_amount})
     fundtx = node.fundrawtransaction(rawtx)
     info = node.decoderawtransaction(fundtx["hex"])
     return next(address for out in info["vout"]
