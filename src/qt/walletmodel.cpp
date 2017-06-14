@@ -341,9 +341,8 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
         CReserveKey *keyChange = transaction.getPossibleKeyChange();
         std::vector<CReserveKey*> vkeyChange;
         vkeyChange.push_back(keyChange);
-        if(!wallet->CommitTransaction(*newTx, vkeyChange))
         CValidationState state;
-        if(!wallet->CommitTransaction(*newTx, *keyChange, g_connman.get(), state))
+        if(!wallet->CommitTransaction(*newTx, vkeyChange, g_connman.get(), state))
             return SendCoinsReturn(TransactionCommitFailed, QString::fromStdString(state.GetRejectReason()));
 
         CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
