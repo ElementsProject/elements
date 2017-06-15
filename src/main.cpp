@@ -2929,22 +2929,7 @@ void ThreadScriptCheck() {
 
 bool BitcoindRPCCheck(const bool init)
 {
-    //First, we can clear out any blocks thatsomehow are now deemed valid
-    //eg reconsiderblock rpc call manually
-    std::vector<uint256> vblocksToReconsider;
-    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
-    std::vector<uint256> vblocksToReconsiderAgain;
-    BOOST_FOREACH(uint256& blockhash, vblocksToReconsider) {
-        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
-        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-            vblocksToReconsiderAgain.push_back(blockhash);
-        }
-    }
-    vblocksToReconsider = vblocksToReconsiderAgain;
-    vblocksToReconsiderAgain.clear();
-    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
-
-    //Next, check for working rpc
+    // Check for working rpc
     if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         // During init try until a non-RPC_IN_WARMUP result
         while (true) {
@@ -2979,35 +2964,46 @@ bool BitcoindRPCCheck(const bool init)
         }
     }
 
+
     //Sanity startup check won't reconsider queued blocks
     if (init) {
        return true;
     }
 
-    /* Getting this far means we either aren't validating pegins(so let's make sure that's why
-       it failed previously) or we successfully connected to bitcoind
-       Time to reconsider blocks
-    */
-    if (vblocksToReconsider.size() > 0) {
-        CValidationState state;
-        BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
-            {
-                LOCK(cs_main);
-                if (mapBlockIndex.count(blockhash) == 0)
-                    continue;
-                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
-                ResetBlockFailureFlags(pblockindex);
-            }
-        }
+    //First, we can clear out any blocks thatsomehow are now deemed valid
+    //eg reconsiderblock rpc call manually
+    std::vector<uint256> vblocksToReconsider;
+    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
 
-        //All blocks are now being reconsidered
-        ActivateBestChain(state, Params());
-        //This simply checks for DB errors
-        if (!state.IsValid()) {
-            //Something scary?
+    BOOST_FOREACH(uint256& blockhash, vblocksToReconsider) {
+        // Skip blocks that have been validated in meantime
+        if (mapBlockIndex.count(blockhash) == 0) {
+            continue;
         }
+        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+        if (!(pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+            continue;
+        }
+        {
+            LOCK(cs_main);
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+            ResetBlockFailureFlags(pblockindex);
+        }
+    }
 
-        //Now to clear out now-valid blocks
+    CValidationState state;
+    //All blocks are now being reconsidered
+    ActivateBestChain(state, Params());
+    //This simply checks for DB errors
+    if (!state.IsValid()) {
+        //Something scary?
+    }
+
+    {
+        // Clear out now-valid blocks in list
+        LOCK(cs_main);
+        std::vector<uint256> vblocksToReconsiderAgain;
+        pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
         BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
             CBlockIndex* pblockindex = mapBlockIndex[blockhash];
 
@@ -3019,7 +3015,7 @@ bool BitcoindRPCCheck(const bool init)
 
         //Write back remaining blocks
         pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
-        }
+    }
     return true;
 }
 
