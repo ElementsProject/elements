@@ -1773,8 +1773,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         int64_t nSigOpsCost = GetTransactionSigOpCost(tx, view, STANDARD_SCRIPT_VERIFY_FLAGS);
 
-        if (!tx.HasValidFee())
-            return state.DoS(0, false, REJECT_INVALID, "bad-fees");
         CAmount nFees = tx.GetFee()[policyAsset];
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
@@ -2621,9 +2619,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             }
         }
 
-        // Tally transaction fees
-        if (!tx.HasValidFee())
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
         if (!VerifyAmounts(inputs, tx, pvChecks, cacheStore))
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
                 strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
@@ -2641,9 +2636,6 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
-
-        // Tally validity checked in CheckTxInputs
-        CAmountMap fee = tx.GetFee();
 
         // The first loop above does all the inexpensive checks.
         // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
@@ -3290,8 +3282,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
             }
         }
-        if (!tx.HasValidFee())
-            return state.DoS(100, error("ConnectBlock(): transaction fee overflowed"), REJECT_INVALID, "bad-fee-outofrange");
         mapFees += tx.GetFee();
         if (!MoneyRange(mapFees))
             return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
@@ -3304,7 +3294,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
     if (!VerifyCoinbaseAmount(block.vtx[0], blockReward))
         return state.DoS(100,
-                         error("ConnectBlock(): coinbase pays too much (limit=%d)",
+                         error("ConnectBlock(): coinbase pays too much, has fee or blinded outputs (limit=%d)",
                                blockReward[policyAsset]),
                                REJECT_INVALID, "bad-cb-amount");
 

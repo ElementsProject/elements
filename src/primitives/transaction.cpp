@@ -176,21 +176,6 @@ uint256 CTransaction::ComputeWitnessHash() const
     return ComputeFastMerkleRoot(leaves);
 }
 
-bool CTransaction::HasValidFee() const
-{
-    CAmountMap totalFee;
-    for (unsigned int i = 0; i < vout.size(); i++) {
-        CAmount fee = 0;
-        if (vout[i].IsFee()) {
-            fee = vout[i].nValue.GetAmount();
-            if (fee == 0 || !MoneyRange(fee))
-                return false;
-            totalFee[vout[i].nAsset.GetAsset()] += fee;
-        }
-    }
-    return MoneyRange(totalFee);
-}
-
 CAmountMap CTransaction::GetFee() const
 {
     CAmountMap fee;

@@ -88,6 +88,12 @@ BOOST_AUTO_TEST_CASE(verify_coinbase_test)
     tx.vout.push_back(CTxOut(CAsset(), 1, CScript() << OP_RETURN));
     BOOST_CHECK(!VerifyCoinbaseAmount(tx, mapFees));
     tx.vout.pop_back();
+
+    // Push fee output, must fail since coinbase cannot have fee
+    tx.vout.push_back(CTxOut(CAsset(), 1, CScript()));
+    BOOST_CHECK(!VerifyCoinbaseAmount(tx, mapFees));
+    tx.vout.pop_back();
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()
