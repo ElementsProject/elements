@@ -27,13 +27,13 @@ class InvalidateTest(BitcoinTestFramework):
         
     def run_test(self):
         print("Make sure we repopulate setBlockIndexCandidates after InvalidateBlock:")
-        print "Mine 104 blocks on Node 0"
+        print("Mine 104 blocks on Node 0")
         self.nodes[0].generate(104)
         assert(self.nodes[0].getblockcount() == 104)
         besthash = self.nodes[0].getbestblockhash()
 
         #Mining extra blocks to properly fork elements chain
-        print "Mine competing 106 blocks on Node 1"
+        print("Mine competing 106 blocks on Node 1")
         self.nodes[1].generate(100)
         self.nodes[1].sendtoaddress(self.nodes[1].getnewaddress(), 1)
         self.nodes[1].generate(6)
@@ -54,13 +54,13 @@ class InvalidateTest(BitcoinTestFramework):
 
         print("\nMake sure we won't reorg to a lower work chain:")
         connect_nodes_bi(self.nodes,1,2)
-        print "Sync node 2 to node 1 so both have 106 blocks"
+        print("Sync node 2 to node 1 so both have 106 blocks")
         sync_blocks(self.nodes[1:3])
         assert(self.nodes[2].getblockcount() == 106)
-        print "Invalidate block 105 on node 1 so its tip is now at 104"
+        print("Invalidate block 105 on node 1 so its tip is now at 104")
         self.nodes[1].invalidateblock(self.nodes[1].getblockhash(105))
         assert(self.nodes[1].getblockcount() == 104)
-        print "Invalidate block 103 on node 102, so its tip is now 102"
+        print("Invalidate block 103 on node 102, so its tip is now 102")
         self.nodes[2].invalidateblock(self.nodes[2].getblockhash(103))
         assert(self.nodes[2].getblockcount() == 102)
         #print "..and then mine a block" #This will create identical invalid block

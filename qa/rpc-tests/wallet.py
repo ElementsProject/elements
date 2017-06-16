@@ -70,16 +70,29 @@ class WalletTest (BitcoinTestFramework):
         #assert_equal(self.nodes[0].getbalance(), 21000000-1100000)
         #assert_equal(self.nodes[1].getbalance(), 1000000)
         #assert_equal(self.nodes[2].getbalance(), 100000)
-        
 
         # Send 21 BTC from 0 to 2 using sendtoaddress call.
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
+        txout1v0 = self.nodes[0].gettxout(txid1, 0)
+        rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
+        valuecommit1 = rawtx1["vout"][0]["serValue"]
+        assert_equal(txout1v0['confirmations'], 0)
+        assert(not txout1v0['coinbase'])
+        assert_equal(valuecommit1, txout1v0['valuecommitment'])
+
+
+        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        txout2v0 = self.nodes[0].gettxout(txid2, 0)
+        rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
+        valuecommit2 = rawtx2["vout"][0]["serValue"]
+        assert_equal(txout2v0['confirmations'], 0)
+        assert(not txout2v0['coinbase'])
+        assert_equal(valuecommit2, txout2v0['valuecommitment'])
 
         walletinfo = self.nodes[0].getwalletinfo("bitcoin")
         assert_equal(walletinfo['immature_balance'], 0)
 
-        # Have node0 mine a block, thus it will collect its own fee.
+        # Have node0 mine a block, thus it will collect its own fee. Confirm previous transactions.
         self.nodes[0].generate(1)
         self.sync_all()
 
@@ -110,24 +123,27 @@ class WalletTest (BitcoinTestFramework):
         # create both transactions
         txns_to_send = []
         for utxo in node0utxos:
-            if utxo["amount"] <= 3:
+            if utxo["amount"] <= 3: # arbitrary value of 3?
                 continue
             inputs = []
             outputs = {}
             inputs.append({ "txid" : utxo["txid"], "vout" : utxo["vout"], "nValue":utxo["amount"]})
-            outputs[self.nodes[2].getnewaddress("from1")] = utxo["amount"] - Decimal(3)
+            outputs[self.nodes[2].getnewaddress("from1")] = utxo["amount"]
             raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
             raw_tx = self.nodes[0].blindrawtransaction(raw_tx)
             txns_to_send.append(self.nodes[0].signrawtransaction(raw_tx))
 
-        return #TODO Fix the rest
-        # Have node 1 (miner) send the transactions
-        self.nodes[1].sendrawtransaction(txns_to_send[0]["hex"], True)
-        self.nodes[1].sendrawtransaction(txns_to_send[1]["hex"], True)
+        # Have node 1 (miner) send the transaction
+        txid = self.nodes[1].sendrawtransaction(txns_to_send[0]["hex"], True)
 
-        # Have node1 mine a block to confirm transactions:
+        # Have node1 mine a block to confirm transaction:
         self.nodes[1].generate(1)
         self.sync_all()
+
+        txoutv0 = self.nodes[0].gettxout(txid, 0)
+        assert_equal(txoutv0['confirmations'], 1)
+        assert(not txoutv0['coinbase'])
+        return #TODO fix the rest
 
         assert_equal(self.nodes[0].getbalance(), 0)
         assert_equal(self.nodes[2].getbalance(), 94)
