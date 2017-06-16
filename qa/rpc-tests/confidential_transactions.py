@@ -189,15 +189,16 @@ class CTTest (BitcoinTestFramework):
         # Check createblindedaddress functionality
         blinded_addr = self.nodes[0].getnewaddress()
         validated_addr = self.nodes[0].validateaddress(blinded_addr)
+        blinding_pubkey = self.nodes[0].validateaddress(blinded_addr)["confidential_key"]
         blinding_key = self.nodes[0].dumpblindingkey(blinded_addr)
-        assert_equal(blinded_addr, self.nodes[1].createblindedaddress(validated_addr["unconfidential"], blinding_key))
+        assert_equal(blinded_addr, self.nodes[1].createblindedaddress(validated_addr["unconfidential"], blinding_pubkey))
 
         # If a blinding key is over-ridden by a newly imported one, funds may be unaccounted for
         new_addr = self.nodes[0].getnewaddress()
         new_validated = self.nodes[0].validateaddress(new_addr)
         self.nodes[2].sendtoaddress(new_addr, 1)
-        diff_blind = self.nodes[1].createblindedaddress(new_validated["unconfidential"], blinding_key)
         self.sync_all()
+        diff_blind = self.nodes[1].createblindedaddress(new_validated["unconfidential"], blinding_pubkey)
         assert_equal(len(self.nodes[0].listunspent(0, 0, [new_validated["unconfidential"]])), 1)
         self.nodes[0].importblindingkey(diff_blind, blinding_key)
         # CT values for this wallet transaction  have been cached via importblindingkey
@@ -362,6 +363,32 @@ class CTTest (BitcoinTestFramework):
         issued = self.nodes[0].issueasset(0, 1, False)
         assert(issued["asset"] not in self.nodes[0].getwalletinfo()["balance"])
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
+
+
+        # Check blinded multisig functionality
+        # Get two pubkeys
+        blinded_addr = self.nodes[0].getnewaddress()
+        pubkey = self.nodes[0].validateaddress(blinded_addr)["pubkey"]
+        blinded_addr2 = self.nodes[1].getnewaddress()
+        pubkey2 = self.nodes[1].validateaddress(blinded_addr2)["pubkey"]
+        pubkeys = [pubkey, pubkey2]
+        # Add multisig address
+        unconfidential_addr = self.nodes[0].addmultisigaddress(2, pubkeys)
+        self.nodes[1].addmultisigaddress(2, pubkeys)
+        self.nodes[0].importaddress(unconfidential_addr)
+        self.nodes[1].importaddress(unconfidential_addr)
+        # Use blinding key from node 0's original getnewaddress call
+        blinding_pubkey = self.nodes[0].validateaddress(blinded_addr)["confidential_key"]
+        blinding_key = self.nodes[0].dumpblindingkey(blinded_addr)
+        # Create blinded address from p2sh address and import corresponding privkey
+        blinded_multisig_addr = self.nodes[0].createblindedaddress(unconfidential_addr, blinding_pubkey)
+        self.nodes[0].importblindingkey(blinded_multisig_addr, blinding_key)
+        self.nodes[1].importblindingkey(blinded_multisig_addr, blinding_key)
+        # Send coins to blinded multisig address and check that they were received
+        self.nodes[2].sendtoaddress(blinded_multisig_addr, 1)
+        self.sync_all()
+        assert_equal(len(self.nodes[0].listunspent(0, 0, [unconfidential_addr])), 1)
+        assert_equal(len(self.nodes[1].listunspent(0, 0, [unconfidential_addr])), 1)
 
 
 if __name__ == '__main__':
