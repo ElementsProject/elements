@@ -2996,16 +2996,23 @@ CScriptID calculate_contract(const CScript& federationRedeemScript, const CBitco
     assert(opcodeTmp == 0x14 && destHash.size() == 20);
     memcpy(fullcontract + 4 + 16, &destHash[0], destHash.size());
 
+    // Catch blank or OP_TRUE fedpegscripts which are static and unsafe to peg into
+    bool nokeys = true;
+
     CScript scriptDestination(federationRedeemScript);
     {
         CScript::iterator sdpc = scriptDestination.begin();
         vector<unsigned char> vch;
         while (scriptDestination.GetOp(sdpc, opcodeTmp, vch))
         {
-            assert((vch.size() == 33 && opcodeTmp < OP_PUSHDATA4) ||
-                   (opcodeTmp <= OP_16 && opcodeTmp >= OP_1) || opcodeTmp == OP_CHECKMULTISIG);
+            if(!((vch.size() == 33 && opcodeTmp < OP_PUSHDATA4) ||
+                   (opcodeTmp <= OP_16 && opcodeTmp >= OP_1) || opcodeTmp == OP_CHECKMULTISIG))
+            {
+                return CScriptID(CScript());
+            }
             if (vch.size() == 33)
             {
+                nokeys = false;
                 unsigned char tweak[32];
                 size_t pub_len = 33;
                 int ret;
@@ -3045,7 +3052,12 @@ CScriptID calculate_contract(const CScript& federationRedeemScript, const CBitco
         }
     }
 
-    return CScriptID(scriptDestination);
+    if (nokeys) {
+        return CScriptID(CScript());
+    }
+    else {
+        return CScriptID(scriptDestination);
+    }
 }
 
 UniValue getpeginaddress(const UniValue& params, bool fHelp)
@@ -3065,6 +3077,7 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
             "\nResult:\n"
             "\"mainchain_address\"           (string) Mainchain Bitcoin deposit address to send bitcoin to\n"
             "\"sidechain_address\"           (string) The sidechain address in this wallet which must be used in `claimpegin` to retrieve pegged-in funds\n"
+            "\"fedpegscript\"                (string) The federation script the user is committing to. THIS *MUST* BE SET TO PROPER NETWORK VALUES OR MONEY SENT TO mainchain_address WILL BE IRREVERSIBLY LOST.\n"
             "\nExamples:\n"
             + HelpExampleCli("getpeginaddress", "")
             + HelpExampleCli("getpeginaddress", "\"\"")
@@ -3079,14 +3092,18 @@ UniValue getpeginaddress(const UniValue& params, bool fHelp)
     unsigned char nonce[16];
     memset(nonce, 0, sizeof(nonce));
     unsigned char fullcontract[40];
-    CParentBitcoinAddress destAddr(calculate_contract(Params().GetConsensus().fedpegScript, address, nonce, fullcontract));
+    CScriptID scriptID = calculate_contract(Params().GetConsensus().fedpegScript, address, nonce, fullcontract);
+    CParentBitcoinAddress destAddr(scriptID);
 
-    UniValue fundinginfo(UniValue::VOBJ);
+    if (scriptID == CScriptID(CScript()))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "-fedpegscript appears to not have any pubkeys. Pegin functionality is disabled until this is properly set. Hex script: " + HexStr(Params().GetConsensus().fedpegScript));
 
     AuditLogPrintf("%s : getpeginaddress mainchain_address: %s sidechain_address: %s\n", getUser(), destAddr.ToString(), address.ToString());
 
+    UniValue fundinginfo(UniValue::VOBJ);
     fundinginfo.pushKV("mainchain_address", destAddr.ToString());
     fundinginfo.pushKV("sidechain_address", address.ToString());
+    fundinginfo.pushKV("fedpegscript", HexStr(Params().GetConsensus().fedpegScript));
     return fundinginfo;
 }
 
