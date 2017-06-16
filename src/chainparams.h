@@ -107,7 +107,6 @@ protected:
     std::string strNetworkID;
     CBlock genesis;
     uint256 parentGenesisBlockHash;
-    CAsset bitcoinID;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;
