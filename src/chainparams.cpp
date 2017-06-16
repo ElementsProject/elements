@@ -10,6 +10,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "amount.h"
+#include "crypto/ripemd160.h"
 
 #include <assert.h>
 
@@ -17,6 +18,18 @@
 #include <boost/scoped_ptr.hpp>
 
 #include "chainparamsseeds.h"
+
+// Safer for users if they load incorrect parameters via arguments.
+static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID)
+{
+    CRIPEMD160 ripemd;
+    unsigned char commitment[20];
+    ripemd.Write((const unsigned char*)networkID.c_str(), networkID.length());
+    ripemd.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
+    ripemd.Write((const unsigned char*)HexStr(params.signblockScript).c_str(), HexStr(params.signblockScript).length());
+    ripemd.Finalize(commitment);
+    return std::vector<unsigned char>(commitment, commitment + 20);
+}
 
 static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
 {
@@ -30,24 +43,25 @@ static CScript StrHexToScriptWithDefault(std::string strScript, const CScript de
     return returnScript;
 }
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const CAsset& asset)
+static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, const CScript& genesisOutputScript, uint32_t nTime, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const CAsset& genesisAsset)
 {
     // Shards must be evenly divisible
     assert(MAX_MONEY % rewardShards == 0);
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    // Any consensus-related values that are command-line set can be added here for anti-footgun
+    txNew.vin[0].scriptSig = CScript(CommitToArguments(params, networkID));
     txNew.vout.resize(rewardShards);
     for (unsigned int i = 0; i < rewardShards; i++) {
         txNew.vout[i].nValue = genesisReward/rewardShards;
-        txNew.vout[i].nAsset = asset;
+        txNew.vout[i].nAsset = genesisAsset;
         txNew.vout[i].scriptPubKey = genesisOutputScript;
     }
 
     CBlock genesis;
     genesis.nTime    = nTime;
-    genesis.proof = CProof(scriptChallenge, CScript());
+    genesis.proof = CProof(CScript());
     genesis.nVersion = nVersion;
     genesis.vtx.push_back(txNew);
     genesis.hashPrevBlock.SetNull();
@@ -72,7 +86,7 @@ public:
         CScript defaultSignblockScript;
         // Default blocksign script for elements
         defaultSignblockScript = CScript() << OP_2 << ParseHex("03206b45265ae687dfdc602b8faa7dd749d7865b0e51f986e12c532229f0c998be") << ParseHex("02cc276552e180061f64dc16e2a02e7f9ecbcc744dea84eddbe991721824df825c") << ParseHex("0204c6be425356d9200a3303d95f2c39078cc9473ca49619da1e0ec233f27516ca") << OP_3 << OP_CHECKMULTISIG;
-        CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", "", mapArgs), defaultSignblockScript);
+        consensus.signblockScript = StrHexToScriptWithDefault(GetArg("-signblockscript", "", mapArgs), defaultSignblockScript);
         CScript defaultFedpegScript;
         defaultFedpegScript = CScript() << OP_2 << ParseHex("02d51090b27ca8f1cc04984614bd749d8bab6f2a3681318d3fd0dd43b2a39dd774") << ParseHex("03a75bd7ac458b19f98047c76a6ffa442e592148c5d23a1ec82d379d5d558f4fd8") << ParseHex("034c55bede1bce8e486080f8ebb7a0e8f106b49efb295a8314da0e1b1723738c66") << OP_3 << OP_CHECKMULTISIG;
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", "", mapArgs), defaultFedpegScript);
@@ -123,12 +137,9 @@ public:
         nDefaultPort = 9042;
         nPruneAfterHeight = 100000;
 
-        // SHA256 of Bitcoin genesis mainnet hash for NUMS bitcoin asset id
-        bitcoinID = BITCOINID;
-
         parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), scriptDestination, 1231006505, genesisChallengeScript, 1, MAX_MONEY, 100, bitcoinID);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, 1, MAX_MONEY, 100, BITCOINID);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
@@ -195,7 +206,7 @@ public:
     void Reset(const std::map<std::string, std::string>& mapArgs)
     {
         const CScript defaultRegtestScript(CScript() << OP_TRUE);
-        CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", "", mapArgs), defaultRegtestScript);
+        consensus.signblockScript = StrHexToScriptWithDefault(GetArg("-signblockscript", "", mapArgs), defaultRegtestScript);
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", "", mapArgs), defaultRegtestScript);
 
         strNetworkID = CHAINPARAMS_REGTEST;
@@ -230,10 +241,7 @@ public:
         nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
 
-        // SHA256 of Bitcoin genesis mainnet hash for NUMS bitcoin asset id
-        bitcoinID = BITCOINID;
-
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, bitcoinID);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, 1, MAX_MONEY, 100, BITCOINID);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
