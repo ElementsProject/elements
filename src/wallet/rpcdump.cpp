@@ -654,6 +654,39 @@ UniValue dumpwallet(const UniValue& params, bool fHelp)
     return NullUniValue;
 }
 
+UniValue getblindedaddress(const UniValue& params, bool fHelp)
+{
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+
+    if (fHelp || params.size() < 1 || params.size() > 1)
+        throw runtime_error(
+            "getblindedaddress \"address\"\n"
+            "\nReturns the blinded CT version of the given address, if available."
+            "\nArguments:\n"
+            "1. \"address\"          (string, required) The unblinded address\n"
+            "\nExample:\n"
+            + HelpExampleCli("getblindedaddress", "\"my unblinded address\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    CBitcoinAddress address(params[0].get_str());
+    if (!address.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+    }
+    if (address.IsBlinded()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Address is already blinded");
+    }
+
+    CTxDestination dest = address.Get();
+    CScript script = GetScriptForDestination(dest);
+    CPubKey key;
+    key = pwalletMain->GetBlindingPubKey(script);
+    address.AddBlindingKey(key);
+    return address.ToString();
+}
+
 UniValue dumpblindingkey(const UniValue& params, bool fHelp)
 {
     if (!EnsureWalletIsAvailable(fHelp))

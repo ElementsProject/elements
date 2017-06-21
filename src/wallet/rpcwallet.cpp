@@ -3658,6 +3658,7 @@ extern UniValue dumpblindingkey(const UniValue& params, bool fHelp);
 extern UniValue dumpissuanceblindingkey(const UniValue& params, bool fHelp);
 extern UniValue importblindingkey(const UniValue& params, bool fHelp);
 extern UniValue importissuanceblindingkey(const UniValue& params, bool fHelp);
+UniValue getblindedaddress(const UniValue& params, bool fHelp);
 
 static const CRPCCommand commands[] =
 { //  category              name                        actor (function)           okSafeMode
@@ -3679,6 +3680,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getaccount",               &getaccount,               true  },
     { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,    true  },
     { "wallet",             "getbalance",               &getbalance,               false },
+    { "wallet",             "getblindedaddress",        &getblindedaddress,        false },
     { "wallet",             "getnewaddress",            &getnewaddress,            true  },
     { "wallet",             "getpeginaddress",          &getpeginaddress,          false },
     { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,      true  },
