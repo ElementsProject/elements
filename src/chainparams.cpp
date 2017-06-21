@@ -340,10 +340,10 @@ public:
 };
 
 
-const std::map<std::string, uint256> CChainParams::supportedChains =
-    boost::assign::map_list_of
-    ( CHAINPARAMS_ELEMENTS, CElementsParams().GenesisBlock().GetHash())
-    ( CHAINPARAMS_REGTEST, CRegTestParams().GenesisBlock().GetHash())
+const std::vector<std::string> CChainParams::supportedChains =
+    boost::assign::list_of
+    ( CHAINPARAMS_ELEMENTS )
+    ( CHAINPARAMS_REGTEST )
     ;
 
 static std::unique_ptr<CChainParams> globalChainParams;

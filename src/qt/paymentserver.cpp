@@ -219,11 +219,11 @@ void PaymentServer::ipcParseCommandLine(int argc, char* argv[])
             if (GUIUtil::parseBitcoinURI(arg, &r) && !r.address.isEmpty())
             {
                 CBitcoinAddress address(r.address.toStdString());
-                std::map<std::string, uint256>::const_iterator iter;
+                std::vector<std::string>::const_iterator iter;
                 for (iter = CChainParams::supportedChains.begin(); iter != CChainParams::supportedChains.end(); ++iter) {
-                    auto tempChainParams = CreateChainParams(iter->first);
+                    auto tempChainParams = CreateChainParams(*iter);
                     if (address.IsValid(*tempChainParams)) {
-                        SelectParams(iter->first);
+                        SelectParams(*iter);
                         break;
                     }
                 }
