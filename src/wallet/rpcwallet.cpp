@@ -3788,6 +3788,7 @@ UniValue issueasset(const JSONRPCRequest& request)
             "\nResult:\n"
             "{                        (json object)\n"
             "  \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "  \"vin\":\"n\",         (numeric) The input position of the issuance in the transaction.\n"
             "  \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
             "  \"asset\":\"<asset>\", (string) Asset type for issuance if known.\n"
             "  \"token\":\"<token>\", (string) Token type for issuance.\n"
@@ -3866,7 +3867,7 @@ UniValue issueasset(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("txid", wtx.tx->GetHash().GetHex()));
-    ret.push_back(Pair("vin", "0"));
+    ret.push_back(Pair("vin", 0));
     ret.push_back(Pair("entropy", entropy.GetHex()));
     ret.push_back(Pair("asset", asset.GetHex()));
     ret.push_back(Pair("token", token.GetHex()));
@@ -3886,7 +3887,10 @@ UniValue reissueasset(const JSONRPCRequest& request)
             "1. \"asset\"                 (string, required) The asset you want to re-issue. The corresponding token must be in your wallet.\n"
             "2. \"assetamount\"           (numeric or string, required) Amount of additional asset to generate.\n"
             "\nResult:\n"
-            "\"txid\"                 (string) Txid of the issuance transaction\n"
+            "{                        (json object)\n"
+            "  \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "  \"vin\":\"n\",         (numeric) The input position of the issuance in the transaction.\n"
+            "}\n"
             "\nExamples:\n"
             + HelpExampleCli("reissueasset", "<asset> 0")
             + HelpExampleRpc("reissueasset", "<asset>, 0")
@@ -3989,7 +3993,7 @@ UniValue listissuances(const JSONRPCRequest& request)
             "    \"asset\":\"<asset>\", (string) Asset type for issuance if known.\n"
             "    \"assetlabel\":\"<assetlabel>\", (string) Asset label for issuance if set.\n"
             "    \"token\":\"<token>\", (string) Token type for issuance.\n"
-            "    \"vin\":\"<vin>\",     (numeric) The vin for the issuance.\n"
+            "    \"vin\":\"n\",         (numeric) The input position of the issuance in the transaction.\n"
             "    \"assetamount\":\"X.XX\",     (numeric) The amount of asset issued. Is -1 if blinded and unknown to wallet.\n"
             "    \"tokenamount\":\"X.XX\",     (numeric) The reissuance token amount issued. Is -1 if blinded and unknown to wallet.\n"
             "    \"isreissuance\":\"<bool>\",  (bool) True if this is a reissuance.\n"
