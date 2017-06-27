@@ -1,89 +1,20 @@
 
-shopt -s expand_aliases
-
-rm -r ~/elementsdir1
-rm -r ~/elementsdir2
-rm -r ~/bitcoindir
-mkdir ~/elementsdir1
-mkdir ~/elementsdir2
-mkdir ~/bitcoindir
+## Preparations
 
 # First we need to set up our config files to walk through this demo
+# Let's have some testing user directories for 1 bitcoin node and 2 elements nodes.
+rm -r ~/bitcoindir ; rm -r ~/elementsdir1 ; rm -r ~/elementsdir2
+mkdir ~/bitcoindir ; mkdir ~/elementsdir1 ; mkdir ~/elementsdir2
 
-cat <<EOF > ~/elementsdir1/elements.conf
-# Standard bitcoind stuff
-rpcuser=user1
-rpcpassword=password1
-rpcport=18884
-port=18886
+# Also configure the nodes by copying the configuration files from
+# this directory (and read them):
+cp ./contrib/assets_tutorial/bitcoin.conf ~/bitcoindir/bitcoin.conf
+cp ./contrib/assets_tutorial/elements1.conf ~/elementsdir1/elements.conf
+cp ./contrib/assets_tutorial/elements2.conf ~/elementsdir2/elements.conf
 
-# Over p2p we will only connect to local other elementsd
-connect=localhost:18887
-
-regtest=1
-daemon=1
-# Make sure you set listen after -connect, otherwise neither
-# will accept incoming connections!
-listen=1
-# Just for looking at random txs
-txindex=1
-
-# This is the script that controls pegged in funds in Bitcoin network
-# Users will be pegging into a P2SH of this, and the "watchmen"
-# can then recover these funds and send them to users who desire to peg out.
-# This template is 1-of-1 checkmultisig
-#fedpegscript=5121<pubkey>51ae
-
-# This is the script that controls how blocks are made
-# We have to supply a signature that satisfies this to create
-# a valid block.
-#signblockscript=5121<pubkey2>51ae
-
-# We want to validate pegins by checking with bitcoind if header exists
-# in best known chain, and how deep. We combine this with pegin
-# proof included in the pegin to get full security.
-validatepegin=1
-
-# If in the same datadir and using standard ports, these are unneeded
-# thanks to cookie auth. If not, like in our situation, elementsd needs
-# more info to connect to bitcoind:
-mainchainrpcport=18888
-mainchainrpcuser=user3
-mainchainrpcpassword=password3
-EOF
-
-cat <<EOF > ~/elementsdir2/elements.conf
-rpcuser=user2
-rpcpassword=password2
-rpcport=18885
-port=18887
-connect=localhost:18886
-
-regtest=1
-daemon=1
-listen=1
-txindex=1
-
-#fedpegscript=51<pubkey>51ae
-#signblockscript=51<pubkey2>51ae
-
-mainchainrpcport=18888
-mainchainrpcuser=user3
-mainchainrpcpassword=password3
-validatepegin=1
-EOF
-
-cat <<EOF > ~/bitcoindir/bitcoin.conf
-rpcuser=user3
-rpcpassword=password3
-rpcport=18888
-port=18889
-
-regtest=1
-testnet=0
-daemon=1
-txindex=1
-EOF
+# Set some aliases:
+cd src
+shopt -s expand_aliases
 
 ELEMENTSPATH="."
 BITCOINPATH="."
@@ -103,6 +34,10 @@ e1-dae
 b-dae
 e1-dae
 e2-dae
+
+# Alternatively, you can set validatepegin=0 in their configs and don't
+# run the bitcoin node, but it is necessary for the two way peg parts of
+# this tutorial.
 
 # Prime the chain, see "immature balance" holds all funds until genesis is mature
 e1-cli getwalletinfo
