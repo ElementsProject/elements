@@ -866,7 +866,7 @@ UniValue getbalance(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() > 4)
         throw runtime_error(
-            "getbalance ( \"account\" minconf include_watchonly )\n"
+            "getbalance ( \"account\" minconf include_watchonly \"assetlabel\" )\n"
             "\nIf account is not specified, returns the server's total available balance.\n"
             "If account is specified (DEPRECATED), returns the balance in the account.\n"
             "Note that the account \"\" is not the same as leaving the parameter out.\n"
@@ -886,17 +886,17 @@ UniValue getbalance(const JSONRPCRequest& request)
             "                     avoid passing this argument.\n"
             "2. minconf           (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
             "3. include_watchonly (bool, optional, default=false) Also include balance in watch-only addresses (see 'importaddress')\n"
-            "4. \"assetlabel\"   (string, optional) Hex asset id or asset label for balance. IF THIS IS USED ALL ACCOUNT ARGUMENTS ARE IGNORED\n"
+            "4. \"assetlabel\"   (string, optional) Hex asset id or asset label for balance. IF THIS IS USED ALL OTHER ARGUMENTS ARE IGNORED\n"
             "\nResult:\n"
 
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this account.\n"
             "\nExamples:\n"
             "\nThe total amount in the wallet\n"
             + HelpExampleCli("getbalance", "") +
-            "\nThe total amount in the wallet at least 5 blocks confirmed\n"
-            + HelpExampleCli("getbalance", "\"*\" 6") +
+            "\nThe total amount in the wallet of the specified asset (leading 3 arguments are ignored)\n"
+            + HelpExampleCli("getbalance", "\"*\" 6 false \"09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621\"") +
             "\nAs a json rpc call\n"
-            + HelpExampleRpc("getbalance", "\"*\", 6")
+            + HelpExampleRpc("getbalance", "\"*\", 6 false \"09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
