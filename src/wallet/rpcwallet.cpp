@@ -3801,13 +3801,7 @@ UniValue issueasset(const JSONRPCRequest& request)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     CAmount nAmount = AmountFromValue(request.params[0]);
-    if (nAmount < 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Asset creation amount must be non-negative");
-
     CAmount nTokens = AmountFromValue(request.params[1]);
-    if (nTokens < 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Reissuance token creation amount must be non-negative");
-
     if (nAmount == 0 && nTokens == 0) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
     }
