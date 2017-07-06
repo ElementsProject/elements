@@ -806,8 +806,6 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of hex strings");
         if (!inputAssets[nIn].isStr())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset ids must be an array of hex strings");
-        if (!inputAmounts[nIn].isNum())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Amounts must be numeric.");
 
         std::string blind(inputBlinds[nIn].get_str());
         std::string assetblind(inputAssetBlinds[nIn].get_str());
@@ -822,7 +820,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         input_blinds.push_back(uint256S(blind));
         input_asset_blinds.push_back(uint256S(assetblind));
         input_assets.push_back(CAsset(uint256S(asset)));
-        input_amounts.push_back(inputAmounts[nIn].get_int64());
+        input_amounts.push_back(AmountFromValue(inputAmounts[nIn]));
 
         if (!input_blinds.back().IsNull()) {
             n_blinded_ins++;
@@ -835,7 +833,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     // How many are we trying to blind?
     int numPubKeys = 0;
-    unsigned int keyIndex = 0;
+    unsigned int keyIndex = -1;
     for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
         const CPubKey& key = output_pubkeys[i];
         if (key.IsValid()) {
@@ -848,13 +846,8 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         // Vacuous, just return the transaction
         return EncodeHexTx(tx);
     } else if (n_blinded_ins > 0 && numPubKeys == 0) {
-        // Blinded inputs need to balanced with something to be valid, make a dummy.
-        // No privacy lost because all outputs are explicit anyways.
-        CTxOut newTxOut(tx.vout.back().nAsset.GetAsset(), 0, CScript() << OP_RETURN);
-        tx.vout.push_back(newTxOut);
-        numPubKeys++;
-        // Just copy some non-zero key
-        output_pubkeys.push_back(output_pubkeys[keyIndex]);
+        // No notion of wallet, cannot complete this blinding without passed-in pubkey
+        throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Add another output to blind in order to complete the blinding."));
     } else if (n_blinded_ins == 0 && numPubKeys == 1) {
         if (fIgnoreBlindFail) {
             // Just get rid of the ECDH key in the nonce field and return
@@ -865,7 +858,8 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         }
     }
 
-    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx) != numPubKeys) {
+    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx);
+    if (ret != numPubKeys) {
         // TODO Have more rich return values, communicating to user what has been blinded
         // User may be ok not blinding something that for instance has no corresponding type on input
         throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?"));
@@ -1006,7 +1000,6 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         return EncodeHexTx(tx);
     } else if (n_blinded_ins > 0 && numPubKeys == 0) {
         // Blinded inputs need to balanced with something to be valid, make a dummy.
-        // No privacy lost because all outputs are explicit anyways.
         CTxOut newTxOut(tx.vout.back().nAsset.GetAsset(), 0, CScript() << OP_RETURN);
         tx.vout.push_back(newTxOut);
         numPubKeys++;
