@@ -901,6 +901,7 @@ UniValue gettxout(const JSONRPCRequest& request)
             "  \"bestblock\" : \"hash\",    (string) the block hash\n"
             "  \"confirmations\" : n,       (numeric) The number of confirmations\n"
             "  \"value\" : x.xxx,           (numeric) The transaction value in " + CURRENCY_UNIT + "\n"
+            "  \"amountcommitment\": \"hex\", (string) the output's value commitment, if blinded\n"
             "  \"scriptPubKey\" : {         (json object)\n"
             "     \"asm\" : \"code\",       (string) \n"
             "     \"hex\" : \"hex\",        (string) \n"
@@ -959,7 +960,7 @@ UniValue gettxout(const JSONRPCRequest& request)
     if (coins.vout[n].nValue.IsExplicit()) {
         ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue.GetAmount())));
     } else {
-        ret.push_back(Pair("valuecommitment", HexStr(coins.vout[n].nValue.vchCommitment)));
+        ret.push_back(Pair("amountcommitment", HexStr(coins.vout[n].nValue.vchCommitment)));
     }
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);

@@ -2731,8 +2731,9 @@ UniValue listunspent(const JSONRPCRequest& request)
             "    \"asset\": \"hex\"       (string) the asset id for this output\n"
             "    \"assetcommitment\": \"hex\" (string) the asset commitment for this output\n"
             "    \"confirmations\": n,    (numeric) The number of confirmations\n"
-            "    \"serValue\": \"hex\",     (string) the output's value commitment\n"
-            "    \"blinder\": \"blind\"     (string) The blinding factor used for a confidential output (or \"\")\n"
+            "    \"amountcommitment\": \"hex\",     (string) the output's value commitment, if blinded\n"
+            "    \"blinder\": \"blind\"     (string) The value blinding factor used for a confidential output (or \"\")\n"
+            "    \"assetblinder\": \"blind\"(string) The asset blinding factor used for a confidential output (or \"\")\n"
             "    \"redeemScript\": n      (string) The redeemScript if scriptPubKey is P2SH\n"
             "    \"spendable\": xxx,      (bool) Whether we have the private keys to spend this output\n"
             "    \"solvable\": xxx        (bool) Whether we know how to spend this output, ignoring the lack of keys\n"
@@ -2846,9 +2847,9 @@ UniValue listunspent(const JSONRPCRequest& request)
         entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         entry.push_back(Pair("solvable", out.fSolvable));
-        CDataStream ssValue(SER_NETWORK, PROTOCOL_VERSION);
-        ssValue << nValue;
-        entry.push_back(Pair("serValue", HexStr(ssValue.begin(), ssValue.end())));
+        if (out.tx->tx->vout[out.i].nValue.IsCommitment()) {
+            entry.push_back(Pair("amountcommitment", HexStr(out.tx->tx->vout[out.i].nValue.vchCommitment)));
+        }
         entry.push_back(Pair("blinder",out.tx->GetOutputBlindingFactor(out.i).ToString()));
         entry.push_back(Pair("assetblinder",out.tx->GetOutputAssetBlindingFactor(out.i).ToString()));
         results.push_back(entry);

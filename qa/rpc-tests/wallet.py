@@ -75,19 +75,19 @@ class WalletTest (BitcoinTestFramework):
         txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
         txout1v0 = self.nodes[0].gettxout(txid1, 0)
         rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
-        valuecommit1 = rawtx1["vout"][0]["serValue"]
+        amountcommit1 = rawtx1["vout"][0]["amountcommitment"]
         assert_equal(txout1v0['confirmations'], 0)
         assert(not txout1v0['coinbase'])
-        assert_equal(valuecommit1, txout1v0['valuecommitment'])
+        assert_equal(amountcommit1, txout1v0['amountcommitment'])
 
 
         txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
         rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
-        valuecommit2 = rawtx2["vout"][0]["serValue"]
+        amountcommit2 = rawtx2["vout"][0]["amountcommitment"]
         assert_equal(txout2v0['confirmations'], 0)
         assert(not txout2v0['coinbase'])
-        assert_equal(valuecommit2, txout2v0['valuecommitment'])
+        assert_equal(amountcommit2, txout2v0['amountcommitment'])
 
         walletinfo = self.nodes[0].getwalletinfo("bitcoin")
         assert_equal(walletinfo['immature_balance'], 0)
