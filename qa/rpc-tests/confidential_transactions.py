@@ -390,6 +390,41 @@ class CTTest (BitcoinTestFramework):
         assert_equal(len(self.nodes[0].listunspent(0, 0, [unconfidential_addr])), 1)
         assert_equal(len(self.nodes[1].listunspent(0, 0, [unconfidential_addr])), 1)
 
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # Basic checks of rawblindrawtransaction functionality
+        blinded_addr = self.nodes[0].getnewaddress()
+        addr = self.nodes[0].validateaddress(blinded_addr)["unconfidential"]
+        txid1 = self.nodes[0].sendtoaddress(blinded_addr, 1)
+        txid2 = self.nodes[0].sendtoaddress(blinded_addr, 3)
+        unspent = self.nodes[0].listunspent(0, 0)
+        assert_equal(len(unspent), 3)
+        rawtx = self.nodes[0].createrawtransaction([{"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]}, {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}], {addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.2"), "fee":Decimal("0.2")})
+        # Blinding will fail with 2 blinded inputs and 0 blinded outputs
+        # since it has no notion of a wallet to fill in a 0-value OP_RETURN output
+        try:
+            self.nodes[0].rawblindrawtransaction(rawtx, [unspent[0]["blinder"], unspent[1]["blinder"]], [unspent[0]["amount"], unspent[1]["amount"]], [unspent[0]["asset"], unspent[1]["asset"]], [unspent[0]["assetblinder"], unspent[1]["assetblinder"]])
+            raise AssertionError("Shouldn't be able to blind 2 input 0 output transaction via rawblindraw")
+        except JSONRPCException:
+            pass
+
+        # Blinded destination added, can blind, sign and send
+        rawtx = self.nodes[0].createrawtransaction([{"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]}, {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}], {blinded_addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.002"), "fee":Decimal("0.002")})
+        signtx = self.nodes[0].signrawtransaction(rawtx)
+
+        try:
+            self.nodes[0].sendrawtransaction(signtx["hex"])
+            raise AssertionError("Shouldn't be able to send unblinded tx with emplaced pubkey in output without additional argument")
+        except JSONRPCException:
+            pass
+
+        blindtx = self.nodes[0].rawblindrawtransaction(rawtx, [unspent[0]["blinder"], unspent[1]["blinder"]], [unspent[0]["amount"], unspent[1]["amount"]], [unspent[0]["asset"], unspent[1]["asset"]], [unspent[0]["assetblinder"], unspent[1]["assetblinder"]])
+        signtx = self.nodes[0].signrawtransaction(blindtx)
+        txid = self.nodes[0].sendrawtransaction(signtx["hex"])
+        for output in self.nodes[0].decoderawtransaction(blindtx)["vout"]:
+            if "asset" in output and output["scriptPubKey"]["type"] != "fee":
+                raise AssertionError("An unblinded output exists")
 
 if __name__ == '__main__':
     CTTest ().main ()

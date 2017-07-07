@@ -2850,6 +2850,7 @@ UniValue listunspent(const JSONRPCRequest& request)
         ssValue << nValue;
         entry.push_back(Pair("serValue", HexStr(ssValue.begin(), ssValue.end())));
         entry.push_back(Pair("blinder",out.tx->GetOutputBlindingFactor(out.i).ToString()));
+        entry.push_back(Pair("assetblinder",out.tx->GetOutputAssetBlindingFactor(out.i).ToString()));
         results.push_back(entry);
     }
 
