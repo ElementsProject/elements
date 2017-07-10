@@ -125,18 +125,19 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         if (!issuance.IsNull()) {
             UniValue issue(UniValue::VOBJ);
             issue.push_back(Pair("assetBlindingNonce", issuance.assetBlindingNonce.GetHex()));
-            issue.push_back(Pair("assetEntropy", issuance.assetEntropy.GetHex()));
             CAsset asset;
             CAsset token;
             uint256 entropy;
             if (issuance.assetBlindingNonce.IsNull()) {
                 GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
+                issue.push_back(Pair("assetEntropy", HexStr(entropy)));
                 CalculateAsset(asset, entropy);
                 CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
                 issue.push_back(Pair("isreissuance", false));
                 issue.push_back(Pair("token", token.GetHex()));
             }
             else {
+                issue.push_back(Pair("assetEntropy", issuance.assetEntropy.GetHex()));
                 issue.push_back(Pair("isreissuance", true));
                 CalculateAsset(asset, issuance.assetEntropy);
             }
@@ -162,9 +163,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
-        if (txout.nValue.IsExplicit())
+        if (txout.nValue.IsExplicit()) {
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
-        else {
+        } else {
             int exp;
             int mantissa;
             uint64_t minv;
@@ -180,6 +181,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                 out.push_back(Pair("ct-exponent", exp));
                 out.push_back(Pair("ct-bits", mantissa));
             }
+            out.push_back(Pair("amountcommitment", HexStr(txout.nValue.vchCommitment)));
         }
         const CConfidentialAsset& asset = txout.nAsset;
         if (asset.IsExplicit()) {
@@ -189,11 +191,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         }
 
         const CConfidentialValue& amount = txout.nValue;
-        if (amount.IsExplicit()) {
-            out.push_back(Pair("value", amount.GetAmount()));
-        } else if (amount.IsCommitment()) {
-            out.push_back(Pair("amountcommitment", HexStr(amount.vchCommitment)));
-        }
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);

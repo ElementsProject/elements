@@ -902,6 +902,8 @@ UniValue gettxout(const JSONRPCRequest& request)
             "  \"confirmations\" : n,       (numeric) The number of confirmations\n"
             "  \"value\" : x.xxx,           (numeric) The transaction value in " + CURRENCY_UNIT + "\n"
             "  \"amountcommitment\": \"hex\", (string) the output's value commitment, if blinded\n"
+            "  \"asset\": \"hex\",          (string) the output's asset type, if unblinded\n"
+            "  \"assetcommitment\": \"hex\", (string) the output's asset commitment, if blinded\n"
             "  \"scriptPubKey\" : {         (json object)\n"
             "     \"asm\" : \"code\",       (string) \n"
             "     \"hex\" : \"hex\",        (string) \n"
@@ -962,6 +964,12 @@ UniValue gettxout(const JSONRPCRequest& request)
     } else {
         ret.push_back(Pair("amountcommitment", HexStr(coins.vout[n].nValue.vchCommitment)));
     }
+    if (coins.vout[n].nAsset.IsExplicit()) {
+        ret.push_back(Pair("asset", HexStr(coins.vout[n].nAsset.vchCommitment)));
+    } else {
+        ret.push_back(Pair("assetcommitment", HexStr(coins.vout[n].nAsset.vchCommitment)));
+    }
+
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
     ret.push_back(Pair("scriptPubKey", o));
