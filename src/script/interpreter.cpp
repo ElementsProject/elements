@@ -1354,11 +1354,15 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     popstack(stack);
                     popstack(stack);
                     stack.push_back(fSuccess ? vchTrue : vchFalse);
-                    if (opcode == OP_CHECKSIGFROMSTACKVERIFY)
-                        popstack(stack);
 
-                    if (!fSuccess)
-                        return set_error(serror, SCRIPT_ERR_CHECKSIGVERIFY);
+                    if (opcode == OP_CHECKSIGFROMSTACKVERIFY)
+                    {
+                        if (fSuccess)
+                            popstack(stack);
+                        else
+                            return set_error(serror, SCRIPT_ERR_CHECKSIGFROMSTACKVERIFY);
+                    }
+
                 }
                 break;
 
