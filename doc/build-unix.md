@@ -4,8 +4,6 @@ Some notes on how to build Elements in Unix.
 
 (for OpenBSD specific instructions, see [build-openbsd.md](build-openbsd.md))
 
-This will build Elements-Qt as well if the dependencies are met.
-
 
 Dependencies
 ---------------------
