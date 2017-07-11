@@ -742,7 +742,7 @@ UniValue getreceivedbyaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw runtime_error(
-            "getreceivedbyaddress \"address\" ( minconf )\n"
+            "getreceivedbyaddress \"address\" ( minconf assetlabel )\n"
             "\nReturns the total amount received by the given address in transactions with at least minconf confirmations.\n"
             "\nArguments:\n"
             "1. \"address\"         (string, required) The bitcoin address for transactions.\n"
@@ -2041,7 +2041,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw runtime_error(
-            "gettransaction \"txid\" ( include_watchonly )\n"
+            "gettransaction \"txid\" ( include_watchonly assetlabel )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
             "\nArguments:\n"
             "1. \"txid\"                  (string, required) The transaction id\n"
@@ -2621,7 +2621,7 @@ UniValue getwalletinfo(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() > 1)
         throw runtime_error(
-            "getwalletinfo\n"
+            "getwalletinfo ( assetlabel )\n"
             "Returns an object containing various wallet state info.\n"
             "1. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance. \"*\" retrieves all known asset balances.\n"
             "\nResult:\n"
@@ -2730,9 +2730,11 @@ UniValue listunspent(const JSONRPCRequest& request)
             "    \"amount\" : x.xxx,         (numeric) the transaction output amount in " + CURRENCY_UNIT + "\n"
             "    \"asset\": \"hex\"       (string) the asset id for this output\n"
             "    \"assetcommitment\": \"hex\" (string) the asset commitment for this output\n"
+            "    \"assetlabel\":\"<assetlabel>\", (string) Asset label for asset type if set.\n"
             "    \"confirmations\": n,    (numeric) The number of confirmations\n"
-            "    \"serValue\": \"hex\",     (string) the output's value commitment\n"
-            "    \"blinder\": \"blind\"     (string) The blinding factor used for a confidential output (or \"\")\n"
+            "    \"amountcommitment\": \"hex\",     (string) the output's value commitment, if blinded\n"
+            "    \"blinder\": \"blind\"     (string) The value blinding factor used for a confidential output\n"
+            "    \"assetblinder\": \"blind\"(string) The asset blinding factor used for a confidential output\n"
             "    \"redeemScript\": n      (string) The redeemScript if scriptPubKey is P2SH\n"
             "    \"spendable\": xxx,      (bool) Whether we have the private keys to spend this output\n"
             "    \"solvable\": xxx        (bool) Whether we know how to spend this output, ignoring the lack of keys\n"
@@ -2846,9 +2848,9 @@ UniValue listunspent(const JSONRPCRequest& request)
         entry.push_back(Pair("confirmations", out.nDepth));
         entry.push_back(Pair("spendable", out.fSpendable));
         entry.push_back(Pair("solvable", out.fSolvable));
-        CDataStream ssValue(SER_NETWORK, PROTOCOL_VERSION);
-        ssValue << nValue;
-        entry.push_back(Pair("serValue", HexStr(ssValue.begin(), ssValue.end())));
+        if (out.tx->tx->vout[out.i].nValue.IsCommitment()) {
+            entry.push_back(Pair("amountcommitment", HexStr(out.tx->tx->vout[out.i].nValue.vchCommitment)));
+        }
         entry.push_back(Pair("blinder",out.tx->GetOutputBlindingFactor(out.i).ToString()));
         entry.push_back(Pair("assetblinder",out.tx->GetOutputAssetBlindingFactor(out.i).ToString()));
         results.push_back(entry);

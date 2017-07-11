@@ -125,18 +125,19 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         if (!issuance.IsNull()) {
             UniValue issue(UniValue::VOBJ);
             issue.push_back(Pair("assetBlindingNonce", issuance.assetBlindingNonce.GetHex()));
-            issue.push_back(Pair("assetEntropy", issuance.assetEntropy.GetHex()));
             CAsset asset;
             CAsset token;
             uint256 entropy;
             if (issuance.assetBlindingNonce.IsNull()) {
                 GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
+                issue.push_back(Pair("assetEntropy", HexStr(entropy)));
                 CalculateAsset(asset, entropy);
                 CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
                 issue.push_back(Pair("isreissuance", false));
                 issue.push_back(Pair("token", token.GetHex()));
             }
             else {
+                issue.push_back(Pair("assetEntropy", issuance.assetEntropy.GetHex()));
                 issue.push_back(Pair("isreissuance", true));
                 CalculateAsset(asset, issuance.assetEntropy);
             }
@@ -145,12 +146,12 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             if (issuance.nAmount.IsExplicit()) {
                 issue.push_back(Pair("assetamount", ValueFromAmount(issuance.nAmount.GetAmount())));
             } else if (issuance.nAmount.IsCommitment()) {
-                issue.push_back(Pair("assetvaluecommitment", HexStr(issuance.nAmount.vchCommitment)));
+                issue.push_back(Pair("assetamountcommitment", HexStr(issuance.nAmount.vchCommitment)));
             }
             if (issuance.nInflationKeys.IsExplicit()) {
                 issue.push_back(Pair("tokenamount", ValueFromAmount(issuance.nInflationKeys.GetAmount())));
             } else if (issuance.nInflationKeys.IsCommitment()) {
-                issue.push_back(Pair("tokenvaluecommitment", HexStr(issuance.nInflationKeys.vchCommitment)));
+                issue.push_back(Pair("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment)));
             }
             in.push_back(Pair("issuance", issue));
         }
@@ -162,9 +163,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& txout = tx.vout[i];
         UniValue out(UniValue::VOBJ);
-        if (txout.nValue.IsExplicit())
+        if (txout.nValue.IsExplicit()) {
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
-        else {
+        } else {
             int exp;
             int mantissa;
             uint64_t minv;
@@ -180,20 +181,16 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                 out.push_back(Pair("ct-exponent", exp));
                 out.push_back(Pair("ct-bits", mantissa));
             }
+            out.push_back(Pair("amountcommitment", HexStr(txout.nValue.vchCommitment)));
         }
         const CConfidentialAsset& asset = txout.nAsset;
         if (asset.IsExplicit()) {
             out.push_back(Pair("asset", asset.GetAsset().GetHex()));
-        }
-        else if (asset.IsCommitment()) {
+        } else if (asset.IsCommitment()) {
             out.push_back(Pair("assetcommitment", HexStr(asset.vchCommitment)));
         }
 
-        {
-            CDataStream ssValue(SER_NETWORK, PROTOCOL_VERSION);
-            ssValue << txout.nValue;
-            out.push_back(Pair("serValue", HexStr(ssValue.begin(), ssValue.end())));
-        }
+        const CConfidentialValue& amount = txout.nValue;
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
@@ -258,12 +255,14 @@ UniValue getrawtransaction(const JSONRPCRequest& request)
             "       },\n"
             "       \"sequence\": n      (numeric) The script sequence number\n"
             "       \"txinwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
+            "       \"issuance\"         (object) Info on issuance\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
             "  \"vout\" : [              (array of json objects)\n"
             "     {\n"
             "       \"value\" : x.xxx,            (numeric) The value in " + CURRENCY_UNIT + "\n"
+            "       \"amountcommitment\": \"hex\",     (string) the output's value commitment, if blinded\n"
             "       \"fee_value\" : x.xxx,        (numeric) The fee value in " + CURRENCY_UNIT + "\n"
             "       \"n\" : n,                    (numeric) index\n"
             "       \"asset\" : \"hex\"           (string) the asset id, if unblinded\n"
@@ -1043,6 +1042,7 @@ UniValue decoderawtransaction(const JSONRPCRequest& request)
             "       },\n"
             "       \"txinwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
             "       \"sequence\": n     (numeric) The script sequence number\n"
+            "       \"issuance\"         (object) Info on issuance\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
