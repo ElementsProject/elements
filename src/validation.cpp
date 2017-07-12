@@ -2045,8 +2045,8 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (!tx.HasValidFee())
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
         if (!VerifyAmounts(inputs, tx, pvChecks, cacheStore))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
-                strprintf("value in (%s) < value out", FormatMoney(nValueIn)));
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false,
+                strprintf("value in (%s) != value out", FormatMoney(nValueIn)));
 
     return true;
 }
