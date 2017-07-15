@@ -190,7 +190,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             out.push_back(Pair("assetcommitment", HexStr(asset.vchCommitment)));
         }
 
-        const CConfidentialValue& amount = txout.nValue;
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
