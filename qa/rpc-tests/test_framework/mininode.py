@@ -598,25 +598,17 @@ class CTransaction(object):
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
+        flags = struct.unpack("<B", f.read(1))[0]
         self.vin = deser_vector(f, CTxIn)
-        flags = 0
-        if len(self.vin) == 0:
-            flags = struct.unpack("<B", f.read(1))[0]
-            # Not sure why flags can't be zero, but this
-            # matches the implementation in bitcoind
-            if (flags != 0):
-                self.vin = deser_vector(f, CTxIn)
-                self.vout = deser_vector(f, CTxOut)
-        else:
-            self.vout = deser_vector(f, CTxOut)
+        self.vout = deser_vector(f, CTxOut)
+        self.nLockTime = struct.unpack("<I", f.read(4))[0]
         if flags & 1 > 0:
             self.wit.vtxinwit = [CTxInWitness() for i in range(len(self.vin))]
             self.wit.vtxoutwit = [CTxOutWitness() for i in range(len(self.vout))]
             self.wit.deserialize(f)
-
         if flags > 1:
             raise TypeError('Extra witness flags:' + str(flags))
-        self.nLockTime = struct.unpack("<I", f.read(4))[0]
+        
         self.sha256 = None
         self.hash = None
 
@@ -636,12 +628,10 @@ class CTransaction(object):
             flags |= 1
         r = b""
         r += struct.pack("<i", self.nVersion)
-        if flags:
-            dummy = []
-            r += ser_vector(dummy)
-            r += struct.pack("<B", flags)
+        r += struct.pack("<B", flags)
         r += ser_vector(self.vin)
         r += ser_vector(self.vout)
+        r += struct.pack("<I", self.nLockTime)
         if flags & 1:
             if (len(self.wit.vtxinwit) != len(self.vin)):
                 # vtxinwit must have the same length as vin
@@ -652,7 +642,6 @@ class CTransaction(object):
                 for i in range(len(self.wit.vtxoutwit), len(self.vout)):
                     self.wit.vtxoutwit.append(CTxInWitness())
             r += self.wit.serialize()
-        r += struct.pack("<I", self.nLockTime)
         return r
 
     def serialize(self):
