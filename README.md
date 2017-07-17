@@ -38,6 +38,7 @@ License
 Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see http://opensource.org/licenses/MIT.
 
+[issued-assets]: https://www.elementsproject.org/elements/asset-issuance/
 [confidential-transactions]: https://www.elementsproject.org/elements/confidential-transactions
 [segregated-witness]: https://www.elementsproject.org/elements/segregated-witness
 [relative-lock-time]: https://www.elementsproject.org/elements/relative-lock-time
