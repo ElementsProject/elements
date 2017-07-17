@@ -20,7 +20,7 @@ Features of the Elements blockchain platform
 ----------------
 
 Compared to Bitcoin itself, it adds the following features:
- * [Confidential Assets][issued-assets]
+ * [Confidential Assets][asset-issuance]
  * [Confidential Transactions][confidential-transactions]
  * [Additional opcodes][opcodes]
  * [Deterministic Peg][deterministic-peg]
@@ -45,6 +45,7 @@ information or see http://opensource.org/licenses/MIT.
 [opcodes]: https://www.elementsproject.org/elements/opcodes
 [deterministic-peg]: https://www.elementsproject.org/elements/deterministic-pegs
 [signed-blocks]: https://www.elementsproject.org/elements/signed-blocks
+[asset-issuance]: https://www.elementsproject.org/elements/asset-issuance
 
 What is the Elements Project?
 -----------------
