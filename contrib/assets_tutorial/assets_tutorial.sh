@@ -346,7 +346,7 @@ PROOF=$(b-cli gettxoutproof '''["'''$TXID'''"]''')
 RAW=$(b-cli getrawtransaction $TXID)
 
 # Attempt claim!
-CLAIMTXID=$(e1-cli claimpegin $SIDECHAIN $RAW $PROOF)
+CLAIMTXID=$(e1-cli claimpegin $RAW $PROOF)
 
 # Other node should accept to mempool and mine
 e2-cli generate 1
