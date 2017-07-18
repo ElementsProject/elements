@@ -1591,8 +1591,10 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
 
     std::vector<std::pair<COutPoint, CAmount> > locksCreated;
     bool locksChanged = false;
-    if (!pblocktree->ReadLocksCreated(genesisHash, locksCreated))
-        return false;
+    // If this fails, we should still try to grab from mempool.
+    if (!pblocktree->ReadLocksCreated(genesisHash, locksCreated)) {
+        locksCreated.clear();
+    }
 
     //For faster random esasure
     std::list<std::pair<COutPoint, CAmount> > locksList;
@@ -1632,8 +1634,9 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
         pblocktree->ReWriteLocksCreated(genesisHash, vChangedLocks);
     }
     //Found single lock large enough
-    if (res.size())
+    if (res.size()) {
         return true;
+    }
 
     CAmount nTotal = 0;
     //Gather up smaller locked outputs for aggregation.
@@ -1646,8 +1649,9 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
             continue;
         }
 
-        if (mempool.mapNextTx.count(COutPoint(it->first.hash, it->first.n)))
+        if (mempool.mapNextTx.count(COutPoint(it->first.hash, it->first.n))) {
             continue;
+        }
 
         assert(coins.vout[it->first.n].nValue.IsExplicit() && coins.vout[it->first.n].nValue.GetAmount() == it->second);
         res.push_back(*it);
@@ -1675,20 +1679,28 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
             const CTransaction& tx = *ptx;
             for (unsigned int j = 0; j < tx.vout.size() && nTotal < nAmount; j++) {
                 CTxOut txout = tx.vout[j];
-                if (!txout.scriptPubKey.IsWithdrawLock())
+                if (!txout.scriptPubKey.IsWithdrawLock()) {
                     continue;
+                }
 
                 uint256 withdrawGenHash = txout.scriptPubKey.GetWithdrawLockGenesisHash();
-                if (genesisHash != withdrawGenHash)
+                if (genesisHash != withdrawGenHash) {
                     continue;
-                if (mempool.mapWithdrawsSpentToTxid.count(std::make_pair(withdrawGenHash, COutPoint(tx.GetHash(), j))))
-                    continue;
+                }
 
-                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit()) {
-                    res.push_back(std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount()));
-                    nTotal += txout.nValue.GetAmount();
-                    if (nTotal >= nAmount)
-                        return true;
+                // Only written locks are filtered previously for invalid type
+                if (txout.nValue.IsCommitment() || txout.nAsset.IsCommitment() || txout.nAsset.GetAsset() != BITCOINID) {
+                    continue;
+                }
+
+                if (mempool.mapNextTx.count(COutPoint(tx.GetHash(), j))) {
+                    continue;
+                }
+
+                res.push_back(std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount()));
+                nTotal += txout.nValue.GetAmount();
+                if (nTotal >= nAmount) {
+                    return true;
                 }
             }
        }
@@ -1698,8 +1710,9 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
     //res list is already randomized
     nTotal = 0;
     size_t i = 0;
-    for (; i < res.size() && nTotal < nAmount; i++)
+    for (; i < res.size() && nTotal < nAmount; i++) {
         nTotal += res[i].second;
+    }
 
     res.resize(i);
     return true;
