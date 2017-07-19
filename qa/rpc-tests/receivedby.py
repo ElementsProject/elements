@@ -56,11 +56,11 @@ class ReceivedByTest(BitcoinTestFramework):
         self.sync_all()
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                            {"address":unblinded},
-                           {"address":unblinded, "account":"", "amount":Decimal("0.1"), "confirmations":10, "txids":[txid,]})
+                           {"address":unblinded, "account":"", "amount":{"bitcoin":Decimal("0.1")}, "confirmations":10, "txids":[txid,]})
         #With min confidence < 10
         assert_array_result(self.nodes[1].listreceivedbyaddress(5),
                            {"address":unblinded},
-                           {"address":unblinded, "account":"", "amount":Decimal("0.1"), "confirmations":10, "txids":[txid,]})
+                           {"address":unblinded, "account":"", "amount":{"bitcoin":Decimal("0.1")}, "confirmations":10, "txids":[txid,]})
         #With min confidence > 10, should not find Tx
         assert_array_result(self.nodes[1].listreceivedbyaddress(11),{"blindedaddress":addr},{ },True)
 
@@ -69,7 +69,7 @@ class ReceivedByTest(BitcoinTestFramework):
         unblinded = self.nodes[1].validateaddress(addr)['unconfidential']
         assert_array_result(self.nodes[1].listreceivedbyaddress(0,True),
                            {"address":unblinded},
-                           {"address":unblinded, "account":"", "amount":0, "confirmations":0, "txids":[]})
+                           {"address":unblinded, "account":"", "amount":{}, "confirmations":0, "txids":[]})
 
         '''
             getreceivedbyaddress Test
@@ -106,7 +106,7 @@ class ReceivedByTest(BitcoinTestFramework):
         received_by_account_json = get_sub_array_from_array(self.nodes[1].listreceivedbyaccount(),{"account":account})
         if len(received_by_account_json) == 0:
             raise AssertionError("No accounts found in node")
-        balance_by_account = self.nodes[1].getreceivedbyaccount(account)
+        balance_by_account = self.nodes[1].getreceivedbyaccount(account)["bitcoin"]
 
         txid = self.nodes[0].sendtoaddress(addr, 0.1)
         self.sync_all()
@@ -117,7 +117,7 @@ class ReceivedByTest(BitcoinTestFramework):
                            received_by_account_json)
 
         # getreceivedbyaddress should return same balance because of 0 confirmations
-        balance = self.nodes[1].getreceivedbyaccount(account)
+        balance = self.nodes[1].getreceivedbyaccount(account)["bitcoin"]
         if balance != balance_by_account:
             raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
@@ -126,10 +126,10 @@ class ReceivedByTest(BitcoinTestFramework):
         # listreceivedbyaccount should return updated account balance
         assert_array_result(self.nodes[1].listreceivedbyaccount(),
                            {"account":account},
-                           {"account":received_by_account_json["account"], "amount":(received_by_account_json["amount"] + Decimal("0.1"))})
+                           {"account":received_by_account_json["account"], "amount":{"bitcoin":(received_by_account_json["amount"]["bitcoin"] + Decimal("0.1"))}})
 
         # getreceivedbyaddress should return updates balance
-        balance = self.nodes[1].getreceivedbyaccount(account)
+        balance = self.nodes[1].getreceivedbyaccount(account)["bitcoin"]
         if balance != balance_by_account + Decimal("0.1"):
             raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
@@ -140,12 +140,12 @@ class ReceivedByTest(BitcoinTestFramework):
             raise AssertionError("No accounts found in node")
 
         # Test includeempty of listreceivedbyaccount
-        if received_by_account_json["amount"] != Decimal("0.0"):
+        if received_by_account_json["amount"] != {}:
             raise AssertionError("Wrong balance returned by listreceivedbyaccount, %0.2f"%(received_by_account_json["amount"]))
 
         # Test getreceivedbyaccount for 0 amount accounts
         balance = self.nodes[1].getreceivedbyaccount("mynewaccount")
-        if balance != Decimal("0.0"):
+        if balance != {}:
             raise AssertionError("Wrong balance returned by getreceivedbyaccount, %0.2f"%(balance))
 
 if __name__ == '__main__':

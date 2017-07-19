@@ -839,7 +839,7 @@ UniValue getreceivedbyaccount(const JSONRPCRequest& request)
     set<CTxDestination> setAddress = pwalletMain->GetAccountAddresses(strAccount);
 
     // Tally
-    CAmount nAmount = 0;
+    CAmountMap mapAmount;
     for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletTx& wtx = (*it).second;
@@ -849,13 +849,17 @@ UniValue getreceivedbyaccount(const JSONRPCRequest& request)
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
         {
             CTxDestination address;
-            if (ExtractDestination(wtx.tx->vout[i].scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address))
-                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetOutputValueOut(i) >= 0)
-                    nAmount += wtx.GetOutputValueOut(i);
+            if (ExtractDestination(wtx.tx->vout[i].scriptPubKey, address) && IsMine(*pwalletMain, address) && setAddress.count(address)) {
+                if (wtx.GetDepthInMainChain() >= nMinDepth && wtx.GetOutputValueOut(i) >= 0) {
+                    CAmountMap wtxValue;
+                    wtxValue[wtx.GetOutputAsset(i)] = wtx.GetOutputValueOut(i);
+                    mapAmount += wtxValue;
+                }
+            }
         }
     }
 
-    return ValueFromAmount(nAmount);
+    return PushAssetBalance(mapAmount, pwalletMain, "");
 }
 
 
@@ -1380,12 +1384,12 @@ struct tallyitem
 {
     CBitcoinAddress address;
     CAmount nAmount;
+    CAmountMap mapAmount;
     int nConf;
     vector<uint256> txids;
     bool fIsWatchonly;
     tallyitem()
     {
-        nAmount = 0;
         nConf = std::numeric_limits<int>::max();
         fIsWatchonly = false;
     }
@@ -1408,14 +1412,14 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
         if(params[2].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
-    std::string strasset = "bitcoin";
+    std::string strasset = "";
     if (params.size() > 3 && params[3].isStr()) {
         if (fByAccounts)
             throw JSONRPCError(RPC_WALLET_ERROR, "Accounts are completely disabled for assets.");
         strasset = params[3].get_str();
     }
     CAsset asset;
-    if (strasset != "*")
+    if (strasset != "")
         asset = GetAssetFromString(strasset);
 
     // Tally
@@ -1444,14 +1448,16 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             if (wtx.GetOutputValueOut(i) < 0)
                 continue;
 
-            if (strasset != "*" && wtx.GetOutputAsset(i) != asset)
+            if (strasset != "" && wtx.GetOutputAsset(i) != asset)
                 continue;
 
             CBitcoinAddress bitcoinaddress(address);
 
             tallyitem& item = mapTally[address];
             item.address = bitcoinaddress;
-            item.nAmount += wtx.GetOutputValueOut(i);
+            CAmountMap wtxValue;
+            wtxValue[wtx.GetOutputAsset(i)] = wtx.GetOutputValueOut(i);
+            item.mapAmount += wtxValue;
             item.nConf = min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -1471,13 +1477,13 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
             continue;
 
         CBitcoinAddress fulladdress = address;
-        CAmount nAmount = 0;
+        CAmountMap mapAmount;
         int nConf = std::numeric_limits<int>::max();
         bool fIsWatchonly = false;
         if (it != mapTally.end())
         {
             fulladdress = (*it).second.address;
-            nAmount = (*it).second.nAmount;
+            mapAmount = (*it).second.mapAmount;
             nConf = (*it).second.nConf;
             fIsWatchonly = (*it).second.fIsWatchonly;
         }
@@ -1485,7 +1491,7 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
         if (fByAccounts)
         {
             tallyitem& _item = mapAccountTally[strAccount];
-            _item.nAmount += nAmount;
+            _item.mapAmount += mapAmount;
             _item.nConf = min(_item.nConf, nConf);
             _item.fIsWatchonly = fIsWatchonly;
         }
@@ -1498,10 +1504,9 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
                 fulladdress = fulladdress.GetUnblinded();
             obj.push_back(Pair("address",       fulladdress.ToString()));
             obj.push_back(Pair("account",       strAccount));
-            obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
+            obj.push_back(Pair("amount",        PushAssetBalance(mapAmount, pwalletMain, strasset)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
-            if (!fByAccounts)
-                obj.push_back(Pair("label", strAccount));
+            obj.push_back(Pair("label", strAccount));
             UniValue transactions(UniValue::VARR);
             if (it != mapTally.end())
             {
@@ -1519,13 +1524,13 @@ UniValue ListReceived(const UniValue& params, bool fByAccounts)
     {
         for (map<string, tallyitem>::iterator it = mapAccountTally.begin(); it != mapAccountTally.end(); ++it)
         {
-            CAmount nAmount = (*it).second.nAmount;
+            CAmountMap mapAmount = (*it).second.mapAmount;
             int nConf = (*it).second.nConf;
             UniValue obj(UniValue::VOBJ);
             if((*it).second.fIsWatchonly)
                 obj.push_back(Pair("involvesWatchonly", true));
             obj.push_back(Pair("account",       (*it).first));
-            obj.push_back(Pair("amount",        ValueFromAmount(nAmount)));
+            obj.push_back(Pair("amount",        PushAssetBalance(mapAmount, pwalletMain, strasset)));
             obj.push_back(Pair("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf)));
             ret.push_back(obj);
         }
@@ -1541,13 +1546,13 @@ UniValue listreceivedbyaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() > 4)
         throw runtime_error(
-            "listreceivedbyaddress ( minconf include_empty include_watchonly, asset)\n"
+            "listreceivedbyaddress ( minconf include_empty include_watchonly, \"assetlabel\" )\n"
             "\nList balances by receiving address.\n"
             "\nArguments:\n"
             "1. minconf           (numeric, optional, default=1) The minimum number of confirmations before payments are included.\n"
             "2. include_empty     (bool, optional, default=false) Whether to include addresses that haven't received any payments.\n"
             "3. include_watchonly (bool, optional, default=false) Whether to include watch-only addresses (see 'importaddress').\n"
-            "4.  \"asset\"     (string, optional, default=bitcoin) The hex asset id or label to filter for. \"*\" is used to list all results.\n"
+            "4.  \"assetlabel\"     (string, optional) The hex asset id or asset label to filter for.\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
