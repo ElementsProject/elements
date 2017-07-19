@@ -2605,6 +2605,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 {
     vector<CRecipient> vecSend;
     std::vector<CReserveKey> vChangeKey;
+    // Avoid copying CReserveKeys which causes badness
+    vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
     std::vector<CReserveKey*> vpChangeKey;
     std::set<CAsset> setAssets;
 
