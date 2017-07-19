@@ -107,7 +107,7 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance()["bitcoin"], node2)
 
         # Check 2's listreceivedbyaddress
-        received_by_address = self.nodes[2].listreceivedbyaddress()
+        received_by_address = self.nodes[2].listreceivedbyaddress(0, False, False, "bitcoin")
         validate_by_address = [(unconfidential_address2, value1 + value3), (unconfidential_address, value0 + value2)]
         assert_equal(sorted([(ele['address'], ele['amount']) for ele in received_by_address], key=lambda t: t[0]),
                 sorted(validate_by_address, key = lambda t: t[0]))
@@ -131,7 +131,7 @@ class CTTest (BitcoinTestFramework):
         assert_equal(list_unspent[0]['amount']+list_unspent[1]['amount'], value1+value3)
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
         assert_equal(len(received_by_address), 1)
-        assert_equal((received_by_address[0]['address'], received_by_address[0]['amount']),
+        assert_equal((received_by_address[0]['address'], received_by_address[0]['amount']['bitcoin']),
                      (unconfidential_address2, value1 + value3))
 
         # Spending a single confidential output and sending it to a
@@ -364,6 +364,16 @@ class CTTest (BitcoinTestFramework):
         assert(issued["asset"] not in self.nodes[0].getwalletinfo()["balance"])
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
 
+
+        # Check for value when receiving defferent assets by same address.
+        self.nodes[0].sendtoaddress(unconfidential_address2, Decimal('0.00000001'), "", "", False, test_asset)
+        self.nodes[0].sendtoaddress(unconfidential_address2, Decimal('0.00000002'), "", "", False, test_asset)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        received_by_address = self.nodes[1].listreceivedbyaddress(0, False, True)
+        multi_asset_amount = [x for x in received_by_address if x['address'] == unconfidential_address2][0]['amount']
+        assert_equal(multi_asset_amount['bitcoin'], value1 + value3 )
+        assert_equal(multi_asset_amount[test_asset], Decimal('0.00000003'))
 
         # Check blinded multisig functionality
         # Get two pubkeys
