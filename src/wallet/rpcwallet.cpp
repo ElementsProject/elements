@@ -4040,7 +4040,8 @@ UniValue listissuances(const JSONRPCRequest& request)
                 CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
                 item.push_back(Pair("isreissuance", false));
                 item.push_back(Pair("token", token.GetHex()));
-                item.push_back(Pair("tokenamount", ValueFromAmount(pcoin->GetIssuanceAmount(vinIndex, true))));
+                CAmount itamount = pcoin->GetIssuanceAmount(vinIndex, true);
+                item.push_back(Pair("tokenamount", (itamount == -1 ) ? -1 : ValueFromAmount(itamount)));
                 item.push_back(Pair("tokenblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, true).GetHex()));
                 item.push_back(Pair("entropy", entropy.GetHex()));
             } else {
@@ -4055,7 +4056,8 @@ UniValue listissuances(const JSONRPCRequest& request)
             if (label != "") {
                 item.push_back(Pair("assetlabel", label));
             }
-            item.push_back(Pair("assetamount", ValueFromAmount(pcoin->GetIssuanceAmount(vinIndex, false))));
+            CAmount iaamount = pcoin->GetIssuanceAmount(vinIndex, false);
+            item.push_back(Pair("assetamount", (iaamount == -1 ) ? -1 : ValueFromAmount(iaamount)));
             item.push_back(Pair("assetblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, false).GetHex()));
             if (!assetfilter.IsNull() && assetfilter != asset) {
                 continue;

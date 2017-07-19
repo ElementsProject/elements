@@ -329,30 +329,38 @@ class CTTest (BitcoinTestFramework):
         # Now have node 0 audit these issuances
         blindingkey1 = self.nodes[1].dumpissuanceblindingkey(redata1["txid"], redata1["vin"])
         blindingkey2 = self.nodes[2].dumpissuanceblindingkey(redata2["txid"], redata2["vin"])
+        blindingkey3 = self.nodes[2].dumpissuanceblindingkey(issuancedata["txid"], issuancedata["vin"])
 
         # Need addr to get transactions in wallet. TODO: importissuances?
         txdet1 = self.nodes[1].gettransaction(redata1["txid"])["details"]
         txdet2 = self.nodes[2].gettransaction(redata2["txid"])["details"]
+        txdet3 = self.nodes[2].gettransaction(issuancedata["txid"])["details"]
 
         # Receive addresses added last
         addr1 = txdet1[len(txdet1)-1]["address"]
         addr2 = txdet2[len(txdet2)-1]["address"]
+        addr3 = txdet3[len(txdet3)-1]["address"]
 
         assert_equal(len(self.nodes[0].listissuances()), 5);
         self.nodes[0].importaddress(addr1)
         self.nodes[0].importaddress(addr2)
+        self.nodes[0].importaddress(addr3)
 
         issuances = self.nodes[0].listissuances()
-        assert_equal(len(issuances), 7)
+        assert_equal(len(issuances), 8)
 
         for issue in issuances:
             if issue['txid'] == redata1["txid"] and issue['vin'] == redata1["vin"]:
-                assert_equal(issue['assetamount'], Decimal('-1E-8'))
+                assert_equal(issue['assetamount'], Decimal('-1'))
             if issue['txid'] == redata2["txid"] and issue['vin'] == redata2["vin"]:
-                assert_equal(issue['assetamount'], Decimal('-1E-8'))
+                assert_equal(issue['assetamount'], Decimal('-1'))
+            if issue['txid'] == issuancedata["txid"] and issue['vin'] == issuancedata["vin"]:
+                assert_equal(issue['assetamount'], Decimal('-1'))
+                assert_equal(issue['tokenamount'], Decimal('-1'))
 
         self.nodes[0].importissuanceblindingkey(redata1["txid"], redata1["vin"], blindingkey1)
         self.nodes[0].importissuanceblindingkey(redata2["txid"], redata2["vin"], blindingkey2)
+        self.nodes[0].importissuanceblindingkey(issuancedata["txid"], issuancedata["vin"], blindingkey3)
 
         issuances = self.nodes[0].listissuances()
 
@@ -361,6 +369,9 @@ class CTTest (BitcoinTestFramework):
                 assert_equal(issue['assetamount'], Decimal('0.05'))
             if issue['txid'] == redata2["txid"] and issue['vin'] == redata2["vin"]:
                 assert_equal(issue['assetamount'], Decimal('0.025'))
+            if issue['txid'] == issuancedata["txid"] and issue['vin'] == issuancedata["vin"]:
+                assert_equal(issue['assetamount'], Decimal('0'))
+                assert_equal(issue['tokenamount'], Decimal('0.00000006'))
 
         # Check for value accounting when asset issuance is null but token not, ie unblinded
         issued = self.nodes[0].issueasset(0, 1, False)
