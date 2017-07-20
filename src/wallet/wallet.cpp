@@ -2631,6 +2631,14 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
             setAssets.insert(txOut.nAsset.GetAsset());
         }
     }
+
+    // Also add reserve keys for inputs, since those could create more change
+    // Any excess will never be reserved, so this should be safe.
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        vChangeKey.push_back(CReserveKey(this));
+        vpChangeKey.push_back(&vChangeKey[vChangeKey.size()-1]);
+    }
+
     // Always add policyAsset, as fees via policyAsset may create change
     if (setAssets.count(policyAsset) == 0) {
         vChangeKey.push_back(CReserveKey(this));
