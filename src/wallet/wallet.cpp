@@ -2388,7 +2388,6 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
 {
     setCoinsRet.clear();
     mapValueRet = CAmountMap();
-    assert(mapTargetValue >= CAmountMap());
     CAmountMap mapTotalLower;
     std::map<CAsset, std::vector<SelectCoin> > mapVValue;
 
