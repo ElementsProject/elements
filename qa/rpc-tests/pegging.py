@@ -100,7 +100,7 @@ try:
     subprocess.Popen(sidechain2start.split(), stdout=subprocess.PIPE)
 
     print("Daemons started")
-    time.sleep(2)
+    time.sleep(3)
 
     bitcoin = AuthServiceProxy("http://bitcoinrpc:"+bitcoin_pass+"@127.0.0.1:"+str(bitcoin_port))
     sidechain = AuthServiceProxy("http://sidechainrpc:"+sidechain_pass+"@127.0.0.1:"+str(sidechain_port))
@@ -163,6 +163,34 @@ try:
         print("Peg-in is confirmed: Success!")
     else:
         raise Exception("Peg-in confirmation has failed.")
+
+    # Make a few large locks, then do many claims in mempool
+    n_locks = 10
+    n_claims = 30
+
+    print("Flooding mempool with many small claims")
+    pegtxs = []
+    for i in range(n_locks):
+        # Lockup some funds to unlock later
+        sidechain.sendtomainchain(addr, 50)
+        sidechain.generate(1)
+    sidechain.generate(101)
+
+    for i in range(n_claims):
+        addrs = sidechain.getpeginaddress()
+        txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 1)
+        bitcoin.generate(10)
+        proof = bitcoin.gettxoutproof([txid])
+        raw = bitcoin.getrawtransaction(txid)
+        pegtxs += [sidechain.claimpegin(raw, proof)]
+
+    sidechain.generate(1)
+    for pegtxid in pegtxs:
+        tx = sidechain.gettransaction(pegtxid)
+        if "confirmations" not in tx or tx["confirmations"] == 0:
+            raise Exception("Peg-in confirmation has failed.")
+
+    print("Success!")
 
 except JSONRPCException as e:
         print("Pegging testing failed, aborting:")
