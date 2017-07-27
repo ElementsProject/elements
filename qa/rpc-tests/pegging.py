@@ -100,7 +100,7 @@ try:
     subprocess.Popen(sidechain2start.split(), stdout=subprocess.PIPE)
 
     print("Daemons started")
-    time.sleep(2)
+    time.sleep(3)
 
     bitcoin = AuthServiceProxy("http://bitcoinrpc:"+bitcoin_pass+"@127.0.0.1:"+str(bitcoin_port))
     sidechain = AuthServiceProxy("http://sidechainrpc:"+sidechain_pass+"@127.0.0.1:"+str(sidechain_port))
@@ -114,13 +114,17 @@ try:
 
     # Lockup some funds to unlock later
     sidechain.sendtomainchain(addr, 50)
-    sidechain.generate(101)
+    # Tests withdrawlock tracking in database
+    sidechain.generate(1)
+    # Tests withdrawlock in mempool
+    sidechain.sendtomainchain(addr, 50)
 
     addrs = sidechain.getpeginaddress()
-    txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 49)
+    txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
+    txid2 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
     bitcoin.generate(10)
-    proof = bitcoin.gettxoutproof([txid])
-    raw = bitcoin.getrawtransaction(txid)
+    proof = bitcoin.gettxoutproof([txid1])
+    raw = bitcoin.getrawtransaction(txid1)
 
     print("Attempting peg-in")
 
@@ -132,8 +136,13 @@ try:
         pass
 
     timeout = 20
-    # Should succeed via wallet lookup for address match
-    pegtxid = sidechain.claimpegin(raw, proof)
+    # Both should succeed via wallet lookup for address match, and when given
+    pegtxid1 = sidechain.claimpegin(raw, proof)
+
+    proof = bitcoin.gettxoutproof([txid2])
+    raw = bitcoin.getrawtransaction(txid2)
+    pegtxid2 = sidechain.claimpegin(raw, proof, addrs["sidechain_address"])
+
     while len(sidechain.getrawmempool()) != len(sidechain2.getrawmempool()):
         time.sleep(1)
         timeout -= 1
@@ -147,12 +156,41 @@ try:
             raise Exception("Blocks are not propagating.")
 
 
-    tx = sidechain.gettransaction(pegtxid)
+    tx1 = sidechain.gettransaction(pegtxid1)
+    tx2 = sidechain.gettransaction(pegtxid2)
 
-    if "confirmations" in tx and tx["confirmations"] > 0:
+    if "confirmations" in tx1 and tx1["confirmations"] > 0 and "confirmations" in tx2 and tx2["confirmations"] > 0:
         print("Peg-in is confirmed: Success!")
     else:
         raise Exception("Peg-in confirmation has failed.")
+
+    # Make a few large locks, then do many claims in mempool
+    n_locks = 10
+    n_claims = 30
+
+    print("Flooding mempool with many small claims")
+    pegtxs = []
+    for i in range(n_locks):
+        # Lockup some funds to unlock later
+        sidechain.sendtomainchain(addr, 50)
+        sidechain.generate(1)
+    sidechain.generate(101)
+
+    for i in range(n_claims):
+        addrs = sidechain.getpeginaddress()
+        txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 1)
+        bitcoin.generate(10)
+        proof = bitcoin.gettxoutproof([txid])
+        raw = bitcoin.getrawtransaction(txid)
+        pegtxs += [sidechain.claimpegin(raw, proof)]
+
+    sidechain.generate(1)
+    for pegtxid in pegtxs:
+        tx = sidechain.gettransaction(pegtxid)
+        if "confirmations" not in tx or tx["confirmations"] == 0:
+            raise Exception("Peg-in confirmation has failed.")
+
+    print("Success!")
 
 except JSONRPCException as e:
         print("Pegging testing failed, aborting:")
