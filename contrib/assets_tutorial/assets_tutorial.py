@@ -235,7 +235,6 @@ e1.listissuances(asset)
 assetentry = "-assetdir="+asset+":namedasset"
 # Wallet labels have no consensus meaning, only local node/wallet meaning
 
-# Having issues with mempool sync?
 sync_all(e1, e2)
 e1.stop()
 time.sleep(5)
@@ -247,7 +246,7 @@ time.sleep(5)
 e1.getwalletinfo()
 
 # To send issued assets, add an additional argument to sendtoaddress using the hex or label
-e1.sendtoaddress(e2.getnewaddress(), 1, "", "", False, issue["asset"])#"namedasset")
+e1.sendtoaddress(e2.getnewaddress(), 1, "", "", False, "namedasset")
 # Reissuance tokens can also be sent like any other asset
 e1.sendtoaddress(e2.getnewaddress(), 1, "", "", False, issue["token"])
 sync_all(e1, e2)
@@ -256,7 +255,7 @@ e2.getwalletinfo(asset)
 e2.generate(1)
 sync_all(e1, e2)
 
-# e2 doesn't know about the issuance for the transaction sending him the new asset
+# e2 maybe doesn't know about the issuance for the transaction sending him the new asset
 e2.listissuances()
 
 # let's import an associated address(so the wallet captures issuance transaction) and rescan
