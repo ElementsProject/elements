@@ -793,6 +793,8 @@ public:
      */
     CPubKey GenerateNewKey();
     void DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret);
+    //! Derives static blinding key at m/0'/2'
+    void DeriveBlindingKey(CKeyMetadata& metadata, CKey& secret);
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
