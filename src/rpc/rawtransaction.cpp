@@ -936,7 +936,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
 
         std::map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.find(tx.vin[nIn].prevout.hash);
-        if (it == pwalletMain->mapWallet.end()) {
+        if (it == pwalletMain->mapWallet.end() || pwalletMain->IsMine(tx.vin[nIn]) == ISMINE_NO) {
             // For inputs we don't own input assetcommitments for the surjection must be supplied
             if (auxiliary_generators.size() > 0) {
                 input_blinds.push_back(uint256());
