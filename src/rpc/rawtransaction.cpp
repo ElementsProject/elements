@@ -165,7 +165,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         UniValue out(UniValue::VOBJ);
         if (txout.nValue.IsExplicit()) {
             out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
-        } else {
+        } else if (txout.nValue.IsCommitment()) {
             int exp;
             int mantissa;
             uint64_t minv;
@@ -182,6 +182,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                 out.push_back(Pair("ct-bits", mantissa));
             }
             out.push_back(Pair("amountcommitment", HexStr(txout.nValue.vchCommitment)));
+        } else if (txout.nValue.IsBlinder()) {
+            out.push_back(Pair("value", ValueFromAmount(txout.nValue.GetAmount())));
+            out.push_back(Pair("blinding-factor", HexStr(txout.nValue.vchCommitment)));
+        } else {
+            assert(0); // code should never reach here, serves as reminder if someone adds new output type
         }
         const CConfidentialAsset& asset = txout.nAsset;
         if (asset.IsExplicit()) {

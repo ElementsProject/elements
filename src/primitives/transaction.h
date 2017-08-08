@@ -20,7 +20,7 @@ static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
 /**
  * Confidential assets, values, and nonces all share enough code in common
  * that it makes sense to define a common abstract base class. */
-template<size_t ExplicitSize, unsigned char PrefixA, unsigned char PrefixB>
+template<size_t ExplicitSize, unsigned char PrefixA, unsigned char PrefixB, unsigned char PrefixC>
 class CConfidentialCommitment
 {
 public:
@@ -52,6 +52,8 @@ public:
                 /* Confidential commitment */
                 case PrefixA:
                 case PrefixB:
+                /* Explicit blinder */
+                case PrefixC:
                     vchCommitment.resize(nCommittedSize);
                     break;
                 /* Invalid serialization! */
@@ -79,9 +81,14 @@ public:
         return vchCommitment.size()==nCommittedSize && (vchCommitment[0]==PrefixA || vchCommitment[0]==PrefixB);
     }
 
+    bool IsBlinder() const
+    {
+        return vchCommitment.size()==nCommittedSize && vchCommitment[0]==PrefixC;
+    }
+
     bool IsValid() const
     {
-        return IsNull() || IsExplicit() || IsCommitment()
+        return IsNull() || IsExplicit() || IsCommitment() || IsBlinder()
             || (vchCommitment.size()==nExplicitSize && vchCommitment[0]==0xff);
     }
 
@@ -96,8 +103,8 @@ public:
     }
 };
 
-/** A commitment to a blinded asset, or an explicit asset NUMS identifier */
-class CConfidentialAsset : public CConfidentialCommitment<33, 10, 11>
+/** A 33-byte commitment to a blinded asset or an explicit asset NUMS identifier */
+class CConfidentialAsset : public CConfidentialCommitment<33, 10, 11, 12>
 {
 public:
     CConfidentialAsset() { SetNull(); }
@@ -115,8 +122,8 @@ public:
 
 };
 
-/** A 33-byte commitment to a confidential value, or a 64-bit explicit value. */
-class CConfidentialValue : public CConfidentialCommitment<9, 8, 9>
+/** A 33-byte commitment to a confidential value, a 32-byte naked blinding value, or a 64-bit explicit value. */
+class CConfidentialValue : public CConfidentialCommitment<9, 8, 9, 13>
 {
 public:
     CConfidentialValue() { SetNull(); }
@@ -127,17 +134,25 @@ public:
      * a 64-bit big-endian integer. */
     CAmount GetAmount() const
     {
-        assert(IsExplicit());;
-        return ReadBE64(&vchCommitment[1]);
+        // if output is an exposed blinder, the value is assumed to be zero
+        assert(IsExplicit() || IsBlinder());
+        return (IsExplicit()) ? ReadBE64(&vchCommitment[1]) : 0;
+    }
+    const uint256& GetBlinder() const
+    {
+        assert(IsBlinder());
+        return *reinterpret_cast<const uint256*>(&vchCommitment[1]);
     }
     void SetToAmount(CAmount nAmount);
+    void SetToBlinder(const uint256& blinder);
+
 };
 
 /**
  * A 33-byte data field that typically is used to convey to the
  * recipient the ECDH ephemeral key (an EC point) for deriving the
  * transaction output blinding factor. */
-class CConfidentialNonce : public CConfidentialCommitment<33, 2, 3>
+class CConfidentialNonce : public CConfidentialCommitment<33, 2, 3, 14>
 {
 public:
     CConfidentialNonce() { SetNull(); }
