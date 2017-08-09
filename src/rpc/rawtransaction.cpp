@@ -555,11 +555,10 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
         // Defaults to policyAsset
         CAsset asset(policyAsset);
         if (!assets.isNull()) {
-            if (find_value(assets, name_).isNull())
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Given output_asset address is not a valid given output address: ")+name_);
-            asset = CAsset(ParseHashO(assets, name_));
+            if (!find_value(assets, name_).isNull()) {
+                asset = CAsset(ParseHashO(assets, name_));
+            }
         }
-
         if (name_ == "data") {
             std::vector<unsigned char> data = ParseHexV(sendTo[name_].getValStr(),"Data");
 

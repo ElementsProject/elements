@@ -450,5 +450,21 @@ class CTTest (BitcoinTestFramework):
             if "asset" in output and output["scriptPubKey"]["type"] != "fee":
                 raise AssertionError("An unblinded output exists")
 
+        # Test fundrawtransaction with multiple assets
+        issue = self.nodes[0].issueasset(1, 0)
+        assetaddr = self.nodes[0].getnewaddress()
+        rawtx = self.nodes[0].createrawtransaction([], {assetaddr:1, self.nodes[0].getnewaddress():2}, 0, {assetaddr:issue["asset"]})
+        funded = self.nodes[0].fundrawtransaction(rawtx)
+        blinded = self.nodes[0].blindrawtransaction(funded["hex"])
+        signed = self.nodes[0].signrawtransaction(blinded)
+        txid = self.nodes[0].sendrawtransaction(signed["hex"])
+
+        # Test fundrawtransaction with multiple inputs, creating > vout.size change
+        rawtx = self.nodes[0].createrawtransaction([{"txid":txid, "vout":0}, {"txid":txid, "vout":1}], {self.nodes[0].getnewaddress():5})
+        funded = self.nodes[0].fundrawtransaction(rawtx)
+        blinded = self.nodes[0].blindrawtransaction(funded["hex"])
+        signed = self.nodes[0].signrawtransaction(blinded)
+        txid = self.nodes[0].sendrawtransaction(signed["hex"])
+
 if __name__ == '__main__':
     CTTest ().main ()

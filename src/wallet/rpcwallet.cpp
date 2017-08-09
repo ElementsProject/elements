@@ -406,14 +406,11 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
     // Create and send the transaction
-    std::vector<CReserveKey*> vpChangeKey;
     std::vector<CReserveKey> vChangeKey;
     vChangeKey.reserve(2);
     vChangeKey.emplace_back(pwalletMain);
-    vpChangeKey.push_back(&vChangeKey[0]);
     if (policyAsset != asset) {
         vChangeKey.emplace_back(pwalletMain);
-        vpChangeKey.push_back(&vChangeKey[1]);
     }
 
     CAmount nFeeRequired;
@@ -422,13 +419,13 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, fIgnoreBlindFail)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, fIgnoreBlindFail)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtxNew, vpChangeKey, g_connman.get(), state)) {
+    if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", state.GetRejectReason());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -449,17 +446,14 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
     }
 
     // Create and send the transaction
-    std::vector<CReserveKey*> vpChangeKey;
     std::vector<CReserveKey> vChangeKey;
     // Need to be careful to not copy CReserveKeys or bad things happen
     // We need 2 change outputs possibly for reissuance case:
     // one for policyAsset, the other for reissuance token
     vChangeKey.reserve(2);
     vChangeKey.emplace_back(pwalletMain);
-    vpChangeKey.push_back(&vChangeKey[0]);
     if (!reissuanceAsset.IsNull()) {
         vChangeKey.emplace_back(pwalletMain);
-        vpChangeKey.push_back(&vChangeKey[1]);
     }
 
     CAmount nFeeRequired;
@@ -481,11 +475,11 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         }
         vecSend.push_back(recipient);
     }
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vpChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtxNew, vpChangeKey, g_connman.get(), state))
+    if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state))
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
@@ -1201,7 +1195,6 @@ UniValue sendmany(const JSONRPCRequest& request)
 
     // Send
     std::vector<CReserveKey> vChangeKey;
-    std::vector<CReserveKey*> vpChangeKey;
     std::set<CAsset> setAssets;
     setAssets.insert(policyAsset);
     for (auto recipient : vecSend) {
@@ -1210,16 +1203,15 @@ UniValue sendmany(const JSONRPCRequest& request)
     vChangeKey.reserve(setAssets.size());
     for (unsigned int i = 0; i < setAssets.size(); i++) {
         vChangeKey.emplace_back(pwalletMain);
-        vpChangeKey.push_back(&vChangeKey[i]);
     }
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vpChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, fIgnoreBlindFail);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, fIgnoreBlindFail);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtx, vpChangeKey, g_connman.get(), state)) {
+    if (!pwalletMain->CommitTransaction(wtx, vChangeKey, g_connman.get(), state)) {
         strFailReason = strprintf("Transaction commit failed:: %s", state.GetRejectReason());
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -3296,7 +3288,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
     }
 
     // commit/broadcast the tx
-    std::vector<CReserveKey*> vpChangeKey;
+    std::vector<CReserveKey> vChangeKey;
     CWalletTx wtxBumped(pwalletMain, MakeTransactionRef(std::move(tx)));
     wtxBumped.mapValue = wtx.mapValue;
     wtxBumped.mapValue["replaces_txid"] = hash.ToString();
@@ -3305,7 +3297,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
     wtxBumped.fTimeReceivedIsTxTime = true;
     wtxBumped.fFromMe = true;
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtxBumped, vpChangeKey, g_connman.get(), state)) {
+    if (!pwalletMain->CommitTransaction(wtxBumped, vChangeKey, g_connman.get(), state)) {
         // NOTE: CommitTransaction never returns false, so this should never happen.
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Error: The transaction was rejected! Reason given: %s", state.GetRejectReason()));
     }
