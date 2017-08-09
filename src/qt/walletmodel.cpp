@@ -281,9 +281,9 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::string strFailReason;
 
         CWalletTx *newTx = transaction.getTransaction();
-        CReserveKey *keyChange = transaction.getPossibleKeyChange();
-        std::vector<CReserveKey*> vkeyChange;
-        vkeyChange.push_back(keyChange);
+        //CReserveKey *keyChange = transaction.getPossibleKeyChange();
+        std::vector<CReserveKey> vkeyChange;
+        vkeyChange.emplace_back(CReserveKey(wallet));
         std::vector<CAmount> outAmounts;
         bool fCreated = wallet->CreateTransaction(vecSend, *newTx, vkeyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl, true, &outAmounts);
         transaction.setTransactionFee(nFeeRequired);
@@ -338,9 +338,9 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
                 newTx->vOrderForm.push_back(make_pair("Message", rcp.message.toStdString()));
         }
 
-        CReserveKey *keyChange = transaction.getPossibleKeyChange();
-        std::vector<CReserveKey*> vkeyChange;
-        vkeyChange.push_back(keyChange);
+        //CReserveKey *keyChange = transaction.getPossibleKeyChange();
+        std::vector<CReserveKey> vkeyChange;
+        vkeyChange.emplace_back(CReserveKey(wallet));
         CValidationState state;
         if(!wallet->CommitTransaction(*newTx, vkeyChange, g_connman.get(), state))
             return SendCoinsReturn(TransactionCommitFailed, QString::fromStdString(state.GetRejectReason()));
