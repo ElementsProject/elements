@@ -96,6 +96,9 @@ public:
         consensus.BIP65Height = 388381; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 363725; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+
+        consensus.pegged_asset = BITCOINID;
+
         // Peg-ins Bitcoin headers must have higher difficulty target than this field
         // This value must be sufficiently small to not preclude realistic parent
         // chain difficulty during network lifespan yet sufficiently large to
@@ -242,6 +245,8 @@ public:
         pchMessageStart[3] = 0xda;
         nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
+
+        consensus.pegged_asset = BITCOINID;
 
         genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, BITCOINID);
         consensus.hashGenesisBlock = genesis.GetHash();
