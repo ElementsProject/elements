@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "bench.h"
+#include "chainparams.h"
 #include "wallet/wallet.h"
 
 #include <boost/foreach.hpp>
@@ -51,10 +52,10 @@ static void CoinSelection(benchmark::State& state)
         std::set<std::pair<const CWalletTx*, unsigned int> > setCoinsRet;
         CAmountMap nValueRet;
         CAmountMap mapValue;
-        mapValue[BITCOINID] = 1003 * COIN;
+        mapValue[Params().GetConsensus().pegged_asset] = 1003 * COIN;
         bool success = wallet.SelectCoinsMinConf(mapValue, 1, 6, 0, vCoins, setCoinsRet, nValueRet);
         assert(success);
-        assert(nValueRet[BITCOINID] == 1003 * COIN);
+        assert(nValueRet[Params().GetConsensus().pegged_asset] == 1003 * COIN);
         assert(setCoinsRet.size() == 2);
     }
 }

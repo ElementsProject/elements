@@ -3186,7 +3186,7 @@ UniValue bumpfee(const JSONRPCRequest& request)
     }
 
     // calculate the old fee and fee-rate
-    CAmount nOldFee = wtx.tx->GetFee()[BITCOINID];
+    CAmount nOldFee = wtx.tx->GetFee()[Params().GetConsensus().pegged_asset];
     CFeeRate nOldFeeRate(nOldFee, txSize);
     CAmount nNewFee;
     CFeeRate nNewFeeRate;
@@ -3576,7 +3576,7 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked();
 
     CWalletTx wtxNew;
-    SendMoney(scriptPubKey, nAmount, BITCOINID, false, CPubKey(), wtxNew, true);
+    SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, false, CPubKey(), wtxNew, true);
 
     std::string blinds;
     for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {
@@ -3700,7 +3700,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_VERIFY_REJECTED, "IsStandard rules prevent pegging-in > 0.105 million BTC reliably at a time - please work with your functionary to mine a large lock-merge transaction first");
 
     //Pad the locked outputs by the IsStandard lock dust value
-    CTxOut dummyTxOut(BITCOINID, 0, relock_spk);
+    CTxOut dummyTxOut(Params().GetConsensus().pegged_asset, 0, relock_spk);
     CAmount lockDust(dummyTxOut.GetDustThreshold(withdrawLockTxFee));
 
     LOCK(cs_main);
@@ -3714,7 +3714,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
         mtxn.vin.push_back(CTxIn(lockedUTXO[0].first.hash, lockedUTXO[0].first.n, CScript(), ~(uint32_t)0));
         mtxn.vin.push_back(CTxIn(lockedUTXO[1].first.hash, lockedUTXO[1].first.n, CScript(), ~(uint32_t)0));
         CAmount out_value = lockedUTXO[0].second + lockedUTXO[1].second;
-        mtxn.vout.push_back(CTxOut(BITCOINID, out_value, relock_spk));
+        mtxn.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, out_value, relock_spk));
 
         CValidationState state;
         bool fMissingInputs;
@@ -3747,8 +3747,8 @@ UniValue claimpegin(const JSONRPCRequest& request)
     //Build the transaction
     CMutableTransaction mtxn;
     CTxIn txin(utxo_txid, utxo_vout, scriptSig, ~(uint32_t)0);
-    CTxOut txout(BITCOINID, value, GetScriptForDestination(sidechainAddress.Get()));
-    CTxOut txrelock(BITCOINID, utxo_value - value, relock_spk);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(sidechainAddress.Get()));
+    CTxOut txrelock(Params().GetConsensus().pegged_asset, utxo_value - value, relock_spk);
     mtxn.vin.push_back(txin);
     mtxn.vout.push_back(txout);
     mtxn.vout.push_back(txrelock);

@@ -72,17 +72,17 @@ CAmount WalletModel::getBalance(const CCoinControl *coinControl) const
         return nBalance;
     }
 
-    return wallet->GetBalance()[BITCOINID];
+    return wallet->GetBalance()[Params().GetConsensus().pegged_asset];
 }
 
 CAmount WalletModel::getUnconfirmedBalance() const
 {
-    return wallet->GetUnconfirmedBalance()[BITCOINID];
+    return wallet->GetUnconfirmedBalance()[Params().GetConsensus().pegged_asset];
 }
 
 CAmount WalletModel::getImmatureBalance() const
 {
-    return wallet->GetImmatureBalance()[BITCOINID];
+    return wallet->GetImmatureBalance()[Params().GetConsensus().pegged_asset];
 }
 
 bool WalletModel::haveWatchOnly() const
@@ -92,17 +92,17 @@ bool WalletModel::haveWatchOnly() const
 
 CAmount WalletModel::getWatchBalance() const
 {
-    return wallet->GetWatchOnlyBalance()[BITCOINID];
+    return wallet->GetWatchOnlyBalance()[Params().GetConsensus().pegged_asset];
 }
 
 CAmount WalletModel::getWatchUnconfirmedBalance() const
 {
-    return wallet->GetUnconfirmedWatchOnlyBalance()[BITCOINID];
+    return wallet->GetUnconfirmedWatchOnlyBalance()[Params().GetConsensus().pegged_asset];
 }
 
 CAmount WalletModel::getWatchImmatureBalance() const
 {
-    return wallet->GetImmatureWatchOnlyBalance()[BITCOINID];
+    return wallet->GetImmatureWatchOnlyBalance()[Params().GetConsensus().pegged_asset];
 }
 
 void WalletModel::updateStatus()
@@ -225,7 +225,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
                 const unsigned char* scriptStr = (const unsigned char*)out.script().data();
                 CScript scriptPubKey(scriptStr, scriptStr+out.script().size());
                 CAmount nAmount = out.amount();
-                CRecipient recipient = {scriptPubKey, nAmount, BITCOINID, CPubKey(), rcp.fSubtractFeeFromAmount};
+                CRecipient recipient = {scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, CPubKey(), rcp.fSubtractFeeFromAmount};
                 vecSend.push_back(recipient);
             }
             if (subtotal <= 0)
@@ -253,7 +253,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             if (addr.IsBlinded()) {
                 confidentiality_pubkey = addr.GetBlindingKey();
             }
-            CRecipient recipient = {scriptPubKey, rcp.amount, BITCOINID, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
+            CRecipient recipient = {scriptPubKey, rcp.amount, Params().GetConsensus().pegged_asset, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
             total += rcp.amount;

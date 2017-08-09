@@ -18,6 +18,9 @@
 
 #include "chainparamsseeds.h"
 
+/** The sha256 of Bitcoin genesis block, for easy reference **/ 
+static const CAsset BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621"));
+
 // Safer for users if they load incorrect parameters via arguments.
 static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID, const CScript& signblockscript)
 {

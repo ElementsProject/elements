@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "chainparams.h"
 #include "consensus/validation.h"
 #include "data/sighash.json.h"
 #include "hash.h"
@@ -114,7 +115,7 @@ void static RandomTransaction(CMutableTransaction &tx, bool fSingle) {
         tx.vout.push_back(CTxOut());
         CTxOut &txout = tx.vout.back();
         txout.nValue = insecure_rand() % 100000000;
-        txout.nAsset = BITCOINID;
+        txout.nAsset = Params().GetConsensus().pegged_asset;
         RandomScript(txout.scriptPubKey);
     }
 }

@@ -69,9 +69,6 @@ struct CAsset {
     }
 };
 
-/** The sha256 of Bitcoin genesis block, for easy reference **/
-static const CAsset BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621"));
-
 /** Used for consensus fee and general wallet accounting*/
 typedef std::map<CAsset, CAmount> CAmountMap;
 

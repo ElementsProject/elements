@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "chainparams.h"
 #include "consensus/validation.h"
 #include "key.h"
 #include "validation.h"
@@ -46,9 +47,9 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
         spends[i].vout.resize(2);
         spends[i].vout[0].nValue = 11*CENT;
         spends[i].vout[0].scriptPubKey = scriptPubKey;
-        spends[i].vout[0].nAsset = BITCOINID;
+        spends[i].vout[0].nAsset = Params().GetConsensus().pegged_asset;
         spends[i].vout[1].nValue = MAX_MONEY/100-11*CENT;
-        spends[i].vout[1].nAsset = BITCOINID;
+        spends[i].vout[1].nAsset = Params().GetConsensus().pegged_asset;
         spends[i].vout[1].scriptPubKey = CScript();
 
         // Sign:
