@@ -144,7 +144,7 @@ e1-cli dumpassetlabels
 # You can also filter calls using specific asset hex or labels:
 e1-cli getwalletinfo bitcoin
 # bitcoin's hex asset type
-e1-cli getwalletinfo 09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621
+e1-cli getwalletinfo 694d95345fcd292329b5fb4e465a48484c7e218f4d4f1f7a3bfea26dd2d8fc3d
 
 # We can also issue our own assets, 1 asset and 1 reissuance token in this case
 ISSUE=$(e1-cli issueasset 1 1)

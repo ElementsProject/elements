@@ -15,7 +15,7 @@ BOOST_AUTO_TEST_CASE(assetsdirTests)
 {
     CAssetsDir tAssetsDir;
     const std::string defaultPeggedLabel = "bitcoin";
-    const std::string defaultPeggedAssetHex = "09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621";
+    const std::string defaultPeggedAssetHex = Params().GetConsensus().pegged_asset.GetHex();
     const CAsset defaultPeggedAsset = Params().GetConsensus().pegged_asset;
     const std::string exampleAssetHex = "fa821b0be5e1387adbcb69dbb3ad33edb5e470831c7c938c4e7b344edbe8bb11";
     const CAsset exampleAsset = CAsset(uint256S(exampleAssetHex));

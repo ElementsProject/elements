@@ -5,6 +5,7 @@
 
 #include "chainparams.h"
 #include "consensus/merkle.h"
+#include "issuance.h"
 
 #include "tinyformat.h"
 #include "util.h"
@@ -17,9 +18,6 @@
 #include <boost/assign/list_of.hpp>
 
 #include "chainparamsseeds.h"
-
-/** The sha256 of Bitcoin genesis block, for easy reference **/ 
-static const CAsset BITCOINID(uint256S("09f663de96be771f50cab5ded00256ffe63773e2eaa9a604092951cc3d7c6621"));
 
 // Safer for users if they load incorrect parameters via arguments.
 static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID, const CScript& signblockscript)
@@ -100,8 +98,6 @@ public:
         consensus.BIP66Height = 363725; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
-        consensus.pegged_asset = BITCOINID;
-
         // Peg-ins Bitcoin headers must have higher difficulty target than this field
         // This value must be sufficiently small to not preclude realistic parent
         // chain difficulty during network lifespan yet sufficiently large to
@@ -147,8 +143,14 @@ public:
         nPruneAfterHeight = 100000;
 
         parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
+
+        // Generate pegged Bitcoin asset
+        uint256 entropy;
+        GenerateAssetEntropy(entropy, COutPoint() /* blank prevout to simulate coinbase */, parentGenesisBlockHash);
+        CalculateAsset(consensus.pegged_asset, entropy);
+
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, genesisChallengeScript, 1, MAX_MONEY, 100, BITCOINID);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, genesisChallengeScript, 1, MAX_MONEY, 100, consensus.pegged_asset);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
@@ -249,12 +251,16 @@ public:
         nDefaultPort = 7042;
         nPruneAfterHeight = 1000;
 
-        consensus.pegged_asset = BITCOINID;
+        parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 
-        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, BITCOINID);
+        // Generate pegged Bitcoin asset
+        uint256 entropy;
+        GenerateAssetEntropy(entropy, COutPoint() /* blank prevout to simulate coinbase */, parentGenesisBlockHash);
+        CalculateAsset(consensus.pegged_asset, entropy);
+
+        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, consensus.pegged_asset);
         consensus.hashGenesisBlock = genesis.GetHash();
 
-        parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 
         scriptCoinbaseDestination = CScript(); // Allow any coinbase destination
 
