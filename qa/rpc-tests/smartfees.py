@@ -151,7 +151,6 @@ class EstimateFeeTest(BitcoinTestFramework):
         self.setup_clean_chain = False
 
     def setup_network(self):
-        return #TODO, commented out in test suite because exit fails
         '''
         We'll setup the network to have 3 nodes that all mine with different parameters.
         But first we need to use one node to create a lot of small low priority outputs

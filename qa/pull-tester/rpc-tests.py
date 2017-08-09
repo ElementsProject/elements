@@ -169,7 +169,7 @@ if ENABLE_ZMQ:
 testScriptsExt = [
     'pruning.py',
     # vv Tests less than 20m vv
-    'smartfees.py',
+    # 'smartfees.py',
     # vv Tests less than 5m vv
     'maxuploadtarget.py',
     'mempool_packages.py',
@@ -180,7 +180,7 @@ testScriptsExt = [
     # vv Tests less than 60s vv
     #'bip9-softforks.py',
     'p2p-feefilter.py',
-    'rpcbind_test.py',
+    # 'rpcbind_test.py',
     # vv Tests less than 30s vv
     #'bip65-cltv.py',
     #'bip65-cltv-p2p.py',
