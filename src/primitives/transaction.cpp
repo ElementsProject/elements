@@ -12,6 +12,7 @@
 
 void CConfidentialAsset::SetToAsset(const CAsset& asset)
 {
+    vchCommitment.clear();
     vchCommitment.reserve(nExplicitSize);
     vchCommitment.push_back(1);
     vchCommitment.insert(vchCommitment.end(), asset.begin(), asset.end());
