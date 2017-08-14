@@ -158,7 +158,7 @@ def sync_chain(rpc_connections, *, wait=1, timeout=60):
         timeout -= wait
     raise AssertionError("Chain sync failed: Best block hashes don't match")
 
-def sync_mempools(rpc_connections, *, wait=1, timeout=60):
+def sync_mempools(rpc_connections, *, wait=1, timeout=100):
     """
     Wait until everybody has the same transactions in their memory
     pools
