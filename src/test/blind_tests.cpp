@@ -6,7 +6,9 @@
 #include "blind.h"
 #include "coins.h"
 #include "uint256.h"
+#ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
+#endif
 #include "validation.h"
 
 #include "test/test_bitcoin.h"
