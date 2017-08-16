@@ -193,11 +193,11 @@ e2.importaddress(blinded_addr)
 # 5) Now the address can be funded, though e2 will not be able to see values
 txid = e1.sendtoaddress(blinded_addr, 1)
 sync_all(e1, e2)
-e2.gettransaction(txid)
+e2.gettransaction(txid, True)
 
 # 6) Import the blinding privkey and decode the values
 e2.importblindingkey(blinded_addr, blindingkey)
-e2.gettransaction(txid)
+e2.gettransaction(txid, True)
 
 ###### ASSETS #######
 
