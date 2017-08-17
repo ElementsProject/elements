@@ -11,7 +11,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "amount.h"
-#include "crypto/ripemd160.h"
+#include "crypto/sha256.h"
 
 #include <assert.h>
 
@@ -22,13 +22,13 @@
 // Safer for users if they load incorrect parameters via arguments.
 static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID, const CScript& signblockscript)
 {
-    CRIPEMD160 ripemd;
-    unsigned char commitment[20];
-    ripemd.Write((const unsigned char*)networkID.c_str(), networkID.length());
-    ripemd.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
-    ripemd.Write((const unsigned char*)HexStr(signblockscript).c_str(), HexStr(signblockscript).length());
-    ripemd.Finalize(commitment);
-    return std::vector<unsigned char>(commitment, commitment + 20);
+    CSHA256 sha2;
+    unsigned char commitment[32];
+    sha2.Write((const unsigned char*)networkID.c_str(), networkID.length());
+    sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
+    sha2.Write((const unsigned char*)HexStr(signblockscript).c_str(), HexStr(signblockscript).length());
+    sha2.Finalize(commitment);
+    return std::vector<unsigned char>(commitment, commitment + 32);
 }
 
 static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
@@ -50,9 +50,9 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
+    txNew.vout.resize(rewardShards);
     // Any consensus-related values that are command-line set can be added here for anti-footgun
     txNew.vin[0].scriptSig = CScript(CommitToArguments(params, networkID, scriptChallenge));
-    txNew.vout.resize(rewardShards);
     for (unsigned int i = 0; i < rewardShards; i++) {
         txNew.vout[i].nValue = genesisReward/rewardShards;
         txNew.vout[i].nAsset = asset;
@@ -145,8 +145,9 @@ public:
         parentGenesisBlockHash = uint256S("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943");
 
         // Generate pegged Bitcoin asset
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID, genesisChallengeScript);
         uint256 entropy;
-        GenerateAssetEntropy(entropy, COutPoint() /* blank prevout to simulate coinbase */, parentGenesisBlockHash);
+        GenerateAssetEntropy(entropy, COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
@@ -254,8 +255,9 @@ public:
         parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 
         // Generate pegged Bitcoin asset
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID, genesisChallengeScript);
         uint256 entropy;
-        GenerateAssetEntropy(entropy, COutPoint() /* blank prevout to simulate coinbase */, parentGenesisBlockHash);
+        GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
         genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, consensus.pegged_asset);

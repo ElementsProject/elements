@@ -892,9 +892,9 @@ UniValue getbalance(const JSONRPCRequest& request)
             "\nThe total amount in the wallet\n"
             + HelpExampleCli("getbalance", "") +
             "\nThe total amount in the wallet of the specified asset (leading 3 arguments are ignored)\n"
-            + HelpExampleCli("getbalance", "\"*\" 6 false \"694d95345fcd292329b5fb4e465a48484c7e218f4d4f1f7a3bfea26dd2d8fc3d\"") +
+            + HelpExampleCli("getbalance", "\"*\" 6 false \"b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23\"") +
             "\nAs a json rpc call\n"
-            + HelpExampleRpc("getbalance", "\"*\", 6 false \"694d95345fcd292329b5fb4e465a48484c7e218f4d4f1f7a3bfea26dd2d8fc3d\"")
+            + HelpExampleRpc("getbalance", "\"*\", 6 false \"b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23\"")
         );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);

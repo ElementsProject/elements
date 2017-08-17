@@ -211,7 +211,7 @@ e1.dumpassetlabels()
 # You can also filter calls using specific asset hex or labels:
 e1.getwalletinfo("bitcoin")
 # bitcoin's hex asset type
-e1.getwalletinfo("694d95345fcd292329b5fb4e465a48484c7e218f4d4f1f7a3bfea26dd2d8fc3d")
+e1.getwalletinfo("b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23")
 
 # We can also issue our own assets, 1 asset and 1 reissuance token in this case
 issue = e1.issueasset(1, 1)
