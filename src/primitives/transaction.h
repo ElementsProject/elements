@@ -235,10 +235,7 @@ public:
 
     bool IsFee() const
     {
-        CAsset asset;
-        if (scriptPubKey == CScript() && nValue.IsExplicit() && nAsset.IsExplicit())
-            return true;
-        return false;
+        return scriptPubKey == CScript() && nValue.IsExplicit() && nAsset.IsExplicit();
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
