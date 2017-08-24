@@ -88,15 +88,19 @@ with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
 
 try:
 
+    # Default is 8, meaning 8+2 confirms for mempool acceptance normally
+    # this will require 10+2.
+    sidechain_args = " -peginconfirmationdepth=10 "
+
     # Start daemons
     print("Starting daemons at "+bitcoin_datadir+", "+sidechain_datadir+" and "+sidechain2_datadir)
     bitcoindstart = sys.argv[1]+"/bitcoind -datadir="+bitcoin_datadir
     subprocess.Popen(bitcoindstart.split(), stdout=subprocess.PIPE)
 
-    sidechainstart = sys.argv[2]+"/elementsd -datadir="+sidechain_datadir
+    sidechainstart = sys.argv[2]+"/elementsd -datadir="+sidechain_datadir + sidechain_args
     subprocess.Popen(sidechainstart.split(), stdout=subprocess.PIPE)
 
-    sidechain2start = sys.argv[2]+"/elementsd -datadir="+sidechain2_datadir
+    sidechain2start = sys.argv[2]+"/elementsd -datadir="+sidechain2_datadir + sidechain_args
     subprocess.Popen(sidechain2start.split(), stdout=subprocess.PIPE)
 
     print("Daemons started")
@@ -122,18 +126,30 @@ try:
     addrs = sidechain.getpeginaddress()
     txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
     txid2 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
-    bitcoin.generate(10)
+    # 10+2 confirms required to get into mempool and confirm
+    bitcoin.generate(11)
+    time.sleep(2)
     proof = bitcoin.gettxoutproof([txid1])
     raw = bitcoin.getrawtransaction(txid1)
 
     print("Attempting peg-in")
+    try:
+        pegtxid = sidechain.claimpegin(raw, proof)
+        raise Exception("Peg-in should not mature enough yet, need another block.")
+    except JSONRPCException as e:
+        assert("Withdraw proof validation failed" in e.error["message"])
+        pass
 
-    # Should fail due to non-matching address
+    # Should fail due to non-matching wallet address
     try:
         pegtxid = sidechain.claimpegin(raw, proof, sidechain.getnewaddress())
         raise Exception("Peg-in with non-matching address should fail.")
-    except JSONRPCException:
+    except JSONRPCException as e:
+        assert("Failed to find output in bitcoinTx to the mainchain_address" in e.error["message"])
         pass
+
+    # 12 confirms allows in mempool
+    bitcoin.generate(1)
 
     timeout = 20
     # Both should succeed via wallet lookup for address match, and when given
@@ -179,7 +195,7 @@ try:
     for i in range(n_claims):
         addrs = sidechain.getpeginaddress()
         txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 1)
-        bitcoin.generate(10)
+        bitcoin.generate(12)
         proof = bitcoin.gettxoutproof([txid])
         raw = bitcoin.getrawtransaction(txid)
         pegtxs += [sidechain.claimpegin(raw, proof)]
