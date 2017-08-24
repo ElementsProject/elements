@@ -31,6 +31,9 @@ static const int MAX_PUBKEYS_PER_MULTISIG = 20;
 // mainchain.
 static const bool DEFAULT_VALIDATE_PEGIN = false;
 
+// Number of confirms on parent chain required to confirm on sidechain
+static const unsigned int DEFAULT_PEGIN_CONFIRMATION_DEPTH = 8;
+
 // Maximum script length in bytes
 static const int MAX_SCRIPT_SIZE = 10000;
 class uint256;

@@ -513,6 +513,7 @@ std::string HelpMessage(HelpMessageMode mode)
     if (showDebug) {
         strUsage += HelpMessageOpt("-fedpegscript=<hex>", _("Change federated peg to use a different script.") +
             " " + _("This creates a new chain with a different genesis block."));
+        strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
 
