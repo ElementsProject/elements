@@ -598,12 +598,12 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys, std::vector<CKey>& asset_keys, std::vector<CKey>& token_keys) {
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
         if (!tx.vout[nOut].nValue.IsExplicit()) {
+#ifdef ENABLE_WALLET
             CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= nOut? NULL: &tx.wit.vtxoutwit[nOut];
             uint256 blinding_factor;
             uint256 asset_blinding_factor;
             CAsset asset;
             CAmount amount;
-#ifdef ENABLE_WALLET
             // This can only be used to recover things like change addresses and self-sends.
             if (fUseWallet && ptxoutwit && UnblindConfidentialPair(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut].nValue, tx.vout[nOut].nAsset, tx.vout[nOut].nNonce, tx.vout[nOut].scriptPubKey, ptxoutwit->vchRangeproof, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
                 // Wipe out confidential info from output and output witness
