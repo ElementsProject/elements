@@ -32,6 +32,10 @@ class ListTransactionsTest(BitcoinTestFramework):
         return start_nodes(self.num_nodes, self.options.tmpdir)
 
     def run_test(self):
+
+        # Mine blocks to make sure coinbase are mature
+        self.nodes[0].generate(100)
+        self.sync_all()
         
         #Need to dump all value out of op_return freebies
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 21000000, "", "", True)
