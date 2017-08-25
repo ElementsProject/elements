@@ -1697,7 +1697,7 @@ bool GetLockedOutputs(const uint256 &genesisHash, const CAmount &nAmount, std::v
                 }
 
                 // Only written locks are filtered previously for invalid type
-                if (txout.nValue.IsCommitment() || txout.nAsset.IsCommitment() || txout.nAsset.GetAsset() != BITCOINID) {
+                if (txout.nValue.IsCommitment() || txout.nAsset.IsCommitment() || txout.nAsset.GetAsset() != Params().GetConsensus().pegged_asset) {
                     continue;
                 }
 
@@ -2526,7 +2526,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             vPos.push_back(std::make_pair(tx.GetHash(), pos));
             for (unsigned int i = 0; i < tx.vout.size(); i++) {
                 CTxOut txout= tx.vout[i];
-                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit() && txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == BITCOINID)
+                if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit() && txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset)
                     mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), i), txout.nValue.GetAmount())));
             }
 
@@ -2718,7 +2718,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         for (unsigned int j = 0; j < tx.vout.size(); j++) {
             CTxOut txout = tx.vout[j];
-            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit() && txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == BITCOINID) {
+            if (txout.scriptPubKey.IsWithdrawLock() && txout.nValue.IsExplicit() && txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset) {
                 mLocksCreated.insert(std::make_pair(txout.scriptPubKey.GetWithdrawLockGenesisHash(), std::make_pair(COutPoint(tx.GetHash(), j), txout.nValue.GetAmount())));
             }
         }

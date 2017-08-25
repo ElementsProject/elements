@@ -8,6 +8,7 @@
 
 #include "script/script.h"
 #include "uint256.h"
+#include "amount.h"
 #include <map>
 #include <string>
 
@@ -65,6 +66,7 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     CScript fedpegScript;
+    CAsset pegged_asset;
     uint256 defaultAssumeValid;
 };
 } // namespace Consensus

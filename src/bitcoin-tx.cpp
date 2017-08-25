@@ -321,7 +321,7 @@ static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& str
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(BITCOINID, value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -388,7 +388,7 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(BITCOINID, value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -415,7 +415,7 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strIn
 
     std::vector<unsigned char> data = ParseHex(strData);
 
-    CTxOut txout(BITCOINID, value, CScript() << OP_RETURN << data);
+    CTxOut txout(Params().GetConsensus().pegged_asset, value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
 }
 

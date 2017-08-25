@@ -36,8 +36,8 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
 {
     QList<TransactionRecord> parts;
     int64_t nTime = wtx.GetTxTime();
-    CAmount nCredit = wtx.GetCredit(ISMINE_ALL)[BITCOINID];
-    CAmount nDebit = wtx.GetDebit(ISMINE_ALL)[BITCOINID];
+    CAmount nCredit = wtx.GetCredit(ISMINE_ALL)[Params().GetConsensus().pegged_asset];
+    CAmount nDebit = wtx.GetDebit(ISMINE_ALL)[Params().GetConsensus().pegged_asset];
     CAmount nNet = nCredit - nDebit;
     uint256 hash = wtx.GetHash();
     std::map<std::string, std::string> mapValue = wtx.mapValue;
@@ -102,7 +102,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
         if (fAllFromMe && fAllToMe)
         {
             // Payment to self
-            CAmount nChange = wtx.GetChange()[BITCOINID];
+            CAmount nChange = wtx.GetChange()[Params().GetConsensus().pegged_asset];
 
             parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
                             -(nDebit - nChange), nCredit - nChange));
@@ -113,7 +113,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const CWallet *
             //
             // Debit
             //
-            CAmount nTxFee = wtx.tx->GetFee()[BITCOINID];
+            CAmount nTxFee = wtx.tx->GetFee()[Params().GetConsensus().pegged_asset];
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {

@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "assetsdir.h"
+#include "chainparams.h"
 
 #include "tinyformat.h"
 #include "utilstrencodings.h"
@@ -47,7 +48,7 @@ void CAssetsDir::InitFromStrings(const std::vector<std::string>& assetsToInit)
         SetHex(vAssets[0], vAssets[1]);
     }
     // Set "bitcoin" to the pegged asset for tests
-    Set(BITCOINID, AssetMetadata("bitcoin"));
+    Set(Params().GetConsensus().pegged_asset, AssetMetadata("bitcoin"));
 }
 
 CAsset CAssetsDir::GetAsset(const std::string& label) const

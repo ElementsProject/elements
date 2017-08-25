@@ -7,6 +7,7 @@
 #include "test/test_bitcoin.h"
 
 #include "clientversion.h"
+#include "chainparams.h"
 #include "checkqueue.h"
 #include "consensus/validation.h"
 #include "core_io.h"
@@ -305,19 +306,19 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
     dummyTransactions[0].vout.resize(2);
     dummyTransactions[0].vout[0].nValue = 11*CENT;
     dummyTransactions[0].vout[0].scriptPubKey << ToByteVector(key[0].GetPubKey()) << OP_CHECKSIG;
-    dummyTransactions[0].vout[0].nAsset = BITCOINID;
+    dummyTransactions[0].vout[0].nAsset = Params().GetConsensus().pegged_asset;
     dummyTransactions[0].vout[1].nValue = 50*CENT;
     dummyTransactions[0].vout[1].scriptPubKey << ToByteVector(key[1].GetPubKey()) << OP_CHECKSIG;
-    dummyTransactions[0].vout[1].nAsset = BITCOINID;
+    dummyTransactions[0].vout[1].nAsset = Params().GetConsensus().pegged_asset;
     coinsRet.ModifyCoins(dummyTransactions[0].GetHash())->FromTx(dummyTransactions[0], 0);
 
     dummyTransactions[1].vout.resize(2);
     dummyTransactions[1].vout[0].nValue = 21*CENT;
     dummyTransactions[1].vout[0].scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
-    dummyTransactions[1].vout[0].nAsset = BITCOINID;
+    dummyTransactions[1].vout[0].nAsset = Params().GetConsensus().pegged_asset;
     dummyTransactions[1].vout[1].nValue = 22*CENT;
     dummyTransactions[1].vout[1].scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
-    dummyTransactions[1].vout[1].nAsset = BITCOINID;
+    dummyTransactions[1].vout[1].nAsset = Params().GetConsensus().pegged_asset;
     coinsRet.ModifyCoins(dummyTransactions[1].GetHash())->FromTx(dummyTransactions[1], 0);
 
     return dummyTransactions;
@@ -344,11 +345,11 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vout.resize(2);
     t1.vout[0].nValue = 90*CENT;
     t1.vout[0].scriptPubKey << OP_1;
-    t1.vout[0].nAsset = BITCOINID;
+    t1.vout[0].nAsset = Params().GetConsensus().pegged_asset;
     t1.vout[1].nValue = (50+21+22)*CENT - 90*CENT;
     t1.vout[1].scriptPubKey = CScript();
-    t1.vout[1].nAsset = BITCOINID;
-    BOOST_CHECK(CTransaction(t1).GetFee()[BITCOINID] == (50+21+22)*CENT - 90*CENT);
+    t1.vout[1].nAsset = Params().GetConsensus().pegged_asset;
+    BOOST_CHECK(CTransaction(t1).GetFee()[Params().GetConsensus().pegged_asset] == (50+21+22)*CENT - 90*CENT);
 
     BOOST_CHECK(AreInputsStandard(t1, coins));
     BOOST_CHECK(VerifyAmounts(coins, t1));
