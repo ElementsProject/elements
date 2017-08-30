@@ -186,6 +186,51 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_generat
   const unsigned char *output_blinding_key
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
 
+/** Sorts a list of fixed tags in place so that the corresponding unblinded generators will be usable
+ *  for `secp256k1_surjectionproof_combine`. This function should only be used when all input generators
+ *  have zero blinding factor.
+ *
+ * Returns 0 on argument error, otherwise 1.
+ *
+ * Args:      ctx: a secp256k1 context object. Cannot be NULL.
+ * In/Out:   tags: tags to sort. Cannot be NULL.
+ * In:     n_tags: number of tags to sort
+ */
+SECP256K1_API int secp256k1_surjectionproof_sort_tags(
+  const secp256k1_context* ctx,
+  secp256k1_fixed_asset_tag* tags,
+  size_t n_tags
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
+
+/** Combines two surjection proofs so that they can be validated against the same input tag set.
+ *  Updates the proofs in place to index into the merged list. Input lists must be pre-sorted
+ *  using `secp256k1_surjectionproof_sort_input_tags`.
+ *
+ * Returns 0: proofs could not be merged
+ *         1: proofs were successfully merged
+ *
+ * Args:                    ctx: a secp256k1 context object. Cannot be NULL.
+ * In:    input_tags1: input tags for the first proof. Cannot be NULL.
+ *      n_input_tags1: number of input tags for the first proof
+ *        input_tags2: input tags for the second proof. Cannot be NULL.
+ *      n_input_tags2: number of input tags for the second proof
+ * Out:          tags: combined list of input tags. Cannot be NULL.
+ * In/Out:     n_tags: number of tags in the combined list. Cannot be NULL.
+ *                     May not alias either of the input lists.
+ *             proof1: first proof to be combined. Cannot be NULL.
+ *             proof2: second proof to be combined. Cannot be NULL.
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_combine(
+  const secp256k1_context* ctx,
+  secp256k1_generator* tags,
+  size_t *n_tags,
+  secp256k1_surjectionproof* proof1,
+  secp256k1_surjectionproof* proof2,
+  const secp256k1_generator* input_tags1,
+  size_t n_input_tags1,
+  const secp256k1_generator* input_tags2,
+  size_t n_input_tags2
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(8);
 
 /** Surjection proof verification function
  * Returns 0: proof was invalid
