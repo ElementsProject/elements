@@ -430,7 +430,7 @@ static void test_no_used_inputs_verify(void) {
     /* create "borromean signature" which is just a hash of metadata (pubkeys, etc) in this case */
     secp256k1_generator_load(&output, &ephemeral_output_tag);
     secp256k1_generator_load(&inputs[0], &ephemeral_input_tags[0]);
-    secp256k1_surjection_genmessage(proof.data, inputs, 1, &output);
+    secp256k1_surjection_genmessage(proof.data, inputs, 1, proof.used_inputs, &output);
     secp256k1_sha256_initialize(&sha256_e0);
     secp256k1_sha256_write(&sha256_e0, proof.data, 32);
     secp256k1_sha256_finalize(&sha256_e0, proof.data);
