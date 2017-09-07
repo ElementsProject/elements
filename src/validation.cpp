@@ -3888,7 +3888,9 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
         int commitpos = GetWitnessCommitmentIndex(block);
         if (commitpos != -1) {
             uint256 hashWitness = BlockWitnessMerkleRoot(block);
-            if ((block.vtx[0]->wit.vtxinwit.size() > 0 &&block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack.size() != 1) || block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack[0].size() != 32) {
+            if (block.vtx[0]->wit.vtxinwit.empty()
+                || block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack.size() != 1
+                || block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack[0].size() != 32) {
                 return state.DoS(100, false, REJECT_INVALID, "bad-witness-nonce-size", true, strprintf("%s : invalid witness nonce size", __func__));
             }
             CHash256().Write(hashWitness.begin(), 32).Write(&block.vtx[0]->wit.vtxinwit[0].scriptWitness.stack[0][0], 32).Finalize(hashWitness.begin());
