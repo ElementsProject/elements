@@ -8,7 +8,7 @@ from .mininode import *
 from .script import CScript, OP_TRUE, OP_CHECKSIG, OP_RETURN
 
 # Create a block (with regtest difficulty)
-def create_block(hashprev, coinbase, nTime=None):
+def create_block(hashprev, coinbase, nTime=None, height=0):
     block = CBlock()
     if nTime is None:
         import time
@@ -16,9 +16,11 @@ def create_block(hashprev, coinbase, nTime=None):
     else:
         block.nTime = nTime
     block.hashPrevBlock = hashprev
-    block.nBits = 0x207fffff # Will break after a difficulty adjustment...
     block.vtx.append(coinbase)
     block.hashMerkleRoot = block.calc_merkle_root()
+    block.nHeight = height
+    block.proof.challenge = CScript([OP_TRUE])
+    block.proof.solution = b''
     block.calc_sha256()
     return block
 
@@ -39,39 +41,28 @@ def add_witness_commitment(block, nonce=0):
 
     # witness commitment is the last OP_RETURN output in coinbase
     output_data = WITNESS_COMMITMENT_HEADER + ser_uint256(witness_commitment)
-    block.vtx[0].vout.append(CTxOut(0, CScript([OP_RETURN, output_data])))
+    block.vtx[0].vout.append(CTxOut(CTxOutValue(0), CScript([OP_RETURN, output_data])))
     block.vtx[0].rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
     block.rehash()
 
-
-def serialize_script_num(value):
-    r = bytearray(0)
-    if value == 0:
-        return r
-    neg = value < 0
-    absvalue = -value if neg else value
-    while (absvalue):
-        r.append(int(absvalue & 0xff))
-        absvalue >>= 8
-    if r[-1] & 0x80:
-        r.append(0x80 if neg else 0)
-    elif neg:
-        r[-1] |= 0x80
-    return r
-
 # Create a coinbase transaction, assuming no miner fees.
 # If pubkey is passed in, the coinbase output will be a P2PK output;
 # otherwise an anyone-can-spend output.
-def create_coinbase(height, pubkey = None):
+def create_coinbase(height, pubkey = None, amount = 0):
     coinbase = CTransaction()
-    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff), 
-                ser_string(serialize_script_num(height)), 0xffffffff))
+    # coinbase transaction scriptsigs must be at least 2 bytes
+    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
+        CScript([height, OP_TRUE]), 0xffffffff))
     coinbaseoutput = CTxOut()
-    coinbaseoutput.nValue = 50 * COIN
-    halvings = int(height/150) # regtest
-    coinbaseoutput.nValue >>= halvings
-    if (pubkey != None):
+
+    coinbaseoutput.nValue.setToAmount(amount)
+    coinbaseoutput.nAsset.setToAsset(b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+
+    if amount == 0:
+        # zero utxo's must be made unspendable
+        coinbaseoutput.scriptPubKey = CScript([OP_RETURN])
+    elif pubkey != None:
         coinbaseoutput.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
     else:
         coinbaseoutput.scriptPubKey = CScript([OP_TRUE])
@@ -85,7 +76,7 @@ def create_transaction(prevtx, n, sig, value, scriptPubKey=CScript()):
     tx = CTransaction()
     assert(n < len(prevtx.vout))
     tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), sig, 0xffffffff))
-    tx.vout.append(CTxOut(value, scriptPubKey))
+    tx.vout.append(CTxOut(CTxOutValue(value), scriptPubKey))
     tx.calc_sha256()
     return tx
 

@@ -134,7 +134,7 @@ public:
 };
 
 /**
- * An 33-byte data field that typically is used to convey to the
+ * A 33-byte data field that typically is used to convey to the
  * recipient the ECDH ephemeral key (an EC point) for deriving the
  * transaction output blinding factor. */
 class CConfidentialNonce : public CConfidentialCommitment<33, 2, 3>
