@@ -195,7 +195,7 @@ bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, in
 
         params = UniValue(UniValue::VARR);
         params.push_back(hash.GetHex());
-        reply = CallRPC("getblock", params, true);
+        reply = CallRPC("getblockheader", params, true);
         if (!find_value(reply, "error").isNull())
             return false;
         result = find_value(reply, "result");
