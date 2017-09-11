@@ -35,6 +35,6 @@ public:
 };
 
 UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool connectToMainchain=false);
-bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, int nMinConfirmationDepth);
+bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth);
 
 #endif // BITCOIN_CALLRPC_H
