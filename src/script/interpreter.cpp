@@ -1580,7 +1580,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPT);
 
 #ifndef BITCOIN_SCRIPT_NO_CALLRPC
-                                if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN) && !checker.IsConfirmedBitcoinBlock(genesishash, merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED, GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH)))
+                                if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN) && !checker.IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), flags & SCRIPT_VERIFY_INCREASE_CONFIRMATIONS_REQUIRED, GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH)))
                                     return set_error(serror, SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED);
 #endif
                             } catch (std::exception& e) {
@@ -1975,10 +1975,10 @@ CConfidentialValue TransactionSignatureChecker::GetValueInPrevIn() const
     return amountPreviousInput;
 }
 
-bool TransactionSignatureChecker::IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements, uint32_t nConfirmationsRequired) const
+bool TransactionSignatureChecker::IsConfirmedBitcoinBlock(const uint256& hash, bool fConservativeConfirmationRequirements, uint32_t nConfirmationsRequired) const
 {
 #ifndef BITCOIN_SCRIPT_NO_CALLRPC
-    return ::IsConfirmedBitcoinBlock(genesishash, hash, nConfirmationsRequired + (fConservativeConfirmationRequirements ? 2 : 0));
+    return ::IsConfirmedBitcoinBlock(hash, nConfirmationsRequired + (fConservativeConfirmationRequirements ? 2 : 0));
 #else
     return true;
 #endif

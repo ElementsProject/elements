@@ -178,27 +178,15 @@ UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool conn
     return reply;
 }
 
-bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, int nMinConfirmationDepth)
+bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth)
 {
-
     try {
         UniValue params(UniValue::VARR);
-        params.push_back(UniValue(0));
-        UniValue reply = CallRPC("getblockhash", params, true);
+        params.push_back(hash.GetHex());
+        UniValue reply = CallRPC("getblockheader", params, true);
         if (!find_value(reply, "error").isNull())
             return false;
         UniValue result = find_value(reply, "result");
-        if (!result.isStr())
-            return false;
-        if (result.get_str() != genesishash.GetHex())
-            return false;
-
-        params = UniValue(UniValue::VARR);
-        params.push_back(hash.GetHex());
-        reply = CallRPC("getblock", params, true);
-        if (!find_value(reply, "error").isNull())
-            return false;
-        result = find_value(reply, "result");
         if (!result.isObject())
             return false;
         result = find_value(result.get_obj(), "confirmations");

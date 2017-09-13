@@ -171,7 +171,7 @@ public:
         return -1;
     }
 
-    virtual bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements, uint32_t nConfirmationsRequired) const
+    virtual bool IsConfirmedBitcoinBlock(const uint256& hash, bool fConservativeConfirmationRequirements, uint32_t nConfirmationsRequired) const
     {
         return false;
     }
@@ -219,7 +219,7 @@ public:
     COutPoint GetPrevOut() const;
     CConfidentialValue GetValueIn() const;
     CConfidentialValue GetValueInPrevIn() const;
-    bool IsConfirmedBitcoinBlock(const uint256& genesishash, const uint256& hash, bool fConservativeConfirmationRequirements, uint32_t nConfirmationsRequired) const;
+    bool IsConfirmedBitcoinBlock(const uint256& hash, bool fConservativeConfirmationRequirements, uint32_t nConfirmationsRequired) const;
     virtual CScript GetFedpegScript() const
     {
         return fedpegScript;
