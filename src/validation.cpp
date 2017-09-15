@@ -1834,7 +1834,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             if (tx.vin[i].m_is_pegin) {
                 // Check existence and validity of pegin witness
                 if (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
-                    return state.DoS(0, false, REJECT_INVALID, "bad-pegin-witness", true);
+                    return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", true);
                 }
                 std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
                 if (inputs.IsWithdrawSpent(pegin)) {
@@ -3035,7 +3035,26 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
         if (!rv) {
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
-             }
+                //Possibly result of RPC to bitcoind failure
+                //or unseen Bitcoin blocks.
+                if (state.GetRejectCode() == REJECT_PEGIN) {
+                    //Write queue of invalid blocks that
+                    //must be cleared to continue operation
+                    std::vector<uint256> vinvalidBlocks;
+                    pblocktree->ReadInvalidBlockQueue(vinvalidBlocks);
+                    bool blockAlreadyInvalid = false;
+                    BOOST_FOREACH(uint256& hash, vinvalidBlocks) {
+                        if (hash == pblock->GetHash()) {
+                            blockAlreadyInvalid = true;
+                            break;
+                        }
+                    }
+                    if (!blockAlreadyInvalid) {
+                        vinvalidBlocks.push_back(pblock->GetHash());
+                        pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
+                    }
+                }
+            }
 
             return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
         }
