@@ -65,13 +65,15 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
 
         RegisterAllCoreRPCCommands(tableRPC);
 
-    // Make genesis coinbase use out spend-key
+    int gen_size = Params().GenesisBlock().vtx.size();
+
+    // Make genesis second transaction(with spendable outputs) use out spend-key
     coinbaseKey.MakeNewKey(true);
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-    CMutableTransaction newCoinbase(*(Params().GenesisBlock().vtx[0]));
-    for (unsigned int i = 0; i < Params().GenesisBlock().vtx[0]->vout.size(); i++)
-        newCoinbase.vout[i].scriptPubKey = scriptPubKey;
-    const_cast<CBlock&>(Params().GenesisBlock()).vtx[0] = MakeTransactionRef(newCoinbase);
+    CMutableTransaction newTransaction(*(Params().GenesisBlock().vtx[gen_size-1]));
+    for (unsigned int i = 0; i < Params().GenesisBlock().vtx[gen_size-1]->vout.size(); i++)
+        newTransaction.vout[i].scriptPubKey = scriptPubKey;
+    const_cast<CBlock&>(Params().GenesisBlock()).vtx[gen_size-1] = MakeTransactionRef(newTransaction);
     const_cast<CBlock&>(Params().GenesisBlock()).hashMerkleRoot = BlockMerkleRoot(Params().GenesisBlock());
     const_cast<CBlock&>(Params().GenesisBlock()).proof = CProof(CScript()<<OP_TRUE, CScript());
     const_cast<Consensus::Params&>(Params().GetConsensus()).hashGenesisBlock = Params().GenesisBlock().GetHash();
@@ -114,8 +116,9 @@ TestChain100Setup::TestChain100Setup() : TestingSetup(CBaseChainParams::REGTEST)
 {
     // Generate a 100-block chain:
     CScript scriptPubKey = CScript() <<  ToByteVector(coinbaseKey.GetPubKey()) << OP_CHECKSIG;
-    assert(Params().GenesisBlock().vtx[0]->vout[0].scriptPubKey == scriptPubKey);
-    coinbaseTxns.push_back(*(Params().GenesisBlock().vtx[0]));
+    assert(Params().GenesisBlock().vtx[Params().GenesisBlock().vtx.size()-1]->vout[0].scriptPubKey == scriptPubKey);
+    // Get spendable outputs from genesis block, which is non-coinbase for regtest
+    coinbaseTxns.push_back(*(Params().GenesisBlock().vtx[Params().GenesisBlock().vtx.size()-1]));
     for (int i = 0; i < COINBASE_MATURITY; i++)
     {
         std::vector<CMutableTransaction> noTxns;

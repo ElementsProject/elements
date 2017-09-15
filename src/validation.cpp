@@ -2267,19 +2267,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     uint256 hashPrevBlock = pindex->pprev == NULL ? uint256() : pindex->pprev->GetBlockHash();
     assert(hashPrevBlock == view.GetBestBlock());
 
-    // Gesesis coinbase *is* spendable
+    // Add genesis outputs. The assumption made here is that there are no real spends
+    // occurring in this block.
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
-            assert(block.vtx.size() == 1);
             assert(block.nHeight == 0);
+            for (const auto& tx : block.vtx) {
 
-            std::vector<std::pair<uint256, CDiskTxPos> > vPos;
-            std::multimap<uint256, std::pair<COutPoint, CAmount> > mLocksCreated;
-            const CTransaction tx = *(block.vtx[0]);
-
-            CTxUndo undoDummy;
-            UpdateCoins(tx, view, undoDummy, pindex->nHeight);
-
+                // Directly add new coins to DB
+                view.ModifyNewCoins(tx->GetHash(), tx->IsCoinBase())->FromTx(*tx, pindex->nHeight);
+            }
             view.SetBestBlock(pindex->GetBlockHash());
         }
         return true;

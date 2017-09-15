@@ -222,6 +222,10 @@ class CTTest (BitcoinTestFramework):
 
         print("Assets tests...")
 
+        # Bitcoin is the first issuance
+        assert_equal(self.nodes[0].listissuances()[0]["assetlabel"], "bitcoin")
+        assert_equal(len(self.nodes[0].listissuances()), 1)
+
         # Unblinded issuance of asset
         issued = self.nodes[0].issueasset(1, 1, False)
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["asset"]], 1)
@@ -351,13 +355,13 @@ class CTTest (BitcoinTestFramework):
         addr2 = txdet2[len(txdet2)-1]["address"]
         addr3 = txdet3[len(txdet3)-1]["address"]
 
-        assert_equal(len(self.nodes[0].listissuances()), 5);
+        assert_equal(len(self.nodes[0].listissuances()), 6);
         self.nodes[0].importaddress(addr1)
         self.nodes[0].importaddress(addr2)
         self.nodes[0].importaddress(addr3)
 
         issuances = self.nodes[0].listissuances()
-        assert_equal(len(issuances), 8)
+        assert_equal(len(issuances), 9)
 
         for issue in issuances:
             if issue['txid'] == redata1["txid"] and issue['vin'] == redata1["vin"]:

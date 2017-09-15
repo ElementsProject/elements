@@ -30,19 +30,15 @@ class WalletTest (BitcoinTestFramework):
 
     def run_test (self):
 
-        # Check that there's no UTXO on none of the nodes
-        assert_equal(len(self.nodes[0].listunspent()), 0)
-        assert_equal(len(self.nodes[1].listunspent()), 0)
-        assert_equal(len(self.nodes[2].listunspent()), 0)
+        # Check that there's 100 UTXOs on each of the nodes
+        assert_equal(len(self.nodes[0].listunspent()), 100)
+        assert_equal(len(self.nodes[1].listunspent()), 100)
+        assert_equal(len(self.nodes[2].listunspent()), 100)
+
+        walletinfo = self.nodes[0].getwalletinfo()
+        assert_equal(walletinfo['balance']["bitcoin"], 21000000)
 
         print("Mining blocks...")
-
-        self.nodes[0].generate(1)
-        walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance']["bitcoin"], 21000000)
-        assert("bitcoin" not in walletinfo['balance'])
-
-        self.sync_all()
         self.nodes[1].generate(101)
         self.sync_all()
 
