@@ -120,6 +120,10 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
+        if (tx.vin[i].m_is_pegin) {
+            // This deals with p2sh in general only
+            continue;
+        }
         const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
 
         // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
@@ -169,7 +173,7 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         if (tx.wit.vtxinwit.size() <= i || tx.wit.vtxinwit[i].scriptWitness.IsNull())
             continue;
 
-        const CTxOut &prev = mapInputs.GetOutputFor(tx.vin[i]);
+        const CTxOut &prev = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.wit.vtxinwit[i].m_pegin_witness) :  mapInputs.GetOutputFor(tx.vin[i]);
 
         // get the scriptPubKey corresponding to this input:
         CScript prevScript = prev.scriptPubKey;

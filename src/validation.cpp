@@ -1124,6 +1124,10 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         // Note that this does not check for the presence of actual outputs (see the next check for that),
         // and only helps with filling in pfMissingInputs (to determine missing vs spent).
         BOOST_FOREACH(const CTxIn txin, tx.vin) {
+            // Don't look for coins that only exist in parent chain
+            if (txin.m_is_pegin) {
+                continue;
+            }
             if (!pcoinsTip->HaveCoinsInCache(txin.prevout.hash))
                 vHashTxnToUncache.push_back(txin.prevout.hash);
             if (!view.HaveCoins(txin.prevout.hash)) {
@@ -1136,6 +1140,22 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         // are the actual inputs available?
         if (!view.HaveInputs(tx))
             return state.Invalid(false, REJECT_DUPLICATE, "bad-txns-inputs-spent");
+
+        // Extract peg-in inputs, pass set to mempool entry. Validity of pegins checked in CheckInputs
+        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            if (tx.vin[i].m_is_pegin) {
+                // Quick check of pegin witness and prevout to extract db entry
+                if (tx.wit.vtxinwit.size() <= i || tx.wit.vtxinwit[i].m_pegin_witness.stack.size() < 6 || uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]).IsNull() || tx.vin[i].prevout.hash.IsNull()) {
+                    return state.Invalid(false, REJECT_INVALID, "pegin-no-witness");
+                }
+                std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), tx.vin[i].prevout);
+                // This assumes non-null prevout and genesis block hash
+                if (view.IsWithdrawSpent(pegin)) {
+                    return state.Invalid(false, REJECT_CONFLICT, "pegin-already-claimed");
+                }
+                setPeginsSpent.insert(pegin);
+            }
+        }
 
         // Bring the best block into scope
         view.GetBestBlock();
@@ -1171,14 +1191,18 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         double nPriorityDummy = 0;
         pool.ApplyDeltas(hash, nPriorityDummy, nModifiedFees);
 
-        CAmount inChainInputValue;
-        double dPriority = view.GetPriority(tx, chainActive.Height(), inChainInputValue);
+        // Neuter priority in mempool
+        CAmount inChainInputValue = 0;
+        double dPriority = 0;
 
         // Keep track of transactions that spend a coinbase, which we re-scan
         // during reorgs to ensure COINBASE_MATURITY is still met.
         // Also track withdraw lock spends to allow them through free relay
         bool fSpendsCoinbase = false;
         BOOST_FOREACH(const CTxIn &txin, tx.vin) {
+            if (txin.m_is_pegin) {
+                continue;
+            }
             const CCoins *coins = view.AccessCoins(txin.prevout.hash);
             if (coins->IsCoinBase()) {
                 fSpendsCoinbase = true;
