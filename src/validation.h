@@ -262,6 +262,10 @@ void UnloadBlockIndex();
 void ThreadScriptCheck();
 /** Check if bitcoind connection via RPC is correctly working*/
 bool BitcoindRPCCheck(bool init);
+/** Checks pegin witness for validity */
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness);
+/** Extracts an output from pegin witness for evaluation as a normal output */
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Format a string that describes several potential problems detected by the core.

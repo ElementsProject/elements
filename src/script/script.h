@@ -325,6 +325,12 @@ public:
         return m_value;
     }
 
+    // Only used for peg-in witness values
+    int64_t getint64() const
+    {
+        return m_value;
+    }
+
     std::vector<unsigned char> getvch() const
     {
         return serialize(m_value);

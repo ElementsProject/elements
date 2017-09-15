@@ -239,6 +239,8 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/wallet.cpp \
   wallet/walletdb.cpp \
   policy/rbf.cpp \
+  primitives/bitcoin/merkleblock.cpp \
+  primitives/bitcoin/block.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
