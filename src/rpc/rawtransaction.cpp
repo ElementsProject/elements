@@ -112,14 +112,20 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             in.push_back(Pair("scriptSig", o));
         }
         if (tx.HasWitness()) {
-                UniValue scriptWitness(UniValue::VARR);
-                if (tx.wit.vtxinwit.size() > i) {
-                    for (unsigned int j = 0; j < tx.wit.vtxinwit[i].scriptWitness.stack.size(); j++) {
-                        std::vector<unsigned char> item = tx.wit.vtxinwit[i].scriptWitness.stack[j];
-                        scriptWitness.push_back(HexStr(item.begin(), item.end()));
-                    }
+            UniValue scriptWitness(UniValue::VARR);
+            UniValue pegin_witness(UniValue::VARR);
+            if (tx.wit.vtxinwit.size() > i) {
+                for (unsigned int j = 0; j < tx.wit.vtxinwit[i].scriptWitness.stack.size(); j++) {
+                    std::vector<unsigned char> item = tx.wit.vtxinwit[i].scriptWitness.stack[j];
+                    scriptWitness.push_back(HexStr(item.begin(), item.end()));
                 }
-                in.push_back(Pair("scriptWitness", scriptWitness));
+                for (unsigned int j = 0; j < tx.wit.vtxinwit[i].m_pegin_witness.stack.size(); j++) {
+                    std::vector<unsigned char> item = tx.wit.vtxinwit[i].m_pegin_witness.stack[j];
+                    pegin_witness.push_back(HexStr(item.begin(), item.end()));
+                }
+            }
+            in.push_back(Pair("scriptWitness", scriptWitness));
+            in.push_back(Pair("pegin_witness", pegin_witness));
         }
         const CAssetIssuance& issuance = txin.assetIssuance;
         if (!issuance.IsNull()) {
@@ -1369,16 +1375,19 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
     const CTransaction txConst(mergedTx);
-    // Sign what we can:
+    // Sign what we can, including peg-in inputs:
     for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
         CTxIn& txin = mergedTx.vin[i];
         const CCoins* coins = view.AccessCoins(txin.prevout.hash);
-        if (coins == NULL || !coins->IsAvailable(txin.prevout.n)) {
+        if (!txin.m_is_pegin && (coins == NULL || !coins->IsAvailable(txin.prevout.n))) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
+        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout))) {
+            TxInErrorToJSON(txin, vErrors, "Peg-in input has invalid proof.");
+            continue;
         }
-        const CScript& prevPubKey = coins->vout[txin.prevout.n].scriptPubKey;
-        const CConfidentialValue& amount = coins->vout[txin.prevout.n].nValue;
+        const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.wit.vtxinwit[i].m_pegin_witness).scriptPubKey : coins->vout[txin.prevout.n].scriptPubKey;
+        const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.wit.vtxinwit[i].m_pegin_witness).nValue : coins->vout[txin.prevout.n].nValue;
 
         SignatureData sigdata;
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
