@@ -97,29 +97,18 @@ CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERS
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
 
 /**
- * The input witness consists of three elements, two of which are
+ * The input witness consists of four elements, three of which are
  * optional. The optional elements have to do with asset issuance
- * and are not normally present, most of the time. For this reason
- * the optional elements are places in a lower branch of the Merkle
- * tree. When not present, they take on constant values in the hash
- * tree.
+ * and peg-in transactions, nor present most of the time.
  *
- *     S : script witness
- *     A : issuance amount rangeproof
- *     I : inflation keys rangeproof
- *
- *             .
- *            / \
- *           .   S
- *          / \
- *         A   I
- */
+  */
 uint256 CTxInWitness::GetHash() const
 {
     std::vector<uint256> leaves;
     leaves.push_back(SerializeHash(vchIssuanceAmountRangeproof, SER_GETHASH, 0));
     leaves.push_back(SerializeHash(vchInflationKeysRangeproof, SER_GETHASH, 0));
     leaves.push_back(SerializeHash(scriptWitness.stack, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(m_pegin_witness.stack, SER_GETHASH, 0));
     return ComputeFastMerkleRoot(leaves);
 }
 
