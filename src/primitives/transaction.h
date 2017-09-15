@@ -255,14 +255,18 @@ public:
     uint256 hash;
     uint32_t n;
 
-    /* If this flag set, the CTxIn including this COutPoint has a
+    /* If this flag is set, the CTxIn including this COutPoint has a
      * CAssetIssuance object. */
     static const uint32_t OUTPOINT_ISSUANCE_FLAG = (1 << 31);
+
+    /* If this flag is set, the CTxIn including this COutPoint
+     * is a peg-in input. */
+    static const uint32_t OUTPOINT_PEGIN_FLAG = (1 << 30);
 
     /* The inverse of the combination of the preceeding flags. Used to
      * extract the original meaning of `n` as the index into the
      * transaction's output array. */
-    static const uint32_t OUTPOINT_INDEX_MASK = 0x7fffffff;
+    static const uint32_t OUTPOINT_INDEX_MASK = 0x3fffffff;
 
     COutPoint() { SetNull(); }
     COutPoint(uint256 hashIn, uint32_t nIn) { hash = hashIn; n = nIn; }
@@ -376,6 +380,9 @@ public:
     CScript scriptSig;
     uint32_t nSequence;
     CAssetIssuance assetIssuance;
+    /* If this is set to true, the input is interpreted as a
+     * peg-in claim and processed as such */
+    bool m_is_pegin = false;
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -426,10 +433,10 @@ public:
                 fHasAssetIssuance = false;
                 outpoint = prevout;
             } else {
-                // The issuance bit can't be set as it is used to indicate
-                // the presence of the asset issuance or objects. It should
+                // The issuance and pegin bits can't be set as it is used to indicate
+                // the presence of the asset issuance or pegin objects. They should
                 // never be set anyway as that would require a parent
-                // transaction with over two billion outputs.
+                // transaction with over one billion outputs.
                 assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
                 // The assetIssuance object is used to represent both new
                 // asset generation and reissuance of existing asset types.
@@ -442,6 +449,9 @@ public:
                 if (fHasAssetIssuance) {
                     outpoint.n |= COutPoint::OUTPOINT_ISSUANCE_FLAG;
                 }
+                if (m_is_pegin) {
+                    outpoint.n |= COutPoint::OUTPOINT_PEGIN_FLAG;
+                }
             }
         }
 
@@ -452,10 +462,14 @@ public:
                 // No asset issuance for Coinbase inputs.
                 fHasAssetIssuance = false;
                 prevout = outpoint;
+                m_is_pegin = false;
             } else {
-                // The presense of the asset issuance object is indicated by
+                // The presence of the asset issuance object is indicated by
                 // a bit set in the outpoint index field.
                 fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
+                // The interpretation of this input as a peg-in is indicated by
+                // a bit set in the outpoint index field.
+                m_is_pegin = !!(outpoint.n & COutPoint::OUTPOINT_PEGIN_FLAG);
                 // The mode, if set, must be masked out of the outpoint so
                 // that the in-memory index field retains its traditional
                 // meaning of identifying the index into the output array
