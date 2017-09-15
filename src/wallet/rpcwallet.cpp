@@ -6,6 +6,7 @@
 #include "amount.h"
 #include "assetsdir.h"
 #include "base58.h"
+#include "callrpc.h"
 #include "chain.h"
 #include "consensus/validation.h"
 #include "core_io.h"
@@ -3388,6 +3389,408 @@ public:
 static CSecp256k1Init instance_of_csecp256k1;
 }
 
+/* Takes federation redeeem script and adds SHA2(witnessProgram) as a tweak to each pubkey */
+CScriptID calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram) {
+    CScript scriptDestination(federationRedeemScript);
+    int version;
+    std::vector<unsigned char> program;
+    if (!witnessProgram.IsWitnessProgram(version, program)) {
+        assert(false);
+    }
+    txnouttype type;
+    std::vector<std::vector<unsigned char> > solutions;
+    // Sanity check fedRedeemScript
+    if (!Solver(federationRedeemScript, type, solutions) || (type != TX_MULTISIG && type != TX_TRUE)) {
+       assert(false);
+    }
+
+    {
+        CScript::iterator sdpc = scriptDestination.begin();
+        vector<unsigned char> vch;
+        opcodetype opcodeTmp;
+        while (scriptDestination.GetOp(sdpc, opcodeTmp, vch))
+        {
+            if (vch.size() == 33)
+            {
+
+                unsigned char tweak[32];
+                size_t pub_len = 33;
+                int ret;
+                unsigned char *pub_start = &(*(sdpc - pub_len));
+                CHMAC_SHA256(pub_start, pub_len).Write(witnessProgram.data(), witnessProgram.size()).Finalize(tweak);
+                secp256k1_pubkey watchman;
+                secp256k1_pubkey tweaked;
+                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &watchman, pub_start, pub_len);
+                assert(ret == 1);
+                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &tweaked, pub_start, pub_len);
+                assert(ret == 1);
+                // If someone creates a tweak that makes this fail, they broke SHA256
+                ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &tweaked, tweak);
+                assert(ret == 1);
+                ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED);
+                assert(ret == 1);
+                assert(pub_len == 33);
+
+                // Sanity checks to reduce pegin risk. If the tweaked
+                // value flips a bit, we may lose pegin funds irretrievably.
+                // We take the tweak, derive its pubkey and check that
+                // `tweaked - watchman = tweak` to check the computation
+                // two different ways
+                secp256k1_pubkey tweaked2;
+                ret = secp256k1_ec_pubkey_create(secp256k1_ctx, &tweaked2, tweak);
+                assert(ret);
+                ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &watchman);
+                assert(ret);
+                secp256k1_pubkey* pubkey_combined[2];
+                pubkey_combined[0] = &watchman;
+                pubkey_combined[1] = &tweaked;
+                secp256k1_pubkey maybe_tweaked2;
+                ret = secp256k1_ec_pubkey_combine(secp256k1_ctx, &maybe_tweaked2, pubkey_combined, 2);
+                assert(ret);
+                assert(!memcmp(&maybe_tweaked2, &tweaked2, 64));
+            }
+        }
+    }
+
+    return CScriptID(scriptDestination);
+}
+
+UniValue getpeginaddress(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "getpeginaddress\n"
+            "\nReturns information needed for claimpegin to move coins to the sidechain.\n"
+            "The user should send coins from their Bitcoin wallet to the mainchain_address returned.\n"
+            "IMPORTANT: Like getaddress, getpeginaddress adds new secrets to wallet.dat, necessitating backup on a regular basis.\n"
+
+            "\nResult:\n"
+            "\"mainchain_address\"           (string) Mainchain Bitcoin deposit address to send bitcoin to\n"
+            "\"witness_program\"             (string) The witness program in hex that was committed to. This may be required in `claimpegin` to retrieve pegged-in funds\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getpeginaddress", "")
+            + HelpExampleRpc("getpeginaddress", "")
+        );
+
+    //Creates new address for receiving unlocked utxos
+    JSONRPCRequest req;
+    CBitcoinAddress address(CBitcoinAddress(getnewaddress(req).get_str()).GetUnblinded());
+
+    Witnessifier w;
+    CTxDestination dest = address.Get();
+    bool ret = boost::apply_visitor(w, dest);
+    if (!ret) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Public key or redeemscript not known to wallet, or the key is uncompressed");
+    }
+
+    pwalletMain->SetAddressBook(w.result, "", "receive");
+
+    CScript destScript = GetScriptForDestination(address.Get());
+    CScript witProg = GetScriptForWitness(destScript);
+
+    //Call contracthashtool, get deposit address on mainchain.
+    CParentBitcoinAddress destAddr(calculate_contract(Params().GetConsensus().fedpegScript, witProg));
+
+    UniValue fundinginfo(UniValue::VOBJ);
+
+    AuditLogPrintf("%s : getpeginaddress mainchain_address: %s witness_program: %s\n", getUser(), destAddr.ToString(), HexStr(witProg));
+
+    fundinginfo.pushKV("mainchain_address", destAddr.ToString());
+    fundinginfo.pushKV("witness_program", HexStr(witProg));
+    return fundinginfo;
+}
+
+UniValue sendtomainchain(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(
+            "sendtomainchain mainchainaddress amount\n"
+            "\nSends sidechain funds to the given mainchain address, through the federated withdraw mechanism\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The destination address on Bitcoin mainchain\n"
+            "2. \"amount\"         (numeric, required) The amount being sent to Bitcoin mainchain\n"
+            "\nResult:\n"
+            "\"txid\"              (string) Transaction ID of the resulting sidechain transaction\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\" 0.1")
+            + HelpExampleRpc("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\" 0.1")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CParentBitcoinAddress address(request.params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    // Parse Bitcoin address for destination, embed script
+    CScript scriptPubKeyMainchain(GetScriptForDestination(address.Get()));
+
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+
+    // Asset type is implicit, no need to add to script
+    CScript scriptPubKey;
+    scriptPubKey << OP_RETURN;
+    scriptPubKey << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
+    scriptPubKey << std::vector<unsigned char>(scriptPubKeyMainchain.begin(), scriptPubKeyMainchain.end());
+
+    EnsureWalletIsUnlocked();
+
+    CWalletTx wtxNew;
+    SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, false, CPubKey(), wtxNew, true);
+
+    std::string blinds;
+    for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {
+        blinds += "blind:" + wtxNew.GetOutputBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s : sendtomainchain %s\nblinds:\n%s\n", getUser(), wtxNew.tx->GetHash().GetHex(), blinds);
+
+    return wtxNew.GetHash().GetHex();
+}
+
+extern UniValue signrawtransaction(const JSONRPCRequest& request);
+extern UniValue sendrawtransaction(const JSONRPCRequest& request);
+
+unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn, const CScript& witnessProgram)
+{
+    unsigned int nOut = 0;
+    //Call contracthashtool
+    CScript mainchain_script = GetScriptForDestination(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram));
+    for (; nOut < txn.vout.size(); nOut++)
+        if (txn.vout[nOut].scriptPubKey == mainchain_script)
+            break;
+    return nOut;
+}
+
+UniValue createrawpegin(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "createrawpegin bitcoinTx txoutproof ( witness_program )\n"
+            "\nCreates a raw transaction to claim coins from the main chain by creating a withdraw transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
+            "Note that this call will not sign the transaction.\n"
+            "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n"
+            "\nArguments:\n"
+            "1. \"bitcoinTx\"         (string, required) The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress\n"
+            "2. \"txoutproof\"        (string, required) A rawtxoutproof (in hex) generated by bitcoind's `gettxoutproof` containing a proof of only bitcoinTx\n"
+            "3. \"witness_program\"   (string, optional) The witness program generated by getpeginaddress. Only needed if not in wallet.\n"
+            "\nResult:\n"
+            "{\n"
+            "   \"transaction\"       (string) Raw transaction in hex\n"
+            "   \"mature\"            (bool) Whether the peg-in is mature (only included when validating peg-ins)\n"
+            "\nExamples:\n"
+            + HelpExampleCli("createrawpegin", "\"0200000002b80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f000000006a473044022031ffe1d76decdfbbdb7e2ee6010e865a5134137c261e1921da0348b95a207f9e02203596b065c197e31bcc2f80575154774ac4e80acd7d812c91d93c4ca6a3636f27012102d2130dfbbae9bd27eee126182a39878ac4e117d0850f04db0326981f43447f9efeffffffb80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f010000006b483045022100cf041ce0eb249ae5a6bc33c71c156549c7e5ad877ae39e2e3b9c8f1d81ed35060220472d4e4bcc3b7c8d1b34e467f46d80480959183d743dad73b1ed0e93ec9fd14f012103e73e8b55478ab9c5de22e2a9e73c3e6aca2c2e93cd2bad5dc4436a9a455a5c44feffffff0200e1f5050000000017a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87e86cbe00000000001976a914a25fe72e7139fd3f61936b228d657b2548b3936a88acc0020000\", \"00000020976e918ed537b0f99028648f2a25c0bd4513644fb84d9cbe1108b4df6b8edf6ba715c424110f0934265bf8c5763d9cc9f1675a0f728b35b9bc5875f6806be3d19cd5b159ffff7f2000000000020000000224eab3da09d99407cb79f0089e3257414c4121cb85a320e1fd0f88678b6b798e0713a8d66544b6f631f9b6d281c71633fb91a67619b189a06bab09794d5554a60105\" \"0014058c769ffc7d12c35cddec87384506f536383f9c\"")
+            + HelpExampleRpc("createrawpegin", "\"0200000002b80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f000000006a473044022031ffe1d76decdfbbdb7e2ee6010e865a5134137c261e1921da0348b95a207f9e02203596b065c197e31bcc2f80575154774ac4e80acd7d812c91d93c4ca6a3636f27012102d2130dfbbae9bd27eee126182a39878ac4e117d0850f04db0326981f43447f9efeffffffb80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f010000006b483045022100cf041ce0eb249ae5a6bc33c71c156549c7e5ad877ae39e2e3b9c8f1d81ed35060220472d4e4bcc3b7c8d1b34e467f46d80480959183d743dad73b1ed0e93ec9fd14f012103e73e8b55478ab9c5de22e2a9e73c3e6aca2c2e93cd2bad5dc4436a9a455a5c44feffffff0200e1f5050000000017a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87e86cbe00000000001976a914a25fe72e7139fd3f61936b228d657b2548b3936a88acc0020000\", \"00000020976e918ed537b0f99028648f2a25c0bd4513644fb84d9cbe1108b4df6b8edf6ba715c424110f0934265bf8c5763d9cc9f1675a0f728b35b9bc5875f6806be3d19cd5b159ffff7f2000000000020000000224eab3da09d99407cb79f0089e3257414c4121cb85a320e1fd0f88678b6b798e0713a8d66544b6f631f9b6d281c71633fb91a67619b189a06bab09794d5554a60105\", \"0014058c769ffc7d12c35cddec87384506f536383f9c\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    if (!IsHex(request.params[0].get_str()) || !IsHex(request.params[1].get_str())) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "the first two arguments must be hex strings");
+    }
+
+    std::vector<unsigned char> txData = ParseHex(request.params[0].get_str());
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CTransactionRef txBTCRef;
+    try {
+        ssTx >> txBTCRef;
+    }
+    catch (...) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
+    }
+    Sidechain::Bitcoin::CTransaction txBTC(*txBTCRef);
+
+    std::vector<unsigned char> txOutProofData = ParseHex(request.params[1].get_str());
+    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION);
+    Sidechain::Bitcoin::CMerkleBlock merkleBlock;
+    try {
+        ssTxOutProof >> merkleBlock;
+    }
+    catch (...) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
+    }
+
+    if (!ssTxOutProof.empty() || !CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+
+    std::vector<uint256> txHashes;
+    std::vector<unsigned int> txIndices;
+    if (merkleBlock.txn.ExtractMatches(txHashes, txIndices) != merkleBlock.header.hashMerkleRoot)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+
+    if (txHashes.size() != 1 || txHashes[0] != txBTC.GetHash())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The txoutproof must contain bitcoinTx and only bitcoinTx");
+
+    CScript witnessProgScript;
+    unsigned int nOut = txBTC.vout.size();
+    if (request.params.size() > 2) {
+        int version = -1;
+        std::vector<unsigned char> witnessProgram;
+        std::vector<unsigned char> witnessBytes(ParseHex(request.params[2].get_str()));
+        witnessProgScript = CScript(witnessBytes.begin(), witnessBytes.end());
+        if (!witnessProgScript.IsWitnessProgram(version, witnessProgram) || version != 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Given witness_program is not a valid v0 witness program.");
+        }
+        nOut = GetPeginTxnOutputIndex(txBTC, witnessProgScript);
+    }
+    else {
+        // Look through address book for pegin contract value by extracting the unlderlying witness program from p2sh-p2wpkh
+        for (std::map<CTxDestination, CAddressBookData>::const_iterator iter = pwalletMain->mapAddressBook.begin(); iter != pwalletMain->mapAddressBook.end(); ++iter) {
+            CBitcoinAddress sidechainAddress(CBitcoinAddress(iter->first));
+            CScript witnessProgramScript = GetScriptForWitness(GetScriptForDestination(sidechainAddress.Get()));
+            int version;
+            std::vector<unsigned char> witnessProgram;
+            // Only process witness v0 programs
+            if (!witnessProgramScript.IsWitnessProgram(version, witnessProgram) || version != 0) {
+                continue;
+            }
+            nOut = GetPeginTxnOutputIndex(txBTC, witnessProgramScript);
+            if (nOut != txBTC.vout.size()) {
+                witnessProgScript = witnessProgramScript;
+                break;
+            }
+        }
+    }
+    if (nOut == txBTC.vout.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
+    }
+    assert(witnessProgScript != CScript());
+
+    int version = -1;
+    std::vector<unsigned char> witnessProgram;
+    if (!witnessProgScript.IsWitnessProgram(version, witnessProgram)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a witness program.");
+    }
+
+    CAmount value = txBTC.vout[nOut].nValue;
+
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+
+    // Manually construct peg-in transaction, sign it, and send it off.
+    // Decrement the output value as much as needed given the total vsize to
+    // pay the fees.
+
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwalletMain->GetKeyFromPool(newKey))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    CKeyID keyID = newKey.GetID();
+
+    pwalletMain->SetAddressBook(keyID, "", "receive");
+
+    // One peg-in input, one wallet output and one fee output
+    CMutableTransaction mtx;
+    mtx.vin.push_back(CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0));
+    // mark as peg-in input
+    mtx.vin[0].m_is_pegin = true;
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(CBitcoinAddress(keyID).Get())));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
+
+    // Construct pegin proof
+    CScriptWitness pegin_witness;
+    std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
+    stack.push_back(CScriptNum::serialize(value));
+    stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
+    stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
+    stack.push_back(std::vector<unsigned char>(witnessProgScript.begin(), witnessProgScript.end()));
+    stack.push_back(txData);
+    stack.push_back(txOutProofData);
+
+    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
+    }
+
+    // Put input witness in transaction
+    CTxInWitness txinwit;
+    txinwit.m_pegin_witness = pegin_witness;
+    mtx.wit.vtxinwit.push_back(txinwit);
+
+    // Estimate fee for transaction, decrement fee output(including estimated signature)
+    unsigned int nBytes = GetVirtualTransactionSize(mtx)+(72/WITNESS_SCALE_FACTOR);
+    CAmount nFeeNeeded = CWallet::GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
+
+    mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
+    mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
+
+    UniValue ret(UniValue::VOBJ);
+
+    // Return hex
+    std::string strHex = EncodeHexTx(mtx, RPCSerializationFlags());
+    ret.push_back(Pair("hex", strHex));
+
+    // Additional block lee-way to avoid bitcoin block races
+    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        ret.push_back(Pair("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH)+2)));
+    }
+
+    return ret;
+}
+
+UniValue claimpegin(const JSONRPCRequest& request)
+{
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "claimpegin bitcoinTx txoutproof ( witness_program )\n"
+            "\nClaim coins from the main chain by creating a withdraw transaction with the necessary metadata after the corresponding Bitcoin transaction.\n"
+            "Note that the transaction will not be relayed unless it is buried at least 102 blocks deep.\n"
+            "If a transaction is not relayed it may require manual addition to a functionary mempool in order for it to be mined.\n"
+            "\nArguments:\n"
+            "1. \"bitcoinTx\"         (string, required) The raw bitcoin transaction (in hex) depositing bitcoin to the mainchain_address generated by getpeginaddress\n"
+            "2. \"txoutproof\"        (string, required) A rawtxoutproof (in hex) generated by bitcoind's `gettxoutproof` containing a proof of only bitcoinTx\n"
+            "3. \"witness_program\"   (string, optional) The witness program generated by getpeginaddress. Only needed if not in wallet.\n"
+            "\nResult:\n"
+            "\"txid\"                 (string) Txid of the resulting sidechain transaction\n"
+            "\nExamples:\n"
+            + HelpExampleCli("claimpegin", "\"0200000002b80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f000000006a473044022031ffe1d76decdfbbdb7e2ee6010e865a5134137c261e1921da0348b95a207f9e02203596b065c197e31bcc2f80575154774ac4e80acd7d812c91d93c4ca6a3636f27012102d2130dfbbae9bd27eee126182a39878ac4e117d0850f04db0326981f43447f9efeffffffb80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f010000006b483045022100cf041ce0eb249ae5a6bc33c71c156549c7e5ad877ae39e2e3b9c8f1d81ed35060220472d4e4bcc3b7c8d1b34e467f46d80480959183d743dad73b1ed0e93ec9fd14f012103e73e8b55478ab9c5de22e2a9e73c3e6aca2c2e93cd2bad5dc4436a9a455a5c44feffffff0200e1f5050000000017a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87e86cbe00000000001976a914a25fe72e7139fd3f61936b228d657b2548b3936a88acc0020000\", \"00000020976e918ed537b0f99028648f2a25c0bd4513644fb84d9cbe1108b4df6b8edf6ba715c424110f0934265bf8c5763d9cc9f1675a0f728b35b9bc5875f6806be3d19cd5b159ffff7f2000000000020000000224eab3da09d99407cb79f0089e3257414c4121cb85a320e1fd0f88678b6b798e0713a8d66544b6f631f9b6d281c71633fb91a67619b189a06bab09794d5554a60105\" \"0014058c769ffc7d12c35cddec87384506f536383f9c\"")
+            + HelpExampleRpc("claimpegin", "\"0200000002b80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f000000006a473044022031ffe1d76decdfbbdb7e2ee6010e865a5134137c261e1921da0348b95a207f9e02203596b065c197e31bcc2f80575154774ac4e80acd7d812c91d93c4ca6a3636f27012102d2130dfbbae9bd27eee126182a39878ac4e117d0850f04db0326981f43447f9efeffffffb80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f010000006b483045022100cf041ce0eb249ae5a6bc33c71c156549c7e5ad877ae39e2e3b9c8f1d81ed35060220472d4e4bcc3b7c8d1b34e467f46d80480959183d743dad73b1ed0e93ec9fd14f012103e73e8b55478ab9c5de22e2a9e73c3e6aca2c2e93cd2bad5dc4436a9a455a5c44feffffff0200e1f5050000000017a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87e86cbe00000000001976a914a25fe72e7139fd3f61936b228d657b2548b3936a88acc0020000\", \"00000020976e918ed537b0f99028648f2a25c0bd4513644fb84d9cbe1108b4df6b8edf6ba715c424110f0934265bf8c5763d9cc9f1675a0f728b35b9bc5875f6806be3d19cd5b159ffff7f2000000000020000000224eab3da09d99407cb79f0089e3257414c4121cb85a320e1fd0f88678b6b798e0713a8d66544b6f631f9b6d281c71633fb91a67619b189a06bab09794d5554a60105\", \"0014058c769ffc7d12c35cddec87384506f536383f9c\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    if (IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Peg-ins cannot be completed during initial sync or reindexing.");
+    }
+
+    // Get raw peg-in transaction
+    UniValue ret(createrawpegin(request));
+
+    // Make sure it can be propagated and confirmed
+    if (!ret["mature"].isNull() && ret["mature"].get_bool() == false) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Peg-in Bitcoin transaction needs more confirmations to be sent.");
+    }
+
+    // Sign it
+    JSONRPCRequest request2;
+    UniValue varr(UniValue::VARR);
+    varr.push_back(ret["hex"]);
+    request2.params = varr;
+    UniValue result = signrawtransaction(request2);
+
+    // Send it
+    JSONRPCRequest request3;
+    varr = UniValue(UniValue::VARR);
+    varr.push_back(result["hex"]);
+    request3.params = varr;
+    return sendrawtransaction(request3);
+}
+
 UniValue issueasset(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -3725,12 +4128,15 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,  true,   {"txid", "vin"} },
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
+    { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "witness_program"} },
+    { "wallet",             "createrawpegin",           &createrawpegin,           false,  {"bitcoinT", "txoutproof", "witness_program"} },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },
     { "wallet",             "getaccount",               &getaccount,               true,   {"address"} },
     { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,    true,   {"account"} },
     { "wallet",             "getbalance",               &getbalance,               false,  {"account","minconf","include_watchonly"} },
     { "wallet",             "getnewaddress",            &getnewaddress,            true,   {"account"} },
     { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,      true,   {} },
+    { "wallet",             "getpeginaddress",          &getpeginaddress,          false,  {} },
     { "wallet",             "getreceivedbyaccount",     &getreceivedbyaccount,     false,  {"account","minconf"} },
     { "wallet",             "getreceivedbyaddress",     &getreceivedbyaddress,     false,  {"address","minconf"} },
     { "wallet",             "gettransaction",           &gettransaction,           false,  {"txid","include_watchonly"} },
@@ -3761,6 +4167,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {} },
+    { "wallet",             "sendtomainchain",          &sendtomainchain,          false,  {} },
     { "wallet",             "destroyamount",            &destroyamount,            false,  {"asset", "amount", "comment"} },
     { "wallet",             "settxfee",                 &settxfee,                 true,   {"amount"} },
     { "wallet",             "signmessage",              &signmessage,              true,   {"address","message"} },
