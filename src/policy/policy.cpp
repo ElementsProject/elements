@@ -122,15 +122,6 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     {
         const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
 
-        if (prev.scriptPubKey.IsWithdrawLock()) {
-            if (!tx.vin[i].scriptSig.IsWithdrawProof()) {
-                if (tx.vout.size() < i)
-                    if (!tx.vout[i].nValue.IsExplicit() || tx.vout[i].nValue.GetAmount() > MAX_MONEY / 100)
-                        return false;
-            }
-            continue;
-        }
-
         // Biggest 'standard' txin is a 15-of-15 P2SH multisig with compressed
         // keys. (remember the 520 byte limit on redeemScript size) That works
         // out to a (15*(33+1))+3=513 byte redeemScript, 513+1+15*(73+1)+3=1627

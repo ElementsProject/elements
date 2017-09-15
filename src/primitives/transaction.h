@@ -15,8 +15,6 @@ static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
 
-static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
-
 /**
  * Confidential assets, values, and nonces all share enough code in common
  * that it makes sense to define a common abstract base class. */
@@ -226,10 +224,6 @@ public:
             return false;
         if (IsFee())
             return false;
-        //Withdrawlocks are evaluated at a higher, static feerate
-        //to ensure peg-outs are IsStandard on mainchain
-        if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
-            return true;
         return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
 

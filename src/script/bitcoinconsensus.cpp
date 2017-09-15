@@ -77,7 +77,6 @@ static bool verify_flags(unsigned int flags)
 }
 
 static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, CConfidentialValue amount,
-                                   CConfidentialValue amountPreviousInput,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
 {
@@ -96,10 +95,7 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         set_error(err, bitcoinconsensus_ERR_OK);
 
         PrecomputedTransactionData txdata(tx);
-        if (amountPreviousInput.IsExplicit() && (amountPreviousInput.GetAmount() < -1 || (nIn != 0 && !MoneyRange(amountPreviousInput.GetAmount()))))
-            return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), (tx.wit.vtxinwit.size() > nIn) ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionNoWithdrawsSignatureChecker(&tx, nIn, amount, txdata), NULL);
-        else
-            return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), (tx.wit.vtxinwit.size() > nIn) ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, amountPreviousInput, txdata, CScript()), NULL);
+        return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), (tx.wit.vtxinwit.size() > nIn) ? &tx.wit.vtxinwit[nIn].scriptWitness : NULL, flags, TransactionSignatureChecker(&tx, nIn, amount, txdata), NULL);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }
@@ -120,7 +116,7 @@ int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey
         CConfidentialValue prevInAm;
         stream >> prevInAm;
 
-        return ::verify_script(scriptPubKey, scriptPubKeyLen, am, prevInAm, txTo, txToLen, nIn, flags, err);
+        return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }
@@ -137,7 +133,7 @@ int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned i
 
     CConfidentialValue am(0);
     CConfidentialValue prevInAm(-2);
-    return ::verify_script(scriptPubKey, scriptPubKeyLen, am, prevInAm, txTo, txToLen, nIn, flags, err);
+    return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
 }
 
 unsigned int bitcoinconsensus_version()

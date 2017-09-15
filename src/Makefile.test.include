@@ -100,7 +100,6 @@ BITCOIN_TESTS =\
   test/hash_tests.cpp \
   test/key_tests.cpp \
   test/limitedmap_tests.cpp \
-  test/lockedutxo_tests.cpp \
   test/withdrawspent_tests.cpp \
   test/dbwrapper_tests.cpp \
   test/main_tests.cpp \

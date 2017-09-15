@@ -636,24 +636,6 @@ public:
     bool IsPayToScriptHash() const;
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
-    /**
-     * Returns true if this is a withdraw-lock scriptPubKey.
-     * Note that a withdraw-lock could be a plan [re-]lock output *or* a
-     * x-chain transfer lock.
-     */
-    bool IsWithdrawLock() const;
-
-    /** Returns true if this is a proof-of-withdraw, spending an IsWithdrawLock */
-    bool IsWithdrawProof() const;
-
-    //! Push a vector with a length postfix (as used by withdraw proofs)
-    void PushWithdraw(const std::vector<unsigned char> push);
-
-    /** Get the withdraw output spent, asserting IsWithdrawProof first */
-    COutPoint GetWithdrawSpent() const;
-
-    /** Get the genesis hash locked to, asserting IsWithdrawLock first */
-    uint256 GetWithdrawLockGenesisHash() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;

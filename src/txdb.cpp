@@ -171,36 +171,6 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
     return WriteBatch(batch);
 }
 
-bool CBlockTreeDB::WriteLocksCreated(const std::multimap<uint256, std::pair<COutPoint, CAmount> > &map) {
-    if (map.size() == 0)
-        return true;
-
-    uint256 prevGenesis;
-    CDBBatch batch(*this);
-    std::vector<std::pair<COutPoint, CAmount> > vLocks;
-    for (std::multimap<uint256, std::pair<COutPoint, CAmount> >::const_iterator it=map.begin(); it!=map.end(); it++) {
-        if (prevGenesis != it->first || it == map.begin()) {
-            if (it != map.begin())
-                batch.Write(std::make_pair(DB_LOCKS, prevGenesis), vLocks);
-            prevGenesis = it->first;
-            if (!Read(std::make_pair(DB_LOCKS, it->first), vLocks))
-                vLocks.clear();
-        }
-        vLocks.push_back(it->second);
-    }
-    batch.Write(std::make_pair(DB_LOCKS, prevGenesis), vLocks);
-    return WriteBatch(batch);
-}
-
-
-bool CBlockTreeDB::ReadLocksCreated(const uint256 &genesisHash, std::vector<std::pair<COutPoint, CAmount> > &vLocks) {
-    return Read(std::make_pair(DB_LOCKS, genesisHash), vLocks);
-}
-
-bool CBlockTreeDB::ReWriteLocksCreated(const uint256 &genesisHash, const std::vector<std::pair<COutPoint, CAmount> > &vLocks) {
-    return Write(std::make_pair(DB_LOCKS, genesisHash), vLocks);
-}
-
 bool CBlockTreeDB::WriteFlag(const std::string &name, bool fValue) {
     return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
 }

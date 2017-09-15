@@ -63,7 +63,6 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
     {
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
-    case TX_WITHDRAW_LOCK:
     case TX_FEE:
         break;
     case TX_PUBKEY:
