@@ -37,7 +37,7 @@ FastRandomContext insecure_rand_ctx(true);
 extern bool fPrintToConsole;
 extern void noui_connect();
 
-BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
+BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript)
 {
         ECC_Start();
         SetupEnvironment();
@@ -47,6 +47,10 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName)
         InitSurjectionproofCache();
         fPrintToDebugLog = false; // don't want to write to debug.log file
         fCheckBlockIndex = true;
+        // Hack to allow testing of fedpeg args
+        if (!fedpegscript.empty()) {
+            SoftSetArg("-fedpegscript", fedpegscript);
+        }
         SelectParams(chainName);
         noui_connect();
 }
@@ -57,7 +61,7 @@ BasicTestingSetup::~BasicTestingSetup()
         g_connman.reset();
 }
 
-TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(chainName)
+TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript) : BasicTestingSetup(chainName, fedpegscript)
 {
     const CChainParams& chainparams = Params();
         // Ideally we'd move all the RPC tests to the functional testing framework

@@ -2399,6 +2399,9 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     CScript fedpegscript = Params().GetConsensus().fedpegScript;
 
     // fedpegscript should be multisig or OP_TRUE
+    // When set to OP_TRUE, the witness program can be any valid witness program
+    // as there are no pubkeys to tweak. This means typically in regtest there
+    // is no spending authorization for peg-in inputs.
     txnouttype type;
     std::vector<std::vector<unsigned char> > solutions;
     if (!Solver(fedpegscript, type, solutions) || (type != TX_MULTISIG && type != TX_TRUE)) {
