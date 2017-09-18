@@ -14,6 +14,7 @@ if len(sys.argv) != 3:
 print(sys.argv[1])
 print(sys.argv[2])
 
+# Sync mempool, make a block, sync blocks
 def sync_all(sidechain, sidechain2):
     timeout = 20
     while len(sidechain.getrawmempool()) != len(sidechain2.getrawmempool()):
@@ -21,12 +22,13 @@ def sync_all(sidechain, sidechain2):
         timeout -= 1
         if timeout == 0:
             raise Exception("Peg-in has failed to propagate.")
-    sidechain2.generate(1)
+    block = sidechain2.generate(1)
     while sidechain.getblockcount() != sidechain2.getblockcount():
         time.sleep(1)
         timeout -= 1
         if timeout == 0:
             raise Exception("Blocks are not propagating.")
+    return block
 
 fedpeg_key="cPxqWyf1HDGpGFH1dnfjz8HbiWxvwG8WXyetbuAiw4thKXUdXLpR"
 fedpeg_pubkey="512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
@@ -156,18 +158,31 @@ try:
 
     # 12 confirms allows in mempool
     bitcoin.generate(1)
-
     # Should succeed via wallet lookup for address match, and when given
     pegtxid1 = sidechain.claimpegin(raw, proof)
 
-    sync_all(sidechain, sidechain2)
+    # Will invalidate the block that confirms this transaction later
+    blockhash = sync_all(sidechain, sidechain2)
+    sidechain.generate(5)
 
     tx1 = sidechain.gettransaction(pegtxid1)
 
-    if "confirmations" in tx1 and tx1["confirmations"] > 0:
+    if "confirmations" in tx1 and tx1["confirmations"] == 6:
         print("Peg-in is confirmed: Success!")
     else:
         raise Exception("Peg-in confirmation has failed.")
+
+    # Quick reorg checks of pegs
+    sidechain.invalidateblock(blockhash[0])
+    if sidechain.gettransaction(pegtxid1)["confirmations"] != 0:
+        raise Exception("Peg-in didn't unconfirm after invalidateblock call.")
+    # Re-enters block
+    sidechain.generate(1)
+    if sidechain.gettransaction(pegtxid1)["confirmations"] != 1:
+        raise Exception("Peg-in should have one confirm on side block.")
+    sidechain.reconsiderblock(blockhash[0])
+    if sidechain.gettransaction(pegtxid1)["confirmations"] != 6:
+        raise Exception("Peg-in should be back to 6 confirms.")
 
     # Do many claims in mempool
     n_claims = 100
@@ -191,8 +206,6 @@ try:
         tx = sidechain.gettransaction(pegtxid)
         if "confirmations" not in tx or tx["confirmations"] == 0:
             raise Exception("Peg-in confirmation has failed.")
-
-    # TODO test reorgs, conflicting peg-ins
 
     print("Success!")
 
