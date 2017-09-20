@@ -28,6 +28,10 @@ from .authproxy import AuthServiceProxy, JSONRPCException
 
 COVERAGE_DIR = None
 
+BITCOIN_ASSET = bytearray.fromhex("b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23")
+BITCOIN_ASSET.reverse()
+BITCOIN_ASSET_OUT = b"\x01"+BITCOIN_ASSET
+
 # The maximum number of nodes a single test can spawn
 MAX_NODES = 8
 # Don't assign rpc or p2p ports lower than this
