@@ -12,17 +12,14 @@
 
 const std::string CBaseChainParams::MAIN = CHAINPARAMS_OLD_MAIN;
 const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
-const std::string CBaseChainParams::CUSTOM = "custom";
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_ELEMENTS));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: anything except %s"), CHAINPARAMS_CUSTOM, CHAINPARAMS_OLD_MAIN));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.");
-        strUsage += HelpMessageGroup(_("Custom chain selection options (only for -chain=custom):"));
-        strUsage += HelpMessageOpt("-chainpetname=<name>", _("Alternative name for custom chain (default: custom). This changes the genesis block."));
     }
 }
 
@@ -71,10 +68,10 @@ public:
 class CBaseCustomParams : public CBaseChainParams
 {
 public:
-    CBaseCustomParams()
+    CBaseCustomParams(const std::string& chain)
     {
         nRPCPort = 18332;
-        strDataDir = "custom";
+        strDataDir = chain;
     }
 };
 
@@ -94,10 +91,7 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
         return std::unique_ptr<CBaseChainParams>(new CBaseElementsParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
-    else if (chain == CBaseChainParams::CUSTOM)
-        return std::unique_ptr<CBaseChainParams>(new CBaseCustomParams());
-    else
-        throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+    return std::unique_ptr<CBaseChainParams>(new CBaseCustomParams(chain));
 }
 
 void SelectBaseParams(const std::string& chain)
@@ -108,8 +102,8 @@ void SelectBaseParams(const std::string& chain)
 std::string ChainNameFromCommandLine()
 {
     if (GetBoolArg("-testnet", false))
-        throw std::runtime_error(strprintf("%s: Invalid option -testnet: elements/%s is a testchain too.", __func__, CHAINPARAMS_ELEMENTS));
+        throw std::runtime_error(strprintf("%s: Deprecated option -testnet: try -chain=%s instead.", __func__, CHAINPARAMS_CUSTOM));
     if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    return GetArg("-chain", CHAINPARAMS_ELEMENTS);
+    return GetArg("-chain", CHAINPARAMS_CUSTOM);
 }

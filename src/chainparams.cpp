@@ -303,8 +303,6 @@ class CCustomParams : public CChainParams {
 
     void UpdateFromArgs()
     {
-        strNetworkID = GetArg("-chainpetname", "custom");
-
         consensus.fPowAllowMinDifficultyBlocks = GetBoolArg("-con_fpowallowmindifficultyblocks", true);
         consensus.fPowNoRetargeting = GetBoolArg("-con_fpownoretargeting", true);
         consensus.nSubsidyHalvingInterval = GetArg("-con_nsubsidyhalvinginterval", 150);
@@ -330,8 +328,10 @@ class CCustomParams : public CChainParams {
     }
 
 public:
-    CCustomParams()
+    CCustomParams(const std::string& chain)
     {
+        strNetworkID = chain;
+
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 999999999999ULL;
@@ -367,8 +367,7 @@ public:
 
 const std::vector<std::string> CChainParams::supportedChains =
     boost::assign::list_of
-    ( CHAINPARAMS_ELEMENTS )
-    ( CHAINPARAMS_REGTEST )
+    ( CHAINPARAMS_CUSTOM )
     ;
 
 static std::unique_ptr<CChainParams> globalChainParams;
@@ -386,10 +385,7 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
         return std::unique_ptr<CChainParams>(new CElementsParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams());
-    else if (chain == CBaseChainParams::CUSTOM) {
-        return std::unique_ptr<CChainParams>(new CCustomParams());
-    }
-    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+    return std::unique_ptr<CChainParams>(new CCustomParams(chain));
 }
 
 void SelectParams(const std::string& network)
