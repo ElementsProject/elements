@@ -17,8 +17,6 @@
 
 #include <boost/assign/list_of.hpp>
 
-#include "chainparamsseeds.h"
-
 // Safer for users if they load incorrect parameters via arguments.
 static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID, const CScript& signblockscript)
 {
