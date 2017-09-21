@@ -17,7 +17,7 @@ const std::string CBaseChainParams::CUSTOM = "custom";
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_ELEMENTS));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_OLD_MAIN));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.");
@@ -36,20 +36,6 @@ public:
     {
         nRPCPort = 8332;
         strDataDir = CHAINPARAMS_OLD_MAIN;
-    }
-};
-
-/**
- * Main network for elements
- */
-class CBaseElementsParams : public CBaseChainParams
-{
-public:
-    CBaseElementsParams()
-    {
-        nRPCPort = 9041;
-        nMainchainRPCPort = 18332;
-        strDataDir = CHAINPARAMS_ELEMENTS;
     }
 };
 
@@ -90,8 +76,6 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CBaseChainParams>(new CBaseMainParams());
-    else if (chain == CHAINPARAMS_ELEMENTS)
-        return std::unique_ptr<CBaseChainParams>(new CBaseElementsParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
     else if (chain == CBaseChainParams::CUSTOM)
@@ -108,8 +92,8 @@ void SelectBaseParams(const std::string& chain)
 std::string ChainNameFromCommandLine()
 {
     if (GetBoolArg("-testnet", false))
-        throw std::runtime_error(strprintf("%s: Invalid option -testnet: elements/%s is a testchain too.", __func__, CHAINPARAMS_ELEMENTS));
+        throw std::runtime_error(strprintf("%s: Invalid option -testnet: try -chain=%s instead.", __func__, CHAINPARAMS_REGTEST));
     if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    return GetArg("-chain", CHAINPARAMS_ELEMENTS);
+    return GetArg("-chain", CHAINPARAMS_REGTEST);
 }
