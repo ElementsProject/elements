@@ -87,6 +87,31 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         tx3.vout.push_back(CTxOut(bitcoinID, 22, CScript()));
         BOOST_CHECK(VerifyAmounts(cache, tx3));
 
+        // Malleate the output and check for correct handling of bad commitments
+        // These will fail IsValid checks
+        std::vector<unsigned char> asset_copy(tx3.vout[0].nAsset.vchCommitment);
+        std::vector<unsigned char> value_copy(tx3.vout[0].nValue.vchCommitment);
+        tx3.vout[0].nAsset.vchCommitment[0] = 122;
+        BOOST_CHECK(!VerifyAmounts(cache, tx3));
+        tx3.vout[0].nAsset.vchCommitment = asset_copy;
+        tx3.vout[0].nValue.vchCommitment[0] = 122;
+        BOOST_CHECK(!VerifyAmounts(cache, tx3));
+        tx3.vout[0].nValue.vchCommitment = value_copy;
+
+        // Make sure null values are handled correctly
+        tx3.vout[0].nAsset.SetNull();
+        BOOST_CHECK(!VerifyAmounts(cache, tx3));
+        tx3.vout[0].nAsset.vchCommitment = asset_copy;
+        tx3.vout[0].nValue.SetNull();
+        BOOST_CHECK(!VerifyAmounts(cache, tx3));
+        tx3.vout[0].nValue.vchCommitment = value_copy;
+
+        // Bad nonce values will result in failure to deserialize
+        tx3.vout[0].nNonce.SetNull();
+        BOOST_CHECK(VerifyAmounts(cache, tx3));
+        tx3.vout[0].nNonce.vchCommitment = tx3.vout[0].nValue.vchCommitment;
+        BOOST_CHECK(!VerifyAmounts(cache, tx3));
+
         // Try to blind with a single non-fee output, which fails as its blinding factor ends up being zero.
         std::vector<uint256> input_blinds;
         std::vector<uint256> input_asset_blinds;
