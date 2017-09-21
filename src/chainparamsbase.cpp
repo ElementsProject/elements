@@ -11,7 +11,7 @@
 #include <assert.h>
 
 const std::string CBaseChainParams::MAIN = CHAINPARAMS_OLD_MAIN;
-const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
+const std::string CBaseChainParams::REGTEST = CHAINPARAMS_CUSTOM;
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
@@ -50,20 +50,6 @@ public:
     }
 };
 
-/**
- * Regression test
- */
-class CBaseRegTestParams : public CBaseChainParams
-{
-public:
-    CBaseRegTestParams()
-    {
-        nRPCPort = 7041;
-        nMainchainRPCPort = 18332;
-        strDataDir = CHAINPARAMS_REGTEST;
-    }
-};
-
 /** Custom tests */
 class CBaseCustomParams : public CBaseChainParams
 {
@@ -90,8 +76,6 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
         return std::unique_ptr<CBaseChainParams>(new CBaseMainParams());
     else if (chain == CHAINPARAMS_ELEMENTS)
         return std::unique_ptr<CBaseChainParams>(new CBaseElementsParams());
-    else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
     return std::unique_ptr<CBaseChainParams>(new CBaseCustomParams(chain));
 }
 

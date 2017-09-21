@@ -11,7 +11,6 @@
 
 #define CHAINPARAMS_OLD_MAIN "old_main"
 #define CHAINPARAMS_ELEMENTS "elements"
-#define CHAINPARAMS_REGTEST "elementsregtest"
 #define CHAINPARAMS_CUSTOM "custom"
 
 /**
