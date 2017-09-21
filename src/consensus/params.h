@@ -68,6 +68,7 @@ struct Params {
     CScript fedpegScript;
     CAsset pegged_asset;
     uint256 defaultAssumeValid;
+    CScript signblockScript;
 };
 } // namespace Consensus
 
