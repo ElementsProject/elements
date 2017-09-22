@@ -28,7 +28,7 @@ import asyncore
 import time
 import sys
 import random
-from .util import hex_str_to_bytes, bytes_to_hex_str
+from .util import hex_str_to_bytes, bytes_to_hex_str, BITCOIN_ASSET_OUT
 from io import BytesIO
 from codecs import encode
 import hashlib
@@ -445,10 +445,14 @@ class CTxOutNonce(object):
     def __repr__(self):
         return "CTxOutNonce(vchCommitment=%s)" % self.vchCommitment
 
+# Asset type defaults to bitcoin
 class CTxOut(object):
-    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(), nNonce=CTxOutNonce()):
+    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT), nNonce=CTxOutNonce()):
         self.nAsset = nAsset
-        self.nValue = nValue
+        if type(nValue) is int:
+            self.nValue = CTxOutValue(nValue)
+        else:
+            self.nValue = nValue
         self.nNonce = nNonce
         self.scriptPubKey = scriptPubKey
 
