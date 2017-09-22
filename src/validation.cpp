@@ -611,9 +611,7 @@ private:
     secp256k1_generator gen;
     const bool store;
 public:
-    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& vTags_, secp256k1_generator& genIn, const bool storeIn) : proof(proofIn), gen(genIn), store(storeIn) {
-        vTags.swap(vTags_);
-    }
+    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& tags_in, secp256k1_generator& genIn, const bool storeIn) : proof(proofIn), vTags(tags_in), gen(genIn), store(storeIn) {}
 
     bool operator()();
 };
@@ -961,8 +959,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         }
     }
 
-    std::vector<secp256k1_generator> copy_targetGenerators(targetGenerators);
-
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
@@ -986,9 +982,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, cacheStore)) != SCRIPT_ERR_OK) {
             return false;
         }
-        // Each CSurjectionCheck uses swap to keep pointers valid.
-        // Original values need to put back in place for next output
-        targetGenerators = copy_targetGenerators;
     }
 
     return true;
