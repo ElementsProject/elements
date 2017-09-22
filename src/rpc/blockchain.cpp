@@ -965,7 +965,7 @@ UniValue gettxout(const JSONRPCRequest& request)
         ret.push_back(Pair("amountcommitment", HexStr(coins.vout[n].nValue.vchCommitment)));
     }
     if (coins.vout[n].nAsset.IsExplicit()) {
-        ret.push_back(Pair("asset", HexStr(coins.vout[n].nAsset.vchCommitment)));
+        ret.push_back(Pair("asset", coins.vout[n].nAsset.GetAsset().GetHex()));
     } else {
         ret.push_back(Pair("assetcommitment", HexStr(coins.vout[n].nAsset.vchCommitment)));
     }

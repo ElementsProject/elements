@@ -161,11 +161,21 @@ class CTTest (BitcoinTestFramework):
                                                   {unconfidential_address: value4,
                                                    change_address: unspent[0]["amount"] - value4 - fee, "fee":fee});
         tx = self.nodes[0].blindrawtransaction(tx)
-
         tx_signed = self.nodes[0].signrawtransaction(tx)
         txid = self.nodes[0].sendrawtransaction(tx_signed['hex'])
+        decodedtx = self.nodes[0].decoderawtransaction(tx_signed["hex"])
         self.nodes[0].generate(101)
         self.sync_all()
+
+        txout0 = self.nodes[0].gettxout(txid, 0)
+        txout1 = self.nodes[0].gettxout(txid, 1)
+
+        if "asset" in txout0:
+            assert_equal(txout0["asset"], decodedtx["vout"][0]["asset"])
+        elif "asset" in txout1:
+            assert_equal(txout1["asset"], decodedtx["vout"][1]["asset"])
+        else:
+            raise Exception("No unconfidential output detected when one should exist")
 
         node0 -= value4
         node2 += value4
