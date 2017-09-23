@@ -149,7 +149,7 @@ isminetype IsMine(const CKeyStore &keystore, const CScript& scriptPubKey, bool& 
         break;
     }
     case TX_TRUE:
-        if (Params().NetworkIDString() == CHAINPARAMS_REGTEST)
+        if (Params().anyonecanspend_aremine)
             return ISMINE_SPENDABLE;
     }
 

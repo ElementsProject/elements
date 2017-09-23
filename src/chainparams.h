@@ -90,6 +90,7 @@ public:
     void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     /** All coinbase outputs (after genesis) must be to this destination */
     const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
+    bool anyonecanspend_aremine;
 protected:
     CChainParams() {}
 
