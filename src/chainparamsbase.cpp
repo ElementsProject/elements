@@ -70,7 +70,8 @@ class CBaseCustomParams : public CBaseChainParams
 public:
     CBaseCustomParams(const std::string& chain)
     {
-        nRPCPort = 18332;
+        nRPCPort = 7041;
+        nMainchainRPCPort = 18332;
         strDataDir = chain;
     }
 };

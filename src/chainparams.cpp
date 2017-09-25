@@ -319,11 +319,12 @@ class CCustomParams : public CChainParams {
         // By default assume that the signatures in ancestors of this block are valid.
         consensus.defaultAssumeValid = uint256S(GetArg("-con_defaultassumevalid", "0x00"));
 
-        nDefaultPort = GetArg("-ndefaultport", 18444);
+        nDefaultPort = GetArg("-ndefaultport", 7042);
         nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
         fDefaultConsistencyChecks = GetBoolArg("-fdefaultconsistencychecks", true);
         fRequireStandard = GetBoolArg("-frequirestandard", false);
         fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
+        fMiningRequiresPeers = GetBoolArg("-fminingrequirespeers", false);
         anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
     }
 
@@ -353,14 +354,37 @@ public:
             0,
             0
         };
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,235);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,75);
+        base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1,4);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
 
+        base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
+        base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
+
         UpdateFromArgs();
+        const CScript defaultRegtestScript(CScript() << OP_TRUE);
+        CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
+        consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
+        parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
+
+        // Generate pegged Bitcoin asset
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID, genesisChallengeScript);
+        uint256 entropy;
+        GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
+        CalculateAsset(consensus.pegged_asset, entropy);
+
+        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, consensus.pegged_asset);
         consensus.hashGenesisBlock = genesis.GetHash();
+
+        scriptCoinbaseDestination = CScript(); // Allow any coinbase destination
+
+        checkpointData = (CCheckpointData){
+            boost::assign::map_list_of
+            (     0, consensus.hashGenesisBlock),
+        };
     }
 };
 
@@ -398,4 +422,3 @@ void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_
 {
     globalChainParams->UpdateBIP9Parameters(d, nStartTime, nTimeout);
 }
- 
