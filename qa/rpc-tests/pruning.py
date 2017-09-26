@@ -48,7 +48,7 @@ class PruneTest(BitcoinTestFramework):
 
         # Create node 2 to test pruning
         self.nodes.append(start_node(2, self.options.tmpdir, ["-debug","-maxreceivebuffer=20000","-prune=550"], timewait=900))
-        self.prunedir = self.options.tmpdir+"/node2/regtest/blocks/"
+        self.prunedir = self.options.tmpdir+"/node2/" + self.chain + " /blocks/"
 
         # Create nodes 3 and 4 to test manual pruning (they will be re-started with manual pruning later)
         self.nodes.append(start_node(3, self.options.tmpdir, ["-debug=0","-maxreceivebuffer=20000","-blockmaxsize=999000"], timewait=900))
@@ -264,7 +264,7 @@ class PruneTest(BitcoinTestFramework):
                 assert_equal(ret, expected_ret)
 
         def has_block(index):
-            return os.path.isfile(self.options.tmpdir + "/node{}/regtest/blocks/blk{:05}.dat".format(node_number, index))
+            return os.path.isfile(self.options.tmpdir + "/node{}/{}/blocks/blk{:05}.dat".format(node_number, self.chain, index))
 
         # should not prune because chain tip of node 3 (995) < PruneAfterHeight (1000)
         assert_raises_message(JSONRPCException, "Blockchain is too short for pruning", node.pruneblockchain, height(500))

@@ -35,6 +35,7 @@ class BitcoinTestFramework(object):
         self.num_nodes = 4
         self.setup_clean_chain = False
         self.nodes = None
+        self.chain = "elementsregtest"
 
     def run_test(self):
         raise NotImplementedError
@@ -45,9 +46,9 @@ class BitcoinTestFramework(object):
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)
         if self.setup_clean_chain:
-            initialize_chain_clean(self.options.tmpdir, self.num_nodes)
+            initialize_chain_clean(self.chain, self.options.tmpdir, self.num_nodes)
         else:
-            initialize_chain(self.options.tmpdir, self.num_nodes, self.options.cachedir)
+            initialize_chain(self.chain, self.options.tmpdir, self.num_nodes, self.options.cachedir)
 
     def stop_node(self, num_node):
         stop_node(self.nodes[num_node], num_node)
@@ -176,7 +177,7 @@ class BitcoinTestFramework(object):
                 # Dump the end of the debug logs, to aid in debugging rare
                 # travis failures.
                 import glob
-                filenames = glob.glob(self.options.tmpdir + "/node*/regtest/debug.log")
+                filenames = glob.glob(self.options.tmpdir + "/node*/" + self.chain + "/debug.log")
                 MAX_LINES_TO_PRINT = 1000
                 for f in filenames:
                     print("From" , f, ":")
