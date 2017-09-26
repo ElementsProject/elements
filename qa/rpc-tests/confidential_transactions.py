@@ -167,14 +167,13 @@ class CTTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
-        txout0 = self.nodes[0].gettxout(txid, 0)
-        txout1 = self.nodes[0].gettxout(txid, 1)
+        unblindfound = False
+        for i in range(len(decodedtx["vout"])):
+            txout = self.nodes[0].gettxout(txid, i)
+            if txout is not None and "asset" in txout:
+                unblindfound = True
 
-        if "asset" in txout0:
-            assert_equal(txout0["asset"], decodedtx["vout"][0]["asset"])
-        elif "asset" in txout1:
-            assert_equal(txout1["asset"], decodedtx["vout"][1]["asset"])
-        else:
+        if unblindfound == False:
             raise Exception("No unconfidential output detected when one should exist")
 
         node0 -= value4
