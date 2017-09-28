@@ -160,6 +160,7 @@ public:
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
         fMineBlocksOnDemand = false;
+        anyonecanspend_aremine = false;
 
         checkpointData = (CCheckpointData){
             boost::assign::map_list_of
@@ -271,6 +272,7 @@ public:
         fDefaultConsistencyChecks = true;
         fRequireStandard = false;
         fMineBlocksOnDemand = true;
+        anyonecanspend_aremine = true;
 
         checkpointData = (CCheckpointData){
             boost::assign::map_list_of
@@ -324,6 +326,7 @@ class CCustomParams : public CChainParams {
         fDefaultConsistencyChecks = GetBoolArg("-fdefaultconsistencychecks", true);
         fRequireStandard = GetBoolArg("-frequirestandard", false);
         fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
+        anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
     }
 
 public:
