@@ -19,12 +19,13 @@ from test_framework.util import *
 
 class CTTest (BitcoinTestFramework):
 
-    def setup_chain(self):
-        print("Initializing test directory "+self.options.tmpdir)
-        initialize_chain_clean(self.options.tmpdir, 3)
+    def __init__(self):
+        super().__init__()
+        self.num_nodes = 3
+        self.setup_clean_chain = True
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(3, self.options.tmpdir)
+        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
@@ -181,7 +182,7 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].getbalance()["bitcoin"], node0)
         assert_equal(self.nodes[1].getbalance("", 1, False, "bitcoin"), node1)
         assert_equal(self.nodes[2].getbalance()["bitcoin"], node2)
-        
+
         # Testing wallet's ability to deblind its own outputs
         addr = self.nodes[0].getnewaddress()
         addr2 = self.nodes[0].getnewaddress()
