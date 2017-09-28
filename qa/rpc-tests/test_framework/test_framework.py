@@ -35,7 +35,7 @@ class BitcoinTestFramework(object):
         self.num_nodes = 4
         self.setup_clean_chain = False
         self.nodes = None
-        self.chain = "elementsregtest"
+        self.chain = "custom"
 
     def run_test(self):
         raise NotImplementedError

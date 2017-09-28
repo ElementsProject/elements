@@ -69,6 +69,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         super().__init__()
         self.num_nodes = 1
         self.setup_clean_chain = False
+        self.chain = "elementsregtest"
 
     def setup_network(self):
         self.nodes = []
