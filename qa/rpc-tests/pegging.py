@@ -172,6 +172,11 @@ try:
     else:
         raise Exception("Peg-in confirmation has failed.")
 
+    # Look at pegin fields
+    decoded = sidechain.decoderawtransaction(tx1["hex"])
+    assert decoded["vin"][0]["is_pegin"] == True
+    assert len(decoded["vin"][0]["pegin_witness"]) > 0
+
     # Quick reorg checks of pegs
     sidechain.invalidateblock(blockhash[0])
     if sidechain.gettransaction(pegtxid1)["confirmations"] != 0:

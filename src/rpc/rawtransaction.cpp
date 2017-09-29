@@ -110,6 +110,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             o.push_back(Pair("asm", ScriptToAsmStr(txin.scriptSig, true)));
             o.push_back(Pair("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end())));
             in.push_back(Pair("scriptSig", o));
+            in.push_back(Pair("is_pegin", txin.m_is_pegin));
         }
         if (tx.HasWitness()) {
             UniValue scriptWitness(UniValue::VARR);
