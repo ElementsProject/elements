@@ -16,6 +16,7 @@ namespace Consensus {
 
 enum BuriedDeploymentPos
 {
+    DEPLOYMENT_BIP16,
     DEPLOYMENT_BIP34,
     DEPLOYMENT_BIP65,
     DEPLOYMENT_BIP66,

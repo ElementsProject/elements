@@ -2599,7 +2599,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     //P2SH is a requirement for segwit + CT
-    unsigned int flags = SCRIPT_VERIFY_P2SH;
+    bool fStrictPayToScriptHash = pindex->GetBlockTime() >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP16];
+    unsigned int flags = fStrictPayToScriptHash ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE;
 
     // Start enforcing the DERSIG (BIP66) rule
     if (pindex->nHeight >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP66]) {

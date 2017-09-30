@@ -90,6 +90,7 @@ public:
 
         strNetworkID = CHAINPARAMS_ELEMENTS;
         consensus.nSubsidyHalvingInterval = 210000;
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP16] = 1333238400; // Apr 1 2012
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = 0;
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = 0;
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = 0;
@@ -215,6 +216,7 @@ public:
 
         strNetworkID = CHAINPARAMS_REGTEST;
         consensus.nSubsidyHalvingInterval = 150;
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP16] = 1333238400; // Apr 1 2012
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = 0;
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = 0;
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = 0;
@@ -306,6 +308,7 @@ class CCustomParams : public CChainParams {
         consensus.fPowAllowMinDifficultyBlocks = GetBoolArg("-con_fpowallowmindifficultyblocks", true);
         consensus.fPowNoRetargeting = GetBoolArg("-con_fpownoretargeting", true);
         consensus.nSubsidyHalvingInterval = GetArg("-con_nsubsidyhalvinginterval", 150);
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP16] = GetArg("-con_bip16height", 1333238400); // Apr 1 2012
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = GetArg("-con_bip34height", 0);
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = GetArg("-con_bip65height", 0);
         consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = GetArg("-con_bip66height", 0);
