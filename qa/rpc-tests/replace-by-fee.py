@@ -105,9 +105,6 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         print("Running test too many replacements...")
         self.test_too_many_replacements()
 
-        print("Running test opt-in...")
-        self.test_opt_in()
-
         print("Running test prioritised transactions...")
         self.test_prioritised_transactions()
 
@@ -446,83 +443,6 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         double_tx.vout = [CTxOut(double_spend_value, CScript([b'a'])), CTxOut(double_spend_fee-split_value)]
         double_tx_hex = txToHex(double_tx)
         self.nodes[0].sendrawtransaction(double_tx_hex, True)
-
-    def test_opt_in(self):
-        """ Replacing should only work if orig tx opted in """
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
-
-        # Create a non-opting in transaction
-        tx1a = CTransaction()
-        tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0xffffffff)]
-        tx1a.vout = [CTxOut(1*COIN, CScript([b'a'])), CTxOut(int(0.1*COIN))]
-        tx1a_hex = txToHex(tx1a)
-        tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
-
-        # Shouldn't be able to double-spend
-        tx1b = CTransaction()
-        tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.9*COIN), CScript([b'b'])), CTxOut(int(0.2*COIN))]
-        tx1b_hex = txToHex(tx1b)
-
-        try:
-            tx1b_txid = self.nodes[0].sendrawtransaction(tx1b_hex, True)
-        except JSONRPCException as exp:
-            assert_equal(exp.error['code'], -26)
-        else:
-            print(tx1b_txid)
-            assert(False)
-
-        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
-
-        # Create a different non-opting in transaction
-        tx2a = CTransaction()
-        tx2a.vin = [CTxIn(tx1_outpoint, nSequence=0xfffffffe)]
-        tx2a.vout = [CTxOut(1*COIN, CScript([b'a'])), CTxOut(int(0.1*COIN))]
-        tx2a_hex = txToHex(tx2a)
-        tx2a_txid = self.nodes[0].sendrawtransaction(tx2a_hex, True)
-
-        # Still shouldn't be able to double-spend
-        tx2b = CTransaction()
-        tx2b.vin = [CTxIn(tx1_outpoint, nSequence=0)]
-        tx2b.vout = [CTxOut(int(0.9*COIN), CScript([b'b'])), CTxOut(int(0.2*COIN))]
-        tx2b_hex = txToHex(tx2b)
-
-        try:
-            tx2b_txid = self.nodes[0].sendrawtransaction(tx2b_hex, True)
-        except JSONRPCException as exp:
-            assert_equal(exp.error['code'], -26)
-        else:
-            assert(False)
-
-        # Now create a new transaction that spends from tx1a and tx2a
-        # opt-in on one of the inputs
-        # Transaction should be replaceable on either input
-
-        tx1a_txid = int(tx1a_txid, 16)
-        tx2a_txid = int(tx2a_txid, 16)
-
-        tx3a = CTransaction()
-        tx3a.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0xffffffff),
-                    CTxIn(COutPoint(tx2a_txid, 0), nSequence=0xfffffffd)]
-        tx3a.vout = [CTxOut(int(0.9*COIN), CScript([b'c'])), CTxOut(int(0.9*COIN), CScript([b'd'])), CTxOut(int(0.2*COIN))]
-        tx3a_hex = txToHex(tx3a)
-
-        self.nodes[0].sendrawtransaction(tx3a_hex, True)
-
-        tx3b = CTransaction()
-        tx3b.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0)]
-        tx3b.vout = [CTxOut(int(0.5*COIN), CScript([b'e'])), CTxOut(int(0.5*COIN))]
-        tx3b_hex = txToHex(tx3b)
-
-        tx3c = CTransaction()
-        tx3c.vin = [CTxIn(COutPoint(tx2a_txid, 0), nSequence=0)]
-        tx3c.vout = [CTxOut(int(0.5*COIN), CScript([b'f'])), CTxOut(int(0.5*COIN))]
-        tx3c_hex = txToHex(tx3c)
-
-        self.nodes[0].sendrawtransaction(tx3b_hex, True)
-        # If tx3b was accepted, tx3c won't look like a replacement,
-        # but make sure it is accepted anyway
-        self.nodes[0].sendrawtransaction(tx3c_hex, True)
 
     def test_prioritised_transactions(self):
         # Ensure that fee deltas used via prioritisetransaction are
