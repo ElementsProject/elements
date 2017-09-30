@@ -65,7 +65,7 @@ struct Params {
     int64_t nPowTargetSpacing;
     int64_t nPowTargetTimespan;
     /** BIP90: Block height at which buried deployments becomes active */
-    int buried_deployments[MAX_BURIED_DEPLOYMENTS];
+    uint32_t buried_deployments[MAX_BURIED_DEPLOYMENTS];
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     CScript fedpegScript;

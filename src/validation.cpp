@@ -2602,10 +2602,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     unsigned int flags = SCRIPT_VERIFY_P2SH;
 
     // Start enforcing the DERSIG (BIP66) rule
-    flags |= SCRIPT_VERIFY_DERSIG;
-
+    if (pindex->nHeight >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP66]) {
+        flags |= SCRIPT_VERIFY_DERSIG;
+    }
     // Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-    flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+    if (pindex->nHeight >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP65]) {
+        flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+    }
 
     // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
     int nLockTimeFlags = 0;
@@ -3849,8 +3852,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
     }
 
     // Enforce rule that the coinbase starts with serialized block height
-    if (block.nVersion >= 2)
-    {
+    if (nHeight > consensusParams.buried_deployments[Consensus::DEPLOYMENT_BIP34]) {
         CScript expect = CScript() << nHeight;
         if (block.vtx[0]->vin[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0]->vin[0].scriptSig.begin())) {
