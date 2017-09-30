@@ -90,9 +90,9 @@ public:
 
         strNetworkID = CHAINPARAMS_ELEMENTS;
         consensus.nSubsidyHalvingInterval = 210000;
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = 227931;
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = 388381; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = 363725; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = 0;
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = 0;
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = 0;
         consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
         // Peg-ins Bitcoin headers must have higher difficulty target than this field
@@ -215,9 +215,9 @@ public:
 
         strNetworkID = CHAINPARAMS_REGTEST;
         consensus.nSubsidyHalvingInterval = 150;
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = 1251; // BIP66 activated on regtest (Used in rpc activation tests)
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = 0;
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = 0;
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = 0;
         consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.parentChainPowLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -306,9 +306,9 @@ class CCustomParams : public CChainParams {
         consensus.fPowAllowMinDifficultyBlocks = GetBoolArg("-con_fpowallowmindifficultyblocks", true);
         consensus.fPowNoRetargeting = GetBoolArg("-con_fpownoretargeting", true);
         consensus.nSubsidyHalvingInterval = GetArg("-con_nsubsidyhalvinginterval", 150);
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = GetArg("-con_bip34height", 100000000);
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = GetArg("-con_bip65height", 1351);
-        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = GetArg("-con_bip66height", 1251);
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP34] = GetArg("-con_bip34height", 0);
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP65] = GetArg("-con_bip65height", 0);
+        consensus.buried_deployments[Consensus::DEPLOYMENT_BIP66] = GetArg("-con_bip66height", 0);
         consensus.nPowTargetTimespan = GetArg("-con_npowtargettimespan", 14 * 24 * 60 * 60); // two weeks
         consensus.nPowTargetSpacing = GetArg("-con_npowtargetspacing", 10 * 60);
         consensus.nRuleChangeActivationThreshold = GetArg("-con_nrulechangeactivationthreshold", 108); // 75% for testchains
