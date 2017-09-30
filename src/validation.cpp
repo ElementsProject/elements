@@ -2587,7 +2587,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // time BIP34 activated, in each of the existing pairs the duplicate coinbase had overwritten the first
     // before the first had been spent.  Since those coinbases are sufficiently buried its no longer possible to create further
     // duplicate transactions descending from the known pairs either.
-    fEnforceBIP30 = fEnforceBIP30 && pindex->nHeight > chainparams.GetConsensus().BIP34Height;
+    fEnforceBIP30 = fEnforceBIP30 && pindex->nHeight > chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP34];
 
     if (fEnforceBIP30) {
         for (const auto& tx : block.vtx) {
