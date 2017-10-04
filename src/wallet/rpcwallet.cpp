@@ -3389,72 +3389,6 @@ public:
 static CSecp256k1Init instance_of_csecp256k1;
 }
 
-/* Takes federation redeeem script and adds SHA2(witnessProgram) as a tweak to each pubkey */
-CScriptID calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram) {
-    CScript scriptDestination(federationRedeemScript);
-    int version;
-    std::vector<unsigned char> program;
-    if (!witnessProgram.IsWitnessProgram(version, program)) {
-        assert(false);
-    }
-    txnouttype type;
-    std::vector<std::vector<unsigned char> > solutions;
-    // Sanity check fedRedeemScript
-    if (!Solver(federationRedeemScript, type, solutions) || (type != TX_MULTISIG && type != TX_TRUE)) {
-       assert(false);
-    }
-
-    {
-        CScript::iterator sdpc = scriptDestination.begin();
-        vector<unsigned char> vch;
-        opcodetype opcodeTmp;
-        while (scriptDestination.GetOp(sdpc, opcodeTmp, vch))
-        {
-            if (vch.size() == 33)
-            {
-
-                unsigned char tweak[32];
-                size_t pub_len = 33;
-                int ret;
-                unsigned char *pub_start = &(*(sdpc - pub_len));
-                CHMAC_SHA256(pub_start, pub_len).Write(witnessProgram.data(), witnessProgram.size()).Finalize(tweak);
-                secp256k1_pubkey watchman;
-                secp256k1_pubkey tweaked;
-                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &watchman, pub_start, pub_len);
-                assert(ret == 1);
-                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &tweaked, pub_start, pub_len);
-                assert(ret == 1);
-                // If someone creates a tweak that makes this fail, they broke SHA256
-                ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &tweaked, tweak);
-                assert(ret == 1);
-                ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, pub_start, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED);
-                assert(ret == 1);
-                assert(pub_len == 33);
-
-                // Sanity checks to reduce pegin risk. If the tweaked
-                // value flips a bit, we may lose pegin funds irretrievably.
-                // We take the tweak, derive its pubkey and check that
-                // `tweaked - watchman = tweak` to check the computation
-                // two different ways
-                secp256k1_pubkey tweaked2;
-                ret = secp256k1_ec_pubkey_create(secp256k1_ctx, &tweaked2, tweak);
-                assert(ret);
-                ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &watchman);
-                assert(ret);
-                secp256k1_pubkey* pubkey_combined[2];
-                pubkey_combined[0] = &watchman;
-                pubkey_combined[1] = &tweaked;
-                secp256k1_pubkey maybe_tweaked2;
-                ret = secp256k1_ec_pubkey_combine(secp256k1_ctx, &maybe_tweaked2, pubkey_combined, 2);
-                assert(ret);
-                assert(!memcmp(&maybe_tweaked2, &tweaked2, 64));
-            }
-        }
-    }
-
-    return CScriptID(scriptDestination);
-}
-
 UniValue getpeginaddress(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -3492,7 +3426,7 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     CScript witProg = GetScriptForWitness(destScript);
 
     //Call contracthashtool, get deposit address on mainchain.
-    CParentBitcoinAddress destAddr(calculate_contract(Params().GetConsensus().fedpegScript, witProg));
+    CParentBitcoinAddress destAddr(CScriptID(calculate_contract(Params().GetConsensus().fedpegScript, witProg)));
 
     UniValue fundinginfo(UniValue::VOBJ);
 
@@ -3568,7 +3502,7 @@ unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn,
 {
     unsigned int nOut = 0;
     //Call contracthashtool
-    CScript mainchain_script = GetScriptForDestination(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram));
+    CScript mainchain_script = GetScriptForDestination(CScriptID(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram)));
     for (; nOut < txn.vout.size(); nOut++)
         if (txn.vout[nOut].scriptPubKey == mainchain_script)
             break;

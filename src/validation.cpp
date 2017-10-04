@@ -2294,6 +2294,72 @@ bool BitcoindRPCCheck(const bool init)
     return true;
 }
 
+/* Takes federation redeeem script and adds HMAC_SHA256(pubkey, witnessProgram) as a tweak to each pubkey */
+CScript calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram) {
+    CScript scriptDestination(federationRedeemScript);
+    int version;
+    std::vector<unsigned char> program;
+    if (!witnessProgram.IsWitnessProgram(version, program)) {
+        assert(false);
+    }
+    txnouttype type;
+    std::vector<std::vector<unsigned char> > solutions;
+    // Sanity check fedRedeemScript
+    if (!Solver(federationRedeemScript, type, solutions) || (type != TX_MULTISIG && type != TX_TRUE)) {
+       assert(false);
+    }
+
+    {
+        CScript::iterator sdpc = scriptDestination.begin();
+        std::vector<unsigned char> vch;
+        opcodetype opcodeTmp;
+        while (scriptDestination.GetOp(sdpc, opcodeTmp, vch))
+        {
+            if (vch.size() == 33)
+            {
+
+                unsigned char tweak[32];
+                size_t pub_len = 33;
+                int ret;
+                unsigned char *pub_start = &(*(sdpc - pub_len));
+                CHMAC_SHA256(pub_start, pub_len).Write(witnessProgram.data(), witnessProgram.size()).Finalize(tweak);
+                secp256k1_pubkey watchman;
+                secp256k1_pubkey tweaked;
+                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_verify_amounts, &watchman, pub_start, pub_len);
+                assert(ret == 1);
+                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_verify_amounts, &tweaked, pub_start, pub_len);
+                assert(ret == 1);
+                // If someone creates a tweak that makes this fail, they broke SHA256
+                ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx_verify_amounts, &tweaked, tweak);
+                assert(ret == 1);
+                ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx_verify_amounts, pub_start, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED);
+                assert(ret == 1);
+                assert(pub_len == 33);
+
+                // Sanity checks to reduce pegin risk. If the tweaked
+                // value flips a bit, we may lose pegin funds irretrievably.
+                // We take the tweak, derive its pubkey and check that
+                // `tweaked - watchman = tweak` to check the computation
+                // two different ways
+                secp256k1_pubkey tweaked2;
+                ret = secp256k1_ec_pubkey_create(secp256k1_ctx_verify_amounts, &tweaked2, tweak);
+                assert(ret);
+                ret = secp256k1_ec_pubkey_negate(secp256k1_ctx_verify_amounts, &watchman);
+                assert(ret);
+                secp256k1_pubkey* pubkey_combined[2];
+                pubkey_combined[0] = &watchman;
+                pubkey_combined[1] = &tweaked;
+                secp256k1_pubkey maybe_tweaked2;
+                ret = secp256k1_ec_pubkey_combine(secp256k1_ctx_verify_amounts, &maybe_tweaked2, pubkey_combined, 2);
+                assert(ret);
+                assert(!memcmp(&maybe_tweaked2, &tweaked2, 64));
+            }
+        }
+    }
+
+    return scriptDestination;
+}
+
 bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout) {
 
     // Format on stack is as follows:
@@ -2395,45 +2461,10 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     }
 
     // Check that the witness program matches the p2ch on the transaction output
-    opcodetype opcodeTmp;
-    CScript fedpegscript = Params().GetConsensus().fedpegScript;
-
-    // fedpegscript should be multisig or OP_TRUE
-    // When set to OP_TRUE, the witness program can be any valid witness program
-    // as there are no pubkeys to tweak. This means typically in regtest there
-    // is no spending authorization for peg-in inputs.
-    txnouttype type;
-    std::vector<std::vector<unsigned char> > solutions;
-    if (!Solver(fedpegscript, type, solutions) || (type != TX_MULTISIG && type != TX_TRUE)) {
-        assert(false);
-    }
-    {
-        CScript::iterator sdpc = fedpegscript.begin();
-        std::vector<unsigned char> vch;
-        while (fedpegscript.GetOp(sdpc, opcodeTmp, vch))
-        {
-            if (vch.size() == 33)
-            {
-                unsigned char tweak[32];
-                size_t pub_len = 33;
-                int ret;
-                unsigned char *pub_start = &(*(sdpc - pub_len));
-                CHMAC_SHA256(pub_start, pub_len).Write(witness_program.data(), witness_program.size()).Finalize(tweak);
-                secp256k1_pubkey pubkey;
-                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_verify_amounts, &pubkey, pub_start, pub_len);
-                assert(ret == 1);
-                // If someone creates a tweak that makes this fail, they broke SHA256
-                ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx_verify_amounts, &pubkey, tweak);
-                assert(ret == 1);
-                ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx_verify_amounts, pub_start, &pub_len, &pubkey, SECP256K1_EC_COMPRESSED);
-                assert(ret == 1);
-                assert(pub_len == 33);
-            }
-        }
-    }
+    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, witness_program);
 
     // Check against expected p2sh output
-    CScriptID expectedP2SH(fedpegscript);
+    CScriptID expectedP2SH(tweaked_fedpegscript);
     CScript expected_script(CScript() << OP_HASH160 << ToByteVector(expectedP2SH) << OP_EQUAL);
     if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
         return false;
