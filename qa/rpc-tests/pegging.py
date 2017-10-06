@@ -208,6 +208,13 @@ try:
 
     print("Success!")
 
+    # Testing sidechain info RPC
+    sideinfo = sidechain.getsidechaininfo()
+    assert sideinfo["fedpegscript"] == fedpeg_pubkey
+    assert sideinfo["pegged_asset"] == sidechain.dumpassetlabels()["bitcoin"]
+    assert sideinfo["min_peg_diff"] == "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    assert sideinfo["parent_blockhash"] == "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"
+
 except JSONRPCException as e:
         print("Pegging testing failed, aborting:")
         print(e.error)

@@ -1109,6 +1109,38 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     return obj;
 }
 
+UniValue getsidechaininfo(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw runtime_error(
+            "getsidechaininfo\n"
+            "Returns an object containing various state info regarding sidechain functionality.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"fedpegscript\": \"xxxx\",        (string) The fedpegscript in hex\n"
+            "  \"pegged_asset\" : \"xxxx\",        (string) Pegged asset type in hex\n"
+            "  \"min_peg_diff\" : \"xxxx\",        (string) The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure.\n"
+            "  \"parent_blockhash\" : \"xxxx\",    (string) The parent genesis blockhash as source of pegged-in funds.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getsidechaininfo", "")
+            + HelpExampleRpc("getsidechaininfo", "")
+        );
+
+    LOCK(cs_main);
+
+    const Consensus::Params& consensus = Params().GetConsensus();
+    const uint256& parent_blockhash = Params().ParentGenesisBlockHash();
+
+    UniValue obj(UniValue::VOBJ);
+    obj.push_back(Pair("fedpegscript", HexStr(consensus.fedpegScript.begin(), consensus.fedpegScript.end())));
+    obj.push_back(Pair("pegged_asset", consensus.pegged_asset.GetHex()));
+    obj.push_back(Pair("min_peg_diff", consensus.parentChainPowLimit.GetHex()));
+    obj.push_back(Pair("parent_blockhash", parent_blockhash.GetHex()));
+    return obj;
+}
+
+
 /** Comparison function for sorting the getchaintips heads.  */
 struct CompareBlocksByHeight
 {
@@ -1391,6 +1423,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getmempoolentry",        &getmempoolentry,        true,  {"txid"} },
     { "blockchain",         "getmempoolinfo",         &getmempoolinfo,         true,  {} },
     { "blockchain",         "getrawmempool",          &getrawmempool,          true,  {"verbose"} },
+    { "blockchain",         "getsidechaininfo",       &getsidechaininfo,       true,  {} },
     { "blockchain",         "gettxout",               &gettxout,               true,  {"txid","n","include_mempool"} },
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true,  {} },
     { "blockchain",         "pruneblockchain",        &pruneblockchain,        true,  {"height"} },
