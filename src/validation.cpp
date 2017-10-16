@@ -2297,11 +2297,6 @@ bool BitcoindRPCCheck(const bool init)
 /* Takes federation redeeem script and adds HMAC_SHA256(pubkey, witnessProgram) as a tweak to each pubkey */
 CScript calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram) {
     CScript scriptDestination(federationRedeemScript);
-    int version;
-    std::vector<unsigned char> program;
-    if (!witnessProgram.IsWitnessProgram(version, program)) {
-        assert(false);
-    }
     txnouttype type;
     std::vector<std::vector<unsigned char> > solutions;
     // Sanity check fedRedeemScript
@@ -2395,11 +2390,9 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     }
     uint256 gen_hash(stack[2]);
 
-    // Get witness program
-    CScript witness_program(stack[3].begin(), stack[3].end());
-    int version = -1;
-    std::vector<unsigned char> witnessProgram;
-    if (!witness_program.IsWitnessProgram(version, witnessProgram)) {
+    // Get claim_script, sanity check size
+    CScript claim_script(stack[3].begin(), stack[3].end());
+    if (claim_script.size() > 100) {
         return false;
     }
 
@@ -2461,7 +2454,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     }
 
     // Check that the witness program matches the p2ch on the transaction output
-    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, witness_program);
+    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
 
     // Check against expected p2sh output
     CScriptID expectedP2SH(tweaked_fedpegscript);
