@@ -440,7 +440,7 @@ proof = bitcoin.gettxoutproof([txid])
 raw = bitcoin.getrawtransaction(txid)
 
 # Attempt claim!
-claimtxid = e1.claimpegin(raw, proof, addrs["witness_program"])
+claimtxid = e1.claimpegin(raw, proof, addrs["claim_script"])
 sync_all(e1, e2)
 
 # Other node should accept to mempool and mine

@@ -308,7 +308,7 @@ b-cli generate 101
 e1-cli getpeginaddress
 # Changes each time as it's a new sidechain address as well as new "tweak" for the watchmen keys
 # mainchain_address : where you send your bitcoin from Bitcoin network
-# witness_program: what script will have to be satisfied to spent the peg-in input
+# claim_script: what script will have to be satisfied to spent the peg-in input
 
 # Each call of this takes the pubkeys defined in the config file, adds a random number to them
 # that is essetially the hash of the sidechain_address and other information,
@@ -320,7 +320,7 @@ e1-cli getpeginaddress
 ADDRS=$(e1-cli getpeginaddress)
 
 MAINCHAIN=$(echo $ADDRS | python3 -c "import sys, json; print(json.load(sys.stdin)['mainchain_address'])")
-SIDECHAIN=$(echo $ADDRS | python3 -c "import sys, json; print(json.load(sys.stdin)['witness_program'])")
+SIDECHAIN=$(echo $ADDRS | python3 -c "import sys, json; print(json.load(sys.stdin)['claim_script'])")
 
 #Send funds to unique watchmen P2SH address
 TXID=$(b-cli sendtoaddress $MAINCHAIN 1)

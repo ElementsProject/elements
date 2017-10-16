@@ -2361,7 +2361,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     // 1) value - the value of the pegin output
     // 2) asset type - the asset type being pegged in
     // 3) genesis blockhash - genesis block of the parent chain
-    // 4) witness program - program that script evaluation will be evaluated against
+    // 4) claim script - script to be evaluated for spend authorization
     // 5) serialized transaction - serialized bitcoin transaction
     // 6) txout proof - merkle proof connecting transaction to header
     //
