@@ -153,7 +153,7 @@ try:
         pegtxid = sidechain.claimpegin(raw, proof, sidechain.getnewaddress())
         raise Exception("Peg-in with non-matching claim_script should fail.")
     except JSONRPCException as e:
-        assert("Given claim_script is not a valid v0 witness program" in e.error["message"])
+        assert("Given claim_script does not match the given Bitcoin transaction." in e.error["message"])
         pass
 
     # 12 confirms allows in mempool

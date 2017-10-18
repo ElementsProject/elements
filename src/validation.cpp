@@ -2375,8 +2375,17 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         return false;
     }
 
-    // Get output value. Special 8 byte length to capture possible bitcoin values
-    CAmount value = CScriptNum(stack[0], true, 8).getint64();
+    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    CAmount value;
+    try {
+        stream >> value;
+    } catch (...) {
+        return false;
+    }
+
+    if (!MoneyRange(value)) {
+        return false;
+    }
 
     // Get asset type
     if (stack[1].size() != 32) {
@@ -2473,7 +2482,11 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
 // Constructs unblinded output to be used in amount and scriptpubkey checks during pegin
 CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
-    return CTxOut(CAsset(pegin_witness.stack[1]), CScriptNum(pegin_witness.stack[0], true, 8).getint64(), CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+	CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    CAmount value;
+    stream >> value;
+
+	return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
 }
 
 // Protected by cs_main

@@ -3579,6 +3579,9 @@ UniValue createrawpegin(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script is not a valid v0 witness program.");
         }
         nOut = GetPeginTxnOutputIndex(txBTC, witnessProgScript);
+        if (nOut == txBTC.vout.size()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
+        }
     }
     else {
         // Look through address book for pegin contract value by extracting the unlderlying witness program from p2sh-p2wpkh
@@ -3611,6 +3614,17 @@ UniValue createrawpegin(const JSONRPCRequest& request)
 
     CAmount value = txBTC.vout[nOut].nValue;
 
+    CDataStream stream(0, 0);
+    try {
+        stream << value;
+    } catch (...) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Amount serialization is invalid.");
+    }
+    // Need to reinterpret bytes as unsigned chars before adding to witness
+    char* buf = stream.data();
+    unsigned char* membuf = reinterpret_cast<unsigned char*>(buf);
+    std::vector<unsigned char> value_bytes(membuf, membuf + stream.size());
+
     uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
 
     // Manually construct peg-in transaction, sign it, and send it off.
@@ -3639,7 +3653,7 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     // Construct pegin proof
     CScriptWitness pegin_witness;
     std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
-    stack.push_back(CScriptNum::serialize(value));
+    stack.push_back(value_bytes);
     stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
     stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
     stack.push_back(std::vector<unsigned char>(witnessProgScript.begin(), witnessProgScript.end()));
