@@ -92,7 +92,7 @@ time.sleep(3)
 
 # Regtest chain starts with 21M bitcoins as OP_TRUE which the wallet
 # understands. This is useful for testing basic functionality and for
-# blockchains that have no pegging functionality. "Policy" coins are required
+# blockchains that have no pegging functionality. A fee currency is required
 # for anti-DoS purposes as well as asset issuance, which consumes inputs for entropy.
 # In Elements there is no block subsidy. In a production sidechain it can
 # be configured to start with no outputs, necessitating peg-in functionality
