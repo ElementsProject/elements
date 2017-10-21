@@ -3571,13 +3571,9 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     CScript witnessProgScript;
     unsigned int nOut = txBTC.vout.size();
     if (request.params.size() > 2) {
-        int version = -1;
-        std::vector<unsigned char> witnessProgram;
+        // If given manually, no need for it to be a witness script
         std::vector<unsigned char> witnessBytes(ParseHex(request.params[2].get_str()));
         witnessProgScript = CScript(witnessBytes.begin(), witnessBytes.end());
-        if (!witnessProgScript.IsWitnessProgram(version, witnessProgram) || version != 0) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script is not a valid v0 witness program.");
-        }
         nOut = GetPeginTxnOutputIndex(txBTC, witnessProgScript);
         if (nOut == txBTC.vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
