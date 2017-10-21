@@ -2407,13 +2407,13 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     // Get serialized transaction
     Sidechain::Bitcoin::CTransactionRef pegtx;
-	try {
-		CDataStream pegtx_stream(stack[4], SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        CDataStream pegtx_stream(stack[4], SER_NETWORK, PROTOCOL_VERSION);
         pegtx_stream >> pegtx;
         if (!pegtx_stream.empty()) {
-	        return false;
-		}
-	} catch (std::exception& e) {
+            return false;
+        }
+    } catch (std::exception& e) {
         // Invalid encoding of transaction
         return false;
     }
@@ -2423,7 +2423,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     std::vector<uint256> txHashes;
     std::vector<unsigned int> txIndices;
 
-	try {
+    try {
         CDataStream merkleBlockStream(stack[5], SER_NETWORK, PROTOCOL_VERSION);
         merkleBlockStream >> merkle_block;
         if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkle_block.header.GetHash(), merkle_block.header.nBits)) {
@@ -2432,7 +2432,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         if (merkle_block.txn.ExtractMatches(txHashes, txIndices) != merkle_block.header.hashMerkleRoot || txHashes.size() != 1) {
             return false;
         }
-	} catch (std::exception& e) {
+    } catch (std::exception& e) {
         // Invalid encoding of merkle block
         return false;
     }
