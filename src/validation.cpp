@@ -2294,8 +2294,8 @@ bool BitcoindRPCCheck(const bool init)
     return true;
 }
 
-/* Takes federation redeeem script and adds HMAC_SHA256(pubkey, witnessProgram) as a tweak to each pubkey */
-CScript calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram) {
+/* Takes federation redeeem script and adds HMAC_SHA256(pubkey, scriptPubKey) as a tweak to each pubkey */
+CScript calculate_contract(const CScript& federationRedeemScript, const CScript& scriptPubKey) {
     CScript scriptDestination(federationRedeemScript);
     txnouttype type;
     std::vector<std::vector<unsigned char> > solutions;
@@ -2317,7 +2317,7 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
                 size_t pub_len = 33;
                 int ret;
                 unsigned char *pub_start = &(*(sdpc - pub_len));
-                CHMAC_SHA256(pub_start, pub_len).Write(witnessProgram.data(), witnessProgram.size()).Finalize(tweak);
+                CHMAC_SHA256(pub_start, pub_len).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(tweak);
                 secp256k1_pubkey watchman;
                 secp256k1_pubkey tweaked;
                 ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_verify_amounts, &watchman, pub_start, pub_len);
