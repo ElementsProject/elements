@@ -68,6 +68,7 @@ UniValue JSONRPCError(int code, const string& message)
 static const std::string COOKIEAUTH_USER = "__cookie__";
 /** Default name for auth cookie file */
 static const std::string COOKIEAUTH_FILE = ".cookie";
+static const std::string MAINCHAIN_COOKIEAUTH_FILE = "regtest/.cookie";
 
 boost::filesystem::path GetAuthCookieFile()
 {
@@ -78,9 +79,7 @@ boost::filesystem::path GetAuthCookieFile()
 
 boost::filesystem::path GetMainchainAuthCookieFile()
 {
-    boost::filesystem::path path(GetArg("-mainchainrpccookiefile", COOKIEAUTH_FILE));
-    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_ELEMENTS) path = "testnet3" / path;
-    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_REGTEST) path = "regtest" / path;
+    boost::filesystem::path path(GetArg("-mainchainrpccookiefile", MAINCHAIN_COOKIEAUTH_FILE));
     if (!path.is_complete()) path = GetDataDir(false) / path;
     return path;
 }
