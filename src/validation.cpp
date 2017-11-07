@@ -2462,12 +2462,10 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         return false;
     }
 
-    // Check that the witness program matches the p2ch on the transaction output
+    // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
     CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
-
-    // Check against expected p2sh output
-    CScriptID expectedP2SH(tweaked_fedpegscript);
-    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(expectedP2SH) << OP_EQUAL);
+    CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
+    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(CScriptID(witness_output)) << OP_EQUAL);
     if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
         return false;
     }

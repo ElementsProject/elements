@@ -65,6 +65,7 @@ struct Params {
     int64_t nPowTargetTimespan;
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
+    // The redeemscript that the peg uses. Uses p2sh-p2wsh
     CScript fedpegScript;
     CAsset pegged_asset;
     uint256 defaultAssumeValid;
