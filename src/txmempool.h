@@ -112,12 +112,12 @@ private:
     int64_t nSigOpCostWithAncestors;
 
 public:
-    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
 
                     int64_t _nTime, double _entryPriority, unsigned int _entryHeight,
                     CAmount _inChainInputValue, bool spendsCoinbase,
-                    int64_t nSigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent);
+                    int64_t nSigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent);
 
     CTxMemPoolEntry(const CTxMemPoolEntry& other);
 
@@ -544,7 +544,7 @@ public:
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
     void removeConflicts(const CTransaction &tx);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight,
-                        const std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent);
+                        const std::set<std::pair<uint256, COutPoint> >& setPeginsSpent);
     void clear();
     void _clear(); //lock free
     bool CompareDepthAndScore(const uint256& hasha, const uint256& hashb);

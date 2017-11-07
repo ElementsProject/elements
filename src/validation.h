@@ -262,6 +262,10 @@ void UnloadBlockIndex();
 void ThreadScriptCheck();
 /** Check if bitcoind connection via RPC is correctly working*/
 bool BitcoindRPCCheck(bool init);
+/** Checks pegin witness for validity */
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout);
+/** Extracts an output from pegin witness for evaluation as a normal output */
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Format a string that describes several potential problems detected by the core.
@@ -370,7 +374,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
  * instead of being performed inline.
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-                 unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent,
+                 unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent,
                  std::vector<CCheck*> *pvChecks = NULL);
 
 /** Apply the effects of this transaction on the UTXO set represented by view */
@@ -388,7 +392,7 @@ namespace Consensus {
  * This does not modify the UTXO set. This does not check scripts and sigs.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore);
 
 } // namespace Consensus
 
@@ -478,7 +482,6 @@ class CScriptCheck : public CCheck
 private:
     CScript scriptPubKey;
     CConfidentialValue amount;
-    CConfidentialValue amountPreviousInput;
     const CTransaction *ptxTo;
     unsigned int nIn;
     unsigned int nFlags;
@@ -486,9 +489,8 @@ private:
     PrecomputedTransactionData *txdata;
 
 public:
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, const CConfidentialValue& amountPreviousInputIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
-        amountPreviousInput(amountPreviousInputIn),
         ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), txdata(txdataIn) { }
 
     bool operator()();
@@ -517,7 +519,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& coins,
-                  const CChainParams& chainparams, std::set<std::pair<uint256, COutPoint> >* setWithdrawsSpent = NULL, bool fJustCheck = false);
+                  const CChainParams& chainparams, std::set<std::pair<uint256, COutPoint> >* setPeginsSpent = NULL, bool fJustCheck = false);
 
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  In case pfClean is provided, operation will try to be tolerant about errors, and *pfClean
@@ -539,6 +541,9 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 
 /** Produce the necessary coinbase commitment for a block (modifies the hash, don't call for mined blocks). */
 std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
+
+/** Calculates script necessary for p2ch peg-in transactions */
+CScript calculate_contract(const CScript& federationRedeemScript, const CScript& witnessProgram);
 
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB {

@@ -41,21 +41,15 @@ static CScript StrHexToScriptWithDefault(std::string strScript, const CScript de
     return returnScript;
 }
 
-static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, const CScript& genesisOutputScript, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion, const CAmount& genesisReward, const uint32_t rewardShards, const CAsset& asset)
+static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion)
 {
-    // Shards must be evenly divisible
-    assert(MAX_MONEY % rewardShards == 0);
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vout.resize(rewardShards);
     // Any consensus-related values that are command-line set can be added here for anti-footgun
     txNew.vin[0].scriptSig = CScript(CommitToArguments(params, networkID, scriptChallenge));
-    for (unsigned int i = 0; i < rewardShards; i++) {
-        txNew.vout[i].nValue = genesisReward/rewardShards;
-        txNew.vout[i].nAsset = asset;
-        txNew.vout[i].scriptPubKey = genesisOutputScript;
-    }
+    txNew.vout.clear();
+    txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN));
 
     CBlock genesis;
     genesis.nTime    = nTime;
@@ -65,6 +59,41 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     return genesis;
+}
+
+/** Add an issuance transaction to the genesis block. Typically used to pre-issue
+ * the policyAsset of a blockchain. The genesis block is not actually validated,
+ * so this transaction simply has to match issuance structure. */
+static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs, const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination) {
+
+    uint256 entropy;
+    GenerateAssetEntropy(entropy, prevout, contract);
+
+    CAsset asset;
+    CalculateAsset(asset, entropy);
+
+    // Re-issuance of policyAsset is always unblinded
+    CAsset reissuance;
+    CalculateReissuanceToken(reissuance, entropy, false);
+
+    // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
+    CMutableTransaction txNew;
+    txNew.nVersion = 1;
+    txNew.vin.resize(1);
+    txNew.vin[0].prevout = prevout;
+    txNew.vin[0].assetIssuance.assetEntropy = contract;
+    txNew.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
+    txNew.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
+
+    for (unsigned int i = 0; i < asset_outputs; i++) {
+        txNew.vout.push_back(CTxOut(asset, asset_values, issuance_destination));
+    }
+    for (unsigned int i = 0; i < reissuance_outputs; i++) {
+        txNew.vout.push_back(CTxOut(reissuance, reissuance_values, issuance_destination));
+    }
+
+    genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+    genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
 
 void CChainParams::UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
@@ -149,7 +178,7 @@ public:
         CalculateAsset(consensus.pegged_asset, entropy);
 
         CScript scriptDestination(CScript() << std::vector<unsigned char>(parentGenesisBlockHash.begin(), parentGenesisBlockHash.end()) << OP_WITHDRAWPROOFVERIFY);
-        genesis = CreateGenesisBlock(consensus, strNetworkID, scriptDestination, 1231006505, genesisChallengeScript, 1, MAX_MONEY, 100, consensus.pegged_asset);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, 1231006505, genesisChallengeScript, 1);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         scriptCoinbaseDestination = CScript() << ParseHex("0229536c4c83789f59c30b93eb40d4abbd99b8dcc99ba8bd748f29e33c1d279e3c") << OP_CHECKSIG;
@@ -259,7 +288,8 @@ public:
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
-        genesis = CreateGenesisBlock(consensus, strNetworkID, defaultRegtestScript, 1296688602, genesisChallengeScript, 1, MAX_MONEY, 100, consensus.pegged_asset);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, 1296688602, genesisChallengeScript, 1);
+        AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, 21000000000000, 0, 0, CScript() << OP_TRUE);
         consensus.hashGenesisBlock = genesis.GetHash();
 
 

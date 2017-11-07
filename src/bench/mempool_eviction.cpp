@@ -16,11 +16,11 @@ static void AddTx(const CTransaction& tx, const CAmount& nFee, CTxMemPool& pool)
     unsigned int nHeight = 1;
     bool spendsCoinbase = false;
     unsigned int sigOpCost = 4;
-    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     LockPoints lp;
     pool.addUnchecked(tx.GetHash(), CTxMemPoolEntry(
                                         MakeTransactionRef(tx), nFee, nTime, dPriority, nHeight,
-                                        0, spendsCoinbase, sigOpCost, lp, setWithdrawsSpent));
+                                        0, spendsCoinbase, sigOpCost, lp, setPeginsSpent));
 }
 
 // Right now this is only testing eviction performance in an extremely small

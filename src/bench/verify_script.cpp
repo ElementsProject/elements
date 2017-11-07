@@ -81,7 +81,7 @@ static void VerifyScriptBench(benchmark::State& state)
             txCredit.vout[0].scriptPubKey,
             &txSpend.wit.vtxinwit[0].scriptWitness,
             flags,
-            MutableTransactionNoWithdrawsSignatureChecker(&txSpend, 0, txCredit.vout[0].nValue),
+            MutableTransactionSignatureChecker(&txSpend, 0, txCredit.vout[0].nValue),
             &err);
         assert(err == SCRIPT_ERR_OK);
         assert(success);

@@ -422,8 +422,8 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     /* after tx6 is mined, tx7 should move up in the sort */
     std::vector<CTransactionRef> vtx;
     vtx.push_back(MakeTransactionRef(tx6));
-    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
-    pool.removeForBlock(vtx, 1, setWithdrawsSpent);
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+    pool.removeForBlock(vtx, 1, setPeginsSpent);
 
     sortedOrder.erase(sortedOrder.begin()+1);
     // Ties are broken by hash
@@ -566,8 +566,8 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     SetMockTime(42 + CTxMemPool::ROLLING_FEE_HALFLIFE);
     BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK() + 1000);
     // ... we should keep the same min fee until we get a block
-    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
-    pool.removeForBlock(vtx, 1, setWithdrawsSpent);
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+    pool.removeForBlock(vtx, 1, setPeginsSpent);
     SetMockTime(42 + 2*CTxMemPool::ROLLING_FEE_HALFLIFE);
     BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), (maxFeeRateRemoved.GetFeePerK() + 1000)/2);
     // ... then feerate should drop 1/2 each halflife
@@ -595,7 +595,7 @@ BOOST_AUTO_TEST_CASE(WithdrawsSpentTest)
 {
     CTxMemPool pool(CFeeRate(0));
 
-    std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     TestMemPoolEntryHelper entry;
 
     std::pair<uint256, COutPoint> withdraw1, withdraw2, withdraw3;
@@ -614,63 +614,63 @@ BOOST_AUTO_TEST_CASE(WithdrawsSpentTest)
     tx.vout.resize(1);
     tx.vout[0].nValue = 0;
     const uint256 tx1Hash(tx.GetHash());
-    pool.addUnchecked(tx1Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    pool.addUnchecked(tx1Hash, entry.WithdrawsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK(pool.mapWithdrawsSpentToTxid.empty());
 
-    setWithdrawsSpent = {withdraw1};
+    setPeginsSpent = {withdraw1};
     GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
     tx.vout.resize(2);
     tx.vout[1].nValue = 0;
     const uint256 tx2Hash(tx.GetHash());
-    pool.addUnchecked(tx2Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    pool.addUnchecked(tx2Hash, entry.WithdrawsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw1].ToString(), tx2Hash.ToString());
 
-    setWithdrawsSpent = {withdraw2};
+    setPeginsSpent = {withdraw2};
     GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
     tx.vout.resize(3);
     tx.vout[2].nValue = 0;
     const uint256 tx3Hash(tx.GetHash());
-    pool.addUnchecked(tx3Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    pool.addUnchecked(tx3Hash, entry.WithdrawsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw2].ToString(), tx3Hash.ToString());
 
-    setWithdrawsSpent = {withdraw3};
+    setPeginsSpent = {withdraw3};
     GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
     tx.vout.resize(4);
     tx.vout[3].nValue = 0;
     CTransactionRef txref(MakeTransactionRef(tx));
-    pool.removeForBlock({txref}, 1, setWithdrawsSpent);
+    pool.removeForBlock({txref}, 1, setPeginsSpent);
 
     BOOST_CHECK_EQUAL(pool.size(), 3);
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid.size(), 2);
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw1].ToString(), tx2Hash.ToString());
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw2].ToString(), tx3Hash.ToString());
 
-    setWithdrawsSpent = {withdraw1};
+    setPeginsSpent = {withdraw1};
     GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
     tx.vout.resize(5);
     tx.vout[4].nValue = 0;
     txref = MakeTransactionRef(tx);
-    pool.removeForBlock({txref}, 2, setWithdrawsSpent);
+    pool.removeForBlock({txref}, 2, setPeginsSpent);
 
     BOOST_CHECK_EQUAL(pool.size(), 2);
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid.size(), 1);
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw2].ToString(), tx3Hash.ToString());
 
-    setWithdrawsSpent = {withdraw1, withdraw3};
+    setPeginsSpent = {withdraw1, withdraw3};
     GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
     tx.vout.resize(6);
     tx.vout[5].nValue = 0;
     const uint256 tx4Hash(tx.GetHash());
-    pool.addUnchecked(tx4Hash, entry.WithdrawsSpent(setWithdrawsSpent).FromTx(tx));
+    pool.addUnchecked(tx4Hash, entry.WithdrawsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw1].ToString(), tx4Hash.ToString());
     BOOST_CHECK_EQUAL(pool.mapWithdrawsSpentToTxid[withdraw3].ToString(), tx4Hash.ToString());
 
-    setWithdrawsSpent = {withdraw2, withdraw3};
+    setPeginsSpent = {withdraw2, withdraw3};
     GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
     tx.vout.resize(7);
     tx.vout[6].nValue = 0;
     txref = MakeTransactionRef(tx);
-    pool.removeForBlock({txref}, 3, setWithdrawsSpent);
+    pool.removeForBlock({txref}, 3, setPeginsSpent);
 
     BOOST_CHECK_EQUAL(pool.size(), 1);
     BOOST_CHECK(pool.mapWithdrawsSpentToTxid.empty());

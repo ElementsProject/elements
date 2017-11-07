@@ -239,6 +239,8 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/wallet.cpp \
   wallet/walletdb.cpp \
   policy/rbf.cpp \
+  primitives/bitcoin/merkleblock.cpp \
+  primitives/bitcoin/block.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
@@ -458,7 +460,7 @@ endif
 
 libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS)
 libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
-libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL -DBITCOIN_SCRIPT_NO_CALLRPC
+libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
 libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif

@@ -46,7 +46,6 @@ def sync_all(e1, e2):
         time.sleep(1)
     return
 
-
 ## Preparations
 
 # Make data directories for each daemon
@@ -91,20 +90,19 @@ time.sleep(3)
 # Alternatively, you can set validatepegin=0 in their configs and not
 # run the bitcoin node, but it is necessary for fully validating the two way peg.
 
-# At beginning "immature balance" holds all funds until genesis is mature
-# Regtest chain starts with 21M elements coins as OP_TRUE which the wallet
-# understands. This is useful for testing basic functionality.
-# In Elements there is no block subsidy. All 21M output value in a mainnet
-# pegged sidechain are locked for pegging.
+# Regtest chain starts with 21M bitcoins as OP_TRUE which the wallet
+# understands. This is useful for testing basic functionality and for
+# blockchains that have no pegging functionality. A fee currency is required
+# for anti-DoS purposes as well as asset issuance, which consumes inputs for entropy.
+# In Elements there is no block subsidy. In a production sidechain it can
+# be configured to start with no outputs, necessitating peg-in functionality
+# for asset issuance.
 e1.getwalletinfo()
 
 # In regtest mining "target" is OP_TRUE since we have not set `-signblockscript` argument
 # Generate simply works.
 e1.generate(101)
 sync_all(e1, e2)
-# Now we have 21M OP_TRUE value in each Elements wallet.
-e1.getwalletinfo()
-e2.getwalletinfo()
 
 ######## WALLET ###########
 
@@ -419,12 +417,6 @@ e1.generate(101)
 bitcoin.generate(101)
 sync_all(e1, e2)
 
-# We have to lock up some of the funds first. Regtest(what we're running) has all funds as OP_TRUE
-# but this is not the case in testnet/production. Doesn't matter where we send it
-# inside Bitcoin, this is just a hack to lock some funds up.
-# We can immediately grab this output from the mempool on subsequent steps
-e1.sendtomainchain(bitcoin.getnewaddress(), 50)
-
 # Now we can actually start pegging in. Examine the pegin address fields
 e1.getpeginaddress()
 # Changes each time as it's a new sidechain address as well as new "tweak" for the watchmen keys
@@ -448,7 +440,7 @@ proof = bitcoin.gettxoutproof([txid])
 raw = bitcoin.getrawtransaction(txid)
 
 # Attempt claim!
-claimtxid = e1.claimpegin(raw, proof, addrs["sidechain_address"])
+claimtxid = e1.claimpegin(raw, proof, addrs["claim_script"])
 sync_all(e1, e2)
 
 # Other node should accept to mempool and mine

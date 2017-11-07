@@ -15,8 +15,6 @@ static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 static const int WITNESS_SCALE_FACTOR = 4;
 
-static const CFeeRate withdrawLockTxFee = CFeeRate(5460);
-
 /**
  * Confidential assets, values, and nonces all share enough code in common
  * that it makes sense to define a common abstract base class. */
@@ -226,10 +224,6 @@ public:
             return false;
         if (IsFee())
             return false;
-        //Withdrawlocks are evaluated at a higher, static feerate
-        //to ensure peg-outs are IsStandard on mainchain
-        if (scriptPubKey.IsWithdrawLock() && nValue.GetAmount() < GetDustThreshold(withdrawLockTxFee))
-            return true;
         return (nValue.GetAmount() < GetDustThreshold(minRelayTxFee));
     }
 
@@ -261,14 +255,18 @@ public:
     uint256 hash;
     uint32_t n;
 
-    /* If this flag set, the CTxIn including this COutPoint has a
+    /* If this flag is set, the CTxIn including this COutPoint has a
      * CAssetIssuance object. */
     static const uint32_t OUTPOINT_ISSUANCE_FLAG = (1 << 31);
+
+    /* If this flag is set, the CTxIn including this COutPoint
+     * is a peg-in input. */
+    static const uint32_t OUTPOINT_PEGIN_FLAG = (1 << 30);
 
     /* The inverse of the combination of the preceeding flags. Used to
      * extract the original meaning of `n` as the index into the
      * transaction's output array. */
-    static const uint32_t OUTPOINT_INDEX_MASK = 0x7fffffff;
+    static const uint32_t OUTPOINT_INDEX_MASK = 0x3fffffff;
 
     COutPoint() { SetNull(); }
     COutPoint(uint256 hashIn, uint32_t nIn) { hash = hashIn; n = nIn; }
@@ -382,6 +380,9 @@ public:
     CScript scriptSig;
     uint32_t nSequence;
     CAssetIssuance assetIssuance;
+    /* If this is set to true, the input is interpreted as a
+     * peg-in claim and processed as such */
+    bool m_is_pegin = false;
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -432,10 +433,10 @@ public:
                 fHasAssetIssuance = false;
                 outpoint = prevout;
             } else {
-                // The issuance bit can't be set as it is used to indicate
-                // the presence of the asset issuance or objects. It should
+                // The issuance and pegin bits can't be set as it is used to indicate
+                // the presence of the asset issuance or pegin objects. They should
                 // never be set anyway as that would require a parent
-                // transaction with over two billion outputs.
+                // transaction with over one billion outputs.
                 assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
                 // The assetIssuance object is used to represent both new
                 // asset generation and reissuance of existing asset types.
@@ -448,6 +449,9 @@ public:
                 if (fHasAssetIssuance) {
                     outpoint.n |= COutPoint::OUTPOINT_ISSUANCE_FLAG;
                 }
+                if (m_is_pegin) {
+                    outpoint.n |= COutPoint::OUTPOINT_PEGIN_FLAG;
+                }
             }
         }
 
@@ -458,10 +462,14 @@ public:
                 // No asset issuance for Coinbase inputs.
                 fHasAssetIssuance = false;
                 prevout = outpoint;
+                m_is_pegin = false;
             } else {
-                // The presense of the asset issuance object is indicated by
+                // The presence of the asset issuance object is indicated by
                 // a bit set in the outpoint index field.
                 fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
+                // The interpretation of this input as a peg-in is indicated by
+                // a bit set in the outpoint index field.
+                m_is_pegin = !!(outpoint.n & COutPoint::OUTPOINT_PEGIN_FLAG);
                 // The mode, if set, must be masked out of the outpoint so
                 // that the in-memory index field retains its traditional
                 // meaning of identifying the index into the output array
@@ -501,9 +509,12 @@ public:
 class CTxInWitness
 {
 public:
+    // TODO generalize CScriptWitness into just CWitness
     std::vector<unsigned char> vchIssuanceAmountRangeproof;
     std::vector<unsigned char> vchInflationKeysRangeproof;
     CScriptWitness scriptWitness;
+    // Re-use script witness struct to include its own witness
+    CScriptWitness m_pegin_witness;
 
     ADD_SERIALIZE_METHODS;
 
@@ -513,19 +524,21 @@ public:
         READWRITE(vchIssuanceAmountRangeproof);
         READWRITE(vchInflationKeysRangeproof);
         READWRITE(scriptWitness.stack);
+        READWRITE(m_pegin_witness.stack);
     }
 
     CTxInWitness() { }
 
     bool IsNull() const
     {
-        return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull();
+        return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull() && m_pegin_witness.IsNull();
     }
     void SetNull()
     {
         vchIssuanceAmountRangeproof.clear();
         vchInflationKeysRangeproof.clear();
         scriptWitness.stack.clear();
+        m_pegin_witness.stack.clear();
     }
 
     uint256 GetHash() const;

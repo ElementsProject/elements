@@ -14,6 +14,22 @@ if len(sys.argv) != 3:
 print(sys.argv[1])
 print(sys.argv[2])
 
+# Sync mempool, make a block, sync blocks
+def sync_all(sidechain, sidechain2):
+    timeout = 20
+    while len(sidechain.getrawmempool()) != len(sidechain2.getrawmempool()):
+        time.sleep(1)
+        timeout -= 1
+        if timeout == 0:
+            raise Exception("Peg-in has failed to propagate.")
+    block = sidechain2.generate(1)
+    while sidechain.getblockcount() != sidechain2.getblockcount():
+        time.sleep(1)
+        timeout -= 1
+        if timeout == 0:
+            raise Exception("Blocks are not propagating.")
+    return block
+
 fedpeg_key="cPxqWyf1HDGpGFH1dnfjz8HbiWxvwG8WXyetbuAiw4thKXUdXLpR"
 fedpeg_pubkey="512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
 
@@ -88,7 +104,7 @@ with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
 
 try:
 
-    # Default is 8, meaning 8+2 confirms for mempool acceptance normally
+    # Default is 8, meaning 8+2 confirms for wallet acceptance normally
     # this will require 10+2.
     sidechain_args = " -peginconfirmationdepth=10 "
 
@@ -116,16 +132,8 @@ try:
 
     addr = bitcoin.getnewaddress()
 
-    # Lockup some funds to unlock later
-    sidechain.sendtomainchain(addr, 50)
-    # Tests withdrawlock tracking in database
-    sidechain.generate(1)
-    # Tests withdrawlock in mempool
-    sidechain.sendtomainchain(addr, 50)
-
     addrs = sidechain.getpeginaddress()
     txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
-    txid2 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
     # 10+2 confirms required to get into mempool and confirm
     bitcoin.generate(11)
     time.sleep(2)
@@ -137,59 +145,55 @@ try:
         pegtxid = sidechain.claimpegin(raw, proof)
         raise Exception("Peg-in should not mature enough yet, need another block.")
     except JSONRPCException as e:
-        assert("Withdraw proof validation failed" in e.error["message"])
+        assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
         pass
 
     # Should fail due to non-matching wallet address
     try:
         pegtxid = sidechain.claimpegin(raw, proof, sidechain.getnewaddress())
-        raise Exception("Peg-in with non-matching address should fail.")
+        raise Exception("Peg-in with non-matching claim_script should fail.")
     except JSONRPCException as e:
-        assert("Failed to find output in bitcoinTx to the mainchain_address" in e.error["message"])
+        assert("Given claim_script does not match the given Bitcoin transaction." in e.error["message"])
         pass
 
     # 12 confirms allows in mempool
     bitcoin.generate(1)
-
-    timeout = 20
-    # Both should succeed via wallet lookup for address match, and when given
+    # Should succeed via wallet lookup for address match, and when given
     pegtxid1 = sidechain.claimpegin(raw, proof)
 
-    proof = bitcoin.gettxoutproof([txid2])
-    raw = bitcoin.getrawtransaction(txid2)
-    pegtxid2 = sidechain.claimpegin(raw, proof, addrs["sidechain_address"])
-
-    while len(sidechain.getrawmempool()) != len(sidechain2.getrawmempool()):
-        time.sleep(1)
-        timeout -= 1
-        if timeout == 0:
-            raise Exception("Peg-in has failed to propagate.")
-    sidechain2.generate(1)
-    while sidechain.getblockcount() != sidechain2.getblockcount():
-        time.sleep(1)
-        timeout -= 1
-        if timeout == 0:
-            raise Exception("Blocks are not propagating.")
-
+    # Will invalidate the block that confirms this transaction later
+    blockhash = sync_all(sidechain, sidechain2)
+    sidechain.generate(5)
 
     tx1 = sidechain.gettransaction(pegtxid1)
-    tx2 = sidechain.gettransaction(pegtxid2)
 
-    if "confirmations" in tx1 and tx1["confirmations"] > 0 and "confirmations" in tx2 and tx2["confirmations"] > 0:
+    if "confirmations" in tx1 and tx1["confirmations"] == 6:
         print("Peg-in is confirmed: Success!")
     else:
         raise Exception("Peg-in confirmation has failed.")
 
-    # Make a few large locks, then do many claims in mempool
-    n_locks = 10
-    n_claims = 30
+    # Look at pegin fields
+    decoded = sidechain.decoderawtransaction(tx1["hex"])
+    assert decoded["vin"][0]["is_pegin"] == True
+    assert len(decoded["vin"][0]["pegin_witness"]) > 0
+
+    # Quick reorg checks of pegs
+    sidechain.invalidateblock(blockhash[0])
+    if sidechain.gettransaction(pegtxid1)["confirmations"] != 0:
+        raise Exception("Peg-in didn't unconfirm after invalidateblock call.")
+    # Re-enters block
+    sidechain.generate(1)
+    if sidechain.gettransaction(pegtxid1)["confirmations"] != 1:
+        raise Exception("Peg-in should have one confirm on side block.")
+    sidechain.reconsiderblock(blockhash[0])
+    if sidechain.gettransaction(pegtxid1)["confirmations"] != 6:
+        raise Exception("Peg-in should be back to 6 confirms.")
+
+    # Do many claims in mempool
+    n_claims = 100
 
     print("Flooding mempool with many small claims")
     pegtxs = []
-    for i in range(n_locks):
-        # Lockup some funds to unlock later
-        sidechain.sendtomainchain(addr, 50)
-        sidechain.generate(1)
     sidechain.generate(101)
 
     for i in range(n_claims):
@@ -200,20 +204,15 @@ try:
         raw = bitcoin.getrawtransaction(txid)
         pegtxs += [sidechain.claimpegin(raw, proof)]
 
-    sidechain.generate(1)
+    sync_all(sidechain, sidechain2)
+
+    sidechain2.generate(1)
     for pegtxid in pegtxs:
         tx = sidechain.gettransaction(pegtxid)
         if "confirmations" not in tx or tx["confirmations"] == 0:
             raise Exception("Peg-in confirmation has failed.")
 
     print("Success!")
-
-    # Testing sidechain info RPC
-    sideinfo = sidechain.getsidechaininfo()
-    assert sideinfo["fedpegscript"] == fedpeg_pubkey
-    assert sideinfo["pegged_asset"] == sidechain.dumpassetlabels()["bitcoin"]
-    assert sideinfo["min_peg_diff"] == "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    assert sideinfo["parent_blockhash"] == "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"
 
 except JSONRPCException as e:
         print("Pegging testing failed, aborting:")

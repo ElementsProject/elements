@@ -87,26 +87,6 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Witness provided for non-witness script";
         case SCRIPT_ERR_WITNESS_PUBKEYTYPE:
             return "Using non-compressed keys in segwit";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_FORMAT:
-            return "Withdraw proof validation failed - invalid proof format";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_BLOCK:
-            return "Withdraw proof validation failed - SPV proof/block coinbase invalid";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_LOCKTX:
-            return "Withdraw proof validation failed - locking transaction misformatted";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT:
-            return "Withdraw proof validation failed - output does not match expected";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_BLOCKCONFIRMED:
-            return "Withdraw proof validation failed - lock block was not sufficiently confirmed on sending chain";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_BLINDED_AMOUNTS:
-            return "Withdraw proof validation failed - amounts in outputs were blinded";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPTDEST:
-            return "Withdraw proof validation failed - Bitcoin output script destination does not match federation script";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_RELOCK_SCRIPTVAL:
-            return "Withdraw proof validation failed - Relock scriptpubkey or value is invalid";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_VAL:
-            return "Withdraw proof validation failed - Withdraw output value invalid";
-        case SCRIPT_ERR_WITHDRAW_VERIFY_OUTPUT_SCRIPT:
-            return "Withdraw proof validation failed - Sidechain pegin destination does not match expected";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

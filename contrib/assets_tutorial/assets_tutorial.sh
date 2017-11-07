@@ -39,17 +39,10 @@ e2-dae
 # run the bitcoin node, but it is necessary for the two way peg parts of
 # this tutorial.
 
-# Prime the chain, see "immature balance" holds all funds until genesis is mature
-e1-cli getwalletinfo
-
-# Mining for now is OP_TRUE
-e1-cli generate 101
-
-# Now we have 21M OP_TRUE value
+# We have 21M OP_TRUE value in each wallet
+# This is useful for testing and non-sidechain applications of Elements
 e1-cli getwalletinfo
 e2-cli getwalletinfo
-
-# Primed and ready
 
 ######## WALLET ###########
 
@@ -311,19 +304,11 @@ e2-dae $FEDPEGARG
 e1-cli generate 101
 b-cli generate 101
 
-# We have to lock up some of the funds first. Regtest(what we're running) has all funds as OP_TRUE
-# but this is not the case in testnet/production. Doesn't matter where we send it
-# inside Bitcoin, this is just a hack to lock some funds up.
-e1-cli sendtomainchain $(b-cli getnewaddress) 50
-
-# Mature the pegout
-e1-cli generate 101
-
 # Now we can actually start pegging in. Examine the pegin address fields
 e1-cli getpeginaddress
 # Changes each time as it's a new sidechain address as well as new "tweak" for the watchmen keys
 # mainchain_address : where you send your bitcoin from Bitcoin network
-# sidechain_address : where the bitcoin will end up on the sidechain after pegging in
+# claim_script: what script will have to be satisfied to spent the peg-in input
 
 # Each call of this takes the pubkeys defined in the config file, adds a random number to them
 # that is essetially the hash of the sidechain_address and other information,
@@ -335,7 +320,7 @@ e1-cli getpeginaddress
 ADDRS=$(e1-cli getpeginaddress)
 
 MAINCHAIN=$(echo $ADDRS | python3 -c "import sys, json; print(json.load(sys.stdin)['mainchain_address'])")
-SIDECHAIN=$(echo $ADDRS | python3 -c "import sys, json; print(json.load(sys.stdin)['sidechain_address'])")
+SIDECHAIN=$(echo $ADDRS | python3 -c "import sys, json; print(json.load(sys.stdin)['claim_script'])")
 
 #Send funds to unique watchmen P2SH address
 TXID=$(b-cli sendtoaddress $MAINCHAIN 1)

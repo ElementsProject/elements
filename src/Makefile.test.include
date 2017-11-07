@@ -100,7 +100,6 @@ BITCOIN_TESTS =\
   test/hash_tests.cpp \
   test/key_tests.cpp \
   test/limitedmap_tests.cpp \
-  test/lockedutxo_tests.cpp \
   test/withdrawspent_tests.cpp \
   test/dbwrapper_tests.cpp \
   test/main_tests.cpp \
@@ -110,6 +109,7 @@ BITCOIN_TESTS =\
   test/multisig_tests.cpp \
   test/net_tests.cpp \
   test/netbase_tests.cpp \
+  test/pegin_witness_tests.cpp \
   test/pmt_tests.cpp \
   test/policyestimator_tests.cpp \
   test/pow_tests.cpp \

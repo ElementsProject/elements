@@ -21,10 +21,10 @@
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, double _entryPriority, unsigned int _entryHeight,
                                  CAmount _inChainInputValue,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& _setWithdrawsSpent):
+                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& _setPeginsSpent):
     tx(_tx), nFee(_nFee), nTime(_nTime), entryPriority(_entryPriority), entryHeight(_entryHeight),
     inChainInputValue(_inChainInputValue),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp), setWithdrawsSpent(_setWithdrawsSpent)
+    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp), setPeginsSpent(_setPeginsSpent)
 {
     nTxWeight = GetTransactionWeight(*tx);
     nModSize = tx->CalculateModifiedSize(GetTxSize());
@@ -448,9 +448,11 @@ bool CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
     vTxHashes.emplace_back(tx.GetHashWithWitness(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
 
-    typedef std::pair<uint256, COutPoint> WithdrawPair;
-    BOOST_FOREACH(const WithdrawPair& it, entry.setWithdrawsSpent)
-        assert(mapWithdrawsSpentToTxid.insert(std::make_pair(it, hash)).second);
+    typedef std::pair<uint256, COutPoint> PeginPair;
+    BOOST_FOREACH(const PeginPair& it, entry.setPeginsSpent) {
+        std::pair<std::map<std::pair<uint256, COutPoint>, uint256>::iterator, bool> ret = mapWithdrawsSpentToTxid.insert(std::make_pair(it, hash));
+        assert(ret.second);
+    }
 
     return true;
 }
@@ -462,9 +464,10 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     BOOST_FOREACH(const CTxIn& txin, it->GetTx().vin)
         mapNextTx.erase(txin.prevout);
 
-    typedef std::pair<uint256, COutPoint> WithdrawPair;
-    BOOST_FOREACH(const WithdrawPair& it2, it->setWithdrawsSpent)
-        assert(mapWithdrawsSpentToTxid.erase(it2));
+    typedef std::pair<uint256, COutPoint> PeginPair;
+    BOOST_FOREACH(const PeginPair& it2, it->setPeginsSpent) {
+        mapWithdrawsSpentToTxid.erase(it2);
+    }
 
     if (vTxHashes.size() > 1) {
         vTxHashes[it->vTxHashesIdx] = std::move(vTxHashes.back());
@@ -603,7 +606,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
 void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight,
-                                const std::set<std::pair<uint256, COutPoint> >& setWithdrawsSpent)
+                                const std::set<std::pair<uint256, COutPoint> >& setPeginsSpent)
 {
     LOCK(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -628,7 +631,8 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         removeConflicts(*tx);
         ClearPrioritisation(tx->GetHash());
     }
-    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setWithdrawsSpent.begin(); it != setWithdrawsSpent.end(); it++) {
+    // Eject any conflicting pegins
+    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setPeginsSpent.begin(); it != setPeginsSpent.end(); it++) {
         std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it2 = mapWithdrawsSpentToTxid.find(*it);
         if (it2 != mapWithdrawsSpentToTxid.end()) {
             txiter txit = mapTx.find(it2->second);
@@ -679,7 +683,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
     LOCK(cs);
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
-    std::set<std::pair<uint256, COutPoint> > setGlobalWithdrawsSpent;
+    std::set<std::pair<uint256, COutPoint> > setGlobalPeginsSpent;
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->GetTxSize();
@@ -705,8 +709,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                     parentSigOpCost += it2->GetSigOpCost();
                 }
             } else {
+                // peg-in inputs are not sanity-checked to be valid
                 const CCoins* coins = pcoins->AccessCoins(txin.prevout.hash);
-                assert(coins && coins->IsAvailable(txin.prevout.n));
+                assert(txin.m_is_pegin || (coins && coins->IsAvailable(txin.prevout.n)));
             }
             // Check whether its inputs are marked in mapNextTx.
             auto it3 = mapNextTx.find(txin.prevout);
@@ -757,15 +762,15 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             waitingOnDependants.push_back(&(*it));
         else {
             CValidationState state;
-            std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+            std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
             bool fCheckResult = tx.IsCoinBase() ||
-                Consensus::CheckTxInputs(tx, state, mempoolDuplicate, nSpendHeight, setWithdrawsSpent, NULL, false);
+                Consensus::CheckTxInputs(tx, state, mempoolDuplicate, nSpendHeight, setPeginsSpent, NULL, false);
             assert(fCheckResult);
             UpdateCoins(tx, mempoolDuplicate, 1000000);
-            assert(setWithdrawsSpent == it->setWithdrawsSpent);
-            size_t prevWithdrawsCount = setGlobalWithdrawsSpent.size();
-            setGlobalWithdrawsSpent.insert(setWithdrawsSpent.begin(), setWithdrawsSpent.end());
-            assert(setGlobalWithdrawsSpent.size() == prevWithdrawsCount + setWithdrawsSpent.size());
+            assert(setPeginsSpent == it->setPeginsSpent);
+            size_t prevWithdrawsCount = setGlobalPeginsSpent.size();
+            setGlobalPeginsSpent.insert(setPeginsSpent.begin(), setPeginsSpent.end());
+            assert(setGlobalPeginsSpent.size() == prevWithdrawsCount + setPeginsSpent.size());
         }
     }
     unsigned int stepsSinceLastRemove = 0;
@@ -778,15 +783,15 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            std::set<std::pair<uint256, COutPoint> > setWithdrawsSpent;
+            std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
             bool fCheckResult = entry->GetTx().IsCoinBase() ||
-                Consensus::CheckTxInputs(entry->GetTx(), state, mempoolDuplicate, nSpendHeight, setWithdrawsSpent, NULL, false);
+                Consensus::CheckTxInputs(entry->GetTx(), state, mempoolDuplicate, nSpendHeight, setPeginsSpent, NULL, false);
             assert(fCheckResult);
             UpdateCoins(entry->GetTx(), mempoolDuplicate, 1000000);
-            assert(setWithdrawsSpent == entry->setWithdrawsSpent);
-            size_t prevWithdrawsCount = setGlobalWithdrawsSpent.size();
-            setGlobalWithdrawsSpent.insert(setWithdrawsSpent.begin(), setWithdrawsSpent.end());
-            assert(setGlobalWithdrawsSpent.size() == prevWithdrawsCount + setWithdrawsSpent.size());
+            assert(setPeginsSpent == entry->setPeginsSpent);
+            size_t prevWithdrawsCount = setGlobalPeginsSpent.size();
+            setGlobalPeginsSpent.insert(setPeginsSpent.begin(), setPeginsSpent.end());
+            assert(setGlobalPeginsSpent.size() == prevWithdrawsCount + setPeginsSpent.size());
             stepsSinceLastRemove = 0;
         }
     }
@@ -798,13 +803,13 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         assert(&tx == it->second);
     }
 
-    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setGlobalWithdrawsSpent.begin(); it != setGlobalWithdrawsSpent.end(); it++) {
+    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setGlobalPeginsSpent.begin(); it != setGlobalPeginsSpent.end(); it++) {
         assert(!pcoins->IsWithdrawSpent(*it));
     }
     for (std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it = mapWithdrawsSpentToTxid.begin(); it != mapWithdrawsSpentToTxid.end(); it++) {
-        assert(setGlobalWithdrawsSpent.erase(it->first));
+        assert(setGlobalPeginsSpent.erase(it->first));
     }
-    assert(setGlobalWithdrawsSpent.size() == 0);
+    assert(setGlobalPeginsSpent.size() == 0);
 
     assert(totalTxSize == checkTotal);
     assert(innerUsage == cachedInnerUsage);
