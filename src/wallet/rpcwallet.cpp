@@ -3426,7 +3426,7 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     CScript witProg = GetScriptForWitness(destScript);
 
     //Call contracthashtool, get deposit address on mainchain.
-    CParentBitcoinAddress destAddr(CScriptID(calculate_contract(Params().GetConsensus().fedpegScript, witProg)));
+    CParentBitcoinAddress destAddr(CScriptID(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
 
     UniValue fundinginfo(UniValue::VOBJ);
 
@@ -3502,7 +3502,7 @@ unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn,
 {
     unsigned int nOut = 0;
     //Call contracthashtool
-    CScript mainchain_script = GetScriptForDestination(CScriptID(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram)));
+    CScript mainchain_script = GetScriptForDestination(CScriptID(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram))));
     for (; nOut < txn.vout.size(); nOut++)
         if (txn.vout[nOut].scriptPubKey == mainchain_script)
             break;
