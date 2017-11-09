@@ -69,6 +69,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         super().__init__()
         self.num_nodes = 1
         self.setup_clean_chain = False
+        self.chain = "elementsregtest"
 
     def setup_network(self):
         self.nodes = []
@@ -81,8 +82,19 @@ class ReplaceByFeeTest(BitcoinTestFramework):
                                                               ]))
         self.is_network_split = False
 
+    def make_utxo(self, node, amount, confirmed=True, scriptPubKey=CScript([1])):
+        self.sync_all()
+        make_utxo(self, node, amount, confirmed, scriptPubKey)
+        self.sync_all()
+
     def run_test(self):
-        make_utxo(self.nodes[0], 1*COIN)
+        # Leave IBD
+        self.nodes[0].generate(1)
+
+        self.make_utxo(self.nodes[0], 1*COIN)
+
+        # Ensure nodes are synced
+        self.sync_all()
 
         print("Running test simple doublespend...")
         self.test_simple_doublespend()
@@ -112,13 +124,20 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_simple_doublespend(self):
         """Simple doublespend"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = self.make_utxo(self.nodes[0], int(1.1*COIN))
+
+        # make_utxo may have generated a bunch of blocks, so we need to sync
+        # before we can spend the coins generated, or else the resulting
+        # transactions might not be accepted by our peers.
+        self.sync_all()
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
         tx1a.vout = [CTxOut(1*COIN, CScript([b'a'])), CTxOut(int(0.1*COIN), b'')]
         tx1a_hex = txToHex(tx1a)
         tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
+
+        self.sync_all()
 
         # Should fail because we haven't changed the fee
         tx1b = CTransaction()
@@ -151,7 +170,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         """Doublespend of a long chain"""
 
         initial_nValue = 50*COIN
-        tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
+        tx0_outpoint = self.make_utxo(self.nodes[0], initial_nValue)
 
         prevout = tx0_outpoint
         remaining_value = initial_nValue
@@ -194,7 +213,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
     def test_doublespend_tree(self):
         """Doublespend of a big tree of transactions"""
         initial_nValue = 50*COIN
-        tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
+        tx0_outpoint = self.make_utxo(self.nodes[0], initial_nValue)
 
         def branch(prevout, initial_value, max_txs, tree_width=5, fee=int(0.0001*COIN), _total_txs=None):
             if _total_txs is None:
@@ -265,7 +284,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # double-spent at once" anti-DoS limit.
         for n in (MAX_REPLACEMENT_LIMIT+1, MAX_REPLACEMENT_LIMIT*2):
             fee = int(0.0001*COIN)
-            tx0_outpoint = make_utxo(self.nodes[0], initial_nValue)
+            tx0_outpoint = self.make_utxo(self.nodes[0], initial_nValue)
             tree_txs = list(branch(tx0_outpoint, initial_nValue, n, fee=fee))
             assert_equal(len(tree_txs), n)
 
@@ -287,7 +306,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_replacement_feeperkb(self):
         """Replacement requires fee-per-KB to be higher"""
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = self.make_utxo(self.nodes[0], int(1.1*COIN))
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
@@ -311,8 +330,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_spends_of_conflicting_outputs(self):
         """Replacements that spend conflicting tx outputs are rejected"""
-        utxo1 = make_utxo(self.nodes[0], int(1.2*COIN))
-        utxo2 = make_utxo(self.nodes[0], 3*COIN)
+        utxo1 = self.make_utxo(self.nodes[0], int(1.2*COIN))
+        utxo2 = self.make_utxo(self.nodes[0], 3*COIN)
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(utxo1, nSequence=0)]
@@ -360,8 +379,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
     def test_new_unconfirmed_inputs(self):
         """Replacements that add new unconfirmed inputs are rejected"""
-        confirmed_utxo = make_utxo(self.nodes[0], int(1.1*COIN))
-        unconfirmed_utxo = make_utxo(self.nodes[0], int(0.1*COIN), False)
+        confirmed_utxo = self.make_utxo(self.nodes[0], int(1.1*COIN))
+        unconfirmed_utxo = self.make_utxo(self.nodes[0], int(0.1*COIN), False)
 
         tx1 = CTransaction()
         tx1.vin = [CTxIn(confirmed_utxo)]
@@ -389,7 +408,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         # Start by creating a single transaction with many outputs
         initial_nValue = 10*COIN
-        utxo = make_utxo(self.nodes[0], initial_nValue)
+        utxo = self.make_utxo(self.nodes[0], initial_nValue)
         fee = int(0.0001*COIN)
         split_value = int((initial_nValue-fee)/(MAX_REPLACEMENT_LIMIT+1))
         fee += int((initial_nValue-fee)%(MAX_REPLACEMENT_LIMIT+1))
@@ -449,7 +468,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # correctly used by replacement logic
 
         # 1. Check that feeperkb uses modified fees
-        tx0_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx0_outpoint = self.make_utxo(self.nodes[0], int(1.1*COIN))
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
@@ -480,7 +499,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         assert(tx1b_txid in self.nodes[0].getrawmempool())
 
         # 2. Check that absolute fee checks use modified fee.
-        tx1_outpoint = make_utxo(self.nodes[0], int(1.1*COIN))
+        tx1_outpoint = self.make_utxo(self.nodes[0], int(1.1*COIN))
 
         tx2a = CTransaction()
         tx2a.vin = [CTxIn(tx1_outpoint, nSequence=0)]
