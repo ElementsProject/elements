@@ -79,7 +79,6 @@ boost::filesystem::path GetAuthCookieFile()
 boost::filesystem::path GetMainchainAuthCookieFile()
 {
     boost::filesystem::path path(GetArg("-mainchainrpccookiefile", COOKIEAUTH_FILE));
-    if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_ELEMENTS) path = "testnet3" / path;
     if (!path.is_complete() && BaseParams().DataDir() == CHAINPARAMS_REGTEST) path = "regtest" / path;
     if (!path.is_complete()) path = GetDataDir(false) / path;
     return path;
