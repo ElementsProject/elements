@@ -2717,7 +2717,7 @@ UniValue listunspent(const JSONRPCRequest& request)
             "                  because they come from unconfirmed untrusted transactions or unconfirmed\n"
             "                  replacement transactions (cases where we are less sure that a conflicting\n"
             "                  transaction won't be mined).\n"
-            "5.  \"asset\"                 (string, optional, default=bitcoin) The hex asset id or label to filter for. \"*\" is used to list all results.\n"
+            "5.  \"asset\"                 (string, optional, default=all) The hex asset id or label to filter for.\n"
             "[                          (array of json object)\n"
             "  {\n"
             "    \"txid\": \"txid\",        (string) the transaction id \n"
@@ -2744,7 +2744,6 @@ UniValue listunspent(const JSONRPCRequest& request)
             + HelpExampleCli("listunspent", "")
             + HelpExampleCli("listunspent", "6 9999999 \"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
             + HelpExampleCli("listunspent", "6 9999999 \"[]\" \"myasset\"")
-            + HelpExampleCli("listunspent", "6 9999999 \"[]\" \"*\"")
             + HelpExampleRpc("listunspent", "6, 9999999 \"[\\\"1PGFqEzfmQch1gKD3ra4k18PNj3tTUUSqg\\\",\\\"1LtvqCaApEdUGFkpKMM4MstjcaL4dKg8SP\\\"]\"")
         );
 
