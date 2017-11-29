@@ -111,7 +111,7 @@ UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool conn
 
     // Get credentials
     std::string strRPCUserColonPass;
-    if (GetArg("-rpcpassword", "") == "") {
+    if (GetArg(strpassword, "") == "") {
 
         // Try fall back to cookie-based authentication if no password is provided
         if (!connectToMainchain && !GetAuthCookie(&strRPCUserColonPass)) {
