@@ -515,6 +515,12 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
+    strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpcport=<port>", strprintf("The port which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpcuser=<username>", strprintf("The rpc username that the daemon will use to connect to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpcpassword=<password>", strprintf("The rpc password which the daemon will use to connect to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpccookiefile=<path>", strprintf("The bitcoind cookie auth path which the daemon will use to connect to validate peg-ins, if enabled. (default: default bitcoind datadir)"));
+
 
     return strUsage;
 }
