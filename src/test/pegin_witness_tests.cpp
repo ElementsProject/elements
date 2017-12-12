@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
-    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, setPeginsSpent, nullptr, false));
+    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, setPeginsSpent, nullptr, false, true));
     BOOST_CHECK(setPeginsSpent.size() == 1);
     setPeginsSpent.clear();
 
@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn(tx);
     mtxn.wit.vtxinwit[0].m_pegin_witness.SetNull();
     CTransaction tx2(mtxn);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, setPeginsSpent, nullptr, false));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, setPeginsSpent, nullptr, false, true));
     BOOST_CHECK(setPeginsSpent.empty());
 
     // Invalidate peg-in (and spending) authorization by pegin marker.
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn2(tx);
     mtxn2.vin[0].m_is_pegin = false;
     CTransaction tx3(mtxn2);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, setPeginsSpent, nullptr, false));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, setPeginsSpent, nullptr, false, true));
     BOOST_CHECK(setPeginsSpent.empty());
 
 

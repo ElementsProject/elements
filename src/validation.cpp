@@ -1844,7 +1844,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
@@ -1893,11 +1893,13 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         }
 
         // Tally transaction fees
-        if (!tx.HasValidFee())
+        if (!tx.HasValidFee()) {
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
-        if (!VerifyAmounts(inputs, tx, pvChecks, cacheStore))
+        }
+        if (fScriptChecks && !VerifyAmounts(inputs, tx, pvChecks, cacheStore)) {
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false,
                 strprintf("value in (%s) != value out", FormatMoney(nValueIn)));
+        }
 
     return true;
 }
@@ -1907,7 +1909,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 {
     if (!tx.IsCoinBase())
     {
-        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), setPeginsSpent, pvChecks, cacheStore))
+        if (!Consensus::CheckTxInputs(tx, state, inputs, GetSpendHeight(inputs), setPeginsSpent, pvChecks, cacheStore, fScriptChecks))
             return false;
 
         if (pvChecks)
