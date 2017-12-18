@@ -637,9 +637,12 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         if (it2 != mapWithdrawsSpentToTxid.end()) {
             txiter txit = mapTx.find(it2->second);
             assert(txit != mapTx.end());
+            const CTransaction& tx = txit->GetTx();
             setEntries stage;
             stage.insert(txit);
             RemoveStaged(stage, true);
+            removeRecursive(tx, MemPoolRemovalReason::CONFLICT);
+            ClearPrioritisation(it2->second);
         }
     }
     lastRollingFeeUpdate = GetTime();
