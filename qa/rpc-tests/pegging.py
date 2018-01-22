@@ -8,11 +8,16 @@ import time
 import subprocess
 import shutil
 
-if len(sys.argv) != 3:
-    print("paths to bitcoind and sidechain daemon must be included as arguments")
+if len(sys.argv) < 2:
+    print("path to bitcoind must be included as argument")
     sys.exit(0)
-print(sys.argv[1])
-print(sys.argv[2])
+bitcoin_bin_path = sys.argv[1]
+sidechain_bin_path = os.path.normpath(os.path.dirname(os.path.realpath(__file__))+"/../../src")
+if len(sys.argv) > 2:
+    sidechain_bin_path = sys.argv[2]
+
+print(bitcoin_bin_path)
+print(sidechain_bin_path)
 
 # Sync mempool, make a block, sync blocks
 def sync_all(sidechain, sidechain2):
@@ -110,13 +115,13 @@ try:
 
     # Start daemons
     print("Starting daemons at "+bitcoin_datadir+", "+sidechain_datadir+" and "+sidechain2_datadir)
-    bitcoindstart = sys.argv[1]+"/bitcoind -datadir="+bitcoin_datadir
+    bitcoindstart = bitcoin_bin_path+"/bitcoind -datadir="+bitcoin_datadir
     subprocess.Popen(bitcoindstart.split(), stdout=subprocess.PIPE)
 
-    sidechainstart = sys.argv[2]+"/elementsd -datadir="+sidechain_datadir + sidechain_args
+    sidechainstart = sidechain_bin_path+"/elementsd -datadir="+sidechain_datadir + sidechain_args
     subprocess.Popen(sidechainstart.split(), stdout=subprocess.PIPE)
 
-    sidechain2start = sys.argv[2]+"/elementsd -datadir="+sidechain2_datadir + sidechain_args
+    sidechain2start = sidechain_bin_path+"/elementsd -datadir="+sidechain2_datadir + sidechain_args
     subprocess.Popen(sidechain2start.split(), stdout=subprocess.PIPE)
 
     print("Daemons started")
