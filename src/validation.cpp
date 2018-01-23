@@ -2557,12 +2557,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
         if (!fJustCheck) {
             assert(block.nHeight == 0);
+            std::vector<std::pair<uint256, CDiskTxPos> > vPos;
+            CDiskTxPos pos(pindex->GetBlockPos(), GetSizeOfCompactSize(block.vtx.size()));
             for (const auto& tx : block.vtx) {
 
                 // Directly add new coins to DB
                 view.ModifyNewCoins(tx->GetHash(), tx->IsCoinBase())->FromTx(*tx, pindex->nHeight);
+                vPos.push_back(std::make_pair(tx->GetHash(), pos));
+                pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
             }
             view.SetBestBlock(pindex->GetBlockHash());
+            if (fTxIndex) {
+                if (!pblocktree->WriteTxIndex(vPos)) {
+                    return AbortNode(state, "Failed to write transaction index");
+                }
+            }
         }
         return true;
     }
