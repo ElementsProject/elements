@@ -2637,10 +2637,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // time BIP34 activated, in each of the existing pairs the duplicate coinbase had overwritten the first
     // before the first had been spent.  Since those coinbases are sufficiently buried its no longer possible to create further
     // duplicate transactions descending from the known pairs either.
-    // If we're on the known chain at height greater than where BIP34 activated, we can save the db accesses needed for the BIP30 check.
-    CBlockIndex *pindexBIP34height = pindex->pprev->GetAncestor(chainparams.GetConsensus().BIP34Height);
-    //Only continue to enforce if we're below BIP34 activation height or the block hash at that height doesn't correspond.
-    fEnforceBIP30 = fEnforceBIP30 && (!pindexBIP34height || !(pindexBIP34height->GetBlockHash() == chainparams.GetConsensus().BIP34Hash));
+    fEnforceBIP30 = fEnforceBIP30 && pindex->nHeight > chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP34];
 
     if (fEnforceBIP30) {
         for (const auto& tx : block.vtx) {
@@ -2652,13 +2649,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     //P2SH is a requirement for segwit + CT
-    unsigned int flags = SCRIPT_VERIFY_P2SH;
+    bool fStrictPayToScriptHash = pindex->GetBlockTime() >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP16];
+    unsigned int flags = fStrictPayToScriptHash ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE;
 
     // Start enforcing the DERSIG (BIP66) rule
-    flags |= SCRIPT_VERIFY_DERSIG;
-
+    if (pindex->nHeight >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP66]) {
+        flags |= SCRIPT_VERIFY_DERSIG;
+    }
     // Start enforcing CHECKLOCKTIMEVERIFY (BIP65) rule
-    flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+    if (pindex->nHeight >= chainparams.GetConsensus().buried_deployments[Consensus::DEPLOYMENT_BIP65]) {
+        flags |= SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
+    }
 
     // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
     int nLockTimeFlags = 0;
@@ -3895,8 +3896,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Co
     }
 
     // Enforce rule that the coinbase starts with serialized block height
-    if (block.nVersion >= 2)
-    {
+    if (nHeight > consensusParams.buried_deployments[Consensus::DEPLOYMENT_BIP34]) {
         CScript expect = CScript() << nHeight;
         if (block.vtx[0]->vin[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0]->vin[0].scriptSig.begin())) {

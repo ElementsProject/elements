@@ -14,6 +14,15 @@
 
 namespace Consensus {
 
+enum BuriedDeploymentPos
+{
+    DEPLOYMENT_BIP16,
+    DEPLOYMENT_BIP34,
+    DEPLOYMENT_BIP65,
+    DEPLOYMENT_BIP66,
+    MAX_BURIED_DEPLOYMENTS
+};
+
 enum DeploymentPos
 {
     DEPLOYMENT_TESTDUMMY,
@@ -41,13 +50,6 @@ struct BIP9Deployment {
 struct Params {
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
-    /** Block height and hash at which BIP34 becomes active */
-    int BIP34Height;
-    uint256 BIP34Hash;
-    /** Block height at which BIP65 becomes active */
-    int BIP65Height;
-    /** Block height at which BIP66 becomes active */
-    int BIP66Height;
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
      * (nPowTargetTimespan / nPowTargetSpacing) which is also used for BIP9 deployments.
@@ -63,6 +65,8 @@ struct Params {
     bool fPowNoRetargeting;
     int64_t nPowTargetSpacing;
     int64_t nPowTargetTimespan;
+    /** BIP90: Block height at which buried deployments becomes active */
+    uint32_t buried_deployments[MAX_BURIED_DEPLOYMENTS];
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     // The redeemscript that the peg uses. Uses p2sh-p2wsh
