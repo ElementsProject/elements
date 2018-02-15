@@ -38,12 +38,18 @@ def sync_all(sidechain, sidechain2):
 fedpeg_key="cPxqWyf1HDGpGFH1dnfjz8HbiWxvwG8WXyetbuAiw4thKXUdXLpR"
 fedpeg_pubkey="512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
 
-bitcoin_datadir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
-bitcoin_pass=''.join(random.choice('0123456789ABCDEF') for i in range(10))
-sidechain_datadir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
-sidechain_pass=''.join(random.choice('0123456789ABCDEF') for i in range(10))
-sidechain2_datadir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
-sidechain2_pass=''.join(random.choice('0123456789ABCDEF') for i in range(10))
+def get_pseudorandom_str(str_length=10):
+    return ''.join(random.choice('0123456789ABCDEF') for i in range(str_length))
+
+def get_temp_dir(nodename):
+    return "/tmp/%s_%s" % (nodename, get_pseudorandom_str())
+
+bitcoin_datadir = get_temp_dir('bitcoin')
+bitcoin_pass = get_pseudorandom_str()
+sidechain_datadir = get_temp_dir('sidechain')
+sidechain_pass = get_pseudorandom_str()
+sidechain2_datadir = get_temp_dir('sidechain2')
+sidechain2_pass = get_pseudorandom_str()
 
 bitcoin_port = 8000 + os.getpid()%999
 sidechain_port = bitcoin_port + 1
