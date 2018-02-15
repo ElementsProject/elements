@@ -3634,20 +3634,43 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     if (!pwalletMain->IsLocked())
         pwalletMain->TopUpKeyPool();
 
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwalletMain->GetKeyFromPool(newKey))
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    CKeyID keyID = newKey.GetID();
-
-    pwalletMain->SetAddressBook(keyID, "", "receive");
-
     // One peg-in input, one wallet output and one fee output
     CMutableTransaction mtx;
     mtx.vin.push_back(CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0));
     // mark as peg-in input
     mtx.vin[0].m_is_pegin = true;
-    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(CBitcoinAddress(keyID).Get())));
+
+    unsigned int hiding_bits = std::min(std::max((int)GetArg("-ct_bits", 32), 1), 51);
+    CAmount max_value_hidden = pow(2, hiding_bits)-1;
+    // Number of outputs to make under the max default hiding bit amount
+    for (unsigned int i = 0; i < value/max_value_hidden; i++) {
+        // Generate a new key that is added to wallet
+        CPubKey newKey;
+        if (!pwalletMain->GetKeyFromPool(newKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        CKeyID keyID = newKey.GetID();
+
+        pwalletMain->SetAddressBook(keyID, "", "receive");
+        mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, max_value_hidden, GetScriptForDestination(CBitcoinAddress(keyID).Get())));
+    }
+    // If left-over, add another output
+    CAmount dust_leftover = 0;
+    if (value % max_value_hidden != 0) {
+         // Generate a new key that is added to wallet
+        CPubKey newKey;
+        if (!pwalletMain->GetKeyFromPool(newKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        CKeyID keyID = newKey.GetID();
+
+        pwalletMain->SetAddressBook(keyID, "", "receive");
+        CTxOut last_out(Params().GetConsensus().pegged_asset, value % max_value_hidden, GetScriptForDestination(CBitcoinAddress(keyID).Get()));
+        if (!last_out.IsDust(dustRelayFee)) {
+            mtx.vout.push_back(last_out);
+        } else {
+            dust_leftover += value % max_value_hidden;
+        }
+    }
+    // Fee output
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
     // Construct pegin proof
@@ -3674,7 +3697,8 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     CAmount nFeeNeeded = CWallet::GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
 
     mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
-    mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
+    // Fee output
+    mtx.vout[mtx.vout.size()-1].nValue = mtx.vout[mtx.vout.size()-1].nValue.GetAmount() + nFeeNeeded + dust_leftover;
 
     UniValue ret(UniValue::VOBJ);
 

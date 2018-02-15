@@ -7,6 +7,7 @@ import sys
 import time
 import subprocess
 import shutil
+from decimal import *
 
 if len(sys.argv) < 2:
     print("path to bitcoind must be included as argument")
@@ -132,13 +133,13 @@ try:
     sidechain2 = AuthServiceProxy("http://sidechainrpc2:"+sidechain2_pass+"@127.0.0.1:"+str(sidechain2_port))
     print("Daemons started, making blocks to get funds")
 
-    bitcoin.generate(101)
+    bitcoin.generate(102)
     sidechain.generate(101)
 
     addr = bitcoin.getnewaddress()
-
     addrs = sidechain.getpeginaddress()
-    txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
+    # Enough value to create 3 outputs, 2 of which are max hidden size at 32 bits of hiding
+    txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 99)
     # 10+2 confirms required to get into mempool and confirm
     bitcoin.generate(11)
     time.sleep(2)
@@ -165,6 +166,13 @@ try:
     bitcoin.generate(1)
     # Should succeed via wallet lookup for address match, and when given
     pegtxid1 = sidechain.claimpegin(raw, proof)
+
+    # This transaction should have 4 outputs, first 3 of which are payments to self
+    # all if which are below 2^32 - 1 in satoshis
+    raw_peg_details = sidechain.getrawtransaction(pegtxid1, 1)
+    assert(len(raw_peg_details["vout"]) == 4)
+    for i in range(3):
+            assert(raw_peg_details["vout"][i]["value"] <= Decimal('42.94967295'))
 
     # Will invalidate the block that confirms this transaction later
     blockhash = sync_all(sidechain, sidechain2)
