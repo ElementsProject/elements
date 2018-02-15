@@ -235,8 +235,10 @@ except Exception as e:
 print("Stopping daemons and cleaning up")
 bitcoin.stop()
 sidechain.stop()
+sidechain2.stop()
 
 time.sleep(5)
 
+shutil.rmtree(sidechain2_datadir)
 shutil.rmtree(sidechain_datadir)
 shutil.rmtree(bitcoin_datadir)
