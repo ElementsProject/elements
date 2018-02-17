@@ -47,6 +47,7 @@ struct ChainTxData {
 class CChainParams
 {
 public:
+    CChainParams() = delete;
     enum Base58Type {
         PUBKEY_ADDRESS,
         SCRIPT_ADDRESS,
@@ -92,7 +93,7 @@ public:
     const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
     bool anyonecanspend_aremine;
 protected:
-    CChainParams() {}
+    CChainParams(const std::string& chain) : strNetworkID(chain) {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;
