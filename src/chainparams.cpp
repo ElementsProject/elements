@@ -108,7 +108,8 @@ void CChainParams::UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nSta
  */
 class CElementsParams : public CChainParams {
 public:
-    CElementsParams() {
+    CElementsParams(const std::string& chain) : CChainParams(chain)
+    {
         CScript defaultSignblockScript;
         // Default blocksign script for elements
         defaultSignblockScript = CScript() << OP_2 << ParseHex("03206b45265ae687dfdc602b8faa7dd749d7865b0e51f986e12c532229f0c998be") << ParseHex("02cc276552e180061f64dc16e2a02e7f9ecbcc744dea84eddbe991721824df825c") << ParseHex("0204c6be425356d9200a3303d95f2c39078cc9473ca49619da1e0ec233f27516ca") << OP_3 << OP_CHECKMULTISIG;
@@ -117,7 +118,6 @@ public:
         defaultFedpegScript = CScript() << OP_2 << ParseHex("02d51090b27ca8f1cc04984614bd749d8bab6f2a3681318d3fd0dd43b2a39dd774") << ParseHex("03a75bd7ac458b19f98047c76a6ffa442e592148c5d23a1ec82d379d5d558f4fd8") << ParseHex("034c55bede1bce8e486080f8ebb7a0e8f106b49efb295a8314da0e1b1723738c66") << OP_3 << OP_CHECKMULTISIG;
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultFedpegScript);
 
-        strNetworkID = CHAINPARAMS_OLD_MAIN;
         consensus.nSubsidyHalvingInterval = 210000;
         consensus.BIP34Height = 227931;
         consensus.BIP34Hash = uint256S("0x000000000000024b89b42a942fe0d9fea3bb44ab7bd1b19115dd6a759c0808b8");
@@ -218,9 +218,8 @@ public:
  */
 class CMainParams : public CElementsParams {
 public:
-    CMainParams() : CElementsParams() {
-        strNetworkID = CHAINPARAMS_OLD_MAIN;
-
+    CMainParams(const std::string& chain) : CElementsParams(chain)
+    {
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
         base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1,11);
@@ -238,12 +237,12 @@ public:
  */
 class CRegTestParams : public CChainParams {
 public:
-    CRegTestParams() {
+    CRegTestParams(const std::string& chain) : CChainParams(chain)
+    {
         const CScript defaultRegtestScript(CScript() << OP_TRUE);
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
 
-        strNetworkID = CHAINPARAMS_REGTEST;
         consensus.nSubsidyHalvingInterval = 150;
         consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
         consensus.BIP34Hash = uint256();
@@ -333,8 +332,6 @@ class CCustomParams : public CChainParams {
 
     void UpdateFromArgs()
     {
-        strNetworkID = GetArg("-chainpetname", "custom");
-
         consensus.fPowAllowMinDifficultyBlocks = GetBoolArg("-con_fpowallowmindifficultyblocks", true);
         consensus.fPowNoRetargeting = GetBoolArg("-con_fpownoretargeting", true);
         consensus.nSubsidyHalvingInterval = GetArg("-con_nsubsidyhalvinginterval", 150);
@@ -360,7 +357,7 @@ class CCustomParams : public CChainParams {
     }
 
 public:
-    CCustomParams()
+    CCustomParams(const std::string& chain) : CChainParams(chain)
     {
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
@@ -410,13 +407,10 @@ const CChainParams &Params() {
 std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-        return std::unique_ptr<CChainParams>(new CMainParams());
+        return std::unique_ptr<CChainParams>(new CMainParams(CHAINPARAMS_OLD_MAIN));
     else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams());
-    else if (chain == CBaseChainParams::CUSTOM) {
-        return std::unique_ptr<CChainParams>(new CCustomParams());
-    }
-    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+        return std::unique_ptr<CChainParams>(new CRegTestParams(CHAINPARAMS_REGTEST));
+    return std::unique_ptr<CChainParams>(new CCustomParams(chain));
 }
 
 void SelectParams(const std::string& network)
