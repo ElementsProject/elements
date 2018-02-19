@@ -12,7 +12,6 @@
 
 const std::string CBaseChainParams::MAIN = CHAINPARAMS_OLD_MAIN;
 const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
-const std::string CBaseChainParams::CUSTOM = "custom";
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
@@ -26,44 +25,6 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
     }
 }
 
-/**
- * Old Main network
- */
-class CBaseMainParams : public CBaseChainParams
-{
-public:
-    CBaseMainParams()
-    {
-        nRPCPort = 8332;
-        strDataDir = CHAINPARAMS_OLD_MAIN;
-    }
-};
-
-/**
- * Regression test
- */
-class CBaseRegTestParams : public CBaseChainParams
-{
-public:
-    CBaseRegTestParams()
-    {
-        nRPCPort = 7041;
-        nMainchainRPCPort = 18332;
-        strDataDir = CHAINPARAMS_REGTEST;
-    }
-};
-
-/** Custom tests */
-class CBaseCustomParams : public CBaseChainParams
-{
-public:
-    CBaseCustomParams()
-    {
-        nRPCPort = 18332;
-        strDataDir = "custom";
-    }
-};
-
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
 
 const CBaseChainParams& BaseParams()
@@ -75,13 +36,8 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-        return std::unique_ptr<CBaseChainParams>(new CBaseMainParams());
-    else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CBaseChainParams>(new CBaseRegTestParams());
-    else if (chain == CBaseChainParams::CUSTOM)
-        return std::unique_ptr<CBaseChainParams>(new CBaseCustomParams());
-    else
-        throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+        return std::unique_ptr<CBaseChainParams>(new CBaseChainParams(chain, 8332, 18332));
+    return std::unique_ptr<CBaseChainParams>(new CBaseChainParams(chain, 7041, 18332));
 }
 
 void SelectBaseParams(const std::string& chain)

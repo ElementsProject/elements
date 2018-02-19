@@ -103,29 +103,51 @@ void CChainParams::UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nSta
 }
 
 /**
- * Regression test
+ * Custom chain params
  */
-class CRegTestParams : public CChainParams {
+class CCustomParams : public CChainParams {
+
+protected:
+    void UpdateFromArgs()
+    {
+        consensus.nSubsidyHalvingInterval = GetArg("-con_nsubsidyhalvinginterval", 150);
+        // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
+        consensus.BIP34Height = GetArg("-con_bip34height", 100000000);
+        consensus.BIP34Hash = uint256S(GetArg("-con_bip34hash", "0x00"));
+        consensus.BIP65Height = GetArg("-con_bip65height", 1351);
+        consensus.BIP66Height = GetArg("-con_bip66height", 1251);
+        consensus.powLimit = uint256S(GetArg("-con_powlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+        consensus.parentChainPowLimit = uint256S(GetArg("-con_parentpowlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+        consensus.nPowTargetTimespan = GetArg("-con_npowtargettimespan", 14 * 24 * 60 * 60); // two weeks
+        consensus.nPowTargetSpacing = GetArg("-con_npowtargetspacing", 10 * 60);
+        consensus.fPowAllowMinDifficultyBlocks = GetBoolArg("-con_fpowallowmindifficultyblocks", true);
+        consensus.fPowNoRetargeting = GetBoolArg("-con_fpownoretargeting", true);
+        consensus.nRuleChangeActivationThreshold = GetArg("-con_nrulechangeactivationthreshold", 108); // 75% for testchains
+        consensus.nMinerConfirmationWindow = GetArg("-con_nminerconfirmationwindow", 144); // Faster than normal for custom (144 instead of 2016)
+
+        // The best chain should have at least this much work.
+        consensus.nMinimumChainWork = uint256S(GetArg("-con_nminimumchainwork", "0x00"));
+        // By default assume that the signatures in ancestors of this block are valid.
+        consensus.defaultAssumeValid = uint256S(GetArg("-con_defaultassumevalid", "0x00"));
+
+        nDefaultPort = GetArg("-ndefaultport", 7042);
+        nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
+        fMiningRequiresPeers = GetBoolArg("-fminingrequirespeers", false);
+        fDefaultConsistencyChecks = GetBoolArg("-fdefaultconsistencychecks", true);
+        fRequireStandard = GetBoolArg("-frequirestandard", false);
+        fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
+        anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
+    }
+
 public:
-    CRegTestParams() {
+    CCustomParams(const std::string& chain) : CChainParams(chain)
+    {
+        this->UpdateFromArgs();
+
         const CScript defaultRegtestScript(CScript() << OP_TRUE);
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
 
-        strNetworkID = CHAINPARAMS_REGTEST;
-        consensus.nSubsidyHalvingInterval = 150;
-        consensus.BIP34Height = 100000000; // BIP34 has not activated on regtest (far in the future so block v1 are not rejected in tests)
-        consensus.BIP34Hash = uint256();
-        consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in rpc activation tests)
-        consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in rpc activation tests)
-        consensus.powLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.parentChainPowLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.nPowTargetSpacing = 10 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = true;
-        consensus.fPowNoRetargeting = true;
-        consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
-        consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 999999999999ULL;
@@ -136,18 +158,10 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 999999999999ULL;
 
-        // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x00");
-
-        // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x00");
-
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
         pchMessageStart[2] = 0xb5;
         pchMessageStart[3] = 0xda;
-        nDefaultPort = 7042;
-        nPruneAfterHeight = 1000;
 
         parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
 
@@ -166,12 +180,6 @@ public:
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
-
-        fMiningRequiresPeers = false;
-        fDefaultConsistencyChecks = true;
-        fRequireStandard = false;
-        fMineBlocksOnDemand = true;
-        anyonecanspend_aremine = true;
 
         checkpointData = (CCheckpointData){
             boost::assign::map_list_of
@@ -196,79 +204,11 @@ public:
 };
 
 /**
- * Custom params for testing.
- */
-class CCustomParams : public CChainParams {
-
-    void UpdateFromArgs()
-    {
-        strNetworkID = GetArg("-chainpetname", "custom");
-
-        consensus.fPowAllowMinDifficultyBlocks = GetBoolArg("-con_fpowallowmindifficultyblocks", true);
-        consensus.fPowNoRetargeting = GetBoolArg("-con_fpownoretargeting", true);
-        consensus.nSubsidyHalvingInterval = GetArg("-con_nsubsidyhalvinginterval", 150);
-        consensus.BIP34Height = GetArg("-con_bip34height", 100000000);
-        consensus.BIP65Height = GetArg("-con_bip65height", 1351);
-        consensus.BIP66Height = GetArg("-con_bip66height", 1251);
-        consensus.nPowTargetTimespan = GetArg("-con_npowtargettimespan", 14 * 24 * 60 * 60); // two weeks
-        consensus.nPowTargetSpacing = GetArg("-con_npowtargetspacing", 10 * 60);
-        consensus.nRuleChangeActivationThreshold = GetArg("-con_nrulechangeactivationthreshold", 108); // 75% for testchains
-        consensus.nMinerConfirmationWindow = GetArg("-con_nminerconfirmationwindow", 144); // Faster than normal for custom (144 instead of 2016)
-        consensus.powLimit = uint256S(GetArg("-con_powlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
-        consensus.BIP34Hash = uint256S(GetArg("-con_bip34hash", "0x0"));
-        consensus.nMinimumChainWork = uint256S(GetArg("-con_nminimumchainwork", "0x0"));
-        // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S(GetArg("-con_defaultassumevalid", "0x00"));
-
-        nDefaultPort = GetArg("-ndefaultport", 18444);
-        nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
-        fDefaultConsistencyChecks = GetBoolArg("-fdefaultconsistencychecks", true);
-        fRequireStandard = GetBoolArg("-frequirestandard", false);
-        fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
-        anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
-    }
-
-public:
-    CCustomParams()
-    {
-        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 999999999999ULL;
-        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].bit = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = 999999999999ULL;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].bit = 1;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 999999999999ULL;
-
-        pchMessageStart[0] = 0xfa;
-        pchMessageStart[1] = 0xbf;
-        pchMessageStart[2] = 0xb5;
-        pchMessageStart[3] = 0xda;
-        vFixedSeeds.clear(); //!< Custom mode doesn't have any fixed seeds.
-        vSeeds.clear();      //!< Custom mode doesn't have any DNS seeds.
-        chainTxData = ChainTxData{
-            0,
-            0,
-            0
-        };
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,111);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,196);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
-
-        UpdateFromArgs();
-        consensus.hashGenesisBlock = genesis.GetHash();
-    }
-};
-
-/**
  * Use base58 and other old configurations for outdated unittests
  */
-class CMainParams : public CRegTestParams {
+class CMainParams : public CCustomParams {
 public:
-    CMainParams() : CRegTestParams()
+    CMainParams() : CCustomParams(CHAINPARAMS_OLD_MAIN)
     {
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
@@ -304,12 +244,7 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CChainParams>(new CMainParams());
-    else if (chain == CBaseChainParams::REGTEST)
-        return std::unique_ptr<CChainParams>(new CRegTestParams());
-    else if (chain == CBaseChainParams::CUSTOM) {
-        return std::unique_ptr<CChainParams>(new CCustomParams());
-    }
-    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+    return std::unique_ptr<CChainParams>(new CCustomParams(chain));
 }
 
 void SelectParams(const std::string& network)
