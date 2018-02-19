@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#define CHAINPARAMS_OLD_MAIN "main"
+#define CHAINPARAMS_OLD_MAIN "___old_main"
 #define CHAINPARAMS_REGTEST "elementsregtest"
 
 /**
