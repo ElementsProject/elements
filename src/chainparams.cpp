@@ -208,7 +208,7 @@ public:
  */
 class CMainParams : public CCustomParams {
 public:
-    CMainParams() : CCustomParams(CHAINPARAMS_OLD_MAIN)
+    CMainParams(const std::string& chain) : CCustomParams(chain)
     {
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
@@ -243,7 +243,7 @@ const CChainParams &Params() {
 std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-        return std::unique_ptr<CChainParams>(new CMainParams());
+        return std::unique_ptr<CChainParams>(new CMainParams(chain));
     return std::unique_ptr<CChainParams>(new CCustomParams(chain));
 }
 
