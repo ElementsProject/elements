@@ -92,7 +92,8 @@ public:
     const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
     bool anyonecanspend_aremine;
 protected:
-    CChainParams() {}
+    CChainParams() = delete;
+    CChainParams(const std::string& chain) : strNetworkID(chain) {}
 
     Consensus::Params consensus;
     CMessageHeader::MessageStartChars pchMessageStart;

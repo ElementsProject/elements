@@ -147,6 +147,11 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
             rbfStatus = "yes";
     }
     entry.push_back(Pair("bip125-replaceable", rbfStatus));
+
+    // Push transaction comments
+    entry.push_back(Pair("comment", wtx.mapValue["comment"]));
+    entry.push_back(Pair("to", wtx.mapValue["to"]));
+
 }
 
 string AccountFromValue(const UniValue& value)

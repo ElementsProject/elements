@@ -22,6 +22,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "validationinterface.h"
+#include "policy/policy.h"
 
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
@@ -336,12 +337,13 @@ std::string gbt_vb_name(const Consensus::DeploymentPos pos) {
 
 UniValue testproposedblock(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 1)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             "testproposedblock \"blockhex\"\n"
             "\nChecks a block proposal for validity, and that it extends chaintip\n"
             "\nArguments:\n"
             "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
+            "2. \"acceptnonstd\" (bool, optional) If set false, returns error if block contains non-standard transaction. Default is set via `-acceptnonstdtxn`\n"
             "\nResult\n"
             "\nExamples:\n"
             + HelpExampleCli("testproposedblock", "<hex>")
@@ -369,6 +371,17 @@ UniValue testproposedblock(const JSONRPCRequest& request)
         if (strRejectReason.empty())
             throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
         throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+    }
+
+    const CChainParams& chainparams = Params();
+    if ((!request.params[1].isNull() && !request.params[1].get_bool()) ||
+            (request.params[1].isNull() && !GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard()))) {
+        for (auto& transaction : block.vtx) {
+            std::string reason;
+            if (!IsStandardTx(*transaction, reason)) {
+                throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
+            }
+        }
     }
 
     return NullUniValue;
@@ -994,7 +1007,7 @@ static const CRPCCommand commands[] =
     { "mining",             "prioritisetransaction",  &prioritisetransaction,  true,  {"txid","priority_delta","fee_delta"} },
     { "mining",             "getblocktemplate",       &getblocktemplate,       true,  {"template_request"} },
     { "mining",             "submitblock",            &submitblock,            true,  {"hexdata","parameters"} },
-    { "mining",             "testproposedblock",      &testproposedblock,      true,  {} },
+    { "mining",             "testproposedblock",      &testproposedblock,      true,  {"blockhex", "acceptnonstd"} },
 
     { "generating",         "generate",               &generate,               true,  {"nblocks","maxtries"} },
     { "generating",         "combineblocksigs",       &combineblocksigs,       true,  {} },

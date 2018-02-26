@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#define CHAINPARAMS_OLD_MAIN "main"
+#define CHAINPARAMS_OLD_MAIN "___old_main"
 #define CHAINPARAMS_REGTEST "elementsregtest"
 
 /**
@@ -21,14 +21,15 @@ class CBaseChainParams
 public:
     static const std::string MAIN;
     static const std::string REGTEST;
-    static const std::string CUSTOM;
 
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
     int MainchainRPCPort() const { return nMainchainRPCPort; }
-protected:
-    CBaseChainParams() {}
+    CBaseChainParams() = delete;
+    CBaseChainParams(const std::string& data_dir, int rpc_port, int mainchain_rpc_port) :
+        nRPCPort(rpc_port), nMainchainRPCPort(mainchain_rpc_port), strDataDir(data_dir) {}
 
+private:
     int nRPCPort;
     int nMainchainRPCPort;
     std::string strDataDir;
