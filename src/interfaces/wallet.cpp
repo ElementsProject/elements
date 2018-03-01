@@ -74,6 +74,11 @@ static WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LO
                                                       IsMine(wallet, result.txout_address.back()) :
                                                       ISMINE_NO);
     }
+    // ELEMENTS: Retrieve unblinded information about outputs
+    for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
+        result.txout_amounts.emplace_back(wtx.GetOutputValueOut(i));
+        result.txout_assets.emplace_back(wtx.GetOutputAsset(i));
+    }
     result.credit = wtx.GetCredit(ISMINE_ALL);
     result.debit = wtx.GetDebit(ISMINE_ALL);
     result.change = wtx.GetChange();

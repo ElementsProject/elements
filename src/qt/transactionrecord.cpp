@@ -105,13 +105,12 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             //
             // Debit
             //
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOutMap()[::policyAsset];
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
                 const CTxOut& txout = wtx.tx->vout[nOut];
 
-                if(wtx.txout_is_mine[nOut])
+                if(wtx.txout_is_mine[nOut] || txout.IsFee())
                 {
                     // Ignore parts sent to self, as this is usually the change
                     // from a transaction sent back to our own address.
@@ -121,6 +120,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 TransactionRecord sub(hash, nTime);
                 sub.idx = nOut;
                 sub.involvesWatchAddress = involvesWatchAddress;
+                sub.debit = -wtx.txout_amounts[nOut];
 
                 if (!boost::get<CNoDestination>(&wtx.txout_address[nOut]))
                 {
@@ -134,16 +134,14 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     sub.type = TransactionRecord::SendToOther;
                     sub.address = mapValue["to"];
                 }
-
-                CAmount nValue = txout.nValue.GetAmount();
-                /* Add fee to first output */
-                if (nTxFee > 0)
-                {
-                    nValue += nTxFee;
-                    nTxFee = 0;
-                }
-                sub.debit = -nValue;
-
+                parts.append(sub);
+            }
+            CAmount nTxFee = GetFeeMap(*wtx.tx)[::policyAsset];
+            if (nTxFee > 0)
+            {
+                TransactionRecord sub(hash, nTime);
+                sub.type = TransactionRecord::Fee;
+                sub.debit = -nTxFee;
                 parts.append(sub);
             }
         }
