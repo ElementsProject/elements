@@ -110,9 +110,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
                 const CTxOut& txout = wtx.tx->vout[nOut];
-                TransactionRecord sub(hash, nTime);
-                sub.idx = nOut;
-                sub.involvesWatchAddress = involvesWatchAddress;
 
                 if(wtx.txout_is_mine[nOut])
                 {
@@ -120,6 +117,10 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     // from a transaction sent back to our own address.
                     continue;
                 }
+
+                TransactionRecord sub(hash, nTime);
+                sub.idx = nOut;
+                sub.involvesWatchAddress = involvesWatchAddress;
 
                 if (!boost::get<CNoDestination>(&wtx.txout_address[nOut]))
                 {
