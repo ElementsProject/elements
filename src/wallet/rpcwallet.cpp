@@ -3669,8 +3669,9 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     txinwit.m_pegin_witness = pegin_witness;
     mtx.wit.vtxinwit.push_back(txinwit);
 
-    // Estimate fee for transaction, decrement fee output(including estimated signature)
-    unsigned int nBytes = GetVirtualTransactionSize(mtx)+(72/WITNESS_SCALE_FACTOR);
+    // Estimate fee for transaction, decrement fee output(including witness data)
+    unsigned int nBytes = GetVirtualTransactionSize(mtx) +
+        (1+1+72+1+33/WITNESS_SCALE_FACTOR);
     CAmount nFeeNeeded = CWallet::GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
 
     mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
