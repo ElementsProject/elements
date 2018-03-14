@@ -63,28 +63,46 @@ public:
 };
 static RPCRawTransaction_ECC_Init ecc_init_on_load;
 
-void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
+static void SidehainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool is_parent_chain)
 {
+    const std::string prefix = is_parent_chain ? "pegout_" : "";
     txnouttype type;
     vector<CTxDestination> addresses;
     int nRequired;
 
-    out.push_back(Pair("asm", ScriptToAsmStr(scriptPubKey)));
+    out.push_back(Pair(prefix + "asm", ScriptToAsmStr(scriptPubKey)));
     if (fIncludeHex)
-        out.push_back(Pair("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
+        out.push_back(Pair(prefix + "hex", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
 
     if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-        out.push_back(Pair("type", GetTxnOutputType(type)));
+        out.push_back(Pair(prefix + "type", GetTxnOutputType(type)));
         return;
     }
 
-    out.push_back(Pair("reqSigs", nRequired));
-    out.push_back(Pair("type", GetTxnOutputType(type)));
+    out.push_back(Pair(prefix + "reqSigs", nRequired));
+    out.push_back(Pair(prefix + "type", GetTxnOutputType(type)));
 
     UniValue a(UniValue::VARR);
-    BOOST_FOREACH(const CTxDestination& addr, addresses)
-        a.push_back(CBitcoinAddress(addr).ToString());
-    out.push_back(Pair("addresses", a));
+    if (is_parent_chain) {
+        BOOST_FOREACH(const CTxDestination& addr, addresses)
+            a.push_back(CParentBitcoinAddress(addr).ToString());
+    } else {
+        BOOST_FOREACH(const CTxDestination& addr, addresses)
+            a.push_back(CBitcoinAddress(addr).ToString());
+    }
+    out.push_back(Pair(prefix + "addresses", a));
+}
+
+void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
+{
+    SidehainScriptPubKeyToJSON(scriptPubKey, out, fIncludeHex, false);
+
+    uint256 pegout_chain;
+    CScript pegout_scriptpubkey;
+    if (scriptPubKey.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
+        out.push_back(Pair("pegout_chain", pegout_chain.GetHex()));
+        SidehainScriptPubKeyToJSON(pegout_scriptpubkey, out, fIncludeHex, true);
+    }
 }
 
 void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
@@ -96,7 +114,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("vsize", (int)::GetVirtualTransactionSize(tx)));
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
-    
+
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
@@ -279,6 +297,15 @@ UniValue getrawtransaction(const JSONRPCRequest& request)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
+            "           \"address\"        (string) elements address\n"
+            "           ,...\n"
+            "         ]\n"
+            "         \"pegout_chain\" : \"hex\", (string) (only pegout) Hash of genesis block of parent chain'\n"
+            "         \"pegout_asm\":\"asm\",     (string) (only pegout) pegout scriptpubkey (asm)'\n"
+            "         \"pegout_hex\":\"hex\",     (string) (only pegout) pegout scriptpubkey (hex)'\n"
+            "         \"pegout_reqSigs\" : n,     (numeric) (only pegout) pegout required sigs\n"
+            "         \"pegout_type\" : \"pubkeyhash\", (string) (only pegout) The pegout type, eg 'pubkeyhash'\n"
+            "         \"pegout_addresses\" : [    (json array of string) (only pegout)\n"
             "           \"address\"        (string) bitcoin address\n"
             "           ,...\n"
             "         ]\n"
@@ -317,7 +344,7 @@ UniValue getrawtransaction(const JSONRPCRequest& request)
         }
         else {
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid type provided. Verbose parameter must be a boolean.");
-        } 
+        }
     }
 
     CTransactionRef tx;
