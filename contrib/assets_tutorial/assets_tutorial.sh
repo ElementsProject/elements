@@ -341,7 +341,7 @@ e1-cli getrawtransaction $CLAIMTXID 1
 
 #### Pegging Out ####
 
-#sendtomainaddress <addr> <amount>
+e1-cli sendtomainchain $(b-cli getnewaddress) 10
 
 #Exercises
 #1. Implement really dumb/unsafe watchmen to allow pegouts for learning purposes
