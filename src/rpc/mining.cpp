@@ -377,6 +377,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     if ((!request.params[1].isNull() && !request.params[1].get_bool()) ||
             (request.params[1].isNull() && !GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard()))) {
         for (auto& transaction : block.vtx) {
+            if (transaction->IsCoinBase()) continue;
             std::string reason;
             if (!IsStandardTx(*transaction, reason)) {
                 throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
