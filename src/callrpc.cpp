@@ -180,6 +180,10 @@ UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool conn
 
 bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth)
 {
+    // Argument for more robust testing of intermittant peg-in failures
+    int failure_chance = GetArg("-chanceofpeginfailure", 0);
+    if (failure_chance > rand()%100) return false;
+
     try {
         UniValue params(UniValue::VARR);
         params.push_back(hash.GetHex());
