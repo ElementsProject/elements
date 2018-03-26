@@ -3117,13 +3117,13 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
                     pblocktree->ReadInvalidBlockQueue(vinvalidBlocks);
                     bool blockAlreadyInvalid = false;
                     BOOST_FOREACH(uint256& hash, vinvalidBlocks) {
-                        if (hash == pblock->GetHash()) {
+                        if (hash == blockConnecting.GetHash()) {
                             blockAlreadyInvalid = true;
                             break;
                         }
                     }
                     if (!blockAlreadyInvalid) {
-                        vinvalidBlocks.push_back(pblock->GetHash());
+                        vinvalidBlocks.push_back(blockConnecting.GetHash());
                         pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
                     }
                 }
