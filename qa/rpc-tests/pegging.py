@@ -169,15 +169,25 @@ try:
     addrs = sidechain.getpeginaddress()
     txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
     # 10+2 confirms required to get into mempool and confirm
-    bitcoin.generate(11)
+    bitcoin.generate(1)
     time.sleep(2)
     proof = bitcoin.gettxoutproof([txid1])
     raw = bitcoin.getrawtransaction(txid1)
 
     print("Attempting peg-in")
+    # First attempt fails the consensus check but gives useful result
     try:
         pegtxid = sidechain.claimpegin(raw, proof)
-        raise Exception("Peg-in should not mature enough yet, need another block.")
+        raise Exception("Peg-in should not be mature enough yet, need another block.")
+    except JSONRPCException as e:
+        assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
+        pass
+
+    # Second attempt simply doesn't hit mempool bar
+    bitcoin.generate(10)
+    try:
+        pegtxid = sidechain.claimpegin(raw, proof)
+        raise Exception("Peg-in should not be mature enough yet, need another block.")
     except JSONRPCException as e:
         assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
         pass

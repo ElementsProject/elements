@@ -3660,7 +3660,11 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     stack.push_back(txData);
     stack.push_back(txOutProofData);
 
-    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout)) {
+    // Peg-in witness isn't valid, even though the block header is(without depth check)
+    // We re-check depth before returning with more descriptive result
+    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN) &&
+            !IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), 0) &&
+    !IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
     }
 
