@@ -333,7 +333,7 @@ def _rpchost_to_args(rpchost):
         rv += ['-rpcport=' + rpcport]
     return rv
 
-def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=None, chain='elementsregtest'):
+def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=None, chain='elementsregtest', stderr=sys.stderr):
     """
     Start a bitcoind and return RPC connection to it
     """
@@ -342,7 +342,7 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
         binary = os.getenv("ELEMENTSD", "elementsd")
     args = [ binary, '-chain='+chain, "-datadir="+datadir, "-server", "-keypool=1", "-discover=0", "-rest", "-mocktime="+str(get_mocktime()) ]
     if extra_args is not None: args.extend(extra_args)
-    bitcoind_processes[i] = subprocess.Popen(args)
+    bitcoind_processes[i] = subprocess.Popen(args, stderr=stderr)
     if os.getenv("PYTHON_DEBUG", ""):
         print("start_node: bitcoind started, waiting for RPC to come up")
     url = rpc_url(i, rpchost)

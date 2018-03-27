@@ -107,6 +107,7 @@ testScripts = [
     'feature_fedpeg.py',
     'default_asset_name.py',
     'assetdir.py',
+    'emergency.py',
 
     # Elements' specially adapted tests second
     'blockchain.py',
