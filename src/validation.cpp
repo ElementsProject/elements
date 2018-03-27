@@ -2083,6 +2083,15 @@ void InitEmergencyMode(const CChainParams& chainparams)
     }
 }
 
+static void CheckInvalidBlockSignatures(const CBlockHeader& block, CValidationState& state, const CChainParams& chainparams)
+{
+    const CScript defaultRegtestScript(CScript() << OP_TRUE);
+    if (defaultRegtestScript != block.proof.challenge && CheckProof(block, chainparams.GetConsensus())) {
+        SetEmergencyMode(state, chainparams, "Block signers are signing invalid blocks",
+                         "Block signers are signing invalid blocks: " + state.GetRejectReason() + " " + state.GetDebugMessage());
+    }
+}
+
 /**
  * Apply the undo operation of a CTxInUndo to the given chain state.
  * @param undo The undo object.
@@ -3245,6 +3254,12 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
                         vinvalidBlocks.push_back(blockConnecting.GetHash());
                         pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
                     }
+                } else {
+                    // If validation fails due to REJECT_PEGIN, It could simply be the case that the parent daemon
+                    // is not in sync and therefore claimpegin transactions can not be validated.
+                    // This check can not occur later in the validation path (f.e. after ActivateBestChain)
+                    // because the validation state is reset hereafter.
+                    CheckInvalidBlockSignatures(blockConnecting, state, chainparams);
                 }
             }
 
@@ -3807,7 +3822,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW)
 {
     // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProof(block, Params().GetConsensus()))
+    if (fCheckPOW && !CheckProof(block, consensusParams))
         return state.DoS(50, error("CheckBlockHeader(): block proof invalid"),
                          REJECT_INVALID, "block-proof-invalid", true);
 
@@ -4241,10 +4256,13 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
         if (ret) {
             // Store to disk
             ret = AcceptBlock(pblock, state, chainparams, &pindex, fForceProcessing, NULL, fNewBlock);
+        } else {
+            CheckInvalidBlockSignatures(*pblock, state, chainparams);
         }
         CheckBlockIndex(chainparams.GetConsensus());
         if (!ret) {
             GetMainSignals().BlockChecked(*pblock, state);
+            CheckInvalidBlockSignatures(*pblock, state, chainparams);
             return error("%s: AcceptBlock FAILED", __func__);
         }
     }
@@ -4271,14 +4289,22 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.nHeight = pindexPrev->nHeight + 1;
 
     // NOTE: CheckBlockHeader is called by CheckBlock
-    if (!ContextualCheckBlockHeader(block, state, chainparams.GetConsensus(), pindexPrev, GetAdjustedTime()))
+    if (!ContextualCheckBlockHeader(block, state, chainparams.GetConsensus(), pindexPrev, GetAdjustedTime())) {
+        CheckInvalidBlockSignatures(block, state, chainparams);
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW, fCheckMerkleRoot))
+    }
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), fCheckPOW, fCheckMerkleRoot)) {
+        CheckInvalidBlockSignatures(block, state, chainparams);
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
+    }
+    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev)) {
+        CheckInvalidBlockSignatures(block, state, chainparams);
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainparams, NULL, true))
-        return false;
+    }
+    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainparams, NULL, true)) {
+        CheckInvalidBlockSignatures(block, state, chainparams);
+        return error("%s: ConnectBlock: %s", __func__, FormatStateMessage(state));
+    }
     assert(state.IsValid());
 
     return true;
@@ -4647,9 +4673,11 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
             return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus()))
+        if (nCheckLevel >= 1 && !CheckBlock(block, state, chainparams.GetConsensus())) {
+            CheckInvalidBlockSignatures(block, state, chainparams);
             return error("%s: *** found bad block at %d, hash=%s (%s)\n", __func__,
                          pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
+        }
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {
             CBlockUndo undo;
@@ -4687,8 +4715,10 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (!ConnectBlock(block, state, pindex, coins, chainparams))
+            if (!ConnectBlock(block, state, pindex, coins, chainparams)) {
+                CheckInvalidBlockSignatures(block, state, chainparams);
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
+            }
         }
     }
 
