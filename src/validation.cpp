@@ -2053,6 +2053,36 @@ bool AbortNode(CValidationState& state, const std::string& strMessage, const std
 
 } // anon namespace
 
+static const std::string EMERGENCY_MODE_FILE_NAME = "_HAS_SUFFERED_A_CRITICAL_FAILURE_AND_MAY_BE_UNSAFE_CORRECT_ERROR_BEFORE_REMOVING_THIS_FILE";
+
+void SetEmergencyMode(CValidationState& state, const CChainParams& chainparams, const std::string& strMessage, const std::string& userMessage)
+{
+    if (GetBoolArg("-ignoreemergencymode", false)) {
+        return;
+    }
+    const std::string filename = "ERROR_" + chainparams.NetworkIDString() + EMERGENCY_MODE_FILE_NAME;
+    boost::filesystem::path path = GetDataDir() / filename;
+    std::ofstream out(path.string().c_str());
+    if (out) {
+        AbortNode(state, strMessage, userMessage);
+    } else {
+        AbortNode(state, "WITHOUT WRITTING EMERGENCY FILE:" + strMessage, userMessage);
+    }
+}
+
+void InitEmergencyMode(const CChainParams& chainparams)
+{
+    if (GetBoolArg("-ignoreemergencymode", false)) {
+        return;
+    }
+    const std::string filename = "ERROR_" + chainparams.NetworkIDString() + EMERGENCY_MODE_FILE_NAME;
+    CValidationState state;
+    const std::string& strMessage = strprintf("%s(): %s", __func__, filename);
+    if (boost::filesystem::exists(GetDataDir() / filename)) {
+        AbortNode(state, strMessage);
+    }
+}
+
 /**
  * Apply the undo operation of a CTxInUndo to the given chain state.
  * @param undo The undo object.

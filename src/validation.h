@@ -213,6 +213,16 @@ static const unsigned int DEFAULT_CHECKLEVEL = 3;
 // Setting the target to > than 550MB will make it likely we can respect the target.
 static const uint64_t MIN_DISK_SPACE_FOR_BLOCK_FILES = 550 * 1024 * 1024;
 
+/**
+ * Create the emergency file and aborts the node.
+ */
+void SetEmergencyMode(CValidationState& state, const CChainParams& chainparams, const std::string& strMessage, const std::string& userMessage="");
+/**
+ * Checks if the emergency file exists and if so aborts the node. This
+ * is intended to be used on initialization.
+ */
+void InitEmergencyMode(const CChainParams& chainparams);
+
 /** 
  * Process an incoming block. This only returns after the best known valid
  * block is made active. Note that it does not, however, guarantee that the

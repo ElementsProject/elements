@@ -904,6 +904,11 @@ bool AppInitParameterInteraction()
 {
     const CChainParams& chainparams = Params();
     // ********************************************************* Step 2: parameter interactions
+    CValidationState state;
+    if (GetBoolArg("-testemergencymode", false)) {
+        SetEmergencyMode(state, chainparams, "Testing emergency mode, the node should abort.", "Using -testemergencymode");
+    }
+    InitEmergencyMode(chainparams);
 
     // also see: InitParameterInteraction()
 

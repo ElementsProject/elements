@@ -25,6 +25,8 @@ SET_DOC_OPTIONAL = set(['-rpcssl', '-benchmark', '-h', '-help', '-socks', '-tor'
 
 SET_DOC_OPTIONAL.update(['-con_fpowallowmindifficultyblocks', '-con_fpownoretargeting', '-con_nsubsidyhalvinginterval', '-con_bip34height', '-con_bip65height', '-con_bip66height', '-con_npowtargettimespan', '-con_npowtargetspacing', '-con_nrulechangeactivationthreshold', '-con_nminerconfirmationwindow', '-con_powlimit', '-con_parentpowlimit', '-con_bip34hash', '-con_nminimumchainwork', '-con_defaultassumevalid', '-parentgenesisblockhash', '-ndefaultport', '-npruneafterheight', '-fdefaultconsistencychecks', '-frequirestandard', '-fmineblocksondemand', '-mainchainrpccookiefile', '-testnet', '-ct_bits', '-ct_exponent', '-anyonecanspendaremine', '-fminingrequirespeers', '-fmineblocksondemand', '-con_mandatorycoinbase', '-con_has_parent_chain'])
 
+SET_DOC_OPTIONAL.update(['-testemergencymode', '-ignoreemergencymode'])
+
 def main():
   used = check_output(CMD_GREP_ARGS, shell=True)
   docd = check_output(CMD_GREP_DOCS, shell=True)
