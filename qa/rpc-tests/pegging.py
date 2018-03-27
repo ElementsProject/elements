@@ -178,7 +178,7 @@ try:
     # First attempt fails the consensus check but gives useful result
     try:
         pegtxid = sidechain.claimpegin(raw, proof)
-        raise Exception("Peg-in should not mature enough yet, need another block.")
+        raise Exception("Peg-in should not be mature enough yet, need another block.")
     except JSONRPCException as e:
         assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
         pass
@@ -187,7 +187,7 @@ try:
     bitcoin.generate(10)
     try:
         pegtxid = sidechain.claimpegin(raw, proof)
-        raise Exception("Peg-in should not mature enough yet, need another block.")
+        raise Exception("Peg-in should not be mature enough yet, need another block.")
     except JSONRPCException as e:
         assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
         pass
