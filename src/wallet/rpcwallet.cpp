@@ -3687,7 +3687,7 @@ UniValue createrawpegin(const JSONRPCRequest& request)
 
     // Additional block lee-way to avoid bitcoin block races
     if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        ret.push_back(Pair("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH)+2)));
+        ret.push_back(Pair("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), Params().GetConsensus().pegin_min_depth+2)));
     }
 
     return ret;
