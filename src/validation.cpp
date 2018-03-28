@@ -2357,7 +2357,7 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
     return scriptDestination;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
 
     // Format on stack is as follows:
     // 1) value - the value of the pegin output
@@ -2473,8 +2473,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     }
 
     // Finally, validate peg-in via rpc call
-    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        // TODO-PEGIN return useful error message
+    if (check_depth && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         return IsConfirmedBitcoinBlock(merkle_block.header.GetHash(), GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH));
     }
     return true;
