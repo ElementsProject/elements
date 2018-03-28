@@ -2474,7 +2474,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     // Finally, validate peg-in via rpc call
     if (check_depth && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        return IsConfirmedBitcoinBlock(merkle_block.header.GetHash(), GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH));
+        return IsConfirmedBitcoinBlock(merkle_block.header.GetHash(), Params().GetConsensus().pegin_min_depth);
     }
     return true;
 }
