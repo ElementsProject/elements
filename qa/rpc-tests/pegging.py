@@ -21,14 +21,16 @@ print(bitcoin_bin_path)
 print(sidechain_bin_path)
 
 # Sync mempool, make a block, sync blocks
-def sync_all(sidechain, sidechain2):
+def sync_all(sidechain, sidechain2, makeblock=True):
+    block = ""
     timeout = 20
     while len(sidechain.getrawmempool()) != len(sidechain2.getrawmempool()):
         time.sleep(1)
         timeout -= 1
         if timeout == 0:
             raise Exception("Peg-in has failed to propagate.")
-    block = sidechain2.generate(1)
+    if makeblock:
+        block = sidechain2.generate(1)
     while sidechain.getblockcount() != sidechain2.getblockcount():
         time.sleep(1)
         timeout -= 1
@@ -62,6 +64,11 @@ sidechain2_p2p_port = bitcoin_port + 4
 bitcoin2_port = bitcoin_port + 5
 bitcoin2_p2p_port = bitcoin_port + 6
 bitcoin_p2p_port = bitcoin_port + 7
+
+bitcoin = None
+bitcoin2 = None
+sidechain = None
+sidechain2 = None
 
 os.makedirs(bitcoin_datadir)
 os.makedirs(sidechain_datadir)
@@ -264,6 +271,32 @@ try:
         if "confirmations" not in tx or tx["confirmations"] == 0:
             raise Exception("Peg-in confirmation has failed.")
 
+    print ("Now test failure to validate peg-ins based on intermittant bitcoind rpc failure")
+    bitcoin2.stop()
+    txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 1)
+    bitcoin.generate(12)
+    proof = bitcoin.gettxoutproof([txid])
+    raw = bitcoin.getrawtransaction(txid)
+    stuck_peg = sidechain.claimpegin(raw, proof)
+    sidechain.generate(1)
+    print("Waiting to ensure block is being rejected by sidechain2")
+    time.sleep(5)
+
+    assert(sidechain.getblockcount() != sidechain2.getblockcount())
+
+    bitcoind2start = bitcoin_bin_path+"/bitcoind -datadir="+bitcoin2_datadir
+    subprocess.Popen(bitcoind2start.split(), stdout=subprocess.PIPE)
+    print("Restarting bitcoind2")
+    time.sleep(5)
+    with open(bitcoin2_rpccookiefile, 'r') as f:
+        bitcoin2_rpccookie = f.readline()
+    bitcoin2 = AuthServiceProxy("http://"+ bitcoin2_rpccookie +"@127.0.0.1:"+str(bitcoin2_port))
+
+    # Don't make a block, race condition when pegin-invalid block
+    # is awaiting further validation, nodes reject subsequent blocks
+    # even ones they create
+    sync_all(sidechain, sidechain2, False)
+
     print("Success!")
 
 except JSONRPCException as e:
@@ -274,10 +307,14 @@ except Exception as e:
         print(e)
 
 print("Stopping daemons and cleaning up")
-bitcoin.stop()
-bitcoin2.stop()
-sidechain.stop()
-sidechain2.stop()
+if bitcoin is not None:
+    bitcoin.stop()
+if bitcoin2 is not None:
+    bitcoin2.stop()
+if sidechain is not None:
+    sidechain.stop()
+if sidechain2 is not None:
+    sidechain2.stop()
 
 time.sleep(5)
 
