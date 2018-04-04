@@ -476,9 +476,10 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             "     ]\n"
             "2. \"outputs\"               (object, required) a json object with outputs\n"
             "    {\n"
-            "      \"address\": x.xxx,    (numeric or string, required) The key is the bitcoin address, the numeric value (can be string) is the " + CURRENCY_UNIT + " amount\n"
-            "      \"data\": \"hex\"      (string, required) The key is \"data\", the value is hex encoded data\n"
-            "      \"fee\": x.xxx           (numeric or string, required) The key is \"fee\", the value the fee output you want to add.\n"
+            "      \"address\": x.xxx,    (numeric or string, optional) The key is the bitcoin address, the numeric value (can be string) is the " + CURRENCY_UNIT + " amount\n"
+            "      \"data\": \"hex\"      (string, optional) The key is \"data\", the value is hex encoded data\n"
+            "      \"vdata\": \"hex\"     (string, optional) The key is \"vdata\", the value is an array of hex encoded data\n"
+            "      \"fee\": x.xxx         (numeric or string, optional) The key is \"fee\", the value the fee output you want to add.\n"
             "      ,...\n"
             "    }\n"
             "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
@@ -570,6 +571,16 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             std::vector<unsigned char> data = ParseHexV(sendTo[name_].getValStr(),"Data");
 
             CTxOut out(asset, 0, CScript() << OP_RETURN << data);
+            rawTx.vout.push_back(out);
+        } else if (name_ == "vdata") {
+            UniValue vdata = sendTo[name_].get_array();
+            CScript datascript = CScript() << OP_RETURN;
+            for (size_t i = 0; i < vdata.size(); i++) {
+                std::vector<unsigned char> data = ParseHexV(vdata[i].get_str(), "Data");
+                datascript << data;
+            }
+
+            CTxOut out(asset, 0, datascript);
             rawTx.vout.push_back(out);
         } else if (name_ == "fee") {
             CAmount nAmount = AmountFromValue(sendTo[name_]);
