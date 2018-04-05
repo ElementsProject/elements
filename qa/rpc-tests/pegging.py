@@ -173,6 +173,13 @@ try:
 
     addr = bitcoin.getnewaddress()
 
+    # First, blackhole all 21M bitcoin that already exist(and test subtractfrom)
+    assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == 21000000)
+    sidechain.sendtomainchain(addr, 21000000, True)
+    assert("bitcoin" not in sidechain.getwalletinfo()["balance"])
+
+    sidechain.generate(101)
+
     addrs = sidechain.getpeginaddress()
     txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
     # 10+2 confirms required to get into mempool and confirm
@@ -296,6 +303,48 @@ try:
     # is awaiting further validation, nodes reject subsequent blocks
     # even ones they create
     sync_all(sidechain, sidechain2, False)
+    print("Now send funds out in two stages, partial, and full")
+    some_btc_addr = bitcoin.getnewaddress()
+    bal_1 = sidechain.getwalletinfo()["balance"]["bitcoin"]
+    try:
+        sidechain.sendtomainchain(some_btc_addr, bal_1 + 1)
+        raise Exception("Sending out too much; should have failed")
+    except JSONRPCException as e:
+        assert("Insufficient funds" in e.error["message"])
+        pass
+
+    assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
+    try:
+        sidechain.sendtomainchain(some_btc_addr+"b", bal_1 - 1)
+        raise Exception("Sending to invalid address; should have failed")
+    except JSONRPCException as e:
+        assert("Invalid Bitcoin address" in e.error["message"])
+        pass
+
+    assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
+    try:
+        sidechain.sendtomainchain("1Nro9WkpaKm9axmcfPVp79dAJU1Gx7VmMZ", bal_1 - 1)
+        raise Exception("Sending to mainchain address when should have been testnet; should have failed")
+    except JSONRPCException as e:
+        assert("Invalid Bitcoin address" in e.error["message"])
+        pass
+
+    assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
+
+    peg_out_txid = sidechain.sendtomainchain(some_btc_addr, 1)
+
+    peg_out_details = sidechain.decoderawtransaction(sidechain.getrawtransaction(peg_out_txid))
+    # peg-out, change, fee(which is the last)
+    assert(len(peg_out_details["vout"]) == 3)
+    assert(peg_out_details["vout"][0]["value"] == 1 or peg_out_details["vout"][1]["value"] == 1)
+
+    bal_2 = sidechain.getwalletinfo()["balance"]["bitcoin"]
+    # Make sure balance went down
+    assert(bal_2 + 1 < bal_1)
+
+    sidechain.sendtomainchain(some_btc_addr, bal_2, True)
+
+    assert("bitcoin" not in sidechain.getwalletinfo()["balance"])
 
     print("Success!")
 
