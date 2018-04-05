@@ -15,7 +15,7 @@
 #include "scalar.h"
 #include "hash.h"
 
-SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg32, secp256k1_ge *ephemeral_input_tags, size_t n_input_tags, secp256k1_ge *ephemeral_output_tag) {
+SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg32, secp256k1_ge *ephemeral_input_tags, size_t n_input_tags, const unsigned char *used_tags, secp256k1_ge *ephemeral_output_tag) {
     /* compute message */
     size_t i;
     unsigned char pk_ser[33];
@@ -24,9 +24,11 @@ SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg3
 
     secp256k1_sha256_initialize(&sha256_en);
     for (i = 0; i < n_input_tags; i++) {
-        secp256k1_eckey_pubkey_serialize(&ephemeral_input_tags[i], pk_ser, &pk_len, 1);
-        assert(pk_len == sizeof(pk_ser));
-        secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
+        if (used_tags[i / 8] & (1 << (i % 8))) {
+            secp256k1_eckey_pubkey_serialize(&ephemeral_input_tags[i], pk_ser, &pk_len, 1);
+            assert(pk_len == sizeof(pk_ser));
+            secp256k1_sha256_write(&sha256_en, pk_ser, pk_len);
+        }
     }
     secp256k1_eckey_pubkey_serialize(ephemeral_output_tag, pk_ser, &pk_len, 1);
     assert(pk_len == sizeof(pk_ser));

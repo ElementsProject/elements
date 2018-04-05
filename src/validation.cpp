@@ -993,6 +993,28 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
             return false;
 
+        // If m_surj_wit is non-empty, validate using this list instead of input generators
+        if (!tx.wit.m_surj_wit.empty()) {
+            targetGenerators.resize(tx.wit.m_surj_wit.size());
+            for (size_t n = 0; n < tx.wit.m_surj_wit.size(); n++) {
+                const CAssetDerivation& asset_der = tx.wit.m_surj_wit[n];
+                uint256 entropy;
+                CAsset asset_type;
+                GenerateAssetEntropy(entropy, asset_der.m_prevout, asset_der.m_contract_hash);
+                if (asset_der.m_is_reissue_token) {
+                    CalculateReissuanceToken(asset_type, entropy, asset_der.m_is_blinded_token);
+                } else {
+                    CalculateAsset(asset_type, entropy);
+                }
+                secp256k1_generator gen;
+                if (secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset_type.begin()) == 0) {
+                    return false;
+                }
+                targetGenerators.push_back(gen);
+            }
+
+        }
+
         if (QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, cacheStore)) != SCRIPT_ERR_OK) {
             return false;
         }

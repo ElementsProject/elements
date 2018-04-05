@@ -271,7 +271,7 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     /* Produce signature */
     rsizes[0] = (int) n_used_pubkeys;
     indices[0] = (int) ring_input_index;
-    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, &output);
+    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, proof->used_inputs, &output);
     if (secp256k1_surjection_genrand(borromean_s, n_used_pubkeys, &blinding_key) == 0) {
         return 0;
     }
@@ -288,6 +288,107 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     }
     return 1;
 }
+
+static int secp256k1_tag_cmp(const void *in1, const void *in2) {
+    secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+    const secp256k1_fixed_asset_tag* tag1 = in1;
+    const secp256k1_fixed_asset_tag* tag2 = in2;
+    secp256k1_generator gen1;
+    secp256k1_generator gen2;
+    if (secp256k1_generator_generate(ctx, &gen1, tag1->data) == 0 ||
+        secp256k1_generator_generate(ctx, &gen2, tag2->data) == 0) {
+        return 1;
+    }
+    secp256k1_context_destroy(ctx);
+    return memcmp(gen1.data, gen2.data, sizeof(gen1.data));
+}
+
+int secp256k1_surjectionproof_sort_tags(const secp256k1_context* ctx, secp256k1_fixed_asset_tag* tags, size_t n_tags) {
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(tags != NULL);
+    (void) ctx;
+    qsort(tags, n_tags, sizeof(*tags), secp256k1_tag_cmp);
+    return 1;
+}
+
+int secp256k1_surjectionproof_combine(const secp256k1_context* ctx, secp256k1_generator* tags, size_t *n_tags, secp256k1_surjectionproof* proof1, secp256k1_surjectionproof* proof2, const secp256k1_generator* input_tags1, size_t n_input_tags1, const secp256k1_generator* input_tags2, size_t n_input_tags2) {
+    size_t l_idx, r_idx, o_idx;
+    unsigned char used_inputs1[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8] = { 0 };
+    unsigned char used_inputs2[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8] = { 0 };
+
+    VERIFY_CHECK(ctx != NULL);
+    ARG_CHECK(tags != NULL);
+    ARG_CHECK(n_tags != NULL);
+    ARG_CHECK(proof1 != NULL);
+    ARG_CHECK(proof2 != NULL);
+    ARG_CHECK(input_tags1 != NULL);
+    ARG_CHECK(n_input_tags1 <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    ARG_CHECK(n_input_tags2 <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    ARG_CHECK(input_tags2 != NULL);
+    (void) ctx;
+
+    l_idx = r_idx = o_idx = 0;
+    while (1) {
+        enum { USE_NONE, USE_L, USE_R, USE_BOTH } use = USE_NONE;
+
+        if (l_idx < n_input_tags1 && r_idx < n_input_tags2) {
+            int res = memcmp(input_tags1[l_idx].data, input_tags2[r_idx].data, sizeof(input_tags1[l_idx].data));
+            if (res < 0) {
+                use = USE_L;
+            } else if (res > 0) {
+                use = USE_R;
+            } else {
+                use = USE_BOTH;
+            }
+        } else if (l_idx < n_input_tags1) {
+            use = USE_L;
+        } else if (r_idx < n_input_tags1) {
+            use = USE_R;
+        } else {
+            break;
+        }
+
+        if (o_idx >= *n_tags) {
+            return 0;
+        }
+
+        switch (use) {
+            case USE_NONE:
+                VERIFY_CHECK(0);
+                break;
+            case USE_L:
+            case USE_BOTH:
+                if (proof1->used_inputs[l_idx / 8] & (1 << (l_idx % 8))) {
+                    used_inputs1[o_idx / 8] |= 1 << (o_idx % 8);
+                }
+                memcpy(&tags[o_idx], &input_tags1[l_idx], sizeof(input_tags1[l_idx]));
+                l_idx++;
+                if (use == USE_BOTH) {
+                    if (proof2->used_inputs[r_idx / 8] & (1 << (r_idx % 8))) {
+                        used_inputs2[o_idx / 8] |= 1 << (o_idx % 8);
+                    }
+                    r_idx++;
+                }
+                break;
+            case USE_R:
+                if (proof2->used_inputs[r_idx / 8] & (1 << (r_idx % 8))) {
+                    used_inputs2[o_idx / 8] |= 1 << (o_idx % 8);
+                }
+                memcpy(&tags[o_idx], &input_tags2[r_idx], sizeof(input_tags2[r_idx]));
+                r_idx++;
+                break;
+        }
+        o_idx++;
+    }
+    memcpy(proof1->used_inputs, used_inputs1, sizeof(used_inputs1));
+    memcpy(proof2->used_inputs, used_inputs2, sizeof(used_inputs2));
+    proof1->n_inputs = o_idx;
+    proof2->n_inputs = o_idx;
+    *n_tags = o_idx;
+
+    return 1;
+}
+
 
 int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag) {
     size_t rsizes[1];    /* array needed for borromean sig API */
@@ -331,7 +432,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
             return 0;
         }
     }
-    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, &output);
+    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, proof->used_inputs, &output);
     return secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 

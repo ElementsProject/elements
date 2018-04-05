@@ -301,6 +301,37 @@ public:
     std::string ToString() const;
 };
 
+class CAssetDerivation
+{
+public:
+    // input and contract originally used for entropy
+    COutPoint m_prevout;
+    uint256 m_contract_hash;
+    // markers to indicate derivation path for asset type
+    bool m_is_reissue_token;
+    bool m_is_blinded_token;
+
+public:
+    CAssetDerivation()
+    {
+        SetNull();
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(m_prevout);
+        READWRITE(m_contract_hash);
+        READWRITE(m_is_reissue_token);
+        READWRITE(m_is_blinded_token);
+    }
+
+    void SetNull() { m_prevout.SetNull(); m_contract_hash.SetNull(); m_is_reissue_token = false; m_is_blinded_token = false;}
+    bool IsNull() const { return (m_prevout.IsNull() && m_contract_hash.IsNull()) && m_is_reissue_token == false && m_is_blinded_token; }
+};
+
 /** A new asset issuance, or a reissuance (inflation) of an existing asset */
 class CAssetIssuance
 {
@@ -581,6 +612,12 @@ public:
     std::vector<CTxInWitness> vtxinwit;
     std::vector<CTxOutWitness> vtxoutwit;
 
+    // Transaction-level witness for surjection proofs.
+    // If this witness is non-empty, all outputs' surjection
+    // proofs are validated against this witness rather than input
+    // asset commtiments
+    std::vector<CAssetDerivation> m_surj_wit;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -592,6 +629,7 @@ public:
         for (size_t n = 0; n < vtxoutwit.size(); n++) {
             READWRITE(vtxoutwit[n]);
         }
+        READWRITE(m_surj_wit);
         if (IsNull()) {
             /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */
             throw std::ios_base::failure("Superfluous witness record");
@@ -600,7 +638,7 @@ public:
 
     bool IsEmpty() const
     {
-        return vtxinwit.empty() && vtxoutwit.empty();
+        return vtxinwit.empty() && vtxoutwit.empty() && m_surj_wit.empty();
     }
 
     bool IsNull() const
@@ -615,6 +653,9 @@ public:
                 return false;
             }
         }
+        if (!m_surj_wit.empty()) {
+            return false;
+        }
         return true;
     }
 
@@ -622,6 +663,7 @@ public:
     {
         vtxinwit.clear();
         vtxoutwit.clear();
+        m_surj_wit.clear();
     }
 };
 

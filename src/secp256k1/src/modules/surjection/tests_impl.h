@@ -155,6 +155,37 @@ static void test_surjectionproof_api(void) {
     CHECK(secp256k1_surjectionproof_parse(none, &proof, serialized_proof, 0) == 0);
     CHECK(ecount == 25);
 
+    /* check sort */
+    ecount = 0;
+    CHECK(secp256k1_surjectionproof_sort_tags(none, fixed_input_tags, n_inputs) == 1);
+    CHECK(secp256k1_surjectionproof_sort_tags(none, fixed_input_tags, 0) == 1);
+    CHECK(ecount == 0);
+    CHECK(secp256k1_surjectionproof_sort_tags(none, NULL, n_inputs) == 0);
+    CHECK(ecount == 1);
+
+    /* Check merge */
+    {
+        secp256k1_surjectionproof proof1;
+        secp256k1_generator ext[10];
+        size_t n = n_inputs;
+
+        memcpy(&proof1, &proof, sizeof(proof));
+        CHECK(secp256k1_surjectionproof_combine(none, ext, &n, &proof, &proof1, ephemeral_input_tags, n_inputs, ephemeral_input_tags, n_inputs) == 1);
+        CHECK(ecount == 1);
+        CHECK(secp256k1_surjectionproof_combine(none, NULL, &n, &proof, &proof1, ephemeral_input_tags, n_inputs, ephemeral_input_tags, n_inputs) == 0);
+        CHECK(ecount == 2);
+        CHECK(secp256k1_surjectionproof_combine(none, ext, NULL, &proof, &proof1, ephemeral_input_tags, n_inputs, ephemeral_input_tags, n_inputs) == 0);
+        CHECK(ecount == 3);
+        CHECK(secp256k1_surjectionproof_combine(none, ext, &n, NULL, &proof1, ephemeral_input_tags, n_inputs, ephemeral_input_tags, n_inputs) == 0);
+        CHECK(ecount == 4);
+        CHECK(secp256k1_surjectionproof_combine(none, ext, &n, &proof, NULL, ephemeral_input_tags, n_inputs, ephemeral_input_tags, n_inputs) == 0);
+        CHECK(ecount == 5);
+        CHECK(secp256k1_surjectionproof_combine(none, ext, &n, &proof, &proof1, NULL, n_inputs, ephemeral_input_tags, n_inputs) == 0);
+        CHECK(ecount == 6);
+        CHECK(secp256k1_surjectionproof_combine(none, ext, &n, &proof, &proof1, ephemeral_input_tags, n_inputs, NULL, n_inputs) == 0);
+        CHECK(ecount == 7);
+    }
+
     secp256k1_context_destroy(none);
     secp256k1_context_destroy(sign);
     secp256k1_context_destroy(vrfy);
@@ -430,13 +461,87 @@ static void test_no_used_inputs_verify(void) {
     /* create "borromean signature" which is just a hash of metadata (pubkeys, etc) in this case */
     secp256k1_generator_load(&output, &ephemeral_output_tag);
     secp256k1_generator_load(&inputs[0], &ephemeral_input_tags[0]);
-    secp256k1_surjection_genmessage(proof.data, inputs, 1, &output);
+    secp256k1_surjection_genmessage(proof.data, inputs, 1, proof.used_inputs, &output);
     secp256k1_sha256_initialize(&sha256_e0);
     secp256k1_sha256_write(&sha256_e0, proof.data, 32);
     secp256k1_sha256_finalize(&sha256_e0, proof.data);
 
     result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_ephemeral_input_tags, &ephemeral_output_tag);
     CHECK(result == 0);
+}
+
+/* Build two proofs with exposed (0 blinding factor) inputs */
+static void test_surjectionproof_combine(void) {
+    unsigned char seed[32];
+    unsigned char zero_vch[32] = {0};
+    secp256k1_fixed_asset_tag fixed_tags1[10];
+    secp256k1_fixed_asset_tag fixed_tags2[10];
+    secp256k1_generator ephemeral_tags1[10];
+    secp256k1_generator ephemeral_tags2[10];
+    secp256k1_generator output1;
+    secp256k1_generator output2;
+    unsigned char output_blind1[32];
+    unsigned char output_blind2[32];
+    size_t input_idx1, input_idx2;
+    secp256k1_surjectionproof proof1, proof2;
+    const size_t n_inputs = sizeof(fixed_tags1) / sizeof(fixed_tags1[0]);
+    size_t i;
+
+    secp256k1_rand256(seed);
+    for (i = 0; i < n_inputs; i++) {
+        secp256k1_rand256(fixed_tags1[i].data);
+        if (i % 2 == 0) {
+            secp256k1_rand256(fixed_tags2[i].data);
+        } else {
+            memcpy(fixed_tags2[i].data, fixed_tags1[i].data, sizeof(fixed_tags1[i].data));
+        }
+    }
+    CHECK(secp256k1_surjectionproof_sort_tags(ctx, fixed_tags1, n_inputs) == 1);
+    CHECK(secp256k1_surjectionproof_sort_tags(ctx, fixed_tags2, n_inputs) == 1);
+    for (i = 0; i < n_inputs; i++) {
+        CHECK(secp256k1_generator_generate(ctx, &ephemeral_tags1[i], fixed_tags1[i].data));
+        CHECK(secp256k1_generator_generate(ctx, &ephemeral_tags2[i], fixed_tags2[i].data));
+    }
+
+    CHECK(secp256k1_surjectionproof_initialize(ctx, &proof1, &input_idx1, fixed_tags1, n_inputs, 3, &fixed_tags1[0], 100, seed) > 0);
+    CHECK(secp256k1_surjectionproof_initialize(ctx, &proof2, &input_idx2, fixed_tags2, n_inputs, 3, &fixed_tags2[5], 100, seed) > 0);
+    CHECK(input_idx1 == 0);
+    CHECK(input_idx2 == 5);
+
+    secp256k1_rand256(output_blind1);
+    secp256k1_rand256(output_blind2);
+    CHECK(secp256k1_generator_generate_blinded(ctx, &output1, fixed_tags1[0].data, output_blind1));
+    CHECK(secp256k1_generator_generate_blinded(ctx, &output2, fixed_tags2[5].data, output_blind2));
+
+    CHECK(secp256k1_surjectionproof_generate(ctx, &proof1, ephemeral_tags1, n_inputs, &output1, input_idx1, zero_vch, output_blind1) == 1);
+    CHECK(secp256k1_surjectionproof_generate(ctx, &proof2, ephemeral_tags2, n_inputs, &output2, input_idx2, zero_vch, output_blind2) == 1);
+
+    CHECK(secp256k1_surjectionproof_verify(ctx, &proof1, ephemeral_tags1, n_inputs, &output1) == 1);
+    CHECK(secp256k1_surjectionproof_verify(ctx, &proof2, ephemeral_tags2, n_inputs, &output2) == 1);
+
+    /* proofs created, verify correctly, great. try combining them */
+    {
+        secp256k1_surjectionproof dummy_proof1 = proof1, dummy_proof2 = proof2;
+        secp256k1_generator inputs[20];
+        size_t n_comb_inputs = sizeof(inputs) / sizeof(inputs[0]);
+        size_t n_insufficient_inputs = n_comb_inputs / 2;
+
+        CHECK(secp256k1_surjectionproof_n_total_inputs(ctx, &proof1) == n_inputs);
+        CHECK(secp256k1_surjectionproof_n_total_inputs(ctx, &proof2) == n_inputs);
+        CHECK(secp256k1_surjectionproof_n_used_inputs(ctx, &proof1) == 3);
+        CHECK(secp256k1_surjectionproof_n_used_inputs(ctx, &proof2) == 3);
+
+        CHECK(secp256k1_surjectionproof_combine(ctx, inputs, &n_insufficient_inputs, &dummy_proof1, &dummy_proof2, ephemeral_tags1, n_inputs, ephemeral_tags2, n_inputs) == 0);
+        CHECK(secp256k1_surjectionproof_combine(ctx, inputs, &n_comb_inputs, &proof1, &proof2, ephemeral_tags1, n_inputs, ephemeral_tags2, n_inputs) == 1);
+        CHECK(n_comb_inputs == n_inputs + n_inputs / 2);
+        CHECK(secp256k1_surjectionproof_n_total_inputs(ctx, &proof1) == n_comb_inputs);
+        CHECK(secp256k1_surjectionproof_n_total_inputs(ctx, &proof2) == n_comb_inputs);
+        CHECK(secp256k1_surjectionproof_n_used_inputs(ctx, &proof1) == 3);
+        CHECK(secp256k1_surjectionproof_n_used_inputs(ctx, &proof2) == 3);
+
+        CHECK(secp256k1_surjectionproof_verify(ctx, &proof1, inputs, n_comb_inputs, &output1) == 1);
+        CHECK(secp256k1_surjectionproof_verify(ctx, &proof2, inputs, n_comb_inputs, &output2) == 1);
+    }
 }
 
 void test_bad_serialize(void) {
@@ -480,6 +585,7 @@ void run_surjection_tests(void) {
     test_gen_verify(10, 3);
     test_gen_verify(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
     test_no_used_inputs_verify();
+    test_surjectionproof_combine();
     test_bad_serialize();
     test_bad_parse();
 }
