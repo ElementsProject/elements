@@ -467,9 +467,16 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
                 ret = secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blindedAmounts[0], &assetblindptrs[0], &blindptrs[0], nBlindAttempts + nBlindsIn, nIssuanceBlindAttempts + nBlindsIn);
                 assert(ret);
 
-                // Resulting blinding factor shouldn't be 0
+                // Resulting blinding factor can sometimes be 0
+                // where inputs are the negations of each other
+                // and the unblinded value of the output is 0.
+                // e.g. 1 unblinded input to 2 blinded outputs,
+                // then spent to 1 unblinded output. (vr + r')
+                // becomes just (r'), if this is 0, we can just
+                // abort and not blind and the math adds up.
+                // Count as success(to signal caller that nothing wrong) and return early
                 if (memcmp(diff_zero, &blind[nBlindAttempts-1][0], 32) == 0) {
-                   return nSuccessfullyBlinded;
+                   return ++nSuccessfullyBlinded;
                 }
             }
 
