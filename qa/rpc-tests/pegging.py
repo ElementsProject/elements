@@ -334,9 +334,13 @@ try:
     peg_out_txid = sidechain.sendtomainchain(some_btc_addr, 1)
 
     peg_out_details = sidechain.decoderawtransaction(sidechain.getrawtransaction(peg_out_txid))
-    # peg-out, change, fee(which is the last)
+    # peg-out, change
     assert(len(peg_out_details["vout"]) == 3)
-    assert(peg_out_details["vout"][0]["value"] == 1 or peg_out_details["vout"][1]["value"] == 1)
+    found_pegout_value = False
+    for output in peg_out_details["vout"]:
+        if "value" in output and output["value"] == 1:
+            found_pegout_value = True
+    assert(found_pegout_value)
 
     bal_2 = sidechain.getwalletinfo()["balance"]["bitcoin"]
     # Make sure balance went down
