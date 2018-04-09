@@ -280,6 +280,8 @@ try:
 
     print ("Now test failure to validate peg-ins based on intermittant bitcoind rpc failure")
     bitcoin2.stop()
+    # give bitcoin2 time to stop
+    time.sleep(1)
     txid = bitcoin.sendtoaddress(addrs["mainchain_address"], 1)
     bitcoin.generate(12)
     proof = bitcoin.gettxoutproof([txid])
