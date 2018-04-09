@@ -3,17 +3,6 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-# Test the confidential transaction feature of the wallet.
-# Does the following:
-#   a) send coins to a unconfidential address
-#   b) send coins to a confidential address
-#   c) send coins to a unconfidential and confidential address
-#      using the raw transaction interface
-#   d) calls listreceivedbyaddress
-#   e) checks the auditor functionality with importblindingkey
-#       and listreceivedbyaddress
-#   f) checks the behavior of blindrawtransaction in an edge case
-
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
@@ -479,6 +468,20 @@ class CTTest (BitcoinTestFramework):
         blinded = self.nodes[0].blindrawtransaction(funded["hex"])
         signed = self.nodes[0].signrawtransaction(blinded)
         txid = self.nodes[0].sendrawtransaction(signed["hex"])
+
+        # Test corner case where wallet appends a OP_RETURN output, yet doesn't blind it
+        # due to the fact that the output value is 0-value and input pedersen commitments
+        # self-balance. This is rare corner case, but ok.
+        unblinded = self.nodes[0].validateaddress(self.nodes[0].getnewaddress())["unconfidential"]
+        self.nodes[0].sendtoaddress(unblinded, self.nodes[0].getbalance()["bitcoin"], "", "", True)
+        # Make tx with blinded destination and change outputs only
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[0].getbalance()["bitcoin"]/2)
+        # Send back again, this transaction should have 3 outputs, all unblinded
+        txid = self.nodes[0].sendtoaddress(unblinded, self.nodes[0].getbalance()["bitcoin"], "", "", True)
+        outputs = self.nodes[0].getrawtransaction(txid, 1)["vout"]
+        assert_equal(len(outputs), 3)
+        assert("value" in outputs[0] and "value" in outputs[1] and "value" in outputs[2])
+        assert_equal(outputs[2]["scriptPubKey"]["type"], 'nulldata')
 
 if __name__ == '__main__':
     CTTest ().main ()
