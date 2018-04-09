@@ -637,6 +637,18 @@ public:
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
 
+    /**
+     * Returns true if script follows OP_RETURN <genesis_block_hash> <pegout_scriptpubkey>
+     * and if correct it returns both things in the output parameters.
+     */
+    bool IsPegoutScript(uint256& genesis_hash, CScript& pegout_scriptpubkey) const;
+    /**
+     * Returns true if script follows OP_RETURN <genesis_block_hash> <destination_scriptpubkey>
+     * it may also have additional pushes at the end. It checks
+     * the genesis hash matches the specified one.
+     */
+    bool IsPegoutScript(const uint256& genesis_hash) const;
+
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;
     bool IsPushOnly() const;

@@ -88,6 +88,8 @@ def write_bitcoin_conf(datadir, rpcport, rpcpass=None, p2p_port=None, connect_po
         f.write("testnet=0\n")
         f.write("txindex=1\n")
         f.write("daemon=1\n")
+        # To make sure bitcoind gives back p2pkh no matter version
+        f.write("addresstype=legacy\n")
         if connect_port:
             f.write("connect=localhost:"+str(connect_port)+"\n")
             f.write("listen=1\n")
@@ -135,6 +137,23 @@ with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
         f.write("connect=localhost:"+str(sidechain1_p2p_port)+"\n")
         f.write("listen=1\n")
         f.write("fallbackfee=0.0001\n")
+
+def test_pegout(parent_chain_addr, sidechain):
+    pegout_txid = sidechain.sendtomainchain(parent_chain_addr, 1)
+    raw_pegout = sidechain.getrawtransaction(pegout_txid, True)
+    assert 'vout' in raw_pegout and len(raw_pegout['vout']) > 0
+    pegout_tested = False
+    for output in raw_pegout['vout']:
+        scriptPubKey = output['scriptPubKey']
+        if 'type' in scriptPubKey and scriptPubKey['type'] == 'nulldata':
+            assert ('pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey and
+                    'pegout_chain' in scriptPubKey and 'pegout_reqSigs' in scriptPubKey and 'pegout_addresses' in scriptPubKey)
+            assert scriptPubKey['pegout_chain'] == '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206' #testnet3
+            assert scriptPubKey['pegout_reqSigs'] == 1
+            assert parent_chain_addr in scriptPubKey['pegout_addresses']
+            pegout_tested = True
+            break
+    assert pegout_tested
 
 try:
 
@@ -255,7 +274,7 @@ try:
         raise Exception("Peg-in should be back to 6 confirms.")
 
     # Do many claims in mempool
-    n_claims = 100
+    n_claims = 5
 
     print("Flooding mempool with many small claims")
     pegtxs = []
@@ -277,6 +296,48 @@ try:
         tx = sidechain.gettransaction(pegtxid)
         if "confirmations" not in tx or tx["confirmations"] == 0:
             raise Exception("Peg-in confirmation has failed.")
+
+    print("Test pegout")
+    test_pegout(bitcoin.getnewaddress(), sidechain)
+
+    print("Test pegout P2SH")
+    parent_chain_addr = bitcoin.getnewaddress()
+    parent_pubkey = bitcoin.validateaddress(parent_chain_addr)["pubkey"]
+    parent_chain_p2sh_addr = bitcoin.createmultisig(1, [parent_pubkey])["address"]
+    test_pegout(parent_chain_p2sh_addr, sidechain)
+
+    print("Test pegout Garbage")
+    parent_chain_addr = "garbage"
+    try:
+        test_pegout(parent_chain_addr, sidechain)
+        raise Exception("A garbage address should fail.")
+    except JSONRPCException as e:
+        assert("Invalid Bitcoin address" in e.error["message"])
+        pass
+
+    print("Test pegout Garbage valid")
+    prev_txid = sidechain.sendtoaddress(sidechain.getnewaddress(), 1)
+    sidechain.generate(1)
+    pegout_chain = 'a' * 64
+    pegout_hex = 'b' * 500
+    inputs = [{"txid": prev_txid, "vout": 0}]
+    outputs = {"vdata": [pegout_chain, pegout_hex]}
+    rawtx = sidechain.createrawtransaction(inputs, outputs)
+    raw_pegout = sidechain.decoderawtransaction(rawtx)
+
+    assert 'vout' in raw_pegout and len(raw_pegout['vout']) > 0
+    pegout_tested = False
+    for output in raw_pegout['vout']:
+        scriptPubKey = output['scriptPubKey']
+        if 'type' in scriptPubKey and scriptPubKey['type'] == 'nulldata':
+            assert ('pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey and
+                    'pegout_chain' in scriptPubKey and 'pegout_reqSigs' not in scriptPubKey and 'pegout_addresses' not in scriptPubKey)
+            assert scriptPubKey['pegout_type'] == 'nonstandard'
+            assert scriptPubKey['pegout_chain'] == pegout_chain
+            assert scriptPubKey['pegout_hex'] == pegout_hex
+            pegout_tested = True
+            break
+    assert pegout_tested
 
     print ("Now test failure to validate peg-ins based on intermittant bitcoind rpc failure")
     bitcoin2.stop()
