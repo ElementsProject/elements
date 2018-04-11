@@ -13,7 +13,6 @@ from test_framework.util import (
 import os
 import shutil
 
-
 class WalletHDTest(BitcoinTestFramework):
 
     def __init__(self):
@@ -30,6 +29,9 @@ class WalletHDTest(BitcoinTestFramework):
     def run_test (self):
         tmpdir = self.options.tmpdir
 
+        # self-send all the op_true funds
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 21000000, "", "", True)
+
         # Make sure we use hd, keep masterkeyid
         masterkeyid = self.nodes[1].getwalletinfo()['hdmasterkeyid']
         assert_equal(len(masterkeyid), 40)
@@ -37,6 +39,7 @@ class WalletHDTest(BitcoinTestFramework):
         # Import a non-HD private key in the HD wallet
         non_hd_add = self.nodes[0].getnewaddress()
         self.nodes[1].importprivkey(self.nodes[0].dumpprivkey(non_hd_add))
+        self.nodes[1].importblindingkey(non_hd_add, self.nodes[0].dumpblindingkey(non_hd_add))
 
         # This should be enough to keep the master key and the non-HD key 
         self.nodes[1].backupwallet(tmpdir + "/hd.bak")
@@ -46,8 +49,8 @@ class WalletHDTest(BitcoinTestFramework):
         # Also send funds to each add
         self.nodes[0].generate(101)
         hd_add = None
-        num_hd_adds = 300
-        for i in range(num_hd_adds):
+        NUM_HD_ADDS = 10
+        for i in range(NUM_HD_ADDS):
             hd_add = self.nodes[1].getnewaddress()
             hd_info = self.nodes[1].validateaddress(hd_add)
             assert_equal(hd_info["hdkeypath"], "m/0'/0'/"+str(i+1)+"'")
@@ -56,31 +59,30 @@ class WalletHDTest(BitcoinTestFramework):
             self.nodes[0].generate(1)
         self.nodes[0].sendtoaddress(non_hd_add, 1)
         self.nodes[0].generate(1)
-
         self.sync_all()
-        #assert_equal(self.nodes[1].getbalance(), num_hd_adds + 1)
+        assert_equal(self.nodes[1].getbalance()["bitcoin"], NUM_HD_ADDS + 1)
 
         print("Restore backup ...")
         self.stop_node(1)
         os.remove(self.options.tmpdir + "/node1/elementsregtest/wallet.dat")
         shutil.copyfile(tmpdir + "/hd.bak", tmpdir + "/node1/elementsregtest/wallet.dat")
         self.nodes[1] = start_node(1, self.options.tmpdir, self.node_args[1])
-        #connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 0, 1)
 
         # Assert that derivation is deterministic
         hd_add_2 = None
-        for _ in range(num_hd_adds):
+        for i in range(NUM_HD_ADDS):
             hd_add_2 = self.nodes[1].getnewaddress()
             hd_info_2 = self.nodes[1].validateaddress(hd_add_2)
-            assert_equal(hd_info_2["hdkeypath"], "m/0'/0'/"+str(_+1)+"'")
+            assert_equal(hd_info_2["hdkeypath"], "m/0'/0'/"+str(i+1)+"'")
             assert_equal(hd_info_2["hdmasterkeyid"], masterkeyid)
         assert_equal(hd_add, hd_add_2)
 
         # Needs rescan
         self.stop_node(1)
         self.nodes[1] = start_node(1, self.options.tmpdir, self.node_args[1] + ['-rescan'])
-        #connect_nodes_bi(self.nodes, 0, 1)
-        #assert_equal(self.nodes[1].getbalance(), num_hd_adds + 1)
+        connect_nodes_bi(self.nodes, 0, 1)
+        assert_equal(self.nodes[1].getbalance()["bitcoin"], NUM_HD_ADDS + 1)
 
 
 if __name__ == '__main__':
