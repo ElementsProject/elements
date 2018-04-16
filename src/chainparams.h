@@ -89,7 +89,6 @@ public:
     const ChainTxData& TxData() const { return chainTxData; }
     void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
     /** All coinbase outputs (after genesis) must be to this destination */
-    const CScript& CoinbaseDestination() const { return scriptCoinbaseDestination; }
     bool anyonecanspend_aremine;
 protected:
     CChainParams() = delete;
@@ -111,7 +110,6 @@ protected:
     bool fMineBlocksOnDemand;
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
-    CScript scriptCoinbaseDestination;
 };
 
 /**

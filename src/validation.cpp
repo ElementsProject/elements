@@ -2357,7 +2357,7 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
     return scriptDestination;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
 
     // Format on stack is as follows:
     // 1) value - the value of the pegin output
@@ -2473,9 +2473,8 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     }
 
     // Finally, validate peg-in via rpc call
-    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        // TODO-PEGIN return useful error message
-        return IsConfirmedBitcoinBlock(merkle_block.header.GetHash(), GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH));
+    if (check_depth && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        return IsConfirmedBitcoinBlock(merkle_block.header.GetHash(), Params().GetConsensus().pegin_min_depth);
     }
     return true;
 }
@@ -2581,10 +2580,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
 
     // Check that all non-zero coinbase outputs pay to the required destination
-    BOOST_FOREACH(const CTxOut& txout, block.vtx[0]->vout) {
-        if (chainparams.CoinbaseDestination() != CScript() && txout.scriptPubKey != chainparams.CoinbaseDestination() && !(txout.nValue.IsExplicit() && txout.nValue.GetAmount() == 0))
-            return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
-                             REJECT_INVALID, "bad-coinbase-txos");
+    if (chainparams.GetConsensus().mandatory_coinbase_destination != CScript()) {
+        BOOST_FOREACH(const CTxOut& txout, block.vtx[0]->vout) {
+            if (txout.scriptPubKey != chainparams.GetConsensus().mandatory_coinbase_destination && !(txout.nValue.IsExplicit() && txout.nValue.GetAmount() == 0))
+                return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
+                                 REJECT_INVALID, "bad-coinbase-txos");
+        }
     }
 
     bool fScriptChecks = true;
@@ -3117,13 +3118,13 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
                     pblocktree->ReadInvalidBlockQueue(vinvalidBlocks);
                     bool blockAlreadyInvalid = false;
                     BOOST_FOREACH(uint256& hash, vinvalidBlocks) {
-                        if (hash == pblock->GetHash()) {
+                        if (hash == blockConnecting.GetHash()) {
                             blockAlreadyInvalid = true;
                             break;
                         }
                     }
                     if (!blockAlreadyInvalid) {
-                        vinvalidBlocks.push_back(pblock->GetHash());
+                        vinvalidBlocks.push_back(blockConnecting.GetHash());
                         pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
                     }
                 }

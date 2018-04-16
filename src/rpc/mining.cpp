@@ -120,7 +120,7 @@ UniValue generate(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    CScript coinbaseDest(Params().CoinbaseDestination());
+    CScript coinbaseDest(Params().GetConsensus().mandatory_coinbase_destination);
     if (coinbaseDest == CScript()) {
         coinbaseDest = CScript() << OP_TRUE;
 #ifdef ENABLE_WALLET
@@ -172,7 +172,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
             + HelpExampleCli("getnewblockhex", "")
         );
 
-    CScript feeDestinationScript = Params().CoinbaseDestination();
+    CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
     std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript));
     if (!pblocktemplate.get())

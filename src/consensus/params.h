@@ -69,6 +69,8 @@ struct Params {
     CScript fedpegScript;
     CAsset pegged_asset;
     uint256 defaultAssumeValid;
+    uint32_t pegin_min_depth;
+    CScript mandatory_coinbase_destination;
 };
 } // namespace Consensus
 

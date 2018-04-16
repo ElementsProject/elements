@@ -2847,7 +2847,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     }
                     txNew.vout.push_back(txout);
                     output_pubkeys.push_back(recipient.confidentiality_key);
-                    if (recipient.confidentiality_key != CPubKey()) {
+                    if (recipient.confidentiality_key.IsFullyValid()) {
                         numToBlind++;
                         onlyRecipientBlindIndex = txNew.vout.size()-1;
                     }
@@ -2963,7 +2963,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
                             txNew.vout.insert(position, newTxOut);
                             output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, pubkey);
-                            if (pubkey != CPubKey()) {
+                            if (pubkey.IsFullyValid()) {
                                 numToBlind++;
                                 changeToBlind++;
                             }
@@ -3297,8 +3297,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
         if (sign) {
             for (unsigned int i = 0; i< vAmounts.size(); i++) {
-                assert((output_pubkeys[i] == CPubKey())==(output_blinds[i] == uint256()));
-                assert((output_pubkeys[i] == CPubKey())==(output_asset_blinds[i] == uint256()));
                 assert(!output_assets[i].IsNull());
                 wtxNew.SetBlindingData(i, vAmounts[i], output_pubkeys[i], output_blinds[i], output_assets[i], output_asset_blinds[i]);
             }

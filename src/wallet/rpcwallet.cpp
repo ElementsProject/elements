@@ -3446,14 +3446,15 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() != 2)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw runtime_error(
-            "sendtomainchain mainchainaddress amount\n"
+            "sendtomainchain mainchainaddress amount ( subtractfeefromamount )\n"
             "\nSends sidechain funds to the given mainchain address, through the federated withdraw mechanism\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
             "1. \"address\"        (string, required) The destination address on Bitcoin mainchain\n"
             "2. \"amount\"         (numeric, required) The amount being sent to Bitcoin mainchain\n"
+            "3. \"subtractfeefromamount\"  (boolean, optional, default=false) The fee will be deducted from the amount being pegged-out.\n"
             "\nResult:\n"
             "\"txid\"              (string) Transaction ID of the resulting sidechain transaction\n"
             "\nExamples:\n"
@@ -3473,6 +3474,11 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     if (nAmount <= 0)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
 
+    bool subtract_fee = false;
+    if (request.params.size() > 2) {
+        subtract_fee = request.params[2].get_bool();
+    }
+
     // Parse Bitcoin address for destination, embed script
     CScript scriptPubKeyMainchain(GetScriptForDestination(address.Get()));
 
@@ -3487,7 +3493,7 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked();
 
     CWalletTx wtxNew;
-    SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, false, CPubKey(), wtxNew, true);
+    SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, CPubKey(), wtxNew, true);
 
     std::string blinds;
     for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {
@@ -3660,7 +3666,9 @@ UniValue createrawpegin(const JSONRPCRequest& request)
     stack.push_back(txData);
     stack.push_back(txOutProofData);
 
-    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout)) {
+    // Peg-in witness isn't valid, even though the block header is(without depth check)
+    // We re-check depth before returning with more descriptive result
+    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout, false)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
     }
 
@@ -3685,7 +3693,7 @@ UniValue createrawpegin(const JSONRPCRequest& request)
 
     // Additional block lee-way to avoid bitcoin block races
     if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        ret.push_back(Pair("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH)+2)));
+        ret.push_back(Pair("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), Params().GetConsensus().pegin_min_depth+2)));
     }
 
     return ret;
@@ -4116,7 +4124,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {} },
-    { "wallet",             "sendtomainchain",          &sendtomainchain,          false,  {} },
+    { "wallet",             "sendtomainchain",          &sendtomainchain,          false,  {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "destroyamount",            &destroyamount,            false,  {"asset", "amount", "comment"} },
     { "wallet",             "settxfee",                 &settxfee,                 true,   {"amount"} },
     { "wallet",             "signmessage",              &signmessage,              true,   {"address","message"} },
