@@ -179,6 +179,10 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
         return false;
     }
 
+    if (store) {
+        rangeProofCache.Set(entry);
+    }
+
     return true;
 }
 
@@ -214,6 +218,10 @@ bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionpr
 
     if (secp256k1_surjectionproof_verify(secp256k1_ctx_verify_amounts, &proof, vTags.data(), vTags.size(), &gen) != 1) {
         return false;
+    }
+
+    if (store) {
+        surjectionProofCache.Set(entry);
     }
 
     return true;
