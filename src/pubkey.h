@@ -188,6 +188,10 @@ public:
 
     //! Derive BIP32 child pubkey.
     bool Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
+
+    //! Tweak public key by adding a tweak to it
+    bool AddTweakToPubKey(const unsigned char *tweak);
+
 };
 
 struct CExtPubKey {
