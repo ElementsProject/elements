@@ -200,7 +200,12 @@ UniValue getnewaddress(const JSONRPCRequest& request)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
+    CKeyMetadata meta = pwalletMain->mapKeyMetadata[keyID];
+    std::vector<unsigned char> extendedKeyId;
+    extendedKeyId.insert(extendedKeyId.end(), keyID.begin(), keyID.end());
+    extendedKeyId.insert(extendedKeyId.end(), meta.hdPubKeyHash.begin(), meta.hdPubKeyHash.end());
+
+    return CBitcoinAddress(extendedKeyId).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
 }
 
 
@@ -2078,7 +2083,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
             "      \"fee\": x.xxx,                     (numeric) The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
             "                                           'send' category of transactions.\n"
             "      \"abandoned\": xxx                  (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
-            "                                           'send' category of transactions.\n"			
+            "                                           'send' category of transactions.\n"
             "    }\n"
             "    ,...\n"
             "  ],\n"

@@ -257,6 +257,12 @@ bool CBitcoinAddress::Set(const CTxDestination& dest)
     return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
 }
 
+bool CBitcoinAddress::Set(const std::vector<unsigned char> &extendedId)
+{
+    SetData(Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS), &extendedId[0], extendedId.size());
+    return true;
+}
+
 bool CParentBitcoinAddress::Set(const CKeyID& id)
 {
     SetData(Params().Base58Prefix(CChainParams::PARENT_PUBKEY_ADDRESS), &id, 20);
@@ -322,7 +328,7 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
     if (IsBlinded(params)) {
         return GetUnblinded().IsValid(params);
     }
-    bool fCorrectSize = vchData.size() == 20;
+    bool fCorrectSize = vchData.size() == 20 || vchData.size() == 40;
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
                          vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
     return fCorrectSize && fKnownVersion;
