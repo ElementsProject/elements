@@ -115,6 +115,7 @@ CPubKey CWallet::GenerateNewKey()
     uint256 contract = GetContract(); // for BIP-175
 
     CPubKey pubKeyTest = secret.GetPubKey();
+    metadata.hdPubKeyHash = pubKeyTest.GetID();
     pubKeyTest.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
 
     secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
@@ -164,7 +165,6 @@ void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret)
         hdChain.nExternalChainCounter++;
     } while (HaveKey(childKey.key.GetPubKey().GetID()));
     secret = childKey.key;
-    metadata.hdMasterPubKeyHash = key.GetPubKey().GetHash();
 
     // update the chain model in the database
     if (!CWalletDB(strWalletFile).WriteHDChain(hdChain))
@@ -3698,17 +3698,12 @@ bool CWallet::GetKeyFromPool(CPubKey& result)
 
 uint256 CWallet::GetContract()
 {
-    // THIS SHOULD BE READ FROM A FILE STORED ON THE NODE or REMOTE SERVER
-    /*
-    if (fileExtractionFailed)
-        return False
-    */
-    const std::string termsFile = "These are the terms and conditions for using the CBT network.";
-    std::vector<unsigned char> terms;
-    for(const char &ch : termsFile)
-    {
-        terms.push_back(static_cast<unsigned char>(ch));
-    }
+    const std::string contractFile = GetContractFile();
+    const std::string contract = contractFile.empty() ?
+      "These are the terms and conditions for using the CBT network." : contractFile;
+
+    std::vector<unsigned char> terms(contract.begin(), contract.end());
+
     return Hash(terms.begin(), terms.end());
 }
 

@@ -54,6 +54,7 @@ extern CTranslationInterface translationInterface;
 
 extern const char * const BITCOIN_CONF_FILENAME;
 extern const char * const BITCOIN_PID_FILENAME;
+extern const char * const CONTRACT_FILE_PATH;
 
 /**
  * Translation function: Call Translate signal on UI interface, which returns a boost::optional result.
@@ -126,6 +127,8 @@ void OpenDebugLog();
 void OpenAuditLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
+std::string GetContractFile();
+
 
 inline bool IsSwitchChar(char c)
 {
