@@ -112,8 +112,16 @@ CPubKey CWallet::GenerateNewKey()
     if (fCompressed)
         SetMinVersion(FEATURE_COMPRPUBKEY);
 
+    uint256 contract = GetContract(); // for BIP-175
+
+    CPubKey pubKeyTest = secret.GetPubKey();
+    metadata.hdPubKeyHash = pubKeyTest.GetID();
+    pubKeyTest.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
+
+    secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
+    assert(pubKeyTest == pubkey);
 
     mapKeyMetadata[pubkey.GetID()] = metadata;
     UpdateTimeFirstKey(nCreationTime);
@@ -468,21 +476,21 @@ bool CWallet::Verify()
         } catch (const boost::filesystem::filesystem_error&) {
             // failure is ok (well, not really, but it's not worse than what we started with)
         }
-        
+
         // try again
         if (!bitdb.Open(GetDataDir())) {
             // if it still fails, it probably means we can't even create the database env
             return InitError(strprintf(_("Error initializing wallet database environment %s!"), GetDataDir()));
         }
     }
-    
+
     if (GetBoolArg("-salvagewallet", false))
     {
         // Recover readable keypairs:
         if (!CWalletDB::Recover(bitdb, walletFile, true))
             return false;
     }
-    
+
     if (boost::filesystem::exists(GetDataDir() / walletFile))
     {
         CDBEnv::VerifyResult r = bitdb.Verify(walletFile, CWalletDB::Recover);
@@ -497,7 +505,7 @@ bool CWallet::Verify()
         if (r == CDBEnv::RECOVER_FAIL)
             return InitError(strprintf(_("%s corrupt, salvage failed"), walletFile));
     }
-    
+
     return true;
 }
 
@@ -3564,7 +3572,7 @@ bool CWallet::SetDefaultKey(const CPubKey &vchPubKey)
 
 /**
  * Mark old keypool keys as used,
- * and generate all new keys 
+ * and generate all new keys
  */
 bool CWallet::NewKeyPool()
 {
@@ -3686,6 +3694,17 @@ bool CWallet::GetKeyFromPool(CPubKey& result)
         result = keypool.vchPubKey;
     }
     return true;
+}
+
+uint256 CWallet::GetContract()
+{
+    const std::string contractFile = GetContractFile();
+    const std::string contract = contractFile.empty() ?
+      "These are the terms and conditions for using the CBT network." : contractFile;
+
+    std::vector<unsigned char> terms(contract.begin(), contract.end());
+
+    return Hash(terms.begin(), terms.end());
 }
 
 int64_t CWallet::GetOldestKeyPoolTime()

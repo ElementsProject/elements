@@ -246,6 +246,22 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChi
     return true;
 }
 
+bool CPubKey::AddTweakToPubKey(const unsigned char *tweak)
+{
+    secp256k1_pubkey pubkey;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size())) {
+        return false;
+    }
+    bool ret = secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, tweak);
+    assert(ret);
+
+    unsigned char pub[65];
+    size_t publen = 65;
+    secp256k1_ec_pubkey_serialize(secp256k1_context_verify, pub, &publen, &pubkey, IsCompressed() ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
+    Set(pub, pub + publen);
+    return true;
+}
+
 void CExtPubKey::Encode(unsigned char code[BIP32_EXTKEY_SIZE]) const {
     code[0] = nDepth;
     memcpy(code+1, vchFingerprint, 4);

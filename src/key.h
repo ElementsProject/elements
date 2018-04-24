@@ -135,6 +135,9 @@ public:
     //! Derive BIP32 child key.
     bool Derive(CKey& keyChild, ChainCode &ccChild, unsigned int nChild, const ChainCode& cc) const;
 
+    //! Tweak private key by adding a tweak to it
+    bool AddTweakToPrivKey(const unsigned char *tweak);
+
     /**
      * Verify thoroughly whether a private key and a public key match.
      * This is done using a different mechanism than just regenerating it.
