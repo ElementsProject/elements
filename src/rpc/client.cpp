@@ -138,6 +138,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "bumpfee", 1, "options" },
     { "testproposedblock", 1, "acceptnonstd" },
     { "sendtomainchain", 2, "subtractfeefromamount"},
+    { "getnewblockhex", 0, "required_age"},
     // Echo with conversion (For testing only)
     { "echojson", 0, "arg0" },
     { "echojson", 1, "arg1" },
