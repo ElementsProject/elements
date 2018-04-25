@@ -628,9 +628,10 @@ private:
     secp256k1_surjectionproof proof;
     std::vector<secp256k1_generator> vTags;
     secp256k1_generator gen;
+    uint256 wtxid;
     const bool store;
 public:
-    CSurjectionCheck(secp256k1_surjectionproof& proofIn, std::vector<secp256k1_generator>& tags_in, secp256k1_generator& genIn, const bool storeIn) : proof(proofIn), vTags(tags_in), gen(genIn), store(storeIn) {}
+    CSurjectionCheck(secp256k1_surjectionproof& proof_in, std::vector<secp256k1_generator>& tags_in, secp256k1_generator& gen_in, uint256& wtxid_in, const bool store_in) : proof(proof_in), vTags(tags_in), gen(gen_in), wtxid(wtxid_in), store(store_in) {}
 
     bool operator()();
 };
@@ -676,7 +677,7 @@ bool CBalanceCheck::operator()()
 
 bool CSurjectionCheck::operator()()
 {
-    return CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts);
+    return CachingSurjectionProofChecker(store).VerifySurjectionProof(proof, vTags, gen, secp256k1_ctx_verify_amounts, wtxid);
 }
 
 } // namespace
@@ -712,6 +713,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     unsigned char explBlinds[32];
     memset(explBlinds, 0, sizeof(explBlinds));
     int ret;
+
+    uint256 wtxid(tx.GetHashWithWitness());
 
     // This list is used to verify surjection proofs.
     // Proofs must be constructed with the list being in
@@ -993,7 +996,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         if (secp256k1_surjectionproof_parse(secp256k1_ctx_verify_amounts, &proof, &ptxoutwit->vchSurjectionproof[0], ptxoutwit->vchSurjectionproof.size()) != 1)
             return false;
 
-        if (QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, cacheStore)) != SCRIPT_ERR_OK) {
+        if (QueueCheck(pvChecks, new CSurjectionCheck(proof, targetGenerators, gen, wtxid, cacheStore)) != SCRIPT_ERR_OK) {
             return false;
         }
     }

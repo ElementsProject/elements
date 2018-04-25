@@ -68,6 +68,13 @@ public:
         CSHA256().Write(nonce.begin(), nonce.size()).Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Finalize(entry.begin());
     }
 
+    void ComputeEntry(uint256& entry, const uint256 &hash, const std::vector<unsigned char>& proof, const std::vector<unsigned char>& commitment)
+    {
+        CSHA256().Write(nonce.begin(), nonce.size()).Write(hash.begin(), 32).Write(proof.data(), proof.size()).Write(commitment.data(), commitment.size()).Finalize(entry.begin());
+    }
+
+
+
     bool
     Get(const uint256& entry, const bool erase)
     {
@@ -190,31 +197,19 @@ bool CachingRangeProofChecker::VerifyRangeProof(const std::vector<unsigned char>
     return true;
 }
 
-bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts) const
+bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* secp256k1_ctx_verify_amounts, const uint256& wtxid) const
 {
-    // Serialize objects
+
+    // Serialize proof
     std::vector<unsigned char> vchproof;
     size_t proof_len = 0;
     vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
     secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
 
-    std::vector<unsigned char> tagCommit;
-    tagCommit.resize(33);
-    CSHA256 sha2;
-    for (unsigned int i = 0; i <vTags.size(); i++) {
-        secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, tagCommit.data(), &vTags[i]);
-        sha2.Write(tagCommit.data(), tagCommit.size());
-    }
-    tagCommit.resize(32);
-    sha2.Finalize(tagCommit.data());
-
-    std::vector<unsigned char> vchGen;
-    vchGen.resize(CConfidentialValue::nCommittedSize);
-    secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchGen[0], &gen);
-
-    CPubKey pubkey(vchGen);
+    // wtxid commits to all data including surj targets
+    // we need to specify the proof and output asset point to be unique
     uint256 entry;
-    surjectionProofCache.ComputeEntry(entry, uint256(tagCommit), vchproof, pubkey, vchGen, CScript());
+    surjectionProofCache.ComputeEntry(entry, wtxid, vchproof, std::vector<unsigned char>(std::begin(gen.data), std::end(gen.data)));
 
     if (surjectionProofCache.Get(entry, !store)) {
         return true;
