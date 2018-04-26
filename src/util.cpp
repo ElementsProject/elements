@@ -8,7 +8,7 @@
 #endif
 
 #include "util.h"
-
+#include "hash.h"
 #include "chainparamsbase.h"
 #include "random.h"
 #include "serialize.h"
