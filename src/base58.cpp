@@ -257,6 +257,12 @@ bool CBitcoinAddress::Set(const CTxDestination& dest)
     return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
 }
 
+bool CBitcoinAddress::Set(const std::vector<unsigned char> &extendedId)
+{
+    SetData(Params().Base58Prefix(CChainParams::EXTENDED_ADDRESS), &extendedId[0], extendedId.size());
+    return true;
+}
+
 bool CParentBitcoinAddress::Set(const CKeyID& id)
 {
     SetData(Params().Base58Prefix(CChainParams::PARENT_PUBKEY_ADDRESS), &id, 20);
@@ -322,9 +328,10 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
     if (IsBlinded(params)) {
         return GetUnblinded().IsValid(params);
     }
-    bool fCorrectSize = vchData.size() == 20;
+    bool fCorrectSize = vchData.size() == 20 || vchData.size() == 40;
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
-                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS) ||
+                         vchVersion == params.Base58Prefix(CChainParams::EXTENDED_ADDRESS);
     return fCorrectSize && fKnownVersion;
 }
 
@@ -345,7 +352,8 @@ CTxDestination CBitcoinAddress::Get() const
         return CNoDestination();
     uint160 id;
     memcpy(&id, &vchData[0], 20);
-    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS))
+    if (vchVersion == Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
+        vchVersion == Params().Base58Prefix(CChainParams::EXTENDED_ADDRESS))
         return CKeyID(id);
     else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS))
         return CScriptID(id);
@@ -372,8 +380,12 @@ bool CBitcoinAddress::GetKeyID(CKeyID& keyID) const
     if (IsBlinded()) {
         return GetUnblinded().GetKeyID(keyID);
     }
-    if (!IsValid() || vchVersion != Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS))
+    if (!IsValid() ||
+        (vchVersion != Params().Base58Prefix(CChainParams::PUBKEY_ADDRESS) &&
+         vchVersion != Params().Base58Prefix(CChainParams::EXTENDED_ADDRESS)))
+    {
         return false;
+    }
     uint160 id;
     memcpy(&id, &vchData[0], 20);
     keyID = CKeyID(id);
