@@ -863,6 +863,16 @@ std::string GetContractFile()
     return contract;
 }
 
+uint256 GetContractHash()
+{
+    const std::string contractFile = GetContractFile();
+    const std::string contract = contractFile.empty() ?
+      "These are the terms and conditions for using the CBT network." : contractFile;
+
+    std::vector<unsigned char> terms(contract.begin(), contract.end());
+    return Hash(terms.begin(), terms.end());
+}
+
 void RenameThread(const char* name)
 {
 #if defined(PR_SET_NAME)
