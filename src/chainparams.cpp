@@ -58,6 +58,7 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    genesis.hashContract = GetContractHash();
     return genesis;
 }
 
@@ -195,6 +196,7 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,235);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,75);
         base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1,4);
+        base58Prefixes[EXTENDED_ADDRESS]= std::vector<unsigned char>(1,5);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
@@ -220,6 +222,7 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
         base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1,11);
+        base58Prefixes[EXTENDED_ADDRESS]= std::vector<unsigned char>(1,12);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();
@@ -258,4 +261,4 @@ void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_
 {
     globalChainParams->UpdateBIP9Parameters(d, nStartTime, nTimeout);
 }
- 
+
