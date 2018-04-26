@@ -200,12 +200,7 @@ UniValue getnewaddress(const JSONRPCRequest& request)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    CKeyMetadata meta = pwalletMain->mapKeyMetadata[keyID];
-    std::vector<unsigned char> extendedKeyId;
-    extendedKeyId.insert(extendedKeyId.end(), keyID.begin(), keyID.end());
-    extendedKeyId.insert(extendedKeyId.end(), meta.hdPubKeyHash.begin(), meta.hdPubKeyHash.end());
-
-    return CBitcoinAddress(extendedKeyId).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
+    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
 }
 
 
