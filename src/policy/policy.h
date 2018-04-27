@@ -83,6 +83,13 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
      * @return True if all outputs (scriptPubKeys) use only standard transaction forms
      */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
+
+    /**
+     * Check all type and whitelist status of outputs of tx
+     * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database 
+     */
+bool IsWhitelisted(const CTransaction& tx);
+
     /**
      * Check for standard transaction types
      * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
