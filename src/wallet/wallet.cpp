@@ -112,7 +112,7 @@ CPubKey CWallet::GenerateNewKey()
     if (fCompressed)
         SetMinVersion(FEATURE_COMPRPUBKEY);
 
-    uint256 contract = GetContractHash(); // for BIP-175
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
 
     CPubKey pubKeyTest = secret.GetPubKey();
     metadata.hdPubKeyHash = pubKeyTest.GetID();
