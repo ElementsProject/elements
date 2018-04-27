@@ -112,7 +112,7 @@ CPubKey CWallet::GenerateNewKey()
     if (fCompressed)
         SetMinVersion(FEATURE_COMPRPUBKEY);
 
-    uint256 contract = GetContract(); // for BIP-175
+    uint256 contract = GetContractHash(); // for BIP-175
 
     CPubKey pubKeyTest = secret.GetPubKey();
     metadata.hdPubKeyHash = pubKeyTest.GetID();
@@ -3694,17 +3694,6 @@ bool CWallet::GetKeyFromPool(CPubKey& result)
         result = keypool.vchPubKey;
     }
     return true;
-}
-
-uint256 CWallet::GetContract()
-{
-    const std::string contractFile = GetContractFile();
-    const std::string contract = contractFile.empty() ?
-      "These are the terms and conditions for using the CBT network." : contractFile;
-
-    std::vector<unsigned char> terms(contract.begin(), contract.end());
-
-    return Hash(terms.begin(), terms.end());
 }
 
 int64_t CWallet::GetOldestKeyPoolTime()

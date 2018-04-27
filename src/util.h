@@ -17,6 +17,7 @@
 #include "compat.h"
 #include "tinyformat.h"
 #include "utiltime.h"
+#include "uint256.h"
 
 #include <atomic>
 #include <exception>
@@ -128,7 +129,7 @@ void OpenAuditLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 std::string GetContractFile();
-
+uint256 GetContractHash();
 
 inline bool IsSwitchChar(char c)
 {

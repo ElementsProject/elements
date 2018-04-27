@@ -216,7 +216,7 @@ UniValue validateaddress(const JSONRPCRequest& request)
         if (address.IsBlinded()) {
             CPubKey key = address.GetBlindingKey();
             ret.push_back(Pair("confidential_key", HexStr(key.begin(), key.end())));
-            ret.push_back(Pair("unconfidential", address.GetUnblinded().ToString()));
+            ret.push_back(Pair("unconfidential", CBitcoinAddress(dest).ToString()));
         } else {
             ret.push_back(Pair("confidential_key", ""));
             ret.push_back(Pair("unconfidential", currentAddress));
