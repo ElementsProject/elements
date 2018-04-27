@@ -24,6 +24,7 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "validationinterface.h"
+#include "pubkey.h"
 
 #include <algorithm>
 #include <boost/thread.hpp>
@@ -139,13 +140,36 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
+    LOCK2(cs_main, mempool.cs);
+    CBlockIndex* pindexPrev = chainActive.Tip();
+
+    // Reset proof here, for weight calculations since header
+    // is not fixed size.
+    ResetProof(*pblock);
+    ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
+
+    // Pad weight for challenge
+    // We won't bother with serialization byte(s), we have room
+    nBlockWeight += pblock->proof.challenge.size()*WITNESS_SCALE_FACTOR;
+
+    // Pad weight for proof
+    // Note: Assumes "naked" script template with pubkeys
+    txnouttype dummy_type;
+    std::vector<CTxDestination> dummy_addresses;
+    int required_sigs = -1;
+    if (!ExtractDestinations(pblock->proof.challenge, dummy_type, dummy_addresses, required_sigs)) {
+        // No idea how to sign this... log error but return block.
+        LogPrintf("CreateNewBlock: Can not extract destinations from signblockscript");
+    } else {
+        assert(required_sigs > 0);
+        nBlockWeight += required_sigs*74*WITNESS_SCALE_FACTOR;
+    }
+
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
     pblocktemplate->vTxFees.push_back(-1); // updated at end
     pblocktemplate->vTxSigOpsCost.push_back(-1); // updated at end
 
-    LOCK2(cs_main, mempool.cs);
-    CBlockIndex* pindexPrev = chainActive.Tip();
     nHeight = pindexPrev->nHeight + 1;
 
     pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
@@ -199,8 +223,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
-    ResetProof(*pblock);
     pblock->nHeight = nHeight;
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
