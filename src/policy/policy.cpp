@@ -117,8 +117,7 @@ bool IsWhitelisted(const CTransaction& tx)
     //return false if not P2PKH
     if(whichType != TX_PUBKEYHASH) return false;
     
-    CTxDestination qaddress;
-    qaddress = CKeyID(uint160(vSolutions[0]));
+    uint160 qaddress(vSolutions[0]);
 
     /*
 
