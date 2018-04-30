@@ -342,6 +342,9 @@ std::string gbt_vb_name(const Consensus::DeploymentPos pos) {
     return s;
 }
 
+extern void AddToCompactBlockProposal(const CTransactionRef& tx);
+extern void ClearCompactBlockProposal();
+
 UniValue testproposedblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
@@ -378,6 +381,12 @@ UniValue testproposedblock(const JSONRPCRequest& request)
         if (strRejectReason.empty())
             throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
         throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+    }
+
+    // Cache the block; we're going to almost certainly use the contents
+    ClearCompactBlockProposal();
+    for (auto& transaction : block.vtx) {
+        AddToCompactBlockProposal(transaction);
     }
 
     const CChainParams& chainparams = Params();
