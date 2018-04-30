@@ -200,7 +200,9 @@ UniValue getnewaddress(const JSONRPCRequest& request)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
+    return ENABLE_CONFIDENTIAL_TRANSACTIONS ?
+        CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() : 
+        CBitcoinAddress(keyID).ToString();
 }
 
 
@@ -211,7 +213,9 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
 
-    return CBitcoinAddress(pubKey.GetID()).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(pubKey.GetID())));
+    return ENABLE_CONFIDENTIAL_TRANSACTIONS ?
+        CBitcoinAddress(pubKey.GetID()).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(pubKey.GetID()))).ToString() : 
+        CBitcoinAddress(pubKey.GetID()).ToString();
 }
 
 UniValue getaccountaddress(const JSONRPCRequest& request)
@@ -277,7 +281,9 @@ UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     CKeyID keyID = vchPubKey.GetID();
 
-    return CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString();
+    return ENABLE_CONFIDENTIAL_TRANSACTIONS ?
+        CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() : 
+        CBitcoinAddress(keyID).ToString();
 }
 
 
@@ -389,7 +395,10 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     BOOST_FOREACH(const PAIRTYPE(CTxDestination, CAddressBookData)& item, pwalletMain->mapAddressBook)
     {
         CBitcoinAddress address = item.first;
-        address.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(item.first)));
+        if (ENABLE_CONFIDENTIAL_TRANSACTIONS)
+        {
+            address.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(item.first)));
+        }
         const string& strName = item.second.name;
         if (strName == strAccount)
             ret.push_back(address.ToString());
