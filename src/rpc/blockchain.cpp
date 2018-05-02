@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "base58.h"
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -1332,6 +1333,87 @@ UniValue preciousblock(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue addtowhitelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 2)
+    throw runtime_error(
+            "addtowhitelist \"tweakedaddress\" \"basepubkey\"\n"
+            "\nAttempts to add an address (tweakedaddress) to the node mempool whitelist.\n"
+            "The address is checked that it has been tweaked with the contract hash.\n"
+            "\nArguments:\n"
+            "1. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
+            "2. \"tweakedaddress\"  (string, required) Hex encoded HASH160 of the tweaked public key\n"
+            "\nExamples:\n"
+            + HelpExampleCli("addtowhitelist", "\"TWEAKEDADDRESS\" \"UNTWEAKEDCOMPRESSEDPUBKEY\"")
+            + HelpExampleRpc("addtowhitelist", "\"TWEAKEDADDRESS\" \"UNTWEAKEDCOMPRESSEDPUBKEY\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  std::vector<unsigned char> pubKeyData(ParseHex(request.params[1].get_str()));
+  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+  if (!pubKey.IsFullyValid())
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+
+ 
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+  
+  //  if (pubKey.GetID() != keyId)
+    //    throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
+
+
+  return NullUniValue;
+}
+
+
+
+
+
+UniValue removefromwhitelist(const JSONRPCRequest& request)
+{
+
+
+
+
+
+  return NullUniValue;
+}
+
+
+
+
+
+UniValue dumpwhitelist(const JSONRPCRequest& request)
+{
+
+
+
+
+
+  return NullUniValue;
+}
+
+
+
+UniValue clearwhitelist(const JSONRPCRequest& request)
+{
+
+
+
+
+
+  return NullUniValue;
+}
+
+
 UniValue invalidateblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
@@ -1430,6 +1512,11 @@ static const CRPCCommand commands[] =
     { "blockchain",         "verifychain",            &verifychain,            true,  {"checklevel","nblocks"} },
 
     { "blockchain",         "preciousblock",          &preciousblock,          true,  {"blockhash"} },
+
+    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"tweakedaddress","basepubkey"} },
+    { "blockchain",         "removefromwhitelist",     &removefromwhitelist,    true,  {"twkpubkeyhash"} },
+    { "blockchain",         "dumpwhitelist",           &dumpwhitelist,          true,  {} },
+    { "blockchain",         "clearwhitelist",          &clearwhitelist,         true,  {} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        true,  {"blockhash"} },
