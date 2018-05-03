@@ -14,12 +14,12 @@ BOOST_FIXTURE_TEST_SUITE(assetsdir_tests, BasicTestingSetup)
 BOOST_AUTO_TEST_CASE(assetsdirTests)
 {
     CAssetsDir tAssetsDir;
-    const std::string defaultPeggedLabel = "bitcoin";
+    const std::string defaultPeggedLabel = "CBT";
     const std::string defaultPeggedAssetHex = Params().GetConsensus().pegged_asset.GetHex();
     const CAsset defaultPeggedAsset = Params().GetConsensus().pegged_asset;
     const std::string exampleAssetHex = "fa821b0be5e1387adbcb69dbb3ad33edb5e470831c7c938c4e7b344edbe8bb11";
     const CAsset exampleAsset = CAsset(uint256S(exampleAssetHex));
-    const std::vector<std::string> protectedLabels = {"*", defaultPeggedLabel, "bitcoin", "Bitcoin", "btc"};
+    const std::vector<std::string> protectedLabels = {"*", defaultPeggedLabel, "CBT", "Cbt", "cbt"};
 
     for (std:: string protectedLabel : protectedLabels) {
         std::vector<std::string> assetsToInitProtected = {exampleAssetHex + ":" + protectedLabel};
@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(assetsdirTests)
 
     BOOST_CHECK(exampleAsset == tAssetsDir.GetAsset("other"));
     BOOST_CHECK_EQUAL("other", tAssetsDir.GetLabel(exampleAsset));
-    // "bitcoin" is hardcoded for python tests
+    // "CBT" is hardcoded for python tests
     BOOST_CHECK(defaultPeggedAsset == tAssetsDir.GetAsset(defaultPeggedLabel));
     BOOST_CHECK_EQUAL(defaultPeggedLabel, tAssetsDir.GetLabel(defaultPeggedAsset));
     BOOST_CHECK(defaultPeggedAsset == tAssetsDir.GetAsset(tAssetsDir.GetLabel(CAsset(uint256S(defaultPeggedAssetHex)))));

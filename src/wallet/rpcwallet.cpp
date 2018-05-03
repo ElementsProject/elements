@@ -558,7 +558,7 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     if (request.params.size() > 4)
         fSubtractFeeFromAmount = request.params[4].get_bool();
 
-    std::string strasset = "bitcoin";
+    std::string strasset = "CBT";
     if (request.params.size() > 5 && request.params[5].isStr()) {
         strasset = request.params[5].get_str();
     }
@@ -1163,7 +1163,7 @@ UniValue sendmany(const JSONRPCRequest& request)
     {
         CBitcoinAddress address(name_);
 
-        std::string strasset = "bitcoin";
+        std::string strasset = "CBT";
         if (!assets.isNull() && assets[name_].isStr()) {
             strasset = assets[name_].get_str();
         }
