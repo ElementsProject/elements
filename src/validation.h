@@ -10,6 +10,7 @@
 #include "config/bitcoin-config.h"
 #endif
 
+#include "pubkey.h"
 #include "amount.h"
 #include "chain.h"
 #include "coins.h"
@@ -149,6 +150,10 @@ struct BlockHasher
 {
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
+
+//whitelist address list
+typedef std::vector<CKeyID> AWhitelist;
+extern AWhitelist addressWhitelist;
 
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;

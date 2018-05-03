@@ -7,6 +7,7 @@
 
 #include "policy/policy.h"
 
+#include "pubkey.h"
 #include "validation.h"
 #include "tinyformat.h"
 #include "util.h"
@@ -119,13 +120,11 @@ bool IsWhitelisted(const CTransaction& tx)
     
     uint160 qaddress(vSolutions[0]);
 
-    /*
+    CKeyID keyId(qaddress);
 
-      search in whitelist for the presence of qaddress: if not found return false
+    // search in whitelist for the presence of qaddress: if not found return false
 
-     */
-
-    //    if(whitelist.find(qaddress) != whitelist.end()) return false
+    if(std::find(addressWhitelist.begin(),addressWhitelist.end(),keyId) == addressWhitelist.end()) return false;
 
   }
 

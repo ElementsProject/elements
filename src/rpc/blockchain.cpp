@@ -1366,30 +1366,42 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
   
-  //  if (pubKey.GetID() != keyId)
-    //    throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
-
+  if (pubKey.GetID() != keyId)
+    {
+      //    throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
+    } else {
+    addressWhitelist.push_back(keyId);
+  }
 
   return NullUniValue;
 }
-
-
-
-
 
 UniValue removefromwhitelist(const JSONRPCRequest& request)
 {
 
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "removefromwhitelist \"address\" \n"
+            "\nRemoves an address from the node mempool whitelist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Hex encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("removefromwhitelist", "\"ADDRESS\"")
+            + HelpExampleRpc("removefromwhitelist", "\"ADDRESS\"")
+                        );
 
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
 
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
+  addressWhitelist.erase(std::remove(addressWhitelist.begin(),addressWhitelist.end(),keyId),addressWhitelist.end());
 
   return NullUniValue;
 }
-
-
-
-
 
 UniValue dumpwhitelist(const JSONRPCRequest& request)
 {
