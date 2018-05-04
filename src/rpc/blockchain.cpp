@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "base58.h"
 #include "amount.h"
 #include "chain.h"
 #include "chainparams.h"
@@ -26,6 +27,7 @@
 #include <univalue.h>
 
 #include <boost/thread/thread.hpp> // boost::thread::interrupt
+#include <boost/algorithm/string.hpp>
 
 #include <mutex>
 #include <condition_variable>
@@ -1332,6 +1334,190 @@ UniValue preciousblock(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue addtowhitelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 2)
+    throw runtime_error(
+            "addtowhitelist \"tweakedaddress\" \"basepubkey\"\n"
+            "\nAttempts to add an address (tweakedaddress) to the node mempool whitelist.\n"
+            "The address is checked that it has been tweaked with the contract hash.\n"
+            "\nArguments:\n"
+            "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
+            "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
+            "\nExamples:\n"
+            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
+            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968\
+355\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  std::vector<unsigned char> pubKeyData(ParseHex(request.params[1].get_str()));
+  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+  if (!pubKey.IsFullyValid())
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+
+ 
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+  
+  if (pubKey.GetID() != keyId)
+    {
+      throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
+    } else {
+    addressWhitelist.push_back(keyId);
+  }
+
+  return NullUniValue;
+}
+
+UniValue readwhitelist(const JSONRPCRequest& request)
+{
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "readwhitelist \"filename\"\n"
+            "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The key file\n"
+            "\nExamples:\n"
+            "\nDump the keys\n"
+            + HelpExampleCli("readwhitelist", "\"test\"")
+            + HelpExampleRpc("readwhitelist", "\"test\"")
+			);
+
+  ifstream file;
+  file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
+  if (!file.is_open())
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+
+  file.seekg(0, file.beg);
+
+  // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation                                                         
+  while (file.good()) {
+    std::string line;
+    std::getline(file, line);
+    if (line.empty() || line[0] == '#')
+      continue;
+
+    std::vector<std::string> vstr;
+    boost::split(vstr, line, boost::is_any_of(" "));
+    if (vstr.size() < 2)
+      continue;
+
+    CBitcoinAddress address;
+    if (!address.SetString(vstr[0]))
+      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+
+    std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
+    CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    if (!pubKey.IsFullyValid())
+      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+    CKeyID keyId;
+    if (!address.GetKeyID(keyId))
+      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+    if (pubKey.GetID() != keyId)
+      throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation when tweaking key with contract hash");
+
+    addressWhitelist.push_back(keyId);
+  }
+
+  file.close();  
+
+  return NullUniValue;
+}
+
+
+UniValue removefromwhitelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "removefromwhitelist \"address\" \n"
+            "\nRemoves an address from the node mempool whitelist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("removefromwhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("removefromwhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  addressWhitelist.erase(std::remove(addressWhitelist.begin(),addressWhitelist.end(),keyId),addressWhitelist.end());
+
+  return NullUniValue;
+}
+
+UniValue dumpwhitelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "dumpwhitelist \"filename\"\n"
+            "\nDumps all addresses in the tx mempool to a text file.\n"
+	        "\nArguments:\n"
+            "1. \"filename\"    (string, required) The filename\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dumpwhitelist", "\"test\"")
+            + HelpExampleRpc("dumpwhitelist", "\"test\"")
+			);
+
+  ofstream file;
+  file.open(request.params[0].get_str().c_str());
+  if (!file.is_open())
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+
+  // produce output                                                                                                                                 
+  file << strprintf("# Whitelisted address dump");
+  file << "\n";
+
+  for(unsigned long it = 0;it<addressWhitelist.size();it++) {
+    std::string strAddr = CBitcoinAddress(addressWhitelist[it]).ToString();
+    file << strprintf("%s\n",
+		      strAddr);
+  }
+
+  file << "\n";
+  file << "# End of dump\n";
+  file.close();
+
+  return NullUniValue;
+}
+
+UniValue clearwhitelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 0)
+    throw runtime_error(
+            "clearwhitelist \n"
+            "\nClears the node mempool transaction whitelist (no arguments).\n"
+            + HelpExampleCli("clearwhitelist", "\"true\"")
+            + HelpExampleRpc("clearwhitelist", "\"true\"")
+			);
+
+  addressWhitelist.clear();
+
+  return NullUniValue;
+}
+
+
 UniValue invalidateblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
@@ -1430,6 +1616,12 @@ static const CRPCCommand commands[] =
     { "blockchain",         "verifychain",            &verifychain,            true,  {"checklevel","nblocks"} },
 
     { "blockchain",         "preciousblock",          &preciousblock,          true,  {"blockhash"} },
+
+    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"tweakedaddress","basepubkey"} },
+    { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename"} },
+    { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"twkpubkeyhash"} },
+    { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
+    { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        true,  {"blockhash"} },
