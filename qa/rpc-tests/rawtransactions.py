@@ -85,18 +85,18 @@ class RawTransactionsTest(BitcoinTestFramework):
         mSigObjValid = self.nodes[2].validateaddress(mSigObj)
 
         #use balance deltas instead of absolute values
-        bal = self.nodes[2].getbalance()["bitcoin"]
+        bal = self.nodes[2].getbalance()["CBT"]
 
         # send 1.2 BTC to msig adr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[2].getbalance()["bitcoin"], bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
+        assert_equal(self.nodes[2].getbalance()["CBT"], bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
 
 
         # 2of3 test from different nodes
-        bal = self.nodes[2].getbalance()["bitcoin"]
+        bal = self.nodes[2].getbalance()["CBT"]
         addr1 = self.nodes[1].getnewaddress()
         addr2 = self.nodes[2].getnewaddress()
         addr3 = self.nodes[2].getnewaddress()
@@ -118,7 +118,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #THIS IS A INCOMPLETE FEATURE
         #NODE2 HAS TWO OF THREE KEY AND THE FUNDS SHOULD BE SPENDABLE AND COUNT AT BALANCE CALCULATION
-        assert_equal(self.nodes[2].getbalance()["bitcoin"], bal) #for now, assume the funds of a 2of3 multisig tx are not marked as spendable
+        assert_equal(self.nodes[2].getbalance()["CBT"], bal) #for now, assume the funds of a 2of3 multisig tx are not marked as spendable
 
         txDetails = self.nodes[0].gettransaction(txId, True)
         rawTx = self.nodes[0].decoderawtransaction(txDetails['hex'])

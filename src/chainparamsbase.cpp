@@ -10,13 +10,13 @@
 
 #include <assert.h>
 
-const std::string CBaseChainParams::MAIN = CHAINPARAMS_OLD_MAIN;
+const std::string CBaseChainParams::MAIN = CHAINPARAMS_OCEAN_MAIN;
 const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_OLD_MAIN));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_OCEAN_MAIN));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.");
@@ -51,5 +51,5 @@ std::string ChainNameFromCommandLine()
         throw std::runtime_error(strprintf("%s: Invalid option -testnet: try -chain=%s instead.", __func__, CHAINPARAMS_REGTEST));
     if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    return GetArg("-chain", CHAINPARAMS_REGTEST);
+    return GetArg("-chain", CHAINPARAMS_OCEAN_MAIN);
 }
