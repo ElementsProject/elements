@@ -79,27 +79,3 @@ void ResetProof(CBlockHeader& block)
 {
     block.proof.solution.clear();
 }
-
-double GetChallengeDifficulty(const CBlockIndex* blockindex)
-{
-    return 1;
-}
-
-std::string GetChallengeStr(const CBlockIndex& block)
-{
-    return ScriptToAsmStr(block.proof.challenge);
-}
-
-std::string GetChallengeStrHex(const CBlockIndex& block)
-{
-    return ScriptToAsmStr(block.proof.challenge);
-}
-
-uint32_t GetNonce(const CBlockHeader& block)
-{
-    return 1;
-}
-
-void SetNonce(CBlockHeader& block, uint32_t nNonce)
-{
-}
