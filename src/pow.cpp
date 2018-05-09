@@ -25,7 +25,7 @@ CScript CombineBlockSignatures(const CBlockHeader& header, const CScript& script
 {
     SignatureData sig1(scriptSig1);
     SignatureData sig2(scriptSig2);
-    return GenericCombineSignatures(header.proof.challenge, header, sig1, sig2).scriptSig;
+    return GenericCombineSignatures(header.proof.challenge, header, sig1, sig2, SIGVERSION_WITNESS_V0).scriptSig;
 }
 
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)

@@ -74,7 +74,10 @@ typedef boost::variant<CNoDestination, CKeyID, CScriptID> CTxDestination;
 
 const char* GetTxnOutputType(txnouttype t);
 
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
+/* sigversion is to make sure we only consider large multisigs ours if under block
+ * evaluation. Otherwise these are unspendable under native p2sh, or non-standard on
+ * native checkmulitsig. For post-0.16 rebase this will likely be done differently. */
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, SigVersion sigversion=SIGVERSION_BASE);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
 
