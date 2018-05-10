@@ -10,7 +10,6 @@
 #include "tinyformat.h"
 #include "util.h"
 #include "utilstrencodings.h"
-#include "amount.h"
 #include "crypto/sha256.h"
 
 #include <assert.h>
@@ -133,6 +132,7 @@ protected:
         consensus.mandatory_coinbase_destination = StrHexToScriptWithDefault(GetArg("-con_mandatorycoinbase", ""), CScript()); // Blank script allows any coinbase destination
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
+        initialFreeCoins = GetArg("-initialfreecoins", 0);
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
         nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
@@ -174,7 +174,9 @@ public:
         CalculateAsset(consensus.pegged_asset, entropy);
 
         genesis = CreateGenesisBlock(consensus, strNetworkID, 1296688602, genesisChallengeScript, 1);
-        AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, 21000000000000, 0, 0, CScript() << OP_TRUE);
+        if (initialFreeCoins != 0) {
+            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, CScript() << OP_TRUE);
+        }
         consensus.hashGenesisBlock = genesis.GetHash();
 
 
