@@ -16,12 +16,9 @@ const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Allowed values: main, testnet, regtest, custom"), CHAINPARAMS_OLD_MAIN));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Anything except main is allowed"), CHAINPARAMS_REGTEST));
     if (debugHelp) {
-        strUsage += HelpMessageOpt("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
-                                   "This is intended for regression testing tools and app development.");
-        strUsage += HelpMessageGroup(_("Custom chain selection options (only for -chain=custom):"));
-        strUsage += HelpMessageOpt("-chainpetname=<name>", _("Alternative name for custom chain (default: custom). This changes the genesis block."));
+        strUsage += HelpMessageOpt("-regtest", strprintf(_("Equivalent to -chain=%s"), CHAINPARAMS_REGTEST));
     }
 }
 
