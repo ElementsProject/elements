@@ -51,6 +51,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         if (!fedpegscript.empty()) {
             SoftSetArg("-fedpegscript", fedpegscript);
         }
+        // MAX_MONEY
+        SoftSetArg("-initialfreecoins", "2100000000000000");
         SelectParams(chainName);
         noui_connect();
 }
