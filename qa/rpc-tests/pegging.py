@@ -118,6 +118,7 @@ with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("connect=localhost:"+str(sidechain2_p2p_port)+"\n")
         f.write("listen=1\n")
         f.write("fallbackfee=0.0001\n")
+        f.write("initialfreecoins=2100000000000000\n")
 
 with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
         f.write("regtest=1\n")
@@ -137,6 +138,7 @@ with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
         f.write("connect=localhost:"+str(sidechain1_p2p_port)+"\n")
         f.write("listen=1\n")
         f.write("fallbackfee=0.0001\n")
+        f.write("initialfreecoins=2100000000000000\n")
 
 def test_pegout(parent_chain_addr, sidechain):
     pegout_txid = sidechain.sendtomainchain(parent_chain_addr, 1)
