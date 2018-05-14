@@ -19,6 +19,7 @@ from test_framework.util import (
     assert_is_hash_string,
     start_nodes,
     connect_nodes_bi,
+    assert_raises_message,
 )
 
 
@@ -45,21 +46,23 @@ class BlockchainTest(BitcoinTestFramework):
     def run_test(self):
         self._test_gettxoutsetinfo()
         self._test_getblockheader()
+        self._test_getblockheader(getblock=True)
+        self._test_getblockchaininfo()
         self.nodes[0].verifychain(4, 0)
 
     def _test_gettxoutsetinfo(self):
         node = self.nodes[0]
         res = node.gettxoutsetinfo()
 
-        assert_equal(res['total_amount'], Decimal('8725.00000000'))
-        assert_equal(res['transactions'], 200)
+        assert 'total_amount' not in res
+        assert_equal(res['transactions'], 1)
         assert_equal(res['height'], 200)
-        assert_equal(res['txouts'], 200)
-        assert_equal(res['bytes_serialized'], 13924),
+        assert_equal(res['txouts'], 100)
+        assert_equal(res['bytes_serialized'], 3948),
         assert_equal(len(res['bestblock']), 64)
         assert_equal(len(res['hash_serialized']), 64)
 
-    def _test_getblockheader(self):
+    def _test_getblockheader(self, getblock=False):
         node = self.nodes[0]
 
         assert_raises(
@@ -67,23 +70,43 @@ class BlockchainTest(BitcoinTestFramework):
 
         besthash = node.getbestblockhash()
         secondbesthash = node.getblockhash(199)
-        header = node.getblockheader(besthash)
+        if getblock:
+            header = node.getblock(besthash)
+        else:
+            header = node.getblockheader(besthash)
 
         assert_equal(header['hash'], besthash)
         assert_equal(header['height'], 200)
         assert_equal(header['confirmations'], 1)
         assert_equal(header['previousblockhash'], secondbesthash)
-        assert_is_hex_string(header['chainwork'])
         assert_is_hash_string(header['hash'])
         assert_is_hash_string(header['previousblockhash'])
         assert_is_hash_string(header['merkleroot'])
-        assert_is_hash_string(header['bits'], length=None)
         assert isinstance(header['time'], int)
         assert isinstance(header['mediantime'], int)
-        assert isinstance(header['nonce'], int)
         assert isinstance(header['version'], int)
         assert isinstance(int(header['versionHex'], 16), int)
-        assert isinstance(header['difficulty'], int)#always 1
+        assert 'nonce' in header
+        assert 'bits' in header
+        assert 'difficulty' in header
+        assert 'chainwork' in header
+
+    def _test_getblockchaininfo(self):
+        besthash = self.nodes[0].getbestblockhash()
+        res = self.nodes[0].getblockchaininfo()
+
+        assert_equal(res['chain'], 'elementsregtest')
+        assert 'difficulty' in res
+        assert 'chainwork' in res
+        assert_equal(res['blocks'], 200)
+        assert_equal(res['headers'], 200)
+        assert_equal(res['bestblockhash'], besthash)
+        assert isinstance(res['mediantime'], int)
+        assert_equal(res['verificationprogress'], 1)
+        assert_equal(res['pruned'], False)
+        assert 'pruneheight' not in res
+        assert 'softforks' not in res
+        assert 'bip9_softforks' in res
 
 if __name__ == '__main__':
     BlockchainTest().main()
