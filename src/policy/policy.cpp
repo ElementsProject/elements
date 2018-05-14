@@ -115,16 +115,17 @@ bool IsWhitelisted(const CTransaction& tx)
     if (!Solver(txout.scriptPubKey, whichType, vSolutions))
       return false;
 
-    //return false if not P2PKH
-    if(whichType != TX_PUBKEYHASH) return false;
-    
-    uint160 qaddress(vSolutions[0]);
+    //return false if not P2PKH or TX_FEE
+    if(!(whichType == TX_FEE || whichType == TX_PUBKEYHASH)) return false;
+    //skip whitelist check if TX_FEE
+    if(whichType == TX_FEE) continue;
 
-    CKeyID keyId(qaddress);
+    CKeyID keyId;
+    keyId = CKeyID(uint160(vSolutions[0]));
 
-    // search in whitelist for the presence of qaddress: if not found return false
+    // search in whitelist for the presence of qaddress: if not found return false                                                                    
 
-    if(std::find(addressWhitelist.begin(),addressWhitelist.end(),keyId) == addressWhitelist.end()) return false;
+    if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) return false;
 
   }
 

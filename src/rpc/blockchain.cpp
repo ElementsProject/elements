@@ -1372,7 +1372,12 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
     {
       throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
     } else {
-    addressWhitelist.push_back(keyId);
+    
+    //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
+    if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
+      auto it = std::lower_bound(addressWhitelist.cbegin(),addressWhitelist.cend(),keyId);
+      addressWhitelist.insert(it,keyId);
+    }
   }
 
   return NullUniValue;
@@ -1429,7 +1434,11 @@ UniValue readwhitelist(const JSONRPCRequest& request)
     if (pubKey.GetID() != keyId)
       throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation when tweaking key with contract hash");
 
-    addressWhitelist.push_back(keyId);
+    //insert new address into sorted whitelist vector (if it doesn't already exist in the list)                                                           
+    if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
+      auto it = std::lower_bound(addressWhitelist.cbegin(),addressWhitelist.cend(),keyId);
+      addressWhitelist.insert(it,keyId);
+    }
   }
 
   file.close();  
@@ -1437,6 +1446,30 @@ UniValue readwhitelist(const JSONRPCRequest& request)
   return NullUniValue;
 }
 
+UniValue querywhitelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "querywhitelist \"address\" \n"
+            "\nChecks if an address is present in the node mempool whitelist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("querywhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("querywhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+			);
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  return std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId);
+}
 
 UniValue removefromwhitelist(const JSONRPCRequest& request)
 {
@@ -1617,9 +1650,10 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "preciousblock",          &preciousblock,          true,  {"blockhash"} },
 
-    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"tweakedaddress","basepubkey"} },
+    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"address","basepubkey"} },
     { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename"} },
-    { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"twkpubkeyhash"} },
+    { "blockchain",         "querywhitelist",         &querywhitelist,         true,  {"address"} },
+    { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
 
