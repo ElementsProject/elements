@@ -37,6 +37,8 @@ struct ChainTxData {
     double dTxRate;
 };
 
+static const bool DEFAULT_EMBED_CONTRACT = true;
+
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
  * Bitcoin system. There are three: the main network on which people trade goods
@@ -78,6 +80,8 @@ public:
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
     /** Policy: Filter transactions that do not match well-defined patterns */
     bool RequireStandard() const { return fRequireStandard; }
+    /** Configuration option to include the contract hash in block and address generation */
+    bool EmbedContract() const { return fEmbedContract; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
@@ -109,6 +113,7 @@ protected:
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
+    bool fEmbedContract;
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
 };

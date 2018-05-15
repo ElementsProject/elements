@@ -58,7 +58,9 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.hashContract = GetContractHash();
+    if (GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT)) {
+        genesis.hashContract = GetContractHash();
+    }
     return genesis;
 }
 
@@ -140,6 +142,7 @@ protected:
         fMiningRequiresPeers = GetBoolArg("-fminingrequirespeers", false);
         fDefaultConsistencyChecks = GetBoolArg("-fdefaultconsistencychecks", true);
         fRequireStandard = GetBoolArg("-frequirestandard", false);
+        fEmbedContract = GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT);
         fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
         anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
     }
