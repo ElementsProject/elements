@@ -82,7 +82,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listunspent", 1, "maxconf" },
     { "listunspent", 2, "addresses" },
     { "listunspent", 3, "include_unsafe" },
-    { "getblock", 1, "verbose" },
+    { "getblock", 1, "verbosity" },
     { "getblockheader", 1, "verbose" },
     { "gettransaction", 1, "include_watchonly" },
     { "getrawtransaction", 1, "verbose" },
@@ -138,6 +138,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "bumpfee", 1, "options" },
     { "testproposedblock", 1, "acceptnonstd" },
     { "sendtomainchain", 2, "subtractfeefromamount"},
+    { "getnewblockhex", 0, "required_age"},
     // Echo with conversion (For testing only)
     { "echojson", 0, "arg0" },
     { "echojson", 1, "arg1" },
