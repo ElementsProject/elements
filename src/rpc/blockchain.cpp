@@ -1626,6 +1626,34 @@ UniValue reconsiderblock(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue getcontract(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+    throw runtime_error(
+            "getcontract \n"
+            "\nReturns the latest contract from the node.\n"
+            "\nUp to date contract details are only maintained in signing nodes (no arguments).\n"
+            + HelpExampleCli("getcontract", "\"true\"")
+            + HelpExampleRpc("getcontract", "\"true\"")
+            );
+
+    return GetContractFile();
+}
+
+UniValue getcontracthash(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+    throw runtime_error(
+            "getcontracthash \n"
+            "\nReturns the latest contract hash from the node\n"
+            "\nUp to date contract details are only maintained in signing nodes (no arguments).\n"
+            + HelpExampleCli("getcontracthash", "\"true\"")
+            + HelpExampleRpc("getcontracthash", "\"true\"")
+            );
+
+    return GetContractHash().ToString();
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafe argNames
   //  --------------------- ------------------------  -----------------------  ------ ----------
@@ -1656,6 +1684,10 @@ static const CRPCCommand commands[] =
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
+
+    { "blockchain",         "getcontract",             &getcontract,         true,  {} },
+    { "blockchain",         "getcontracthash",         &getcontracthash,     true,  {} },
+
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        true,  {"blockhash"} },
