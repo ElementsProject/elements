@@ -4137,6 +4137,7 @@ std::string CWallet::GetWalletHelpString(bool showDebug)
 {
     std::string strUsage = HelpMessageGroup(_("Wallet options:"));
     strUsage += HelpMessageOpt("-disablewallet", _("Do not load the wallet and disable wallet RPC calls"));
+    strUsage += HelpMessageOpt("-disablect", _("Disable usage of confidential transactions and addresses"));
     strUsage += HelpMessageOpt("-keypool=<n>", strprintf(_("Set key pool size to <n> (default: %u)"), DEFAULT_KEYPOOL_SIZE));
     strUsage += HelpMessageOpt("-fallbackfee=<amt>", strprintf(_("A fee rate (in %s/kB) that will be used when fee estimation has insufficient data (default: %s)"),
                                                                CURRENCY_UNIT, FormatMoney(DEFAULT_FALLBACK_FEE)));
@@ -4341,6 +4342,7 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
         }
     }
     walletInstance->SetBroadcastTransactions(GetBoolArg("-walletbroadcast", DEFAULT_WALLETBROADCAST));
+    walletInstance->SetDisableCt(GetBoolArg("-disablect", DEFAULT_DISABLE_CT));
 
     {
         LOCK(walletInstance->cs_wallet);
