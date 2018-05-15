@@ -54,6 +54,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "getbalance", 1, "minconf" },
     { "getbalance", 2, "include_watchonly" },
     { "getblockhash", 0, "height" },
+    { "getcontracthash", 0, "blockheight" },
     { "waitforblockheight", 0, "height" },
     { "waitforblockheight", 1, "timeout" },
     { "waitforblock", 1, "timeout" },
