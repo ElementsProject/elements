@@ -200,7 +200,7 @@ UniValue getnewaddress(const JSONRPCRequest& request)
 
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
-    return ENABLE_CONFIDENTIAL_TRANSACTIONS ?
+    return !pwalletMain->GetDisableCt() ?
         CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() : 
         CBitcoinAddress(keyID).ToString();
 }
@@ -213,7 +213,7 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
 
-    return ENABLE_CONFIDENTIAL_TRANSACTIONS ?
+    return !pwalletMain->GetDisableCt() ?
         CBitcoinAddress(pubKey.GetID()).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(pubKey.GetID()))).ToString() : 
         CBitcoinAddress(pubKey.GetID()).ToString();
 }
@@ -281,7 +281,7 @@ UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     CKeyID keyID = vchPubKey.GetID();
 
-    return ENABLE_CONFIDENTIAL_TRANSACTIONS ?
+    return !pwalletMain->GetDisableCt() ?
         CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() : 
         CBitcoinAddress(keyID).ToString();
 }
@@ -395,7 +395,7 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     BOOST_FOREACH(const PAIRTYPE(CTxDestination, CAddressBookData)& item, pwalletMain->mapAddressBook)
     {
         CBitcoinAddress address = item.first;
-        if (ENABLE_CONFIDENTIAL_TRANSACTIONS)
+        if (!pwalletMain->GetDisableCt())
         {
             address.AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(item.first)));
         }

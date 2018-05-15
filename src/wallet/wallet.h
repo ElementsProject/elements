@@ -69,7 +69,7 @@ static const bool DEFAULT_WALLETBROADCAST = true;
 static const bool DEFAULT_DISABLE_WALLET = false;
 //! if set, all keys will be derived by using BIP32
 static const bool DEFAULT_USE_HD_WALLET = true;
-static const bool ENABLE_CONFIDENTIAL_TRANSACTIONS = false;
+static const bool DEFAULT_DISABLE_CT = true;
 extern const char * DEFAULT_WALLET_DAT;
 
 bool hasNegativeValue(const CAmountMap& amount);
@@ -637,6 +637,7 @@ private:
     int64_t nNextResend;
     int64_t nLastResend;
     bool fBroadcastTransactions;
+    bool fDisableCt;
 
     /**
      * Used to keep track of spent outpoints, and
@@ -738,6 +739,7 @@ public:
         nLastResend = 0;
         nTimeFirstKey = 0;
         fBroadcastTransactions = false;
+        fDisableCt = false;
         blinding_derivation_key = uint256();
     }
 
@@ -1016,6 +1018,11 @@ public:
     bool GetBroadcastTransactions() const { return fBroadcastTransactions; }
     /** Set whether this wallet broadcasts transactions. */
     void SetBroadcastTransactions(bool broadcast) { fBroadcastTransactions = broadcast; }
+
+    /** Get the Disable Confidential Transactions flag. */
+    bool GetDisableCt() const { return fDisableCt; }
+    /** Set the Disable Confidential Transactions flag. */
+    void SetDisableCt(bool disable) { fDisableCt = disable; }
 
     /* Mark a transaction (and it in-wallet descendants) as abandoned so its inputs may be respent. */
     bool AbandonTransaction(const uint256& hashTx);
