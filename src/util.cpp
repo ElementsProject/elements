@@ -105,7 +105,7 @@ using namespace std;
 
 const char * const BITCOIN_CONF_FILENAME = "elements.conf";
 const char * const BITCOIN_PID_FILENAME = "elements-daemon.pid";
-const char * const CONTRACT_FILE_PATH = "/doc/terms-and-conditions/latest.txt";
+const char * const CONTRACT_FILE_PATH = "/terms-and-conditions/latest.txt";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;
@@ -848,7 +848,7 @@ std::string GetContractFile()
 {
     string contract = "";
     namespace fs = boost::filesystem;
-    fs::path path = fs::current_path() / CONTRACT_FILE_PATH;
+    fs::path path = GetDataDir(false) / CONTRACT_FILE_PATH;
     ifstream file(path.string().c_str());
     if (file.is_open())
     {
@@ -863,12 +863,17 @@ std::string GetContractFile()
     return contract;
 }
 
+uint256 GetGenesisContractHash()
+{
+    const std::string genesisContract = "These are the terms and conditions\n"
+                                        "Approve to use the CBT network\n";
+    std::vector<unsigned char> terms(genesisContract.begin(), genesisContract.end());
+    return Hash(terms.begin(), terms.end());
+}
+
 uint256 GetContractHash()
 {
-    const std::string contractFile = GetContractFile();
-    const std::string contract = contractFile.empty() ?
-      "These are the terms and conditions for using the CBT network." : contractFile;
-
+    const std::string contract = GetContractFile();
     std::vector<unsigned char> terms(contract.begin(), contract.end());
     return Hash(terms.begin(), terms.end());
 }

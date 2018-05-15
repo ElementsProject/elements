@@ -59,7 +59,7 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     if (GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT)) {
-        genesis.hashContract = GetContractHash();
+        genesis.hashContract = GetGenesisContractHash();
     }
     return genesis;
 }
