@@ -149,6 +149,7 @@ testScripts = [
     'prioritise_transaction.py',
     'invalidblockrequest.py',
     'invalidtxrequest.py',
+    'rpc_getblockstats.py',
     'confidential_transactions.py',
     'preciousblock.py',
     #'p2p-segwit.py',
