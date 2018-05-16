@@ -112,17 +112,21 @@ CPubKey CWallet::GenerateNewKey()
     if (fCompressed)
         SetMinVersion(FEATURE_COMPRPUBKEY);
 
-    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
-
     CPubKey pubKeyPreTweak = secret.GetPubKey();
     metadata.derivedPubKey = pubKeyPreTweak;
-    pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
 
-    secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
+    if (Params().EmbedContract()) {
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
+        pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
+        secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
+    }
+
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
-    assert(pubKeyPreTweak == pubkey);
 
+    if (Params().EmbedContract())
+        assert(pubKeyPreTweak == pubkey);
+    
     mapKeyMetadata[pubkey.GetID()] = metadata;
     UpdateTimeFirstKey(nCreationTime);
 

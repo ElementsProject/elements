@@ -129,6 +129,7 @@ void OpenAuditLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 std::string GetContractFile();
+uint256 GetGenesisContractHash();
 uint256 GetContractHash();
 
 inline bool IsSwitchChar(char c)

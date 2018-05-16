@@ -1626,6 +1626,51 @@ UniValue reconsiderblock(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue getcontracthash(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+                "getcontracthash blockheight\n"
+                "\nReturns the contract hash for the specified block height.\n"
+                "\nArguments:\n"
+                "1. blockheight         (numeric, required) The height index\n"
+                "\nResult:\n"
+                "\"contracthash\"         (string) The contract hash\n"
+                "\nExamples:\n"
+                + HelpExampleCli("getcontracthash", "1000")
+                + HelpExampleRpc("getcontracthash", "1000")
+                );
+    
+    LOCK(cs_main);
+
+    int nHeight = request.params[0].get_int();
+    if (nHeight < 0 || nHeight > chainActive.Height())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+
+    CBlockIndex* pblockindex = chainActive[nHeight];
+    return pblockindex->hashContract.ToString();
+}
+
+UniValue getcontract(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw runtime_error(
+                "getcontract \n"
+                "\nReturns the latest contract from the node\n"
+                "\nUp to date contract details are only maintained in signing nodes (no arguments).\n"
+                "\nResult:\n"
+                "{\n"
+                "   \"contract\" : \"contract\""
+                "}\n"
+                + HelpExampleCli("getcontract", "\"true\"")
+                + HelpExampleRpc("getcontract", "\"true\"")
+                );
+
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("contract", GetContractFile));
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafe argNames
   //  --------------------- ------------------------  -----------------------  ------ ----------
@@ -1656,6 +1701,10 @@ static const CRPCCommand commands[] =
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
+
+    { "blockchain",         "getcontract",             &getcontract,         true,  {} },
+    { "blockchain",         "getcontracthash",         &getcontracthash,     true,  {"blockheight"} },
+
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        true,  {"blockhash"} },
