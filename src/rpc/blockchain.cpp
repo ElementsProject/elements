@@ -1658,11 +1658,17 @@ UniValue getcontract(const JSONRPCRequest& request)
                 "getcontract \n"
                 "\nReturns the latest contract from the node\n"
                 "\nUp to date contract details are only maintained in signing nodes (no arguments).\n"
+                "\nResult:\n"
+                "{\n"
+                "   \"contract\" : \"contract\""
+                "}\n"
                 + HelpExampleCli("getcontract", "\"true\"")
                 + HelpExampleRpc("getcontract", "\"true\"")
                 );
 
-    return GetContractFile();
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("contract", GetContractFile));
+    return ret;
 }
 
 static const CRPCCommand commands[] =
