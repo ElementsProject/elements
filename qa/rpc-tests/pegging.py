@@ -8,7 +8,7 @@ import time
 import subprocess
 import shutil
 from decimal import Decimal
-
+from pdb import set_trace
 if len(sys.argv) < 2:
     print("path to bitcoind must be included as argument")
     sys.exit(0)
