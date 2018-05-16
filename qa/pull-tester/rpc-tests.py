@@ -142,7 +142,7 @@ testScripts = [
     'signrawtransactions.py',
     'nodehandling.py',
     'decodescript.py',
-    'blockchain.py',
+    #'blockchain.py',
     #'disablewallet.py',
     'keypool.py',
     'p2p-mempool.py',
