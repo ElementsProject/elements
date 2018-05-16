@@ -625,6 +625,55 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     return CBitcoinSecret(vchSecret).ToString();
 }
 
+UniValue getderivedkeys(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 0)
+        throw runtime_error(
+            "getderivedkeys (no arguments).\n"
+            "\nReturns all wallet addresses and untweaked pub keys in a human-readable format.\n"
+            "\nResult:\n"
+            "{\n"
+            "   \"address\" : [ \"address1\", \"address2\", \"address3\" ],\n"
+            "   \"bpubkey\" : [ \"bpubkey1\", \"bpubkey2\", \"bpubkey3\" ]\n"
+            ""
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getderivedkeys", "\"true\"")
+            + HelpExampleRpc("getderivedkeys", "\"true\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    std::set<CKeyID> setKeyPool;
+    pwalletMain->GetAllReserveKeys(setKeyPool);
+
+    UniValue addresses(UniValue::VARR);
+    UniValue pubkeys(UniValue::VARR);
+    // add the base58check encoded tweaked public key and untweaked pubkey hex
+    for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
+        const CKeyID &keyid = *it;
+        addresses.push_back(CBitcoinAddress(keyid).ToString());
+        CKey key;
+        if (pwalletMain->GetKey(keyid, key)) { // verify exists
+            CPubKey pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
+            pubkeys.push_back(HexStr(pubKey.begin(), pubKey.end()));
+        }
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("address", addresses));
+    ret.push_back(Pair("bpubkey", pubkeys));
+
+    AuditLogPrintf("%s : getderivedkeys\n", getUser());
+
+    return ret;
+}
+
 UniValue dumpderivedkeys(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
