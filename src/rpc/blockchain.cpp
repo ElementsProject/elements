@@ -1696,6 +1696,7 @@ UniValue getcontract(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("contract", GetContractFile));
+}
 
 template<typename T>
 static T CalculateTruncatedMedian(std::vector<T>& scores)
