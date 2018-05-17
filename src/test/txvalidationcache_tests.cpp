@@ -48,7 +48,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
         spends[i].vout[0].nValue = 11*CENT;
         spends[i].vout[0].scriptPubKey = scriptPubKey;
         spends[i].vout[0].nAsset = Params().GetConsensus().pegged_asset;
-        spends[i].vout[1].nValue = MAX_MONEY/100-11*CENT;
+        spends[i].vout[1].nValue = MAX_MONEY-11*CENT;
         spends[i].vout[1].nAsset = Params().GetConsensus().pegged_asset;
         spends[i].vout[1].scriptPubKey = CScript();
 

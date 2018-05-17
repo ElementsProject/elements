@@ -200,7 +200,7 @@ public:
 
         genesis = CreateGenesisBlock(consensus, strNetworkID, 1296688602, genesisChallengeScript, 1);
         if (initialFreeCoins != 0) {
-            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, CScript() << OP_TRUE);
+            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 1, initialFreeCoins, 0, 0, CScript() << OP_TRUE);
         }
         consensus.hashGenesisBlock = genesis.GetHash();
 

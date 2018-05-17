@@ -63,8 +63,8 @@ class BlockchainTest(BitcoinTestFramework):
         assert 'total_amount' not in res
         assert_equal(res['transactions'], 1)
         assert_equal(res['height'], 200)
-        assert_equal(res['txouts'], 100)
-        assert_equal(res['bytes_serialized'], 3948),
+        assert_equal(res['txouts'], 1)
+        assert_equal(res['bytes_serialized'], 75),
         assert_equal(len(res['bestblock']), 64)
         assert_equal(len(res['hash_serialized']), 64)
 
