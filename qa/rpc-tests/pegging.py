@@ -416,13 +416,16 @@ try:
     assert("bitcoin" not in sidechain.getwalletinfo()["balance"])
 
     print("Success!")
+    exit_status = 0
 
 except JSONRPCException as e:
         print("Pegging testing failed, aborting:")
         print(e.error)
+        exit_status = 1
 except Exception as e:
         print("Pegging testing failed, aborting:")
         print(e)
+        exit_status = 1
 
 print("Stopping daemons and cleaning up")
 if bitcoin is not None:
@@ -440,3 +443,5 @@ shutil.rmtree(bitcoin2_datadir)
 shutil.rmtree(sidechain2_datadir)
 shutil.rmtree(sidechain_datadir)
 shutil.rmtree(bitcoin_datadir)
+
+sys.exit(exit_status)
