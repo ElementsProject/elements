@@ -6,6 +6,7 @@
 #ifndef BITCOIN_CHAINPARAMS_H
 #define BITCOIN_CHAINPARAMS_H
 
+#include "amount.h"
 #include "chainparamsbase.h"
 #include "consensus/params.h"
 #include "primitives/block.h"
@@ -108,6 +109,7 @@ protected:
     std::string strNetworkID;
     CBlock genesis;
     uint256 parentGenesisBlockHash;
+    CAmount initialFreeCoins;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;

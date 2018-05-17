@@ -162,19 +162,26 @@ UniValue generate(const JSONRPCRequest& request)
 
 UniValue getnewblockhex(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 0)
+    if (request.fHelp || request.params.size() > 1)
         throw runtime_error(
             "getnewblockhex\n"
             "\nGets hex representation of a proposed, unmined new block\n"
+            "\nArguments:\n"
+            "1. required_age    (numeric, optional, default=0) How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks.\n"
             "\nResult\n"
             "blockhex      (hex) The block hex\n"
             "\nExamples:\n"
             + HelpExampleCli("getnewblockhex", "")
         );
 
+    int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
+    if (required_wait < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMS, "required_wait must be non-negative.");
+    }
+
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript, true, required_wait));
     if (!pblocktemplate.get())
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     {
@@ -1012,7 +1019,7 @@ static const CRPCCommand commands[] =
 
     { "generating",         "generate",               &generate,               true,  {"nblocks","maxtries"} },
     { "generating",         "combineblocksigs",       &combineblocksigs,       true,  {} },
-    { "generating",         "getnewblockhex",         &getnewblockhex,         true,  {} },
+    { "generating",         "getnewblockhex",         &getnewblockhex,         true,  {"required_age"} },
 
     { "util",               "estimatefee",            &estimatefee,            true,  {"nblocks"} },
     { "util",               "estimatepriority",       &estimatepriority,       true,  {"nblocks"} },
