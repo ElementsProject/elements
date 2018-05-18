@@ -1695,7 +1695,8 @@ UniValue getcontract(const JSONRPCRequest& request)
                 );
 
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("contract", GetContractFile));
+    ret.push_back(Pair("contract", GetContractFile()));
+    return ret;
 }
 
 template<typename T>
