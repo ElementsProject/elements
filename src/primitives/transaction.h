@@ -43,8 +43,6 @@ public:
                     return;
                 /* Explicit value */
                 case 1:
-                /* Trust-me! asset generation */
-                case 0xff:
                     vchCommitment.resize(nExplicitSize);
                     break;
                 /* Confidential commitment */
@@ -79,8 +77,7 @@ public:
 
     bool IsValid() const
     {
-        return IsNull() || IsExplicit() || IsCommitment()
-            || (vchCommitment.size()==nExplicitSize && vchCommitment[0]==0xff);
+        return IsNull() || IsExplicit() || IsCommitment();
     }
 
     friend bool operator==(const CConfidentialCommitment& a, const CConfidentialCommitment& b)
