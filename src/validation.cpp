@@ -825,9 +825,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                     continue;
                 }
 
-                if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nAmount.GetAmount(), &gen) != 1) {
-                    return false;
-                }
+                ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nAmount.GetAmount(), &gen);
+                // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
+                assert(ret == 1);
             }
             else if (issuance.nAmount.IsCommitment()) {
                 if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nAmount.vchCommitment[0]) != 1) {
@@ -867,9 +867,10 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                     continue;
                 }
 
-                if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nInflationKeys.GetAmount(), &gen) != 1) {
-                    return false;
-                }
+                // Here we have issuance.nAmount.IsCommitment() == true
+                ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nInflationKeys.GetAmount(), &gen);
+                // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
+                assert(ret == 1);
             }
             else if (issuance.nInflationKeys.IsCommitment()) {
                 if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nInflationKeys.vchCommitment[0]) != 1) {
@@ -928,8 +929,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 }
             }
 
-            if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
-                return false;
+            ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen);
+            // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
+            assert(ret == 1);
         }
         else if (val.IsCommitment()) {
             if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
