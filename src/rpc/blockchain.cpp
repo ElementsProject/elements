@@ -1405,7 +1405,7 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
     
     //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
-      std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.cbegin(),addressWhitelist.cend(),keyId);
+      std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
       addressWhitelist.insert(it,keyId);
     }
   }
@@ -1466,7 +1466,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
 
     //insert new address into sorted whitelist vector (if it doesn't already exist in the list)                                                           
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
-      std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.cbegin(),addressWhitelist.cend(),keyId);
+      std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
       addressWhitelist.insert(it,keyId);
     }
   }
