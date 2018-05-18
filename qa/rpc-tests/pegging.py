@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from test_framework.authproxy import AuthServiceProxy, JSONRPCException
 import os
