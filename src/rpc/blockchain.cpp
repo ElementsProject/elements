@@ -22,6 +22,8 @@
 #include "utilstrencodings.h"
 #include "hash.h"
 
+#include <fstream>
+
 #include <stdint.h>
 
 #include <univalue.h>
@@ -1403,7 +1405,7 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
     
     //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
-      auto it = std::lower_bound(addressWhitelist.cbegin(),addressWhitelist.cend(),keyId);
+      std::vector<CKeyID>::const_iterator it = std::lower_bound(addressWhitelist.cbegin(),addressWhitelist.cend(),keyId);
       addressWhitelist.insert(it,keyId);
     }
   }
@@ -1425,7 +1427,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             + HelpExampleRpc("readwhitelist", "\"test\"")
 			);
 
-  ifstream file;
+  std::ifstream file;
   file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
   if (!file.is_open())
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
@@ -1540,7 +1542,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
             + HelpExampleRpc("dumpwhitelist", "\"test\"")
 			);
 
-  ofstream file;
+  std::ofstream file;
   file.open(request.params[0].get_str().c_str());
   if (!file.is_open())
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");

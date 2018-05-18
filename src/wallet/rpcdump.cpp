@@ -694,7 +694,7 @@ UniValue dumpderivedkeys(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked();
 
-    ofstream file;
+    std::ofstream file;
     file.open(request.params[0].get_str().c_str());
     if (!file.is_open())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
@@ -750,7 +750,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked();
 
-    ofstream file;
+    std::ofstream file;
     file.open(request.params[0].get_str().c_str());
     if (!file.is_open())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
