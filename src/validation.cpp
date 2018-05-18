@@ -905,10 +905,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
-        if (!asset.IsValid() || (ptxoutwit && ptxoutwit->vchSurjectionproof.size() > 5000))
+        if (!asset.IsValid())
             return false;
-        if (!val.IsValid() || (ptxoutwit && ptxoutwit->vchRangeproof.size() > 5000))
+        if (!val.IsValid())
             return false;
         if (!tx.vout[i].nNonce.IsValid())
             return false;
@@ -977,7 +976,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             assert(ret != 0);
             secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchAssetCommitment[0], &gen);
         }
-        if (!ptxoutwit || ptxoutwit->vchRangeproof.size() > 5000) {
+        if (!ptxoutwit) {
             return false;
         }
         if (QueueCheck(pvChecks, new CRangeCheck(&val, ptxoutwit->vchRangeproof, vchAssetCommitment, tx.vout[i].scriptPubKey, cacheStore)) != SCRIPT_ERR_OK) {
@@ -997,7 +996,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             }
             continue;
         }
-        if (!ptxoutwit || ptxoutwit->vchSurjectionproof.size() > 5000)
+        if (!ptxoutwit)
             return false;
         if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
             return false;
