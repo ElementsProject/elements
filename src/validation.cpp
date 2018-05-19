@@ -863,51 +863,31 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             p++;
         }
 
-        // Only initial issuance can have reissuance tokens
-        if (issuance.assetBlindingNonce.IsNull() && !issuance.nInflationKeys.IsNull()) {
+        if (!issuance.nAmount.IsValid()) {
+            return false;
+        }
 
-            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin());
-            assert(ret == 1);
-            CConfidentialAsset tokenAsset(assetTokenID);
-            tokenAsset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
-            secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &tokenAsset.vchCommitment[0], &gen);
+        // Process issuance of reissuance tokens
 
-            targetGenerators.push_back(gen);
-
-            if (issuance.nInflationKeys.IsExplicit()) {
-                if (!MoneyRange(issuance.nInflationKeys.GetAmount())) {
-                    return false;
-                }
-
-                if (issuance.nInflationKeys.GetAmount() == 0) {
-                    continue;
-                }
-
-                // Here we have issuance.nAmount.IsCommitment() == true
-                ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nInflationKeys.GetAmount(), &gen);
-                // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
-                assert(ret == 1);
-            }
-            else if (issuance.nInflationKeys.IsCommitment()) {
-                if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nInflationKeys.vchCommitment[0]) != 1) {
-                    return false;
-                }
-            } else {
+        if (!issuance.nInflationKeys.IsValid()) {
+            return false;
+        }
+        if (!issuance.nInflationKeys.IsNull()) {
+            // Only initial issuance can have reissuance tokens
+            if (!issuance.assetBlindingNonce.IsNull()) {
                 return false;
             }
 
+            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, pvChecks, cacheStore)) {
+                return false;
+            }
+            targetGenerators.push_back(gen);
             vData.push_back(commit);
             vpCommitsIn.push_back(p);
             p++;
-
-            if (issuance.nInflationKeys.IsCommitment() && QueueCheck(pvChecks, new CRangeCheck(&issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, tokenAsset.vchCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
-                return false;
-            }
-        } else if (!issuance.nInflationKeys.IsNull()) {
-            // Token amount field must be null for reissuance
-            return false;
         }
     }
+
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
