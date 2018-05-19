@@ -150,7 +150,7 @@ testScripts = [
     'invalidblockrequest.py',
     'invalidtxrequest.py',
     'rpc_getblockstats.py',
-    'confidential_transactions.py',
+    #'confidential_transactions.py', #until confidential transactions are re enabled
     'preciousblock.py',
     #'p2p-segwit.py',
     #'importprunedfunds.py',

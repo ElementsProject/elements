@@ -116,7 +116,7 @@ CPubKey CWallet::GenerateNewKey()
     metadata.derivedPubKey = pubKeyPreTweak;
 
     if (Params().EmbedContract()) {
-        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : uint256(); // for BIP-175
         pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
         secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
     }
