@@ -697,6 +697,50 @@ size_t GetNumIssuances(const CTransaction& tx)
     return numIssuances;
 }
 
+// Helper function for VerifyAmount(), not exported
+static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& commit, secp256k1_generator& gen,
+                    const CAsset& asset, const CConfidentialValue& value, const std::vector<unsigned char>& vchRangeproof,
+                    std::vector<CCheck*>* pvChecks, const bool cacheStore)
+{
+    // This is used to add in the explicit values
+    unsigned char explBlinds[32];
+    memset(explBlinds, 0, sizeof(explBlinds));
+    int ret;
+
+    assert(value.IsValid());
+
+    // Generate asset generator
+    ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.begin());
+    assert(ret == 1);
+
+    // Build value commitment
+    if (value.IsExplicit()) {
+        if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
+            return false;
+        }
+
+        ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, value.GetAmount(), &gen);
+        // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
+        assert(ret == 1);
+    }
+    else {
+        assert(value.IsCommitment());
+        // Verify range proof
+        std::vector<unsigned char> vchAssetCommitment(CConfidentialAsset::nExplicitSize);
+        secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchAssetCommitment[0], &gen);
+        if (QueueCheck(pvChecks, new CRangeCheck(&value, vchRangeproof, vchAssetCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
+            return false;
+        }
+
+        // Here we have value.IsCommitment() == true
+        if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &value.vchCommitment[0]) != 1) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore)
 {
     assert(!tx.IsCoinBase());
@@ -810,36 +854,10 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             return false;
         }
         if (!issuance.nAmount.IsNull()) {
-            // Generate asset generator and add to list of surjection targets
-            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetID.begin());
-            assert(ret == 1);
+            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, pvChecks, cacheStore)) {
+                return false;
+            }
             targetGenerators.push_back(gen);
-
-            // Build value commitment and add to tally
-            if (issuance.nAmount.IsExplicit()) {
-                if (!MoneyRange(issuance.nAmount.GetAmount()) || issuance.nAmount.GetAmount() == 0) {
-                    return false;
-                }
-
-                ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nAmount.GetAmount(), &gen);
-                // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
-                assert(ret == 1);
-            }
-            else {
-                assert(issuance.nAmount.IsCommitment());
-                // Verify range proof
-                std::vector<unsigned char> vchAssetCommitment(CConfidentialAsset::nExplicitSize);
-                secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchAssetCommitment[0], &gen);
-                if (QueueCheck(pvChecks, new CRangeCheck(&issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, vchAssetCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
-                    return false;
-                }
-
-                // Here we have issuance.nAmount.IsCommitment() == true
-                if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nAmount.vchCommitment[0]) != 1) {
-                    return false;
-                }
-            }
-
             vData.push_back(commit);
             vpCommitsIn.push_back(p);
             p++;
