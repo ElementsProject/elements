@@ -854,6 +854,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             return false;
         }
         if (!issuance.nAmount.IsNull()) {
+            if (i >= tx.wit.vtxinwit.size()) {
+                return false;
+            }
             if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, pvChecks, cacheStore)) {
                 return false;
             }
@@ -878,6 +881,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 return false;
             }
 
+            if (i >= tx.wit.vtxinwit.size()) {
+                return false;
+            }
             if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, pvChecks, cacheStore)) {
                 return false;
             }
