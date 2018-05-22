@@ -719,6 +719,10 @@ static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& commit, secp256k
         if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
             return false;
         }
+        if (!vchRangeproof.empty()) {
+            return false;
+        }
+
 
         ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, value.GetAmount(), &gen);
         // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
