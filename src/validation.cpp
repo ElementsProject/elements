@@ -793,6 +793,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (!MoneyRange(val.GetAmount()))
                 return false;
 
+            // Fails if val.GetAmount() == 0
             if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                 return false;
         } else if (val.IsCommitment()) {
@@ -831,8 +832,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             // Null nAmount is considered explicit 0, so just check for commitment
             CalculateReissuanceToken(assetTokenID, entropy, issuance.nAmount.IsCommitment());
         } else {
-            //Re-issuance
-
+        // Re-issuance
             // hashAssetIdentifier doubles as the entropy on reissuance
             CalculateAsset(assetID, issuance.assetEntropy);
             CalculateReissuanceToken(assetTokenID, issuance.assetEntropy, issuance.nAmount.IsCommitment());
@@ -927,6 +927,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                     continue;
                 } else {
                     // No spendable 0-value outputs
+                    // Reason: A spendable output of 0 reissuance tokens would allow reissuance without reissuance tokens.
                     return false;
                 }
             }
@@ -977,11 +978,12 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         }
     }
 
+    // Surjection proofs
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
         const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
-        //No need for surjective proof
+        // No need for surjection proof
         if (asset.IsExplicit()) {
             if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {
                 return false;

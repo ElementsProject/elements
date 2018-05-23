@@ -399,11 +399,14 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 /**
  * Verify the transaction's outputs spend exactly what its inputs provide, plus some excess amount.
  *
+ * This also checks rangeproofs, surjection proofs, and issuances of assets and re-issuance tokens.
+ * The function assumes that IsValidPeginWitness() returns true on all peg-in inputs.
+ *
  * @param[in] view   CCoinsViewCache to find necessary outputs
  * @param[in] tx     transaction for which we are checking totals
- * @param[in] pvChecks  multithreaded rangeproof and commitment checker
- * @param[in] cacheStore signal if rangeproof verification should be cached
- * @return  True if totals are identical
+ * @param[in] pvChecks  multithreaded rangeproof, surjection proof and commitment checker
+ * @param[in] cacheStore signal if rangeproof and surjection proof verification should be cached
+ * @return  True if verification was not aborted and totals are identical
 */
 bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks = NULL, const bool cacheStore = false);
 
