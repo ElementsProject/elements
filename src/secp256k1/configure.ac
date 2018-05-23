@@ -85,9 +85,9 @@ AC_COMPILE_IFELSE([AC_LANG_SOURCE([[char foo;]])],
     ])
 
 AC_ARG_ENABLE(benchmark,
-    AS_HELP_STRING([--enable-benchmark],[compile benchmark (default is no)]),
+    AS_HELP_STRING([--enable-benchmark],[compile benchmark (default is yes)]),
     [use_benchmark=$enableval],
-    [use_benchmark=no])
+    [use_benchmark=yes])
 
 AC_ARG_ENABLE(coverage,
     AS_HELP_STRING([--enable-coverage],[enable compiler flags to support kcov coverage analysis]),
@@ -150,9 +150,9 @@ AC_ARG_ENABLE(module_whitelist,
     [enable_module_whitelist=no])
 
 AC_ARG_ENABLE(jni,
-    AS_HELP_STRING([--enable-jni],[enable libsecp256k1_jni (default is auto)]),
+    AS_HELP_STRING([--enable-jni],[enable libsecp256k1_jni (default is no)]),
     [use_jni=$enableval],
-    [use_jni=auto])
+    [use_jni=no])
 
 AC_ARG_ENABLE(module_surjectionproof,
     AS_HELP_STRING([--enable-module-surjectionproof],[enable surjection proof module (default is no)]),
@@ -495,6 +495,7 @@ AC_MSG_NOTICE([Using field implementation: $set_field])
 AC_MSG_NOTICE([Using bignum implementation: $set_bignum])
 AC_MSG_NOTICE([Using scalar implementation: $set_scalar])
 AC_MSG_NOTICE([Using endomorphism optimizations: $use_endomorphism])
+AC_MSG_NOTICE([Building benchmarks: $use_benchmark])
 AC_MSG_NOTICE([Building for coverage analysis: $enable_coverage])
 AC_MSG_NOTICE([Building ECDH module: $enable_module_ecdh])
 AC_MSG_NOTICE([Building ECDSA pubkey recovery module: $enable_module_recovery])

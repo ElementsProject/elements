@@ -142,13 +142,13 @@ static void shallue_van_de_woestijne(secp256k1_ge* ge, const secp256k1_fe* t) {
 }
 
 static int secp256k1_generator_generate_internal(const secp256k1_context* ctx, secp256k1_generator* gen, const unsigned char *key32, const unsigned char *blind32) {
-    static const unsigned char prefix1[16] = "1st generation: ";
-    static const unsigned char prefix2[16] = "2nd generation: ";
+    static const unsigned char prefix1[17] = "1st generation: ";
+    static const unsigned char prefix2[17] = "2nd generation: ";
     secp256k1_fe t = SECP256K1_FE_CONST(0, 0, 0, 0, 0, 0, 0, 4);
     secp256k1_ge add;
     secp256k1_gej accum;
     int overflow;
-    secp256k1_sha256_t sha256;
+    secp256k1_sha256 sha256;
     unsigned char b32[32];
     int ret = 1;
 
@@ -191,7 +191,6 @@ int secp256k1_generator_generate(const secp256k1_context* ctx, secp256k1_generat
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(gen != NULL);
     ARG_CHECK(key32 != NULL);
-    ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
     return secp256k1_generator_generate_internal(ctx, gen, key32, NULL);
 }
 

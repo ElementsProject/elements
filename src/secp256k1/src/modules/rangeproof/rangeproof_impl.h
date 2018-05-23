@@ -63,7 +63,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_genrand(secp256k1_scalar *sec, 
  size_t *rsizes, size_t rings, const unsigned char *nonce, const secp256k1_ge *commit, const unsigned char *proof, size_t len, const secp256k1_ge* genp) {
     unsigned char tmp[32];
     unsigned char rngseed[32 + 33 + 33 + 10];
-    secp256k1_rfc6979_hmac_sha256_t rng;
+    secp256k1_rfc6979_hmac_sha256 rng;
     secp256k1_scalar acc;
     int overflow;
     int ret;
@@ -199,7 +199,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_sign_impl(const secp256k1_ecmul
     secp256k1_scalar sec[32];    /* Blinding factors for the correct digits. */
     secp256k1_scalar k[32];      /* Nonces for our non-forged signatures. */
     secp256k1_scalar stmp;
-    secp256k1_sha256_t sha256_m;
+    secp256k1_sha256 sha256_m;
     unsigned char prep[4096];
     unsigned char tmp[33];
     unsigned char *signs;          /* Location of sign flags in the proof. */
@@ -547,7 +547,7 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     secp256k1_ge c;
     secp256k1_scalar s[128];
     secp256k1_scalar evalues[128]; /* Challenges, only used during proof rewind. */
-    secp256k1_sha256_t sha256_m;
+    secp256k1_sha256 sha256_m;
     size_t rsizes[32];
     int ret;
     size_t i;

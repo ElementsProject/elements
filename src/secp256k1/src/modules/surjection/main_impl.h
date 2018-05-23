@@ -56,7 +56,7 @@ int secp256k1_surjectionproof_parse(const secp256k1_context* ctx, secp256k1_surj
     }
 
     signature_len = 32 * (1 + secp256k1_count_bits_set(&input[2], (n_inputs + 7) / 8));
-    if (inputlen < 2 + (n_inputs + 7) / 8 + signature_len) {
+    if (inputlen != 2 + (n_inputs + 7) / 8 + signature_len) {
         return 0;
     }
     proof->n_inputs = n_inputs;
@@ -132,7 +132,7 @@ static size_t secp256k1_surjectionproof_csprng_next(secp256k1_surjectionproof_cs
     while (1) {
         size_t val;
         if (csprng->state_i + increment >= 32) {
-            secp256k1_sha256_t sha;
+            secp256k1_sha256 sha;
             secp256k1_sha256_initialize(&sha);
             secp256k1_sha256_write(&sha, csprng->state, 32);
             secp256k1_sha256_finalize(&sha, csprng->state);

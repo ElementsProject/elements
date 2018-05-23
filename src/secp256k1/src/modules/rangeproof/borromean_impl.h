@@ -30,7 +30,7 @@ SECP256K1_INLINE static void secp256k1_borromean_hash(unsigned char *hash, const
  size_t ridx, size_t eidx) {
     uint32_t ring;
     uint32_t epos;
-    secp256k1_sha256_t sha256_en;
+    secp256k1_sha256 sha256_en;
     secp256k1_sha256_initialize(&sha256_en);
     ring = BE32((uint32_t)ridx);
     epos = BE32((uint32_t)eidx);
@@ -60,7 +60,7 @@ int secp256k1_borromean_verify(const secp256k1_ecmult_context* ecmult_ctx, secp2
     secp256k1_gej rgej;
     secp256k1_ge rge;
     secp256k1_scalar ens;
-    secp256k1_sha256_t sha256_e0;
+    secp256k1_sha256 sha256_e0;
     unsigned char tmp[33];
     size_t i;
     size_t j;
@@ -115,7 +115,7 @@ int secp256k1_borromean_sign(const secp256k1_ecmult_context* ecmult_ctx, const s
     secp256k1_gej rgej;
     secp256k1_ge rge;
     secp256k1_scalar ens;
-    secp256k1_sha256_t sha256_e0;
+    secp256k1_sha256 sha256_e0;
     unsigned char tmp[33];
     size_t i;
     size_t j;

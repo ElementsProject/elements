@@ -4,8 +4,8 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_TESTRAND_IMPL_H_
-#define _SECP256K1_TESTRAND_IMPL_H_
+#ifndef SECP256K1_TESTRAND_IMPL_H
+#define SECP256K1_TESTRAND_IMPL_H
 
 #include <stdint.h>
 #include <string.h>
@@ -13,7 +13,7 @@
 #include "testrand.h"
 #include "hash.h"
 
-static secp256k1_rfc6979_hmac_sha256_t secp256k1_test_rng;
+static secp256k1_rfc6979_hmac_sha256 secp256k1_test_rng;
 static uint32_t secp256k1_test_rng_precomputed[8];
 static int secp256k1_test_rng_precomputed_used = 8;
 static uint64_t secp256k1_test_rng_integer;
@@ -124,4 +124,4 @@ SECP256K1_INLINE static int64_t secp256k1_rands64(uint64_t min, uint64_t max) {
     return min + (int64_t)r;
 }
 
-#endif
+#endif /* SECP256K1_TESTRAND_IMPL_H */

@@ -73,7 +73,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(
  *
  *  Returns: 0 in the highly unlikely case the seed is not acceptable or when
  *           blind is out of range. 1 otherwise.
- *  Args: ctx:     a secp256k1 context object
+ *  Args: ctx:     a secp256k1 context object, initialized for signing
  *  Out:  gen:     a generator object
  *  In:   seed32:  a 32-byte seed
  *        blind32: a 32-byte secret value to blind the generator with.

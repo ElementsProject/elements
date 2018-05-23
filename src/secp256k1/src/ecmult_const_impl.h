@@ -4,15 +4,13 @@
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
-#ifndef _SECP256K1_ECMULT_CONST_IMPL_
-#define _SECP256K1_ECMULT_CONST_IMPL_
+#ifndef SECP256K1_ECMULT_CONST_IMPL_H
+#define SECP256K1_ECMULT_CONST_IMPL_H
 
 #include "scalar.h"
 #include "group.h"
 #include "ecmult_const.h"
 #include "ecmult_impl.h"
-
-#define WNAF_SIZE(bits, w) (((bits) + (w) - 1) / (w))
 
 /* This is like `ECMULT_TABLE_GET_GE` but is constant time */
 #define ECMULT_CONST_TABLE_GET_GE(r,pre,n,w) do { \
@@ -37,11 +35,12 @@
 } while(0)
 
 
-/** Convert a number to WNAF notation. The number becomes represented by sum(2^{wi} * wnaf[i], i=0..return_val)
- *  with the following guarantees:
+/** Convert a number to WNAF notation.
+ *  The number becomes represented by sum(2^{wi} * wnaf[i], i=0..WNAF_SIZE(w)+1) - return_val.
+ *  It has the following guarantees:
  *  - each wnaf[i] an odd integer between -(1 << w) and (1 << w)
  *  - each wnaf[i] is nonzero
- *  - the number of words set is returned; this is always (WNAF_BITS + w - 1) / w
+ *  - the number of words set is always WNAF_SIZE(w) + 1
  *
  *  Adapted from `The Width-w NAF Method Provides Small Memory and Fast Elliptic Scalar
  *  Multiplications Secure against Side Channel Attacks`, Okeya and Tagaki. M. Joye (Ed.)
@@ -49,7 +48,7 @@
  *
  *  Numbers reference steps of `Algorithm SPA-resistant Width-w NAF with Odd Scalar` on pp. 335
  */
-static int secp256k1_wnaf_const(int *wnaf, secp256k1_scalar s, int w, int size, int maybe_negative) {
+static int secp256k1_wnaf_const(int *wnaf, secp256k1_scalar s, int w, int size) {
     int global_sign;
     int skew = 0;
     int word = 0;
@@ -68,36 +67,33 @@ static int secp256k1_wnaf_const(int *wnaf, secp256k1_scalar s, int w, int size, 
      * and we'd lose any performance benefit. Instead, we use a technique from
      * Section 4.2 of the Okeya/Tagaki paper, which is to add either 1 (for even)
      * or 2 (for odd) to the number we are encoding, returning a skew value indicating
-     * this, and having the caller compensate after doing the multiplication. */
-
-    if (maybe_negative) {
-        /* Negative numbers will be negated to keep their bit representation below the maximum width */
-        flip = maybe_negative ? secp256k1_scalar_is_high(&s) : 0;
-        /* We add 1 to even numbers, 2 to odd ones, noting that negation flips parity */
-        bit = flip ^ !secp256k1_scalar_is_even(&s);
-        /* We check for negative one, since adding 2 to it will cause an overflow */
-        secp256k1_scalar_negate(&neg_s, &s);
-        not_neg_one = !secp256k1_scalar_is_one(&neg_s);
-        secp256k1_scalar_cadd_bit(&s, bit, not_neg_one);
-        /* If we had negative one, flip == 1, s.d[0] == 0, bit == 1, so caller expects
-         * that we added two to it and flipped it. In fact for -1 these operations are
-         * identical. We only flipped, but since skewing is required (in the sense that
-         * the skew must be 1 or 2, never zero) and flipping is not, we need to change
-         * our flags to claim that we only skewed. */
-        global_sign = secp256k1_scalar_cond_negate(&s, flip);
-        global_sign *= not_neg_one * 2 - 1;
-        skew = 1 << bit;
-    } else {
-        VERIFY_CHECK(!secp256k1_scalar_is_high(&s));
-        bit = !secp256k1_scalar_is_even(&s);
-        skew = 1 << bit;
-        secp256k1_scalar_cadd_bit(&s, bit, 1);
-        global_sign = 1;
-    }
+     * this, and having the caller compensate after doing the multiplication.
+     *
+     * In fact, we _do_ want to negate numbers to minimize their bit-lengths (and in
+     * particular, to ensure that the outputs from the endomorphism-split fit into
+     * 128 bits). If we negate, the parity of our number flips, inverting which of
+     * {1, 2} we want to add to the scalar when ensuring that it's odd. Further
+     * complicating things, -1 interacts badly with `secp256k1_scalar_cadd_bit` and
+     * we need to special-case it in this logic. */
+    flip = secp256k1_scalar_is_high(&s);
+    /* We add 1 to even numbers, 2 to odd ones, noting that negation flips parity */
+    bit = flip ^ !secp256k1_scalar_is_even(&s);
+    /* We check for negative one, since adding 2 to it will cause an overflow */
+    secp256k1_scalar_negate(&neg_s, &s);
+    not_neg_one = !secp256k1_scalar_is_one(&neg_s);
+    secp256k1_scalar_cadd_bit(&s, bit, not_neg_one);
+    /* If we had negative one, flip == 1, s.d[0] == 0, bit == 1, so caller expects
+     * that we added two to it and flipped it. In fact for -1 these operations are
+     * identical. We only flipped, but since skewing is required (in the sense that
+     * the skew must be 1 or 2, never zero) and flipping is not, we need to change
+     * our flags to claim that we only skewed. */
+    global_sign = secp256k1_scalar_cond_negate(&s, flip);
+    global_sign *= not_neg_one * 2 - 1;
+    skew = 1 << bit;
 
     /* 4 */
     u_last = secp256k1_scalar_shr_int(&s, w);
-    do {
+    while (word * w < size) {
         int sign;
         int even;
 
@@ -113,11 +109,11 @@ static int secp256k1_wnaf_const(int *wnaf, secp256k1_scalar s, int w, int size, 
         wnaf[word++] = u_last * global_sign;
 
         u_last = u;
-    } while(word * w < size);
+    }
     wnaf[word] = u * global_sign;
 
     VERIFY_CHECK(secp256k1_scalar_is_zero(&s));
-    VERIFY_CHECK(word == WNAF_SIZE(size, w));
+    VERIFY_CHECK(word == WNAF_SIZE_BITS(size, w));
     return skew;
 }
 
@@ -129,13 +125,11 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
     int skew_1;
 #ifdef USE_ENDOMORPHISM
     secp256k1_ge pre_a_lam[ECMULT_TABLE_SIZE(WINDOW_A)];
-    int wnaf_1[1 + WNAF_SIZE(128, WINDOW_A - 1)];
-    int wnaf_lam[1 + WNAF_SIZE(128, WINDOW_A - 1)];
+    int wnaf_lam[1 + WNAF_SIZE(WINDOW_A - 1)];
     int skew_lam;
     secp256k1_scalar q_1, q_lam;
-#else
-    int wnaf_1[1 + WNAF_SIZE(256, WINDOW_A - 1)];
 #endif
+    int wnaf_1[1 + WNAF_SIZE(WINDOW_A - 1)];
 
     int i;
     secp256k1_scalar sc = *scalar;
@@ -147,12 +141,12 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
         rsize = 128;
         /* split q into q_1 and q_lam (where q = q_1 + q_lam*lambda, and q_1 and q_lam are ~128 bit) */
         secp256k1_scalar_split_lambda(&q_1, &q_lam, &sc);
-        skew_1   = secp256k1_wnaf_const(wnaf_1,   q_1,   WINDOW_A - 1, 128, 1);
-        skew_lam = secp256k1_wnaf_const(wnaf_lam, q_lam, WINDOW_A - 1, 128, 1);
+        skew_1   = secp256k1_wnaf_const(wnaf_1,   q_1,   WINDOW_A - 1, 128);
+        skew_lam = secp256k1_wnaf_const(wnaf_lam, q_lam, WINDOW_A - 1, 128);
     } else
 #endif
     {
-        skew_1   = secp256k1_wnaf_const(wnaf_1, sc, WINDOW_A - 1, size, size == 256);
+        skew_1   = secp256k1_wnaf_const(wnaf_1, sc, WINDOW_A - 1, size);
 #ifdef USE_ENDOMORPHISM
         skew_lam = 0;
 #endif
@@ -180,20 +174,20 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
     /* first loop iteration (separated out so we can directly set r, rather
      * than having it start at infinity, get doubled several times, then have
      * its new value added to it) */
-    i = wnaf_1[WNAF_SIZE(rsize, WINDOW_A - 1)];
+    i = wnaf_1[WNAF_SIZE_BITS(rsize, WINDOW_A - 1)];
     VERIFY_CHECK(i != 0);
     ECMULT_CONST_TABLE_GET_GE(&tmpa, pre_a, i, WINDOW_A);
     secp256k1_gej_set_ge(r, &tmpa);
 #ifdef USE_ENDOMORPHISM
     if (size > 128) {
-        i = wnaf_lam[WNAF_SIZE(rsize, WINDOW_A - 1)];
+        i = wnaf_lam[WNAF_SIZE_BITS(rsize, WINDOW_A - 1)];
         VERIFY_CHECK(i != 0);
         ECMULT_CONST_TABLE_GET_GE(&tmpa, pre_a_lam, i, WINDOW_A);
         secp256k1_gej_add_ge(r, r, &tmpa);
     }
 #endif
     /* remaining loop iterations */
-    for (i = WNAF_SIZE(rsize, WINDOW_A - 1) - 1; i >= 0; i--) {
+    for (i = WNAF_SIZE_BITS(rsize, WINDOW_A - 1) - 1; i >= 0; i--) {
         int n;
         int j;
         for (j = 0; j < WINDOW_A - 1; ++j) {
@@ -260,4 +254,4 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
     }
 }
 
-#endif
+#endif /* SECP256K1_ECMULT_CONST_IMPL_H */
