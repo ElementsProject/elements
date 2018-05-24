@@ -3810,7 +3810,8 @@ UniValue issueasset(const JSONRPCRequest& request)
         keyID = newKey.GetID();
         pwalletMain->SetAddressBook(keyID, "", "receive");
         assetAddr = CBitcoinAddress(keyID);
-        assetKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get()));
+        assetKey = !pwalletMain->GetDisableCt() ? 
+            pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get())) : CPubKey();
     }
     if (nTokens > 0) {
         if (!pwalletMain->GetKeyFromPool(newKey))
@@ -3818,7 +3819,8 @@ UniValue issueasset(const JSONRPCRequest& request)
         keyID = newKey.GetID();
         pwalletMain->SetAddressBook(keyID, "", "receive");
         tokenAddr = CBitcoinAddress(keyID);
-        tokenKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)));
+        tokenKey = !pwalletMain->GetDisableCt() ? 
+            pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID))) : CPubKey();
     }
 
     CWalletTx wtx;
@@ -3918,7 +3920,8 @@ UniValue reissueasset(const JSONRPCRequest& request)
     keyID = newKey.GetID();
     pwalletMain->SetAddressBook(keyID, "", "receive");
     assetAddr = CBitcoinAddress(keyID);
-    assetKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get()));
+    assetKey = !pwalletMain->GetDisableCt() ? 
+        pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get())) : CPubKey();
 
     // Add destination for tokens we are moving
     if (!pwalletMain->GetKeyFromPool(newKey))
@@ -3926,7 +3929,8 @@ UniValue reissueasset(const JSONRPCRequest& request)
     keyID = newKey.GetID();
     pwalletMain->SetAddressBook(keyID, "", "receive");
     tokenAddr = CBitcoinAddress(keyID);
-    tokenKey = pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)));
+    tokenKey = !pwalletMain->GetDisableCt() ? 
+        pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID))) : CPubKey();
 
     // Attempt a send.
     CWalletTx wtx;
