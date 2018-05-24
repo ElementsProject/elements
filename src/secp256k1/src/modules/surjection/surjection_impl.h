@@ -20,7 +20,7 @@ SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg3
     size_t i;
     unsigned char pk_ser[33];
     size_t pk_len = sizeof(pk_ser);
-    secp256k1_sha256_t sha256_en;
+    secp256k1_sha256 sha256_en;
 
     secp256k1_sha256_initialize(&sha256_en);
     for (i = 0; i < n_input_tags; i++) {
@@ -37,7 +37,7 @@ SECP256K1_INLINE static void secp256k1_surjection_genmessage(unsigned char *msg3
 SECP256K1_INLINE static int secp256k1_surjection_genrand(secp256k1_scalar *s, size_t ns, const secp256k1_scalar *blinding_key) {
     size_t i;
     unsigned char sec_input[36];
-    secp256k1_sha256_t sha256_en;
+    secp256k1_sha256 sha256_en;
 
     /* compute s values */
     secp256k1_scalar_get_b32(&sec_input[4], blinding_key);

@@ -61,8 +61,10 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
 void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
 
 /** Generate a pedersen commitment.
- *  Returns 1: commitment successfully created.
- *          0: error
+ *  Returns 1: Commitment successfully created.
+ *          0: Error. The blinding factor is larger than the group order
+ *             (probability for random 32 byte number < 2^-127) or results in the
+ *             point at infinity. Retry with a different factor.
  *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
  *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
  *          value:      unsigned 64-bit integer value to commit to.
@@ -80,8 +82,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
 
 /** Computes the sum of multiple positive and negative blinding factors.
- *  Returns 1: sum successfully computed.
- *          0: error
+ *  Returns 1: Sum successfully computed.
+ *          0: Error. A blinding factor is larger than the group order
+ *             (probability for random 32 byte number < 2^-127). Retry with
+ *             different factors.
  *  In:     ctx:        pointer to a context object (cannot be NULL)
  *          blinds:     pointer to pointers to 32-byte character arrays for blinding factors. (cannot be NULL)
  *          n:          number of factors pointed to by blinds.
@@ -133,7 +137,10 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
  * The function then subtracts the sum of all (vr + r') from the last element
  * of the `blinding_factor` array, setting the total sum to zero.
  *
- * Returns 1 always.
+ * Returns 1: Blinding factor successfully computed.
+ *         0: Error. A blinding_factor or generator_blind are larger than the group
+ *            order (probability for random 32 byte number < 2^-127). Retry with
+ *            different values.
  *
  * In:                 ctx: pointer to a context object
  *                   value: array of asset values, `v` in the above paragraph.

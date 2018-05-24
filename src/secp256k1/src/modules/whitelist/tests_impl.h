@@ -53,21 +53,34 @@ void test_whitelist_end_to_end(const size_t n_keys) {
     /* Sign/verify with each one */
     for (i = 0; i < n_keys; i++) {
         unsigned char serialized[32 + 4 + 32 * SECP256K1_WHITELIST_MAX_N_KEYS] = {0};
+        size_t slen = sizeof(serialized);
         secp256k1_whitelist_signature sig;
         secp256k1_whitelist_signature sig1;
 
         CHECK(secp256k1_whitelist_sign(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey, online_seckey[i], summed_seckey[i], i, NULL, NULL));
-        CHECK(secp256k1_whitelist_verify(ctx, &sig, online_pubkeys, offline_pubkeys, &sub_pubkey) == 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) == 1);
         /* Check that exchanging keys causes a failure */
-        CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, &sub_pubkey) != 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, n_keys, &sub_pubkey) != 1);
         /* Serialization round trip */
-        CHECK(secp256k1_whitelist_signature_serialize(ctx, serialized, &sig) == 1);
-        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized) == 1);
-        CHECK(secp256k1_whitelist_verify(ctx, &sig1, online_pubkeys, offline_pubkeys, &sub_pubkey) == 1);
-        CHECK(secp256k1_whitelist_verify(ctx, &sig1, offline_pubkeys, online_pubkeys, &sub_pubkey) != 1);
+        CHECK(secp256k1_whitelist_signature_serialize(ctx, serialized, &slen, &sig) == 1);
+        CHECK(slen == 33 + 32 * n_keys);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen) == 1);
+        /* (Check various bad-length conditions) */
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen + 32) == 0);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen + 1) == 0);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, slen - 1) == 0);
+        CHECK(secp256k1_whitelist_signature_parse(ctx, &sig1, serialized, 0) == 0);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig1, online_pubkeys, offline_pubkeys, n_keys, &sub_pubkey) == 1);
+        CHECK(secp256k1_whitelist_verify(ctx, &sig1, offline_pubkeys, online_pubkeys, n_keys, &sub_pubkey) != 1);
+
         /* Test n_keys */
         CHECK(secp256k1_whitelist_signature_n_keys(&sig) == n_keys);
         CHECK(secp256k1_whitelist_signature_n_keys(&sig1) == n_keys);
+
+        /* Test bad number of keys in signature */
+        sig.n_keys = n_keys + 1;
+        CHECK(secp256k1_whitelist_verify(ctx, &sig, offline_pubkeys, online_pubkeys, n_keys, &sub_pubkey) != 1);
+        sig.n_keys = n_keys;
     }
 
     for (i = 0; i < n_keys; i++) {
@@ -81,23 +94,53 @@ void test_whitelist_end_to_end(const size_t n_keys) {
 }
 
 void test_whitelist_bad_parse(void) {
-    const unsigned char serialized[] = {
-        /* Hash */
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-        /* Length in excess of maximum */
-        0x00, 0x00, 0x01, 0x00
-        /* No room for s-values; parse should be rejected before reading past length */
-    };
     secp256k1_whitelist_signature sig;
 
-    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized) == 0);
+    const unsigned char serialized0[] = { 1+32*(0+1) };
+    const unsigned char serialized1[] = {
+        0x00,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06
+    };
+    const unsigned char serialized2[] = {
+        0x01,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+    };
+
+    /* Empty input */
+    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized0, 0) == 0);
+    /* Misses one byte of e0 */
+    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized1, sizeof(serialized1)) == 0);
+    /* Enough bytes for e0, but there is no s value */
+    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized2, sizeof(serialized2)) == 0);
+}
+
+void test_whitelist_bad_serialize(void) {
+    unsigned char serialized[] = {
+        0x00,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+    };
+    size_t serialized_len;
+    secp256k1_whitelist_signature sig;
+
+    CHECK(secp256k1_whitelist_signature_parse(ctx, &sig, serialized, sizeof(serialized)) == 1);
+    serialized_len = sizeof(serialized) - 1;
+    /* Output buffer is one byte too short */
+    CHECK(secp256k1_whitelist_signature_serialize(ctx, serialized, &serialized_len, &sig) == 0);
 }
 
 void run_whitelist_tests(void) {
     int i;
+    test_whitelist_bad_parse();
+    test_whitelist_bad_serialize();
     for (i = 0; i < count; i++) {
         test_whitelist_end_to_end(1);
         test_whitelist_end_to_end(10);

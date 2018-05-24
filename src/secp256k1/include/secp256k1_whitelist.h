@@ -43,6 +43,7 @@ typedef struct {
  *  Args: ctx:    a secp256k1 context object
  *  Out:  sig:    a pointer to a signature object
  *  In:   input:  a pointer to the array to parse
+ *    input_len:  the length of the above array
  *
  *  The signature must consist of a 1-byte n_keys value, followed by a 32-byte
  *  big endian e0 value, followed by n_keys many 32-byte big endian s values.
@@ -50,6 +51,7 @@ typedef struct {
  *  is invalid.
  *
  *  The total length of the input array must therefore be 33 + 32 * n_keys.
+ *  If the length `input_len` does not match this value, parsing will fail.
  *
  *  After the call, sig will always be initialized. If parsing failed or any
  *  scalar values overflow or are zero, the resulting sig value is guaranteed
@@ -58,7 +60,8 @@ typedef struct {
 SECP256K1_API int secp256k1_whitelist_signature_parse(
     const secp256k1_context* ctx,
     secp256k1_whitelist_signature *sig,
-    const unsigned char *input
+    const unsigned char *input,
+    size_t input_len
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Returns the number of keys a signature expects to have.
@@ -73,17 +76,19 @@ SECP256K1_API size_t secp256k1_whitelist_signature_n_keys(
 /** Serialize a whitelist signature
  *
  *  Returns: 1
- *  Args:   ctx:       a secp256k1 context object
- *  Out:    output64:  a pointer to an array to store the serialization
- *  In:     sig:       a pointer to an initialized signature object
+ *  Args:   ctx:        a secp256k1 context object
+ *  Out:    output64:   a pointer to an array to store the serialization
+ *  In/Out: output_len: length of the above array, updated with the actual serialized length
+ *  In:     sig:        a pointer to an initialized signature object
  *
  *  See secp256k1_whitelist_signature_parse for details about the encoding.
  */
 SECP256K1_API int secp256k1_whitelist_signature_serialize(
     const secp256k1_context* ctx,
     unsigned char *output,
+    size_t *output_len,
     const secp256k1_whitelist_signature *sig
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 
 /** Compute a whitelist signature
  * Returns 1: signature was successfully created
@@ -136,8 +141,9 @@ SECP256K1_API int secp256k1_whitelist_verify(
   const secp256k1_whitelist_signature *sig,
   const secp256k1_pubkey *online_pubkeys,
   const secp256k1_pubkey *offline_pubkeys,
+  const size_t n_keys,
   const secp256k1_pubkey *sub_pubkey
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(6);
 
 #ifdef __cplusplus
 }
