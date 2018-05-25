@@ -461,7 +461,7 @@ UniValue validatederivedkeys(const JSONRPCRequest& request)
         if (!pubKey.IsFullyValid())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
-        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetGenesisContractHash();
         pubKey.AddTweakToPubKey((unsigned char*)contract.begin()); 
         CKeyID keyId;
         if (!address.GetKeyID(keyId))
