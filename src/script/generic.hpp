@@ -52,13 +52,14 @@ bool GenericVerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, 
 template<typename T>
 bool GenericSignScript(const CKeyStore& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig)
 {
-    return ProduceSignature(SimpleSignatureCreator(&keystore, SerializeHash(data)), fromPubKey, scriptSig);
+    // Witness eval to allow maximum multisig
+    return ProduceSignature(SimpleSignatureCreator(&keystore, SerializeHash(data)), fromPubKey, scriptSig, SIGVERSION_WITNESS_V0);
 }
 
 template<typename T>
-SignatureData GenericCombineSignatures(const CScript& scriptPubKey, const T& data, const SignatureData& scriptSig1, const SignatureData& scriptSig2)
+SignatureData GenericCombineSignatures(const CScript& scriptPubKey, const T& data, const SignatureData& scriptSig1, const SignatureData& scriptSig2, SigVersion sigversion)
 {
-    return CombineSignatures(scriptPubKey, SimpleSignatureChecker(SerializeHash(data)), scriptSig1, scriptSig2);
+    return CombineSignatures(scriptPubKey, SimpleSignatureChecker(SerializeHash(data)), scriptSig1, scriptSig2, sigversion);
 }
 
 #endif // H_BITCOIN_SCRIPT_GENERIC
