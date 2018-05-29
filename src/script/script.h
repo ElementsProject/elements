@@ -657,6 +657,8 @@ public:
      * Returns whether the script is guaranteed to fail at execution,
      * regardless of the initial stack. This allows outputs to be pruned
      * instantly when entering the UTXO set. This includes fee outputs.
+     *
+     * This is consensus-critical because it is called by VerifyAmounts().
      */
     bool IsUnspendable() const
     {

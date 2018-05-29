@@ -697,6 +697,50 @@ size_t GetNumIssuances(const CTransaction& tx)
     return numIssuances;
 }
 
+// Helper function for VerifyAmount(), not exported
+static bool VerifyIssuanceAmount(secp256k1_pedersen_commitment& commit, secp256k1_generator& gen,
+                    const CAsset& asset, const CConfidentialValue& value, const std::vector<unsigned char>& vchRangeproof,
+                    std::vector<CCheck*>* pvChecks, const bool cacheStore)
+{
+    // This is used to add in the explicit values
+    unsigned char explBlinds[32];
+    memset(explBlinds, 0, sizeof(explBlinds));
+    int ret;
+
+    assert(value.IsValid());
+
+    // Generate asset generator
+    ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.begin());
+    assert(ret == 1);
+
+    // Build value commitment
+    if (value.IsExplicit()) {
+        if (!MoneyRange(value.GetAmount()) || value.GetAmount() == 0) {
+            return false;
+        }
+
+        ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, value.GetAmount(), &gen);
+        // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
+        assert(ret == 1);
+    }
+    else {
+        assert(value.IsCommitment());
+        // Verify range proof
+        std::vector<unsigned char> vchAssetCommitment(CConfidentialAsset::nExplicitSize);
+        secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &vchAssetCommitment[0], &gen);
+        if (QueueCheck(pvChecks, new CRangeCheck(&value, vchRangeproof, vchAssetCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
+            return false;
+        }
+
+        // Here we have value.IsCommitment() == true
+        if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &value.vchCommitment[0]) != 1) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore)
 {
     assert(!tx.IsCoinBase());
@@ -749,6 +793,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             if (!MoneyRange(val.GetAmount()))
                 return false;
 
+            // Fails if val.GetAmount() == 0
             if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
                 return false;
         } else if (val.IsCommitment()) {
@@ -787,8 +832,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             // Null nAmount is considered explicit 0, so just check for commitment
             CalculateReissuanceToken(assetTokenID, entropy, issuance.nAmount.IsCommitment());
         } else {
-            //Re-issuance
-
+        // Re-issuance
             // hashAssetIdentifier doubles as the entropy on reissuance
             CalculateAsset(assetID, issuance.assetEntropy);
             CalculateReissuanceToken(assetTokenID, issuance.assetEntropy, issuance.nAmount.IsCommitment());
@@ -805,92 +849,51 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         }
 
         // Process issuance of asset
-        if (!issuance.nAmount.IsNull()) {
 
-            // Generate asset generator and add to list of surjection targets
-            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetID.begin());
-            assert(ret == 1);
-            CConfidentialAsset issuanceAsset;
-            issuanceAsset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
-            secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &issuanceAsset.vchCommitment[0], &gen);
-            targetGenerators.push_back(gen);
-
-            // Build value commitment and add to tally
-            if (issuance.nAmount.IsExplicit()) {
-                if (!MoneyRange(issuance.nAmount.GetAmount())) {
-                    return false;
-                }
-
-                if (issuance.nAmount.GetAmount() == 0) {
-                    continue;
-                }
-
-                if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nAmount.GetAmount(), &gen) != 1) {
-                    return false;
-                }
-            }
-            else if (issuance.nAmount.IsCommitment()) {
-                if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nAmount.vchCommitment[0]) != 1) {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-
-            vData.push_back(commit);
-            vpCommitsIn.push_back(p);
-            p++;
-
-            // Rangecheck must be done for blinded amount
-            if (issuance.nAmount.IsCommitment() && QueueCheck(pvChecks, new CRangeCheck(&issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, issuanceAsset.vchCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
-                return false;
-            }
-        }
-
-        // Only initial issuance can have reissuance tokens
-        if (issuance.assetBlindingNonce.IsNull() && !issuance.nInflationKeys.IsNull()) {
-
-            ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin());
-            assert(ret == 1);
-            CConfidentialAsset tokenAsset(assetTokenID);
-            tokenAsset.vchCommitment.resize(CConfidentialAsset::nCommittedSize);
-            secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, &tokenAsset.vchCommitment[0], &gen);
-
-            targetGenerators.push_back(gen);
-
-            if (issuance.nInflationKeys.IsExplicit()) {
-                if (!MoneyRange(issuance.nInflationKeys.GetAmount())) {
-                    return false;
-                }
-
-                if (issuance.nInflationKeys.GetAmount() == 0) {
-                    continue;
-                }
-
-                if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, issuance.nInflationKeys.GetAmount(), &gen) != 1) {
-                    return false;
-                }
-            }
-            else if (issuance.nInflationKeys.IsCommitment()) {
-                if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &issuance.nInflationKeys.vchCommitment[0]) != 1) {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-
-            vData.push_back(commit);
-            vpCommitsIn.push_back(p);
-            p++;
-
-            if (issuance.nInflationKeys.IsCommitment() && QueueCheck(pvChecks, new CRangeCheck(&issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, tokenAsset.vchCommitment, CScript(), cacheStore)) != SCRIPT_ERR_OK) {
-                return false;
-            }
-        } else if (!issuance.nInflationKeys.IsNull()) {
-            // Token amount field must be null for reissuance
+        if (!issuance.nAmount.IsValid()) {
             return false;
         }
+        if (!issuance.nAmount.IsNull()) {
+            if (i >= tx.wit.vtxinwit.size()) {
+                return false;
+            }
+            if (!VerifyIssuanceAmount(commit, gen, assetID, issuance.nAmount, tx.wit.vtxinwit[i].vchIssuanceAmountRangeproof, pvChecks, cacheStore)) {
+                return false;
+            }
+            targetGenerators.push_back(gen);
+            vData.push_back(commit);
+            vpCommitsIn.push_back(p);
+            p++;
+        }
+
+        if (!issuance.nAmount.IsValid()) {
+            return false;
+        }
+
+        // Process issuance of reissuance tokens
+
+        if (!issuance.nInflationKeys.IsValid()) {
+            return false;
+        }
+        if (!issuance.nInflationKeys.IsNull()) {
+            // Only initial issuance can have reissuance tokens
+            if (!issuance.assetBlindingNonce.IsNull()) {
+                return false;
+            }
+
+            if (i >= tx.wit.vtxinwit.size()) {
+                return false;
+            }
+            if (!VerifyIssuanceAmount(commit, gen, assetTokenID, issuance.nInflationKeys, tx.wit.vtxinwit[i].vchInflationKeysRangeproof, pvChecks, cacheStore)) {
+                return false;
+            }
+            targetGenerators.push_back(gen);
+            vData.push_back(commit);
+            vpCommitsIn.push_back(p);
+            p++;
+        }
     }
+
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
@@ -924,12 +927,14 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                     continue;
                 } else {
                     // No spendable 0-value outputs
+                    // Reason: A spendable output of 0 reissuance tokens would allow reissuance without reissuance tokens.
                     return false;
                 }
             }
 
-            if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen) != 1)
-                return false;
+            ret = secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explBlinds, val.GetAmount(), &gen);
+            // The explBlinds are all 0, and the amount is not 0. So secp256k1_pedersen_commit does not fail.
+            assert(ret == 1);
         }
         else if (val.IsCommitment()) {
             if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
@@ -973,11 +978,12 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         }
     }
 
+    // Surjection proofs
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
         const CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= i? NULL: &tx.wit.vtxoutwit[i];
-        //No need for surjective proof
+        // No need for surjection proof
         if (asset.IsExplicit()) {
             if (ptxoutwit && !ptxoutwit->vchSurjectionproof.empty()) {
                 return false;
