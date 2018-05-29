@@ -1851,7 +1851,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (!inputs.HaveInputs(tx))
             return state.Invalid(false, 0, "", "Inputs unavailable");
 
-        CAmount nValueIn = 0;
         for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
             const COutPoint &prevout = tx.vin[i].prevout;
@@ -1880,14 +1879,6 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
                             REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
                             strprintf("tried to spend coinbase at depth %d", nSpendHeight - coins->nHeight));
                 }
-
-                // Check for negative or overflow input values
-                const CConfidentialValue& value = coins->vout[prevout.n].nValue;
-                if (value.IsExplicit()) {
-                    nValueIn += value.GetAmount();
-                    if (!MoneyRange(value.GetAmount()) || !MoneyRange(nValueIn))
-                        return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
-                }
             }
 
         }
@@ -1897,8 +1888,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
         }
         if (fScriptChecks && !VerifyAmounts(inputs, tx, pvChecks, cacheStore)) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false,
-                strprintf("value in (%s) != value out", FormatMoney(nValueIn)));
+            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false, "value in != value out");
         }
 
     return true;
