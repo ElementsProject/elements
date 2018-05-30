@@ -55,7 +55,7 @@ public:
         store = storeIn;
     };
 
-    bool VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* ctx) const;
+    bool VerifySurjectionProof(secp256k1_surjectionproof& proof, std::vector<secp256k1_generator>& vTags, secp256k1_generator& gen, const secp256k1_context* ctx, const uint256& wtxid) const;
 
 };
 
