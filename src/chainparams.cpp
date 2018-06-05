@@ -141,6 +141,26 @@ protected:
         fRequireStandard = GetBoolArg("-frequirestandard", false);
         fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
         anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, GetArg("-pubkeyprefix", 235));
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, GetArg("-scriptprefix", 75));
+        base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1, GetArg("-blindedprefix", 4));
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, GetArg("-secretprefix", 239));
+
+        std::string extpubprefix = GetArg("-extpubkeyprefix", "043587CF");
+        if (!IsHex(extpubprefix) || extpubprefix.size() != 8) {
+            assert("-extpubkeyprefix must be hex string of length 8" && false);
+        }
+        base58Prefixes[EXT_PUBLIC_KEY] = ParseHex(extpubprefix);
+
+        std::string extprvprefix = GetArg("-extprvkeyprefix", "04358394");
+        if (!IsHex(extprvprefix) || extprvprefix.size() != 8) {
+            assert("-extprvkeyprefix must be hex string of length 8" && false);
+        }
+        base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
+        base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, GetArg("-parentpubkeyprefix", 111));
+        base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, GetArg("-parentscriptprefix", 196));
+
     }
 
 public:
@@ -199,15 +219,6 @@ public:
             0,
             0
         };
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,235);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,75);
-        base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1,4);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,239);
-        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
-        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
-
-        base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, GetArg("-parentpubkeyprefix", 111));
-        base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, GetArg("-parentscriptprefix", 196));
     }
 };
 
