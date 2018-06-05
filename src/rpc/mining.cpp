@@ -774,6 +774,8 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
         result.push_back(Pair("weightlimit", (int64_t)MAX_BLOCK_WEIGHT));
     }
     result.push_back(Pair("curtime", pblock->GetBlockTime()));
+    result.push_back(Pair("signblock_asm", ScriptToAsmStr(pblock->proof.challenge)));
+    result.push_back(Pair("signblock_hex", HexStr(pblock->proof.challenge.begin(), pblock->proof.challenge.end())));
     result.push_back(Pair("height", (int64_t)(pindexPrev->nHeight+1)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {

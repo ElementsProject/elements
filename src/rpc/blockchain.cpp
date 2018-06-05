@@ -61,6 +61,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("merkleroot", blockindex->hashMerkleRoot.GetHex()));
     result.push_back(Pair("time", (int64_t)blockindex->nTime));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
+    result.push_back(Pair("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution)));
+    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution.begin(), blockindex->proof.solution.end())));
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
@@ -101,6 +103,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("tx", txs));
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
+    result.push_back(Pair("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution)));
+    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution.begin(), blockindex->proof.solution.end())));
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
@@ -600,6 +604,8 @@ UniValue getblockheader(const JSONRPCRequest& request)
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"signblock_witness_asm\":\"asm\", (string) scriptSig for block signing (asm)'\n"
+            "  \"signblock_witness_hex\":\"hex\", (string) scriptSig for block signing (hex)'\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\",      (string) The hash of the next block\n"
             "}\n"
@@ -684,6 +690,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  ],\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"signblock_witness_asm\":\"asm\", (string) scriptSig for block signing (asm)'\n"
+            "  \"signblock_witness_hex\":\"hex\", (string) scriptSig for block signing (hex)'\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
@@ -1033,6 +1041,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"chain\": \"xxxx\",        (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"signblock_asm\":\"asm\",  (string) scriptPubKey for block signing (asm)'\n"
+            "  \"signblock_hex\":\"hex\",  (string) scriptPubKey for block signing (hex)'\n"
             "  \"blocks\": xxxxxx,         (numeric) the current number of blocks processed in the server\n"
             "  \"headers\": xxxxxx,        (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\", (string) the hash of the currently best block\n"
@@ -1066,6 +1076,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.push_back(Pair("mediantime",            (int64_t)tip->GetMedianTimePast()));
     obj.push_back(Pair("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip)));
     obj.push_back(Pair("pruned",                fPruneMode));
+    obj.push_back(Pair("signblock_asm", ScriptToAsmStr(tip->proof.challenge)));
+    obj.push_back(Pair("signblock_hex", HexStr(tip->proof.challenge.begin(), tip->proof.challenge.end())));
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue bip9_softforks(UniValue::VOBJ);

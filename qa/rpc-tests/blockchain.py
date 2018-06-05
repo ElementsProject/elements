@@ -96,12 +96,16 @@ class BlockchainTest(BitcoinTestFramework):
         assert 'bits' not in header
         assert 'difficulty' not in header
         assert 'chainwork' not in header
+        assert 'signblock_witness_asm' in header
+        assert 'signblock_witness_hex' in header
 
     def _test_getblockchaininfo(self):
         besthash = self.nodes[0].getbestblockhash()
         res = self.nodes[0].getblockchaininfo()
 
         assert_equal(res['chain'], 'elementsregtest')
+        assert_equal(res['signblock_asm'], '1')
+        assert_equal(res['signblock_hex'], '51')
         assert 'difficulty' not in res
         assert 'chainwork' not in res
         assert_equal(res['blocks'], 200)
