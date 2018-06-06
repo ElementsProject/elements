@@ -39,11 +39,99 @@ const char* GetTxnOutputType(txnouttype t)
     return NULL;
 }
 
+static bool IsSmallishInteger(const opcodetype& opcode, const valtype& data, unsigned int& value)
+{
+    if (opcode >= OP_1 && opcode <= OP_16) {
+        value = CScript::DecodeOP_N(opcode);
+        return true;
+    }
+    if (opcode == 1 && data[0] >= 17 && data[0] <= 50) {
+        value = data[0];
+        return true;
+    }
+    return false;
+}
+
+/* Script of the form:
+ *
+ * <pubkey1> OP_CHECKSIG
+ * OP_SWAP <pubkey2> OP_CHECKSIG OP_ADD
+ * OP_SWAP <pubkey3> OP_CHECKSIG OP_ADD
+ * ...
+ * OP_SWAP <pubkey67> OP_CHECKSIG OP_ADD
+ * <m> OP_NUMEQUAL
+ */
+bool IsMuMultiSigSig(const CScript& script, vector<vector<unsigned char> >& solutions) {
+    opcodetype opcode;
+    std::vector<unsigned char> vch;
+    CScript::const_iterator pc = script.begin();
+
+    // First pubkey/checksig/swap
+    if (!script.GetOp(pc, opcode, vch) || vch.size() != 33) {
+        return false;
+    }
+    solutions.push_back(vch);
+    if (!script.GetOp(pc, opcode, vch) || opcode != OP_CHECKSIG) {
+        return false;
+    }
+
+    // Repeated pubkey/checksig/op_add/swaps
+    while (true) {
+
+        if (!script.GetOp(pc, opcode, vch)) {
+            return false;
+        }
+
+        // Might just be <m>, break
+        if (opcode != OP_SWAP) {
+            break;
+        }
+
+        if (!script.GetOp(pc, opcode, vch) || vch.size() != 33) {
+            return false;
+        }
+        solutions.push_back(vch);
+
+        if (!script.GetOp(pc, opcode, vch) || opcode != OP_CHECKSIG) {
+            return false;
+        }
+
+        if (!script.GetOp(pc, opcode, vch) || opcode != OP_ADD) {
+            return false;
+        }
+
+    }
+
+    unsigned int value;
+    if (!IsSmallishInteger(opcode, vch, value)) {
+         return false;
+    }
+
+    if (value > solutions.size()) {
+        return false;
+    }
+
+    solutions.push_back({static_cast<unsigned char>(value)});
+
+    if (!script.GetOp(pc, opcode, vch) || opcode != OP_NUMEQUAL) {
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
  */
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet)
 {
+
+    // First check for monster sig
+    if (IsMuMultiSigSig(scriptPubKey, vSolutionsRet)) {
+        typeRet = TX_MONSTER;
+        return true;
+    }
+
     // Templates
     static multimap<txnouttype, CScript> mTemplates;
     if (mTemplates.empty())

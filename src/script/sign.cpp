@@ -60,6 +60,24 @@ static bool SignN(const vector<valtype>& multisigdata, const BaseSignatureCreato
     return nSigned==nRequired;
 }
 
+static bool SignNMonster(const vector<valtype>& multisigdata, const BaseSignatureCreator& creator, const CScript& scriptCode, std::vector<valtype>& ret, SigVersion sigversion)
+{
+    int nSigned = 0;
+    int nRequired = multisigdata.back()[0];
+    for (unsigned int i = 0; i < multisigdata.size()-1; i++)
+    {
+        const valtype& pubkey = multisigdata[i];
+        CKeyID keyID = CPubKey(pubkey).GetID();
+        if (nSigned < nRequired && Sign1(keyID, creator, scriptCode, ret, sigversion)) {
+            ++nSigned;
+        } else {
+            ret.push_back(valtype());
+        }
+    }
+    std::reverse(std::begin(ret), std::end(ret));
+    return nSigned==nRequired;
+}
+
 /**
  * Sign scriptPubKey using signature made with creator.
  * Signatures are returned in scriptSigRet (or returns false if scriptPubKey can't be signed),
@@ -107,7 +125,8 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     case TX_MULTISIG:
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
         return (SignN(vSolutions, creator, scriptPubKey, ret, sigversion));
-
+    case TX_MONSTER:
+        return (SignNMonster(vSolutions, creator, scriptPubKey, ret, sigversion));
     case TX_TRUE:
         return true;
 
@@ -288,6 +307,62 @@ static vector<valtype> CombineMultisig(const CScript& scriptPubKey, const BaseSi
     return result;
 }
 
+static vector<valtype> CombineMonster(const CScript& scriptPubKey, const BaseSignatureChecker& checker,
+                               const vector<valtype>& vSolutions,
+                               const vector<valtype>& sigs1, const vector<valtype>& sigs2, SigVersion sigversion)
+{
+    // Combine all the signatures we've got:
+    set<valtype> allsigs;
+    BOOST_FOREACH(const valtype& v, sigs1)
+    {
+        if (!v.empty())
+            allsigs.insert(v);
+    }
+    BOOST_FOREACH(const valtype& v, sigs2)
+    {
+        if (!v.empty())
+            allsigs.insert(v);
+    }
+
+    // Build a map of pubkey -> signature by matching sigs to pubkeys:
+    assert(vSolutions.size() > 1);
+    unsigned int nSigsRequired = vSolutions.back()[0];
+    unsigned int nPubKeys = vSolutions.size()-1;
+    map<valtype, valtype> sigs;
+    BOOST_FOREACH(const valtype& sig, allsigs)
+    {
+        for (unsigned int i = 0; i < nPubKeys; i++)
+        {
+            const valtype& pubkey = vSolutions[i];
+            if (sigs.count(pubkey))
+                continue; // Already got a sig for this pubkey
+
+            if (checker.CheckSig(sig, pubkey, scriptPubKey, sigversion))
+            {
+                sigs[pubkey] = sig;
+                break;
+            }
+        }
+    }
+    // Now build a merged CScript:
+    unsigned int nSigsHave = 0;
+    std::vector<valtype> result;
+    for (unsigned int i = 0; i < nPubKeys; i++)
+    {
+        if (sigs.count(vSolutions[i]) && nSigsHave < nSigsRequired)
+        {
+            result.push_back(sigs[vSolutions[i]]);
+            ++nSigsHave;
+        } else {
+            result.push_back(valtype());
+        }
+    }
+    std::reverse(std::begin(result), std::end(result));   
+    return result;
+}
+
+
+
 namespace
 {
 struct Stacks
@@ -356,6 +431,8 @@ static Stacks CombineSignatures(const CScript& scriptPubKey, const BaseSignature
         }
     case TX_MULTISIG:
         return Stacks(CombineMultisig(scriptPubKey, checker, vSolutions, sigs1.script, sigs2.script, sigversion));
+    case TX_MONSTER:
+        return Stacks(CombineMonster(scriptPubKey, checker, vSolutions, sigs1.script, sigs2.script, sigversion));
     case TX_WITNESS_V0_SCRIPTHASH:
         if (sigs1.witness.empty() || sigs1.witness.back().empty())
             return sigs2;
