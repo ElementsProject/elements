@@ -273,7 +273,6 @@ UniValue getmininginfo(const JSONRPCRequest& request)
     obj.push_back(Pair("currentblocksize", (uint64_t)nLastBlockSize));
     obj.push_back(Pair("currentblockweight", (uint64_t)nLastBlockWeight));
     obj.push_back(Pair("currentblocktx",   (uint64_t)nLastBlockTx));
-    obj.push_back(Pair("difficulty",       (double)GetDifficulty()));
     obj.push_back(Pair("errors",           GetWarnings("statusbar")));
     obj.push_back(Pair("networkhashps",    getnetworkhashps(request)));
     obj.push_back(Pair("pooledtx",         (uint64_t)mempool.size()));
@@ -759,7 +758,6 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
     result.push_back(Pair("coinbaseaux", aux));
     result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue.GetAmount()));
     result.push_back(Pair("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast)));
-    result.push_back(Pair("target", GetChallengeStrHex(*pblock)));
     result.push_back(Pair("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1));
     result.push_back(Pair("mutable", aMutable));
     result.push_back(Pair("noncerange", "00000000ffffffff"));
@@ -776,7 +774,6 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
         result.push_back(Pair("weightlimit", (int64_t)MAX_BLOCK_WEIGHT));
     }
     result.push_back(Pair("curtime", pblock->GetBlockTime()));
-    result.push_back(Pair("bits", GetChallengeStr(*pblock)));
     result.push_back(Pair("height", (int64_t)(pindexPrev->nHeight+1)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
