@@ -2359,6 +2359,12 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
     return scriptDestination;
 }
 
+bool GetAmountFromParentChainPegin(CAmount& amount, const Sidechain::Bitcoin::CTransaction& txBTC, unsigned int nOut)
+{
+    amount = txBTC.vout[nOut].nValue;
+    return true;
+}
+
 template<typename T>
 static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, T& merkle_block, const std::vector<unsigned char>& merkle_block_raw)
 {
@@ -2405,7 +2411,10 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
     if (prevout.n >= pegtx->vout.size()) {
         return false;
     }
-    CAmount amount = pegtx->vout[prevout.n].nValue;
+    CAmount amount = 0;
+    if (!GetAmountFromParentChainPegin(amount, *pegtx, prevout.n)) {
+        return false;
+    }
     // Check the transaction nout/value matches
     if (claim_amount != amount) {
         return false;
