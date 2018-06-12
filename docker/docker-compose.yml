@@ -1,0 +1,14 @@
+version: '3.6'
+services:
+  node:
+    build: ../.
+    ports:
+      - "8332:8332"
+      - "7042:7042"
+    volumes:
+      - /home/bitcoin
+    command: >
+      elementsd
+        -printtoconsole
+        -rpcuser=${BITCOIN_RPC_USER:-username}
+        -rpcpassword=${BITCOIN_RPC_PASSWORD:-password}
