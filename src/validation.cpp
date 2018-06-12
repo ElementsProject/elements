@@ -2359,6 +2359,69 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
     return scriptDestination;
 }
 
+template<typename T>
+static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, T& merkle_block, const std::vector<unsigned char>& merkle_block_raw)
+{
+    try {
+        std::vector<uint256> tx_hashes;
+        std::vector<unsigned int> tx_indices;
+        CDataStream merkle_block_stream(merkle_block_raw, SER_NETWORK, PROTOCOL_VERSION);
+        merkle_block_stream >> merkle_block;
+        block_hash = merkle_block.header.GetHash();
+
+        if (!merkle_block_stream.empty()) {
+           return false;
+        }
+        if (merkle_block.txn.ExtractMatches(tx_hashes, tx_indices) != merkle_block.header.hashMerkleRoot || tx_hashes.size() != 1) {
+            return false;
+        }
+        tx_hash = tx_hashes[0];
+    } catch (std::exception& e) {
+        // Invalid encoding of merkle block
+        return false;
+    }
+    return true;
+}
+
+template<typename T>
+static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script)
+{
+    try {
+        CDataStream pegtx_stream(tx_data, SER_NETWORK, PROTOCOL_VERSION);
+        pegtx_stream >> pegtx;
+        if (!pegtx_stream.empty()) {
+            return false;
+        }
+    } catch (std::exception& e) {
+        // Invalid encoding of transaction
+        return false;
+    }
+
+    // Check that transaction matches txid
+    if (pegtx->GetHash() != prevout.hash) {
+        return false;
+    }
+
+    if (prevout.n >= pegtx->vout.size()) {
+        return false;
+    }
+    CAmount amount = pegtx->vout[prevout.n].nValue;
+    // Check the transaction nout/value matches
+    if (claim_amount != amount) {
+        return false;
+    }
+
+    // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
+    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
+    CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
+    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(CScriptID(witness_output)) << OP_EQUAL);
+    if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
+        return false;
+    }
+
+    return true;
+}
+
 bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
 
     // Format on stack is as follows:
@@ -2409,45 +2472,26 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         return false;
     }
 
-    // Get serialized transaction
-    Sidechain::Bitcoin::CTransactionRef pegtx;
-    try {
-        CDataStream pegtx_stream(stack[4], SER_NETWORK, PROTOCOL_VERSION);
-        pegtx_stream >> pegtx;
-        if (!pegtx_stream.empty()) {
-            return false;
-        }
-    } catch (std::exception& e) {
-        // Invalid encoding of transaction
-        return false;
-    }
+    uint256 block_hash;
+    uint256 tx_hash;
 
     // Get txout proof
     Sidechain::Bitcoin::CMerkleBlock merkle_block;
-    std::vector<uint256> txHashes;
-    std::vector<unsigned int> txIndices;
-
-    try {
-        CDataStream merkleBlockStream(stack[5], SER_NETWORK, PROTOCOL_VERSION);
-        merkleBlockStream >> merkle_block;
-        if (!merkleBlockStream.empty() || !CheckBitcoinProof(merkle_block.header.GetHash(), merkle_block.header.nBits)) {
-           return false;
-        }
-        if (merkle_block.txn.ExtractMatches(txHashes, txIndices) != merkle_block.header.hashMerkleRoot || txHashes.size() != 1) {
-            return false;
-        }
-    } catch (std::exception& e) {
-        // Invalid encoding of merkle block
+    if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
+        return false;
+    }
+    if (!CheckBitcoinProof(block_hash, merkle_block.header.nBits)) {
         return false;
     }
 
-    // Check that transaction matches txid
-    if (pegtx->GetHash() != prevout.hash) {
+    // Get serialized transaction
+    Sidechain::Bitcoin::CTransactionRef pegtx;
+    if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
         return false;
     }
 
     // Check that the merkle proof corresponds to the txid
-    if (prevout.hash != txHashes[0]) {
+    if (prevout.hash != tx_hash) {
         return false;
     }
 
@@ -2461,22 +2505,9 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         return false;
     }
 
-    // Check the transaction nout/value matches
-    if (prevout.n >= pegtx->vout.size() || value != pegtx->vout[prevout.n].nValue) {
-        return false;
-    }
-
-    // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
-    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
-    CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
-    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(CScriptID(witness_output)) << OP_EQUAL);
-    if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
-        return false;
-    }
-
     // Finally, validate peg-in via rpc call
     if (check_depth && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        return IsConfirmedBitcoinBlock(merkle_block.header.GetHash(), Params().GetConsensus().pegin_min_depth);
+        return IsConfirmedBitcoinBlock(block_hash, Params().GetConsensus().pegin_min_depth);
     }
     return true;
 }
