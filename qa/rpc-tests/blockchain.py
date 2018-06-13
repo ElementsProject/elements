@@ -48,7 +48,13 @@ class BlockchainTest(BitcoinTestFramework):
         self._test_getblockheader()
         self._test_getblockheader(getblock=True)
         self._test_getblockchaininfo()
+        self._test_getdifficulty()
         self.nodes[0].verifychain(4, 0)
+
+    def _test_getdifficulty(self):
+        assert_raises_message(JSONRPCException,
+                              "getdifficulty is DEPRECATED for elements (which lacks pow), always returns this error",
+                              self.nodes[0].getdifficulty)
 
     def _test_gettxoutsetinfo(self):
         node = self.nodes[0]
@@ -86,18 +92,22 @@ class BlockchainTest(BitcoinTestFramework):
         assert isinstance(header['mediantime'], int)
         assert isinstance(header['version'], int)
         assert isinstance(int(header['versionHex'], 16), int)
-        assert 'nonce' in header
-        assert 'bits' in header
-        assert 'difficulty' in header
-        assert 'chainwork' in header
+        assert 'nonce' not in header
+        assert 'bits' not in header
+        assert 'difficulty' not in header
+        assert 'chainwork' not in header
+        assert 'signblock_witness_asm' in header
+        assert 'signblock_witness_hex' in header
 
     def _test_getblockchaininfo(self):
         besthash = self.nodes[0].getbestblockhash()
         res = self.nodes[0].getblockchaininfo()
 
         assert_equal(res['chain'], 'elementsregtest')
-        assert 'difficulty' in res
-        assert 'chainwork' in res
+        assert_equal(res['signblock_asm'], '1')
+        assert_equal(res['signblock_hex'], '51')
+        assert 'difficulty' not in res
+        assert 'chainwork' not in res
         assert_equal(res['blocks'], 200)
         assert_equal(res['headers'], 200)
         assert_equal(res['bestblockhash'], besthash)

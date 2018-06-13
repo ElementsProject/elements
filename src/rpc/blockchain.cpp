@@ -9,6 +9,7 @@
 #include "checkpoints.h"
 #include "coins.h"
 #include "consensus/validation.h"
+#include "core_io.h"
 #include "validation.h"
 #include "policy/policy.h"
 #include "primitives/transaction.h"
@@ -45,20 +46,6 @@ static CUpdatedBlock latestblock;
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
-double GetDifficulty(const CBlockIndex* blockindex)
-{
-    // Floating point number that is a multiple of the minimum difficulty,
-    // minimum difficulty = 1.0.
-    if (blockindex == NULL)
-    {
-        if (chainActive.Tip() == NULL)
-            return 1.0;
-        else
-            blockindex = chainActive.Tip();
-    }
-    return GetChallengeDifficulty(blockindex);
-}
-
 UniValue blockheaderToJSON(const CBlockIndex* blockindex)
 {
     UniValue result(UniValue::VOBJ);
@@ -74,10 +61,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("merkleroot", blockindex->hashMerkleRoot.GetHex()));
     result.push_back(Pair("time", (int64_t)blockindex->nTime));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
-    result.push_back(Pair("nonce", (uint64_t)GetNonce(blockindex->GetBlockHeader())));
-    result.push_back(Pair("bits", GetChallengeStr(blockindex->GetBlockHeader())));
-    result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
-    result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
+    result.push_back(Pair("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution)));
+    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution.begin(), blockindex->proof.solution.end())));
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
@@ -118,10 +103,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("tx", txs));
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
-    result.push_back(Pair("nonce", (uint64_t)GetNonce(block)));
-    result.push_back(Pair("bits", GetChallengeStr(block)));
-    result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
-    result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
+    result.push_back(Pair("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution)));
+    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution.begin(), blockindex->proof.solution.end())));
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
@@ -299,19 +282,7 @@ UniValue waitforblockheight(const JSONRPCRequest& request)
 
 UniValue getdifficulty(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 0)
-        throw runtime_error(
-            "getdifficulty\n"
-            "\nReturns the proof-of-work difficulty as a multiple of the minimum difficulty.\n"
-            "\nResult:\n"
-            "n.nnn       (numeric) the proof-of-work difficulty as a multiple of the minimum difficulty.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getdifficulty", "")
-            + HelpExampleRpc("getdifficulty", "")
-        );
-
-    LOCK(cs_main);
-    return GetDifficulty();
+    throw runtime_error("getdifficulty is DEPRECATED for elements (which lacks pow), always returns this error");
 }
 
 std::string EntryDescriptionString()
@@ -633,10 +604,8 @@ UniValue getblockheader(const JSONRPCRequest& request)
             "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"nonce\" : n,           (numeric) The nonce\n"
-            "  \"bits\" : \"1d00ffff\", (string) The bits\n"
-            "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
-            "  \"chainwork\" : \"0000...1f3\"     (string) Expected number of hashes required to produce the current chain (in hex)\n"
+            "  \"signblock_witness_asm\":\"asm\", (string) scriptSig for block signing (asm)'\n"
+            "  \"signblock_witness_hex\":\"hex\", (string) scriptSig for block signing (hex)'\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\",      (string) The hash of the next block\n"
             "}\n"
@@ -721,10 +690,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  ],\n"
             "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"mediantime\" : ttt,    (numeric) The median block time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "  \"nonce\" : n,           (numeric) The nonce\n"
-            "  \"bits\" : \"1d00ffff\", (string) The bits\n"
-            "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
-            "  \"chainwork\" : \"xxxx\",  (string) Expected number of hashes required to produce the chain up to this block (in hex)\n"
+            "  \"signblock_witness_asm\":\"asm\", (string) scriptSig for block signing (asm)'\n"
+            "  \"signblock_witness_hex\":\"hex\", (string) scriptSig for block signing (hex)'\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
@@ -1074,24 +1041,15 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "\nResult:\n"
             "{\n"
             "  \"chain\": \"xxxx\",        (string) current network name as defined in BIP70 (main, test, regtest)\n"
+            "  \"signblock_asm\":\"asm\",  (string) scriptPubKey for block signing (asm)'\n"
+            "  \"signblock_hex\":\"hex\",  (string) scriptPubKey for block signing (hex)'\n"
             "  \"blocks\": xxxxxx,         (numeric) the current number of blocks processed in the server\n"
             "  \"headers\": xxxxxx,        (numeric) the current number of headers we have validated\n"
             "  \"bestblockhash\": \"...\", (string) the hash of the currently best block\n"
-            "  \"difficulty\": xxxxxx,     (numeric) the current difficulty\n"
             "  \"mediantime\": xxxxxx,     (numeric) median time for the current best block\n"
             "  \"verificationprogress\": xxxx, (numeric) estimate of verification progress [0..1]\n"
-            "  \"chainwork\": \"xxxx\"     (string) total amount of work in active chain, in hexadecimal\n"
             "  \"pruned\": xx,             (boolean) if the blocks are subject to pruning\n"
             "  \"pruneheight\": xxxxxx,    (numeric) lowest-height complete block stored\n"
-            "  \"softforks\": [            (array) status of softforks in progress\n"
-            "     {\n"
-            "        \"id\": \"xxxx\",        (string) name of softfork\n"
-            "        \"version\": xx,         (numeric) block version\n"
-            "        \"reject\": {            (object) progress toward rejecting pre-softfork blocks\n"
-            "           \"status\": xx,       (boolean) true if threshold reached\n"
-            "        },\n"
-            "     }, ...\n"
-            "  ],\n"
             "  \"bip9_softforks\": {          (object) status of BIP9 softforks in progress\n"
             "     \"xxxx\" : {                (string) name of the softfork\n"
             "        \"status\": \"xxxx\",    (string) one of \"defined\", \"started\", \"locked_in\", \"active\", \"failed\"\n"
@@ -1108,17 +1066,18 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         );
 
     LOCK(cs_main);
+    CBlockIndex* tip = chainActive.Tip();
 
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("chain",                 Params().NetworkIDString()));
     obj.push_back(Pair("blocks",                (int)chainActive.Height()));
     obj.push_back(Pair("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1));
-    obj.push_back(Pair("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex()));
-    obj.push_back(Pair("difficulty",            (double)GetDifficulty()));
-    obj.push_back(Pair("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast()));
-    obj.push_back(Pair("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip())));
-    obj.push_back(Pair("chainwork",             chainActive.Tip()->nChainWork.GetHex()));
+    obj.push_back(Pair("bestblockhash",         tip->GetBlockHash().GetHex()));
+    obj.push_back(Pair("mediantime",            (int64_t)tip->GetMedianTimePast()));
+    obj.push_back(Pair("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip)));
     obj.push_back(Pair("pruned",                fPruneMode));
+    obj.push_back(Pair("signblock_asm", ScriptToAsmStr(tip->proof.challenge)));
+    obj.push_back(Pair("signblock_hex", HexStr(tip->proof.challenge.begin(), tip->proof.challenge.end())));
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue bip9_softforks(UniValue::VOBJ);
@@ -1128,7 +1087,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
 
     if (fPruneMode)
     {
-        CBlockIndex *block = chainActive.Tip();
+        CBlockIndex *block = tip;
         while (block && block->pprev && (block->pprev->nStatus & BLOCK_HAVE_DATA))
             block = block->pprev;
 
@@ -1602,7 +1561,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         if (tx->IsCoinBase()) {
             continue;
         }
-        
+
         if (loop_outputs) {
             for (const CTxOut& out : tx->vout) {
                 if (out.IsFee() && out.nAsset.GetAsset() == asset) {
