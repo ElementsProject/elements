@@ -24,6 +24,7 @@
 #include <util.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
+#include <versionbitsinfo.h>
 #include <warnings.h>
 
 #include <memory>
