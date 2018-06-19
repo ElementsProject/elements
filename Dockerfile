@@ -13,7 +13,9 @@ COPY . /usr/src/package
 
 # Setup required system packages
 RUN set -x \
-    && yum install -y epel-release
+    && yum install -y epel-release \
+    && yum clean all \
+    && rm -rf /var/cache/yum
 
 RUN set -x \
     && yum install -y \
@@ -51,7 +53,9 @@ RUN set -x \
         boost-devel \
         iproute \
         jq \
-        python36
+        python36 \
+    && yum clean all \
+    && rm -rf /var/cache/yum
 
 # gosu
 RUN set -x \
@@ -78,7 +82,9 @@ RUN set -x \
         --enable-dbm --disable-static --enable-cxx --with-pic \
     && make -j$(nproc) \
     && make install \
-    && make clean
+    && make clean \
+    && cd /usr/src \
+    && rm -rf /usr/src/db-${DB4_VERSION}
 
 # Build Package
 RUN set -x \
@@ -87,13 +93,9 @@ RUN set -x \
     && ./configure \
     && make -j$(nproc) \
     && make install \
-    && make clean
-
-# Cleanup
-RUN set -x \
-    && yum clean all \
-    && rm -rf /var/cache/yum \
-    && rm -rf /usr/src/{package,db-"$DB4_VERSION"}
+    && make clean \
+    && cd /usr/src \
+    && rm -rf /usr/src/package
 
 COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
 
