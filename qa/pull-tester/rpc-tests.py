@@ -99,7 +99,14 @@ if ENABLE_ZMQ:
         raise
 
 testScripts = [
+    # Elements-specific tests first
+    'confidential_transactions.py',
+    'signed_blockchain.py',
     'feature_blocksign.py',
+
+    # Elements' specially adapted tests second
+    'blockchain.py',
+
     # longest test should go first, to favor running tests in parallel
     'wallet-hd.py',
     #'walletbackup.py',
@@ -143,7 +150,6 @@ testScripts = [
     'signrawtransactions.py',
     'nodehandling.py',
     'decodescript.py',
-    'blockchain.py',
     #'disablewallet.py',
     'keypool.py',
     'p2p-mempool.py',
@@ -151,7 +157,6 @@ testScripts = [
     'invalidblockrequest.py',
     'invalidtxrequest.py',
     'rpc_getblockstats.py',
-    'confidential_transactions.py',
     'preciousblock.py',
     #'p2p-segwit.py',
     #'importprunedfunds.py',
@@ -165,7 +170,6 @@ testScripts = [
     'rpcnamedargs.py',
     'listsinceblock.py',
     'p2p-leaktests.py',
-    'signed_blockchain.py',
 ]
 if ENABLE_ZMQ:
     testScripts.append('zmq_test.py')
