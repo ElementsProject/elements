@@ -149,8 +149,6 @@ public:
     CConfidentialNonce nNonce;
     CScript scriptPubKey;
 
-    // FIXME: Inventory the places this constructor is called, and make sure
-    //        that `nAsset` is being set appropriately.
     CTxOut()
     {
         SetNull();
