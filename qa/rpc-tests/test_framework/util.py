@@ -33,7 +33,7 @@ BITCOIN_ASSET.reverse()
 BITCOIN_ASSET_OUT = b"\x01"+BITCOIN_ASSET
 
 # The maximum number of nodes a single test can spawn
-MAX_NODES = 8
+MAX_NODES = 9
 # Don't assign rpc or p2p ports lower than this
 PORT_MIN = 11000
 # The number of ports to "reserve" for p2p and rpc, each

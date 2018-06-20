@@ -99,6 +99,7 @@ if ENABLE_ZMQ:
         raise
 
 testScripts = [
+    'feature_blocksign.py',
     # longest test should go first, to favor running tests in parallel
     'wallet-hd.py',
     #'walletbackup.py',
