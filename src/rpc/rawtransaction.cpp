@@ -599,6 +599,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
             CTxOut out(asset, 0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
+            rawTx.wit.vtxoutwit.push_back(CTxOutWitness());
         } else if (name_ == "vdata") {
             UniValue vdata = sendTo[name_].get_array();
             CScript datascript = CScript() << OP_RETURN;
@@ -609,10 +610,12 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
             CTxOut out(asset, 0, datascript);
             rawTx.vout.push_back(out);
+            rawTx.wit.vtxoutwit.push_back(CTxOutWitness());
         } else if (name_ == "fee") {
             CAmount nAmount = AmountFromValue(sendTo[name_]);
             CTxOut out(asset, nAmount, CScript());
             rawTx.vout.push_back(out);
+            rawTx.wit.vtxoutwit.push_back(CTxOutWitness());
         } else {
             CBitcoinAddress address(name_);
             if (!address.IsValid())
@@ -626,13 +629,15 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             CAmount nAmount = AmountFromValue(sendTo[name_]);
 
             CTxOut out(asset, nAmount, scriptPubKey);
+            CTxOutWitness out_wit;
             if (address.IsBlinded()) {
                 CPubKey confidentiality_pubkey = address.GetBlindingKey();
                 if (!confidentiality_pubkey.IsValid())
                      throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
-                out.nNonce.vchCommitment = std::vector<unsigned char>(confidentiality_pubkey.begin(), confidentiality_pubkey.end());
+                out_wit.m_memo.vchCommitment = std::vector<unsigned char>(confidentiality_pubkey.begin(), confidentiality_pubkey.end());
             }
             rawTx.vout.push_back(out);
+            rawTx.wit.vtxoutwit.push_back(out_wit);
         }
     }
 
@@ -641,21 +646,23 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
 
 // Rewind the outputs to unblinded, and push placeholders for blinding info
 void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys, std::vector<CKey>& asset_keys, std::vector<CKey>& token_keys) {
+    // Size always matches during serialization
+    tx.wit.vtxoutwit.resize(tx.vout.size());
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        CTxOutWitness& txoutwit = tx.wit.vtxoutwit[nOut];
         if (!tx.vout[nOut].nValue.IsExplicit()) {
 #ifdef ENABLE_WALLET
-            CTxOutWitness* ptxoutwit = tx.wit.vtxoutwit.size() <= nOut? NULL: &tx.wit.vtxoutwit[nOut];
             uint256 blinding_factor;
             uint256 asset_blinding_factor;
             CAsset asset;
             CAmount amount;
             // This can only be used to recover things like change addresses and self-sends.
-            if (fUseWallet && ptxoutwit && UnblindConfidentialPair(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut].nValue, tx.vout[nOut].nAsset, tx.vout[nOut].nNonce, tx.vout[nOut].scriptPubKey, ptxoutwit->vchRangeproof, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
+            if (fUseWallet && UnblindConfidentialPair(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey), tx.vout[nOut].nValue, tx.vout[nOut].nAsset, txoutwit.m_memo, tx.vout[nOut].scriptPubKey, txoutwit.vchRangeproof, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
                 // Wipe out confidential info from output and output witness
                 CScript scriptPubKey = tx.vout[nOut].scriptPubKey;
                 CTxOut newOut(asset, amount, scriptPubKey);
                 tx.vout[nOut] = newOut;
-                ptxoutwit->SetNull();
+                txoutwit.SetNull();
 
                 // Mark for re-blinding with same key that deblinded it
                 CPubKey pubkey(pwalletMain->GetBlindingKey(&tx.vout[nOut].scriptPubKey).GetPubKey());
@@ -669,12 +676,12 @@ void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& 
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
-        } else if (tx.vout[nOut].nNonce.IsNull()) {
+        } else if (txoutwit.m_memo.IsNull()) {
             output_pubkeys.push_back(CPubKey());
             output_value_blinds.push_back(uint256());
             output_asset_blinds.push_back(uint256());
         } else {
-            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
+            CPubKey pubkey(txoutwit.m_memo.vchCommitment);
             if (!pubkey.IsValid()) {
                  throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter: invalid confidentiality public key given"));
             }
@@ -724,7 +731,7 @@ void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& 
                 uint256 asset_blinding_factor;
                 CAmount amount;
 #ifdef ENABLE_WALLET
-                if (fUseWallet && UnblindConfidentialPair(pwalletMain->GetBlindingKey(&blindingScript), confValue, CConfidentialAsset(asset), CConfidentialNonce(), CScript(), vchRangeproof, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
+                if (fUseWallet && UnblindConfidentialPair(pwalletMain->GetBlindingKey(&blindingScript), confValue, CConfidentialAsset(asset), CConfidentialMemo(), CScript(), vchRangeproof, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
                     // Wipe out confidential info from issuance
                     vchRangeproof.clear();
                     confValue = CConfidentialValue(amount);
@@ -883,7 +890,8 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
     } else if (n_blinded_ins == 0 && numPubKeys == 1) {
         if (fIgnoreBlindFail) {
             // Just get rid of the ECDH key in the nonce field and return
-            tx.vout[keyIndex].nNonce.SetNull();
+            tx.wit.vtxoutwit.resize(tx.vout.size());
+            tx.wit.vtxoutwit[keyIndex].m_memo.SetNull();
             return EncodeHexTx(tx);
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Add another output to blind in order to complete the blinding."));
@@ -1039,7 +1047,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     } else if (n_blinded_ins == 0 && numPubKeys == 1) {
         if (fIgnoreBlindFail) {
             // Just get rid of the ECDH key in the nonce field and return
-            tx.vout[keyIndex].nNonce.SetNull();
+            tx.wit.vtxoutwit[keyIndex].m_memo.SetNull();
             return EncodeHexTx(tx);
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Unable to blind transaction: Add another output to blind in order to complete the blinding."));
@@ -1507,7 +1515,8 @@ UniValue sendrawtransaction(const JSONRPCRequest& request)
     if (!fOverrideBlindable) {
         for (unsigned i = 0; i < tx->vout.size(); i++) {
             const CTxOut& txout = tx->vout[i];
-            if (txout.nValue.IsExplicit() && txout.nNonce.vchCommitment.size() != 0)
+            const CTxOutWitness& txout_wit = tx->wit.vtxoutwit[i];
+            if (txout.nValue.IsExplicit() && txout_wit.m_memo.vchCommitment.size() != 0)
                 throw JSONRPCError(RPC_TRANSACTION_ERROR, strprintf("Output %u is unblinded, but has blinding pubkey attached, please use [raw]blindrawtransaction", i));
         }
     }

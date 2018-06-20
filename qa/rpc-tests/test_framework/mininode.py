@@ -425,7 +425,7 @@ class CTxOutValue(object):
     def __repr__(self):
         return "CTxOutValue(vchCommitment=%s)" % self.vchCommitment
 
-class CTxOutNonce(object):
+class CConfidentialMemo(object):
     def __init__(self, vchCommitment=b"\x00"):
         self.vchCommitment = vchCommitment
 
@@ -433,9 +433,8 @@ class CTxOutNonce(object):
         version = ord(f.read(1))
         if version == 0: self.vchCommitment = b'\x00'
         elif version == 1: self.vchCommitment = b'\x01' + f.read(32)
-        elif version == 0xff: self.vchCommitment = b'\xff' + f.read(32)
         elif version == 2 or version == 3: self.vchCommitment = bytes([version]) + f.read(32)
-        else: raise ValueError('invalid CTxOutNonce in deserialize')
+        else: raise ValueError('invalid CConfidentialMemo in deserialize')
 
     def serialize(self):
         r = b""
@@ -443,17 +442,16 @@ class CTxOutNonce(object):
         return r
 
     def __repr__(self):
-        return "CTxOutNonce(vchCommitment=%s)" % self.vchCommitment
+        return "CConfidentialMemo(vchCommitment=%s)" % self.vchCommitment
 
 # Asset type defaults to bitcoin
 class CTxOut(object):
-    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT), nNonce=CTxOutNonce()):
+    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT)):
         self.nAsset = nAsset
         if type(nValue) is int:
             self.nValue = CTxOutValue(nValue)
         else:
             self.nValue = nValue
-        self.nNonce = nNonce
         self.scriptPubKey = scriptPubKey
 
     def deserialize(self, f):
@@ -461,21 +459,18 @@ class CTxOut(object):
         self.nAsset.deserialize(f)
         self.nValue = CTxOutValue()
         self.nValue.deserialize(f)
-        self.nNonce = CTxOutNonce()
-        self.nNonce.deserialize(f)
         self.scriptPubKey = deser_string(f)
 
     def serialize(self):
         r = b""
         r += self.nAsset.serialize()
         r += self.nValue.serialize()
-        r += self.nNonce.serialize()
         r += ser_string(self.scriptPubKey)
         return r
 
     def __repr__(self):
-        return "CTxOut(nAsset=%s nValue=%s nNonce=%s scriptPubKey=%s)" \
-            % (self.nAsset, self.nValue, self.nNonce, bytes_to_hex_str(self.scriptPubKey))
+        return "CTxOut(nAsset=%s nValue=%s scriptPubKey=%s)" \
+            % (self.nAsset, self.nValue, bytes_to_hex_str(self.scriptPubKey))
 
 
 class CScriptWitness(object):
@@ -524,19 +519,23 @@ class CTxOutWitness(object):
     def __init__(self):
         self.vchSurjectionproof = b'';
         self.vchRangeproof = b'';
+        self.m_memo = b'';
 
     def deserialize(self, f):
         self.vchSurjectionproof = deser_string(f)
         self.vchRangeproof = deser_string(f)
+        self.m_memo = ConfidentialMemo()
+        self.m_memo.deserialize(f)
 
     def serialize(self):
         r = b''
         r += ser_string(self.vchSurjectionproof)
         r += ser_string(self.vchRangeproof)
+        r += self.m_memo.serialize()
         return r
 
     def __repr__(self):
-        return "CTxOutWitness (%s, %s)" % (self.vchSurjectionproof, self.vchRangeproof)
+        return "CTxOutWitness (%s, %s, %s)" % (self.vchSurjectionproof, self.vchRangeproof, self.m_memo)
 
     def is_null(self):
         return len(self.vchSurjectionproof) == 0 \

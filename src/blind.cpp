@@ -35,20 +35,20 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
-bool UnblindConfidentialPair(const CKey &key, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce& nNonce, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
+bool UnblindConfidentialPair(const CKey &key, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialMemo& memo, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
 {
     if (!key.IsValid() || vchRangeproof.size() == 0) {
         return false;
     }
-    CPubKey ephemeral_key(nNonce.vchCommitment);
-    if (nNonce.vchCommitment.size() > 0 && !ephemeral_key.IsValid()) {
+    CPubKey ephemeral_key(memo.vchCommitment);
+    if (memo.vchCommitment.size() > 0 && !ephemeral_key.IsValid()) {
         return false;
     }
 
     // ECDH or not depending on if nonce commitment is non-empty
     uint256 nonce;
     bool fBlankNonce = false;
-    if (nNonce.vchCommitment.size() > 0) {
+    if (memo.vchCommitment.size() > 0) {
         nonce = key.ECDH(ephemeral_key);
         CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
     } else {
@@ -120,15 +120,15 @@ bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_as
 }
 
 // Creates ECDH nonce commitment using ephemeral key and output_pubkey
-uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey)
+uint256 GenerateOutputRangeproofNonce(CTxOutWitness& out, const CPubKey output_pubkey)
 {
     // Generate ephemeral key for ECDH nonce generation
     CKey ephemeral_key;
     ephemeral_key.MakeNewKey(true);
     CPubKey ephemeral_pubkey = ephemeral_key.GetPubKey();
-    assert(ephemeral_pubkey.size() == CConfidentialNonce::nCommittedSize);
-    out.nNonce.vchCommitment.resize(ephemeral_pubkey.size());
-    memcpy(&out.nNonce.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
+    assert(ephemeral_pubkey.size() == CConfidentialMemo::nCommittedSize);
+    out.m_memo.vchCommitment.resize(ephemeral_pubkey.size());
+    memcpy(&out.m_memo.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
     // Generate nonce
     uint256 nonce = ephemeral_key.ECDH(output_pubkey);
     CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
@@ -495,7 +495,7 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
             CreateValueCommitment(confValue, commit, blindptrs.back(), gen, amount);
 
             // Generate nonce for rewind by owner
-            uint256 nonce = GenerateOutputRangeproofNonce(out, output_pubkeys[nOut]);
+            uint256 nonce = GenerateOutputRangeproofNonce(txoutwit, output_pubkeys[nOut]);
 
             // Generate rangeproof
             bool rangeresult = GenerateRangeproof(txoutwit.vchRangeproof, blindptrs, nonce, amount, out.scriptPubKey, commit, gen, asset, assetblindptrs);

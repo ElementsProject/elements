@@ -24,7 +24,7 @@ void CreateValueCommitment(CConfidentialValue& value, secp256k1_pedersen_commitm
  * Currently there is only a sidechannel message in the rangeproof so a valid rangeproof must
  * be included in the pair to recover value and asset data.
  */
-bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue& value, const CConfidentialAsset& asset, const CConfidentialNonce& nNonce, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out);
+bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue& value, const CConfidentialAsset& asset, const CConfidentialMemo& memo, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out);
 
 /* Returns the number of ouputs that were successfully blinded.
  * In many cases a `0` can be fixed by adding an additional output.

@@ -132,10 +132,10 @@ public:
  * A 33-byte data field that typically is used to convey to the
  * recipient the ECDH ephemeral key (an EC point) for deriving the
  * transaction output blinding factor. */
-class CConfidentialNonce : public CConfidentialCommitment<33, 2, 3>
+class CConfidentialMemo : public CConfidentialCommitment<33, 2, 3>
 {
 public:
-    CConfidentialNonce() { SetNull(); }
+    CConfidentialMemo() { SetNull(); }
 };
 
 /** An output of a transaction.  It contains the public key that the next input
@@ -146,7 +146,6 @@ class CTxOut
 public:
     CConfidentialAsset nAsset;
     CConfidentialValue nValue;
-    CConfidentialNonce nNonce;
     CScript scriptPubKey;
 
     CTxOut()
@@ -162,7 +161,6 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(nAsset);
         READWRITE(nValue);
-        READWRITE(nNonce);
         READWRITE(*(CScriptBase*)(&scriptPubKey));
     }
 
@@ -170,13 +168,12 @@ public:
     {
         nAsset.SetNull();
         nValue.SetNull();
-        nNonce.SetNull();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return nAsset.IsNull() && nValue.IsNull() && nNonce.IsNull() && scriptPubKey.empty();
+        return nAsset.IsNull() && nValue.IsNull() && scriptPubKey.empty();
     }
 
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
@@ -231,7 +228,6 @@ public:
     {
         return (a.nAsset == b.nAsset &&
                 a.nValue == b.nValue &&
-                a.nNonce == b.nNonce &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -544,6 +540,7 @@ class CTxOutWitness
 public:
     std::vector<unsigned char> vchSurjectionproof;
     std::vector<unsigned char> vchRangeproof;
+    CConfidentialMemo m_memo;
 
     ADD_SERIALIZE_METHODS;
 

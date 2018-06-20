@@ -1948,7 +1948,7 @@ void CWalletTx::SetBlindingData(unsigned int mapIndex, CAmount amountIn, CPubKey
 
 }
 
-void CWalletTx::GetBlindingData(const unsigned int mapIndex, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAsset* pAssetOut, uint256* passetBlindingFactorOut) const
+void CWalletTx::GetBlindingData(const unsigned int mapIndex, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialMemo& nonce, const CScript& scriptPubKey, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAsset* pAssetOut, uint256* passetBlindingFactorOut) const
 {
     // Blinding data is cached in a serialized record mapWallet["blindingdata"].
     // It contains a concatenation byte vectors, 74 bytes per txout or pseudo-input.
@@ -2004,45 +2004,45 @@ void CWalletTx::GetBlindingData(const unsigned int mapIndex, const std::vector<u
 CAmount CWalletTx::GetOutputValueOut(unsigned int nOut) const {
     assert(nOut < tx->vout.size());
     const CTxOut& out = tx->vout[nOut];
-    const CTxWitness& wit = tx->wit;
+    const CTxOutWitness& out_wit = tx->wit.vtxoutwit[nOut];
     CAmount ret;
-    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, &ret, NULL, NULL, NULL, NULL);
+    GetBlindingData(nOut, out_wit.vchRangeproof, out.nValue, out.nAsset, out_wit.m_memo, out.scriptPubKey, &ret, NULL, NULL, NULL, NULL);
     return ret;
 }
 
 uint256 CWalletTx::GetOutputBlindingFactor(unsigned int nOut) const {
     assert(nOut < tx->vout.size());
     const CTxOut& out = tx->vout[nOut];
-    const CTxWitness& wit = tx->wit;
+    const CTxOutWitness& out_wit = tx->wit.vtxoutwit[nOut];
     uint256 ret;
-    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, NULL, NULL, &ret, NULL, NULL);
+    GetBlindingData(nOut, out_wit.vchRangeproof, out.nValue, out.nAsset, out_wit.m_memo, out.scriptPubKey, NULL, NULL, &ret, NULL, NULL);
     return ret;
 }
 
 uint256 CWalletTx::GetOutputAssetBlindingFactor(unsigned int nOut) const {
     assert(nOut < tx->vout.size());
     const CTxOut& out = tx->vout[nOut];
-    const CTxWitness& wit = tx->wit;
+    const CTxOutWitness& out_wit = tx->wit.vtxoutwit[nOut];
     uint256 ret;
-    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, NULL, NULL, NULL, NULL, &ret);
+    GetBlindingData(nOut, out_wit.vchRangeproof, out.nValue, out.nAsset, out_wit.m_memo, out.scriptPubKey, NULL, NULL, NULL, NULL, &ret);
     return ret;
 }
 
 CAsset CWalletTx::GetOutputAsset(unsigned int nOut) const {
     assert(nOut < tx->vout.size());
     const CTxOut& out = tx->vout[nOut];
-    const CTxWitness& wit = tx->wit;
+    const CTxOutWitness& out_wit = tx->wit.vtxoutwit[nOut];
     CAsset ret;
-    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, NULL, NULL, NULL, &ret, NULL);
+    GetBlindingData(nOut, out_wit.vchRangeproof, out.nValue, out.nAsset, out_wit.m_memo, out.scriptPubKey, NULL, NULL, NULL, &ret, NULL);
     return ret;
 }
 
 CPubKey CWalletTx::GetOutputBlindingPubKey(unsigned int nOut) const {
     assert(nOut < tx->vout.size());
     const CTxOut& out = tx->vout[nOut];
-    const CTxWitness& wit = tx->wit;
+    const CTxOutWitness& out_wit = tx->wit.vtxoutwit[nOut];
     CPubKey ret;
-    GetBlindingData(nOut, wit.vtxoutwit.size() <= nOut ? std::vector<unsigned char>() : wit.vtxoutwit[nOut].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, NULL, &ret, NULL, NULL, NULL);
+    GetBlindingData(nOut, out_wit.vchRangeproof, out.nValue, out.nAsset, out_wit.m_memo, out.scriptPubKey, NULL, &ret, NULL, NULL, NULL);
     return ret;
 }
 
@@ -2075,7 +2075,7 @@ uint256 CWalletTx::GetIssuanceBlindingFactor(unsigned int vinIndex, bool fIssuan
 
     uint256 ret;
     CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(tx->vin[vinIndex].prevout.hash.begin(), tx->vin[vinIndex].prevout.hash.end()) << tx->vin[vinIndex].prevout.n);
-    GetBlindingData(mapValueInd, rangeproof, fIssuanceToken ? issuance.nInflationKeys : issuance.nAmount, CConfidentialAsset(asset), CConfidentialNonce(), blindingScript, NULL, NULL, &ret, NULL, NULL);
+    GetBlindingData(mapValueInd, rangeproof, fIssuanceToken ? issuance.nInflationKeys : issuance.nAmount, CConfidentialAsset(asset), CConfidentialMemo(), blindingScript, NULL, NULL, &ret, NULL, NULL);
     return ret;
 }
 
@@ -2106,7 +2106,7 @@ CAmount CWalletTx::GetIssuanceAmount(unsigned int vinIndex, bool fIssuanceToken)
 
     CAmount ret;
     CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(tx->vin[vinIndex].prevout.hash.begin(), tx->vin[vinIndex].prevout.hash.end()) << tx->vin[vinIndex].prevout.n);
-    GetBlindingData(mapValueInd, rangeproof, fIssuanceToken ? issuance.nInflationKeys : issuance.nAmount, CConfidentialAsset((fIssuanceToken ? token : asset)), CConfidentialNonce(), blindingScript, &ret, NULL, NULL, NULL, NULL);
+    GetBlindingData(mapValueInd, rangeproof, fIssuanceToken ? issuance.nInflationKeys : issuance.nAmount, CConfidentialAsset((fIssuanceToken ? token : asset)), CConfidentialMemo(), blindingScript, &ret, NULL, NULL, NULL, NULL);
     return ret;
 }
 
@@ -2606,6 +2606,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
     std::set<CAsset> setAssets;
 
+    tx.wit.vtxoutwit.resize(tx.vout.size());
+
     // Turn the txout set into a CRecipient vector
     for (size_t idx = 0; idx < tx.vout.size(); idx++)
     {
@@ -2618,7 +2620,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
         if (txOut.IsFee()) {
             continue;
         }
-        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), false};
+        CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(tx.wit.vtxoutwit[idx].m_memo.vchCommitment), false};
         vecSend.push_back(recipient);
 
         if (setAssets.count(txOut.nAsset.GetAsset()) == 0) {
@@ -2815,7 +2817,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 for (const auto& recipient : vecSend)
                 {
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
-                    txout.nNonce.vchCommitment = std::vector<unsigned char>(recipient.confidentiality_key.begin(), recipient.confidentiality_key.end());
+                    CTxOutWitness out_wit;
+                    out_wit.m_memo.vchCommitment = std::vector<unsigned char>(recipient.confidentiality_key.begin(), recipient.confidentiality_key.end());
 
                     if (recipient.fSubtractFeeFromAmount)
                     {
@@ -2846,6 +2849,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         return false;
                     }
                     txNew.vout.push_back(txout);
+                    txNew.wit.vtxoutwit.push_back(out_wit);
                     output_pubkeys.push_back(recipient.confidentiality_key);
                     if (recipient.confidentiality_key.IsFullyValid()) {
                         numToBlind++;
@@ -2958,10 +2962,14 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                                 return false;
                             }
 
+
                             vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
+                            vector<CTxOutWitness>::iterator wit_position = txNew.wit.vtxoutwit.begin()+nChangePosInOut;
                             CPubKey pubkey = GetBlindingPubKey(scriptChange);
-                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+                            CTxOutWitness out_wit;
+                            out_wit.m_memo.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
                             txNew.vout.insert(position, newTxOut);
+                            txNew.wit.vtxoutwit.insert(wit_position, out_wit);
                             output_pubkeys.insert(output_pubkeys.begin() + nChangePosInOut, pubkey);
                             if (pubkey.IsFullyValid()) {
                                 numToBlind++;
@@ -3137,7 +3145,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         if (fIgnoreBlindFail) {
                             numToBlind--;
                             changeToBlind--;
-                            txNew.vout[onlyChangePos].nNonce.SetNull();
+                            txNew.wit.vtxoutwit[onlyChangePos].m_memo.SetNull();
                             output_pubkeys[onlyChangePos] = CPubKey();
                             output_blinds[onlyChangePos] = uint256();
                             output_asset_blinds[onlyChangePos] = uint256();
@@ -3151,7 +3159,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         assert(onlyRecipientBlindIndex != -1);
                         if (fIgnoreBlindFail) {
                             numToBlind--;
-                            txNew.vout[onlyRecipientBlindIndex].nNonce.SetNull();
+                            txNew.wit.vtxoutwit[onlyRecipientBlindIndex].m_memo.SetNull();
                             output_pubkeys[onlyRecipientBlindIndex] = CPubKey();
                             output_blinds[onlyRecipientBlindIndex] = uint256();
                             output_asset_blinds[onlyRecipientBlindIndex] = uint256();
@@ -4636,7 +4644,7 @@ bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& k
     return CWalletDB(strWalletFile).WriteSpecificBlindingKey(scriptid, key);
 }
 
-void CWallet::ComputeBlindingData(const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce& nonce, const CScript& scriptPubKey, const std::vector<unsigned char>& vchRangeproof, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
+void CWallet::ComputeBlindingData(const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialMemo& nonce, const CScript& scriptPubKey, const std::vector<unsigned char>& vchRangeproof, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const
 {
     if (confValue.IsExplicit() && confAsset.IsExplicit()) {
         amount = confValue.GetAmount();

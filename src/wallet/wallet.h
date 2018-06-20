@@ -456,7 +456,7 @@ private:
     * @param[in]    nonce - The nonce used to ECDH with the blinding key. This is null for issuance as blinding key is directly used as nonce
     * @param[in]    scriptPubKey - The script being committed to by the rangeproof
     */
-    void GetBlindingData(const unsigned int mapIndex, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAsset* pAssetOut, uint256* passetBlindingFactorOut) const;
+    void GetBlindingData(const unsigned int mapIndex, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialMemo& nonce, const CScript& scriptPubKey, CAmount* pamountOut, CPubKey* ppubkeyOut, uint256* pblindingfactorOut, CAsset* pAssetOut, uint256* passetBlindingFactorOut) const;
     void WipeUnknownBlindingData() const;
 
 public:
@@ -1023,7 +1023,7 @@ public:
     CKey GetBlindingKey(const CScript* script) const;
     CPubKey GetBlindingPubKey(const CScript& script) const;
 
-    void ComputeBlindingData(const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce& nonce, const CScript& scriptPubKey, const std::vector<unsigned char>& vchRangeproof, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const;
+    void ComputeBlindingData(const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialMemo& nonce, const CScript& scriptPubKey, const std::vector<unsigned char>& vchRangeproof, CAmount& amount, CPubKey& pubkey, uint256& blindingfactor, CAsset& asset, uint256& assetBlindingFactor) const;
 
     /** Mark a transaction as replaced by another transaction (e.g., BIP 125). */
     bool MarkReplaced(const uint256& originalHash, const uint256& newHash);

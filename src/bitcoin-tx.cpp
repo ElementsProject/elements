@@ -274,11 +274,14 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
 
     // construct TxOut, append to transaction output list
     CTxOut txout(asset, value, scriptPubKey);
+    CTxOutWitness out_wit;
     if (addr.IsBlinded()) {
         CPubKey pubkey = addr.GetBlindingKey();
-        txout.nNonce.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
+
+        out_wit.m_memo.vchCommitment = std::vector<unsigned char>(pubkey.begin(), pubkey.end());
     }
     tx.vout.push_back(txout);
+    tx.wit.vtxoutwit.push_back(out_wit);
 }
 
 static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& strInput)
@@ -462,12 +465,13 @@ static void MutateTxBlind(CMutableTransaction& tx, const std::string& strInput)
         }
     }
     for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        CTxOutWitness out_wit = tx.wit.vtxoutwit[nOut];
         if (!tx.vout[nOut].nValue.IsExplicit())
             throw std::runtime_error("Invalid parameter: transaction outputs must be unblinded");
-        if (tx.vout[nOut].nNonce.IsNull()) {
+        if (out_wit.m_memo.IsNull()) {
             output_pubkeys.push_back(CPubKey());
         } else {
-            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
+            CPubKey pubkey(out_wit.m_memo.vchCommitment);
             if (!pubkey.IsValid()) {
                  throw std::runtime_error("Invalid parameter: invalid confidentiality public key given");
             }

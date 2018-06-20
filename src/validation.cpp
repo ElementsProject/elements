@@ -905,12 +905,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
-        if (!asset.IsValid())
+        if (!asset.IsValid() || !val.IsValid()) {
             return false;
-        if (!val.IsValid())
-            return false;
-        if (!tx.vout[i].nNonce.IsValid())
-            return false;
+        }
 
         if (asset.IsExplicit()) {
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
