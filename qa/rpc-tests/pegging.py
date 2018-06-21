@@ -201,9 +201,12 @@ try:
 
     sidechain.generate(101)
 
-    addrs = sidechain.getpeginaddress()
-    txid1 = bitcoin.sendtoaddress(addrs["mainchain_address"], 24)
-    # 10+2 confirms required to get into mempool and confirm
+    getpeginaddr_res = sidechain.getpeginaddress()
+    addr = getpeginaddr_res["mainchain_address"]
+    claim_script = getpeginaddr_res["claim_script"]
+    assert(addr == sidechain.tweakfedpegscript(claim_script)["address"])
+    txid1 = bitcoin.sendtoaddress(addr, 24)
+
     bitcoin.generate(1)
     time.sleep(2)
     proof = bitcoin.gettxoutproof([txid1])
