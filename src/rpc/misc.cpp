@@ -583,6 +583,38 @@ UniValue echo(const JSONRPCRequest& request)
     return request.params;
 }
 
+UniValue tweakfedpegscript(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "tweakfedpegscript \"claim_script\"\n"
+            "\nReturns a tweaked fedpegscript.\n"
+            "\nArguments:\n"
+            "1. \"claim_script\"         (string, required) Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress.\n"
+            "\nResult:\n"
+            "{\n"
+                "\"script\"           (string) The fedpegscript tweaked with claim_script\n"
+                "\"address\"          (string) The address corresponding to the tweaked fedpegscript\n"
+            "}\n"
+        );
+
+
+    if (!IsHex(request.params[0].get_str())) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
+    }
+
+    std::vector<unsigned char> scriptData = ParseHex(request.params[0].get_str());
+    CScript claim_script = CScript(scriptData.begin(), scriptData.end());
+    CScript tweaked_script = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
+    CParentBitcoinAddress addr(CScriptID(GetScriptForWitness(tweaked_script)));
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("script", HexStr(tweaked_script));
+    ret.pushKV("address", addr.ToString());
+
+    return ret;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
@@ -593,11 +625,12 @@ static const CRPCCommand commands[] =
     { "util",               "createblindedaddress",   &createblindedaddress,   true,  {} },
     { "util",               "verifymessage",          &verifymessage,          true,  {"address","signature","message"} },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, true,  {"privkey","message"} },
+    { "util",               "tweakfedpegscript",      &tweakfedpegscript,      true,  {"claim_script"} },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true,  {"timestamp"}},
     { "hidden",             "echo",                   &echo,                   true,  {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
-    { "hidden",             "echojson",               &echo,                  true,  {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
+    { "hidden",             "echojson",               &echo,                   true,  {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
 };
 
 void RegisterMiscRPCCommands(CRPCTable &t)
