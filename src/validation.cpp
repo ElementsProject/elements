@@ -2067,7 +2067,16 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
         CCoinsModifier coins = view.ModifyCoins(out.hash);
         if (undo.nHeight != 0 ||
                 // Special-case genesis since nHeight is always 0, assume DB is clean
-                (Params().GenesisBlock().vtx[0]->GetHash() == out.hash && coins->IsPruned())) {
+                (Params().GenesisBlock().vtx[0]->GetHash() == out.hash && coins->IsPruned()) ||
+                // Special-case for initial issuance since being a single output nHeight is always 0
+                (Params().GenesisBlock().vtx.size() > 1 && [&]() {
+                                                            for (const auto& tx : Params().GenesisBlock().vtx) {
+                                                                if (tx->GetHash() == out.hash) {
+                                                                    return true;
+                                                                }
+                                                            }
+                                                            return false;
+                                                        }() && coins->IsPruned())) {
             // undo data contains height: this is the last output of the prevout tx being spent
             if (!coins->IsPruned())
                 fClean = fClean && error("%s: undo data overwriting existing transaction", __func__);

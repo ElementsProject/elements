@@ -30,10 +30,10 @@ class WalletTest (BitcoinTestFramework):
 
     def run_test (self):
 
-        # Check that there's 100 UTXOs on each of the nodes
-        assert_equal(len(self.nodes[0].listunspent()), 100)
-        assert_equal(len(self.nodes[1].listunspent()), 100)
-        assert_equal(len(self.nodes[2].listunspent()), 100)
+        # Check that there's 1 UTXO on each of the nodes
+        assert_equal(len(self.nodes[0].listunspent()), 1)
+        assert_equal(len(self.nodes[1].listunspent()), 1)
+        assert_equal(len(self.nodes[2].listunspent()), 1)
 
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['balance']["bitcoin"], 21000000)
