@@ -83,6 +83,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
     result.push_back(Pair("contracthash", blockindex->hashContract.GetHex()));
+    result.push_back(Pair("attestationhash", blockindex->hashAttestation.GetHex()));
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
     CBlockIndex *pnext = chainActive.Next(blockindex);
@@ -127,6 +128,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
     result.push_back(Pair("contracthash", blockindex->hashContract.GetHex()));
+    result.push_back(Pair("attestationhash", blockindex->hashAttestation.GetHex()));
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
     CBlockIndex *pnext = chainActive.Next(blockindex);
@@ -1393,16 +1395,16 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
   uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
   pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
 
- 
+
   CKeyID keyId;
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
-  
+
   if (pubKey.GetID() != keyId)
     {
       throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
     } else {
-    
+
     //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
       std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
@@ -1434,7 +1436,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
 
   file.seekg(0, file.beg);
 
-  // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation                                                         
+  // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
   while (file.good()) {
     std::string line;
     std::getline(file, line);
@@ -1464,14 +1466,14 @@ UniValue readwhitelist(const JSONRPCRequest& request)
     if (pubKey.GetID() != keyId)
       throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation when tweaking key with contract hash");
 
-    //insert new address into sorted whitelist vector (if it doesn't already exist in the list)                                                           
+    //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
       std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
       addressWhitelist.insert(it,keyId);
     }
   }
 
-  file.close();  
+  file.close();
 
   return NullUniValue;
 }
@@ -1547,7 +1549,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
   if (!file.is_open())
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
 
-  // produce output                                                                                                                                 
+  // produce output
   file << strprintf("# Whitelisted address dump");
   file << "\n";
 
@@ -1670,7 +1672,7 @@ UniValue getcontracthash(const JSONRPCRequest& request)
                 + HelpExampleCli("getcontracthash", "1000")
                 + HelpExampleRpc("getcontracthash", "1000")
                 );
-    
+
     LOCK(cs_main);
 
     int nHeight = request.params[0].get_int();
@@ -1868,7 +1870,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         if (tx->IsCoinBase()) {
             continue;
         }
-        
+
         if (loop_outputs) {
             for (const CTxOut& out : tx->vout) {
                 if (out.IsFee() && out.nAsset.GetAsset() == asset) {

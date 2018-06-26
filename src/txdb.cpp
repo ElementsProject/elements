@@ -207,17 +207,18 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
                 // Construct block index object
                 CBlockIndex* pindexNew = insertBlockIndex(diskindex.GetBlockHash());
                 pindexNew->pprev          = insertBlockIndex(diskindex.hashPrev);
-                pindexNew->nHeight        = diskindex.nHeight;
-                pindexNew->nFile          = diskindex.nFile;
-                pindexNew->nDataPos       = diskindex.nDataPos;
-                pindexNew->nUndoPos       = diskindex.nUndoPos;
-                pindexNew->nVersion       = diskindex.nVersion;
-                pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
-                pindexNew->hashContract   = diskindex.hashContract;
-                pindexNew->nTime          = diskindex.nTime;
-                pindexNew->proof          = diskindex.proof;
-                pindexNew->nStatus        = diskindex.nStatus;
-                pindexNew->nTx            = diskindex.nTx;
+                pindexNew->nHeight          = diskindex.nHeight;
+                pindexNew->nFile            = diskindex.nFile;
+                pindexNew->nDataPos         = diskindex.nDataPos;
+                pindexNew->nUndoPos         = diskindex.nUndoPos;
+                pindexNew->nVersion         = diskindex.nVersion;
+                pindexNew->hashMerkleRoot   = diskindex.hashMerkleRoot;
+                pindexNew->hashContract     = diskindex.hashContract;
+                pindexNew->hashAttestation  = diskindex.hashAttestation;
+                pindexNew->nTime            = diskindex.nTime;
+                pindexNew->proof            = diskindex.proof;
+                pindexNew->nStatus          = diskindex.nStatus;
+                pindexNew->nTx              = diskindex.nTx;
 
                 pcursor->Next();
             } else {

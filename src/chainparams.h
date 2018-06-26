@@ -75,6 +75,7 @@ public:
 
     const CBlock& GenesisBlock() const { return genesis; }
     const uint256 ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
+    const uint256 AttestationHash() const { return attestationHash; }
     /** Make miner wait to have peers to avoid wasting work */
     bool MiningRequiresPeers() const { return fMiningRequiresPeers; }
     /** Default value for -checkmempool and -checkblockindex argument */
@@ -109,6 +110,7 @@ protected:
     std::string strNetworkID;
     CBlock genesis;
     uint256 parentGenesisBlockHash;
+    uint256 attestationHash;
     CAmount initialFreeCoins;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;

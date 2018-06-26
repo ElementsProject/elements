@@ -62,6 +62,7 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint256 hashContract;
+    uint256 hashAttestation;
     uint32_t nTime;
     uint32_t nHeight;
     CProof proof;
@@ -79,6 +80,7 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(hashContract);
+        READWRITE(hashAttestation);
         READWRITE(nTime);
         READWRITE(nHeight);
         READWRITE(proof);
@@ -90,6 +92,7 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         hashContract.SetNull();
+        hashAttestation.SetNull();
         nTime = 0;
         nHeight = 0;
         proof.SetNull();
@@ -151,6 +154,7 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.hashContract   = hashContract;
+        block.hashAttestation = hashAttestation;
         block.nTime          = nTime;
         block.nHeight        = nHeight;
         block.proof          = proof;

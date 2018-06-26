@@ -60,6 +60,7 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     if (GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT)) {
         genesis.hashContract = GetGenesisContractHash();
     }
+    genesis.hashAttestation = uint256S(GetArg("-attestationhash", ""));
     return genesis;
 }
 
@@ -136,6 +137,7 @@ protected:
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
+        attestationHash = uint256S(GetArg("-attestationhash", ""));
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
         nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
