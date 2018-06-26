@@ -121,4 +121,4 @@ class BlockSignTest(test_framework.BitcoinTestFramework):
         self.check_height(101)
 
 if __name__ == '__main__':
-    BlockSignTest(num_nodes=9, required_signers=7).main()
+    BlockSignTest(num_nodes=1, required_signers=1).main()
