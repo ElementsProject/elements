@@ -32,6 +32,10 @@
 #include <boost/unordered_map.hpp>
 #include <boost/filesystem/path.hpp>
 
+namespace Sidechain { namespace Bitcoin {
+class CTransaction;
+}}
+
 class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
@@ -262,6 +266,7 @@ void UnloadBlockIndex();
 void ThreadScriptCheck();
 /** Check if bitcoind connection via RPC is correctly working*/
 bool BitcoindRPCCheck(bool init);
+bool GetAmountFromParentChainPegin(CAmount& amount, const Sidechain::Bitcoin::CTransaction& txBTC, unsigned int nOut);
 /** Checks pegin witness for validity */
 bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth = true);
 /** Extracts an output from pegin witness for evaluation as a normal output */
