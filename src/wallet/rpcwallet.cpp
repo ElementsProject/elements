@@ -201,7 +201,7 @@ UniValue getnewaddress(const JSONRPCRequest& request)
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
     return !pwalletMain->GetDisableCt() ?
-        CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() : 
+        CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() :
         CBitcoinAddress(keyID).ToString();
 }
 
@@ -214,7 +214,7 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
     }
 
     return !pwalletMain->GetDisableCt() ?
-        CBitcoinAddress(pubKey.GetID()).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(pubKey.GetID()))).ToString() : 
+        CBitcoinAddress(pubKey.GetID()).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(pubKey.GetID()))).ToString() :
         CBitcoinAddress(pubKey.GetID()).ToString();
 }
 
@@ -282,7 +282,7 @@ UniValue getrawchangeaddress(const JSONRPCRequest& request)
     CKeyID keyID = vchPubKey.GetID();
 
     return !pwalletMain->GetDisableCt() ?
-        CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() : 
+        CBitcoinAddress(keyID).AddBlindingKey(pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID)))).ToString() :
         CBitcoinAddress(keyID).ToString();
 }
 
@@ -3791,7 +3791,8 @@ UniValue issueasset(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
     }
 
-    bool fBlindIssuances = request.params.size() < 3 || request.params[2].get_bool();
+    bool fBlindIssuances = (!pwalletMain->GetDisableCt() && request.params.size() < 3) ||
+                        (request.params.size() == 3 && request.params[2].get_bool());
 
     if (!pwalletMain->IsLocked())
         pwalletMain->TopUpKeyPool();
@@ -3810,7 +3811,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         keyID = newKey.GetID();
         pwalletMain->SetAddressBook(keyID, "", "receive");
         assetAddr = CBitcoinAddress(keyID);
-        assetKey = !pwalletMain->GetDisableCt() ? 
+        assetKey = !pwalletMain->GetDisableCt() ?
             pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get())) : CPubKey();
     }
     if (nTokens > 0) {
@@ -3819,7 +3820,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         keyID = newKey.GetID();
         pwalletMain->SetAddressBook(keyID, "", "receive");
         tokenAddr = CBitcoinAddress(keyID);
-        tokenKey = !pwalletMain->GetDisableCt() ? 
+        tokenKey = !pwalletMain->GetDisableCt() ?
             pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID))) : CPubKey();
     }
 
@@ -3920,7 +3921,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
     keyID = newKey.GetID();
     pwalletMain->SetAddressBook(keyID, "", "receive");
     assetAddr = CBitcoinAddress(keyID);
-    assetKey = !pwalletMain->GetDisableCt() ? 
+    assetKey = !pwalletMain->GetDisableCt() ?
         pwalletMain->GetBlindingPubKey(GetScriptForDestination(assetAddr.Get())) : CPubKey();
 
     // Add destination for tokens we are moving
@@ -3929,12 +3930,12 @@ UniValue reissueasset(const JSONRPCRequest& request)
     keyID = newKey.GetID();
     pwalletMain->SetAddressBook(keyID, "", "receive");
     tokenAddr = CBitcoinAddress(keyID);
-    tokenKey = !pwalletMain->GetDisableCt() ? 
+    tokenKey = !pwalletMain->GetDisableCt() ?
         pwalletMain->GetBlindingPubKey(GetScriptForDestination(CTxDestination(keyID))) : CPubKey();
 
     // Attempt a send.
     CWalletTx wtx;
-    SendGenerationTransaction(GetScriptForDestination(assetAddr.Get()), assetKey, GetScriptForDestination(tokenAddr.Get()), tokenKey, nAmount, -1, true, entropy, asset, reissuanceToken, wtx);
+    SendGenerationTransaction(GetScriptForDestination(assetAddr.Get()), assetKey, GetScriptForDestination(tokenAddr.Get()), tokenKey, nAmount, -1, !pwalletMain->GetDisableCt(), entropy, asset, reissuanceToken, wtx);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
