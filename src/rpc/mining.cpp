@@ -148,8 +148,15 @@ UniValue generate(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
         unsigned int nExtraNonce = 0;
         IncrementExtraNonce(&pblocktemplate->block, chainActive.Tip(), nExtraNonce);
+
+        pblocktemplate->block.proof.solution = CScript();
+#ifdef ENABLE_WALLET
+        // Try to generate proof
+        if (!MaybeGenerateProof(Params().GetConsensus(), &pblocktemplate->block, pwalletMain))
+            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Could not generate block signed proof with this wallet, use signblock and combineblocksigs for federated chains");
+#endif
         if (!CheckProof(pblocktemplate->block, Params().GetConsensus()))
-            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This method cannot be used with a block-signature-required chain");
+            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Could not generate block signed proof, use signblock and combineblocksigs for federated chains");
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(pblocktemplate->block);
         bool ret;
         ret = ProcessNewBlock(Params(), shared_pblock, true, NULL);
