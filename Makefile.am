@@ -236,4 +236,4 @@ DISTCHECK_CONFIGURE_FLAGS = --enable-man
 
 clean-local:
 	rm -rf coverage_percent.txt test_bitcoin.coverage/ total.coverage/ qa/tmp/ cache/ $(OSX_APP)
-	rm -rf qa/pull-tester/__pycache__
+	rm -rf qa/pull-tester/__pycache__ qa/rpc-tests/test_framework/__pycache__ src/test/__pycache__ qa/cache
