@@ -20,6 +20,13 @@ def wif(pk):
 # The signblockscript is a Bitcoin Script k-of-n multisig script.
 def make_signblockscript(num_nodes, required_signers, keys):
     assert(num_nodes >= required_signers)
+
+    if num_nodes == 1 and required_signers == 1:
+        # OP_CHECKSIG = ac
+        script = '41' + codecs.encode(keys[0].get_pubkey(), 'hex_codec').decode("utf-8") + 'ac'
+        print('signblockscript', script)
+        return script
+
     script = "{}".format(50 + required_signers)
     for i in range(num_nodes):
         k = keys[i]
@@ -80,6 +87,11 @@ class BlockSignTest(test_framework.BitcoinTestFramework):
             util.assert_equal(n.getblockcount(), expected_height)
 
     def mine_block(self):
+        # Special simpler case for 1-of-1
+        if self.num_nodes == 1 and self.required_signers == 1:
+            self.nodes[0].generate(1)
+            return
+
         # mine block in round robin sense: depending on the block number, a node
         # is selected to create the block, others sign it and the selected node
         # broadcasts it
