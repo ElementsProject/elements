@@ -67,11 +67,11 @@ e2-cli getwalletinfo
 
 # But let's start with a managed wallet example
 
-# First, drain OP_TRUE
-e1-cli sendtoaddress $(e1-cli getnewaddress) 10500000 "" "" true
+# First, drain OP_TRUE and split funds evenly between e1 and e2
+e1-cli sendtoaddress $(e1-cli getnewaddress) 21000000 "" "" true
 e1-cli generate 101
-e2-cli sendtoaddress $(e2-cli getnewaddress) 10500000 "" "" true
-e2-cli generate 101
+e1-cli sendtoaddress $(e2-cli getnewaddress) 10500000 "" "" false
+e1-cli generate 101
 
 # Funds should be evenly split
 e1-cli getwalletinfo

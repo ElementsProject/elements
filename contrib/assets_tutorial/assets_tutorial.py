@@ -106,12 +106,12 @@ sync_all(e1, e2)
 
 ######## WALLET ###########
 
-# First, send coins to two different wallets so balances are not shared
-e1.sendtoaddress(e1.getnewaddress(), 10500000, "", "", True)
+# First, send all anyone-can-spend coins to e1 then split so balances are even
+e1.sendtoaddress(e1.getnewaddress(), 21000000, "", "", True)
 e1.generate(101)
 sync_all(e1, e2)
-e2.sendtoaddress(e2.getnewaddress(), 10500000, "", "", True)
-e2.generate(101)
+e1.sendtoaddress(e2.getnewaddress(), 10500000, "", "", False)
+e1.generate(101)
 sync_all(e1, e2)
 
 # Funds should now be evenly split between the two wallets
