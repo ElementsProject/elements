@@ -17,13 +17,13 @@
 #include <boost/assign/list_of.hpp>
 
 // Safer for users if they load incorrect parameters via arguments.
-static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID, const CScript& signblockscript)
+static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID)
 {
     CSHA256 sha2;
     unsigned char commitment[32];
     sha2.Write((const unsigned char*)networkID.c_str(), networkID.length());
     sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
-    sha2.Write((const unsigned char*)HexStr(signblockscript).c_str(), HexStr(signblockscript).length());
+    sha2.Write((const unsigned char*)HexStr(params.signblockscript).c_str(), HexStr(params.signblockscript).length());
     sha2.Finalize(commitment);
     return std::vector<unsigned char>(commitment, commitment + 32);
 }
@@ -40,19 +40,19 @@ static CScript StrHexToScriptWithDefault(std::string strScript, const CScript de
     return returnScript;
 }
 
-static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, uint32_t nTime, const CScript& scriptChallenge, int32_t nVersion)
+static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::string& networkID, uint32_t nTime, int32_t nVersion)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     // Any consensus-related values that are command-line set can be added here for anti-footgun
-    txNew.vin[0].scriptSig = CScript(CommitToArguments(params, networkID, scriptChallenge));
+    txNew.vin[0].scriptSig = CScript(CommitToArguments(params, networkID));
     txNew.vout.clear();
     txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN));
 
     CBlock genesis;
     genesis.nTime    = nTime;
-    genesis.proof = CProof(scriptChallenge, CScript());
+    genesis.proof = CProof(params.signblockscript, CScript());
     genesis.nVersion = nVersion;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
@@ -134,6 +134,10 @@ protected:
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
 
+        const CScript default_script(CScript() << OP_TRUE);
+        consensus.signblockscript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), default_script);
+        consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), default_script);
+
         nDefaultPort = GetArg("-ndefaultport", 7042);
         nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
         fMiningRequiresPeers = GetBoolArg("-fminingrequirespeers", false);
@@ -168,10 +172,6 @@ public:
     {
         this->UpdateFromArgs();
 
-        const CScript defaultRegtestScript(CScript() << OP_TRUE);
-        CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
-        consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
-
         if (!anyonecanspend_aremine) {
             assert("Anyonecanspendismine was marked as false, but they are in the genesis block"
                     && initialFreeCoins == 0);
@@ -193,12 +193,12 @@ public:
         pchMessageStart[3] = 0xda;
 
         // Generate pegged Bitcoin asset
-        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID, genesisChallengeScript);
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
         uint256 entropy;
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
-        genesis = CreateGenesisBlock(consensus, strNetworkID, 1296688602, genesisChallengeScript, 1);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, 1296688602, 1);
         if (initialFreeCoins != 0) {
             AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 1, initialFreeCoins, 0, 0, CScript() << OP_TRUE);
         }
@@ -276,4 +276,3 @@ void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_
 {
     globalChainParams->UpdateBIP9Parameters(d, nStartTime, nTimeout);
 }
- 

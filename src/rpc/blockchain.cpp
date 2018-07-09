@@ -11,6 +11,7 @@
 #include "consensus/validation.h"
 #include "core_io.h"
 #include "validation.h"
+#include "core_io.h"
 #include "policy/policy.h"
 #include "primitives/transaction.h"
 #include "rpc/server.h"
@@ -1065,6 +1066,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             + HelpExampleRpc("getblockchaininfo", "")
         );
 
+    const Consensus::Params& consensusParams = Params().GetConsensus();
     LOCK(cs_main);
     CBlockIndex* tip = chainActive.Tip();
 
@@ -1076,10 +1078,9 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.push_back(Pair("mediantime",            (int64_t)tip->GetMedianTimePast()));
     obj.push_back(Pair("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip)));
     obj.push_back(Pair("pruned",                fPruneMode));
-    obj.push_back(Pair("signblock_asm", ScriptToAsmStr(tip->proof.challenge)));
-    obj.push_back(Pair("signblock_hex", HexStr(tip->proof.challenge.begin(), tip->proof.challenge.end())));
+    obj.push_back(Pair("signblock_asm", ScriptToAsmStr(consensusParams.signblockscript)));
+    obj.push_back(Pair("signblock_hex", HexStr(consensusParams.signblockscript)));
 
-    const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue bip9_softforks(UniValue::VOBJ);
     BIP9SoftForkDescPushBack(bip9_softforks, "csv", consensusParams, Consensus::DEPLOYMENT_CSV);
     BIP9SoftForkDescPushBack(bip9_softforks, "segwit", consensusParams, Consensus::DEPLOYMENT_SEGWIT);

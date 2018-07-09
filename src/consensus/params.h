@@ -71,6 +71,7 @@ struct Params {
     uint256 defaultAssumeValid;
     uint32_t pegin_min_depth;
     CScript mandatory_coinbase_destination;
+    CScript signblockscript;
 };
 } // namespace Consensus
 

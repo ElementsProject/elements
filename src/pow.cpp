@@ -21,11 +21,11 @@
 #include "wallet/wallet.h"
 #endif
 
-CScript CombineBlockSignatures(const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2)
+CScript CombineBlockSignatures(const Consensus::Params& params, const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2)
 {
     SignatureData sig1(scriptSig1);
     SignatureData sig2(scriptSig2);
-    return GenericCombineSignatures(header.proof.challenge, header, sig1, sig2).scriptSig;
+    return GenericCombineSignatures(params.signblockscript, header, sig1, sig2).scriptSig;
 }
 
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
@@ -82,14 +82,14 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
         | SCRIPT_VERIFY_LOW_S // Stop easiest signature fiddling
         | SCRIPT_VERIFY_WITNESS // Required for cleanstack eval in VerifyScript
         | SCRIPT_NO_SIGHASH_BYTE; // non-Check(Multi)Sig signatures will not have sighash byte
-    return GenericVerifyScript(block.proof.solution, block.proof.challenge, proof_flags, block);
+    return GenericVerifyScript(block.proof.solution, params.signblockscript, proof_flags, block);
 }
 
-bool MaybeGenerateProof(CBlockHeader *pblock, CWallet *pwallet)
+bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader *pblock, CWallet *pwallet)
 {
 #ifdef ENABLE_WALLET
     SignatureData solution(pblock->proof.solution);
-    bool res = GenericSignScript(*pwallet, *pblock, pblock->proof.challenge, solution);
+    bool res = GenericSignScript(*pwallet, *pblock, params.signblockscript, solution);
     pblock->proof.solution = solution.scriptSig;
     return res;
 #endif

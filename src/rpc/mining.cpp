@@ -223,14 +223,15 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
     UniValue result(UniValue::VOBJ);
+    const Consensus::Params& params = Params().GetConsensus();
     const UniValue& sigs = request.params[1].get_array();
     for (unsigned int i = 0; i < sigs.size(); i++) {
         const std::string& sig = sigs[i].get_str();
         if (!IsHex(sig))
             continue;
         std::vector<unsigned char> vchScript = ParseHex(sig);
-        block.proof.solution = CombineBlockSignatures(block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
-        if (CheckProof(block, Params().GetConsensus())) {
+        block.proof.solution = CombineBlockSignatures(params, block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
+        if (CheckProof(block, params)) {
             result.push_back(Pair("hex", EncodeHexBlock(block)));
             result.push_back(Pair("complete", true));
             return result;
@@ -774,8 +775,8 @@ UniValue getblocktemplate(const JSONRPCRequest& request)
         result.push_back(Pair("weightlimit", (int64_t)MAX_BLOCK_WEIGHT));
     }
     result.push_back(Pair("curtime", pblock->GetBlockTime()));
-    result.push_back(Pair("signblock_asm", ScriptToAsmStr(pblock->proof.challenge)));
-    result.push_back(Pair("signblock_hex", HexStr(pblock->proof.challenge.begin(), pblock->proof.challenge.end())));
+    result.push_back(Pair("signblock_asm", ScriptToAsmStr(consensusParams.signblockscript)));
+    result.push_back(Pair("signblock_hex", HexStr(consensusParams.signblockscript.begin(), consensusParams.signblockscript.end())));
     result.push_back(Pair("height", (int64_t)(pindexPrev->nHeight+1)));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
