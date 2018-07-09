@@ -97,7 +97,7 @@ RUN set -x \
     && cd /usr/src \
     && rm -rf /usr/src/package
 
-COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
+COPY contrib/docker/docker-entrypoint.sh /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["elementsd"]
