@@ -66,10 +66,6 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
     if (nOldTime < nNewTime)
         pblock->nTime = nNewTime;
 
-    // Updating time can change work required on testnet:
-    if (consensusParams.fPowAllowMinDifficultyBlocks)
-        ResetChallenge(*pblock, *pindexPrev, consensusParams);
-
     return nNewTime - nOldTime;
 }
 
@@ -146,7 +142,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Reset proof here, for weight calculations since header
     // is not fixed size.
     ResetProof(*pblock);
-    ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
 
     // Pad weight for challenge
     // We won't bother with serialization byte(s), we have room

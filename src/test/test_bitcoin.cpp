@@ -81,7 +81,7 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
         newTransaction.vout[i].scriptPubKey = scriptPubKey;
     const_cast<CBlock&>(Params().GenesisBlock()).vtx[gen_size-1] = MakeTransactionRef(newTransaction);
     const_cast<CBlock&>(Params().GenesisBlock()).hashMerkleRoot = BlockMerkleRoot(Params().GenesisBlock());
-    const_cast<CBlock&>(Params().GenesisBlock()).proof = CProof(CScript()<<OP_TRUE, CScript());
+    const_cast<CBlock&>(Params().GenesisBlock()).proof = CProof(CScript());
     const_cast<Consensus::Params&>(Params().GetConsensus()).hashGenesisBlock = Params().GenesisBlock().GetHash();
 
         ClearDatadirCache();

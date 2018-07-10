@@ -52,7 +52,7 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
 
     CBlock genesis;
     genesis.nTime    = nTime;
-    genesis.proof = CProof(params.signblockscript, CScript());
+    genesis.proof = CProof(CScript());
     genesis.nVersion = nVersion;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();

@@ -28,16 +28,6 @@ CScript CombineBlockSignatures(const Consensus::Params& params, const CBlockHead
     return GenericCombineSignatures(params.signblockscript, header, sig1, sig2).scriptSig;
 }
 
-bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
-{
-    return block.proof.challenge == indexLast.proof.challenge;
-}
-
-void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
-{
-    block.proof.challenge = indexLast.proof.challenge;
-}
-
 bool CheckBitcoinProof(uint256 hash, unsigned int nBits)
 {
     bool fNegative;
