@@ -63,7 +63,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("time", (int64_t)blockindex->nTime));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
     result.push_back(Pair("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution)));
-    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution.begin(), blockindex->proof.solution.end())));
+    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution)));
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
@@ -105,7 +105,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("time", block.GetBlockTime()));
     result.push_back(Pair("mediantime", (int64_t)blockindex->GetMedianTimePast()));
     result.push_back(Pair("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution)));
-    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution.begin(), blockindex->proof.solution.end())));
+    result.push_back(Pair("signblock_witness_hex", HexStr(blockindex->proof.solution)));
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
@@ -1105,10 +1105,14 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
             "Returns an object containing various state info regarding sidechain functionality.\n"
             "\nResult:\n"
             "{\n"
-            "  \"fedpegscript\": \"xxxx\",        (string) The fedpegscript in hex\n"
+            "  \"fedpegscript\": \"xxxx\",         (string) The fedpegscript in hex\n"
             "  \"pegged_asset\" : \"xxxx\",        (string) Pegged asset type in hex\n"
             "  \"min_peg_diff\" : \"xxxx\",        (string) The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure.\n"
             "  \"parent_blockhash\" : \"xxxx\",    (string) The parent genesis blockhash as source of pegged-in funds.\n"
+            "  \"parent_chain_has_pow\": \"xxxx\", (boolean) Whether parent chain has pow or signed blocks.\n"
+            "  \"parent_chain_signblockscript_asm\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in ASM.\n"
+            "  \"parent_chain_signblockscript_hex\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in hex.\n"
+            "  \"parent_pegged_asset\": \"xxxx\",  (boolean) If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getsidechaininfo", "")
@@ -1125,6 +1129,12 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     obj.push_back(Pair("pegged_asset", consensus.pegged_asset.GetHex()));
     obj.push_back(Pair("min_peg_diff", consensus.parentChainPowLimit.GetHex()));
     obj.push_back(Pair("parent_blockhash", parent_blockhash.GetHex()));
+    obj.push_back(Pair("parent_chain_has_pow", consensus.ParentChainHasPow()));
+    if (!consensus.ParentChainHasPow()) {
+        obj.push_back(Pair("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript)));
+        obj.push_back(Pair("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript)));
+        obj.push_back(Pair("parent_pegged_asset", HexStr(consensus.parent_pegged_asset)));
+    }
     return obj;
 }
 

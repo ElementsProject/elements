@@ -2082,7 +2082,7 @@ UniValue gettransaction(const JSONRPCRequest& request)
             "      \"fee\": x.xxx,                     (numeric) The amount of the fee in " + CURRENCY_UNIT + ". This is negative and only available for the \n"
             "                                           'send' category of transactions.\n"
             "      \"abandoned\": xxx                  (bool) 'true' if the transaction has been abandoned (inputs are respendable). Only available for the \n"
-            "                                           'send' category of transactions.\n"			
+            "                                           'send' category of transactions.\n"
             "    }\n"
             "    ,...\n"
             "  ],\n"
@@ -3512,7 +3512,8 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
-unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn, const CScript& witnessProgram)
+template<typename T_tx>
+unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram)
 {
     unsigned int nOut = 0;
     //Call contracthashtool
@@ -3523,7 +3524,8 @@ unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn,
     return nOut;
 }
 
-UniValue createrawpegin(const JSONRPCRequest& request)
+template<typename T_tx_ref, typename T_tx, typename T_merkle_block>
+static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef, T_tx& tx_aux, T_merkle_block& merkleBlock)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
@@ -3552,18 +3554,16 @@ UniValue createrawpegin(const JSONRPCRequest& request)
 
     std::vector<unsigned char> txData = ParseHex(request.params[0].get_str());
     CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
-    Sidechain::Bitcoin::CTransactionRef txBTCRef;
     try {
         ssTx >> txBTCRef;
     }
     catch (...) {
         throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
     }
-    Sidechain::Bitcoin::CTransaction txBTC(*txBTCRef);
+    T_tx txBTC(*txBTCRef);
 
     std::vector<unsigned char> txOutProofData = ParseHex(request.params[1].get_str());
     CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION);
-    Sidechain::Bitcoin::CMerkleBlock merkleBlock;
     try {
         ssTxOutProof >> merkleBlock;
     }
@@ -3571,8 +3571,9 @@ UniValue createrawpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
     }
 
-    if (!ssTxOutProof.empty() || !CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.nBits))
+    if (!ssTxOutProof.empty()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+    }
 
     std::vector<uint256> txHashes;
     std::vector<unsigned int> txIndices;
@@ -3622,7 +3623,11 @@ UniValue createrawpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a witness program.");
     }
 
-    CAmount value = txBTC.vout[nOut].nValue;
+    CAmount value = 0;
+    if (!GetAmountFromParentChainPegin(value, txBTC, nOut)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s",
+                                                            Params().GetConsensus().parent_pegged_asset.GetHex()));
+    }
 
     CDataStream stream(0, 0);
     try {
@@ -3700,6 +3705,29 @@ UniValue createrawpegin(const JSONRPCRequest& request)
         ret.push_back(Pair("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), Params().GetConsensus().pegin_min_depth+2)));
     }
 
+    return ret;
+}
+
+UniValue createrawpegin(const JSONRPCRequest& request)
+{
+    UniValue ret(UniValue::VOBJ);
+    if (Params().GetConsensus().ParentChainHasPow()) {
+        Sidechain::Bitcoin::CTransactionRef txBTCRef;
+        Sidechain::Bitcoin::CTransaction tx_aux;
+        Sidechain::Bitcoin::CMerkleBlock merkleBlock;
+        ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
+        if (!CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.nBits)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+        }
+    } else {
+        CTransactionRef txBTCRef;
+        CTransaction tx_aux;
+        CMerkleBlock merkleBlock;
+        ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
+        if (!CheckProofSignedParent(merkleBlock.header, Params().GetConsensus())) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+        }
+    }
     return ret;
 }
 

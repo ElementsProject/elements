@@ -73,6 +73,9 @@ struct Params {
     CScript mandatory_coinbase_destination;
     CScript signblockscript;
     bool has_parent_chain;
+    CScript parent_chain_signblockscript;
+    CAsset parent_pegged_asset;
+    bool ParentChainHasPow() const { return parent_chain_signblockscript == CScript();}
 };
 } // namespace Consensus
 

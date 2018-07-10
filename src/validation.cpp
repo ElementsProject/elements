@@ -17,6 +17,7 @@
 #include "crypto/hmac_sha256.h"
 #include "init.h"
 #include "issuance.h"
+#include "merkleblock.h"
 #include "policy/fees.h"
 #include "policy/policy.h"
 #include "pow.h"
@@ -2374,6 +2375,21 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const Sidechain::Bitcoin::CT
     return true;
 }
 
+bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, unsigned int nOut)
+{
+    if (!txBTC.vout[nOut].nValue.IsExplicit()) {
+        return false;
+    }
+    if (!txBTC.vout[nOut].nAsset.IsExplicit()) {
+        return false;
+    }
+    if (txBTC.vout[nOut].nAsset.GetAsset() != Params().GetConsensus().parent_pegged_asset) {
+        return false;
+    }
+    amount = txBTC.vout[nOut].nValue.GetAmount();
+    return true;
+}
+
 template<typename T>
 static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, T& merkle_block, const std::vector<unsigned char>& merkle_block_raw)
 {
@@ -2497,20 +2513,36 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     uint256 block_hash;
     uint256 tx_hash;
-
     // Get txout proof
-    Sidechain::Bitcoin::CMerkleBlock merkle_block;
-    if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
-        return false;
-    }
-    if (!CheckBitcoinProof(block_hash, merkle_block.header.nBits)) {
-        return false;
-    }
+    if (Params().GetConsensus().ParentChainHasPow()) {
 
-    // Get serialized transaction
-    Sidechain::Bitcoin::CTransactionRef pegtx;
-    if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
-        return false;
+        Sidechain::Bitcoin::CMerkleBlock merkle_block_pow;
+        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block_pow, stack[5])) {
+            return false;
+        }
+        if (!CheckBitcoinProof(block_hash, merkle_block_pow.header.nBits)) {
+            return false;
+        }
+
+        Sidechain::Bitcoin::CTransactionRef pegtx;
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+            return false;
+        }
+    } else {
+
+        CMerkleBlock merkle_block;
+        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
+            return false;
+        }
+
+        if (!CheckProofSignedParent(merkle_block.header, Params().GetConsensus())) {
+            return false;
+        }
+
+        CTransactionRef pegtx;
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+            return false;
+        }
     }
 
     // Check that the merkle proof corresponds to the txid

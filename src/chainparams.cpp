@@ -130,6 +130,9 @@ protected:
         consensus.defaultAssumeValid = uint256S(GetArg("-con_defaultassumevalid", "0x00"));
         consensus.pegin_min_depth = GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH);
         consensus.mandatory_coinbase_destination = StrHexToScriptWithDefault(GetArg("-con_mandatorycoinbase", ""), CScript()); // Blank script allows any coinbase destination
+        consensus.parent_chain_signblockscript = StrHexToScriptWithDefault(GetArg("-con_parent_chain_signblockscript", ""), CScript());
+        consensus.parent_pegged_asset.SetHex(GetArg("-con_parent_pegged_asset", "0x00"));
+
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
