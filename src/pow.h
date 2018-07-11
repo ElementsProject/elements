@@ -22,11 +22,12 @@ class uint256;
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckBitcoinProof(uint256 hash, unsigned int nBits);
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
+/** Scans nonces looking for a hash with at least some zero bits */
+bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader* pblock, CWallet* pwallet);
 void ResetProof(CBlockHeader& block);
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
 
-bool MaybeGenerateProof(CBlockHeader* pblock, CWallet* pwallet);
-CScript CombineBlockSignatures(const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2);
+CScript CombineBlockSignatures(const Consensus::Params& params, const CBlockHeader& header, const CScript& scriptSig1, const CScript& scriptSig2);
 
 #endif // BITCOIN_POW_H

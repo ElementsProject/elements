@@ -150,14 +150,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // Pad weight for challenge
     // We won't bother with serialization byte(s), we have room
-    nBlockWeight += pblock->proof.challenge.size()*WITNESS_SCALE_FACTOR;
+    nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
 
     // Pad weight for proof
     // Note: Assumes "naked" script template with pubkeys
     txnouttype dummy_type;
     std::vector<CTxDestination> dummy_addresses;
     int required_sigs = -1;
-    if (!ExtractDestinations(pblock->proof.challenge, dummy_type, dummy_addresses, required_sigs)) {
+    if (!ExtractDestinations(chainparams.GetConsensus().signblockscript, dummy_type, dummy_addresses, required_sigs)) {
         // No idea how to sign this... log error but return block.
         LogPrintf("CreateNewBlock: Can not extract destinations from signblockscript");
     } else {
