@@ -4127,7 +4127,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
-    { "wallet",             "signblock",                &signblock,                true,   {} },
+    { "wallet",             "signblock",                &signblock,                true,   {"blockhex"} },
     { "wallet",             "sendtomainchain",          &sendtomainchain,          false,  {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "destroyamount",            &destroyamount,            false,  {"asset", "amount", "comment"} },
     { "wallet",             "settxfee",                 &settxfee,                 true,   {"amount"} },
