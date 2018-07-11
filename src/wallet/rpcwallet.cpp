@@ -478,6 +478,10 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         if (!reissuanceToken.IsNull()) {
             recipient.asset = reissuanceToken;
             recipient.nAmount = curBalance; // Or 1?
+            // If the issuance token *is* the fee asset, subtract fee from this output
+            if (reissuanceToken == policyAsset) {
+                recipient.fSubtractFeeFromAmount = true;
+            }
         }
         vecSend.push_back(recipient);
     }
