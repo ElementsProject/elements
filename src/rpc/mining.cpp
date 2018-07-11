@@ -1017,7 +1017,7 @@ static const CRPCCommand commands[] =
     { "mining",             "testproposedblock",      &testproposedblock,      true,  {"blockhex", "acceptnonstd"} },
 
     { "generating",         "generate",               &generate,               true,  {"nblocks","maxtries"} },
-    { "generating",         "combineblocksigs",       &combineblocksigs,       true,  {} },
+    { "generating",         "combineblocksigs",       &combineblocksigs,       true,  {"blockhex","signatures"} },
     { "generating",         "getnewblockhex",         &getnewblockhex,         true,  {"required_age"} },
 
     { "util",               "estimatefee",            &estimatefee,            true,  {"nblocks"} },
