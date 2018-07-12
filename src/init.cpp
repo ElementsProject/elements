@@ -513,6 +513,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-signblockscript=<hex>", _("Change chain to be signed and validated with a different script.") +
             " " + _(" This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
+        strUsage += HelpMessageOpt("-initialreissuancetokens", strprintf(_("The amount of reissuance tokens created in the genesis block. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-initialfreecoins", strprintf(_("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-defaultpeggedassetname", strprintf("The name of the default asset created in the genesis block. (default: bitcoin)"));
         strUsage += HelpMessageOpt("-parentpubkeyprefix", strprintf(_("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)"), 111));
