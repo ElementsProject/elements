@@ -23,11 +23,11 @@ BOOST_AUTO_TEST_CASE(assetsdirTests)
 
     for (std:: string protectedLabel : protectedLabels) {
         std::vector<std::string> assetsToInitProtected = {exampleAssetHex + ":" + protectedLabel};
-        BOOST_CHECK_THROW(tAssetsDir.InitFromStrings(assetsToInitProtected), std::runtime_error);
+        BOOST_CHECK_THROW(tAssetsDir.InitFromStrings(assetsToInitProtected, defaultPeggedLabel), std::runtime_error);
     }
 
     const std::vector<std::string> exAssetsToInit = {exampleAssetHex + ":other"};
-    tAssetsDir.InitFromStrings(exAssetsToInit);
+    tAssetsDir.InitFromStrings(exAssetsToInit, defaultPeggedLabel);
 
     BOOST_CHECK(exampleAsset == tAssetsDir.GetAsset("other"));
     BOOST_CHECK_EQUAL("other", tAssetsDir.GetLabel(exampleAsset));
@@ -37,10 +37,10 @@ BOOST_AUTO_TEST_CASE(assetsdirTests)
     BOOST_CHECK(defaultPeggedAsset == tAssetsDir.GetAsset(tAssetsDir.GetLabel(CAsset(uint256S(defaultPeggedAssetHex)))));
 
     const std::vector<std::string> assetsToInitRepeatedHex = {exampleAssetHex + ":other", exampleAssetHex + ":other2"};
-    BOOST_CHECK_THROW(tAssetsDir.InitFromStrings(assetsToInitRepeatedHex), std::runtime_error);
+    BOOST_CHECK_THROW(tAssetsDir.InitFromStrings(assetsToInitRepeatedHex, defaultPeggedLabel), std::runtime_error);
 
     const std::vector<std::string> assetsToInitRepeatedLabel = {exampleAssetHex + ":other", defaultPeggedAssetHex + ":other"};
-    BOOST_CHECK_THROW(tAssetsDir.InitFromStrings(assetsToInitRepeatedLabel), std::runtime_error);
+    BOOST_CHECK_THROW(tAssetsDir.InitFromStrings(assetsToInitRepeatedLabel, defaultPeggedLabel), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

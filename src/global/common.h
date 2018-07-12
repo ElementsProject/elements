@@ -12,6 +12,6 @@ class CAssetsDir;
 
 extern const CAssetsDir& gAssetsDir;
 
-void InitGlobalAssetDir(const std::vector<std::string>& assetsToInit);
+void InitGlobalAssetDir(const std::vector<std::string>& assetsToInit, const std::string& pegged_asset_name);
 
 #endif // BITCOIN_GLOBAL_COMMON_H

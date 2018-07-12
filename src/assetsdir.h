@@ -30,7 +30,7 @@ class CAssetsDir
     void Set(const CAsset& asset, const AssetMetadata& metadata);
     void SetHex(const std::string& assetHex, const std::string& label);
 public:
-    void InitFromStrings(const std::vector<std::string>& assetsToInit);
+    void InitFromStrings(const std::vector<std::string>& assetsToInit, const std::string& pegged_asset_name);
 
     /**
      * @param  label A label string
