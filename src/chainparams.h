@@ -105,6 +105,7 @@ protected:
     CBlock genesis;
     uint256 parentGenesisBlockHash;
     CAmount initialFreeCoins;
+    CAmount initial_reissuance_tokens;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;
