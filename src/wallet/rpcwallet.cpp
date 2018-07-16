@@ -3958,7 +3958,7 @@ UniValue listissuances(const JSONRPCRequest& request)
             "listissuances ( asset ) \n"
             "\nList all issuances known to the wallet for the given asset, or for all issued assets if none provided.\n"
             "\nArguments:\n"
-            "1. \"asset\"                 (string, optional) The asset whose issaunces you wish to list.\n"
+            "1. \"asset\"                 (string, optional) The asset whose issaunces you wish to list. Accepts either the asset hex or the locally assigned asset label.\n"
             "\nResult:\n"
             "[                     (json array of objects)\n"
             "  {\n"
@@ -3985,12 +3985,10 @@ UniValue listissuances(const JSONRPCRequest& request)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     std::string assetstr;
-    CAsset assetfilter;
+    CAsset asset_filter;
     if (request.params.size() > 0) {
         assetstr = request.params[0].get_str();
-        if (!IsHex(assetstr) || assetstr.size() != 64)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Asset must be a hex string of length 64");
-        assetfilter.SetHex(assetstr);
+        asset_filter = GetAssetFromString(assetstr);
     }
 
     UniValue issuancelist(UniValue::VARR);
@@ -4031,7 +4029,7 @@ UniValue listissuances(const JSONRPCRequest& request)
             CAmount iaamount = pcoin->GetIssuanceAmount(vinIndex, false);
             item.push_back(Pair("assetamount", (iaamount == -1 ) ? -1 : ValueFromAmount(iaamount)));
             item.push_back(Pair("assetblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, false).GetHex()));
-            if (!assetfilter.IsNull() && assetfilter != asset) {
+            if (!asset_filter.IsNull() && asset_filter != asset) {
                 continue;
             }
             issuancelist.push_back(item);
