@@ -56,7 +56,9 @@ class BlockSignTest(test_framework.BitcoinTestFramework):
         signblockscript = make_signblockscript(num_nodes, required_signers, self.keys)
         self.extra_args = [[
             "-chain=blocksign",
-            # We can't validate pegins since we don't run the parent chain.
+            # We can't validate pegins since this chain doesn't have a parent chain
+            "-con_has_parent_chain=0",
+            "-parentgenesisblockhash=00",
             "-validatepegin=0",
             "-signblockscript={}".format(signblockscript)
         ]] * self.num_nodes
