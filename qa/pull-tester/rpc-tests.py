@@ -105,6 +105,7 @@ testScripts = [
     'initial_reissuance_token.py',
     'feature_blocksign.py',
     'default_asset_name.py',
+    'assetdir.py',
 
     # Elements' specially adapted tests second
     'blockchain.py',
