@@ -79,6 +79,7 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
+bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
@@ -1085,6 +1086,13 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
     if (fRequireWhitelistCheck){
       if(!IsWhitelisted(tx))
       return state.DoS(0, false, REJECT_NONSTANDARD, "non-whitelisted-address");
+    }
+
+    // Accept only transactions that have no asset issuance inputs
+    if(fblockissuancetx){
+      if(GetNumIssuances(tx) > 0){
+	return state.DoS(0, false, REJECT_NONSTANDARD, "blocked-asset-issuance-txn");
+      }
     }
 
     // Only accept nLockTime-using transactions that can be mined in the next
