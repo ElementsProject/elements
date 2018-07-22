@@ -134,6 +134,10 @@ protected:
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
         initial_reissuance_tokens = GetArg("-initialreissuancetokens", 0);
+        consensus.has_parent_chain = GetBoolArg("-con_has_parent_chain", true);
+        // Either it has a parent chain or not
+        const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
+        assert(consensus.has_parent_chain != parent_genesis_is_null);
 
         const CScript default_script(CScript() << OP_TRUE);
         consensus.signblockscript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), default_script);

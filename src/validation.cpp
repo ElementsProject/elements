@@ -2442,6 +2442,11 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
 
 bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
 
+    // 0) Return false if !consensus.has_parent_chain
+    if (!Params().GetConsensus().has_parent_chain) {
+        return false;
+    }
+
     // Format on stack is as follows:
     // 1) value - the value of the pegin output
     // 2) asset type - the asset type being pegged in

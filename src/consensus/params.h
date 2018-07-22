@@ -72,6 +72,7 @@ struct Params {
     uint32_t pegin_min_depth;
     CScript mandatory_coinbase_destination;
     CScript signblockscript;
+    bool has_parent_chain;
 };
 } // namespace Consensus
 
