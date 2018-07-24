@@ -54,8 +54,16 @@ RUN set -x \
         iproute \
         jq \
         python36 \
+    && ln -s /usr/bin/python36 /usr/bin/python3 \
     && yum clean all \
     && rm -rf /var/cache/yum
+
+# Python packages
+RUN set -x \
+    && curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
+    && python3 get-pip.py \
+    && pip3 install zmq \
+    && rm -f get-pip.py
 
 # gosu
 RUN set -x \
@@ -87,11 +95,15 @@ RUN set -x \
     && rm -rf /usr/src/db-${DB4_VERSION}
 
 # Build Package
-RUN set -x \
+RUN set -ex \
     && cd /usr/src/package \
     && ./autogen.sh \
     && ./configure \
     && make -j$(nproc) \
+    && echo "Running tests" \
+    && make check \
+    && echo "Running Python QA tests" \
+    && ./qa/pull-tester/rpc-tests.py \
     && make install \
     && make clean \
     && cd /usr/src \
