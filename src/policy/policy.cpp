@@ -14,6 +14,7 @@
 #include <util.h>
 #include <utilstrencodings.h>
 
+unsigned int GetStandardScriptVerifyFlags() { return STANDARD_SCRIPT_VERIFY_FLAGS; }
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {

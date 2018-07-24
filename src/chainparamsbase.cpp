@@ -21,9 +21,11 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-con_genesis_style=<style>", "Use genesis style <style> (default: default_style). Allowed values: default_style, regtest2_style", true, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_genesis_style=<style>", "Use genesis style <style> (default: default_style). Allowed values: default_style, regtest2_style, signet_old", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", true, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-signet_blockscript", "Blocks must satisfy the given script to be considered valid instead of using pow. If empty, and by default, it is ignored. (custom only)", true, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-signet_siglen", "The length of the signature must be exactly this long (padded to this length, if shorter). All block headers in this network are of length 80 + this value (custom only)", true, OptionsCategory::CHAINPARAMS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

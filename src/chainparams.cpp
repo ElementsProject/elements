@@ -428,6 +428,10 @@ class CCustomParams : public CRegTestParams {
         consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
         consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
 
+        consensus.blockscript = ParseHex(args.GetArg("-signet_blockscript", ""));
+        g_solution_blocks = !consensus.blockscript.empty();
+        g_solution_block_len = consensus.siglen = args.GetArg("-signet_siglen", 77);
+
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
         fMineBlocksOnDemand = args.GetBoolArg("-fmineblocksondemand", fMineBlocksOnDemand);
@@ -464,14 +468,28 @@ class CCustomParams : public CRegTestParams {
     {
         if (consensus.genesis_style == "regtest2_style") {
             // Same style as in https://github.com/bitcoin/bitcoin/pull/8994
+            assert(consensus.blockscript.empty() && "consensus.blockscript is for signets");
             genesis = CreateGenesisBlock(strNetworkID.c_str(), CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
 
         } else if (consensus.genesis_style == "default_style") {
             CHashWriter h(SER_DISK, 0);
             h << strNetworkID;
+            if (!consensus.blockscript.empty()) {
+                h << consensus.blockscript << consensus.siglen;
+            }
             uint256 hash = h.GetHash();
             CScript coinbase_sig = CScript() << std::vector<uint8_t>(hash.begin(), hash.end());
             genesis = CreateGenesisBlock(coinbase_sig, CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+
+        } else if (consensus.genesis_style == "signet_old") {
+            // Same style as in https://github.com/kallewoof/bitcoin/pull/5
+            assert(!consensus.blockscript.empty() && "Signets require consensus.blockscript");
+            CHashWriter h(SER_DISK, 0);
+            h << consensus.blockscript << consensus.siglen;
+            uint256 hash = h.GetHash();
+            CScript coinbase_sig = CScript() << std::vector<uint8_t>(hash.begin(), hash.end());
+            CScript genesis_out = CScript() << OP_RETURN;
+            genesis = CreateGenesisBlock(coinbase_sig, genesis_out, 1534313275, 0, 0x1d00ffff, 1, 50 * COIN);
 
         } else {
             throw std::runtime_error(strprintf("%s: Unknown consensus.genesis_style %s.", __func__, consensus.genesis_style));

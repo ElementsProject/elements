@@ -10,6 +10,7 @@
 #include <httpserver.h>
 #include <validation.h>
 #include <key_io.h>
+#include <miner.h>
 #include <net.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -3879,6 +3880,187 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     return result;
 }
 
+void SignBlockHashWithWallet(const uint256& hash, CWallet* const pwallet)
+{
+    SignatureData solution_in;
+    if (g_blockheader_payload_map.count(hash) && g_blockheader_payload_map.at(hash).size()) {
+        solution_in = SignatureData(CScript(g_blockheader_payload_map[hash].begin(), g_blockheader_payload_map[hash].end()));
+    }
+    CScript blockscript(Params().GetConsensus().blockscript.begin(), Params().GetConsensus().blockscript.end());
+    size_t siglen = gArgs.GetArg("-signet_siglen", 0);
+
+    // sign until we have a sufficiently small signature, or until we run out of tries
+    bool res;
+    size_t smallest = 9999;
+    std::vector<uint8_t> sigdata;
+    size_t overhead = GetSizeOfCompactSize(siglen);
+    for (size_t i = 0; i < 1000; ++i) {
+        SignatureData solution(solution_in);
+        res = ProduceSignature(*pwallet, SimpleSignatureCreator(hash), blockscript, solution);
+        if (!res) {
+            throw JSONRPCError(RPC_VERIFY_ERROR, "could not produce a signature -- do you have the private key(s)?");
+        }
+        if (solution.scriptSig.size() < smallest) {
+            smallest = solution.scriptSig.size();
+            if (!siglen || smallest + overhead <= siglen) {
+                sigdata = std::vector<uint8_t>(solution.scriptSig.begin(), solution.scriptSig.end());
+                break;
+            }
+        }
+    }
+    if (siglen && sigdata.size() == 0) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, strprintf("unable to produce a signature of size <= %zu (smallest found was %zu)", siglen, smallest + overhead));
+    }
+
+    g_blockheader_payload_map[hash] = sigdata;
+}
+
+UniValue signblock(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (!g_solution_blocks) {
+        throw std::runtime_error(
+            "signblock can only be used with signet networks"
+        );
+    }
+
+    if (request.fHelp || request.params.size() != 1) {
+        throw std::runtime_error(
+            "signblock \"blockhex\"\n"
+            "\nSigns a block proposal, checking that it would be accepted first\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
+            "\nResult\n"
+            " sig      (hex) The signature\n"
+            "\nExamples:\n"
+            + HelpExampleCli("signblock", "0000002018c6f2f913f9902aeab...5ca501f77be96de63f609010000000000000000015100000000")
+        );
+    }
+
+    CBlock block;
+    if (!DecodeHexBlk(block, request.params[0].get_str())) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+    }
+
+    LOCK(cs_main);
+
+    uint256 hash = block.GetHash();
+    BlockMap::iterator mi = mapBlockIndex.find(hash);
+    if (mi != mapBlockIndex.end()) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+    }
+
+    CBlockIndex* const pindexPrev = chainActive.Tip();
+    // TestBlockValidity only supports blocks built on the current Tip
+    if (block.hashPrevBlock != pindexPrev->GetBlockHash()) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
+    }
+
+    CValidationState state;
+    if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
+        std::string strRejectReason = state.GetRejectReason();
+        if (strRejectReason.empty()) {
+            throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
+        }
+        throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+    }
+    SignBlockHashWithWallet(hash, pwallet);
+    return HexStr(g_blockheader_payload_map.at(hash));
+}
+
+UniValue getnewblockhex(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() > 1) {
+        throw std::runtime_error(
+            "getnewblockhex ( broadcast )\n"
+            "\nGets hex representation of a proposed, unmined new block, optionally\n"
+            "signing and broadcasting it to the network.\n"
+            "\nArguments:\n"
+            "1. broadcast    (boolean, optional, default=false) Sign and broadcast the block immediately, returning the blockhash\n"
+            "\nResult (for broadcast=false)\n"
+            "blockhex      (hex) The block hex\n"
+            "\nResult (for broadcast=true)\n"
+            "blockhash     (hash) The block hash\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getnewblockhex", "")
+            + HelpExampleCli("getnewblockhex", "true")
+        );
+    }
+
+    bool broadcast = !request.params[0].isNull() && request.params[0].get_bool();
+
+    std::shared_ptr<CReserveScript> coinbase_script;
+    pwallet->GetScriptForMining(coinbase_script);
+
+    // If the keypool is exhausted, no script is returned at all.  Catch this.
+    if (!coinbase_script) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+
+    //throw an error if no script was provided
+    if (coinbase_script->reserveScript.empty()) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "No coinbase script available");
+    }
+
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(coinbase_script->reserveScript));
+    {
+        // IncrementExtraNonce sets coinbase flags and builds merkle tree
+        LOCK(cs_main);
+        unsigned int nExtraNonce = 0;
+        IncrementExtraNonce(&pblocktemplate->block, chainActive.Tip(), nExtraNonce);
+    }
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << pblocktemplate->block;
+
+    if (broadcast) {
+        // attempt to sign
+        uint256 hash = pblocktemplate->block.GetHash();
+        SignBlockHashWithWallet(hash, pwallet);
+        // and submit
+        UniValue submitblock(const JSONRPCRequest& request);
+        UniValue params(UniValue::VARR);
+        params.push_back(HexStr(ssBlock.begin(), ssBlock.end()));
+        params.push_back(HexStr(g_blockheader_payload_map.at(hash).begin(), g_blockheader_payload_map.at(hash).end()));
+        JSONRPCRequest req;
+        req.params = params;
+        submitblock(req);
+        return HexStr(hash);
+    }
+
+    return HexStr(ssBlock.begin(), ssBlock.end());
+}
+
+UniValue GenerateSignetBlocks(int count)
+{
+    UniValue params(UniValue::VARR);
+    UniValue t(UniValue::VBOOL);
+    t.setBool(true);
+    params.push_back(t);
+    JSONRPCRequest req;
+    req.params = params;
+
+    UniValue blockHashes(UniValue::VARR);
+    for (int i = 0; i < count; ++i) {
+        blockHashes.push_back(getnewblockhex(req));
+    }
+
+    return blockHashes;
+}
+
 UniValue generate(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -3905,6 +4087,11 @@ UniValue generate(const JSONRPCRequest& request)
     }
 
     int num_generate = request.params[0].get_int();
+
+    if (g_solution_blocks) {
+        return GenerateSignetBlocks(num_generate);
+    }
+
     uint64_t max_tries = 1000000;
     if (!request.params[1].isNull()) {
         max_tries = request.params[1].get_int();
@@ -4838,6 +5025,10 @@ static const CRPCCommand commands[] =
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
     { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
+
+    /** Signet mining */
+    { "wallet",             "signblock",                        &signblock,                     {"blockhex"} },
+    { "wallet",             "getnewblockhex",                   &getnewblockhex,                {"broadcast"} },
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)

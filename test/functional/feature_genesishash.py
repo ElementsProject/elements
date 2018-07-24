@@ -28,6 +28,25 @@ GENESIS_ARGS_MAP = [
         ],
     },
 
+    {
+        'memo': 'default_style with blockscript',
+        'genesis': 'ac6b1de55f8cb2cffc12c0cab0036d0966a6142fd5f70d0d0ecd96b56f4cb1b6',
+        'args': [
+                '-con_genesis_style=default_style',
+                '-signet_blockscript=512103e464a9f3070da4d3e0b34ce971ff36f3e07c47a8f4beadf32e8ea7e2afa8a82451ae',
+        ],
+    },
+
+    {
+        'memo': 'signet_old',
+        'genesis': '7cbf2772cb0e53345b021f34d17b30de42a8952c982b0812e4caca7529009ca5',
+        # TODO FIXME Should be
+        # 'genesis': '22861f488a5c6cb033a843e476581a8abf5b82a34926babfde1241ed97ba268e',
+        'args': [
+                '-con_genesis_style=signet_old',
+                '-signet_blockscript=512103e464a9f3070da4d3e0b34ce971ff36f3e07c47a8f4beadf32e8ea7e2afa8a82451ae',
+        ],
+    },
 ]
 
 class GenesisHashTest(BitcoinTestFramework):

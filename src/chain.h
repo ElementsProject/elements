@@ -405,6 +405,16 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        if (g_solution_blocks && !(s.GetType() & SER_GETHASH)) {
+            uint256 hash = GetBlockHash();
+            READWRITE(g_blockheader_payload_map[hash]);
+            size_t len = GetSizeOfCompactSize(g_blockheader_payload_map[hash].size()) + g_blockheader_payload_map[hash].size();
+            while (len < g_solution_block_len) {
+                uint8_t padding = 0;
+                READWRITE(padding);
+                len++;
+            }
+        }
     }
 
     uint256 GetBlockHash() const

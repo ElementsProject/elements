@@ -275,7 +275,10 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nTx            = diskindex.nTx;
 
                 const uint256 block_hash = pindexNew->GetBlockHash();
-                if (!CheckProofOfWork(block_hash, pindexNew->nBits, consensusParams) &&
+                // Block index guts do not include the payload, so we cannot check the POW for
+                // signets here
+                if (!g_solution_blocks &&
+                    !CheckProofOfWork(block_hash, pindexNew->nBits, consensusParams) &&
                     block_hash != consensusParams.hashGenesisBlock) {
                     return error("%s: CheckProofOfWork: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
                 }
