@@ -13,14 +13,15 @@
 #include <assert.h>
 
 #include <chainparamsseeds.h>
+#include <hash.h>
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+static CBlock CreateGenesisBlock(const CScript& coinbase_sig, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vin[0].scriptSig = coinbase_sig;
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
@@ -33,6 +34,12 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     return genesis;
+}
+
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+{
+    CScript coinbase_sig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    return CreateGenesisBlock(coinbase_sig, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
 
 /**
@@ -275,6 +282,89 @@ public:
 };
 
 /**
+ * SigNet version 2018-07-20
+ */
+class SigNetParams : public CChainParams {
+public:
+    SigNetParams(const ChainParamArgs& args) {
+        for (const auto& a : args) {
+            for (const auto& b : a.second) {
+                printf("%s : %s\n", a.first.c_str(), b.c_str());
+            }
+        }
+        if (!args.count("signet_blockscript") || !args.count("signet_siglen") || !args.count("signet_seednode")) {
+            throw std::runtime_error(strprintf("%s: Signet requires -signet_blockscript, -signet_siglen, and -signet_seednode provided.", __func__));
+        }
+        if (args.at("signet_blockscript").size() != 1) {
+            throw std::runtime_error(strprintf("%s: -signet_blockscript cannot be multiple values.", __func__));
+        }
+        if (args.at("signet_siglen").size() != 1) {
+            throw std::runtime_error(strprintf("%s: -signet_siglen cannot be multiple values.", __func__));
+        }
+
+        strNetworkID = "signet";
+        consensus.blockscript = ParseHex(args.at("signet_blockscript")[0]);
+        g_solution_block_len = consensus.siglen = atoi(args.at("signet_siglen")[0]);
+        consensus.signature_pow = true;
+        consensus.nSubsidyHalvingInterval = 210000;
+        consensus.BIP34Height = 1;
+        consensus.BIP65Height = 1;
+        consensus.BIP66Height = 1;
+        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
+        consensus.nPowTargetSpacing = 10 * 60;
+        consensus.fPowAllowMinDifficultyBlocks = false;
+        consensus.fPowNoRetargeting = false;
+        consensus.nRuleChangeActivationThreshold = 1916;
+        consensus.nMinerConfirmationWindow = 2016;
+        consensus.powLimit = uint256S("00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
+        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
+
+        // Deployment of BIP68, BIP112, and BIP113.
+        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].bit = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = 1199145601; // January 1, 2008
+        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = 1230767999; // December 31, 2008
+
+        // Deployment of SegWit (BIP141, BIP143, and BIP147)
+        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].bit = 1;
+        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nStartTime = 1199145601; // January 1, 2008
+        consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = 1230767999; // December 31, 2008
+
+        pchMessageStart[0] = 0xf0;
+        pchMessageStart[1] = 0xc7;
+        pchMessageStart[2] = 0x70;
+        pchMessageStart[3] = 0x6a;
+        nDefaultPort = 38333;
+        nPruneAfterHeight = 1000;
+
+        CHashWriter h(SER_DISK, 0);
+        h << consensus.blockscript << consensus.siglen;
+        uint256 hash = h.GetHash();
+        CScript coinbase_sig = CScript() << std::vector<uint8_t>(hash.begin(), hash.end());
+        CScript genesis_out = CScript() << OP_RETURN;
+        genesis = CreateGenesisBlock(coinbase_sig, genesis_out, 1534313275, 0, 0x1d00ffff, 1, 50 * COIN);
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        vFixedSeeds.clear();
+        vSeeds.clear();
+        vSeeds = args.at("signet_seednode");
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>{125};
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>{87};
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>{217};
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
+
+        bech32_hrp = "sb";
+
+        fDefaultConsistencyChecks = false;
+        fRequireStandard = false;
+        fMineBlocksOnDemand = false;
+    }
+};
+
+/**
  * Regression test
  */
 class CRegTestParams : public CChainParams {
@@ -361,7 +451,7 @@ const CChainParams &Params() {
     return *globalChainParams;
 }
 
-std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
+std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain, const ChainParamArgs& args)
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CChainParams>(new CMainParams());
@@ -369,13 +459,32 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
         return std::unique_ptr<CChainParams>(new CTestNetParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams());
+    else if (chain == CBaseChainParams::SIGNET) {
+        g_solution_blocks = true;
+        return std::unique_ptr<CChainParams>(new SigNetParams(args));
+    }
     throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 
 void SelectParams(const std::string& network)
 {
+    ChainParamArgs chain_args;
+    if (gArgs.IsArgSet("-signet_blockscript") && gArgs.IsArgSet("-signet_siglen")) {
+        chain_args["signet_blockscript"] = gArgs.GetArgs("-signet_blockscript");
+        chain_args["signet_siglen"] = gArgs.GetArgs("-signet_siglen");
+        if (gArgs.IsArgSet("-signet_seednode")) {
+            chain_args["signet_seednode"] = gArgs.GetArgs("-signet_seednode");
+        }
+    } else {
+        chain_args["signet_blockscript"].push_back("512103e464a9f3070da4d3e0b34ce971ff36f3e07c47a8f4beadf32e8ea7e2afa8a82451ae");
+        chain_args["signet_siglen"].push_back("77");
+        if (!gArgs.IsArgSet("-signet_seednode")) {
+            chain_args["signet_seednode"].push_back("178.128.221.177"); // DG seed node
+        }
+    }
+
     SelectBaseParams(network);
-    globalChainParams = CreateChainParams(network);
+    globalChainParams = CreateChainParams(network, chain_args);
 }
 
 void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)

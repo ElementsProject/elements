@@ -9,6 +9,8 @@
 #include <chain.h>
 #include <primitives/block.h>
 #include <uint256.h>
+#include <script/interpreter.h>
+#include <policy/policy.h>
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
@@ -71,8 +73,17 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
     return bnNew.GetCompact();
 }
 
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)
+bool CheckProofOfWork(const uint256& hash, unsigned int nBits, const Consensus::Params& params)
 {
+    if (g_solution_blocks) {
+        if (hash == params.hashGenesisBlock) return true;
+        BlockSignatureChecker bsc(hash);
+        const auto& payload = g_blockheader_payload_map.at(hash);
+        CScript solution = CScript(payload.begin(), payload.end());
+        CScript challenge = CScript(params.blockscript.begin(), params.blockscript.end());
+        return VerifyScript(solution, challenge, nullptr, STANDARD_SCRIPT_VERIFY_FLAGS, bsc);
+    }
+
     bool fNegative;
     bool fOverflow;
     arith_uint256 bnTarget;

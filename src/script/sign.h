@@ -66,6 +66,16 @@ public:
     virtual bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion) const =0;
 };
 
+class BlockSignatureCreator : public BaseSignatureCreator
+{
+    BlockSignatureChecker checker;
+
+public:
+    BlockSignatureCreator(const uint256& hashIn) : BaseSignatureCreator(), checker(hashIn) {};
+    const BaseSignatureChecker& Checker() const override { return checker; }
+    bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion) const override;
+};
+
 /** A signature creator for transactions. */
 class MutableTransactionSignatureCreator : public BaseSignatureCreator {
     const CMutableTransaction* txTo;
