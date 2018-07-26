@@ -34,6 +34,9 @@ class ZMQTest (BitcoinTestFramework):
             ])
 
     def run_test(self):
+        # destroy() required for ubuntu docker hang workaround when
+        # exiting without actually messaging (remove with resolution of #TODO)
+        self.zmqContext.destroy(linger=0)
         return #TODO
         self.sync_all()
 
