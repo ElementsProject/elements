@@ -2531,6 +2531,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     uint256 block_hash;
     uint256 tx_hash;
+    int num_txs;
     // Get txout proof
     if (Params().GetConsensus().ParentChainHasPow()) {
 
@@ -2546,6 +2547,8 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
             return false;
         }
+
+        num_txs = merkle_block_pow.txn.GetNumTransactions();
     } else {
 
         CMerkleBlock merkle_block;
@@ -2561,6 +2564,8 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
             return false;
         }
+
+        num_txs = merkle_block.txn.GetNumTransactions();
     }
 
     // Check that the merkle proof corresponds to the txid
@@ -2580,7 +2585,9 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     // Finally, validate peg-in via rpc call
     if (check_depth && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        return IsConfirmedBitcoinBlock(block_hash, Params().GetConsensus().pegin_min_depth);
+        if (!IsConfirmedBitcoinBlock(block_hash, Params().GetConsensus().pegin_min_depth, num_txs)) {
+            return false;
+        }
     }
     return true;
 }

@@ -35,6 +35,11 @@ public:
 };
 
 UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool connectToMainchain=false);
-bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth);
+
+// Verify if the block with given hash has at least the specified minimum number
+// of confirmations.
+// For validating merkle blocks, you can provide the nbTxs parameter to verify if
+// it equals the number of transactions in the block.
+bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth, int nbTxs);
 
 #endif // BITCOIN_CALLRPC_H
