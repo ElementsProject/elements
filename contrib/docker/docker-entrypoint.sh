@@ -2,11 +2,11 @@
 set -e
 
 if [[ "$1" = "elementsd" ]]; then
-    exec gosu bitcoin elementsd "${*:2}"
+    exec gosu bitcoin "$@"
 elif [[ "$1" == "elements-cli" ]]; then
-    exec gosu bitcoin elements-cli "${*:2}"
+    exec gosu bitcoin "$@"
 elif [[ "$1" == "elements-tx" ]]; then
-    exec gosu bitcoin elements-tx "${*:2}"
+    exec gosu bitcoin "$@"
 else
     exec "$@"
 fi
