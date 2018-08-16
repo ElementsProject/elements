@@ -16,7 +16,7 @@ const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
 {
     strUsage += HelpMessageGroup(_("Chain selection options:"));
-    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Anything except main is allowed"), CHAINPARAMS_REGTEST));
+    strUsage += HelpMessageOpt("-chain=<chain>", strprintf(_("Use the chain <chain> (default: %s). Anything except main is allowed. Note that this affects where \"network specific\" files will be searched for, such as cookie files when using -cli."), CHAINPARAMS_REGTEST));
     if (debugHelp) {
         strUsage += HelpMessageOpt("-regtest", strprintf(_("Equivalent to -chain=%s"), CHAINPARAMS_REGTEST));
         strUsage += HelpMessageOpt("-pubkeyprefix", strprintf(_("The byte prefix, in decimal, of the chain's base58 pubkey address. (default: %d)"), 235));
