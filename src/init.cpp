@@ -520,12 +520,12 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-parentscriptprefix", strprintf(_("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)"), 196));
 
     }
-    strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
-    strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
-    strUsage += HelpMessageOpt("-mainchainrpcport=<port>", strprintf("The port which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
-    strUsage += HelpMessageOpt("-mainchainrpcuser=<username>", strprintf("The rpc username that the daemon will use to connect to validate peg-ins, if enabled. (default: cookie auth)"));
-    strUsage += HelpMessageOpt("-mainchainrpcpassword=<password>", strprintf("The rpc password which the daemon will use to connect to validate peg-ins, if enabled. (default: cookie auth)"));
-    strUsage += HelpMessageOpt("-mainchainrpccookiefile=<path>", strprintf("The bitcoind cookie auth path which the daemon will use to connect to validate peg-ins, if enabled. (default: default bitcoind datadir)"));
+    strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate peg-in claims. An RPC connection will be attempted to the trusted bitcoind using the `mainchain*` settings below. All functionaries must run this enabled. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
+    strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to the trusted bitcoind to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpcport=<port>", strprintf("The port which the daemon will try to connect to the trusted bitcoind to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpcuser=<username>", strprintf("The rpc username that the daemon will use to connect to the trusted bitcoind to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpcpassword=<password>", strprintf("The rpc password which the daemon will use to connect to the trusted bitcoind to validate peg-ins, if enabled. (default: cookie auth)"));
+    strUsage += HelpMessageOpt("-mainchainrpccookiefile=<path>", strprintf("The bitcoind cookie auth path which the daemon will use to connect to the trusted bitcoind to validate peg-ins. (default: `<datadir>/regtest/.cookie`)"));
 
 
     return strUsage;
