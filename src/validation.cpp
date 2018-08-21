@@ -2229,16 +2229,18 @@ bool BitcoindRPCCheck(const bool init)
     vblocksToReconsiderAgain.clear();
     pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
 
-    //Next, check for working rpc
+    // Next, check for working and valid rpc
     if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         // During init try until a non-RPC_IN_WARMUP result
         while (true) {
             try {
+                // The first thing we have to check is the version of the node.
                 UniValue params(UniValue::VARR);
-                params.push_back(UniValue(0));
-                UniValue reply = CallRPC("getblockhash", params, true);
-                UniValue error = find_value(reply, "error");
+                UniValue reply = CallRPC("getnetworkinfo", params, true);
+                UniValue error = reply["error"];
                 if (!error.isNull()) {
+                    // On the first call, it's possible to node is still in 
+                    // warmup; in that case, just wait and retry.
                     if (error["code"].get_int() == RPC_IN_WARMUP) {
                         MilliSleep(1000);
                         continue;
@@ -2249,6 +2251,22 @@ bool BitcoindRPCCheck(const bool init)
                     }
                 }
                 UniValue result = reply["result"];
+                if (!result.isObject() || !result.get_obj()["version"].isNum() ||
+                        result.get_obj()["version"].get_int() < MIN_PARENT_NODE_VERSION) {
+                    LogPrintf("ERROR: Parent chain daemon too old; "
+                            "need Bitcoin Core version 0.16.2 or newer.\n");
+                    return false;
+                }
+
+                // Then check the genesis block to correspond to parent chain.
+                params.push_back(UniValue(0));
+                reply = CallRPC("getblockhash", params, true);
+                error = reply["error"];
+                if (!error.isNull()) {
+                    LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+                    return false;
+                }
+                result = reply["result"];
                 if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
                     LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
                     return false;
@@ -2304,7 +2322,7 @@ bool BitcoindRPCCheck(const bool init)
 
         //Write back remaining blocks
         pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
-        }
+    }
     return true;
 }
 
