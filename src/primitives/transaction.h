@@ -654,6 +654,10 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
         const_cast<CTxWitness*>(&tx.wit)->vtxoutwit.resize(tx.vout.size());
         s >> tx.wit;
+        if (!tx.HasWitness()) {
+            /* It's illegal to encode witnesses when all witness stacks are empty. */
+            throw std::ios_base::failure("Superfluous witness record");
+        }
     }
     if (flags) {
         /* Unknown flag in the serialization */
