@@ -4051,7 +4051,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
             "blockhash     (hash) The block hash\n"
             "\nExamples:\n"
             + HelpExampleCli("getnewblockhex", "")
-            + HelpExampleCli("getnewblockhex true", "")
+            + HelpExampleCli("getnewblockhex", "true")
         );
     }
 
@@ -5003,9 +5003,9 @@ static const CRPCCommand commands[] =
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
-    // sigtest mining
+    /** Signet mining */
     { "wallet",             "signblock",                        &signblock,                     {"blockhex"} },
-    { "mining",             "getnewblockhex",                   &getnewblockhex,                {"broadcast"} },
+    { "wallet",             "getnewblockhex",                   &getnewblockhex,                {"broadcast"} },
 
     { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
 };
