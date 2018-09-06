@@ -187,7 +187,6 @@ def initialize_datadir(dirname, n):
         os.makedirs(datadir)
     rpc_u, rpc_p = rpc_auth_pair(n)
     with open(os.path.join(datadir, "elements.conf"), 'w', encoding='utf8') as f:
-        f.write("regtest=1\n")
         f.write("rpcuser=" + rpc_u + "\n")
         f.write("rpcpassword=" + rpc_p + "\n")
         f.write("port="+str(p2p_port(n))+"\n")
@@ -334,14 +333,14 @@ def _rpchost_to_args(rpchost):
         rv += ['-rpcport=' + rpcport]
     return rv
 
-def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=None):
+def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=None, chain='elementsregtest'):
     """
     Start a bitcoind and return RPC connection to it
     """
     datadir = os.path.join(dirname, "node"+str(i))
     if binary is None:
         binary = os.getenv("ELEMENTSD", "elementsd")
-    args = [ binary, "-datadir="+datadir, "-server", "-keypool=1", "-discover=0", "-rest", "-mocktime="+str(get_mocktime()) ]
+    args = [ binary, '-chain='+chain, "-datadir="+datadir, "-server", "-keypool=1", "-discover=0", "-rest", "-mocktime="+str(get_mocktime()) ]
     if extra_args is not None: args.extend(extra_args)
     bitcoind_processes[i] = subprocess.Popen(args)
     if os.getenv("PYTHON_DEBUG", ""):
@@ -357,7 +356,7 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
 
     return proxy
 
-def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, timewait=None, binary=None):
+def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, timewait=None, binary=None, chain='elementsregtest'):
     """
     Start multiple bitcoinds, return RPC connections to them
     """
@@ -366,7 +365,7 @@ def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, timewait=None
     rpcs = []
     try:
         for i in range(num_nodes):
-            rpcs.append(start_node(i, dirname, extra_args[i], rpchost, timewait=timewait, binary=binary[i]))
+            rpcs.append(start_node(i, dirname, extra_args[i], rpchost, timewait=timewait, binary=binary[i], chain=chain))
     except: # If one node failed to start, stop the others
         stop_nodes(rpcs)
         raise

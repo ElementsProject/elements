@@ -57,7 +57,7 @@ bool CheckBitcoinProof(uint256 hash, unsigned int nBits)
     return true;
 }
 
-bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
+static bool CheckProofGeneric(const CBlockHeader& block, const Consensus::Params& params, const CScript& challenge)
 {
     if (block.GetHash() == params.hashGenesisBlock)
        return true;
@@ -82,7 +82,17 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
         | SCRIPT_VERIFY_LOW_S // Stop easiest signature fiddling
         | SCRIPT_VERIFY_WITNESS // Required for cleanstack eval in VerifyScript
         | SCRIPT_NO_SIGHASH_BYTE; // non-Check(Multi)Sig signatures will not have sighash byte
-    return GenericVerifyScript(block.proof.solution, params.signblockscript, proof_flags, block);
+    return GenericVerifyScript(block.proof.solution, challenge, proof_flags, block);
+}
+
+bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params)
+{
+    return CheckProofGeneric(block, params, params.parent_chain_signblockscript);
+}
+
+bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
+{
+    return CheckProofGeneric(block, params, params.signblockscript);
 }
 
 bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader *pblock, CWallet *pwallet)

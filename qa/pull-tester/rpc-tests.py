@@ -104,6 +104,7 @@ testScripts = [
     'signed_blockchain.py',
     'initial_reissuance_token.py',
     'feature_blocksign.py',
+    'feature_fedpeg.py',
     'default_asset_name.py',
     'assetdir.py',
 

@@ -21,6 +21,7 @@ class uint256;
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckBitcoinProof(uint256 hash, unsigned int nBits);
+bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params);
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
 /** Scans nonces looking for a hash with at least some zero bits */
 bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader* pblock, CWallet* pwallet);
