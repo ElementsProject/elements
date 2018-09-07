@@ -550,7 +550,7 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
         wtx.mapValue["to"]      = request.params[3].get_str();
 
     bool fSubtractFeeFromAmount = false;
-    if (request.params.size() > 4)
+    if (request.params.size() > 4 && request.params[4].isBool())
         fSubtractFeeFromAmount = request.params[4].get_bool();
 
     std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
@@ -559,8 +559,9 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     bool fIgnoreBlindFail = true;
-    if (request.params.size() > 6)
+    if (request.params.size() > 6 && request.params[6].isBool()) {
         fIgnoreBlindFail = request.params[6].get_bool();
+    }
 
     CAsset asset = GetAssetFromString(strasset);
 
@@ -4150,7 +4151,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listunspent",              &listunspent,              false,  {"minconf","maxconf","addresses","include_unsafe"} },
     { "wallet",             "lockunspent",              &lockunspent,              true,   {"unlock","transactions"} },
     { "wallet",             "sendmany",                 &sendmany,                 false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
-    { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
+    { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount", "assetlabel", "ignoreblindfail"} },
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {"blockhex"} },
