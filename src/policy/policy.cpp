@@ -20,7 +20,7 @@ CAsset policyAsset;
     /**
      * Check transaction inputs to mitigate two
      * potential denial-of-service attacks:
-     * 
+     *
      * 1. scriptSigs with extra data stuffed into them,
      *    not consumed by scriptPubKey (or P2SH script)
      * 2. P2SH scripts with a crazy number of expensive
@@ -93,7 +93,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
         if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
-        } else if ((txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == policyAsset) && txout.IsDust(dustRelayFee)) {
+        } else if (txout.nAsset.IsExplicit() && txout.IsDust(dustRelayFee)) {
             reason = "dust";
             return false;
         }
@@ -123,7 +123,7 @@ bool IsWhitelisted(const CTransaction& tx)
     CKeyID keyId;
     keyId = CKeyID(uint160(vSolutions[0]));
 
-    // search in whitelist for the presence of qaddress: if not found return false                                                                    
+    // search in whitelist for the presence of qaddress: if not found return false
 
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) return false;
 

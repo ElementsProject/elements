@@ -1201,7 +1201,8 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         if (!tx.HasValidFee())
             return state.DoS(0, false, REJECT_INVALID, "bad-fees");
-        CAmount nFees = tx.GetFee()[policyAsset];
+        CAmount nFees = tx.GetFee().begin()->second;
+        CAsset feeAsset = tx.GetFee().begin()->first;
 
         // nModifiedFees includes any fee deltas from PrioritiseTransaction
         CAmount nModifiedFees = nFees;
@@ -1227,7 +1228,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
             }
         }
 
-        CTxMemPoolEntry entry(ptx, nFees, nAcceptTime, dPriority, chainActive.Height(),
+        CTxMemPoolEntry entry(ptx, nFees, feeAsset, nAcceptTime, dPriority, chainActive.Height(),
                               inChainInputValue, fSpendsCoinbase, nSigOpsCost, lp, setPeginsSpent);
         unsigned int nSize = entry.GetTxSize();
 
@@ -1242,7 +1243,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
         CAmount mempoolRejectFee = pool.GetMinFee(GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000).GetFee(nSize);
         if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee) {
-            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met", false, strprintf("%d < %d", nFees, mempoolRejectFee));
+            return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met", false, strprintf("%d < %d for asset %s", nFees, mempoolRejectFee, feeAsset.GetHex()));
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
@@ -1254,7 +1255,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         if (nAbsurdFee && nFees > nAbsurdFee)
             return state.Invalid(false,
                 REJECT_HIGHFEE, "absurdly-high-fee",
-                strprintf("%d > %d", nFees, nAbsurdFee));
+                strprintf("%d > %d for asset %s", nFees, nAbsurdFee, feeAsset.GetHex()));
 
         // Calculate in-mempool ancestors, up to a limit.
         CTxMemPool::setEntries setAncestors;
@@ -2786,7 +2787,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (!VerifyCoinbaseAmount(*(block.vtx[0]), blockReward))
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (limit=%d)",
-                               blockReward[policyAsset]),
+                               blockReward.begin()->second),
                                REJECT_INVALID, "bad-cb-amount");
 
     if (!control.Wait())
