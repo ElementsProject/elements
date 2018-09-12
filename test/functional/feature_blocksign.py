@@ -56,22 +56,44 @@ class BlockSignTest(BitcoinTestFramework):
             "-chain=blocksign",
             "-signblockscript={}".format(signblockscript)
         ]] * self.num_nodes
-        self.is_network_split = False
+        self.is_network_split = True
 
     def check_height(self, expected_height):
         for n in self.nodes:
             util.assert_equal(n.getblockcount(), expected_height)
 
-    def mine_block(self):
+    def mine_block(self, make_transactions):
         # mine block in round robin sense: depending on the block number, a node
         # is selected to create the block, others sign it and the selected node
         # broadcasts it
         mineridx = self.nodes[0].getblockcount() % self.num_nodes # assuming in sync
+        mineridx_next = (self.nodes[0].getblockcount() + 1) % self.num_nodes
         miner = self.nodes[mineridx]
+        miner_next = self.nodes[mineridx_next]
         blockcount = miner.getblockcount()
 
+        # Make a few transactions to make non-empty blocks for compact transmission
+        if make_transactions:
+            for i in range(5):
+                miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()["bitcoin"]/10), "", "", True)
         # miner makes a block
         block = miner.getnewblockhex()
+
+        # other nodes get fed compact blocks
+        for i in range(self.required_signers):
+            if i == mineridx:
+                continue
+            sketch = miner.getcompactsketch(block)
+            compact_response = self.nodes[i].consumecompactsketch(sketch)
+            if make_transactions:
+                block_txn =  self.nodes[i].consumegetblocktxn(block, compact_response["block_tx_req"])
+                final_block = self.nodes[i].finalizecompactblock(sketch, block_txn, compact_response["found_transactions"])
+            else:
+                # If there's only coinbase, it should succeed immediately
+                final_block = compact_response["blockhex"]
+            # Block should be complete, sans signatures
+            self.nodes[i].testproposedblock(final_block)
+
 
         # collect required_signers signatures
         sigs = []
@@ -82,15 +104,16 @@ class BlockSignTest(BitcoinTestFramework):
             self.check_height(blockcount)
             sigs.append(self.nodes[i].signblock(block))
 
-        # miner submits
         result = miner.combineblocksigs(block, sigs)
         util.assert_equal(result["complete"], True)
-        miner.submitblock(result["hex"])
+
+        # All must submit... we're not connected!
+        for node in self.nodes:
+            node.submitblock(result["hex"])
 
     def mine_blocks(self, num_blocks):
         for i in range(num_blocks):
-            self.mine_block()
-            self.sync_all()
+            self.mine_block(True)
 
     def run_test(self):
         # Have every node import its block signing private key.
@@ -99,15 +122,15 @@ class BlockSignTest(BitcoinTestFramework):
 
         self.check_height(0)
 
-        # mine a block
-        self.mine_block()
-        self.sync_all()
+        # mine a block with no transactions
+        print("Mining and signing a single empty block")
+        self.mine_block(False)
 
-        # mine blocks
-        self.mine_blocks(100)
-        self.sync_all()
+        # mine blocks with transactions
+        print("Mining and signing non-empty blocks")
+        self.mine_blocks(10)
 
-        self.check_height(101)
+        self.check_height(11)
 
 if __name__ == '__main__':
     BlockSignTest().main()
