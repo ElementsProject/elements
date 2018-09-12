@@ -10,6 +10,7 @@
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
 #include "consensus/merkle.h"
+#include "policy/policy.h"
 #include "key.h"
 #include "validation.h"
 #include "miner.h"
@@ -54,6 +55,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         // MAX_MONEY
         SoftSetArg("-initialfreecoins", "2100000000000000");
         SelectParams(chainName);
+        // Set policy asset for correct fee output generation
+        policyAsset = CAsset(uint256S(Params().GetConsensus().pegged_asset.GetHex()));
         noui_connect();
 }
 
