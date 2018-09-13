@@ -53,7 +53,7 @@ static void CoinSelection(benchmark::State& state)
         CAmountMap nValueRet;
         CAmountMap mapValue;
         mapValue[Params().GetConsensus().pegged_asset] = 1003 * COIN;
-        bool success = wallet.SelectCoinsMinConf(mapValue, 1, 6, 0, vCoins, setCoinsRet, nValueRet);
+        bool success = wallet.SelectCoinsMinConf(mapValue, 1, 6, 0, vCoins, setCoinsRet, nValueRet, Params().GetConsensus().pegged_asset);
         assert(success);
         assert(nValueRet[Params().GetConsensus().pegged_asset] == 1003 * COIN);
         assert(setCoinsRet.size() == 2);

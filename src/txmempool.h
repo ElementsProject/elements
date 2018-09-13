@@ -84,6 +84,7 @@ class CTxMemPoolEntry
 private:
     CTransactionRef tx;
     CAmount nFee;              //!< Cached to avoid expensive parent-transaction lookups
+    CAsset feeAsset;           //!< Needed along with the fee for Ocean mempool entries
     size_t nTxWeight;          //!< ... and avoid recomputing tx weight (also used for GetTxSize())
     size_t nModSize;           //!< ... and modified size for priority
     size_t nUsageSize;         //!< ... and total memory usage
@@ -113,11 +114,7 @@ private:
 
 public:
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
-
-                    int64_t _nTime, double _entryPriority, unsigned int _entryHeight,
-                    CAmount _inChainInputValue, bool spendsCoinbase,
-                    int64_t nSigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent);
+    CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee, const CAsset& _feeAsset, int64_t _nTime, double _entryPriority, unsigned int _entryHeight, CAmount _inChainInputValue, bool spendsCoinbase, int64_t nSigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent);
 
     CTxMemPoolEntry(const CTxMemPoolEntry& other);
 
@@ -129,6 +126,7 @@ public:
      */
     double GetPriority(unsigned int currentHeight) const;
     const CAmount& GetFee() const { return nFee; }
+    const CAsset& GetFeeAsset() const { return feeAsset; }
     size_t GetTxSize() const;
     size_t GetTxWeight() const { return nTxWeight; }
     int64_t GetTime() const { return nTime; }
@@ -660,7 +658,7 @@ public:
 
     /** Estimate priority needed to get into the next nBlocks */
     double estimatePriority(int nBlocks) const;
-    
+
     /** Write/Read estimates to disk */
     bool WriteFeeEstimates(CAutoFile& fileout) const;
     bool ReadFeeEstimates(CAutoFile& filein);
@@ -709,7 +707,7 @@ private:
     void removeUnchecked(txiter entry, MemPoolRemovalReason reason = MemPoolRemovalReason::UNKNOWN);
 };
 
-/** 
+/**
  * CCoinsView that brings transactions from a memorypool into view.
  * It does not check for spendings by memory pool transactions.
  */

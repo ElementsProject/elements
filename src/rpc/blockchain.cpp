@@ -1820,8 +1820,6 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         }
     }
 
-    const CAsset asset = policyAsset; // TODO Make configurable
-
     const CBlock block = GetBlockChecked(pindex);
 
     const bool do_all = stats.size() == 0; // Calculate everything if nothing selected (default)
@@ -1873,10 +1871,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
 
         if (loop_outputs) {
             for (const CTxOut& out : tx->vout) {
-                if (out.IsFee() && out.nAsset.GetAsset() == asset) {
+                if (out.IsFee()) {
                     txfee += out.nValue.GetAmount();
                 }
-                if (out.nValue.IsExplicit() && out.nAsset.IsExplicit() && out.nAsset.GetAsset() == asset) {
+                if (out.nValue.IsExplicit() && out.nAsset.IsExplicit()) {
                     tx_total_out += out.nValue.GetAmount();
                 }
             }
