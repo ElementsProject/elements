@@ -84,6 +84,7 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
     result.push_back(Pair("contracthash", blockindex->hashContract.GetHex()));
     result.push_back(Pair("attestationhash", blockindex->hashAttestation.GetHex()));
+    result.push_back(Pair("mappinghash", blockindex->hashMapping.GetHex()));
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
     CBlockIndex *pnext = chainActive.Next(blockindex);
@@ -129,6 +130,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
     result.push_back(Pair("contracthash", blockindex->hashContract.GetHex()));
     result.push_back(Pair("attestationhash", blockindex->hashAttestation.GetHex()));
+    result.push_back(Pair("mappinghash", blockindex->hashMapping.GetHex()));
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
     CBlockIndex *pnext = chainActive.Next(blockindex);
@@ -1658,9 +1660,38 @@ UniValue reconsiderblock(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue getmappinghash(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 1)
+        throw runtime_error(
+                "getmappinghash blockheight\n"
+                "\nReturns the mapping hash for the specified block height.\n"
+                "\nArguments:\n"
+                "1. blockheight         (numeric, required) The height index\n"
+                "\nResult:\n"
+                "\"mapping\"         (string) The mapping hash\n"
+                "\nExamples:\n"
+                + HelpExampleCli("getmappinghash", "1000")
+                + HelpExampleRpc("getmappinghash", "1000")
+                );
+
+    LOCK(cs_main);
+
+    int nHeight = chainActive.Height();
+    if (request.params.size() > 0)
+    {
+        nHeight = request.params[0].get_int();
+        if (nHeight < 0 || nHeight > chainActive.Height())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+    }
+
+    CBlockIndex* pblockindex = chainActive[nHeight];
+    return pblockindex->hashMapping.ToString();
+}
+
 UniValue getcontracthash(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 1)
+    if (request.fHelp || request.params.size() > 1)
         throw runtime_error(
                 "getcontracthash blockheight\n"
                 "\nReturns the contract hash for the specified block height.\n"
@@ -1675,9 +1706,13 @@ UniValue getcontracthash(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    int nHeight = request.params[0].get_int();
-    if (nHeight < 0 || nHeight > chainActive.Height())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+    int nHeight = chainActive.Height();
+    if (request.params.size() > 0)
+    {
+        nHeight = request.params[0].get_int();
+        if (nHeight < 0 || nHeight > chainActive.Height())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Block height out of range");
+    }
 
     CBlockIndex* pblockindex = chainActive[nHeight];
     return pblockindex->hashContract.ToString();
@@ -1699,7 +1734,7 @@ UniValue getcontract(const JSONRPCRequest& request)
                 );
 
     UniValue ret(UniValue::VOBJ);
-    ret.push_back(Pair("contract", GetContractFile()));
+    ret.push_back(Pair("contract", GetContract()));
     return ret;
 }
 
@@ -2026,7 +2061,7 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "getcontract",             &getcontract,         true,  {} },
     { "blockchain",         "getcontracthash",         &getcontracthash,     true,  {"blockheight"} },
-
+    { "blockchain",         "getmappinghash",          &getmappinghash,     true,  {"blockheight"} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        true,  {"blockhash"} },

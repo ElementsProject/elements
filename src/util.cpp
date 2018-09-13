@@ -106,6 +106,7 @@ using namespace std;
 const char * const BITCOIN_CONF_FILENAME = "elements.conf";
 const char * const BITCOIN_PID_FILENAME = "elements-daemon.pid";
 const char * const CONTRACT_FILE_PATH = "/terms-and-conditions/latest.txt";
+const char * const MAPPING_FILE_PATH = "/asset-mapping/latest.json";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;
@@ -844,38 +845,59 @@ void runCommand(const std::string& strCommand)
         LogPrintf("runCommand error: system(%s) returned %d\n", strCommand, nErr);
 }
 
-std::string GetContractFile()
+std::string GetFileFromDataDir(const char* fileName)
 {
-    string contract = "";
+    string fileStr = "";
     namespace fs = boost::filesystem;
-    fs::path path = GetDataDir(false) / CONTRACT_FILE_PATH;
+    fs::path path = GetDataDir(false) / fileName;
     ifstream file(path.string().c_str());
     if (file.is_open())
     {
         std::string line;
         while(getline(file, line))
         {
-            contract += line;
-            contract += "\n";
+            fileStr += line;
+            fileStr += "\n";
         }
         file.close();
     }
-    return contract;
+    return fileStr;
 }
 
 uint256 GetGenesisContractHash()
 {
+    // Hardcoded terms and conditions allowing consistent genesis block generation
     const std::string genesisContract = "These are the terms and conditions\n"
                                         "Approve to use the CBT network\n";
     std::vector<unsigned char> terms(genesisContract.begin(), genesisContract.end());
     return Hash(terms.begin(), terms.end());
 }
 
+std::string GetContract()
+{
+    return GetFileFromDataDir(CONTRACT_FILE_PATH);
+}
+
 uint256 GetContractHash()
 {
-    const std::string contract = GetContractFile();
+    const std::string contract = GetFileFromDataDir(CONTRACT_FILE_PATH);
+    if (contract == "")
+    {
+        return uint256S("");
+    }
     std::vector<unsigned char> terms(contract.begin(), contract.end());
     return Hash(terms.begin(), terms.end());
+}
+
+uint256 GetMappingHash()
+{
+    const std::string mapping = GetFileFromDataDir(MAPPING_FILE_PATH);
+    if (mapping == "")
+    {
+        return uint256S("");
+    }
+    std::vector<unsigned char> object(mapping.begin(), mapping.end());
+    return Hash(object.begin(), object.end());
 }
 
 void RenameThread(const char* name)

@@ -137,10 +137,10 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
+        return #TODO fix the rest
         txoutv0 = self.nodes[0].gettxout(txid, 0)
         assert_equal(txoutv0['confirmations'], 1)
         assert(not txoutv0['coinbase'])
-        return #TODO fix the rest
 
         assert_equal(self.nodes[0].getbalance(), 0)
         assert_equal(self.nodes[2].getbalance(), 94)

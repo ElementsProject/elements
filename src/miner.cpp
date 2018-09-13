@@ -686,4 +686,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     if (Params().EmbedContract()) {
         pblock->hashContract = GetContractHash();
     }
+    if (Params().EmbedMapping()) {
+        pblock->hashMapping = GetMappingHash();
+    }
 }

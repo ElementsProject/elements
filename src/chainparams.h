@@ -39,6 +39,7 @@ struct ChainTxData {
 };
 
 static const bool DEFAULT_EMBED_CONTRACT = true;
+static const bool DEFAULT_EMBED_MAPPING = true;
 
 /**
  * CChainParams defines various tweakable parameters of a given instance of the
@@ -84,6 +85,8 @@ public:
     bool RequireStandard() const { return fRequireStandard; }
     /** Configuration option to include the contract hash in block and address generation */
     bool EmbedContract() const { return fEmbedContract; }
+    /** Configuration option to include the mapping hash in block */
+    bool EmbedMapping() const { return fEmbedMapping; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
@@ -112,12 +115,14 @@ protected:
     uint256 parentGenesisBlockHash;
     uint256 attestationHash;
     CAmount initialFreeCoins;
+    CScript initialFreeCoinsDestination;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
     bool fEmbedContract;
+    bool fEmbedMapping;
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
 };

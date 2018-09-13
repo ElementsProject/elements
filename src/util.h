@@ -56,7 +56,7 @@ extern CTranslationInterface translationInterface;
 extern const char * const BITCOIN_CONF_FILENAME;
 extern const char * const BITCOIN_PID_FILENAME;
 extern const char * const CONTRACT_FILE_PATH;
-
+extern const char * const MAPPING_FILE_PATH;
 /**
  * Translation function: Call Translate signal on UI interface, which returns a boost::optional result.
  * If no translation slot is registered, nothing is returned, and simply return the input.
@@ -128,9 +128,11 @@ void OpenDebugLog();
 void OpenAuditLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
-std::string GetContractFile();
+std::string GetFileFromDataDir(const char* fileName);
+std::string GetContract();
 uint256 GetGenesisContractHash();
 uint256 GetContractHash();
+uint256 GetMappingHash();
 
 inline bool IsSwitchChar(char c)
 {
