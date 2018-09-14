@@ -91,6 +91,18 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason);
 bool IsWhitelisted(const CTransaction& tx);
 
     /**
+    * Check all inputs and determine if public keys are on the burnlist and all non-fee outputs are OP_RETURN
+    * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are on the burn list
+    */
+bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**                                                                
+    * Check all inputs and determine if public keys are on the freezelist
+    * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are present in the freezelist
+    */
+bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**
      * Check for standard transaction types
      * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
      * @return True if all inputs (scriptSigs) use only standard transaction forms

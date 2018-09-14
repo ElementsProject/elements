@@ -79,6 +79,8 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
+bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
+bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
@@ -92,6 +94,8 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
 AWhitelist addressWhitelist;
+AWhitelist addressBurnlist;
+AWhitelist addressFreezelist;
 
 CTxMemPool mempool(::minRelayTxFee);
 
@@ -1193,6 +1197,19 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         if (fRequireStandard && !AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
+	// Accept only transactions that spend from scriptSig inputs with pubkeys that are NOT on the freezelist
+// Pubkeys that are on the freezelist AND the burnlist that are sent to OP_RETURN outputs are passed
+	if (fRequireFreezelistCheck){
+	  if(IsFreezelisted(tx,view)){
+	    if(fEnableBurnlistCheck){
+	      if(!IsBurnlisted(tx,view))
+		return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-no-burnlist-address");
+	    } else {        
+	      return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-address");
+	    }
+	  }
+	}
+	
         // Check for non-standard witness in P2WSH
         if (tx.HasWitness() && fRequireStandard && !IsWitnessStandard(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
