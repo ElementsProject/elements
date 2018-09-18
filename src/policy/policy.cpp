@@ -124,15 +124,85 @@ bool IsWhitelisted(const CTransaction& tx)
     keyId = CKeyID(uint160(vSolutions[0]));
 
     // search in whitelist for the presence of qaddress: if not found return false
-
     if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) return false;
 
   }
-
   return true;
-
 }
 
+bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+{
+  if (tx.IsCoinBase())
+    return false; // Coinbases don't use vin normally
+
+  //function that determines if any input pubkeys are on the freezelist
+
+  for (unsigned int i = 0; i < tx.vin.size(); i++) {
+    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
+
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    const CScript& prevScript = prev.scriptPubKey;
+    if (!Solver(prevScript, whichType, vSolutions))
+      return false;
+
+    if (whichType == TX_PUBKEYHASH)
+      {
+
+	CKeyID keyId;
+	keyId = CKeyID(uint160(vSolutions[0]));
+
+	// search in freezelist for the presence of keyid
+	if(std::binary_search(addressFreezelist.begin(),addressFreezelist.end(),keyId)) return true;
+      }
+  }
+  return false;
+}
+
+bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+{
+  if (tx.IsCoinBase())
+    return false; // Coinbases don't use vin normally
+
+  //are input pubkeys are on the burn list
+  unsigned int nin = 0;
+  for (unsigned int i = 0; i < tx.vin.size(); i++) {
+    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
+
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    const CScript& prevScript = prev.scriptPubKey;
+    if (!Solver(prevScript, whichType, vSolutions))
+      return false;
+
+    if (whichType == TX_PUBKEYHASH)
+      {
+
+	CKeyID keyId;
+	keyId = CKeyID(uint160(vSolutions[0]));
+
+	// search in freezelist for the presence of keyid
+	if(std::binary_search(addressBurnlist.begin(),addressBurnlist.end(),keyId)) nin++;
+      }
+  }
+
+  if(nin > 0) {
+    //are ALL outputs OP_RETURN burn outputs or fee outputs
+    BOOST_FOREACH(const CTxOut& txout, tx.vout) {
+      
+      std::vector<std::vector<unsigned char> > vSolutions;
+      txnouttype whichType;
+      if (!Solver(txout.scriptPubKey, whichType, vSolutions)) return false;
+
+      if(!(whichType == TX_NULL_DATA || whichType == TX_FEE || txout.nAsset.GetAsset() == policyAsset)) return false;
+    }
+  } else {
+    return false;
+  }
+  return true;
+}
 
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {

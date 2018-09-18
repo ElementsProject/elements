@@ -1584,6 +1584,199 @@ UniValue clearwhitelist(const JSONRPCRequest& request)
   return NullUniValue;
 }
 
+UniValue addtofreezelist(const JSONRPCRequest& request)
+{
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+			    "addtofreezelist \"address\"\n"
+            "\nAdd an address to the node mempool freezelist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 address\n"
+            "\nExamples:\n"
+			    + HelpExampleCli("addtofreezelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+			    + HelpExampleRpc("addtofreezelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+			);
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  //insert address into sorted freezelist vector (if it doesn't already exist in the list)
+  if(!(std::binary_search(addressFreezelist.begin(),addressFreezelist.end(),keyId))) {
+    std::vector<CKeyID>::iterator it = std::lower_bound(addressFreezelist.begin(),addressFreezelist.end(),keyId);
+    addressFreezelist.insert(it,keyId);
+  }
+
+  return NullUniValue;
+}
+
+UniValue queryfreezelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "queryfreezelist \"address\" \n"
+            "\nChecks if an address is present in the node mempool freezelist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("queryfreezelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("queryfreezelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  return std::binary_search(addressFreezelist.begin(),addressFreezelist.end(),keyId);
+}
+
+UniValue removefromfreezelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "removefromfreezelist \"address\" \n"
+            "\nRemoves an address from the node mempool freezelist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("removefromfreezelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("removefromfreezelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  addressFreezelist.erase(std::remove(addressFreezelist.begin(),addressFreezelist.end(),keyId),addressFreezelist.end());
+
+  return NullUniValue;
+}
+
+UniValue clearfreezelist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 0)
+    throw runtime_error(
+            "clearfreezelist \n"
+            "\nClears the node mempool transaction freezelist (no arguments).\n"
+            + HelpExampleCli("clearfreezelist", "\"true\"")
+            + HelpExampleRpc("clearfreezelist", "\"true\"")
+                        );
+
+  addressFreezelist.clear();
+
+  return NullUniValue;
+}
+
+UniValue addtoburnlist(const JSONRPCRequest& request)
+{
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+                            "addtoburnlist \"address\"\n"
+            "\nAdd an address to the node mempool burnlist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 address\n"
+            "\nExamples:\n"
+                            + HelpExampleCli("addtoburnlist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                            + HelpExampleRpc("addtoburnlist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  //insert address into sorted freezelist vector (if it doesn't already exist in the list)
+  if(!(std::binary_search(addressBurnlist.begin(),addressBurnlist.end(),keyId))) {
+    std::vector<CKeyID>::iterator it = std::lower_bound(addressBurnlist.begin(),addressBurnlist.end(),keyId);
+    addressBurnlist.insert(it,keyId);
+  }
+return NullUniValue;
+}
+
+UniValue queryburnlist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "queryburnlist \"address\" \n"
+            "\nChecks if an address is present in the node mempool burnlist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("queryburnlist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("queryburnlist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  return std::binary_search(addressBurnlist.begin(),addressBurnlist.end(),keyId);
+}
+
+UniValue removefromburnlist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "removefromburnlist \"address\" \n"
+            "\nRemoves an address from the node mempool burnlist.\n"
+            "\nArguments:\n"
+            "1. \"address\"  (string, required) Base58 encoded address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("removefromburnlist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("removefromburnlist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+
+  CBitcoinAddress address;
+  if (!address.SetString(request.params[0].get_str()))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+
+  CKeyID keyId;
+  if (!address.GetKeyID(keyId))
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+
+  addressBurnlist.erase(std::remove(addressBurnlist.begin(),addressBurnlist.end(),keyId),addressBurnlist.end());
+
+  return NullUniValue;
+}
+
+UniValue clearburnlist(const JSONRPCRequest& request)
+{
+
+  if (request.fHelp || request.params.size() != 0)
+    throw runtime_error(
+            "clearburnlist \n"
+            "\nClears the node mempool transaction burnlist (no arguments).\n"
+            + HelpExampleCli("clearburnlist", "\"true\"")
+            + HelpExampleRpc("clearburnlist", "\"true\"")
+                        );
+
+  addressBurnlist.clear();
+  return NullUniValue;
+}
 
 UniValue invalidateblock(const JSONRPCRequest& request)
 {
@@ -2058,6 +2251,16 @@ static const CRPCCommand commands[] =
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
+
+    { "blockchain",         "addtofreezelist",        &addtofreezelist,        true,  {"address"} },
+    { "blockchain",         "removefromfreezelist",   &removefromfreezelist,   true,  {"address"} },
+    { "blockchain",         "queryfreezelist",        &queryfreezelist,        true,  {"address"} },
+    { "blockchain",         "clearfreezelist",        &clearfreezelist,        true,  {} },
+
+    { "blockchain",         "addtoburnlist",          &addtoburnlist,          true,  {"address"} },
+    { "blockchain",         "removefromburnlist",     &removefromburnlist,     true,  {"address"} },
+    { "blockchain",         "queryburnlist",          &queryburnlist,          true,  {"address"} },
+    { "blockchain",         "clearburnlist",          &clearburnlist,          true,  {} },
 
     { "blockchain",         "getcontract",             &getcontract,         true,  {} },
     { "blockchain",         "getcontracthash",         &getcontracthash,     true,  {"blockheight"} },

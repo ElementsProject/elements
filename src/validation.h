@@ -131,6 +131,8 @@ static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 3 * 60 * 60;
 
 static const bool DEFAULT_WHITELIST_CHECK = false;
 static const bool DEFAULT_BLOCK_ISSUANCE = false;
+static const bool DEFAULT_BURNLIST_CHECK = false;
+static const bool DEFAULT_FREEZELIST_CHECK = false;
 
 /** Default for -permitbaremultisig */
 static const bool DEFAULT_PERMIT_BAREMULTISIG = true;
@@ -157,6 +159,10 @@ struct BlockHasher
 //whitelist address list
 typedef std::vector<CKeyID> AWhitelist;
 extern AWhitelist addressWhitelist;
+//freezelist address list
+extern AWhitelist addressFreezelist;
+//burnlist address list
+extern AWhitelist addressBurnlist;
 
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
@@ -175,6 +181,8 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
 extern bool fRequireWhitelistCheck;
+extern bool fRequireFreezelistCheck;
+extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
