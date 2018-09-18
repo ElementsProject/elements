@@ -50,6 +50,13 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     txNew.vout.clear();
     txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN));
 
+    // If issuance controller script exists add to genesis coinbase transaction in an op_return script
+    std::string issuecontrolscript = GetArg("-issuecontrolscript", "");
+    if (issuecontrolscript != "")
+    {
+        txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN << ParseHex(issuecontrolscript)));
+    }
+
     CBlock genesis;
     genesis.nTime    = nTime;
     genesis.proof = CProof(scriptChallenge, CScript());
@@ -59,6 +66,10 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     if (GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT)) {
         genesis.hashContract = GetGenesisContractHash();
+    }
+    if (GetBoolArg("-embedmapping", DEFAULT_EMBED_MAPPING)) {
+        // no mapping exists at/prior to the genesis
+        genesis.hashMapping = uint256S("");
     }
     genesis.hashAttestation = uint256S(GetArg("-attestationhash", ""));
     return genesis;
@@ -137,6 +148,7 @@ protected:
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
+        initialFreeCoinsDestination = StrHexToScriptWithDefault(GetArg("-initialfreecoinsdestination", ""), CScript() << OP_TRUE);
         attestationHash = uint256S(GetArg("-attestationhash", ""));
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
@@ -145,6 +157,7 @@ protected:
         fDefaultConsistencyChecks = GetBoolArg("-fdefaultconsistencychecks", true);
         fRequireStandard = GetBoolArg("-frequirestandard", false);
         fEmbedContract = GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT);
+        fEmbedMapping = GetBoolArg("-embedmapping", DEFAULT_EMBED_MAPPING);
         fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
         anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
     }
@@ -186,7 +199,7 @@ public:
 
         genesis = CreateGenesisBlock(consensus, strNetworkID, 1514764800, genesisChallengeScript, 1);
         if (initialFreeCoins != 0) {
-            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, CScript() << OP_TRUE);
+            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);
         }
         consensus.hashGenesisBlock = genesis.GetHash();
 

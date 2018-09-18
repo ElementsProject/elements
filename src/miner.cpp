@@ -122,7 +122,7 @@ void BlockAssembler::resetBlock()
 
     // These counters do not include coinbase tx
     nBlockTx = 0;
-    nFees = 0;
+    nFees = CAmountMap();
 
     lastFewTxs = 0;
     blockFinished = false;
@@ -208,17 +208,34 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     CMutableTransaction coinbaseTx;
     coinbaseTx.vin.resize(1);
     coinbaseTx.vin[0].prevout.SetNull();
-    coinbaseTx.vout.resize(1);
-    coinbaseTx.vout[0].scriptPubKey = nFees ? scriptPubKeyIn : CScript() << OP_RETURN;
-    coinbaseTx.vout[0].nValue = nFees;
-    coinbaseTx.vout[0].nAsset = policyAsset;
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+    coinbaseTx.vout.resize(1);
+    CAmount nFeeSum = 0;
+    if (!nFees.empty())
+    {
+        coinbaseTx.vout.resize(nFees.size());
+        int nCount = 0;
+        for (auto const& fee : nFees)
+        {
+            coinbaseTx.vout[nCount].scriptPubKey = fee.second ? scriptPubKeyIn : CScript() << OP_RETURN;
+            coinbaseTx.vout[nCount].nValue = fee.second;
+            coinbaseTx.vout[nCount].nAsset = fee.second ? fee.first : policyAsset;
+            nFeeSum += fee.second;
+            nCount++;
+        }
+    }
+    else
+    {
+        coinbaseTx.vout[0].scriptPubKey = CScript() << OP_RETURN;
+        coinbaseTx.vout[0].nValue = 0;
+        coinbaseTx.vout[0].nAsset = policyAsset;
+    }
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
-    pblocktemplate->vTxFees[0] = -nFees;
+    pblocktemplate->vTxFees[0] = -nFeeSum;
 
     uint64_t nSerializeSize = GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION);
-    LogPrintf("CreateNewBlock(): total size: %u block weight: %u txs: %u fees: %ld sigops %d\n", nSerializeSize, GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+    LogPrintf("CreateNewBlock(): total size: %u block weight: %u txs: %u fees: %ld sigops %d\n", nSerializeSize, GetBlockWeight(*pblock), nBlockTx, nFeeSum, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -358,7 +375,7 @@ void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
     nBlockWeight += iter->GetTxWeight();
     ++nBlockTx;
     nBlockSigOpsCost += iter->GetSigOpCost();
-    nFees += iter->GetFee();
+    nFees[iter->GetFeeAsset()] += iter->GetFee();
     inBlock.insert(iter);
 
     bool fPrintPriority = GetBoolArg("-printpriority", DEFAULT_PRINTPRIORITY);
@@ -668,5 +685,8 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
     if (Params().EmbedContract()) {
         pblock->hashContract = GetContractHash();
+    }
+    if (Params().EmbedMapping()) {
+        pblock->hashMapping = GetMappingHash();
     }
 }

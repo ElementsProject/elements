@@ -374,6 +374,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-dnsseed", _("Query for peer addresses via DNS lookup, if low on addresses (default: 1 unless -connect/-noconnect)"));
     strUsage += HelpMessageOpt("-externalip=<ip>", _("Specify your own public address"));
     strUsage += HelpMessageOpt("-forcednsseed", strprintf(_("Always query for peer addresses via DNS lookup (default: %u)"), DEFAULT_FORCEDNSSEED));
+   strUsage += HelpMessageOpt("-issuanceblock", strprintf(_("Enable node mempool issuance transaction blocking (default: %u)"), DEFAULT_BLOCK_ISSUANCE));
     strUsage += HelpMessageOpt("-listen", _("Accept connections from outside (default: 1 if no -proxy or -connect/-noconnect)"));
     strUsage += HelpMessageOpt("-listenonion", strprintf(_("Automatically create Tor hidden service (default: %d)"), DEFAULT_LISTEN_ONION));
     strUsage += HelpMessageOpt("-maxconnections=<n>", strprintf(_("Maintain at most <n> connections to peers (default: %u)"), DEFAULT_MAX_PEER_CONNECTIONS));
@@ -386,7 +387,6 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-pkhwhitelist", strprintf(_("Enable node mempool address whitelisting (default: %u)"), DEFAULT_WHITELIST_CHECK));
     strUsage += HelpMessageOpt("-freezelist", strprintf(_("Enable node mempool address freezelisting (default: %u)"), DEFAULT_FREEZELIST_CHECK));
     strUsage += HelpMessageOpt("-burnlist", strprintf(_("Enable node mempool address burnlisting (default: %u)"), DEFAULT_BURNLIST_CHECK));
-    strUsage += HelpMessageOpt("-issuanceblock", strprintf(_("Enable node mempool issuance transaction blocking (default: %u)"), DEFAULT_BLOCK_ISSUANCE));
     strUsage += HelpMessageOpt("-peerbloomfilters", strprintf(_("Support filtering of blocks and transaction with bloom filters (default: %u)"), DEFAULT_PEERBLOOMFILTERS));
     strUsage += HelpMessageOpt("-port=<port>", strprintf(_("Listen for connections on <port> (default: %u)"), defaultChainParams->GetDefaultPort()));
     strUsage += HelpMessageOpt("-proxy=<ip:port>", _("Connect through SOCKS5 proxy"));
@@ -487,6 +487,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-datacarriersize", strprintf(_("Maximum size of data in data carrier transactions we relay and mine (default: %u)"), MAX_OP_RETURN_RELAY));
 
     strUsage += HelpMessageGroup(_("Block creation options:"));
+    strUsage += HelpMessageOpt("-attestationhash", _("Embed the attestation hash in the block header"));
     strUsage += HelpMessageOpt("-blockmaxweight=<n>", strprintf(_("Set maximum BIP141 block weight (default: %d)"), DEFAULT_BLOCK_MAX_WEIGHT));
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
     strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
@@ -494,7 +495,8 @@ std::string HelpMessage(HelpMessageMode mode)
     if (showDebug)
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
     strUsage += HelpMessageOpt("-embedcontract", _("Embed contract in the block header and address derivation"));
-    strUsage += HelpMessageOpt("-attestationhash", _("Embed the hash of the first attestation in the block header"));
+    strUsage += HelpMessageOpt("-embedmapping", _("Embed asset mapping object in the block header"));
+    strUsage += HelpMessageOpt("-issuecontrolscript", _("Embed the issuance controller script in the genesis block"));
 
     strUsage += HelpMessageGroup(_("RPC server options:"));
     strUsage += HelpMessageOpt("-server", _("Accept command line and JSON-RPC commands"));
@@ -520,6 +522,7 @@ std::string HelpMessage(HelpMessageMode mode)
             " " + _(" This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
         strUsage += HelpMessageOpt("-initialfreecoins", strprintf(_("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-initialfreecoinsdestination", strprintf(_("The destination of the OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));

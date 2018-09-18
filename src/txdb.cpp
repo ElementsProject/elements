@@ -215,6 +215,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256
                 pindexNew->hashMerkleRoot   = diskindex.hashMerkleRoot;
                 pindexNew->hashContract     = diskindex.hashContract;
                 pindexNew->hashAttestation  = diskindex.hashAttestation;
+                pindexNew->hashMapping      = diskindex.hashMapping;
                 pindexNew->nTime            = diskindex.nTime;
                 pindexNew->proof            = diskindex.proof;
                 pindexNew->nStatus          = diskindex.nStatus;

@@ -434,14 +434,14 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, fIgnoreBlindFail)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
     if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state)) {
-        strError = strprintf("Error: The transaction was rejected! Reason given: %s", state.GetRejectReason());
+        strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 }
@@ -963,7 +963,7 @@ UniValue getbalance(const JSONRPCRequest& request)
             }
             BOOST_FOREACH(const COutputEntry& s, listSent)
                 mapBalance[s.asset] -= s.amount;
-            mapBalance[policyAsset] -= allFee;
+            mapBalance[wtx.tx->GetFee().begin()->first] -= allFee;
             // Tally issuances since there are no corresponding "receives"
             for (unsigned int i = 0; i < wtx.tx->vin.size(); i++) {
                 const CTxIn& txin = wtx.tx->vin[i];
@@ -1102,6 +1102,7 @@ UniValue sendmany(const JSONRPCRequest& request)
             "6. \"output_assets\"     (string, optional, default=bitcoin) a json object of assets to addresses\n"
             "   {\n"
             "       \"address\": \"hex\" \n"
+            "       \"fee\": \"hex\" \n"
             "       ...\n"
             "   }\n"
             "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
@@ -1201,6 +1202,12 @@ UniValue sendmany(const JSONRPCRequest& request)
 
     }
 
+    // Check if the fee asset is set and pass that to transaction creation
+    CAsset feeAsset;
+    if (!assets.isNull() && assets["fee"].isStr()) {
+        feeAsset = GetAssetFromString(assets["fee"].get_str());
+    }
+
     EnsureWalletIsUnlocked();
 
     // Check funds
@@ -1222,7 +1229,7 @@ UniValue sendmany(const JSONRPCRequest& request)
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
-    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, fIgnoreBlindFail);
+    bool fCreated = pwalletMain->CreateTransaction(vecSend, wtx, vChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, feeAsset, fIgnoreBlindFail);
     if (!fCreated)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
@@ -2123,9 +2130,9 @@ UniValue gettransaction(const JSONRPCRequest& request)
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
     assert(wtx.tx->HasValidFee());
-    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee()[policyAsset] : 0);
+    CAmount nFee = (wtx.IsFromMe(filter) ? -wtx.tx->GetFee().begin()->second : 0);
     CAmountMap nNet = nCredit - nDebit;
-    nNet[policyAsset] -= nFee;
+    nNet[wtx.tx->GetFee().begin()->first] -= nFee;
 
     entry.push_back(Pair("amount", PushAssetBalance(nNet, pwalletMain, strasset)));
     if (wtx.IsFromMe(filter))

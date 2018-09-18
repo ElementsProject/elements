@@ -18,11 +18,11 @@
 #include "utiltime.h"
 #include "version.h"
 
-CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
+CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee, const CAsset& _feeAsset,
                                  int64_t _nTime, double _entryPriority, unsigned int _entryHeight,
                                  CAmount _inChainInputValue,
                                  bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint> >& _setPeginsSpent):
-    tx(_tx), nFee(_nFee), nTime(_nTime), entryPriority(_entryPriority), entryHeight(_entryHeight),
+    tx(_tx), nFee(_nFee), feeAsset(_feeAsset), nTime(_nTime), entryPriority(_entryPriority), entryHeight(_entryHeight),
     inChainInputValue(_inChainInputValue),
     spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp), setPeginsSpent(_setPeginsSpent)
 {
@@ -305,7 +305,7 @@ void CTxMemPool::UpdateForRemoveFromMempool(const setEntries &entriesToRemove, b
         // should be a bit faster.
         // However, if we happen to be in the middle of processing a reorg, then
         // the mempool can be in an inconsistent state.  In this case, the set
-        // of ancestors reachable via mapLinks will be the same as the set of 
+        // of ancestors reachable via mapLinks will be the same as the set of
         // ancestors whose packages include this transaction, because when we
         // add a new transaction to the mempool in addUnchecked(), we assume it
         // has no children, and in the case of a reorg where that assumption is

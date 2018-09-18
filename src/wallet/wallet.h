@@ -624,7 +624,7 @@ private:
      * all coins from coinControl are selected; Never select unconfirmed coins
      * if they are not ours
      */
-    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& nValueRet, const CCoinControl* coinControl) const;
+    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& nValueRet, const CCoinControl* coinControl, const CAsset& feeAsset) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -779,7 +779,7 @@ public:
      * completion the coin set and corresponding actual target value is
      * assembled
      */
-    bool SelectCoinsMinConf(const CAmountMap& nTargetValue, int nConfMine, int nConfTheirs, uint64_t nMaxAncestors, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& nValueRet) const;
+    bool SelectCoinsMinConf(const CAmountMap& nTargetValue, int nConfMine, int nConfTheirs, uint64_t nMaxAncestors, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& nValueRet, const CAsset& feeAsset) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
 
@@ -874,7 +874,7 @@ public:
      * @note passing nChangePosInOut as -1 will result in setting a random position
      */
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey>& vChangeKey, CAmount& nFeeRet, int& nChangePosInOut,
-                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, std::vector<CAmount> *outAmounts = NULL, bool fBlindIssuances = true, const uint256* issuanceEntropy = NULL, const CAsset* reissuanceAsset = NULL, const CAsset* reissuanceToken = NULL, bool fIgnoreBlindFail = true);
+                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, std::vector<CAmount> *outAmounts = NULL, bool fBlindIssuances = true, const uint256* issuanceEntropy = NULL, const CAsset* reissuanceAsset = NULL, const CAsset* reissuanceToken = NULL, CAsset feeAsset = CAsset(), bool fIgnoreBlindFail = true);
     bool CommitTransaction(CWalletTx& wtxNew, std::vector<CReserveKey>& reservekey, CConnman* connman, CValidationState& state);
 
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& entries);
