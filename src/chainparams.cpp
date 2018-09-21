@@ -6,7 +6,7 @@
 #include "chainparams.h"
 #include "consensus/merkle.h"
 #include "issuance.h"
-
+#include "primitives/bitcoin/block.h"
 #include "tinyformat.h"
 #include "util.h"
 #include "utilstrencodings.h"
@@ -131,6 +131,9 @@ protected:
         consensus.pegin_min_depth = GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH);
         consensus.mandatory_coinbase_destination = StrHexToScriptWithDefault(GetArg("-con_mandatorycoinbase", ""), CScript()); // Blank script allows any coinbase destination
         consensus.parent_chain_signblockscript = StrHexToScriptWithDefault(GetArg("-con_parent_chain_signblockscript", ""), CScript());
+        consensus.parent_is_signet = GetBoolArg("-con_parent_is_signet", false);
+        g_solution_blocks = consensus.parent_is_signet;
+        g_solution_block_len = GetArg("-con_parent_signet_siglen", 77);
         consensus.parent_pegged_asset.SetHex(GetArg("-con_parent_pegged_asset", "0x00"));
 
         // bitcoin regtest is the parent chain by default

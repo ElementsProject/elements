@@ -3716,7 +3716,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 UniValue createrawpegin(const JSONRPCRequest& request)
 {
     UniValue ret(UniValue::VOBJ);
-    if (Params().GetConsensus().ParentChainHasPow()) {
+    if (Params().GetConsensus().ParentChainIsBitcoinLike()) {
         Sidechain::Bitcoin::CTransactionRef txBTCRef;
         Sidechain::Bitcoin::CTransaction tx_aux;
         Sidechain::Bitcoin::CMerkleBlock merkleBlock;

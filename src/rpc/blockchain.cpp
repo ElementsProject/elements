@@ -1112,6 +1112,8 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
             "  \"min_peg_diff\" : \"xxxx\",        (string) The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure.\n"
             "  \"parent_blockhash\" : \"xxxx\",    (string) The parent genesis blockhash as source of pegged-in funds.\n"
             "  \"parent_chain_has_pow\": \"xxxx\", (boolean) Whether parent chain has pow or signed blocks.\n"
+            "  \"parent_chain_is_signet\": \"xxxx\", (boolean) If parent chain uses signed blocks, whether it is an elements based chain or one based on signet.\n"
+            "  \"parent_chain_signet_siglen\": \"xxxx\", (numeric) If parent chain uses signed blocks based on signet, The length of the signature must be exactly this long (padded to this length, if shorter). All block headers in this network are of length 80 + this value.\n"
             "  \"parent_chain_signblockscript_asm\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in ASM.\n"
             "  \"parent_chain_signblockscript_hex\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in hex.\n"
             "  \"parent_pegged_asset\": \"xxxx\",  (boolean) If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain.\n"
@@ -1133,6 +1135,10 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     obj.push_back(Pair("parent_blockhash", parent_blockhash.GetHex()));
     obj.push_back(Pair("parent_chain_has_pow", consensus.ParentChainHasPow()));
     if (!consensus.ParentChainHasPow()) {
+        obj.push_back(Pair("parent_chain_is_signet", consensus.parent_is_signet));
+        if (consensus.parent_is_signet) {
+            obj.push_back(Pair("parent_chain_signet_siglen", (uint64_t)g_solution_block_len));
+        }
         obj.push_back(Pair("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript)));
         obj.push_back(Pair("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript)));
         obj.push_back(Pair("parent_pegged_asset", HexStr(consensus.parent_pegged_asset)));
