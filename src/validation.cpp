@@ -2552,7 +2552,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block_pow, stack[5])) {
             return false;
         }
-        if (!CheckBitcoinProof(block_hash, merkle_block_pow.header.nBits)) {
+        if (!CheckBitcoinProof(block_hash, merkle_block_pow.header.nBits, Params().GetConsensus())) {
             return false;
         }
 

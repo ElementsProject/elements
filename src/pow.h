@@ -20,7 +20,7 @@ class CWallet;
 class uint256;
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
-bool CheckBitcoinProof(uint256 hash, unsigned int nBits);
+bool CheckBitcoinProof(const uint256& hash, unsigned int nBits, const Consensus::Params& params);
 bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params);
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
 /** Scans nonces looking for a hash with at least some zero bits */

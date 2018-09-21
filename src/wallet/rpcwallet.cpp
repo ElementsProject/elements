@@ -3721,7 +3721,7 @@ UniValue createrawpegin(const JSONRPCRequest& request)
         Sidechain::Bitcoin::CTransaction tx_aux;
         Sidechain::Bitcoin::CMerkleBlock merkleBlock;
         ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
-        if (!CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.nBits)) {
+        if (!CheckBitcoinProof(merkleBlock.header.GetHash(), merkleBlock.header.nBits, Params().GetConsensus())) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
         }
     } else {

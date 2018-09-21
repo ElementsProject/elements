@@ -49,6 +49,11 @@ bool GenericVerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, 
     return VerifyScript(scriptSig, scriptPubKey, NULL, flags, SimpleSignatureChecker(SerializeHash(data)));
 }
 
+bool HashVerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const uint256& hash)
+{
+    return VerifyScript(scriptSig, scriptPubKey, NULL, flags, SimpleSignatureChecker(hash));
+}
+
 template<typename T>
 bool GenericSignScript(const CKeyStore& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig)
 {
