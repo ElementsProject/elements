@@ -75,15 +75,19 @@ os.makedirs(sidechain_datadir)
 os.makedirs(sidechain2_datadir)
 os.makedirs(bitcoin2_datadir)
 
+# TODO Remove "regtest." stuff once Elements is rebased to 0.17, along with depecrecation flag
+# We will only support major Core versions 0.17+
 def write_bitcoin_conf(datadir, rpcport, rpcpass=None, p2p_port=None, connect_port=None):
     with open(os.path.join(datadir, "bitcoin.conf"), 'w') as f:
         f.write("regtest=1\n")
         if p2p_port:
             f.write("port="+str(p2p_port)+"\n")
+            f.write("regtest.port="+str(p2p_port)+"\n")
         if rpcpass:
             f.write("rpcuser=bitcoinrpc\n")
             f.write("rpcpassword="+rpcpass+"\n")
         f.write("rpcport="+str(rpcport)+"\n")
+        f.write("regtest.rpcport="+str(rpcport)+"\n")
         f.write("discover=0\n")
         f.write("testnet=0\n")
         f.write("txindex=1\n")
@@ -92,9 +96,11 @@ def write_bitcoin_conf(datadir, rpcport, rpcpass=None, p2p_port=None, connect_po
         f.write("addresstype=legacy\n")
         if connect_port:
             f.write("connect=localhost:"+str(connect_port)+"\n")
+            f.write("regtest.connect=localhost:"+str(connect_port)+"\n")
             f.write("listen=1\n")
         else:
             f.write("listen=0\n")
+        f.write("deprecatedrpc=validateaddress\n")
 
 write_bitcoin_conf(bitcoin_datadir, bitcoin_port, bitcoin_pass, p2p_port=bitcoin_p2p_port, connect_port=bitcoin2_p2p_port)
 write_bitcoin_conf(bitcoin2_datadir, bitcoin2_port, rpcpass=None, p2p_port=bitcoin2_p2p_port, connect_port=bitcoin_p2p_port)
@@ -104,6 +110,7 @@ with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("rpcuser=sidechainrpc\n")
         f.write("rpcpassword="+sidechain_pass+"\n")
         f.write("rpcport="+str(sidechain_port)+"\n")
+        f.write("regtest.rpcport="+str(sidechain_port)+"\n")
         f.write("discover=0\n")
         f.write("testnet=0\n")
         f.write("txindex=1\n")
@@ -115,7 +122,9 @@ with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("mainchainrpcpassword="+bitcoin_pass+"\n")
         f.write("validatepegin=1\n")
         f.write("port="+str(sidechain1_p2p_port)+"\n")
+        f.write("regtest.port="+str(sidechain1_p2p_port)+"\n")
         f.write("connect=localhost:"+str(sidechain2_p2p_port)+"\n")
+        f.write("regtest.connect=localhost:"+str(sidechain2_p2p_port)+"\n")
         f.write("listen=1\n")
         f.write("fallbackfee=0.0001\n")
         f.write("initialfreecoins=2100000000000000\n")
@@ -125,6 +134,7 @@ with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
         f.write("rpcuser=sidechainrpc2\n")
         f.write("rpcpassword="+sidechain2_pass+"\n")
         f.write("rpcport="+str(sidechain2_port)+"\n")
+        f.write("regtest.rpcport="+str(sidechain2_port)+"\n")
         f.write("discover=0\n")
         f.write("testnet=0\n")
         f.write("txindex=1\n")
@@ -135,7 +145,9 @@ with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
         f.write("mainchainrpccookiefile=%s\n" % bitcoin2_rpccookiefile)
         f.write("validatepegin=1\n")
         f.write("port="+str(sidechain2_p2p_port)+"\n")
+        f.write("regtest.port="+str(sidechain2_p2p_port)+"\n")
         f.write("connect=localhost:"+str(sidechain1_p2p_port)+"\n")
+        f.write("regtest.connect=localhost:"+str(sidechain1_p2p_port)+"\n")
         f.write("listen=1\n")
         f.write("fallbackfee=0.0001\n")
         f.write("initialfreecoins=2100000000000000\n")
