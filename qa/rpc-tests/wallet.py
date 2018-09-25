@@ -137,6 +137,74 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
+        #test creatation of raw multisig issuance transactions                          
+        #get a new address and public and private key for each node                     
+        address_node1 = self.nodes[0].getnewaddress()
+        val_addr_node1 = self.nodes[0].validateaddress(address_node1)
+        privkey_node1 = self.nodes[0].dumpprivkey(address_node1)
+
+        address_node2 =self.nodes[1].getnewaddress()
+        val_addr_node2 = self.nodes[1].validateaddress(address_node2)
+        privkey_node2 =self.nodes[1].dumpprivkey(address_node2)
+
+        address_node3 =self.nodes[2].getnewaddress()
+        val_addr_node3 = self.nodes[2].validateaddress(address_node3)
+        privkey_node3 =self.nodes[2].dumpprivkey(address_node3)
+
+        #create 2 of 3 multisig P2SH script and address                                 
+        multisig = self.nodes[0].createmultisig(2,[val_addr_node1["pubkey"],val_addr_node2["pubkey"],val_addr_node3["pubkey"]])
+        #send some policyasset to the P2SH address
+        pa_txid = self.nodes[2].sendtoaddress(multisig["address"],1)
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        #get the vout and scriptPubKey of the multisig output                                            
+        vout = 0
+        pa_tx = self.nodes[1].getrawtransaction(pa_txid,1)
+
+        for val in pa_tx["vout"]:
+            for i,j in val.items():
+                if i == "n": vout_t = j 
+                if i == "scriptPubKey":
+                    for i2,j2 in j.items():
+                        if i2 == "hex": script_t = j2 
+                        if(i2 == "type" and j2 == "scripthash"):
+                            script_pk = script_t
+                            vout = vout_t
+
+        #get address to send tokens and re-issuance tokens  
+        asset_addr = self.nodes[1].getnewaddress()
+        token_addr = self.nodes[1].getnewaddress()
+
+        #create an unsigned raw issuance transaction 
+        issuance_tx = self.nodes[1].createrawissuance(asset_addr,10,token_addr,1,multisig["address"],0.9999,1,0.0001,pa_txid,str(vout))
+
+        #node1 partially sign transaction
+        partial_signed = self.nodes[0].signrawtransaction(issuance_tx["rawtx"],[{"txid":pa_txid,"vout":vout,"scriptPubKey":script_pk,"redeemScript":multisig["redeemScript"]}],[privkey_node1])
+        assert(not partial_signed["complete"])
+
+        #node1 partially sign transaction 
+        signed_tx = self.nodes[1].signrawtransaction(partial_signed["hex"],[{"txid":pa_txid,"vout":vout,"scriptPubKey":script_pk,"redeemScript":multisig["redeemScript"]}],[privkey_node2])
+
+        assert(signed_tx["complete"])
+        self.nodes[1].generate(2)
+        self.sync_all()
+
+        #submit signed transaction to network
+        submit = self.nodes[1].sendrawtransaction(signed_tx["hex"])
+
+        #confirm transaction accepted by mempool 
+        mempool_tx = self.nodes[1].getrawmempool()
+        assert_equal(mempool_tx[0],submit)
+        self.nodes[1].generate(10)
+        self.sync_all()
+
+        #confirm asset can be spent by node2 wallet
+        asset_addr2 = self.nodes[0].getnewaddress()
+        asset_tx = self.nodes[1].sendtoaddress(asset_addr2,5,' ',' ',False,issuance_tx["asset"],True)
+        mempool1 = self.nodes[1].getrawmempool()
+        assert_equal(mempool1[0],asset_tx)
+
         return #TODO fix the rest
         txoutv0 = self.nodes[0].gettxout(txid, 0)
         assert_equal(txoutv0['confirmations'], 1)
