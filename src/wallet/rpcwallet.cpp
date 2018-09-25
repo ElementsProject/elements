@@ -3766,7 +3766,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
 
 UniValue createrawissuance(const JSONRPCRequest& request)
 {
-  if (request.fHelp || request.params.size() !=9)
+  if (request.fHelp || request.params.size() !=10)
     throw runtime_error(
             "createrawissuance assetaddress assetamount tokenaddress tokenamount changeaddress feeamount inputtxid vout\n"
             "\nCreate a raw unsigned asset issuance transaction to specified addresses with a policyAsset outpoint as input.\n"
@@ -3777,9 +3777,10 @@ UniValue createrawissuance(const JSONRPCRequest& request)
             "4. \"tokenamount\"           (numeric or string, required) Amount of reissuance tokens to generate. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance.\n"
 	    "5. \"changeaddress\"         (string, required) Address to return the policyAsset input.\n"
 	    "6. \"changeamount\"          (numeric or string, required) Return policyAsset amount.\n"
-	    "7. \"feeamount\"             (numeric or string, required) Feen output amount.\n"
-            "8. \"inputtxid\"             (string, required) policyAsset input TXID.\n"
-	    "9. \"vout\"                  (numeric or string, required) policyAsset TXID output index\n"
+	    "7. \"changenum\"             (numeric or string, required) Number of change outputs to be generated\n"
+	    "8. \"feeamount\"             (numeric or string, required) Fee output amount.\n"
+            "9. \"inputtxid\"             (string, required) policyAsset input TXID.\n"
+	    "10. \"vout\"                  (numeric or string, required) policyAsset TXID output index\n"
             "\nResult:\n"
             "{                        (json object)\n"
             "  \"rawtx\":\"<rawtx>\",   (string) Hex encoded raw unsigned issuance transaction.\n"
@@ -3788,8 +3789,8 @@ UniValue createrawissuance(const JSONRPCRequest& request)
             "  \"token\":\"<token>\", (string) Token type for issuance.\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("createrawissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 100.0 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"2djpn7hq9Jh3jx3sjhPXuhUpJQWHrtXrKLr\" 99.9995 0.0005 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 ")
-            + HelpExampleRpc("createrawissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 100.0 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"2djpn7hq9Jh3jx3sjhPXuhUpJQWHrtXrKLr\" 99.9995 0.0005 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 ")
+            + HelpExampleCli("createrawissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 100.0 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"2djpn7hq9Jh3jx3sjhPXuhUpJQWHrtXrKLr\" 99.9995 1 0.0005 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 ")
+            + HelpExampleRpc("createrawissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 100.0 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"2djpn7hq9Jh3jx3sjhPXuhUpJQWHrtXrKLr\" 99.9995 1 0.0005 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 ")
 			);
   //Get the output addresses
   CBitcoinAddress assetAddr(request.params[0].get_str());
@@ -3809,22 +3810,23 @@ UniValue createrawissuance(const JSONRPCRequest& request)
   CAmount nAmount = AmountFromValue(request.params[1]);
   CAmount nTokens = AmountFromValue(request.params[3]);
   CAmount nChange = AmountFromValue(request.params[5]);
-  CAmount nFee = AmountFromValue(request.params[6]);
+  CAmount nFee = AmountFromValue(request.params[7]);
 
   if (nAmount == 0 && nTokens == 0) {
     throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
   }
 
+  //get number of change outputs required
+  int nChangeOutputs = request.params[6].get_int();
+
   bool fBlindIssuances = false;
 
   //get the input outpoint from RPC
   uint256 prevtxhash;
-  prevtxhash.SetHex(request.params[7].get_str());
-  uint32_t nout = atoi(request.params[8].get_str());
+  prevtxhash.SetHex(request.params[8].get_str());
+  uint32_t nout = atoi(request.params[9].get_str());
   COutPoint policyOutpoint(prevtxhash,nout);
 
-  uint256 dummyentropy;
-  CAsset dummyasset;
   CMutableTransaction rawTx;
 
   // Calculate entropy, asset and token IDs from the input outpoint
@@ -3838,14 +3840,15 @@ UniValue createrawissuance(const JSONRPCRequest& request)
   //generate the outputs
   CAsset pAsset(policyAsset);
   CTxOut txoutAsset(asset,nAmount,GetScriptForDestination(assetAddr.Get()));
-  CTxOut txoutToken(token,nTokens,GetScriptForDestination(tokenAddr.Get()));
-  CTxOut txoutChange(pAsset,nChange,GetScriptForDestination(changeAddr.Get()));
-  CTxOut out(pAsset, nFee, CScript());
-
-  //push outputs to empty raw transaction
   rawTx.vout.push_back(txoutAsset);
+  CTxOut txoutToken(token,nTokens,GetScriptForDestination(tokenAddr.Get()));
   rawTx.vout.push_back(txoutToken);
-  rawTx.vout.push_back(txoutChange);
+  CTxOut txoutChange(pAsset,nChange,GetScriptForDestination(changeAddr.Get()));
+  vector<CTxOut> changeOuts;
+  for(int it=0;it<nChangeOutputs;it++) {
+    rawTx.vout.push_back(txoutChange);
+  }
+  CTxOut out(pAsset, nFee, CScript());
   rawTx.vout.push_back(out);
 
   //standard sequence number
