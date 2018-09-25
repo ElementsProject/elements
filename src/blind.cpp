@@ -248,7 +248,7 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
                 return -1;
             }
             // New Issuance
-            if (issuance.assetBlindingNonce.IsNull()) {
+            if (!issuance.IsReissuance()) {
                 bool assetToBlind = (vBlindIssuanceAsset.size() > i && vBlindIssuanceAsset[i].IsValid()) ? true : false;
                 GenerateAssetEntropy(entropy, tx.vin[0].prevout, issuance.assetEntropy);
                 CalculateAsset(asset, entropy);
@@ -373,7 +373,7 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
                 blindedAmounts.push_back(amount);
 
                 // Derive the asset of the issuance asset/token
-                if (issuance.assetBlindingNonce.IsNull()) {
+                if (!issuance.IsReissuance()) {
 					uint256 entropy;
                     GenerateAssetEntropy(entropy, tx.vin[nIn].prevout, issuance.assetEntropy);
                     if (nPseudo == 0) {

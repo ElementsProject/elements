@@ -788,7 +788,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         // These are calculated differently depending on if initial issuance or followup
 
         // New issuance, compute the asset ids
-        if (issuance.assetBlindingNonce.IsNull()) {
+        if (!issuance.IsReissuance()) {
             uint256 entropy;
             GenerateAssetEntropy(entropy, tx.vin[i].prevout, issuance.assetEntropy);
             CalculateAsset(assetID, entropy);
@@ -804,12 +804,15 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             // Must check that prevout is the blinded issuance token
             // prevout's asset tag = assetTokenID + assetBlindingNonce
 
-            if (secp256k1_generator_generate_blinded(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin(), issuance.assetBlindingNonce.begin()) != 1)
-                return false;
-            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gencmp, &asset.vchCommitment[0]) != 1)
-                return false;
-            if (memcmp(&gen, &gencmp, 33))
-                return false;
+            if (!issuance.IsUnblindedReissuance()) // skip check if issuance was unblinded
+            {
+                if (secp256k1_generator_generate_blinded(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin(), issuance.assetBlindingNonce.begin()) != 1)
+                    return false;
+                if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gencmp, &asset.vchCommitment[0]) != 1)
+                    return false;
+                if (memcmp(&gen, &gencmp, 33))
+                    return false;
+            }
         }
 
         // Process issuance of asset
@@ -856,7 +859,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
         }
 
         // Only initial issuance can have reissuance tokens
-        if (issuance.assetBlindingNonce.IsNull() && !issuance.nInflationKeys.IsNull()) {
+        if (!issuance.IsReissuance() && !issuance.nInflationKeys.IsNull()) {
 
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin());
             assert(ret == 1);
@@ -1204,12 +1207,12 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 	    if(fEnableBurnlistCheck){
 	      if(!IsBurnlisted(tx,view))
 		return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-no-burnlist-address");
-	    } else {        
+	    } else {
 	      return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-address");
 	    }
 	  }
 	}
-	
+
         // Check for non-standard witness in P2WSH
         if (tx.HasWitness() && fRequireStandard && !IsWitnessStandard(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);

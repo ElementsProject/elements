@@ -2069,7 +2069,7 @@ uint256 CWalletTx::GetIssuanceBlindingFactor(unsigned int vinIndex, bool fIssuan
     }
     const std::vector<unsigned char>& rangeproof = wit.vtxinwit.size() <= vinIndex ? std::vector<unsigned char>() : (fIssuanceToken ? wit.vtxinwit[vinIndex].vchInflationKeysRangeproof : wit.vtxinwit[vinIndex].vchIssuanceAmountRangeproof);
     unsigned int mapValueInd = GetPseudoInputOffset(vinIndex, fIssuanceToken)+tx->vout.size();
-  if (issuance.assetBlindingNonce.IsNull()) {
+  if (!issuance.IsReissuance()) {
         uint256 entropy;
         GenerateAssetEntropy(entropy, tx->vin[vinIndex].prevout, issuance.assetEntropy);
         if (fIssuanceToken) {
@@ -2103,7 +2103,7 @@ CAmount CWalletTx::GetIssuanceAmount(unsigned int vinIndex, bool fIssuanceToken)
     }
     unsigned int mapValueInd = GetPseudoInputOffset(vinIndex, fIssuanceToken)+tx->vout.size();
     const std::vector<unsigned char>& rangeproof = wit.vtxinwit.size() <= vinIndex ? std::vector<unsigned char>() : (fIssuanceToken ? wit.vtxinwit[vinIndex].vchInflationKeysRangeproof : wit.vtxinwit[vinIndex].vchIssuanceAmountRangeproof);
-    if (issuance.assetBlindingNonce.IsNull()) {
+    if (!issuance.IsReissuance()) {
         uint256 entropy;
         GenerateAssetEntropy(entropy, tx->vin[vinIndex].prevout, issuance.assetEntropy);
         CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
@@ -3042,6 +3042,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         coin.first->GetOutputAsset(coin.second) == *reissuanceToken) {
                         reissuanceIndex = txNew.vin.size()-1;
                         tokenBlinding = coin.first->GetOutputAssetBlindingFactor(coin.second);
+
+                        if (tokenBlinding.IsNull()) // issuance was unblinded
+                        {
+                            tokenBlinding = CAssetIssuance::UNBLINDED_REISSUANCE_NONCE;
+                        }
                     }
                 }
 
@@ -4746,7 +4751,7 @@ std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes()
                     continue;
                 }
                 // Only looking at initial issuances
-                if (issuance.assetBlindingNonce.IsNull()) {
+                if (!issuance.IsReissuance()) {
                     GenerateAssetEntropy(entropy, pcoin->tx->vin[vinIndex].prevout, issuance.assetEntropy);
                     CalculateAsset(asset, entropy);
                     // TODO handle the case with null nAmount (not decided yet)
