@@ -72,6 +72,7 @@ class FedPegTest(BitcoinTestFramework):
                     "-rpcpassword="+rpc_p,
                     "-rpcport="+str(rpc_port(n)),
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
+                    "-deprecatedrpc=validateaddress",
                 ])
             else:
                 self.parent_chain = 'parent'
