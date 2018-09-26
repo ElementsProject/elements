@@ -16,24 +16,6 @@ from test_framework.util import (
     stop_node,
 )
 
-# Sync mempool, make a block, sync blocks
-def sync_all(sidechain, sidechain2, makeblock=True):
-    block = ""
-    timeout = 20
-    while len(sidechain.getrawmempool()) != len(sidechain2.getrawmempool()):
-        time.sleep(1)
-        timeout -= 1
-        if timeout == 0:
-            raise Exception("Peg-in has failed to propagate.")
-    if makeblock:
-        block = sidechain2.generate(1)
-    while sidechain.getblockcount() != sidechain2.getblockcount():
-        time.sleep(1)
-        timeout -= 1
-        if timeout == 0:
-            raise Exception("Blocks are not propagating.")
-    return block
-
 def get_new_unconfidential_address(node):
     addr = node.getnewaddress()
     val_addr = node.validateaddress(addr)
@@ -158,7 +140,7 @@ class FedPegTest(BitcoinTestFramework):
         parent.generate(1)
         time.sleep(2)
         proof = parent.gettxoutproof([txid1])
-        
+
         raw = parent.getrawtransaction(txid1)
         print('raw', parent.getrawtransaction(txid1, True))
 
@@ -202,8 +184,9 @@ class FedPegTest(BitcoinTestFramework):
         pegtxid1 = sidechain.claimpegin(raw, proof)
 
         # Will invalidate the block that confirms this transaction later
-        sync_all(parent, parent2)
-        blockhash = sync_all(sidechain, sidechain2)
+        self.sync_all()
+        blockhash = sidechain2.generate(1)
+        self.sync_all()
         sidechain.generate(5)
 
         tx1 = sidechain.gettransaction(pegtxid1)
@@ -252,9 +235,7 @@ class FedPegTest(BitcoinTestFramework):
             raw = parent.getrawtransaction(txid)
             pegtxs += [sidechain.claimpegin(raw, proof)]
 
-        sync_all(parent, parent2)
-        sync_all(sidechain, sidechain2)
-
+        self.sync_all()
         sidechain2.generate(1)
         for pegtxid in pegtxs:
             tx = sidechain.gettransaction(pegtxid)
@@ -324,7 +305,7 @@ class FedPegTest(BitcoinTestFramework):
         # Don't make a block, race condition when pegin-invalid block
         # is awaiting further validation, nodes reject subsequent blocks
         # even ones they create
-        sync_all(sidechain, sidechain2, makeblock=False)
+        self.sync_all()
         print("Now send funds out in two stages, partial, and full")
         some_btc_addr = get_new_unconfidential_address(parent)
         bal_1 = sidechain.getwalletinfo()["balance"]["bitcoin"]
