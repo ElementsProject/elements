@@ -34,17 +34,45 @@ class FedPegTest(BitcoinTestFramework):
         parser.add_option("--parent_binpath", dest="parent_binpath", default="",
                           help="Use a different binary for launching nodes")
         parser.add_option("--parent_type", dest="parent_type", default="elements",
-                          help="Type of parent nodes {elements, bitcoin}")
+                          help="Type of parent nodes {elements, bitcoin, signet}")
 
     def setup_network(self, split=False):
         self.nodes = []
         self.extra_args = []
 
-        if self.options.parent_type not in ['elements', 'bitcoin']:
-            raise Exception("Invalid option --parent_type=%s, valid options: elements, bitcoin" % self.options.parent_type)
+        if self.options.parent_type not in ['elements', 'bitcoin', 'signet']:
+            raise Exception("Invalid option --parent_type=%s, valid values: {elements, bitcoin, signet}" % self.options.parent_type)
 
         if self.options.parent_type == 'bitcoin' and self.options.parent_binpath == "":
             raise Exception("Can't run with --parent_type=bitcoin without specifying --parent_binpath")
+
+        self.binary = self.options.parent_binpath if self.options.parent_binpath != "" else None
+
+        if self.options.parent_type == 'signet':
+            from binascii import hexlify
+            from test_framework import script, key
+            from test_framework.util import hex_str_to_bytes
+            import shutil
+            temp_args = [
+                "-port=" + str(p2p_port(0)),
+                "-rpcport=" + str(rpc_port(0)),
+                "-addresstype=legacy",
+                "-deprecatedrpc=validateaddress"
+            ]
+            temp_node = start_node(0, self.options.tmpdir, temp_args, binary=self.binary, chain='signet', cookie_auth=True)
+            addr = temp_node.getnewaddress()
+            k = key.CECKey()
+            pub = temp_node.validateaddress(addr)["pubkey"]
+            k.set_pubkey(hex_str_to_bytes(pub))
+            pubkey = key.CPubKey(k.get_pubkey())
+            wif = temp_node.dumpprivkey(addr)
+            stop_node(temp_node, 0)
+            shutil.rmtree(os.path.join(self.options.tmpdir, 'node0', 'signet'))
+            script = script.CScript([pubkey, script.OP_CHECKSIG])
+            blockscript = hexlify(script).decode('ascii')
+
+            print('blockscript', blockscript)
+            print('wif', wif)
 
         # Parent chain args
         for n in range(2):
@@ -62,7 +90,21 @@ class FedPegTest(BitcoinTestFramework):
                     "-port="+str(p2p_port(n)),
                     "-rpcport="+str(rpc_port(n))
                 ])
-            else:
+            elif self.options.parent_type == 'signet':
+                self.parent_chain = 'signet'
+                rpc_u, rpc_p = rpc_auth_pair(n)
+                self.extra_args.append([
+                    "-printtoconsole=0",
+                    "-signet_blockscript=%s" % blockscript,
+                    "-signet_siglen=77",
+                    "-signet_seednode=178.128.221.177",
+                    "-port=" + str(p2p_port(n)),
+                    "-rpcport=" + str(rpc_port(n)),
+                    "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
+                    "-deprecatedrpc=validateaddress",
+                    "-fallbackfee=0.00001",
+                ])
+            elif self.options.parent_type == 'elements':
                 self.parent_chain = 'parent'
                 self.extra_args.append([
                     "-conf=dummy",
@@ -77,8 +119,9 @@ class FedPegTest(BitcoinTestFramework):
             if not use_cookie_auth:
                 self.extra_args[n].extend(["-rpcuser="+rpc_u, "-rpcpassword="+rpc_p])
 
-            self.binary = self.options.parent_binpath if self.options.parent_binpath != "" else None
             self.nodes.append(start_node(n, self.options.tmpdir, self.extra_args[n], binary=self.binary, chain=self.parent_chain, cookie_auth=use_cookie_auth))
+            if self.options.parent_type == 'signet':
+                self.nodes[n].importprivkey(wif)
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
@@ -110,6 +153,14 @@ class FedPegTest(BitcoinTestFramework):
                     '-parentscriptprefix=75',
                     '-con_parent_chain_signblockscript=%s' % parent_chain_signblockscript,
                     '-con_parent_pegged_asset=%s' % parent_pegged_asset,
+                ])
+            elif self.options.parent_type == 'signet':
+                args.extend([
+                    '-con_parent_is_signet=1',
+                    '-con_parent_signet_siglen=77',
+                    '-parentpubkeyprefix=125',
+                    '-parentscriptprefix=87',
+                    '-con_parent_chain_signblockscript=%s' % blockscript,
                 ])
 
             if used_cookie_auth:
