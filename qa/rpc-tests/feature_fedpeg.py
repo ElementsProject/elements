@@ -66,7 +66,7 @@ class FedPegTest(BitcoinTestFramework):
                 self.parent_chain = 'regtest'
                 rpc_u, rpc_p = rpc_auth_pair(n)
                 self.extra_args.append([
-                    "-printtoconsole",
+                    "-printtoconsole=0",
                     "-port="+str(p2p_port(n)),
                     "-rpcuser="+rpc_u,
                     "-rpcpassword="+rpc_p,
@@ -77,7 +77,7 @@ class FedPegTest(BitcoinTestFramework):
             else:
                 self.parent_chain = 'parent'
                 self.extra_args.append([
-                    "-printtoconsole",
+                    "-printtoconsole=0",
                     '-validatepegin=0',
                     '-anyonecanspendaremine',
                     '-initialfreecoins=2100000000000000',
@@ -97,7 +97,7 @@ class FedPegTest(BitcoinTestFramework):
         for n in range(2):
             rpc_u, rpc_p = rpc_auth_pair(n)
             args = [
-                "-printtoconsole",
+                "-printtoconsole=0",
                 '-parentgenesisblockhash=%s' % self.parentgenesisblockhash,
                 '-validatepegin=1',
                 '-fedpegscript=%s' % self.fedpeg_script,
