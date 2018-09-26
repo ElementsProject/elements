@@ -179,6 +179,13 @@ class FedPegTest(BitcoinTestFramework):
             print('RPC ERROR:', e.error['message'])
             assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
 
+        try:
+            pegtxid = sidechain.createrawpegin(raw, proof, 'AEIOU')
+            raise Exception("Peg-in with non-hex claim_script should fail.")
+        except JSONRPCException as e:
+            print('RPC ERROR:', e.error['message'])
+            assert("Given claim_script is not hex." in e.error["message"])
+
         # Should fail due to non-matching wallet address
         try:
             scriptpubkey = sidechain.validateaddress(get_new_unconfidential_address(sidechain))["scriptPubKey"]
