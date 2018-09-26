@@ -33,21 +33,26 @@ class FedPegTest(BitcoinTestFramework):
     def add_options(self, parser):
         parser.add_option("--parent_binpath", dest="parent_binpath", default="",
                           help="Use a different binary for launching nodes")
-        parser.add_option("--parent_bitcoin", dest="parent_bitcoin", default=False, action="store_true",
-                          help="Parent nodes are Bitcoin")
+        parser.add_option("--parent_type", dest="parent_type", default="elements",
+                          help="Type of parent nodes {elements, bitcoin}")
 
     def setup_network(self, split=False):
-        if self.options.parent_bitcoin and self.options.parent_binpath == "":
-            raise Exception("Can't run with --parent_bitcoin without specifying --parent_binpath")
         self.nodes = []
         self.extra_args = []
+
+        if self.options.parent_type not in ['elements', 'bitcoin']:
+            raise Exception("Invalid option --parent_type=%s, valid options: elements, bitcoin" % self.options.parent_type)
+
+        if self.options.parent_type == 'bitcoin' and self.options.parent_binpath == "":
+            raise Exception("Can't run with --parent_type=bitcoin without specifying --parent_binpath")
+
         # Parent chain args
         for n in range(2):
             # We want to test the rpc cookie method so we force the use of a
             # dummy conf file to avoid loading rpcuser/rpcpassword lines
             use_cookie_auth = n==1
             rpc_u, rpc_p = rpc_auth_pair(n)
-            if self.options.parent_bitcoin:
+            if self.options.parent_type == 'bitcoin':
                 self.parent_chain = 'regtest'
                 self.extra_args.append([
                     "-conf=dummy",
@@ -78,7 +83,7 @@ class FedPegTest(BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 0, 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
         print('parentgenesisblockhash', self.parentgenesisblockhash)
-        if not self.options.parent_bitcoin:
+        if self.options.parent_type == 'elements':
             parent_pegged_asset = self.nodes[0].getsidechaininfo()['pegged_asset']
 
         # Sidechain args
@@ -99,7 +104,7 @@ class FedPegTest(BitcoinTestFramework):
                 '-mainchainrpcport=%s' % rpc_port(n),
                 '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
             ]
-            if not self.options.parent_bitcoin:
+            if self.options.parent_type == 'elements':
                 args.extend([
                     '-parentpubkeyprefix=235',
                     '-parentscriptprefix=75',
