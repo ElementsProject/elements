@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from decimal import Decimal
+import os
 import json
 import time
 
@@ -10,8 +11,8 @@ from test_framework.util import (
     connect_nodes_bi,
     rpc_auth_pair,
     rpc_port,
+    p2p_port,
     start_node,
-    start_nodes,
     stop_node,
 )
 
@@ -47,30 +48,59 @@ class FedPegTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 4
 
+    def add_options(self, parser):
+        parser.add_option("--parent_binpath", dest="parent_binpath", default="",
+                          help="Use a different binary for launching nodes")
+        parser.add_option("--parent_bitcoin", dest="parent_bitcoin", default=False, action="store_true",
+                          help="Parent nodes are Bitcoin")
+
     def setup_network(self, split=False):
+        if self.options.parent_bitcoin and self.options.parent_binpath == "":
+            raise Exception("Can't run with --parent_bitcoin without specifying --parent_binpath")
 
+        self.nodes = []
+        self.extra_args = []
         # Parent chain args
-        self.extra_args = [[
-            # '-printtoconsole',
-            '-validatepegin=0',
-            '-anyonecanspendaremine',
-            '-initialfreecoins=2100000000000000',
-        ]] * 2
+        for n in range(2):
+            if self.options.parent_bitcoin:
+                self.parent_chain = 'regtest'
+                rpc_u, rpc_p = rpc_auth_pair(n)
+                self.extra_args.append([
+                    "-printtoconsole=0",
+                    "-port="+str(p2p_port(n)),
+                    "-rpcuser="+rpc_u,
+                    "-rpcpassword="+rpc_p,
+                    "-rpcport="+str(rpc_port(n)),
+                    "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
+                    "-deprecatedrpc=validateaddress",
+                ])
+            else:
+                self.parent_chain = 'parent'
+                self.extra_args.append([
+                    "-printtoconsole=0",
+                    '-validatepegin=0',
+                    '-anyonecanspendaremine',
+                    '-initialfreecoins=2100000000000000',
+                ])
+            self.binary = self.options.parent_binpath if self.options.parent_binpath != "" else None
+            self.nodes.append(start_node(n, self.options.tmpdir, self.extra_args[n], binary=self.binary, chain=self.parent_chain))
 
-        self.nodes = start_nodes(2, self.options.tmpdir, self.extra_args[:2], chain='parent')
         connect_nodes_bi(self.nodes, 0, 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
         print('parentgenesisblockhash', self.parentgenesisblockhash)
-        parent_pegged_asset = self.nodes[0].getsidechaininfo()['pegged_asset']
+        if not self.options.parent_bitcoin:
+            parent_pegged_asset = self.nodes[0].getsidechaininfo()['pegged_asset']
 
         # Sidechain args
+        self.fedpeg_script = "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
         parent_chain_signblockscript = '51'
         for n in range(2):
             rpc_u, rpc_p = rpc_auth_pair(n)
-            self.extra_args.append([
-                # '-printtoconsole',
+            args = [
+                "-printtoconsole=0",
                 '-parentgenesisblockhash=%s' % self.parentgenesisblockhash,
                 '-validatepegin=1',
+                '-fedpegscript=%s' % self.fedpeg_script,
                 '-anyonecanspendaremine=0',
                 '-initialfreecoins=0',
                 '-peginconfirmationdepth=10',
@@ -78,11 +108,15 @@ class FedPegTest(BitcoinTestFramework):
                 '-mainchainrpcport=%s' % rpc_port(n),
                 '-mainchainrpcuser=%s' % rpc_u,
                 '-mainchainrpcpassword=%s' % rpc_p,
-                '-parentpubkeyprefix=235',
-                '-parentscriptprefix=75',
-                '-con_parent_chain_signblockscript=%s' % parent_chain_signblockscript,
-                '-con_parent_pegged_asset=%s' % parent_pegged_asset,
-            ])
+            ]
+            if not self.options.parent_bitcoin:
+                args.extend([
+                    '-parentpubkeyprefix=235',
+                    '-parentscriptprefix=75',
+                    '-con_parent_chain_signblockscript=%s' % parent_chain_signblockscript,
+                    '-con_parent_pegged_asset=%s' % parent_pegged_asset,
+                ])
+            self.extra_args.append(args)
             self.nodes.append(start_node(n + 2, self.options.tmpdir, self.extra_args[n + 2], chain='sidechain'))
 
         connect_nodes_bi(self.nodes, 2, 3)
@@ -116,10 +150,10 @@ class FedPegTest(BitcoinTestFramework):
         sidechain.generate(101)
 
         addrs = sidechain.getpeginaddress()
-        addr = parent.validateaddress(addrs["mainchain_address"])
+        addr = addrs["mainchain_address"]
         print('addrs', addrs)
-        print('addr', addr)
-        txid1 = parent.sendtoaddress(addrs["mainchain_address"], 24)
+        print(parent.validateaddress(addr))
+        txid1 = parent.sendtoaddress(addr, 24)
         # 10+2 confirms required to get into mempool and confirm
         parent.generate(1)
         time.sleep(2)
@@ -134,7 +168,7 @@ class FedPegTest(BitcoinTestFramework):
             pegtxid = sidechain.claimpegin(raw, proof)
             raise Exception("Peg-in should not be mature enough yet, need another block.")
         except JSONRPCException as e:
-            print('ERROR:', e.error)
+            print('RPC ERROR:', e.error['message'])
             assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
 
         # Second attempt simply doesn't hit mempool bar
@@ -143,23 +177,24 @@ class FedPegTest(BitcoinTestFramework):
             pegtxid = sidechain.claimpegin(raw, proof)
             raise Exception("Peg-in should not be mature enough yet, need another block.")
         except JSONRPCException as e:
+            print('RPC ERROR:', e.error['message'])
             assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
 
-        # Should fail due to non-witness
         try:
-            pegtxid = sidechain.claimpegin(raw, proof, get_new_unconfidential_address(parent))
+            pegtxid = sidechain.createrawpegin(raw, proof, 'AEIOU')
+            raise Exception("Peg-in with non-hex claim_script should fail.")
+        except JSONRPCException as e:
+            print('RPC ERROR:', e.error['message'])
+            assert("Given claim_script is not hex." in e.error["message"])
+
+        # Should fail due to non-matching wallet address
+        try:
+            scriptpubkey = sidechain.validateaddress(get_new_unconfidential_address(sidechain))["scriptPubKey"]
+            pegtxid = sidechain.claimpegin(raw, proof, scriptpubkey)
             raise Exception("Peg-in with non-matching claim_script should fail.")
         except JSONRPCException as e:
-            print(e.error["message"])
-            assert("Given or recovered script is not a witness program." in e.error["message"])
-
-        # # Should fail due to non-matching wallet address
-        # try:
-        #     pegtxid = sidechain.claimpegin(raw, proof, get_new_unconfidential_address(sidechain))
-        #     raise Exception("Peg-in with non-matching claim_script should fail.")
-        # except JSONRPCException as e:
-        #     print(e.error["message"])
-        #     assert("Given claim_script does not match the given Bitcoin transaction." in e.error["message"])
+            print('RPC ERROR:', e.error['message'])
+            assert("Given claim_script does not match the given Bitcoin transaction." in e.error["message"])
 
         # 12 confirms allows in mempool
         parent.generate(1)
@@ -269,7 +304,7 @@ class FedPegTest(BitcoinTestFramework):
 
         print ("Now test failure to validate peg-ins based on intermittant bitcoind rpc failure")
         stop_node(self.nodes[1], 1)
-        txid = parent.sendtoaddress(addrs["mainchain_address"], 1)
+        txid = parent.sendtoaddress(addr, 1)
         parent.generate(12)
         proof = parent.gettxoutproof([txid])
         raw = parent.getrawtransaction(txid)
@@ -281,7 +316,7 @@ class FedPegTest(BitcoinTestFramework):
         assert(sidechain.getblockcount() != sidechain2.getblockcount())
 
         print("Restarting parent2")
-        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1], chain='parent')
+        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1], binary=self.binary, chain=self.parent_chain)
         parent2 = self.nodes[1]
         connect_nodes_bi(self.nodes, 0, 1)
         time.sleep(5)

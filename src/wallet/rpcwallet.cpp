@@ -3586,8 +3586,12 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CScript witnessProgScript;
     unsigned int nOut = txBTC.vout.size();
     if (request.params.size() > 2) {
+        const std::string claim_script = request.params[2].get_str();
+        if (!IsHex(claim_script)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script is not hex.");
+        }
         // If given manually, no need for it to be a witness script
-        std::vector<unsigned char> witnessBytes(ParseHex(request.params[2].get_str()));
+        std::vector<unsigned char> witnessBytes(ParseHex(claim_script));
         witnessProgScript = CScript(witnessBytes.begin(), witnessBytes.end());
         nOut = GetPeginTxnOutputIndex(txBTC, witnessProgScript);
         if (nOut == txBTC.vout.size()) {
