@@ -167,7 +167,8 @@ class WalletTest (BitcoinTestFramework):
                 if i == "n": vout_t = j 
                 if i == "scriptPubKey":
                     for i2,j2 in j.items():
-                        if i2 == "hex": script_t = j2 
+                        if i2 == "hex": script_t = j2
+                    for i2,j2 in j.items(): 
                         if(i2 == "type" and j2 == "scripthash"):
                             script_pk = script_t
                             vout = vout_t
