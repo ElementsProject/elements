@@ -151,6 +151,7 @@ testScripts = [
     'invalidtxrequest.py',
     'rpc_getblockstats.py',
     'confidential_transactions.py',
+    'unconfidential_transactions.py',
     'preciousblock.py',
     #'p2p-segwit.py',
     #'importprunedfunds.py',
