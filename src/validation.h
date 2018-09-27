@@ -150,8 +150,10 @@ static const int MAX_UNCONNECTING_HEADERS = 10;
 static const bool DEFAULT_PEERBLOOMFILTERS = false;
 
 /** The minimum version for the parent chain node.
- *  We need v0.16.2 to get the nTx field in getblockheader. */
-static const int MIN_PARENT_NODE_VERSION = 160200; // 0.16.2
+ *  We need v0.16.3 to get the nTx field in getblockheader and inflation fix.
+ *  Note that Elements-based parent chains may not have fixes based on this
+ *  version check! */
+static const int MIN_PARENT_NODE_VERSION = 160300; // 0.16.3
 
 struct BlockHasher
 {

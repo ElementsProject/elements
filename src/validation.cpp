@@ -2254,7 +2254,7 @@ bool BitcoindRPCCheck(const bool init)
                 if (!result.isObject() || !result.get_obj()["version"].isNum() ||
                         result.get_obj()["version"].get_int() < MIN_PARENT_NODE_VERSION) {
                     LogPrintf("ERROR: Parent chain daemon too old; "
-                            "need Bitcoin Core version 0.16.2 or newer.\n");
+                            "need Bitcoin Core version 0.16.3 or newer.\n");
                     return false;
                 }
 
