@@ -39,33 +39,41 @@ class FedPegTest(BitcoinTestFramework):
     def setup_network(self, split=False):
         if self.options.parent_bitcoin and self.options.parent_binpath == "":
             raise Exception("Can't run with --parent_bitcoin without specifying --parent_binpath")
-
         self.nodes = []
         self.extra_args = []
         # Parent chain args
         for n in range(2):
+            # We want to test the rpc cookie method so we force the use of a
+            # dummy conf file to avoid loading rpcuser/rpcpassword lines
+            use_cookie_auth = n==1
+            rpc_u, rpc_p = rpc_auth_pair(n)
             if self.options.parent_bitcoin:
                 self.parent_chain = 'regtest'
-                rpc_u, rpc_p = rpc_auth_pair(n)
                 self.extra_args.append([
+                    "-conf=dummy",
                     "-printtoconsole=0",
-                    "-port="+str(p2p_port(n)),
-                    "-rpcuser="+rpc_u,
-                    "-rpcpassword="+rpc_p,
-                    "-rpcport="+str(rpc_port(n)),
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
                     "-deprecatedrpc=validateaddress",
+                    "-port="+str(p2p_port(n)),
+                    "-rpcport="+str(rpc_port(n))
                 ])
             else:
                 self.parent_chain = 'parent'
                 self.extra_args.append([
+                    "-conf=dummy",
                     "-printtoconsole=0",
                     '-validatepegin=0',
                     '-anyonecanspendaremine',
                     '-initialfreecoins=2100000000000000',
+                    "-port="+str(p2p_port(n)),
+                    "-rpcport="+str(rpc_port(n))
                 ])
+            # Only first parent uses name/password, the 2nd uses cookie auth
+            if not use_cookie_auth:
+                self.extra_args[n].extend(["-rpcuser="+rpc_u, "-rpcpassword="+rpc_p])
+
             self.binary = self.options.parent_binpath if self.options.parent_binpath != "" else None
-            self.nodes.append(start_node(n, self.options.tmpdir, self.extra_args[n], binary=self.binary, chain=self.parent_chain))
+            self.nodes.append(start_node(n, self.options.tmpdir, self.extra_args[n], binary=self.binary, chain=self.parent_chain, cookie_auth=use_cookie_auth))
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
@@ -77,6 +85,7 @@ class FedPegTest(BitcoinTestFramework):
         self.fedpeg_script = "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
         parent_chain_signblockscript = '51'
         for n in range(2):
+            used_cookie_auth = n==1
             rpc_u, rpc_p = rpc_auth_pair(n)
             args = [
                 "-printtoconsole=0",
@@ -88,8 +97,6 @@ class FedPegTest(BitcoinTestFramework):
                 '-peginconfirmationdepth=10',
                 '-mainchainrpchost=127.0.0.1',
                 '-mainchainrpcport=%s' % rpc_port(n),
-                '-mainchainrpcuser=%s' % rpc_u,
-                '-mainchainrpcpassword=%s' % rpc_p,
             ]
             if not self.options.parent_bitcoin:
                 args.extend([
@@ -98,9 +105,21 @@ class FedPegTest(BitcoinTestFramework):
                     '-con_parent_chain_signblockscript=%s' % parent_chain_signblockscript,
                     '-con_parent_pegged_asset=%s' % parent_pegged_asset,
                 ])
+
+            if used_cookie_auth:
+                # Need to specify where to find parent cookie file
+                datadir = os.path.join(self.options.tmpdir, "node"+str(n))
+                args.append('-mainchainrpccookiefile='+datadir+"/" + self.parent_chain + "/.cookie")
+            else:
+                args.extend([
+                    '-mainchainrpcuser=%s' % rpc_u,
+                    '-mainchainrpcpassword=%s' % rpc_p,
+                ])
+
             self.extra_args.append(args)
             self.nodes.append(start_node(n + 2, self.options.tmpdir, self.extra_args[n + 2], chain='sidechain'))
 
+        # We only connect the same-chain nodes, so sync_all works correctly
         connect_nodes_bi(self.nodes, 2, 3)
         self.is_network_split = True
         self.sync_all()
@@ -297,7 +316,7 @@ class FedPegTest(BitcoinTestFramework):
         assert(sidechain.getblockcount() != sidechain2.getblockcount())
 
         print("Restarting parent2")
-        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1], binary=self.binary, chain=self.parent_chain)
+        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1], binary=self.binary, chain=self.parent_chain, cookie_auth=True)
         parent2 = self.nodes[1]
         connect_nodes_bi(self.nodes, 0, 1)
         time.sleep(5)
