@@ -65,7 +65,7 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     if (GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT)) {
-        genesis.hashContract = GetGenesisContractHash();
+        genesis.hashContract = GetContractHash();
     }
     if (GetBoolArg("-embedmapping", DEFAULT_EMBED_MAPPING)) {
         // no mapping exists at/prior to the genesis
