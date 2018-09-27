@@ -56,8 +56,9 @@ public:
             }
             vchCommitment[0] = version;
         }
-        if (vchCommitment.size() > 1)
-            READWRITE(REF(CFlatData(&vchCommitment[1], &vchCommitment[vchCommitment.size()])));
+        if (vchCommitment.size() > 1) {
+            READWRITE(REF(CFlatData(vchCommitment.data() + 1, vchCommitment.data() + vchCommitment.size())));
+        }
     }
 
     /* Null is the default state when no explicit asset or confidential

@@ -635,14 +635,15 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setPeginsSpent.begin(); it != setPeginsSpent.end(); it++) {
         std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it2 = mapWithdrawsSpentToTxid.find(*it);
         if (it2 != mapWithdrawsSpentToTxid.end()) {
-            txiter txit = mapTx.find(it2->second);
+            uint256 tx_id = it2->second;
+            txiter txit = mapTx.find(tx_id);
             assert(txit != mapTx.end());
             const CTransaction& tx = txit->GetTx();
             setEntries stage;
             stage.insert(txit);
             RemoveStaged(stage, true);
             removeRecursive(tx, MemPoolRemovalReason::CONFLICT);
-            ClearPrioritisation(it2->second);
+            ClearPrioritisation(tx_id);
         }
     }
     lastRollingFeeUpdate = GetTime();
