@@ -2220,9 +2220,12 @@ bool BitcoindRPCCheck(const bool init)
     pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
     std::vector<uint256> vblocksToReconsiderAgain;
     BOOST_FOREACH(uint256& blockhash, vblocksToReconsider) {
-        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
-        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-            vblocksToReconsiderAgain.push_back(blockhash);
+        LOCK(cs_main);
+        if (mapBlockIndex.count(blockhash)) {
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+            if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                vblocksToReconsiderAgain.push_back(blockhash);
+            }
         }
     }
     vblocksToReconsider = vblocksToReconsiderAgain;
@@ -2312,11 +2315,14 @@ bool BitcoindRPCCheck(const bool init)
 
         //Now to clear out now-valid blocks
         BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
-            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+            LOCK(cs_main);
+            if (mapBlockIndex.count(blockhash)) {
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
 
-            //Marked as invalid still, put back into queue
-            if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-                vblocksToReconsiderAgain.push_back(blockhash);
+                //Marked as invalid still, put back into queue
+                if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                    vblocksToReconsiderAgain.push_back(blockhash);
+                }
             }
         }
 
