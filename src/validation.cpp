@@ -1870,7 +1870,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             if (tx.vin[i].m_is_pegin) {
                 // Check existence and validity of pegin witness
                 if (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
-                    return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", true);
+                    return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness");
                 }
                 std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
                 if (inputs.IsWithdrawSpent(pegin)) {

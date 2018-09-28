@@ -97,6 +97,7 @@ class FedPegTest(BitcoinTestFramework):
                 '-peginconfirmationdepth=10',
                 '-mainchainrpchost=127.0.0.1',
                 '-mainchainrpcport=%s' % rpc_port(n),
+                '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
             ]
             if not self.options.parent_bitcoin:
                 args.extend([
@@ -319,12 +320,13 @@ class FedPegTest(BitcoinTestFramework):
         self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1], binary=self.binary, chain=self.parent_chain, cookie_auth=True)
         parent2 = self.nodes[1]
         connect_nodes_bi(self.nodes, 0, 1)
-        time.sleep(5)
 
         # Don't make a block, race condition when pegin-invalid block
         # is awaiting further validation, nodes reject subsequent blocks
         # even ones they create
+        print("Now waiting for node to re-evaluate peg-in witness failed block... should take a few seconds")
         self.sync_all()
+        print("Completed!\n")
         print("Now send funds out in two stages, partial, and full")
         some_btc_addr = get_new_unconfidential_address(parent)
         bal_1 = sidechain.getwalletinfo()["balance"]["bitcoin"]
