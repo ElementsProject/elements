@@ -183,12 +183,16 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
     return true;
 }
 
-bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
-    return Read(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);//FIXME: why uint256 and not ""
+bool CBlockTreeDB::ReadInvalidBlockQueue(std::set<uint256> &set_blocks) {
+    std::vector<uint256> v_blocks;
+    bool res = Read(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), v_blocks);
+    set_blocks = std::set<uint256>(v_blocks.begin(), v_blocks.end());
+    return res;
 }
 
-bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
-    return Write(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
+bool CBlockTreeDB::WriteInvalidBlockQueue(const std::set<uint256>& set_blocks) {
+    std::vector<uint256> v_blocks(set_blocks.begin(), set_blocks.end());
+    return Write(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), v_blocks);
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex)

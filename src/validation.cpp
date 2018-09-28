@@ -2214,20 +2214,28 @@ void ThreadScriptCheck() {
 
 bool BitcoindRPCCheck(const bool init)
 {
-    //First, we can clear out any blocks thatsomehow are now deemed valid
+    //First, we can clear out any blocks that somehow are now deemed valid
     //eg reconsiderblock rpc call manually
-    std::vector<uint256> vblocksToReconsider;
-    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
-    std::vector<uint256> vblocksToReconsiderAgain;
-    BOOST_FOREACH(uint256& blockhash, vblocksToReconsider) {
-        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
-        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-            vblocksToReconsiderAgain.push_back(blockhash);
+    std::set<uint256> blocks_to_reconsider;
+    std::set<uint256> blocks_to_reconsider_again;
+    {
+        LOCK(cs_main);
+        pblocktree->ReadInvalidBlockQueue(blocks_to_reconsider);
+        std::set<uint256>::const_iterator it;
+        for (it = blocks_to_reconsider.begin(); it != blocks_to_reconsider.end(); it++) {
+            uint256 block_hash = *it;
+            if (mapBlockIndex.count(block_hash)) {
+                CBlockIndex* pblockindex = mapBlockIndex[block_hash];
+                if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                    blocks_to_reconsider_again.insert(block_hash);
+                }
+            }
         }
+        blocks_to_reconsider = blocks_to_reconsider_again;
+        pblocktree->WriteInvalidBlockQueue(blocks_to_reconsider);
     }
-    vblocksToReconsider = vblocksToReconsiderAgain;
-    vblocksToReconsiderAgain.clear();
-    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
+    // Clear for later use
+    blocks_to_reconsider_again.clear();
 
     // Next, check for working and valid rpc
     if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
@@ -2291,15 +2299,18 @@ bool BitcoindRPCCheck(const bool init)
        it failed previously) or we successfully connected to bitcoind
        Time to reconsider blocks
     */
-    if (vblocksToReconsider.size() > 0) {
+    if (blocks_to_reconsider.size() > 0) {
+        LogPrintf("Reconsidering %u previously invalid blocks that failed from peg-in validation.", blocks_to_reconsider.size());
         CValidationState state;
-        BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
-            {
-                LOCK(cs_main);
-                if (mapBlockIndex.count(blockhash) == 0)
-                    continue;
-                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
-                ResetBlockFailureFlags(pblockindex);
+        {
+            LOCK(cs_main);
+            std::set<uint256>::const_iterator it;
+            for (it = blocks_to_reconsider.begin(); it != blocks_to_reconsider.end(); it++) {
+                uint256 block_hash = *it;
+                if (mapBlockIndex.count(block_hash)) {
+                    CBlockIndex* pblockindex = mapBlockIndex[block_hash];
+                    ResetBlockFailureFlags(pblockindex);
+                }
             }
         }
 
@@ -2310,18 +2321,25 @@ bool BitcoindRPCCheck(const bool init)
             //Something scary?
         }
 
-        //Now to clear out now-valid blocks
-        BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
-            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+        {
+            LOCK(cs_main);
+            //Now to clear out now-valid blocks
+            std::set<uint256>::const_iterator it;
+            for (it = blocks_to_reconsider.begin(); it != blocks_to_reconsider.end(); it++) {
+                uint256 block_hash = *it;
+                if (mapBlockIndex.count(block_hash)) {
+                    CBlockIndex* pblockindex = mapBlockIndex[block_hash];
 
-            //Marked as invalid still, put back into queue
-            if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-                vblocksToReconsiderAgain.push_back(blockhash);
+                    //Marked as invalid still, put back into queue
+                    if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                        blocks_to_reconsider_again.insert(block_hash);
+                    }
+                }
             }
-        }
 
-        //Write back remaining blocks
-        pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
+            //Write back remaining blocks
+            pblocktree->WriteInvalidBlockQueue(blocks_to_reconsider_again);
+        }
     }
     return true;
 }
@@ -3229,19 +3247,10 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
                 if (state.GetRejectCode() == REJECT_PEGIN) {
                     //Write queue of invalid blocks that
                     //must be cleared to continue operation
-                    std::vector<uint256> vinvalidBlocks;
-                    pblocktree->ReadInvalidBlockQueue(vinvalidBlocks);
-                    bool blockAlreadyInvalid = false;
-                    BOOST_FOREACH(uint256& hash, vinvalidBlocks) {
-                        if (hash == blockConnecting.GetHash()) {
-                            blockAlreadyInvalid = true;
-                            break;
-                        }
-                    }
-                    if (!blockAlreadyInvalid) {
-                        vinvalidBlocks.push_back(blockConnecting.GetHash());
-                        pblocktree->WriteInvalidBlockQueue(vinvalidBlocks);
-                    }
+                    std::set<uint256> set_invalid_blocks;
+                    pblocktree->ReadInvalidBlockQueue(set_invalid_blocks);
+                    set_invalid_blocks.insert(blockConnecting.GetHash());
+                    pblocktree->WriteInvalidBlockQueue(set_invalid_blocks);
                 }
             }
 
@@ -4147,9 +4156,9 @@ static bool AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CValidation
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
     //Never process blocks if RPC to bitcoind failure has triggered a failed block
-    std::vector<uint256> lockdown;
+    std::set<uint256> lockdown;
     if (pblocktree->ReadInvalidBlockQueue(lockdown) && lockdown.size() > 0) {
-        LogPrintf("Block with hash %s was received, but unable to process due to bitcoind pegin validation failure.", block.GetHash().GetHex());
+        LogPrintf("Block with hash %s was received, but unable to process due to bitcoind pegin validation failure of %u other blocks.", block.GetHash().GetHex(), lockdown.size());
         return false;
     }
 

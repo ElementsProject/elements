@@ -124,8 +124,8 @@ public:
     bool WriteFlag(const std::string &name, bool fValue);
     bool ReadFlag(const std::string &name, bool &fValue);
     bool LoadBlockIndexGuts(boost::function<CBlockIndex*(const uint256&)> insertBlockIndex);
-    bool ReadInvalidBlockQueue(std::vector<uint256> &vBlocks);
-    bool WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks);
+    bool ReadInvalidBlockQueue(std::set<uint256> &set_blocks);
+    bool WriteInvalidBlockQueue(const std::set<uint256> &set_blocks);
 };
 
 #endif // BITCOIN_TXDB_H
