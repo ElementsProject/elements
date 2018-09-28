@@ -116,10 +116,13 @@ CPubKey CWallet::GenerateNewKey()
     metadata.derivedPubKey = pubKeyPreTweak;
 
     if (Params().EmbedContract()) {
-        // use the active block contract hash to generate keys - if this is not available use the genesis block contract
-        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetGenesisContractHash(); // for BIP-175
-        pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
-        secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
+        // use the active block contract hash to generate keys - if this is not available use the local contract
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
+        if (!contract.IsNull())
+        {
+            pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
+            secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
+        }
     }
 
     CPubKey pubkey = secret.GetPubKey();

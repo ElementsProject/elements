@@ -1385,36 +1385,38 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
 355\"")
                         );
 
-  CBitcoinAddress address;
-  if (!address.SetString(request.params[0].get_str()))
-    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
+    CBitcoinAddress address;
+    if (!address.SetString(request.params[0].get_str()))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
 
-  std::vector<unsigned char> pubKeyData(ParseHex(request.params[1].get_str()));
-  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-  if (!pubKey.IsFullyValid())
-    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+    std::vector<unsigned char> pubKeyData(ParseHex(request.params[1].get_str()));
+    CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    if (!pubKey.IsFullyValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
-  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-  pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    if (!contract.IsNull())
+        pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
 
+    CKeyID keyId;
+    if (!address.GetKeyID(keyId))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  CKeyID keyId;
-  if (!address.GetKeyID(keyId))
-    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
-
-  if (pubKey.GetID() != keyId)
+    if (pubKey.GetID() != keyId)
     {
-      throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
-    } else {
-
-    //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
-    if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
-      std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
-      addressWhitelist.insert(it,keyId);
+        throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation from tweaking key with contract hash");
     }
-  }
+    else
+    {
+        //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
+        if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId)))
+        {
+            std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
+            addressWhitelist.insert(it,keyId);
+        }
+    }
 
-  return NullUniValue;
+    return NullUniValue;
 }
 
 UniValue readwhitelist(const JSONRPCRequest& request)
@@ -1431,53 +1433,56 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             + HelpExampleRpc("readwhitelist", "\"test\"")
 			);
 
-  std::ifstream file;
-  file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
-  if (!file.is_open())
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+    std::ifstream file;
+    file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
+    if (!file.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
 
-  file.seekg(0, file.beg);
+    file.seekg(0, file.beg);
 
-  // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
-  while (file.good()) {
-    std::string line;
-    std::getline(file, line);
-    if (line.empty() || line[0] == '#')
-      continue;
+    // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
+    while (file.good())
+    {
+        std::string line;
+        std::getline(file, line);
+        if (line.empty() || line[0] == '#')
+            continue;
 
-    std::vector<std::string> vstr;
-    boost::split(vstr, line, boost::is_any_of(" "));
-    if (vstr.size() < 2)
-      continue;
+        std::vector<std::string> vstr;
+        boost::split(vstr, line, boost::is_any_of(" "));
+        if (vstr.size() < 2)
+            continue;
 
-    CBitcoinAddress address;
-    if (!address.SetString(vstr[0]))
-      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+        CBitcoinAddress address;
+        if (!address.SetString(vstr[0]))
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
-    std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
-    CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-    if (!pubKey.IsFullyValid())
-      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+        std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
+        CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+        if (!pubKey.IsFullyValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
-    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-    pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-    CKeyID keyId;
-    if (!address.GetKeyID(keyId))
-      throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if (!contract.IsNull())
+            pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+        CKeyID keyId;
+        if (!address.GetKeyID(keyId))
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-    if (pubKey.GetID() != keyId)
-      throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation when tweaking key with contract hash");
+        if (pubKey.GetID() != keyId)
+            throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation when tweaking key with contract hash");
 
-    //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
-    if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) {
-      std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
-      addressWhitelist.insert(it,keyId);
+        //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
+        if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId)))
+        {
+            std::vector<CKeyID>::iterator it = std::lower_bound(addressWhitelist.begin(),addressWhitelist.end(),keyId);
+            addressWhitelist.insert(it,keyId);
+        }
     }
-  }
 
-  file.close();
+    file.close();
 
-  return NullUniValue;
+    return NullUniValue;
 }
 
 UniValue querywhitelist(const JSONRPCRequest& request)

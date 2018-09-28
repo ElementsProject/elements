@@ -1,5 +1,5 @@
 ## Terms and Conditions
-The file `latest.txt` contains a sample for terms and conditions. The same terms are hardcoded in the `GetGenesisContractHash()` method to allow consistent genesis block creation.
+The file `latest.txt` contains a sample for terms and conditions. The terms contained in this file will be included in the Genesis block of the chain.
 
 The latest contract should be stored at `$DATADIR/terms-and-conditions/latest.txt` on all signing nodes to allow block creation with the latest terms. The hash of this contract will be required to verify addresses under the BIP175 protocol.
 

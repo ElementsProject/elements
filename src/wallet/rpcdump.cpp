@@ -66,7 +66,7 @@ std::string DecodeDumpString(const std::string &str) {
     for (unsigned int pos = 0; pos < str.length(); pos++) {
         unsigned char c = str[pos];
         if (c == '%' && pos+2 < str.length()) {
-            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) | 
+            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) |
                 ((str[pos+2]>>6)*9+((str[pos+2]-'0')&15));
             pos += 2;
         }
@@ -79,7 +79,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw runtime_error(
             "importprivkey \"bitcoinprivkey\" ( \"label\" ) ( rescan )\n"
@@ -193,7 +193,7 @@ UniValue importaddress(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw runtime_error(
             "importaddress \"address\" ( \"label\" rescan p2sh )\n"
@@ -417,7 +417,7 @@ UniValue validatederivedkeys(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
             "validatederivedkeys \"filename\"\n"
@@ -461,8 +461,9 @@ UniValue validatederivedkeys(const JSONRPCRequest& request)
         if (!pubKey.IsFullyValid())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
-        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetGenesisContractHash();
-        pubKey.AddTweakToPubKey((unsigned char*)contract.begin()); 
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if (!contract.IsNull())
+            pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
         CKeyID keyId;
         if (!address.GetKeyID(keyId))
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
@@ -481,7 +482,7 @@ UniValue importwallet(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
             "importwallet \"filename\"\n"
@@ -589,7 +590,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
             "dumpprivkey \"address\"\n"
@@ -678,7 +679,7 @@ UniValue dumpderivedkeys(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
             "dumpderivedkeys \"filename\"\n"
@@ -717,7 +718,7 @@ UniValue dumpderivedkeys(const JSONRPCRequest& request)
         if (pwalletMain->GetKey(keyid, key)) { // verify exists
             CPubKey pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
             file << strprintf("%s %s\n",
-                strAddr, 
+                strAddr,
                 HexStr(pubKey.begin(), pubKey.end()));
         }
     }
@@ -734,7 +735,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
-    
+
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
             "dumpwallet \"filename\"\n"
@@ -777,7 +778,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     file << strprintf("#   mined on %s\n", EncodeDumpTime(chainActive.Tip()->GetBlockTime()));
     file << "\n";
 
-    // add the base58check encoded extended master if the wallet uses HD 
+    // add the base58check encoded extended master if the wallet uses HD
     CKeyID masterKeyID = pwalletMain->GetHDChain().masterKeyID;
     if (!masterKeyID.IsNull())
     {

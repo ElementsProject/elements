@@ -130,7 +130,6 @@ void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 std::string GetFileFromDataDir(const char* fileName);
 std::string GetContract();
-uint256 GetGenesisContractHash();
 uint256 GetContractHash();
 uint256 GetMappingHash();
 

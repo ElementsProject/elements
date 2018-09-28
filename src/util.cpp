@@ -864,15 +864,6 @@ std::string GetFileFromDataDir(const char* fileName)
     return fileStr;
 }
 
-uint256 GetGenesisContractHash()
-{
-    // Hardcoded terms and conditions allowing consistent genesis block generation
-    const std::string genesisContract = "These are the terms and conditions\n"
-                                        "Approve to use the CBT network\n";
-    std::vector<unsigned char> terms(genesisContract.begin(), genesisContract.end());
-    return Hash(terms.begin(), terms.end());
-}
-
 std::string GetContract()
 {
     return GetFileFromDataDir(CONTRACT_FILE_PATH);

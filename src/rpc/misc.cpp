@@ -250,6 +250,7 @@ UniValue validateaddress(const JSONRPCRequest& request)
                     ret.push_back(Pair("hdkeypath", it->second.hdKeypath));
                     ret.push_back(Pair("hdmasterkeyid", it->second.hdMasterKeyID.GetHex()));
                 }
+                ret.push_back(Pair("derivedpubkey", HexStr(it->second.derivedPubKey.begin(), it->second.derivedPubKey.end())));
             }
         }
 #endif
