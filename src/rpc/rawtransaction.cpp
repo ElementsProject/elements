@@ -153,7 +153,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             CAsset asset;
             CAsset token;
             uint256 entropy;
-            if (issuance.assetBlindingNonce.IsNull()) {
+            if (!issuance.IsReissuance()) {
                 GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
                 issue.push_back(Pair("assetEntropy", HexStr(entropy)));
                 CalculateAsset(asset, entropy);
@@ -696,7 +696,7 @@ void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& 
         // Calculate underlying asset for use as blinding key script
         CAsset asset;
         // New issuance, compute the asset ids
-        if (issuance.assetBlindingNonce.IsNull()) {
+        if (!issuance.IsReissuance()) {
             uint256 entropy;
             GenerateAssetEntropy(entropy, tx.vin[nIn].prevout, issuance.assetEntropy);
             CalculateAsset(asset, entropy);

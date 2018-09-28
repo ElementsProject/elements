@@ -307,6 +307,9 @@ class CAssetIssuance
 public:
     // == 0
     //   Indicates new asset issuance.
+    // == UNBLINDED_REISSUANCE_NONCE
+    //   Indicates a reissuance where the original issuance was unblinded
+    //   Any blinded issuance checks are skipped
     // != 0
     //   This is a revelation of the blinding factor for the input,
     //   which shows that the input being spent is of the reissuance
@@ -333,7 +336,9 @@ public:
     // generating transaction.
     CConfidentialValue nInflationKeys;
 
-public:
+    // Const value to set the nonce to in case of unblinded issuance/reissuance
+    static const uint256 UNBLINDED_REISSUANCE_NONCE;
+
     CAssetIssuance()
     {
         SetNull();
@@ -352,6 +357,9 @@ public:
 
     void SetNull() { nAmount.SetNull(); nInflationKeys.SetNull(); }
     bool IsNull() const { return (nAmount.IsNull() && nInflationKeys.IsNull()); }
+
+    bool IsReissuance() const;
+    bool IsUnblindedReissuance() const;
 
     friend bool operator==(const CAssetIssuance& a, const CAssetIssuance& b)
     {

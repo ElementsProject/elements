@@ -10,6 +10,8 @@
 #include "tinyformat.h"
 #include "utilstrencodings.h"
 
+const uint256 CAssetIssuance::UNBLINDED_REISSUANCE_NONCE(uint256S("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+
 void CConfidentialAsset::SetToAsset(const CAsset& asset)
 {
     vchCommitment.clear();
@@ -60,6 +62,16 @@ std::string CAssetIssuance::ToString() const
         str += strprintf(", inflationkeys=%s", (nInflationKeys.IsExplicit() ? strprintf("%d.%08d", nInflationKeys.GetAmount() / COIN, nInflationKeys.GetAmount() % COIN) : std::string("CONFIDENTIAL")));
     str += ")";
     return str;
+}
+
+bool CAssetIssuance::IsReissuance() const
+{
+    return !assetBlindingNonce.IsNull();
+}
+
+bool CAssetIssuance::IsUnblindedReissuance() const
+{
+    return IsReissuance() && assetBlindingNonce == UNBLINDED_REISSUANCE_NONCE;
 }
 
 CTxIn::CTxIn(COutPoint prevoutIn, CScript scriptSigIn, uint32_t nSequenceIn)

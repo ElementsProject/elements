@@ -975,7 +975,7 @@ UniValue getbalance(const JSONRPCRequest& request)
                 CAsset token;
                 uint256 entropy;
                 if (!issuance.IsNull()) {
-                    if (issuance.assetBlindingNonce.IsNull()) {
+                    if (!issuance.IsReissuance()) {
                         GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
                         CalculateAsset(asset, entropy);
                         CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
@@ -4132,7 +4132,7 @@ UniValue listissuances(const JSONRPCRequest& request)
             if (issuance.IsNull()) {
                 continue;
             }
-            if (issuance.assetBlindingNonce.IsNull()) {
+            if (!issuance.IsReissuance()) {
                 GenerateAssetEntropy(entropy, pcoin->tx->vin[vinIndex].prevout, issuance.assetEntropy);
                 CalculateAsset(asset, entropy);
                 // Null is considered explicit
