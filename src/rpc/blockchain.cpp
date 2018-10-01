@@ -793,6 +793,16 @@ struct CCoinsStats
     CCoinsStats() : nHeight(0), nTransactions(0), nTransactionOutputs(0), nSerializedSize(0), nTotalAmount(0) {}
 };
 
+struct CAssetStats
+{
+    uint64_t nSpendableOutputs;
+    uint64_t nFrozenOutputs;
+    CAmount nSpendableAmount;
+    CAmount nFrozenAmount;
+
+    CAssetStats() : nSpendableOutputs(0), nFrozenOutputs(0), nSpendableAmount(0), nFrozenAmount(0) {}
+};
+
 //! Calculate statistics about the unspent transaction output set
 static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
 {
@@ -832,6 +842,75 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     }
     stats.hashSerialized = ss.GetHash();
     stats.nTotalAmount = nTotalAmount;
+    return true;
+}
+
+static bool GetAssetStats(CCoinsView *view, std::map<CAsset,CAssetStats> &stats)
+{
+    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
+
+    CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
+    uint256 hashBlock = pcursor->GetBestBlock();
+    {
+        LOCK(cs_main);
+    }
+    ss << hashBlock;
+
+    //set freeze-flag key
+    uint160 frzInt;
+    frzInt.SetHex("0x0000000000000000000000000000000000000000");
+    CKeyID frzId;
+    frzId = CKeyID(frzInt);
+
+  //main loop over coins (transactions with > 0 unspent outputs
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        uint256 key;
+        CCoins coins;
+        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
+            ss << key;
+            bool frozenTx = false;
+      
+	    //loop over vouts within a single transaction
+	    for (unsigned int i=0; i<coins.vout.size(); i++) {
+	        const CTxOut &out = coins.vout[i];
+	
+		//check if the tx is flagged frozen (i.e. one output is a zero address)
+		txnouttype whichType;
+		std::vector<std::vector<unsigned char> > vSolutions;
+		Solver(out.scriptPubKey, whichType, vSolutions);
+		if(whichType == TX_PUBKEYHASH) {
+		  CKeyID keyId;
+		  keyId = CKeyID(uint160(vSolutions[0]));
+		  if(keyId == frzId) frozenTx = true;
+		}
+	    }
+      
+	    //loop over all vouts within a single transaction
+	    for (unsigned int i=0; i<coins.vout.size(); i++) {
+	        const CTxOut &out = coins.vout[i];
+	
+		//null vouts are spent
+		if (!out.IsNull()) {
+		    ss << VARINT(i+1);
+		    ss << out;
+		    if(frozenTx) {
+		        stats[out.nAsset.GetAsset()].nFrozenOutputs++;
+			if (out.nValue.IsExplicit())
+			    stats[out.nAsset.GetAsset()].nFrozenAmount += out.nValue.GetAmount();
+		    } else {
+		        stats[out.nAsset.GetAsset()].nSpendableOutputs++;
+			if (out.nValue.IsExplicit())
+			    stats[out.nAsset.GetAsset()].nSpendableAmount += out.nValue.GetAmount();
+		    }
+		}
+	    }
+	    ss << VARINT(0);
+	} else {
+	  return error("%s: unable to read value", __func__);
+	}
+	pcursor->Next();
+    }
     return true;
 }
 
@@ -916,6 +995,49 @@ UniValue gettxoutsetinfo(const JSONRPCRequest& request)
         ret.push_back(Pair("txouts", (int64_t)stats.nTransactionOutputs));
         ret.push_back(Pair("bytes_serialized", (int64_t)stats.nSerializedSize));
         ret.push_back(Pair("hash_serialized", stats.hashSerialized.GetHex()));
+    } else {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
+    }
+    return ret;
+}
+
+UniValue getutxoassetinfo(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw runtime_error(
+            "getassetstats\n"
+            "\nReturns a summary of the total amounts of unspent assets in the UTXO set\n"
+            "Note this call may take some time.\n"
+            "\nResult:\n"
+            "[                     (json array of objects)\n"
+            "  {\n"
+            "    \"asset\":\"<asset>\",   (string) Asset type ID \n"
+	    "    \"amountspendable\":\"X.XX\",     (numeric) The total amount of spendable asset.\n"
+            "    \"spendabletxouts\":\"n\",         (numeric) The number of spendable outputs of the asset.\n"
+	    "    \"amountfrozen\":\"X.XX\",       (numeric) The total amount of frozen asset.\n"
+            "    \"frozentxouts\":\"n\",          (numeric) The number of frozen outputs of the asset.\n"
+            "  }\n"
+            "  ,...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getassetstats", "")
+            + HelpExampleRpc("getassetstats", "")
+			);
+
+    UniValue ret(UniValue::VARR);
+    FlushStateToDisk();
+
+    std::map<CAsset,CAssetStats> stats;
+    if (GetAssetStats(pcoinsTip, stats)) {
+        for(auto const& asset : stats){
+	    UniValue item(UniValue::VOBJ);
+	    item.push_back(Pair("asset",asset.first.GetHex()));
+	    item.push_back(Pair("spendabletxouts",asset.second.nSpendableOutputs));
+	    item.push_back(Pair("amountspendable",ValueFromAmount(asset.second.nSpendableAmount)));
+	    item.push_back(Pair("frozentxouts",asset.second.nFrozenOutputs));
+	    item.push_back(Pair("amountfrozen",ValueFromAmount(asset.second.nFrozenAmount)));
+	    ret.push_back(item);
+	}
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
@@ -2245,6 +2367,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "getsidechaininfo",       &getsidechaininfo,       true,  {} },
     { "blockchain",         "gettxout",               &gettxout,               true,  {"txid","n","include_mempool"} },
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true,  {} },
+    { "blockchain",         "getutxoassetinfo",       &getutxoassetinfo,       true,  {} },
     { "blockchain",         "pruneblockchain",        &pruneblockchain,        true,  {"height"} },
     { "blockchain",         "verifychain",            &verifychain,            true,  {"checklevel","nblocks"} },
 

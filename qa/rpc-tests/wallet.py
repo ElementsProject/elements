@@ -164,7 +164,8 @@ class WalletTest (BitcoinTestFramework):
 
         for val in pa_tx["vout"]:
             for i,j in val.items():
-                if i == "n": vout_t = j 
+                if i == "n": vout_t = j
+            for i,j in val.items():
                 if i == "scriptPubKey":
                     for i2,j2 in j.items():
                         if i2 == "hex": script_t = j2

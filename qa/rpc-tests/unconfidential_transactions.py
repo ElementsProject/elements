@@ -6,7 +6,7 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
-class CTTest (BitcoinTestFramework):
+class UnCTTest (BitcoinTestFramework):
 
     def __init__(self):
         super().__init__()
@@ -375,4 +375,4 @@ class CTTest (BitcoinTestFramework):
         txid = self.nodes[0].sendrawtransaction(signed["hex"])
 
 if __name__ == '__main__':
-    CTTest ().main ()
+    UnCTTest ().main ()

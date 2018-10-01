@@ -152,6 +152,7 @@ testScripts = [
     'rpc_getblockstats.py',
     'confidential_transactions.py',
     'unconfidential_transactions.py',
+    'asset_stats.py',
     'preciousblock.py',
     #'p2p-segwit.py',
     #'importprunedfunds.py',
