@@ -520,6 +520,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-parentscriptprefix", strprintf(_("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)"), 196));
         strUsage += HelpMessageOpt("-con_parent_chain_signblockscript", _("Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])"));
         strUsage += HelpMessageOpt("-con_parent_pegged_asset=<hex>", _("Asset ID (hex) for pegged asset for when parent chain has CA. (default: 0x00)"));
+        strUsage += HelpMessageOpt("-recheckpeginblockinterval", strprintf(_("The interval in seconds at which a peg-in witness failing block is re-evaluated in case of intermittant peg-in witness failure. 0 means never. (default: %u)"), 120));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate peg-in claims. An RPC connection will be attempted to the trusted bitcoind using the `mainchain*` settings below. All functionaries must run this enabled. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to the trusted bitcoind to validate peg-ins, if enabled. (default: cookie auth)"));
@@ -1691,7 +1692,10 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     SetRPCWarmupFinished();
 
     CScheduler::Function f2 = boost::bind(&BitcoindRPCCheck, false);
-    scheduler.scheduleEvery(f2, 120);
+    unsigned int check_rpc_every = GetArg("-recheckpeginblockinterval", 120);
+    if (check_rpc_every) {
+        scheduler.scheduleEvery(f2, check_rpc_every);
+    }
 
     uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
 
