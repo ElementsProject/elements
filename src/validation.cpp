@@ -2212,6 +2212,13 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
+/* This function has two major purposes:
+ * 1) Checks that the RPC connection to the parent chain node
+ * can be attained, and is returning back reasonable answers.
+ * 2) Re-evaluates a list of blocks that have been deemed "bad"
+ * from the perspective of peg-in witness validation. Blocks are
+ * added to this queue in ConnectTip based on the error code returned.
+ */
 bool BitcoindRPCCheck(const bool init)
 {
     //First, we can clear out any blocks thatsomehow are now deemed valid
@@ -3230,8 +3237,10 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
         if (!rv) {
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
-                //Possibly result of RPC to bitcoind failure
-                //or unseen Bitcoin blocks.
+                // Possibly result of RPC to bitcoind failure
+                // or unseen Bitcoin blocks.
+                // These blocks are later re-evaluated at an interval
+                // set by `-recheckpeginblockinterval`.
                 if (state.GetRejectCode() == REJECT_PEGIN) {
                     //Write queue of invalid blocks that
                     //must be cleared to continue operation
