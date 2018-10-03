@@ -1870,7 +1870,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             if (tx.vin[i].m_is_pegin) {
                 // Check existence and validity of pegin witness
                 if (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
-                    return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", true);
+                    return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness");
                 }
                 std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
                 if (inputs.IsWithdrawSpent(pegin)) {
@@ -2212,6 +2212,13 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
+/* This function has two major purposes:
+ * 1) Checks that the RPC connection to the parent chain node
+ * can be attained, and is returning back reasonable answers.
+ * 2) Re-evaluates a list of blocks that have been deemed "bad"
+ * from the perspective of peg-in witness validation. Blocks are
+ * added to this queue in ConnectTip based on the error code returned.
+ */
 bool BitcoindRPCCheck(const bool init)
 {
     //First, we can clear out any blocks thatsomehow are now deemed valid
@@ -2220,9 +2227,12 @@ bool BitcoindRPCCheck(const bool init)
     pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
     std::vector<uint256> vblocksToReconsiderAgain;
     BOOST_FOREACH(uint256& blockhash, vblocksToReconsider) {
-        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
-        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-            vblocksToReconsiderAgain.push_back(blockhash);
+        LOCK(cs_main);
+        if (mapBlockIndex.count(blockhash)) {
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+            if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                vblocksToReconsiderAgain.push_back(blockhash);
+            }
         }
     }
     vblocksToReconsider = vblocksToReconsiderAgain;
@@ -2312,11 +2322,14 @@ bool BitcoindRPCCheck(const bool init)
 
         //Now to clear out now-valid blocks
         BOOST_FOREACH(const uint256& blockhash, vblocksToReconsider) {
-            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+            LOCK(cs_main);
+            if (mapBlockIndex.count(blockhash)) {
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
 
-            //Marked as invalid still, put back into queue
-            if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
-                vblocksToReconsiderAgain.push_back(blockhash);
+                //Marked as invalid still, put back into queue
+                if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                    vblocksToReconsiderAgain.push_back(blockhash);
+                }
             }
         }
 
@@ -3224,8 +3237,10 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
         if (!rv) {
             if (state.IsInvalid()) {
                 InvalidBlockFound(pindexNew, state);
-                //Possibly result of RPC to bitcoind failure
-                //or unseen Bitcoin blocks.
+                // Possibly result of RPC to bitcoind failure
+                // or unseen Bitcoin blocks.
+                // These blocks are later re-evaluated at an interval
+                // set by `-recheckpeginblockinterval`.
                 if (state.GetRejectCode() == REJECT_PEGIN) {
                     //Write queue of invalid blocks that
                     //must be cleared to continue operation
