@@ -609,8 +609,10 @@ SECP256K1_INLINE static int secp256k1_rangeproof_verify_impl(const secp256k1_ecm
     }
     for(i = 0; i < rings - 1; i++) {
         secp256k1_fe fe;
-        secp256k1_fe_set_b32(&fe, &proof[offset]);
-        secp256k1_ge_set_xquad(&c, &fe);
+        if (!secp256k1_fe_set_b32(&fe, &proof[offset]) ||
+            !secp256k1_ge_set_xquad(&c, &fe)) {
+            return 0;
+        }
         if (signs[i]) {
             secp256k1_ge_neg(&c, &c);
         }

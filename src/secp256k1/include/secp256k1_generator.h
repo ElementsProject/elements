@@ -13,15 +13,12 @@ extern "C" {
  *
  *  The exact representation of data inside is implementation defined and not
  *  guaranteed to be portable between different platforms or versions. It is
- *  however guaranteed to be 33 bytes in size, and can be safely copied/moved.
- *  If you need to convert to a format suitable for storage or transmission, use
- *  the secp256k1_generator_serialize_*.
- *
- *  Furthermore, it is guaranteed to identical points will have identical
- *  representation, so they can be memcmp'ed.
+ *  however guaranteed to be 64 bytes in size, and can be safely copied/moved.
+ *  If you need to convert to a format suitable for storage, transmission, or
+ *  comparison, use secp256k1_generator_serialize and secp256k1_generator_parse.
  */
 typedef struct {
-    unsigned char data[33];
+    unsigned char data[64];
 } secp256k1_generator;
 
 /** Parse a 33-byte generator byte sequence into a generator object.
@@ -58,9 +55,9 @@ SECP256K1_API int secp256k1_generator_serialize(
  *  Out:  gen:     a generator object
  *  In:   seed32:  a 32-byte seed
  *
- *  If succesful, a valid generator will be placed in gen. The produced
+ *  If successful a valid generator will be placed in gen. The produced
  *  generators are distributed uniformly over the curve, and will not have a
- *  known dicrete logarithm with respect to any other generator produced,
+ *  known discrete logarithm with respect to any other generator produced,
  *  or to the base generator G.
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_generate(

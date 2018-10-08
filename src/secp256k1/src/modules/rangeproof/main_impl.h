@@ -16,13 +16,14 @@
 /** Alternative generator for secp256k1.
  *  This is the sha256 of 'g' after DER encoding (without compression),
  *  which happens to be a point on the curve.
- *  sage: G2 = EllipticCurve ([F (0), F (7)]).lift_x(int(hashlib.sha256('0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8'.decode('hex')).hexdigest(),16))
- *  sage: '%x %x' % (11 - G2.xy()[1].is_square(), G2.xy()[0])
+ *  sage: G2 = EllipticCurve ([F (0), F (7)]).lift_x(F(int(hashlib.sha256('0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8'.decode('hex')).hexdigest(),16)))
+ *  sage: '%x %x' % G2.xy()
  */
 static const secp256k1_generator secp256k1_generator_h_internal = {{
-    0x11,
     0x50, 0x92, 0x9b, 0x74, 0xc1, 0xa0, 0x49, 0x54, 0xb7, 0x8b, 0x4b, 0x60, 0x35, 0xe9, 0x7a, 0x5e,
-    0x07, 0x8a, 0x5a, 0x0f, 0x28, 0xec, 0x96, 0xd5, 0x47, 0xbf, 0xee, 0x9a, 0xce, 0x80, 0x3a, 0xc0
+    0x07, 0x8a, 0x5a, 0x0f, 0x28, 0xec, 0x96, 0xd5, 0x47, 0xbf, 0xee, 0x9a, 0xce, 0x80, 0x3a, 0xc0,
+    0x31, 0xd3, 0xc6, 0x86, 0x39, 0x73, 0x92, 0x6e, 0x04, 0x9e, 0x63, 0x7c, 0xb1, 0xb5, 0xf4, 0x0a,
+    0x36, 0xda, 0xc2, 0x8a, 0xf1, 0x76, 0x69, 0x68, 0xc3, 0x0c, 0x23, 0x13, 0xf3, 0xa3, 0x89, 0x04
 }};
 
 const secp256k1_generator *secp256k1_generator_h = &secp256k1_generator_h_internal;
@@ -43,22 +44,38 @@ static void secp256k1_pedersen_commitment_save(secp256k1_pedersen_commitment* co
 }
 
 int secp256k1_pedersen_commitment_parse(const secp256k1_context* ctx, secp256k1_pedersen_commitment* commit, const unsigned char *input) {
+    secp256k1_fe x;
+    secp256k1_ge ge;
+
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(commit != NULL);
     ARG_CHECK(input != NULL);
     (void) ctx;
-    if ((input[0] & 0xFE) != 8) {
+
+    if ((input[0] & 0xFE) != 8 ||
+        !secp256k1_fe_set_b32(&x, &input[1]) ||
+        !secp256k1_ge_set_xquad(&ge, &x)) {
         return 0;
     }
-    memcpy(commit->data, input, sizeof(commit->data));
+    if (input[0] & 1) {
+        secp256k1_ge_neg(&ge, &ge);
+    }
+    secp256k1_pedersen_commitment_save(commit, &ge);
     return 1;
 }
 
 int secp256k1_pedersen_commitment_serialize(const secp256k1_context* ctx, unsigned char *output, const secp256k1_pedersen_commitment* commit) {
+    secp256k1_ge ge;
+
     VERIFY_CHECK(ctx != NULL);
     ARG_CHECK(output != NULL);
     ARG_CHECK(commit != NULL);
-    memcpy(output, commit->data, sizeof(commit->data));
+
+    secp256k1_pedersen_commitment_load(&ge, commit);
+
+    output[0] = 9 ^ secp256k1_fe_is_quad_var(&ge.y);
+    secp256k1_fe_normalize_var(&ge.x);
+    secp256k1_fe_get_b32(&output[1], &ge.x);
     return 1;
 }
 
