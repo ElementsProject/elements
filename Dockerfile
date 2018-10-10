@@ -51,6 +51,7 @@ RUN set -x \
         automake \
         libtool \
         boost-devel \
+        zeromq-devel \
         iproute \
         jq \
         python36 \
