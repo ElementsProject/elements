@@ -115,10 +115,14 @@ bool IsWhitelisted(const CTransaction& tx)
     if (!Solver(txout.scriptPubKey, whichType, vSolutions))
       return false;
 
-    //return false if not P2PKH or TX_FEE
-    if(!(whichType == TX_FEE || whichType == TX_PUBKEYHASH)) return false;
-    //skip whitelist check if TX_FEE
+    //skip whitelist check if issuance transaction
+    if(!tx.vin[0].assetIssuance.IsNull()) continue;
+    //skip whitelist check if output is TX_FEE
     if(whichType == TX_FEE) continue;
+    //skip whitelist check if output is OP_RETURN
+    if(whichType == TX_NULL_DATA) continue;    
+    //return false if not P2PKH
+    if(!(whichType == TX_PUBKEYHASH)) return false;
 
     CKeyID keyId;
     keyId = CKeyID(uint160(vSolutions[0]));

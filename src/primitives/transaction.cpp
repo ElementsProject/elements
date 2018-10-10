@@ -200,10 +200,14 @@ bool CTransaction::HasValidFee() const
 CAmountMap CTransaction::GetFee() const
 {
     CAmountMap fee;
-    for (unsigned int i = 0; i < vout.size(); i++)
+    unsigned int numFees = 0;
+    for (unsigned int i = 0; i < vout.size(); i++) {
         if (vout[i].IsFee()) {
             fee[vout[i].nAsset.GetAsset()] += vout[i].nValue.GetAmount();
+            numFees++;
         }
+    }
+    if(numFees == 0) fee[vout[0].nAsset.GetAsset()] = 0;
     return fee;
 }
 

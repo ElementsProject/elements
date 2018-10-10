@@ -153,6 +153,7 @@ testScripts = [
     'confidential_transactions.py',
     'unconfidential_transactions.py',
     'asset_stats.py',
+    'raw_issuance.py',
     'preciousblock.py',
     #'p2p-segwit.py',
     #'importprunedfunds.py',

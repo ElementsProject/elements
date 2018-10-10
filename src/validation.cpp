@@ -1095,13 +1095,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
       return state.DoS(0, false, REJECT_NONSTANDARD, "non-whitelisted-address");
     }
 
-    // Accept only transactions that have no asset issuance inputs
-    if(fblockissuancetx){
-      if(GetNumIssuances(tx) > 0){
-	return state.DoS(0, false, REJECT_NONSTANDARD, "blocked-asset-issuance-txn");
-      }
-    }
-
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
@@ -1200,18 +1193,32 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
         if (fRequireStandard && !AreInputsStandard(tx, view))
             return state.Invalid(false, REJECT_NONSTANDARD, "bad-txns-nonstandard-inputs");
 
-	// Accept only transactions that spend from scriptSig inputs with pubkeys that are NOT on the freezelist
-// Pubkeys that are on the freezelist AND the burnlist that are sent to OP_RETURN outputs are passed
-	if (fRequireFreezelistCheck){
-	  if(IsFreezelisted(tx,view)){
-	    if(fEnableBurnlistCheck){
-	      if(!IsBurnlisted(tx,view))
-		return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-no-burnlist-address");
-	    } else {
-	      return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-address");
+	    // Accept only transactions that spend from scriptSig inputs with pubkeys that are NOT on the freezelist
+        // Pubkeys that are on the freezelist AND the burnlist AND that are sent to OP_RETURN outputs are passed
+	    if (fRequireFreezelistCheck){
+	        if(IsFreezelisted(tx,view)){
+	            if(fEnableBurnlistCheck){
+	                if(!IsBurnlisted(tx,view))
+		               return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-no-burnlist-address");
+	                } else {
+	            return state.DoS(0, false, REJECT_NONSTANDARD, "freezelist-address");
+	            }
+	        }
 	    }
-	  }
-	}
+
+        // Accept only transactions that are asset issuances if they have a policyAsset input. 
+        if(fblockissuancetx){
+            const CAssetIssuance& issuance = tx.vin[0].assetIssuance;
+            if (!issuance.IsNull() && !issuance.IsReissuance()) {
+                CAsset pAsset(policyAsset);
+                const CTxOut& prev = view.GetOutputFor(tx.vin[0]);
+                CAsset asset;
+                asset = prev.nAsset.GetAsset();
+                if(asset != pAsset) {
+                    return state.DoS(0, false, REJECT_NONSTANDARD, "blocked-asset-issuance-txn");
+                }
+            }
+        }
 
         // Check for non-standard witness in P2WSH
         if (tx.HasWitness() && fRequireStandard && !IsWitnessStandard(tx, view))
@@ -1262,12 +1269,12 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
                 strprintf("%d", nSigOpsCost));
 
         CAmount mempoolRejectFee = pool.GetMinFee(GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000).GetFee(nSize);
-        if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee) {
+        if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee && tx.vin[0].assetIssuance.IsNull()) {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met", false, strprintf("%d < %d for asset %s", nFees, mempoolRejectFee, feeAsset.GetHex()));
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (fLimitFree && nModifiedFees < ::minRelayTxFee.GetFee(nSize))
+        if (fLimitFree && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && tx.vin[0].assetIssuance.IsNull())
         {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met");
         }
