@@ -179,7 +179,7 @@ class WalletTest (BitcoinTestFramework):
         token_addr = self.nodes[1].getnewaddress()
 
         #create an unsigned raw issuance transaction 
-        issuance_tx = self.nodes[1].createrawissuance(asset_addr,10.0,token_addr,1.0,multisig["address"],1.0000,1,pa_txid,str(vout))
+        issuance_tx = self.nodes[1].createrawissuance(asset_addr,10.0,token_addr,1.0,multisig["address"],1.0000,'1',pa_txid,str(vout))
 
         #node1 partially sign transaction
         partial_signed = self.nodes[0].signrawtransaction(issuance_tx["rawtx"],[{"txid":pa_txid,"vout":vout,"scriptPubKey":script_pk,"redeemScript":multisig["redeemScript"]}],[privkey_node1])

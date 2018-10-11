@@ -91,7 +91,8 @@ class RawIssuance (BitcoinTestFramework):
         token_addr = self.nodes[2].getnewaddress()
 
         #create an unsigned raw issuance transaction
-        issuance_tx = self.nodes[1].createrawissuance(asset_addr,10.0,token_addr,1.0,multisig["address"],1.0000,1,pa_txid,str(vout))
+        issuance_tx = self.nodes[1].createrawissuance(asset_addr,10.0,token_addr,1.0,multisig["address"],1.0000,'1',pa_txid,str(vout))
+
 
         #node1 partially sign transaction
         partial_signed = self.nodes[0].signrawtransaction(issuance_tx["rawtx"],[{"txid":pa_txid,"vout":vout,"scriptPubKey":script_pk,"redeemScript":multisig["redeemScript"]}],[privkey_node1])
@@ -140,7 +141,7 @@ class RawIssuance (BitcoinTestFramework):
         dum_addr2 = self.nodes[1].getnewaddress()
 
         #create an unsigned raw issuance transaction
-        issuance_tx2 = self.nodes[2].createrawissuance(dum_addr1,20.0,dum_addr2,2.0,asset_addr2,outvalue,1,asset_tx,str(vout))
+        issuance_tx2 = self.nodes[2].createrawissuance(dum_addr1,20.0,dum_addr2,2.0,asset_addr2,outvalue,'1',asset_tx,str(vout))
 
         #node2 sign transaction
         tx_signed = self.nodes[2].signrawtransaction(issuance_tx2["rawtx"])
@@ -148,13 +149,37 @@ class RawIssuance (BitcoinTestFramework):
 
         #submit signed transaction to network
         try:
-            submit = self.nodes[2].sendrawtransaction(tx_signed["hex"])
+            submit2 = self.nodes[2].sendrawtransaction(tx_signed["hex"])
         except JSONRPCException as exp:
             print(exp.error['code'])
             assert_equal(exp.error['code'], -26) # blocked issuance
         else:
             assert(False)
 
+        self.nodes[2].generate(10)
+        self.sync_all()
+
+        #create a raw reissuance transaction using the reissuance token of issuance_tx
+        #reissue 4.5 new tokens
+        reissuaed_asset_addr = self.nodes[2].getnewaddress()
+        new_token_address = self.nodes[2].getnewaddress()
+        reissuance_tx = self.nodes[2].createrawreissuance(reissuaed_asset_addr,4.5,new_token_address,1.0,submit,'1',issuance_tx["entropy"])
+
+        #check asset and token derivations
+        assert_equal(reissuance_tx["asset"],issuance_tx["asset"])
+        assert_equal(reissuance_tx["token"],issuance_tx["token"])
+
+        #sign, check and submit tx
+        signed_reissuance = self.nodes[2].signrawtransaction(reissuance_tx["hex"])
+        assert(signed_reissuance["complete"])
+        submit3 = self.nodes[2].sendrawtransaction(signed_reissuance["hex"])
+
+        #confirm transaction accepted by mempool
+        mempool_tx = self.nodes[2].getrawmempool()
+        assert_equal(mempool_tx[0],submit3)
+        self.nodes[2].generate(10)
+        self.sync_all()
+        
         return
 
 if __name__ == '__main__':
