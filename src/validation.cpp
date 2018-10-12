@@ -1850,6 +1850,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     nBlocksTotal++;
 
+    // Check that all non-zero coinbase outputs pay to the required destination
+    const CScript& mandatory_coinbase_destination = chainparams.GetConsensus().mandatory_coinbase_destination;
+    if (mandatory_coinbase_destination != CScript()) {
+        for (auto& txout : block.vtx[0]->vout) {
+            if (txout.scriptPubKey != mandatory_coinbase_destination && txout.nValue != 0) {
+                return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
+                                 REJECT_INVALID, "bad-coinbase-txos");
+            }
+        }
+    }
+
     bool fScriptChecks = true;
     if (!hashAssumeValid.IsNull()) {
         // We've been configured with the hash of a block which has been externally verified to have a valid history.

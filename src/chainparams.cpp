@@ -420,6 +420,11 @@ class CCustomParams : public CRegTestParams {
         consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
         consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
 
+        // All non-zero coinbase outputs must go to this scriptPubKey
+        std::vector<unsigned char> man_bytes = ParseHex(gArgs.GetArg("-con_mandatorycoinbase", ""));
+        consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
+
+
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
         fMineBlocksOnDemand = args.GetBoolArg("-fmineblocksondemand", fMineBlocksOnDemand);
