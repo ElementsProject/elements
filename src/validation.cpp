@@ -1813,6 +1813,25 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
 
+    // verify that the view's current state corresponds to the previous block
+    uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
+    assert(hashPrevBlock == view.GetBestBlock());
+
+    const Consensus::Params& consensusParams = chainparams.GetConsensus();
+    // Add genesis outputs but don't validate.
+    if (block.GetHash() == consensusParams.hashGenesisBlock) {
+        if (!fJustCheck) {
+            if (consensusParams.connect_genesis_outputs) {
+                for (const auto& tx : block.vtx) {
+                    // Directly add new coins to DB
+                    AddCoins(view, *tx, 0);
+                }
+            }
+            view.SetBestBlock(pindex->GetBlockHash());
+        }
+        return true;
+    }
+
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
     // ContextualCheckBlockHeader() here. This means that if we add a new
@@ -1834,25 +1853,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
         }
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    }
-
-    // verify that the view's current state corresponds to the previous block
-    uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
-    assert(hashPrevBlock == view.GetBestBlock());
-
-    const Consensus::Params& consensusParams = chainparams.GetConsensus();
-    // Add genesis outputs but don't validate.
-    if (block.GetHash() == consensusParams.hashGenesisBlock) {
-        if (!fJustCheck) {
-            if (consensusParams.connect_genesis_outputs) {
-                for (const auto& tx : block.vtx) {
-                    // Directly add new coins to DB
-                    AddCoins(view, *tx, 0);
-                }
-            }
-            view.SetBestBlock(pindex->GetBlockHash());
-        }
-        return true;
     }
 
     nBlocksTotal++;
@@ -3100,9 +3100,10 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
     // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
+    if (fCheckPOW && block.GetHash() != consensusParams.hashGenesisBlock
+            && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
-
+    }
     return true;
 }
 
