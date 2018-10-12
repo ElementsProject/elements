@@ -183,6 +183,7 @@ EXTENDED_SCRIPTS = [
     'feature_notifications.py',
     'rpc_invalidateblock.py',
     'feature_rbf.py',
+    'feature_connect_coinbase.py'
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests

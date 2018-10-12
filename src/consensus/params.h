@@ -82,6 +82,7 @@ struct Params {
     // Elements-specific chainparams
     CScript mandatory_coinbase_destination;
     CAmount genesis_subsidy;
+    bool connect_genesis_outputs;
 };
 } // namespace Consensus
 

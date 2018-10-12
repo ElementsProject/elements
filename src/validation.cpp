@@ -1813,18 +1813,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     assert(*pindex->phashBlock == block.GetHash());
     int64_t nTimeStart = GetTimeMicros();
 
-    // verify that the view's current state corresponds to the previous block
-    const uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
-    assert(hashPrevBlock == view.GetBestBlock());
-
-    // Special case for the genesis block, skipping connection of its transactions
-    // (its coinbase is unspendable)
-    if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
-        if (!fJustCheck)
-            view.SetBestBlock(pindex->GetBlockHash());
-        return true;
-    }
-
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
     // ContextualCheckBlockHeader() here. This means that if we add a new
@@ -1846,6 +1834,25 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return AbortNode(state, "Corrupt block found indicating potential hardware failure; shutting down");
         }
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
+    }
+
+    // verify that the view's current state corresponds to the previous block
+    uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
+    assert(hashPrevBlock == view.GetBestBlock());
+
+    const Consensus::Params& consensusParams = chainparams.GetConsensus();
+    // Add genesis outputs but don't validate.
+    if (block.GetHash() == consensusParams.hashGenesisBlock) {
+        if (!fJustCheck) {
+            if (consensusParams.connect_genesis_outputs) {
+                for (const auto& tx : block.vtx) {
+                    // Directly add new coins to DB
+                    AddCoins(view, *tx, 0);
+                }
+            }
+            view.SetBestBlock(pindex->GetBlockHash());
+        }
+        return true;
     }
 
     nBlocksTotal++;
