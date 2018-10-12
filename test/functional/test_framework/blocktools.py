@@ -30,6 +30,7 @@ from .messages import (
 )
 from .script import (
     CScript,
+    CScriptNum,
     OP_0,
     OP_1,
     OP_CHECKMULTISIG,
@@ -44,6 +45,10 @@ from io import BytesIO
 # From BIP141
 WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
 
+# Assumes a BIP34 valid commitment exists
+def get_coinbase_height(coinbase):
+    return CScriptNum.decode(coinbase.vin[0].scriptSig)
+
 def create_block(hashprev, coinbase, ntime=None):
     """Create a block (with regtest difficulty)."""
     block = CBlock()
@@ -52,6 +57,7 @@ def create_block(hashprev, coinbase, ntime=None):
         block.nTime = int(time.time() + 600)
     else:
         block.nTime = ntime
+    block.block_height = get_coinbase_height(coinbase)
     block.hashPrevBlock = hashprev
     block.nBits = 0x207fffff  # difficulty retargeting is disabled in REGTEST chainparams
     block.vtx.append(coinbase)

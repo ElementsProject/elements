@@ -10,6 +10,8 @@
 #include <utilstrencodings.h>
 #include <crypto/common.h>
 
+bool g_con_blockheightinheader = false;
+
 uint256 CBlockHeader::GetHash() const
 {
     return SerializeHash(*this);

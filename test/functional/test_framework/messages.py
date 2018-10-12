@@ -505,6 +505,7 @@ class CBlockHeader():
             self.hashPrevBlock = header.hashPrevBlock
             self.hashMerkleRoot = header.hashMerkleRoot
             self.nTime = header.nTime
+            self.block_height = header.block_height
             self.nBits = header.nBits
             self.nNonce = header.nNonce
             self.sha256 = header.sha256
@@ -516,6 +517,7 @@ class CBlockHeader():
         self.hashPrevBlock = 0
         self.hashMerkleRoot = 0
         self.nTime = 0
+        self.block_height = 0
         self.nBits = 0
         self.nNonce = 0
         self.sha256 = None
@@ -526,6 +528,7 @@ class CBlockHeader():
         self.hashPrevBlock = deser_uint256(f)
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
+        self.block_height = struct.unpack("<I", f.read(4))[0]
         self.nBits = struct.unpack("<I", f.read(4))[0]
         self.nNonce = struct.unpack("<I", f.read(4))[0]
         self.sha256 = None
@@ -537,6 +540,7 @@ class CBlockHeader():
         r += ser_uint256(self.hashPrevBlock)
         r += ser_uint256(self.hashMerkleRoot)
         r += struct.pack("<I", self.nTime)
+        r += struct.pack("<I", self.block_height)
         r += struct.pack("<I", self.nBits)
         r += struct.pack("<I", self.nNonce)
         return r
@@ -548,6 +552,7 @@ class CBlockHeader():
             r += ser_uint256(self.hashPrevBlock)
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
+            r += struct.pack("<I", self.block_height)
             r += struct.pack("<I", self.nBits)
             r += struct.pack("<I", self.nNonce)
             self.sha256 = uint256_from_str(hash256(r))
@@ -559,9 +564,9 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x)" \
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x block_height=%s nTime=%s nBits=%08x nNonce=%08x)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce)
+               time.ctime(self.nTime), self.block_height, self.nBits, self.nNonce)
 
 
 class CBlock(CBlockHeader):

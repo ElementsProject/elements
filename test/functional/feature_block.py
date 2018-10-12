@@ -535,6 +535,7 @@ class FullBlockTest(BitcoinTestFramework):
         b44.hashPrevBlock = self.tip.sha256
         b44.nBits = 0x207fffff
         b44.vtx.append(coinbase)
+        b44.block_height = height
         b44.hashMerkleRoot = b44.calc_merkle_root()
         b44.solve()
         self.tip = b44
@@ -549,6 +550,7 @@ class FullBlockTest(BitcoinTestFramework):
         b45.hashPrevBlock = self.tip.sha256
         b45.nBits = 0x207fffff
         b45.vtx.append(non_coinbase)
+        b45.block_height = height+1
         b45.hashMerkleRoot = b45.calc_merkle_root()
         b45.calc_sha256()
         b45.solve()
@@ -564,6 +566,7 @@ class FullBlockTest(BitcoinTestFramework):
         b46.hashPrevBlock = b44.sha256
         b46.nBits = 0x207fffff
         b46.vtx = []
+        b46.block_height = height+1
         b46.hashMerkleRoot = 0
         b46.solve()
         self.block_heights[b46.sha256] = self.block_heights[b44.sha256] + 1
