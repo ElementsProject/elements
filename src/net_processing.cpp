@@ -59,6 +59,8 @@ void EraseOrphansFor(NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 static size_t vExtraTxnForCompactIt = 0;
 static std::vector<std::pair<uint256, CTransactionRef>> vExtraTxnForCompact GUARDED_BY(cs_main);
+// Storage of transactions last validated as good by testproposedblock
+static std::vector<std::pair<uint256, CTransactionRef>> vExtraTxnForCompactProp GUARDED_BY(cs_main);
 
 static const uint64_t RANDOMIZER_ID_ADDRESS_RELAY = 0x3cac0035b5866b90ULL; // SHA256("main address relay")[0:8]
 
@@ -601,6 +603,26 @@ void AddToCompactExtraTransactions(const CTransactionRef& tx)
         vExtraTxnForCompact.resize(max_extra_txn);
     vExtraTxnForCompact[vExtraTxnForCompactIt] = std::make_pair(tx->GetHashWithWitness(), tx);
     vExtraTxnForCompactIt = (vExtraTxnForCompactIt + 1) % max_extra_txn;
+}
+
+void AddToCompactBlockProposal(const CTransactionRef& tx)
+{
+    vExtraTxnForCompactProp.emplace_back(std::make_pair(tx->GetHashWithWitness(), tx));
+}
+
+void ClearCompactBlockProposal()
+{
+    LogPrint("cmpctblock", "Wiping block proposal of cache size: %u", vExtraTxnForCompactProp.size());
+    vExtraTxnForCompactProp.clear();
+}
+
+std::vector<std::pair<uint256, CTransactionRef>>& GetCompactBlockExtras()
+{
+    if (!vExtraTxnForCompactProp.empty()) {
+        return vExtraTxnForCompactProp;
+    } else {
+        return vExtraTxnForCompact;
+    }
 }
 
 bool AddOrphanTx(const CTransactionRef& tx, NodeId peer) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
@@ -2052,7 +2074,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 }
 
                 PartiallyDownloadedBlock& partialBlock = *(*queuedBlockIt)->partialBlock;
-                ReadStatus status = partialBlock.InitData(cmpctblock, vExtraTxnForCompact);
+                ReadStatus status = partialBlock.InitData(cmpctblock, GetCompactBlockExtras());
                 if (status == READ_STATUS_INVALID) {
                     MarkBlockAsReceived(pindex->GetBlockHash()); // Reset in-flight state in case of whitelist
                     Misbehaving(pfrom->GetId(), 100);
@@ -2082,13 +2104,14 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                     connman.PushMessage(pfrom, msgMaker.Make(NetMsgType::GETBLOCKTXN, req));
                 }
             } else {
+
                 // This block is either already in flight from a different
                 // peer, or this peer has too many blocks outstanding to
                 // download from.
                 // Optimistically try to reconstruct anyway since we might be
                 // able to without any round trips.
                 PartiallyDownloadedBlock tempBlock(&mempool);
-                ReadStatus status = tempBlock.InitData(cmpctblock, vExtraTxnForCompact);
+               ReadStatus status = tempBlock.InitData(cmpctblock, GetCompactBlockExtras());
                 if (status != READ_STATUS_OK) {
                     // TODO: don't ignore failures
                     return true;

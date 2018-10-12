@@ -3202,6 +3202,8 @@ struct ConnectTrace {
     std::vector<std::pair<CBlockIndex*, std::shared_ptr<const CBlock> > > blocksConnected;
 };
 
+extern void ClearCompactBlockProposal();
+
 /**
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -3262,6 +3264,8 @@ bool static ConnectTip(CValidationState& state, const CChainParams& chainparams,
 
             return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
         }
+        // We connected a block, clear out the proposal cache as it's likely useless
+        ClearCompactBlockProposal();
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint("bench", "  - Connect total: %.2fms [%.2fs]\n", (nTime3 - nTime2) * 0.001, nTimeConnectTotal * 0.000001);
         bool flushed = view.Flush();
