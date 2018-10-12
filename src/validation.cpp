@@ -3263,6 +3263,11 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
         return state.Invalid(false, REJECT_INVALID, "time-too-old", "block's timestamp is too early");
 
+    // Check height in header against prev
+    if (consensusParams.blockheight_in_header && (uint32_t)nHeight != block.block_height)
+        return state.Invalid(error("%s: block height in header is incorrect", __func__),
+                             REJECT_INVALID, "bad-header-height");
+
     // Check timestamp
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
