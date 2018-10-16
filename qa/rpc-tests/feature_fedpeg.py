@@ -57,9 +57,16 @@ class FedPegTest(BitcoinTestFramework):
                 "-port=" + str(p2p_port(0)),
                 "-rpcport=" + str(rpc_port(0)),
                 "-addresstype=legacy",
-                "-deprecatedrpc=validateaddress"
+                "-deprecatedrpc=validateaddress",
+                "-bech32_hrp=sb",
+                "-pchmessagestart=F0C7706A",
+                "-pubkeyprefix=125",
+                "-scriptprefix=87",
+                "-secretprefix=217",
+                "-extpubkeyprefix=043587CF",
+                "-extprvkeyprefix=04358394",
             ]
-            temp_node = start_node(0, self.options.tmpdir, temp_args, binary=self.binary, chain='signet', cookie_auth=True)
+            temp_node = start_node(0, self.options.tmpdir, temp_args, binary=self.binary, chain='temp', cookie_auth=True)
             addr = temp_node.getnewaddress()
             k = key.CECKey()
             pub = temp_node.validateaddress(addr)["pubkey"]
@@ -67,13 +74,13 @@ class FedPegTest(BitcoinTestFramework):
             pubkey = key.CPubKey(k.get_pubkey())
             wif = temp_node.dumpprivkey(addr)
             stop_node(temp_node, 0)
-            shutil.rmtree(os.path.join(self.options.tmpdir, 'node0', 'signet'))
             script = script.CScript([pubkey, script.OP_CHECKSIG])
             blockscript = hexlify(script).decode('ascii')
 
             print('blockscript', blockscript)
             print('wif', wif)
 
+        self.parent_chain = self.options.parent_type
         # Parent chain args
         for n in range(2):
             # We want to test the rpc cookie method so we force the use of a
@@ -88,24 +95,30 @@ class FedPegTest(BitcoinTestFramework):
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
                     "-deprecatedrpc=validateaddress",
                     "-port="+str(p2p_port(n)),
-                    "-rpcport="+str(rpc_port(n))
+                    "-rpcport="+str(rpc_port(n)),
                 ])
+
             elif self.options.parent_type == 'signet':
-                self.parent_chain = 'signet'
                 rpc_u, rpc_p = rpc_auth_pair(n)
                 self.extra_args.append([
                     "-printtoconsole=0",
                     "-signet_blockscript=%s" % blockscript,
                     "-signet_siglen=77",
-                    "-signet_seednode=178.128.221.177",
                     "-port=" + str(p2p_port(n)),
                     "-rpcport=" + str(rpc_port(n)),
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
                     "-deprecatedrpc=validateaddress",
                     "-fallbackfee=0.00001",
+                    "-bech32_hrp=sb",
+                    "-pchmessagestart=F0C7706A",
+                    "-pubkeyprefix=125",
+                    "-scriptprefix=87",
+                    "-secretprefix=217",
+                    "-extpubkeyprefix=043587CF",
+                    "-extprvkeyprefix=04358394",
                 ])
+
             elif self.options.parent_type == 'elements':
-                self.parent_chain = 'parent'
                 self.extra_args.append([
                     "-conf=dummy",
                     "-printtoconsole=0",
@@ -113,7 +126,7 @@ class FedPegTest(BitcoinTestFramework):
                     '-anyonecanspendaremine',
                     '-initialfreecoins=2100000000000000',
                     "-port="+str(p2p_port(n)),
-                    "-rpcport="+str(rpc_port(n))
+                    "-rpcport="+str(rpc_port(n)),
                 ])
             # Only first parent uses name/password, the 2nd uses cookie auth
             if not use_cookie_auth:
@@ -147,6 +160,7 @@ class FedPegTest(BitcoinTestFramework):
                 '-mainchainrpcport=%s' % rpc_port(n),
                 '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
             ]
+
             if self.options.parent_type == 'elements':
                 args.extend([
                     '-parentpubkeyprefix=235',
@@ -154,6 +168,7 @@ class FedPegTest(BitcoinTestFramework):
                     '-con_parent_chain_signblockscript=%s' % parent_chain_signblockscript,
                     '-con_parent_pegged_asset=%s' % parent_pegged_asset,
                 ])
+
             elif self.options.parent_type == 'signet':
                 args.extend([
                     '-con_parent_is_signet=1',
