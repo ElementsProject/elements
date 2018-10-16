@@ -169,7 +169,7 @@ For instance, to attach to `self.node[1]` during a run:
 use the directory path to get the pid from the pid file:
 
 ```bash
-cat /tmp/user/1000/testo9vsdjo3/node1/regtest/bitcoind.pid
+cat /tmp/user/1000/testo9vsdjo3/node1/regtest2/bitcoind.pid
 gdb /home/example/bitcoind <pid>
 ```
 

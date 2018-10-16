@@ -395,6 +395,73 @@ void CRegTestParams::UpdateVersionBitsParametersFromArgs(const ArgsManager& args
     }
 }
 
+/**
+ * Custom params for testing.
+ */
+class CCustomParams : public CRegTestParams {
+    void UpdateFromArgs(ArgsManager& args)
+    {
+        UpdateVersionBitsParametersFromArgs(args);
+
+        consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
+        consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", "0x0"));
+        consensus.BIP34Height = args.GetArg("-con_bip34height", consensus.BIP34Height);
+        consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", "0x0"));
+        consensus.BIP65Height = args.GetArg("-con_bip65height", consensus.BIP65Height);
+        consensus.BIP66Height = args.GetArg("-con_bip66height", consensus.BIP66Height);
+        consensus.powLimit = uint256S(args.GetArg("-con_powlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+        consensus.nPowTargetTimespan = args.GetArg("-con_npowtargettimespan", consensus.nPowTargetTimespan);
+        consensus.nPowTargetSpacing = args.GetArg("-con_npowtargetspacing", consensus.nPowTargetSpacing);
+        consensus.fPowAllowMinDifficultyBlocks = args.GetBoolArg("-con_fpowallowmindifficultyblocks", consensus.fPowAllowMinDifficultyBlocks);
+        consensus.fPowNoRetargeting = args.GetBoolArg("-con_fpownoretargeting", consensus.fPowNoRetargeting);
+        consensus.nRuleChangeActivationThreshold = (uint32_t)args.GetArg("-con_nrulechangeactivationthreshold", consensus.nRuleChangeActivationThreshold);
+        consensus.nMinerConfirmationWindow = (uint32_t)args.GetArg("-con_nminerconfirmationwindow", consensus.nMinerConfirmationWindow);
+
+        consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
+        consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
+
+        nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
+        fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
+        fMineBlocksOnDemand = args.GetBoolArg("-fmineblocksondemand", fMineBlocksOnDemand);
+        m_fallback_fee_enabled = args.GetBoolArg("-fallback_fee_enabled", m_fallback_fee_enabled);
+
+        bech32_hrp = args.GetArg("-bech32_hrp", bech32_hrp);
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", 111));
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", 196));
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, args.GetArg("-secretprefix", 239));
+
+        std::string extpubprefix = args.GetArg("-extpubkeyprefix", "043587CF");
+        assert(IsHex(extpubprefix) && extpubprefix.size() == 8 && "-extpubkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_PUBLIC_KEY] = ParseHex(extpubprefix);
+
+        std::string extprvprefix = args.GetArg("-extprvkeyprefix", "04358394");
+        assert(IsHex(extprvprefix) && extprvprefix.size() == 8 && "-extprvkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
+
+        const std::string magic_str = args.GetArg("-pchmessagestart", "FABFB5DA");
+        assert(IsHex(magic_str) && magic_str.size() == 8 && "-pchmessagestart must be hex string of length 8");
+        const std::vector<unsigned char> magic_byte = ParseHex(magic_str);
+        std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
+
+        vSeeds.clear();
+        if (gArgs.IsArgSet("-seednode")) {
+            const auto seednodes = gArgs.GetArgs("-seednode");
+            if (seednodes.size() != 1 || seednodes[0] != "0") {
+                vSeeds = seednodes;
+            }
+        }
+    }
+
+public:
+    CCustomParams(const std::string& chain, ArgsManager& args) : CRegTestParams(args)
+    {
+        strNetworkID = chain;
+        UpdateFromArgs(args);
+        genesis = CreateGenesisBlock(strNetworkID.c_str(), CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        consensus.hashGenesisBlock = genesis.GetHash();
+    }
+};
+
 static std::unique_ptr<const CChainParams> globalChainParams;
 
 const CChainParams &Params() {
@@ -404,13 +471,15 @@ const CChainParams &Params() {
 
 std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
 {
+    // Reserved names for non-custom chains
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CChainParams>(new CMainParams());
     else if (chain == CBaseChainParams::TESTNET)
         return std::unique_ptr<CChainParams>(new CTestNetParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
-    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+
+    return std::unique_ptr<CChainParams>(new CCustomParams(chain, gArgs));
 }
 
 void SelectParams(const std::string& network)
