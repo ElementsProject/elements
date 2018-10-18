@@ -5,8 +5,6 @@
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
-import random
-import os
 
 class WhitelistingTest (BitcoinTestFramework):
 
@@ -70,7 +68,21 @@ class WhitelistingTest (BitcoinTestFramework):
         self.nodes[1].dumpwhitelist(fname)
         num_keys=self.num_keys_in_file(fname)
         assert_equal(num_keys,100)
-            
+        #dumo derived keys to file and validate 
+        fname = self.options.tmpdir + 'node1derived'
+        self.nodes[1].dumpderivedkeys(fname)
+        self.nodes[1].validatederivedkeys(fname)
+        #add in invalid key/addesss pair to the file and validate again 
+        a_key='11caPoYB9NbtcG6cMAk5j3dPF2eFaD483'
+        a_key_address_invalid='03c8847ab88a1a207ea74356a53f858535ebd3f3f5499f7da1ec5dad00d2adbcbe'
+        with open(fname, 'a') as myfile:
+            myfile.write(a_key + " " + a_key_address_invalid)
+        #expect a invalid key id error
+        try:
+            self.nodes[1].validatederivedkeys(fname)
+        except JSONRPCException as e:
+            assert("Invalid key id" in e.error['message'])
+          
         # Check that there's 100 UTXOs on each of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 100)
         assert_equal(len(self.nodes[1].listunspent()), 100)
@@ -186,7 +198,7 @@ class WhitelistingTest (BitcoinTestFramework):
         num_keys=self.num_keys_in_file(fname)
         #expected N_keys is 199 because one key was removed using removekey
         assert_equal(num_keys, 199)
-            
+
         #clear whitelists and check number of keys in wl = 0 and that we cannot send to previously whitelisted address 
         self.clear_whitelists()
         self.nodes[0].dumpwhitelist(fname)
