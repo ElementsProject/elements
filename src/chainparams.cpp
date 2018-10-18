@@ -4,9 +4,10 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <consensus/merkle.h>
 
 #include <chainparamsseeds.h>
+#include <consensus/merkle.h>
+#include <hash.h>
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -17,13 +18,13 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+static CBlock CreateGenesisBlock(const CScript& coinbase_sig, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vin[0].scriptSig = coinbase_sig;
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
@@ -36,6 +37,12 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     return genesis;
+}
+
+static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+{
+    CScript coinbase_sig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    return CreateGenesisBlock(coinbase_sig, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
 
 /**
@@ -403,6 +410,7 @@ class CCustomParams : public CRegTestParams {
     {
         UpdateVersionBitsParametersFromArgs(args);
 
+        consensus.genesis_style = args.GetArg("-con_genesis_style", "default_style");
         consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
         consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", "0x0"));
         consensus.BIP34Height = args.GetArg("-con_bip34height", consensus.BIP34Height);
@@ -452,12 +460,30 @@ class CCustomParams : public CRegTestParams {
         }
     }
 
+    void SetGenesisBlock()
+    {
+        if (consensus.genesis_style == "regtest2_style") {
+            // Same style as in https://github.com/bitcoin/bitcoin/pull/8994
+            genesis = CreateGenesisBlock(strNetworkID.c_str(), CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+
+        } else if (consensus.genesis_style == "default_style") {
+            CHashWriter h(SER_DISK, 0);
+            h << strNetworkID;
+            uint256 hash = h.GetHash();
+            CScript coinbase_sig = CScript() << std::vector<uint8_t>(hash.begin(), hash.end());
+            genesis = CreateGenesisBlock(coinbase_sig, CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+
+        } else {
+            throw std::runtime_error(strprintf("%s: Unknown consensus.genesis_style %s.", __func__, consensus.genesis_style));
+        }
+    }
+
 public:
     CCustomParams(const std::string& chain, ArgsManager& args) : CRegTestParams(args)
     {
         strNetworkID = chain;
         UpdateFromArgs(args);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        SetGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
     }
 };

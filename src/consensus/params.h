@@ -47,6 +47,7 @@ struct BIP9Deployment {
  * Parameters that influence chain consensus.
  */
 struct Params {
+    std::string genesis_style;
     uint256 hashGenesisBlock;
     int nSubsidyHalvingInterval;
     /* Block hash that is excepted from BIP16 enforcement */
