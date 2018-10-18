@@ -110,6 +110,7 @@ testScripts = [
     'segwit.py',
     # vv Tests less than 2m vv
     'wallet.py',
+    'whitelisting.py',
     # Accounts not supported
     #'wallet-accounts.py',
     # TODO fix mininode
