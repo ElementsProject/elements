@@ -41,8 +41,8 @@ information or see http://opensource.org/licenses/MIT.
 
 [confidential-transactions]: https://elementsproject.org/features/confidential-transactions
 [opcodes]: https://elementsproject.org/features/opcodes
-[federated-peg]: https://elementsproject.github.io/features#federatedpeg
-[signed-blocks]: https://elementsproject.github.io/features#signedblocks
+[federated-peg]: https://elementsproject.org/features#federatedpeg
+[signed-blocks]: https://elementsproject.org/features#signedblocks
 [asset-issuance]: https://elementsproject.org/features/issued-assets
 
 What is the Elements Project?
@@ -50,6 +50,6 @@ What is the Elements Project?
 Elements is an open source collaborative project where we work on a collection
 of experiments to more rapidly bring technical innovation to the Bitcoin ecosystem.
 
-https://github.com/ElementsProject/elementsproject.org
+Learn more on [the Elements Project website](https://elementsproject.org)
 
-Learn more on [the Elements Project website](https://elementsproject.org).
+https://github.com/ElementsProject/elementsproject.github.io
