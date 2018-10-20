@@ -3,7 +3,7 @@ Elements blockchain platform
 This is the integration and staging tree for the Elements blockchain platform,
 a collection of feature experiments and extensions to the Bitcoin protocol.
 This platform enables anyone to build their own businesses or networks
-involving sidechain pegged Bitcoin or arbitrary asset tokens.
+pegged to Bitcoin as a sidechain or run as a standalone blockchain with arbitrary asset tokens.
 
 Confidential Assets
 ----------------
