@@ -47,9 +47,8 @@ information or see http://opensource.org/licenses/MIT.
 
 What is the Elements Project?
 -----------------
-Elements is an open source collaborative project where we work on a collection
-of experiments to more rapidly bring technical innovation to the Bitcoin ecosystem.
+Elements is an open source, sidechain-capable blockchain platform. It also allows experiments to more rapidly bring technical innovation to the Bitcoin ecosystem.
 
-Learn more on [the Elements Project website](https://elementsproject.org)
+Learn more on the [Elements Project website](https://elementsproject.org)
 
 https://github.com/ElementsProject/elementsproject.github.io
