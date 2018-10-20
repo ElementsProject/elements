@@ -15,6 +15,7 @@ and amounts are blinded yet auditable through the use of applied cryptography.
  * [Confidential Assets Whitepaper](https://blockstream.com/bitcoin17-final41.pdf) to be presented [April 7th at Financial Cryptography 2017](http://fc17.ifca.ai/bitcoin/schedule.html) in Malta
  * [Confidential Assets Tutorial](contrib/assets_tutorial/assets_tutorial.sh)
  * [Confidential Assets Demo](https://github.com/ElementsProject/confidential-assets-demo)
+ * [Elements Code Tutorial](https://elementsproject.org/elements-code-tutorial/overview) covering blockchain configuration and how to use the main features.
 
 Features of the Elements blockchain platform
 ----------------
@@ -22,30 +23,27 @@ Features of the Elements blockchain platform
 Compared to Bitcoin itself, it adds the following features:
  * [Confidential Assets][asset-issuance]
  * [Confidential Transactions][confidential-transactions]
- * [Additional opcodes][opcodes]
- * [Deterministic Peg][deterministic-peg]
+ * [Federated Two-Way Peg][federated-peg]
  * [Signed Blocks][signed-blocks]
+ * [Additional opcodes][opcodes]
 
 Previous elements that have been integrated into Bitcoin:
- * [Segregated Witness][segregated-witness]
- * [Relative Lock Time][relative-lock-time]
+ * Segregated Witness
+ * Relative Lock Time
 
 Elements deferred for additional research and standardization:
- * [Schnorr Signatures][schnorr-signatures]
+ * Schnorr Signatures
 
 License
 -------
 Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see http://opensource.org/licenses/MIT.
 
-[confidential-transactions]: https://www.elementsproject.org/elements/confidential-transactions
-[segregated-witness]: https://www.elementsproject.org/elements/segregated-witness
-[relative-lock-time]: https://www.elementsproject.org/elements/relative-lock-time
-[schnorr-signatures]: https://www.elementsproject.org/elements/schnorr-signatures
-[opcodes]: https://www.elementsproject.org/elements/opcodes
-[deterministic-peg]: https://www.elementsproject.org/elements/deterministic-pegs
-[signed-blocks]: https://www.elementsproject.org/elements/signed-blocks
-[asset-issuance]: https://www.elementsproject.org/elements/asset-issuance
+[confidential-transactions]: https://elementsproject.org/features/confidential-transactions
+[opcodes]: https://elementsproject.org/features/opcodes
+[federated-peg]: https://elementsproject.github.io/features#federatedpeg
+[signed-blocks]: https://elementsproject.github.io/features#signedblocks
+[asset-issuance]: https://elementsproject.org/features/issued-assets
 
 What is the Elements Project?
 -----------------
@@ -54,4 +52,4 @@ of experiments to more rapidly bring technical innovation to the Bitcoin ecosyst
 
 https://github.com/ElementsProject/elementsproject.org
 
-Learn more on [the Elements Project website](https://www.elementsproject.org).
+Learn more on [the Elements Project website](https://elementsproject.org).
