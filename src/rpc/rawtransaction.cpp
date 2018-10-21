@@ -155,7 +155,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             uint256 entropy;
             if (!issuance.IsReissuance()) {
                 GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
-                issue.push_back(Pair("assetEntropy", HexStr(entropy)));
+                issue.push_back(Pair("assetEntropy", entropy.GetHex()));
                 CalculateAsset(asset, entropy);
                 CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
                 issue.push_back(Pair("isreissuance", false));
