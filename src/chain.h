@@ -14,8 +14,6 @@
 
 #include <vector>
 
-#include <util.h>
-
 /**
  * Maximum amount of time that a block timestamp is allowed to exceed the
  * current network-adjusted time before the block will be accepted.
@@ -409,7 +407,9 @@ public:
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(block_height);
+        if (g_con_blockheightinheader) {
+            READWRITE(block_height);
+        }
         READWRITE(nBits);
         READWRITE(nNonce);
     }

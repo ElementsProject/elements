@@ -26,6 +26,15 @@ GENESIS_ARGS_MAP = [
                 '-con_genesis_style=default_style',
         ],
     },
+
+    {
+        'memo': 'default_style with height in header',
+        'genesis': 'be878d13f0b4fd63c9e3d07c8a09a1f47f4a915e017a4648fff6bdfda751189e',
+        'args': [
+            '-con_genesis_style=default_style',
+            '-con_blockheightinheader',
+        ],
+    },
 ]
 
 class GenesisHashTest(BitcoinTestFramework):

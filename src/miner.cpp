@@ -168,7 +168,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    if (Params().GetConsensus().blockheight_in_header) {
+    if (g_con_blockheightinheader) {
         pblock->block_height = nHeight;
     }
     pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());

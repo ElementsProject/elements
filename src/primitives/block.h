@@ -9,7 +9,11 @@
 #include <primitives/transaction.h>
 #include <serialize.h>
 #include <uint256.h>
-#include <util.h>
+
+/** 
+ * Also found in consensus params as blockheight_in_header (circular dep otherwise)
+ */
+extern bool g_con_blockheightinheader;
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -45,8 +49,7 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        // Also found in consensus params as blockheight_in_header (circular dep otherwise)
-        if (gArgs.GetBoolArg("-con_blockheightinheader", false)) {
+        if (g_con_blockheightinheader) {
             READWRITE(block_height);
         }
         READWRITE(nBits);
