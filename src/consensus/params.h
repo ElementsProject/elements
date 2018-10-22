@@ -12,6 +12,7 @@
 #include <string>
 
 #include <script/script.h> // mandatory_coinbase_destination
+#include <amount.h> // genesis_subsidy
 
 namespace Consensus {
 
@@ -80,6 +81,7 @@ struct Params {
 
     // Elements-specific chainparams
     CScript mandatory_coinbase_destination;
+    CAmount genesis_subsidy;
 };
 } // namespace Consensus
 
