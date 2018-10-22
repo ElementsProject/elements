@@ -11,6 +11,8 @@
 #include <map>
 #include <string>
 
+#include <script/script.h> // mandatory_coinbase_destination
+
 namespace Consensus {
 
 enum DeploymentPos
@@ -75,6 +77,9 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+
+    // Elements-specific chainparams
+    CScript mandatory_coinbase_destination;
 };
 } // namespace Consensus
 
