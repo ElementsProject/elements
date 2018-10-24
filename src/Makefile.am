@@ -288,6 +288,8 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/walletdb.cpp \
   wallet/walletutil.cpp \
   wallet/coinselection.cpp \
+  primitives/bitcoin/merkleblock.cpp \
+  primitives/bitcoin/block.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
@@ -352,6 +354,12 @@ libbitcoin_consensus_a_SOURCES = \
   primitives/block.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
+  primitives/bitcoin/block.cpp \
+  primitives/bitcoin/block.h \
+  primitives/bitcoin/merkleblock.cpp \
+  primitives/bitcoin/merkleblock.h \
+  primitives/bitcoin/transaction.cpp \
+  primitives/bitcoin/transaction.h \
   pubkey.cpp \
   pubkey.h \
   script/bitcoinconsensus.cpp \
