@@ -105,6 +105,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x0000000000000000002e63058c023a9a1de233554f28c7b21380b6c9003f36a8"); //534292
 
         consensus.genesis_subsidy = 50*COIN;
+        consensus.connect_genesis_outputs = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -221,6 +222,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x0000000000000037a8cd3e06cd5edbfe9dd1dbcc5dacab279376ef7cfc2b4c75"); //1354312
 
         consensus.genesis_subsidy = 50*COIN;
+        consensus.connect_genesis_outputs = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -312,6 +314,7 @@ public:
         consensus.defaultAssumeValid = uint256S("0x00");
 
         consensus.genesis_subsidy = 50*COIN;
+        consensus.connect_genesis_outputs = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -433,6 +436,8 @@ class CCustomParams : public CRegTestParams {
         std::vector<unsigned char> man_bytes = ParseHex(gArgs.GetArg("-con_mandatorycoinbase", ""));
         consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
 
+        // Custom chains connect coinbase outputs to db by default
+        consensus.connect_genesis_outputs = gArgs.GetArg("-con_connect_coinbase", true);
 
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
