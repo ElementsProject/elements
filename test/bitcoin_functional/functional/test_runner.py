@@ -153,7 +153,6 @@ BASE_SCRIPTS = [
     'feature_blocksdir.py',
     'feature_config_args.py',
     'feature_help.py',
-    'feature_mandatory_coinbase.py',
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
@@ -286,7 +285,7 @@ def main():
     if args.help:
         # Print help for test_runner.py, then print help of the first script (with args removed) and exit.
         parser.print_help()
-        subprocess.check_call([sys.executable, os.path.join(config["environment"]["SRCDIR"], 'test', 'functional', test_list[0].split()[0]), '-h'])
+        subprocess.check_call([sys.executable, os.path.join(config["environment"]["SRCDIR"], 'test', 'bitcoin_functional', 'functional', test_list[0].split()[0]), '-h'])
         sys.exit(0)
 
     check_script_list(config["environment"]["SRCDIR"])
@@ -322,7 +321,7 @@ def run_tests(test_list, src_dir, build_dir, tmpdir, jobs=1, enable_coverage=Fal
     if os.path.isdir(cache_dir):
         print("%sWARNING!%s There is a cache directory here: %s. If tests fail unexpectedly, try deleting the cache directory." % (BOLD[1], BOLD[0], cache_dir))
 
-    tests_dir = src_dir + '/test/functional/'
+    tests_dir = src_dir + '/test/bitcoin_functional/functional/'
 
     flags = ['--cachedir={}'.format(cache_dir)] + args
 
@@ -538,7 +537,7 @@ def check_script_list(src_dir):
 
     Check that there are no scripts in the functional tests directory which are
     not being run by pull-tester.py."""
-    script_dir = src_dir + '/test/functional/'
+    script_dir = src_dir + '/test/bitcoin_functional/functional/'
     python_files = set([test_file for test_file in os.listdir(script_dir) if test_file.endswith(".py")])
     missed_tests = list(python_files - set(map(lambda x: x.split()[0], ALL_SCRIPTS + NON_SCRIPTS)))
     if len(missed_tests) != 0:
