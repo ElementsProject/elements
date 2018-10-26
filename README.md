@@ -32,7 +32,7 @@ Previous elements that have been integrated into Bitcoin:
  * Relative Lock Time
 
 Elements deferred for additional research and standardization:
- * [Schnorr Signatures][schnorr]
+ * [Schnorr Signatures][schnorr-signatures]
 
 License
 -------
@@ -44,7 +44,7 @@ information or see http://opensource.org/licenses/MIT.
 [federated-peg]: https://elementsproject.org/features#federatedpeg
 [signed-blocks]: https://elementsproject.org/features#signedblocks
 [asset-issuance]: https://elementsproject.org/features/issued-assets
-[schnorr]: https://elementsproject.org/features/schnorr-signatures
+[schnorr-signatures]: https://elementsproject.org/features/schnorr-signatures
 
 What is the Elements Project?
 -----------------
