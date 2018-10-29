@@ -64,6 +64,7 @@ public:
     uint32_t nTime;
     uint32_t nBits;
     uint32_t nNonce;
+    CProof proof;
 
     CBlockHeader()
     {
@@ -78,8 +79,12 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        if (false) {
+            READWRITE(proof);
+        } else {
+            READWRITE(nBits);
+            READWRITE(nNonce);
+        }
     }
 
     void SetNull()
@@ -90,11 +95,16 @@ public:
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+        proof.SetNull();
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        if (false) {
+            return proof.IsNull();
+        } else {
+            return (nBits == 0);
+        }
     }
 
     uint256 GetHash() const;
@@ -150,6 +160,7 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.proof          = proof;
         return block;
     }
 
