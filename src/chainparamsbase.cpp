@@ -26,6 +26,8 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_connect_coinbase", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blcoks` set to true.", false, OptionsCategory::CHAINPARAMS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
