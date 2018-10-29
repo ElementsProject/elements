@@ -203,6 +203,14 @@ bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned i
     if (vchSig.size() == 0) {
         return true;
     }
+
+    bool no_hash_byte = (flags & SCRIPT_NO_SIGHASH_BYTE) == SCRIPT_NO_SIGHASH_BYTE;
+    std::vector<unsigned char> vchSigCopy(vchSig.begin(), vchSig.begin() + vchSig.size());
+    // Push a dummy sighash byte to pass checks
+    if (no_hash_byte) {
+        vchSigCopy.push_back(SIGHASH_ALL);
+    }
+
     if ((flags & (SCRIPT_VERIFY_DERSIG | SCRIPT_VERIFY_LOW_S | SCRIPT_VERIFY_STRICTENC)) != 0 && !IsValidSignatureEncoding(vchSig)) {
         return set_error(serror, SCRIPT_ERR_SIG_DER);
     } else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSig, serror)) {
