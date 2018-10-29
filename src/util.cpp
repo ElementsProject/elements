@@ -631,6 +631,9 @@ std::string ArgsManager::GetHelpMessage() const
             case OptionsCategory::GUI:
                 usage += HelpMessageGroup("UI Options:");
                 break;
+            case OptionsCategory::ELEMENTS:
+                usage += HelpMessageGroup("Elements Options:");
+                break;
             case OptionsCategory::COMMANDS:
                 usage += HelpMessageGroup("Commands:");
                 break;

@@ -523,6 +523,12 @@ void SetupServerArgs()
 
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
+
+    //
+    // Elements-specific arguments.
+    //
+
+
 }
 
 std::string LicenseInfo()
