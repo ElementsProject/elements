@@ -62,7 +62,7 @@ log "mining in random intervals between $min_time .. $max_time seconds"
 log "hit ^C to stop"
 
 while true; do
-    let rv=$RANDOM%$randinterval
+    let rv=$RANDOM%$randinterval+$min_time
     echo -n -e "- $(date +%H:%M:%S): next block in $rv seconds..."
     sleep $rv
     echo -n -e " [submit]"
