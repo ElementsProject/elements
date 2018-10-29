@@ -83,6 +83,7 @@ struct Params {
     CScript mandatory_coinbase_destination;
     CAmount genesis_subsidy;
     bool connect_genesis_outputs;
+    CScript signblockscript;
 };
 } // namespace Consensus
 
