@@ -7,8 +7,45 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include <primitives/transaction.h>
+#include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+
+class CProof
+{
+public:
+    CScript challenge;
+    CScript solution;
+
+    CProof()
+    {
+        SetNull();
+    }
+    CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(*(CScriptBase*)(&challenge));
+        if (!(s.GetType() & SER_GETHASH))
+            READWRITE(*(CScriptBase*)(&solution));
+    }
+
+    void SetNull()
+    {
+        challenge.clear();
+        solution.clear();
+    }
+
+    bool IsNull() const
+    {
+        return challenge.empty();
+    }
+
+    std::string ToString() const;
+};
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
