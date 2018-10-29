@@ -84,6 +84,7 @@ struct Params {
     CAmount genesis_subsidy;
     bool connect_genesis_outputs;
     CScript signblockscript;
+    // g_signed_blocks - Whether blocks are signed or not, get around circular dep
 };
 } // namespace Consensus
 

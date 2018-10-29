@@ -11,6 +11,8 @@
 #include <serialize.h>
 #include <uint256.h>
 
+extern bool g_signed_blocks;
+
 class CProof
 {
 public:
@@ -79,7 +81,7 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
-        if (false) {
+        if (g_signed_blocks) {
             READWRITE(proof);
         } else {
             READWRITE(nBits);
@@ -100,7 +102,7 @@ public:
 
     bool IsNull() const
     {
-        if (false) {
+        if (g_signed_blocks) {
             return proof.IsNull();
         } else {
             return (nBits == 0);

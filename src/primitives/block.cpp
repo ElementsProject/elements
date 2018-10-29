@@ -10,6 +10,8 @@
 #include <utilstrencodings.h>
 #include <crypto/common.h>
 
+bool g_signed_blocks = false;
+
 std::string CProof::ToString() const
 {
     return strprintf("CProof(challenge=%s, solution=%s)",
