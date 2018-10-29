@@ -150,6 +150,8 @@ BASE_SCRIPTS = [
     'rpc_scantxoutset.py',
     'feature_logging.py',
     'p2p_node_network_limited.py',
+    'feature_blocksign.py',
+    'feature_signed_blockchain.py',
     'feature_blocksdir.py',
     'feature_config_args.py',
     'feature_help.py',
