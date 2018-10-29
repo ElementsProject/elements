@@ -13,11 +13,19 @@
 class CBlockHeader;
 class CBlockIndex;
 class uint256;
+class CProof;
+class CScript;
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params&);
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params&);
 
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);
+
+// Elements signed chain functionality
+bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
+void ResetProof(CBlockHeader& block);
+bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
+void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
 
 #endif // BITCOIN_POW_H
