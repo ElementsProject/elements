@@ -102,6 +102,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
+    result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+    result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
@@ -148,6 +150,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("difficulty", GetDifficulty(blockindex));
     result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
+    result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+    result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
@@ -703,6 +707,8 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
             "  \"chainwork\" : \"0000...1f3\"     (string) Expected number of hashes required to produce the current chain (in hex)\n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
+            "  \"signblock_witness_asm\" : \"xxxx\", (string) ASM of sign block witness data.\n"
+            "  \"signblock_witness_hex\" : \"xxxx\", (string) Hex of sign block witness data.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\",      (string) The hash of the next block\n"
             "}\n"
@@ -792,6 +798,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
             "  \"chainwork\" : \"xxxx\",  (string) Expected number of hashes required to produce the chain up to this block (in hex)\n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
+            "  \"signblock_witness_asm\" : \"xxxx\", (string) ASM of sign block witness data.\n"
+            "  \"signblock_witness_hex\" : \"xxxx\", (string) Hex of sign block witness data.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
@@ -1198,6 +1206,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"chainwork\": \"xxxx\"           (string) total amount of work in active chain, in hexadecimal\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
             "  \"pruned\": xx,                 (boolean) if the blocks are subject to pruning\n"
+            "  \"signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data.\n"
+            "  \"signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data.\n"
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
             "  \"prune_target_size\": xxxxxx,  (numeric) the target size used by pruning (only present if automatic pruning is enabled)\n"
@@ -1247,6 +1257,9 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
     obj.pushKV("pruned",                fPruneMode);
+    obj.pushKV("signblock_asm", ScriptToAsmStr(consensusParams.signblockscript));
+    obj.pushKV("signblock_hex", HexStr(consensusParams.signblockscript));
+
     if (fPruneMode) {
         CBlockIndex* block = chainActive.Tip();
         assert(block);
