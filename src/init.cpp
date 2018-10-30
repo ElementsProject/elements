@@ -349,7 +349,6 @@ void SetupServerArgs()
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",
         "-prematurewitness", "-walletprematurewitness", "-promiscuousmempoolflags", "-blockminsize", "-dbcrashratio", "-forcecompactdb", "-usehd",
-        "-con_fpowallowmindifficultyblocks", "-con_fpownoretargeting", "-con_nsubsidyhalvinginterval", "-con_bip16exception", "-con_bip34height", "-con_bip65height", "-con_bip66height", "-con_npowtargettimespan", "-con_npowtargetspacing", "-con_nrulechangeactivationthreshold", "-con_nminerconfirmationwindow", "-con_powlimit", "-con_bip34hash", "-con_nminimumchainwork", "-con_defaultassumevalid", "-npruneafterheight", "-fdefaultconsistencychecks", "-fmineblocksondemand", "-bech32_hrp", "-fallback_fee_enabled", "-pubkeyprefix", "-scriptprefix", "-secretprefix", "-extpubkeyprefix", "-extprvkeyprefix", "-pchmessagestart",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-allowselfsignedrootcertificates", "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-rootcertificates=<file>", "-splash", "-uiplatform"};
 
@@ -521,14 +520,23 @@ void SetupServerArgs()
     hidden_args.emplace_back("-daemon");
 #endif
 
-    // Add the hidden options
-    gArgs.AddHiddenArgs(hidden_args);
-
     //
     // Elements-specific arguments.
     //
 
+    std::vector<std::string> elements_hidden_args = {"-con_fpowallowmindifficultyblocks", "-con_fpownoretargeting", "-con_nsubsidyhalvinginterval", "-con_bip16exception", "-con_bip34height", "-con_bip65height", "-con_bip66height", "-con_npowtargettimespan", "-con_npowtargetspacing", "-con_nrulechangeactivationthreshold", "-con_nminerconfirmationwindow", "-con_powlimit", "-con_bip34hash", "-con_nminimumchainwork", "-con_defaultassumevalid", "-npruneafterheight", "-fdefaultconsistencychecks", "-fmineblocksondemand", "-fallback_fee_enabled", "-pchmessagestart"};
 
+    gArgs.AddArg("-pubkeyprefix", strprintf("The byte prefix, in decimal, of the chain's base58 pubkey address. (default: %d)", 235), false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-scriptprefix", strprintf("The byte prefix, in decimal, of the chain's base58 script address. (default: %d)", 75), false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-secretprefix", strprintf("The byte prefix, in decimal, of the chain's base58 secret key encoding. (default: %d)", 239), false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-extpubkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended public key encoding. (default: %s)", "043587CF"), false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-extprvkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended private key encoding. (default: %s)", "04358394"), false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-bech32_hrp", strprintf("The human-readable part of the chain's bech32 encoding. (default: %s)", "bc"), false, OptionsCategory::ELEMENTS);
+
+
+    // Add the hidden options
+    gArgs.AddHiddenArgs(hidden_args);
+    gArgs.AddHiddenArgs(elements_hidden_args);
 }
 
 std::string LicenseInfo()
