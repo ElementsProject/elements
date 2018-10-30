@@ -17,6 +17,10 @@ from test_framework.util import (
     assert_raises_jsonrpc,
 )
 
+# Keys for signing 2-of-3
+pubkeys = ["039560e48d4336e40db447fc136ce24ae1dfdefa5701e4d4e57aa1a1a9f47f3faa", "025a66517c1d85adcd909f9f675bf656708edc4da1f614693e347be6baf0fef4ae", "02ca238faeb3b01d26ae8a39869220dbd84cc8516398afa8958fe613fe4fdf1c04"]
+
+sign_script_pubkey = "5221"+pubkeys[0]+"21"+pubkeys[1]+"21"+pubkeys[2]+"53ae"
 
 class SignedBlockchainTest(BitcoinTestFramework):
     """
@@ -35,10 +39,8 @@ class SignedBlockchainTest(BitcoinTestFramework):
         self.num_nodes = 3
 
     def setup_network(self, split=False):
-        # Keys for signing 2-of-3
-        pubkeys = ["039560e48d4336e40db447fc136ce24ae1dfdefa5701e4d4e57aa1a1a9f47f3faa", "025a66517c1d85adcd909f9f675bf656708edc4da1f614693e347be6baf0fef4ae", "02ca238faeb3b01d26ae8a39869220dbd84cc8516398afa8958fe613fe4fdf1c04"]
         # Normal multisig scriptPubKey: 1 <33 byte pubkey> <33 byte pubkey> ... 2 OP_CMS
-        sign_script = "-signblockscript=5221"+pubkeys[0]+"21"+pubkeys[1]+"21"+pubkeys[2]+"53ae"
+        sign_script = "-signblockscript="+sign_script_pubkey
         self.nodes = start_nodes(self.num_nodes, self.options.tmpdir, [[sign_script],[sign_script], [sign_script]])
         # nodes are disconnected for this test
         self.is_network_split = True
@@ -113,6 +115,20 @@ class SignedBlockchainTest(BitcoinTestFramework):
         # combining signature from third node this time
         combined1 = self.nodes[0].combineblocksigs(combined0["hex"], [sig2])
         assert(combined1["complete"])
+
+        # Test getblock(header) signed block fields
+        tip = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        header = self.nodes[0].getblockheader(tip)
+        block = self.nodes[0].getblock(tip)
+        info = self.nodes[0].getblockchaininfo()
+
+        assert('signblock_witness_asm' in header)
+        assert('signblock_witness_hex' in header)
+        assert('signblock_witness_asm' in block)
+        assert('signblock_witness_hex' in block)
+
+        assert_equal(info['signblock_asm'], "")
+        assert_equal(info['signblock_hex'], sign_script_pubkey)
 
         # TODO stuff with too many signatures or junk data manually
 
