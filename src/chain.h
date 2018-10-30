@@ -289,6 +289,7 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.proof          = proof;
         return block;
     }
 

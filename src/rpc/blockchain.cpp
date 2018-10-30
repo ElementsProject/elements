@@ -97,15 +97,17 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("nonce", (uint64_t)blockindex->nNonce);
-    result.pushKV("bits", strprintf("%08x", blockindex->nBits));
-    result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    if (!g_signed_blocks) {
+        result.pushKV("nonce", (uint64_t)blockindex->nNonce);
+        result.pushKV("bits", strprintf("%08x", blockindex->nBits));
+        result.pushKV("difficulty", GetDifficulty(blockindex));
+        result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    } else {
+        result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+        result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+    }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
-    result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
-
-    if (blockindex->pprev)
+     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     CBlockIndex *pnext = chainActive.Next(blockindex);
     if (pnext)
@@ -145,13 +147,17 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("nonce", (uint64_t)block.nNonce);
-    result.pushKV("bits", strprintf("%08x", block.nBits));
-    result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    if (!g_signed_blocks) {
+        result.pushKV("nonce", (uint64_t)block.nNonce);
+        result.pushKV("bits", strprintf("%08x", block.nBits));
+        result.pushKV("difficulty", GetDifficulty(blockindex));
+        result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    } else {
+        result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+        result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+        result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
+    }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-    result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
-    result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
 
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());

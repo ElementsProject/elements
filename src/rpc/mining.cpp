@@ -127,15 +127,19 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
             LOCK(cs_main);
             IncrementExtraNonce(pblock, chainActive.Tip(), nExtraNonce);
         }
-        while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
-            ++pblock->nNonce;
-            --nMaxTries;
-        }
-        if (nMaxTries == 0) {
-            break;
-        }
-        if (pblock->nNonce == nInnerLoopCount) {
-            continue;
+        // Signed blocks have no PoW requirements, but merkle root computed above in
+        // IncrementExtraNonce
+        if (!g_signed_blocks) {
+            while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
+                ++pblock->nNonce;
+                --nMaxTries;
+            }
+            if (nMaxTries == 0) {
+                break;
+            }
+            if (pblock->nNonce == nInnerLoopCount) {
+                continue;
+            }
         }
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))

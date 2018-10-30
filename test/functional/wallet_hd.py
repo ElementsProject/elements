@@ -14,7 +14,6 @@ from test_framework.util import (
     assert_raises_rpc_error
 )
 
-
 class WalletHDTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True

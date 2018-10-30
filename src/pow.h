@@ -23,6 +23,8 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);
 
 // Elements signed chain functionality
+
+/** Check on header proof, depending on chain type, PoW or signed **/
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
 void ResetProof(CBlockHeader& block);
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);

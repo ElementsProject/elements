@@ -142,6 +142,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus()) && fMineWitnessTx;
 
+    // Pad block weight by block proof fields (including upper-bound of signature)
+    nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
+    nBlockWeight += chainparams.GetConsensus().max_block_signature_size * WITNESS_SCALE_FACTOR;
+
+    // Reset block proof
+    ResetProof(*pblock);
+    ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
+
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
@@ -168,7 +176,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
+    pblock->nBits          = g_signed_blocks ? 0 : GetNextWorkRequired(pindexPrev, pblock, chainparams.GetConsensus());
     pblock->nNonce         = 0;
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 

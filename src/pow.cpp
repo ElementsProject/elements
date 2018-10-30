@@ -15,7 +15,11 @@
 
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
-    return block.proof.challenge == indexLast.proof.challenge;
+    if (g_signed_blocks) {
+        return block.proof.challenge == indexLast.proof.challenge;
+    } else {
+        return block.nBits == GetNextWorkRequired(&indexLast, &block, params);
+    }
 }
 
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
@@ -108,6 +112,10 @@ static bool CheckProofGeneric(const CBlockHeader& block, const Consensus::Params
     if (block.GetHash() == params.hashGenesisBlock)
        return true;
 
+    if (block.proof.solution.size() > params.max_block_signature_size) {
+        return false;
+    }
+
     // Some important anti-DoS flags.
     // Note: Blockhashes do not commit to the proof.
     // Therefore we may have a signature be mealleated
@@ -133,7 +141,11 @@ static bool CheckProofGeneric(const CBlockHeader& block, const Consensus::Params
 
 bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 {
-    return CheckProofGeneric(block, params, params.signblockscript);
+    if (g_signed_blocks) {
+        return CheckProofGeneric(block, params, params.signblockscript);
+    } else {
+        return CheckProofOfWork(block.GetHash(), block.nBits, params);
+    }
 }
 
 void ResetProof(CBlockHeader& block)
