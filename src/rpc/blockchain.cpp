@@ -1258,16 +1258,22 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
-    obj.pushKV("difficulty",            (double)GetDifficulty(chainActive.Tip()));
+    if (!g_signed_blocks) {
+        obj.pushKV("difficulty",            (double)GetDifficulty(chainActive.Tip()));
+    }
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
     obj.pushKV("verificationprogress",  GuessVerificationProgress(chainparams.TxData(), chainActive.Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
-    obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    if (!g_signed_blocks) {
+        obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    }
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
     obj.pushKV("pruned",                fPruneMode);
-    CScript sign_block_script = chainparams.GetConsensus().signblockscript;
-    obj.pushKV("signblock_asm", ScriptToAsmStr(sign_block_script));
-    obj.pushKV("signblock_hex", HexStr(sign_block_script));
+    if (g_signed_blocks) {
+        CScript sign_block_script = chainparams.GetConsensus().signblockscript;
+        obj.pushKV("signblock_asm", ScriptToAsmStr(sign_block_script));
+        obj.pushKV("signblock_hex", HexStr(sign_block_script));
+    }
 
     if (fPruneMode) {
         CBlockIndex* block = chainActive.Tip();
