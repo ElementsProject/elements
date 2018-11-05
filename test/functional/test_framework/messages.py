@@ -497,7 +497,8 @@ class CTransaction():
 
 
 class CProof(object):
-    def __init__(self, challenge=b"", solution=b""):
+    # Default allows OP_TRUE blocks
+    def __init__(self, challenge=bytearray.fromhex('51'), solution=b""):
         self.challenge = challenge
         self.solution = solution
 
