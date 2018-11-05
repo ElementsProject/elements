@@ -198,28 +198,31 @@ class RESTTest (BitcoinTestFramework):
         self.log.info("Test the /block and /headers URIs")
         bb_hash = self.nodes[0].getbestblockhash()
 
+        # Elements note: We stripped nBits and nNonce from headers when in signed block mode
+        # Each header has a OP_TRUE challenge script
+
         # Check binary format
         response = self.test_rest_request("/block/{}".format(bb_hash), req_type=ReqType.BIN, ret_type=RetType.OBJ)
-        assert_greater_than(int(response.getheader('content-length')), 80)
+        assert_greater_than(int(response.getheader('content-length')), 75)
         response_bytes = response.read()
 
         # Compare with block header
         response_header = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.BIN, ret_type=RetType.OBJ)
-        assert_equal(int(response_header.getheader('content-length')), 80)
+        assert_equal(int(response_header.getheader('content-length')), 75)
         response_header_bytes = response_header.read()
-        assert_equal(response_bytes[:80], response_header_bytes)
+        assert_equal(response_bytes[:75], response_header_bytes)
 
         # Check block hex format
         response_hex = self.test_rest_request("/block/{}".format(bb_hash), req_type=ReqType.HEX, ret_type=RetType.OBJ)
-        assert_greater_than(int(response_hex.getheader('content-length')), 160)
+        assert_greater_than(int(response_hex.getheader('content-length')), 151)
         response_hex_bytes = response_hex.read().strip(b'\n')
         assert_equal(binascii.hexlify(response_bytes), response_hex_bytes)
 
         # Compare with hex block header
         response_header_hex = self.test_rest_request("/headers/1/{}".format(bb_hash), req_type=ReqType.HEX, ret_type=RetType.OBJ)
-        assert_greater_than(int(response_header_hex.getheader('content-length')), 160)
-        response_header_hex_bytes = response_header_hex.read(160)
-        assert_equal(binascii.hexlify(response_bytes[:80]), response_header_hex_bytes)
+        assert_greater_than(int(response_header_hex.getheader('content-length')), 75*2)
+        response_header_hex_bytes = response_header_hex.read(75*2)
+        assert_equal(binascii.hexlify(response_bytes[:75]), response_header_hex_bytes)
 
         # Check json format
         block_json_obj = self.test_rest_request("/block/{}".format(bb_hash))
@@ -232,7 +235,7 @@ class RESTTest (BitcoinTestFramework):
 
         # Compare with normal RPC block response
         rpc_block_json = self.nodes[0].getblock(bb_hash)
-        for key in ['hash', 'confirmations', 'height', 'version', 'merkleroot', 'time', 'nonce', 'bits', 'difficulty', 'chainwork', 'previousblockhash']:
+        for key in ['hash', 'confirmations', 'height', 'version', 'merkleroot', 'time', 'previousblockhash']:
             assert_equal(json_obj[0][key], rpc_block_json[key])
 
         # See if we can get 5 headers in one response
