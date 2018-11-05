@@ -58,6 +58,11 @@ TRAVIS_TIMEOUT_DURATION = 20 * 60
 BASE_SCRIPTS = [
     # Scripts that are run by the travis build process.
     # Longest test should go first, to favor running tests in parallel
+    'mempool_packages.py',
+    'feature_maxuploadtarget.py',
+    'p2p_timeouts.py',
+    'mining_getblocktemplate_longpoll.py',
+    'feature_fee_estimation.py',
     'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
@@ -68,6 +73,7 @@ BASE_SCRIPTS = [
     # vv Tests less than 2m vv
     'wallet_basic.py',
     'wallet_labels.py',
+    'p2p_feefilter.py',
     'p2p_segwit.py',
     'wallet_dump.py',
     'wallet_listtransactions.py',
@@ -112,15 +118,18 @@ BASE_SCRIPTS = [
     'rpc_deprecated.py',
     'wallet_disable.py',
     'rpc_net.py',
+    'example_test.py',
     'wallet_keypool.py',
     'p2p_mempool.py',
     'mining_prioritisetransaction.py',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',
+    'feature_bip68_sequence.py',
     'p2p_invalid_tx.py',
     'rpc_createmultisig.py',
     'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
+    'feature_assumevalid.py',
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',
     'rpc_signmessage.py',
@@ -130,6 +139,11 @@ BASE_SCRIPTS = [
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
     'rpc_bind.py --nonloopback',
+    'wallet_txn_doublespend.py',
+    'wallet_txn_clone.py --mineblock',
+    'feature_notifications.py',
+    'rpc_invalidateblock.py',
+    'feature_rbf.py',
     'mining_basic.py',
     'wallet_bumpfee.py',
     'rpc_named_arguments.py',
@@ -164,27 +178,7 @@ EXTENDED_SCRIPTS = [
     # These tests are not run by the travis build process.
     # Longest test should go first, to favor running tests in parallel
     'feature_pruning.py',
-    # vv Tests less than 20m vv
-    'feature_fee_estimation.py',
-    # vv Tests less than 5m vv
-    'feature_maxuploadtarget.py',
-    'mempool_packages.py',
     'feature_dbcrash.py',
-    # vv Tests less than 2m vv
-    'feature_bip68_sequence.py',
-    'mining_getblocktemplate_longpoll.py',
-    'p2p_timeouts.py',
-    # vv Tests less than 60s vv
-    'p2p_feefilter.py',
-    # vv Tests less than 30s vv
-    'feature_assumevalid.py',
-    'example_test.py',
-    'wallet_txn_doublespend.py',
-    'wallet_txn_clone.py --mineblock',
-    'feature_notifications.py',
-    'rpc_invalidateblock.py',
-    'feature_rbf.py',
-    'feature_connect_coinbase.py'
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests
