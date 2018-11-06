@@ -96,7 +96,8 @@ class ZMQTest (BitcoinTestFramework):
 
             # Should receive the generated raw block.
             block = self.rawblock.receive()
-            assert_equal(genhashes[x], bytes_to_hex_str(hash256(block[:80])))
+            # 75 bytes, last byte is saying block solution is "", ellide this for hash
+            assert_equal(genhashes[x], bytes_to_hex_str(hash256(block[:74])))
 
         self.log.info("Wait for tx from second node")
         payment_txid = self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 1.0)
