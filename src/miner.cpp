@@ -96,7 +96,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx, int required_age_in_secs)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -152,7 +152,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+    addPackageTxs(nPackagesSelected, nDescendantsUpdated, required_age_in_secs);
 
     int64_t nTime1 = GetTimeMicros();
 
@@ -311,7 +311,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int required_age_in_secs)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -365,6 +365,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
                 // Increment mi for the next loop iteration.
                 ++mi;
             }
+        }
+
+        // Skip transactions that are under X seconds in mempool
+        if (iter->GetTime() > current_time - required_age_in_secs) {
+            continue;
         }
 
         // We skip mapTx entries that are inBlock, and mapModifiedTx shouldn't
