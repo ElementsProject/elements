@@ -942,7 +942,7 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
 UniValue getnewblockhex(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() > 1)
-        throw runtime_error(
+        throw std::runtime_error(
             "getnewblockhex\n"
             "\nGets hex representation of a proposed, unmined new block\n"
             "\nArguments:\n"
@@ -978,7 +978,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
 UniValue combineblocksigs(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
-        throw runtime_error(
+        throw std::runtime_error(
             "combineblocksigs \"blockhex\" [\"signature\",...]\n"
             "\nMerges signatures on a block proposal\n"
             "\nArguments:\n"
