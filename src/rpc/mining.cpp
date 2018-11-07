@@ -1022,6 +1022,202 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue getcompactsketch(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "getcompactsketch block_hex\n"
+            "\nGets hex representation of a proposed compact block sketch.\n"
+            "It is consumed by `consumecompactsketch.`\n"
+            "Arguments:\n"
+            "1. \"block_hex\" (string, required), Hex serialized block proposal from `getnewblockhex`.\n"
+            "\nResult\n"
+            "blockhex      (hex) The block hex\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getcompactsketch", "")
+        );
+
+    CBlock block;
+    std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
+    CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock >> block;
+
+    CBlockHeaderAndShortTxIDs cmpctblock(block, true);
+
+    CDataStream ssCompactBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssCompactBlock << cmpctblock;
+    return HexStr(ssCompactBlock.begin(), ssCompactBlock.end());
+
+}
+
+UniValue consumecompactsketch(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "consumecompactsketch sketch\n"
+            "\nTakes hex representation of a proposed compact block sketch and fills it in\n"
+            "using mempool. Returns the block if complete, and a list\n"
+            "of missing transaction indices serialized as a native structure."
+            "NOTE: The latest instance of this call will have a partially filled block\n"
+            "cached in memory to be used in `consumegetblocktxn` to finalize the block.\n"
+            "Arguments:\n"
+            "1. \"sketch\" (string, required), Hex string of compact block sketch.\n"
+            "\nResult\n"
+            "{\n"
+            "   blockhex            (hex) The filled block hex. Only returns when block is final\n"
+            "   block_tx_req        (hex) The serialized structure of missing transaction indices, given to serving node\n"
+            "   found_transactions  (hex) The serialized list of found transactions to be used in finalizecompactblock\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("consumecompactsketch", "<sketch>")
+        );
+
+    UniValue ret(UniValue::VOBJ);
+
+    std::vector<unsigned char> compact_block_bytes(ParseHex(request.params[0].get_str()));
+    CDataStream ssBlock(compact_block_bytes, SER_NETWORK, PROTOCOL_VERSION);
+    CBlockHeaderAndShortTxIDs cmpctblock;
+    ssBlock >> cmpctblock;
+
+    PartiallyDownloadedBlock partialBlock(&mempool);
+    const std::vector<std::pair<uint256, CTransactionRef>> dummy;
+    ReadStatus status = partialBlock.InitData(cmpctblock, dummy);
+    if (status != READ_STATUS_OK) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Compact block decode failed");
+    }
+
+    BlockTransactionsRequest req;
+    std::vector<CTransactionRef> found(partialBlock.GetAvailableTx());
+    for (size_t i = 0; i < cmpctblock.BlockTxCount(); i++) {
+        if (!partialBlock.IsTxAvailable(i)) {
+            req.indexes.push_back(i);
+        }
+    }
+
+    CDataStream ssReq(SER_NETWORK, PROTOCOL_VERSION);
+    ssReq << req;
+
+    CDataStream ssFound(SER_NETWORK, PROTOCOL_VERSION);
+    ssFound << found;
+
+    if (req.indexes.empty()) {
+        std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
+        std::vector<CTransactionRef> dummy;
+        ReadStatus status = partialBlock.FillBlock(*pblock, dummy, false /* don't get pow */);
+        if (status == READ_STATUS_INVALID) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Bogus crap sketch.");
+        } else if (status == READ_STATUS_FAILED) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found. Could be random short ID collision; requires full block instead.");
+        } else if (status == READ_STATUS_CHECKBLOCK_FAILED) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Checkblock failed.");
+        }
+        CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+        ssBlock << *pblock;
+
+        ret.pushKV("blockhex", HexStr(ssBlock.begin(), ssBlock.end()));
+    } else {
+        ret.pushKV("block_tx_req", HexStr(ssReq.begin(), ssReq.end()));
+        ret.pushKV("found_transactions", HexStr(ssFound.begin(), ssFound.end()));
+    }
+    return ret;
+}
+
+UniValue consumegetblocktxn(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(
+            "consumegetblocktxn full_block block_tx_req\n"
+            "Consumes a transaction request for a compact block sketch."
+            "Arguments:\n"
+            "1. \"full_block\" (string, required), Hex serialied block that corresponds to the block request `block_tx_req`.\n"
+            "2. \"block_tx_req\" (string, required), Hex serialied BlockTransactionsRequest, aka getblocktxn network message.\n"
+            "\nResult\n"
+            "block_transactions  (hex) The serialized list of found transactions aka BlockTransactions\n"
+            "\nExamples:\n"
+            + HelpExampleCli("consumegetblocktxn", "<block_tx_req>")
+        );
+
+
+    CBlock block;
+    std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
+    CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock >> block;
+
+    // Take in BlockTransactionsRequest, return BlockTransactions
+    std::vector<unsigned char> block_req(ParseHex(request.params[1].get_str()));
+    CDataStream ssReq(block_req, SER_NETWORK, PROTOCOL_VERSION);
+
+    BlockTransactionsRequest req;
+    ssReq >> req;
+
+    BlockTransactions resp(req);
+    for (size_t i = 0; i < req.indexes.size(); i++) {
+        if (req.indexes[i] >= block.vtx.size()) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Peer sent us a getblocktxn with out-of-bounds tx indices");
+        }
+        resp.txn[i] = block.vtx[req.indexes[i]];
+    }
+
+    CDataStream ssResp(SER_NETWORK, PROTOCOL_VERSION);
+    ssResp << resp;
+
+    return HexStr(ssResp.begin(), ssResp.end());
+}
+
+UniValue finalizecompactblock(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 3)
+        throw runtime_error(
+            "finalizecompactblock compact_hex block_transactions found_transactions\n"
+            "Takes the two transaction lists, fills out the compact block and attempts to validate it."
+            "Arguments:\n"
+            "1. \"compact_hex\" (string, required), Hex serialized compact block.\n"
+            "2. \"block_transactions\" (string, required), Hex serialized BlockTransactions, the response to getblocktxn.\n"
+            "3. \"found_transactions\" (string, required), Hex serialized list of transactions that were found in response to receiving a compact sketch in `consumecompactsketch`.\n"
+            "\nResult\n"
+            "block             (hex) The serialized final block.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("finalizecompactblock", "<compact_hex> <block_transactions> <found_transactions>")
+        );
+
+    // Compact block
+    std::vector<unsigned char> compact_block_bytes(ParseHex(request.params[0].get_str()));
+    CDataStream ssCompactBlock(compact_block_bytes, SER_NETWORK, PROTOCOL_VERSION);
+    CBlockHeaderAndShortTxIDs cmpctblock;
+    ssCompactBlock >> cmpctblock;
+
+    // BlockTransactions from the server
+    std::vector<unsigned char> block_tx(ParseHex(request.params[1].get_str()));
+    CDataStream ssResp(block_tx, SER_NETWORK, PROTOCOL_VERSION);
+
+    BlockTransactions transactions;
+    ssResp >> transactions;
+
+    // Cached transactions
+    std::vector<unsigned char> found_tx(ParseHex(request.params[2].get_str()));
+    CDataStream ssFound(block_tx, SER_NETWORK, PROTOCOL_VERSION);
+
+    std::vector<CTransactionRef> found;
+    ssFound >> found;
+
+    // Make mega-list
+    found.insert(found.end(), transactions.txn.begin(), transactions.txn.end());
+
+    // Now construct the final block!
+    PartiallyDownloadedBlock partialBlock(&mempool);
+
+    const std::vector<std::pair<uint256, CTransactionRef>> dummy;
+    std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
+    if (partialBlock.InitData(cmpctblock, dummy) != READ_STATUS_OK || partialBlock.FillBlock(*pblock, found, false /* pow_check*/) != READ_STATUS_OK) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found. Could be random short ID collision; requires full block instead.");
+    }
+
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
+    ssBlock << *pblock;
+
+    return HexStr(ssBlock.begin(), ssBlock.end());
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1031,6 +1227,11 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "generating",         "combineblocksigs",       &combineblocksigs,       {"blockhex","signatures"} },
     { "generating",         "getnewblockhex",         &getnewblockhex,         {"required_age"} },
+    { "generating",         "getcompactsketch",       &getcompactsketch,       {"block_hex"} },
+    { "generating",         "consumecompactsketch",   &consumecompactsketch,   {"sketch"} },
+    { "generating",         "consumegetblocktxn",     &consumegetblocktxn,     {"full_block", "block_tx_req"} },
+    { "generating",         "finalizecompactblock",   &finalizecompactblock,   {"compact_hex","block_transactions","found_transactions"} },
+
 
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
 
