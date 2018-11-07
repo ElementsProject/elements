@@ -34,6 +34,23 @@ class MempoolPackagesTest(BitcoinTestFramework):
         return (txid, send_value)
 
     def run_test(self):
+
+        # Create transaction with 3-second block delay, should fail to enter the template
+        txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
+        block = self.nodes[0].getnewblockhex(required_age=3)
+        self.nodes[0].submitblock(block)
+        assert(txid in self.nodes[0].getrawmempool())
+        time.sleep(3)
+        block = self.nodes[0].getnewblockhex(required_age=3)
+        self.nodes[0].submitblock(block)
+        assert(txid not in self.nodes[0].getrawmempool())
+        # Once more with no delay (default is 0, just testing default arg)
+        txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
+        block = self.nodes[0].getnewblockhex(required_age=0)
+        self.nodes[0].submitblock(block)
+        assert(txid not in self.nodes[0].getrawmempool())
+        assert_raises_message(JSONRPCException, "required_wait must be non-negative.", self.nodes[0].getnewblockhex, -1)
+
         ''' Mine some blocks and have them mature. '''
         self.nodes[0].generate(101)
         utxo = self.nodes[0].listunspent(10)
