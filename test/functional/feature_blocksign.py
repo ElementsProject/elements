@@ -30,8 +30,7 @@ def make_signblockscript(num_nodes, required_signers, keys):
     print('signblockscript', script)
     return script
 
-class BlockSignTest(test_framework.BitcoinTestFramework):
-
+class BlockSignTest(BitcoinTestFramework):
     # Dynamically generate N keys to be used for block signing.
     def init_keys(self, num_keys):
         self.keys = []
@@ -47,33 +46,17 @@ class BlockSignTest(test_framework.BitcoinTestFramework):
             self.keys.append(k)
             self.wifs.append(wif(pk_bytes))
 
-    def __init__(self, num_nodes, required_signers):
-        super().__init__()
+    def set_test_params(self):
+        self.num_nodes = 9
+        self.require_signers = 7
         self.setup_clean_chain = True
-        self.num_nodes = num_nodes
         self.init_keys(self.num_nodes)
-        self.required_signers = required_signers
         signblockscript = make_signblockscript(num_nodes, required_signers, self.keys)
         self.extra_args = [[
             "-chain=blocksign",
-            # We can't validate pegins since this chain doesn't have a parent chain
-            "-con_has_parent_chain=0",
-            "-parentgenesisblockhash=00",
-            "-validatepegin=0",
             "-signblockscript={}".format(signblockscript)
         ]] * self.num_nodes
-
-    def setup_network(self, split=False):
-        self.nodes = util.start_nodes(self.num_nodes, self.options.tmpdir, self.extra_args)
-        # Have every node import its block signing private key.
-        for i in range(self.num_nodes):
-            self.nodes[i].importprivkey(self.wifs[i])
-            if i + 1 < self.num_nodes:
-                util.connect_nodes_bi(self.nodes, i, i + 1)
-            else:
-                util.connect_nodes_bi(self.nodes, 0, i)
         self.is_network_split = False
-        self.sync_all()
 
     def check_height(self, expected_height):
         for n in self.nodes:
@@ -110,6 +93,10 @@ class BlockSignTest(test_framework.BitcoinTestFramework):
             self.sync_all()
 
     def run_test(self):
+        # Have every node import its block signing private key.
+        for i in range(self.num_nodes):
+            self.nodes[i].importprivkey(self.wifs[i])
+
         self.check_height(0)
 
         # mine a block
@@ -123,4 +110,4 @@ class BlockSignTest(test_framework.BitcoinTestFramework):
         self.check_height(101)
 
 if __name__ == '__main__':
-    BlockSignTest(num_nodes=9, required_signers=7).main()
+    BlockSignTest().main()
