@@ -368,7 +368,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         }
 
         // Skip transactions that are under X seconds in mempool
-        if (iter->GetTime() > current_time - required_age_in_secs) {
+        if (iter->GetTime() > GetTime() - required_age_in_secs) {
             continue;
         }
 
