@@ -1025,7 +1025,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 UniValue getcompactsketch(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
-        throw runtime_error(
+        throw std::runtime_error(
             "getcompactsketch block_hex\n"
             "\nGets hex representation of a proposed compact block sketch.\n"
             "It is consumed by `consumecompactsketch.`\n"
@@ -1053,7 +1053,7 @@ UniValue getcompactsketch(const JSONRPCRequest& request)
 UniValue consumecompactsketch(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
-        throw runtime_error(
+        throw std::runtime_error(
             "consumecompactsketch sketch\n"
             "\nTakes hex representation of a proposed compact block sketch and fills it in\n"
             "using mempool. Returns the block if complete, and a list\n"
@@ -1125,7 +1125,7 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
 UniValue consumegetblocktxn(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
-        throw runtime_error(
+        throw std::runtime_error(
             "consumegetblocktxn full_block block_tx_req\n"
             "Consumes a transaction request for a compact block sketch."
             "Arguments:\n"
@@ -1167,7 +1167,7 @@ UniValue consumegetblocktxn(const JSONRPCRequest& request)
 UniValue finalizecompactblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 3)
-        throw runtime_error(
+        throw std::runtime_error(
             "finalizecompactblock compact_hex block_transactions found_transactions\n"
             "Takes the two transaction lists, fills out the compact block and attempts to validate it."
             "Arguments:\n"
