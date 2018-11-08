@@ -27,6 +27,9 @@
 #include <versionbitsinfo.h>
 #include <warnings.h>
 
+#include <keystore.h> // combineblocksigs
+#include <script/generic.hpp> // combineblocksigs
+
 #include <memory>
 #include <stdint.h>
 
@@ -1004,21 +1007,21 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     UniValue result(UniValue::VOBJ);
     const Consensus::Params& params = Params().GetConsensus();
     const UniValue& sigs = request.params[1].get_array();
+    CBasicKeyStore keystore;
+    SignatureData sig_data;
+    SimpleSignatureCreator signature_creator(block.GetHash());
     for (unsigned int i = 0; i < sigs.size(); i++) {
         const std::string& sig = sigs[i].get_str();
         if (!IsHex(sig))
             continue;
         std::vector<unsigned char> vchScript = ParseHex(sig);
-        block.proof.solution = CombineBlockSignatures(params, block, block.proof.solution, CScript(vchScript.begin(), vchScript.end()));
-        if (CheckProof(block, params)) {
-            result.push_back(Pair("hex", EncodeHexBlock(block)));
-            result.push_back(Pair("complete", true));
-            return result;
-        }
+        block.proof.solution = ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data);
     }
 
-    result.push_back(Pair("hex", EncodeHexBlock(block)));
-    result.push_back(Pair("complete", false));
+    CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
+    ssBlock << block;
+    result.pushKV("hex", HexStr(ssBlock.begin(), ssBlock.end()));
+    result.pushKV("complete", CheckProof(block, params));
     return result;
 }
 
