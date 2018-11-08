@@ -395,27 +395,47 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
 static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strInput)
 {
     CAmount value = 0;
+ 
+    // separate [VALUE:]DATA[:ASSET] in string
+    std::vector<std::string> vStrInputParts;
+    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
-    // separate [VALUE:]DATA in string
-    size_t pos = strInput.find(':');
-
-    if (pos==0)
+    // Check that there are enough parameters
+    if (vStrInputParts[0].empty())
         throw std::runtime_error("TX output value not specified");
 
-    if (pos != std::string::npos) {
-        // Extract and validate VALUE
-        value = ExtractAndValidateValue(strInput.substr(0, pos));
+    if (vStrInputParts.size()>3)
+        throw std::runtime_error("too many separators");
+    
+    std::vector<unsigned char> data;
+    CAsset asset(Params().GetConsensus().pegged_asset);
+    
+    if (vStrInputParts.size()==1) {
+        std::string strData = vStrInputParts[0];
+        if (!IsHex(strData))
+            throw std::runtime_error("invalid TX output data");
+        data = ParseHex(strData);
+
+    } else {
+        value = ExtractAndValidateValue(vStrInputParts[0]);
+        std::string strData = vStrInputParts[1];
+        if (!IsHex(strData))
+            throw std::runtime_error("invalid TX output data");
+        data = ParseHex(strData);
+
+        if (vStrInputParts.size()==3) {
+            std::string strAsset = vStrInputParts[2];
+            if (!IsHex(strAsset))
+                throw std::runtime_error("invalid TX output asset type");
+
+            asset.SetHex(strAsset);
+            if (asset.IsNull()) {
+                throw std::runtime_error("invalid TX output asset type");
+            }
+        }
     }
 
-    // extract and validate DATA
-    std::string strData = strInput.substr(pos + 1, std::string::npos);
-
-    if (!IsHex(strData))
-        throw std::runtime_error("invalid TX output data");
-
-    std::vector<unsigned char> data = ParseHex(strData);
-
-    CTxOut txout(Params().GetConsensus().pegged_asset, value, CScript() << OP_RETURN << data);
+    CTxOut txout(asset, value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
 }
 
