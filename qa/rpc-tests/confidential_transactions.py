@@ -222,6 +222,12 @@ class CTTest (BitcoinTestFramework):
         # Quick unblinded reissuance check, making 2*COIN total
         self.nodes[0].reissueasset(issued["asset"], 1)
 
+        # Compare resulting fields with getrawtransaction
+        raw_details = self.nodes[0].getrawtransaction(issued["txid"], 1)
+        assert_equal(issued["entropy"], raw_details["vin"][issued["vin"]]["issuance"]["assetEntropy"])
+        assert_equal(issued["asset"], raw_details["vin"][issued["vin"]]["issuance"]["asset"])
+        assert_equal(issued["token"], raw_details["vin"][issued["vin"]]["issuance"]["token"])
+
         testAssetHex = issued["asset"]
         self.nodes[0].generate(1)
         self.sync_all()
