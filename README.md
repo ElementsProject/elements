@@ -12,20 +12,21 @@ Launch Ocean in your AWS account
 Run Ocean node with Docker
 -------------------
 
-## Requirements
+### Requirements
 
 Docker engine release: 18.02.0 or latest
 docker-compose: 1.20.0 or latest
 
-## Download docker-compose.yml from commerceblock/ocean/contrib/docker/docker-compose.yml
+### Download docker-compose.yml 
+from commerceblock/ocean/contrib/docker/docker-compose.yml or
 
 `curl -O https://raw.githubusercontent.com/commerceblock/ocean/master/contrib/docker/docker-compose.yml`
 
-## Download image and start
+### Download image and start
 
 `docker-compose -p ocean up -d`
 
-## Check status
+### Check status
 
 `docker-compose -p ocean ps`
 
@@ -37,25 +38,25 @@ ocean_node_1   /docker-entrypoint.sh elem ...   Up      0.0.0.0:32768->18332/tcp
 
 ```
 
-## Check logs and see if node is synching
+### Check logs and see if node is synching
 
 `docker-compose -p ocean logs --follow`
 
 Hit ctrl+c to stop following
 
-## Check if connected to CommerceBlock testnet
+### Check if connected to CommerceBlock testnet
 
 `docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getpeerinfo`
 
 Should see: "testnet.commerceblock.com:7043"
 
-## Check block count
+### Check block count
 
 `docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getblockcount`
 
 Once synched, block count should be the same as in: https://cbtexplorer.com
 
-## Data persistence
+### Data persistence
 
 `mkdir ~/ocean_full_node`
 
@@ -66,30 +67,36 @@ edit: docker-compose.yml, adding:
       - /home/your_username/ocean_full_node:/home/bitcoin/.bitcoin
 ```
 
-## Dig deeper
+### Dig deeper
 
 As root
+
 `docker-compose -p ocean exec node bash`
 As bitcoin
+
 `docker-compose -p ocean exec -u bitcoin node bash`
+
 Then: elements-cli / elements-tx available from within inside of container.
 
 Note: if running as root, need to specify: -datadir=/home/bitcoin/.bitcoin
 
-## Execute shell commands
+### Execute shell commands
 
 `docker-compose -p ocean exec node ip a`
 
-## Scale containers
+### Scale containers
 Up
+
 `docker-compose -p ocean scale node=2`
+
 Down
+
 `docker-compose -p ocean scale node=1`
 
-## Stop
+### Stop
 
 `docker-compose -p ocean stop`
 
-## Remove stack
+### Remove stack
 
 `docker-compose -p ocean rm -f`
