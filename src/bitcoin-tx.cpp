@@ -395,27 +395,42 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
 static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strInput)
 {
     CAmount value = 0;
+ 
+    // separate [VALUE:]DATA[:ASSET] in string
+    std::vector<std::string> vStrInputParts;
+    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
-    // separate [VALUE:]DATA in string
-    size_t pos = strInput.find(':');
-
-    if (pos==0)
+    // Check that there are enough parameters
+    if (vStrInputParts.size()<1)
         throw std::runtime_error("TX output value not specified");
 
-    if (pos != std::string::npos) {
-        // Extract and validate VALUE
-        value = ExtractAndValidateValue(strInput.substr(0, pos));
+    if (vStrInputParts.size()>3)
+        throw std::runtime_error("too many separators");
+    
+    unsigned int i = 0;
+    if (vStrInputParts.size()>1) {
+        value = ExtractAndValidateValue(vStrInputParts[0]);
+        i++;
     }
 
     // extract and validate DATA
-    std::string strData = strInput.substr(pos + 1, std::string::npos);
-
+    std::string strData = vStrInputParts[i];
+    i++;
     if (!IsHex(strData))
         throw std::runtime_error("invalid TX output data");
-
     std::vector<unsigned char> data = ParseHex(strData);
 
-    CTxOut txout(Params().GetConsensus().pegged_asset, value, CScript() << OP_RETURN << data);
+    // extract and validate ASSET
+    CAsset asset(Params().GetConsensus().pegged_asset);
+    if (vStrInputParts.size()>2) {
+        std::string strAsset = vStrInputParts[i];
+        asset.SetHex(strAsset);
+        if (asset.IsNull()) {
+            throw std::runtime_error("invalid TX output asset type");
+        }
+    }
+
+    CTxOut txout(asset, value, CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
 }
 
