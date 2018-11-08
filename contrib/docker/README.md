@@ -1,112 +1,87 @@
-Docker setup
+Run Ocean node with Docker
 -------------------
 
 ## Requirements
 
-Docker engine release: 18.02.0+
-docker-compose: 1.20.0+
+Docker engine release: 18.02.0 or latest
+docker-compose: 1.20.0 or latest
 
-## Build and start
+## Download docker-compose.yml from commerceblock/ocean/contrib/docker/docker-compose.yml
 
-`docker-compose -p elements up -d`
+```
+cd ~
+curl -O https://raw.githubusercontent.com/commerceblock/ocean/master/contrib/docker/docker-compose.yml
+```
+
+## Download image and start
+
+`docker-compose -p ocean up -d`
 
 ## Check status
 
-`docker-compose -p elements ps`
+`docker-compose -p ocean ps`
 
 ### Output
 ```
-     Name                    Command               State                       Ports                     
+    Name                  Command               State                         Ports
 ---------------------------------------------------------------------------------------------------------
-elements_node_1   /docker-entrypoint.sh elem ...   Up      0.0.0.0:32769->7042/tcp, 0.0.0.0:32768->8332/tcp
+ocean_node_1   /docker-entrypoint.sh elem ...   Up      0.0.0.0:32768->18332/tcp, 0.0.0.0:32769->7042/tcp
 
 ```
 
-## Jump into container
+## Check logs and see if node is synching
+
+`docker-compose -p ocean logs --follow`
+
+Hit ctrl+c to stop following
+
+## Check if connected to CommerceBlock testnet
+
+`docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getpeerinfo`
+
+Should see: "testnet.commerceblock.com:7043"
+
+## Check block count
+
+`docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getblockcount`
+
+Once synched, block count should be the same as in: https://cbtexplorer.com
+
+## Data persistence
+
+`mkdir ~/ocean_full_node`
+
+edit: docker-compose.yml, adding:
+```
+    image: commerceblock/ocean:087f1aab8
+    volumes:
+      - /home/your_username/ocean_full_node:/home/bitcoin/.bitcoin
+```
+
+## Dig deeper
 
 As root
-`docker-compose -p elements exec node bash`
+`docker-compose -p ocean exec node bash`
 As bitcoin
-`docker-compose -p elements exec -u bitcoin node bash`
+`docker-compose -p ocean exec -u bitcoin node bash`
 Then: elements-cli / elements-tx available from within inside of container.
 
 Note: if running as root, need to specify: -datadir=/home/bitcoin/.bitcoin
 
 ## Execute shell commands
 
-`docker-compose -p elements exec node ip a`
+`docker-compose -p ocean exec node ip a`
 
-## Use elements CLI from outside container
-
-```
-docker-compose -p elements exec -u bitcoin node elements-cli getinfo
-docker-compose -p elements exec -u bitcoin node elements-cli getwalletinfo
-```
+## Scale containers
+Up
+`docker-compose -p ocean scale node=2`
+Down
+`docker-compose -p ocean scale node=1`
 
 ## Stop
 
-`docker-compose -p elements stop`
+`docker-compose -p ocean stop`
 
 ## Remove stack
 
-`docker-compose -p elements rm -f`
-
-## Modify startup parameters
-
-### Edit: docker-compose.yml file
-
-```
-      elementsd
-        -printtoconsole
-        -rpcuser=${BITCOIN_RPC_USER:-username}
-        -rpcpassword=${BITCOIN_RPC_PASSWORD:-password}
-```
-
-## Use your configuration file
-
-### Create elements.conf
-```
-regtest=1
-testnet=0
-daemon=1
-txindex=1
-```
-
-### Modify docker-compose.yml to
-```
-    volumes:
-      - /home/bitcoin
-      - ./elements.conf:/elements.conf
-    command: >
-      elementsd
-        -printtoconsole
-        -rpcuser=${BITCOIN_RPC_USER:-username}
-        -rpcpassword=${BITCOIN_RPC_PASSWORD:-password}
-        -conf=/elements.conf
-```
-
-### Start with
-
-`docker-compose -p elements up -d`
-
-## Check container logs
-
-```
-docker-compose -p elements logs
-
-docker-compose -p elements exec -u bitcoin node \
-    tail -f /home/bitcoin/.bitcoin/elementsregtest/debug.log
-```
-
-## Scale containers
-
-`docker-compose -p elements scale node=2`
-
-### Output
-```
-docker-compose -p elements ps
-     Name                    Command               State                        Ports                      
------------------------------------------------------------------------------------------------------------
-elements_node_1   /docker-entrypoint.sh elem ...   Up      0.0.0.0:32769->7042/tcp, 0.0.0.0:32768->8332/tcp
-elements_node_2   /docker-entrypoint.sh elem ...   Up      0.0.0.0:32771->7042/tcp, 0.0.0.0:32770->8332/tcp
-```
+`docker-compose -p ocean rm -f`
