@@ -38,6 +38,8 @@
 
 #include <functional>
 
+#include <script/generic.hpp> // signblock
+
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
 bool GetWalletNameFromJSONRPCRequest(const JSONRPCRequest& request, std::string& wallet_name)
@@ -3889,11 +3891,14 @@ bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader *pblock, C
 
 UniValue signblock(const JSONRPCRequest& request)
 {
-    if (!EnsureWalletIsAvailable(request.fHelp))
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
         return NullUniValue;
 
     if (request.fHelp || request.params.size() != 1)
-        throw runtime_error(
+        throw std::runtime_error(
             "signblock \"blockhex\"\n"
             "\nSigns a block proposal, checking that it would be accepted first\n"
             "\nArguments:\n"
@@ -3929,7 +3934,7 @@ UniValue signblock(const JSONRPCRequest& request)
     }
 
     block.proof.solution = CScript();
-    MaybeGenerateProof(Params().GetConsensus(), &block, pwalletMain);
+    MaybeGenerateProof(Params().GetConsensus(), &block, pwallet);
     return HexStr(block.proof.solution.begin(), block.proof.solution.end());
 }
 
