@@ -4158,6 +4158,62 @@ UniValue reissueasset(const JSONRPCRequest& request)
     return obj;
 }
 
+UniValue createrawburn(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() !=4)
+        throw runtime_error(
+            "createrawissuance txid vout asset amount\n"
+            "\nCreate a raw unsigned asset burn transaciton that sends the input amount to an OP_RETURN output.\n"
+            "\nArguments:\n"
+            "1. \"txid\"          (string, required) TxID to burn.\n"
+            "2. \"vin\"           (numeric or string, required) vin to burn.\n"
+            "3. \"asset\"          (string, required) asset type of the outpoint\n"
+            "4. \"amount\"          (string, required) amount of output\n"
+            "\nResult:\n"
+            "{                        (json object)\n"
+            "  \"hex\":\"<hex>\",   (string) Hex encoded raw unsigned burn transaction.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("createrawburn", "\"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 c8213b3ee67b02bcca0148d8581d0f616b822d317d5b26432d2f1f03beda2fa7 0.3234400")
+            + HelpExampleRpc("createrawburn", "\"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 c8213b3ee67b02bcca0148d8581d0f616b822d317d5b26432d2f1f03beda2fa7 0.3234400")
+            );
+
+    //get the output amounts
+    CAmount nAmount = AmountFromValue(request.params[3]);
+
+    //get the input outpoint from RPC
+    uint256 prevtxhash;
+    prevtxhash.SetHex(request.params[0].get_str());
+    uint32_t nout = atoi(request.params[1].get_str());
+    COutPoint tokenOutpoint(prevtxhash,nout);
+
+    CMutableTransaction rawTx;
+
+    // Calculate asset and token IDs from the input entropy
+    CAsset asset;
+    asset.SetHex(request.params[2].get_str());
+
+    CScript destroyScript(OP_RETURN);
+
+    //generate the outputs
+    CTxOut txoutAsset(asset,nAmount,destroyScript);
+    rawTx.vout.push_back(txoutAsset);
+
+    //standard sequence number 
+    uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
+
+    //generate input from the provided outpoint  
+    CTxIn in(tokenOutpoint, CScript(), nSequence);
+
+    //push single input to raw transaction
+    rawTx.vin.push_back(in);
+
+    //return result
+    UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("hex", EncodeHexTx(rawTx)));
+    return ret;
+}
+
 UniValue listissuances(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -4331,6 +4387,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "issueasset",               &issueasset,               true,   {"assetamount", "tokenamount", "blind"} },
     { "wallet",             "createrawissuance",        &createrawissuance,        true,   {"assetaddress", "assetamount", "tokenaddress", "tokenamount", "changeaddress", "changeamount", "numchange", "inputtxid", "vout"} },
     { "wallet",             "createrawreissuance",      &createrawreissuance,      true,   {"assetaddress", "assetamount", "tokenaddress", "tokenamount", "inputtxid", "vout", "asset", "entropy", "token"} },
+    { "wallet",             "createrawburn",            &createrawburn,            true,   {"txid", "vout", "asset", "amount"} },
     { "wallet",             "listaccounts",             &listaccounts,             false,  {"minconf","include_watchonly"} },
     { "wallet",             "listaddressgroupings",     &listaddressgroupings,     false,  {} },
     { "wallet",             "listlockunspent",          &listlockunspent,          false,  {} },
