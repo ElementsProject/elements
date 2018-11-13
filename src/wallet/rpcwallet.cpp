@@ -3904,7 +3904,7 @@ UniValue signblock(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
             "\nResult\n"
-            " sig      (hex) The signature\n"
+            " sig      (hex) The signature script\n"
             "\nExamples:\n"
             + HelpExampleCli("signblock", "0000002018c6f2f913f9902aeab...5ca501f77be96de63f609010000000000000000015100000000")
         );
