@@ -1577,12 +1577,12 @@ UniValue readwhitelist(const JSONRPCRequest& request)
 
         CBitcoinAddress address;
         if (!address.SetString(vstr[0]))
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ") +vstr[0]) ;
 
         std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
         CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
         if (!pubKey.IsFullyValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid public key: ") + vstr[1]);
 
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
         if (!contract.IsNull())
@@ -1592,7 +1592,9 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
         if (pubKey.GetID() != keyId)
-            throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, "Invalid key derivation when tweaking key with contract hash");
+            throw JSONRPCError(RPC_INVALID_KEY_DERIVATION, string("Invalid key derivation when tweaking key with contract hash for tweaked address: ") 
+                    + vstr[0] + string(", public key ") + vstr[1] );
+
 
         //insert new address into sorted whitelist vector (if it doesn't already exist in the list)
         if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId)))
