@@ -1011,13 +1011,24 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     CBasicKeyStore keystore;
     SignatureData sig_data;
     SimpleSignatureCreator signature_creator(block.GetHash());
+    Stack big_stack;
     for (unsigned int i = 0; i < sigs.size(); i++) {
         const std::string& sig = sigs[i].get_str();
-        if (!IsHex(sig))
+        if (!IsHex(sig)) {
             continue;
-        std::vector<unsigned char> vchScript = ParseHex(sig);
-        block.proof.solution = ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data);
+        }
+        std::vector<unsigned char> sig_bytes = ParseHex(sig);
+        sig_data.scriptSig = CScript(sig_bytes.begin(), sig_bytes.end());
+        Stack stack(sig_data);
+        for (const auto& item : stack.script) {
+            big_stack.script.push_back(item);
+        }
+        //if (ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data)) {
+        //    Stacks stack(sig_data);
+        //}
     }
+
+    block.proof.solution = sig_data.scriptSig;
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
     ssBlock << block;
