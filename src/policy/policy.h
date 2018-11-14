@@ -85,6 +85,11 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
 
     /**
+     * Check if all a transactions outputs are OP_RETURN
+     */
+bool IsBurn(const CTransaction& tx);
+
+    /**
      * Check all type and whitelist status of outputs of tx
      * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database 
      */

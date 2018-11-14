@@ -154,5 +154,46 @@ class AssetStatsTest (BitcoinTestFramework):
                 iter +=1
         assert(iter == 2)
 
+        #send some asset to a burn (OP_RETURN) output
+
+        #first send 10 of asset2 to to a new output
+        newadd = self.nodes[0].getnewaddress()
+        txidnew = self.nodes[0].sendtoaddress(newadd,Decimal('10.0')," "," ",False,asset2["asset"],True)
+        self.nodes[0].generate(10)
+        self.sync_all()
+
+        #find the vout
+        vout = 0
+        found = False
+        isstx = self.nodes[0].getrawtransaction(txidnew,True)
+        for output in isstx["vout"]:
+            if output["asset"] == asset2["asset"] and output["value"] == Decimal('10.0'):
+                vout = output["n"]
+                found = True
+        assert(found)
+
+        #then send this output to a burn OP_RETURN
+        rawtx = self.nodes[0].createrawburn(txidnew,str(vout),asset2["asset"],Decimal('10.0'))
+        sigtx = self.nodes[0].signrawtransaction(rawtx["hex"])
+        sendtx = self.nodes[0].sendrawtransaction(sigtx["hex"])
+
+        self.nodes[0].generate(10)
+        self.sync_all()    
+
+        #check asset report amounts
+        stats5 = self.nodes[2].getutxoassetinfo()
+
+        iter = 0
+        for assetstats in stats5:
+            if asset2["asset"] == assetstats["asset"]:
+                assert_equal(assetstats["amountspendable"], Decimal('40.0001'))
+                assert_equal(assetstats["amountfrozen"], Decimal('749.9999'))
+                iter +=1
+            if asset2["token"] == assetstats["asset"]:
+                assert_equal(assetstats["amountspendable"], Decimal('1.0'))
+                assert_equal(assetstats["amountfrozen"], Decimal('0.0'))
+                iter +=1
+        assert(iter == 2)
+
 if __name__ == '__main__':
     AssetStatsTest ().main ()

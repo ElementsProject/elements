@@ -102,6 +102,22 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     return true;
 }
 
+bool IsBurn(const CTransaction& tx)
+{
+  //function that determines if all outputs of a transaction are OP_RETURN
+  txnouttype whichType;
+
+  BOOST_FOREACH(const CTxOut& txout, tx.vout) {
+
+    std::vector<std::vector<unsigned char> > vSolutions;
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+      return false;
+
+    if(whichType != TX_NULL_DATA) return false;
+  }
+  return true;
+}
+
 bool IsWhitelisted(const CTransaction& tx)
 {
   //function that determines that all outputs of a transaction are P2PKH
@@ -193,14 +209,14 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
   }
 
   if(nin > 0) {
-    //are ALL outputs OP_RETURN burn outputs or fee outputs
+    //are ALL outputs OP_RETURN burn outputs
     BOOST_FOREACH(const CTxOut& txout, tx.vout) {
       
       std::vector<std::vector<unsigned char> > vSolutions;
       txnouttype whichType;
       if (!Solver(txout.scriptPubKey, whichType, vSolutions)) return false;
 
-      if(!(whichType == TX_NULL_DATA || whichType == TX_FEE || txout.nAsset.GetAsset() == policyAsset)) return false;
+      if(!(whichType == TX_NULL_DATA || txout.nAsset.GetAsset() == policyAsset)) return false;
     }
   } else {
     return false;

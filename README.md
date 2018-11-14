@@ -9,61 +9,94 @@ Launch Ocean in your AWS account
 | EU (London) | eu-west-2 | [![cloudformation-launch-button](images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=Ocean&templateURL=https://s3.eu-west-2.amazonaws.com/cb-awsocs/ocean-network.template.yaml) |
 | EU (Ireland) | eu-west-1 | [![cloudformation-launch-button](images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/new?stackName=Ocean&templateURL=https://s3.eu-west-2.amazonaws.com/cb-awsocs/ocean-network.template.yaml) |
 
+Run Ocean node with Docker
+-------------------
 
-Elements blockchain platform
-=================================
-This is the integration and staging tree for the Elements blockchain platform,
-a collection of feature experiments and extensions to the Bitcoin protocol.
-This platform enables anyone to build their own businesses or networks
-involving sidechain pegged Bitcoin or arbitrary asset tokens.
+### Requirements
 
-Confidential Assets
-----------------
-The latest feature in the Elements blockchain platform is Confidential Assets,
-the ability to issue multiple assets on a blockchain where asset identifiers
-and amounts are blinded yet auditable through the use of applied cryptography.
+Docker engine release: 18.02.0 or latest
+docker-compose: 1.20.0 or latest
 
- * [Announcement of Confidential Assets](https://blockstream.com/2017/04/03/blockstream-releases-elements-confidential-assets.html)
- * [Confidential Assets Whitepaper](https://blockstream.com/bitcoin17-final41.pdf) to be presented [April 7th at Financial Cryptography 2017](http://fc17.ifca.ai/bitcoin/schedule.html) in Malta
- * [Confidential Assets Tutorial](contrib/assets_tutorial/assets_tutorial.sh)
- * [Confidential Assets Demo](https://github.com/ElementsProject/confidential-assets-demo)
+### Download docker-compose.yml 
+from commerceblock/ocean/contrib/docker/docker-compose.yml or
 
-Features of the Elements blockchain platform
-----------------
+`curl -O https://raw.githubusercontent.com/commerceblock/ocean/master/contrib/docker/docker-compose.yml`
 
-Compared to Bitcoin itself, it adds the following features:
- * [Confidential Assets][asset-issuance]
- * [Confidential Transactions][confidential-transactions]
- * [Additional opcodes][opcodes]
- * [Deterministic Peg][deterministic-peg]
- * [Signed Blocks][signed-blocks]
+### Download image and start
 
-Previous elements that have been integrated into Bitcoin:
- * [Segregated Witness][segregated-witness]
- * [Relative Lock Time][relative-lock-time]
+`docker-compose -p ocean up -d`
 
-Elements deferred for additional research and standardization:
- * [Schnorr Signatures][schnorr-signatures]
+### Check status
 
-License
--------
-Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more
-information or see http://opensource.org/licenses/MIT.
+`docker-compose -p ocean ps`
 
-[confidential-transactions]: https://www.elementsproject.org/elements/confidential-transactions
-[segregated-witness]: https://www.elementsproject.org/elements/segregated-witness
-[relative-lock-time]: https://www.elementsproject.org/elements/relative-lock-time
-[schnorr-signatures]: https://www.elementsproject.org/elements/schnorr-signatures
-[opcodes]: https://www.elementsproject.org/elements/opcodes
-[deterministic-peg]: https://www.elementsproject.org/elements/deterministic-pegs
-[signed-blocks]: https://www.elementsproject.org/elements/signed-blocks
-[asset-issuance]: https://www.elementsproject.org/elements/asset-issuance
+### Output
+```
+    Name                  Command               State                         Ports
+---------------------------------------------------------------------------------------------------------
+ocean_node_1   /docker-entrypoint.sh elem ...   Up      0.0.0.0:32768->18332/tcp, 0.0.0.0:32769->7042/tcp
 
-What is the Elements Project?
------------------
-Elements is an open source collaborative project where we work on a collection
-of experiments to more rapidly bring technical innovation to the Bitcoin ecosystem.
+```
 
-https://github.com/ElementsProject/elementsproject.org
+### Check logs and see if node is synching
 
-Learn more on [the Elements Project website](https://www.elementsproject.org).
+`docker-compose -p ocean logs --follow`
+
+Hit ctrl+c to stop following
+
+### Check if connected to CommerceBlock testnet
+
+`docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getpeerinfo`
+
+Should see: "testnet.commerceblock.com:7043"
+
+### Check block count
+
+`docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getblockcount`
+
+Once synched, block count should be the same as in: https://cbtexplorer.com
+
+### Data persistence
+
+`mkdir ~/ocean_full_node`
+
+edit: docker-compose.yml, adding:
+```
+    image: commerceblock/ocean:087f1aab8
+    volumes:
+      - /home/your_username/ocean_full_node:/home/bitcoin/.bitcoin
+```
+
+### Dig deeper
+
+As root
+
+`docker-compose -p ocean exec node bash`
+As bitcoin
+
+`docker-compose -p ocean exec -u bitcoin node bash`
+
+Then: elements-cli / elements-tx available from within inside of container.
+
+Note: if running as root, need to specify: -datadir=/home/bitcoin/.bitcoin
+
+### Execute shell commands
+
+`docker-compose -p ocean exec node ip a`
+
+### Scale containers
+Up
+
+`docker-compose -p ocean scale node=2`
+
+Down
+
+`docker-compose -p ocean scale node=1`
+
+### Stop
+
+`docker-compose -p ocean stop`
+
+### Remove stack
+
+`docker-compose -p ocean rm -f`
