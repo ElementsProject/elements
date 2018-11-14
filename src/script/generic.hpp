@@ -10,6 +10,7 @@
 #include <script/interpreter.h>
 #include <script/sign.h>
 #include <keystore.h>
+#include <policy/policy.h> // Flags for block production checks
 
 class SimpleSignatureChecker : public BaseSignatureChecker
 {
@@ -53,7 +54,7 @@ bool GenericVerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, 
 template<typename T>
 bool GenericSignScript(const CKeyStore& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig)
 {
-    return ProduceSignature(keystore, SimpleSignatureCreator(SerializeHash(data)), fromPubKey, scriptSig);
+    return ProduceSignature(keystore, SimpleSignatureCreator(SerializeHash(data)), fromPubKey, scriptSig, STANDARD_SCRIPT_VERIFY_FLAGS|SCRIPT_NO_SIGHASH_BYTE);
 }
 
 #endif // H_BITCOIN_SCRIPT_GENERIC
