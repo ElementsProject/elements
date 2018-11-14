@@ -3881,14 +3881,6 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     return result;
 }
 
-bool MaybeGenerateProof(const Consensus::Params& params, CBlockHeader *pblock, CWallet *pwallet)
-{
-    SignatureData solution(pblock->proof.solution);
-    bool res = GenericSignScript(*pwallet, *pblock, params.signblockscript, solution);
-    pblock->proof.solution = solution.scriptSig;
-    return res;
-}
-
 UniValue signblock(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -3900,11 +3892,17 @@ UniValue signblock(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "signblock \"blockhex\"\n"
-            "\nSigns a block proposal, checking that it would be accepted first\n"
+            "\nSigns a block proposal, checking that it would be accepted first. Errors if it cannot sign the block.\n"
             "\nArguments:\n"
             "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
             "\nResult\n"
-            " sig      (hex) The signature script, or null byte on failure to sign\n"
+            "[\n"
+            "    {\n"
+            "        pubkeys,   (hex) The signature's pubkey\n"
+            "        sig      (hex) The signature script\n"
+            "    },\n"
+            "    ...\n"
+            "]\n"
             "\nExamples:\n"
             + HelpExampleCli("signblock", "0000002018c6f2f913f9902aeab...5ca501f77be96de63f609010000000000000000015100000000")
         );
@@ -3937,11 +3935,22 @@ UniValue signblock(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
     }
 
-    block.proof.solution = CScript();
-    if (!MaybeGenerateProof(Params().GetConsensus(), &block, pwallet)) {
-        return "00"; // Failure to sign results in null byte
+    // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
+    SignatureData block_sigs;
+    GenericSignScript(*pwallet, block, block.proof.challenge, block_sigs);
+
+    // Error if sig data didn't "grow"
+    if (!block_sigs.complete && block_sigs.signatures.empty()) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "Could not sign the block.");
     }
-    return HexStr(block.proof.solution.begin(), block.proof.solution.end());
+    UniValue ret(UniValue::VARR);
+    for (const auto& signature : block_sigs.signatures) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("pubkey", HexStr(signature.second.first.begin(), signature.second.first.end()));
+        obj.pushKV("sig", HexStr(signature.second.second.begin(), signature.second.second.end()));
+        ret.push_back(obj);
+    }
+    return ret;
 }
 
 UniValue generate(const JSONRPCRequest& request)
