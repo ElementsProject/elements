@@ -3904,10 +3904,14 @@ UniValue signblock(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
             "\nResult\n"
-            " sig      (hex) The signature script\n"
+            " sig      (hex) The signature script, or null byte on failure to sign\n"
             "\nExamples:\n"
             + HelpExampleCli("signblock", "0000002018c6f2f913f9902aeab...5ca501f77be96de63f609010000000000000000015100000000")
         );
+
+    if (!g_signed_blocks) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Signed blocks are not active for this network.");
+    }
 
     CBlock block;
     if (!DecodeHexBlk(block, request.params[0].get_str()))
@@ -3934,7 +3938,9 @@ UniValue signblock(const JSONRPCRequest& request)
     }
 
     block.proof.solution = CScript();
-    MaybeGenerateProof(Params().GetConsensus(), &block, pwallet);
+    if (!MaybeGenerateProof(Params().GetConsensus(), &block, pwallet)) {
+        return "00"; // Failure to sign results in null byte
+    }
     return HexStr(block.proof.solution.begin(), block.proof.solution.end());
 }
 
