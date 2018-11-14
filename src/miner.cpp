@@ -98,6 +98,7 @@ void BlockAssembler::resetBlock()
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx, int required_age_in_secs)
 {
+    assert(required_age_in_secs >= 0);
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -368,7 +369,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         }
 
         // Skip transactions that are under X seconds in mempool
-        if (iter->GetTime() > GetTime() - required_age_in_secs) {
+        // required_age_in_secs value of 0 is considered "inactive", in case of mocktime
+        if (required_age_in_secs > 0 && iter->GetTime() > GetTime() - required_age_in_secs) {
             continue;
         }
 
