@@ -5,6 +5,7 @@ import hashlib
 import os
 import random
 
+from test_framework.test_framework import BitcoinTestFramework
 from test_framework import (
     address,
     key,
@@ -47,14 +48,14 @@ class BlockSignTest(BitcoinTestFramework):
             self.wifs.append(wif(pk_bytes))
 
     def set_test_params(self):
-        self.num_nodes = 9
-        self.require_signers = 7
+        self.num_nodes = 4
+        self.required_signers = 3
         self.setup_clean_chain = True
         self.init_keys(self.num_nodes)
-        signblockscript = make_signblockscript(num_nodes, required_signers, self.keys)
+        signblockscript = make_signblockscript(self.num_nodes, self.required_signers, self.keys)
         self.extra_args = [[
-            "-chain=blocksign",
-            "-signblockscript={}".format(signblockscript)
+            "-signblockscript={}".format(signblockscript),
+            "-con_max_block_sig_size={}".format(self.num_nodes*74)
         ]] * self.num_nodes
         self.is_network_split = True
 
@@ -94,6 +95,8 @@ class BlockSignTest(BitcoinTestFramework):
             # Block should be complete, sans signatures
             self.nodes[i].testproposedblock(final_block)
 
+        import pdb
+        pdb.set_trace()
 
         # collect required_signers signatures
         sigs = []
@@ -102,7 +105,7 @@ class BlockSignTest(BitcoinTestFramework):
             util.assert_equal(result["complete"], False)
             miner.submitblock(result["hex"])
             self.check_height(blockcount)
-            sigs.append(self.nodes[i].signblock(block))
+            sigs = sigs + self.nodes[i].signblock(block)
 
         result = miner.combineblocksigs(block, sigs)
         util.assert_equal(result["complete"], True)
