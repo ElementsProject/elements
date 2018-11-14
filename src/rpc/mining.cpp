@@ -987,10 +987,13 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
             "\nMerges signatures on a block proposal\n"
             "\nArguments:\n"
             "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"signatures\"     (string) A json array of signatures\n"
+            "2. \"signatures\"     (string) A json array of pubkey/signature pairs\n"
             "    [\n"
-            "      \"signature\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
-            "      ,...\n"
+            "        {\n"
+            "            \"pubkey\":\"hex\",      (string) The pubkey for the signature in hex\n"
+            "            \"sig\":\"hex\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
+            "             ,...\n"
+            "        },\n"
             "    ]\n"
             "\nResult\n"
             "{\n"
@@ -1012,24 +1015,32 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     SignatureData sig_data;
     SimpleSignatureCreator signature_creator(block.GetHash());
     for (unsigned int i = 0; i < sigs.size(); i++) {
-        const std::string& sig = sigs[i].get_str();
-        if (!IsHex(sig)) {
+        UniValue pubkey_sig = sigs[i];
+        const std::string& pubkey_str = pubkey_sig["pubkey"].get_str();
+        const std::string& sig_str = pubkey_sig["sig"].get_str();
+        if (!IsHex(sig_str) || !IsHex(pubkey_str)) {
             continue;
         }
-        std::vector<unsigned char> sig_bytes = ParseHex(sig);
-        sig_data.scriptSig = CScript(sig_bytes.begin(), sig_bytes.end());
-        SignatureData sig_data_inner;
-        if (ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data_inner)) {
-            sig_data.MergeSignatureData(sig_data_inner);
+        std::vector<unsigned char> pubkey_bytes = ParseHex(pubkey_str);
+        std::vector<unsigned char> sig_bytes = ParseHex(sig_str);
+        //CScript signature(sig_bytes.begin(), sig_bytes.end());
+        CPubKey pubkey(pubkey_bytes.begin(), pubkey_bytes.end());
+        if (!pubkey.IsFullyValid()) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Bad pubkey");
         }
+        sig_data.signatures[pubkey.GetID()] = std::make_pair(pubkey, sig_bytes);
     }
 
+    // Finalizes the signatures, has no access to keys
+    ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data, STANDARD_SCRIPT_VERIFY_FLAGS|SCRIPT_NO_SIGHASH_BYTE);
     block.proof.solution = sig_data.scriptSig;
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
     ssBlock << block;
+    result.pushKV("final scriptSig", HexStr(block.proof.solution.begin(), block.proof.solution.end()));
     result.pushKV("hex", HexStr(ssBlock.begin(), ssBlock.end()));
     result.pushKV("complete", CheckProof(block, params));
+    result.pushKV("sigdata_complete", sig_data.complete);
     return result;
 }
 
