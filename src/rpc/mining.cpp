@@ -1229,6 +1229,59 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
     return HexStr(ssBlock.begin(), ssBlock.end());
 }
 
+UniValue testproposedblock(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw std::runtime_error(
+            "testproposedblock \"blockhex\"\n"
+            "\nChecks a block proposal for validity, and that it extends chaintip\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
+            "2. \"acceptnonstd\" (bool, optional) If set false, returns error if block contains non-standard transaction. Default is set via `-acceptnonstdtxn`\n"
+            "\nResult\n"
+            "\nExamples:\n"
+            + HelpExampleCli("testproposedblock", "<hex>")
+        );
+
+    CBlock block;
+    if (!DecodeHexBlk(block, request.params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+
+    LOCK(cs_main);
+
+    uint256 hash = block.GetHash();
+    BlockMap::iterator mi = mapBlockIndex.find(hash);
+    if (mi != mapBlockIndex.end())
+        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+
+    CBlockIndex* const pindexPrev = chainActive.Tip();
+    // TestBlockValidity only supports blocks built on the current Tip
+    if (block.hashPrevBlock != pindexPrev->GetBlockHash())
+        throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
+
+    CValidationState state;
+    if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
+        std::string strRejectReason = state.GetRejectReason();
+        if (strRejectReason.empty())
+            throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
+        throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+    }
+
+    const CChainParams& chainparams = Params();
+    if ((!request.params[1].isNull() && !request.params[1].get_bool()) ||
+            (request.params[1].isNull() && !gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard()))) {
+        for (auto& transaction : block.vtx) {
+            if (transaction->IsCoinBase()) continue;
+            std::string reason;
+            if (!IsStandardTx(*transaction, reason)) {
+                throw JSONRPCError(RPC_VERIFY_ERROR, "Block proposal included a non-standard transaction: " + reason);
+            }
+        }
+    }
+
+    return NullUniValue;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1242,6 +1295,7 @@ static const CRPCCommand commands[] =
     { "generating",         "consumecompactsketch",   &consumecompactsketch,   {"sketch"} },
     { "generating",         "consumegetblocktxn",     &consumegetblocktxn,     {"full_block", "block_tx_req"} },
     { "generating",         "finalizecompactblock",   &finalizecompactblock,   {"compact_hex","block_transactions","found_transactions"} },
+    { "mining",             "testproposedblock",      &testproposedblock,      {"blockhex", "acceptnonstd"} },
 
 
     { "mining",             "submitblock",            &submitblock,            {"hexdata","dummy"} },
