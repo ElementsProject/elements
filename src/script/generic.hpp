@@ -10,7 +10,6 @@
 #include <script/interpreter.h>
 #include <script/sign.h>
 #include <keystore.h>
-#include <policy/policy.h> // Flags for block production checks
 
 class SimpleSignatureChecker : public BaseSignatureChecker
 {
