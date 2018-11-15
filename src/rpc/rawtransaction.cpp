@@ -1244,6 +1244,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
             "    }\n"
             "    ,...\n"
             "  ]\n"
+            "  \"warning\" : \"text\"            (string) Warning that a peg-in input signed may be immature. This could mean lack of connectivity to or misconfiguration of the bitcoind."
             "}\n"
 
             "\nExamples:\n"
@@ -1411,6 +1412,9 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
 
+    // Track an immature peg-in that's otherwise valid, give warning
+    bool immature_pegin = false;
+
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
     const CTransaction txConst(mergedTx);
@@ -1421,9 +1425,13 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         if (!txin.m_is_pegin && (coins == NULL || !coins->IsAvailable(txin.prevout.n))) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
-        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout))) {
+        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout, false))) {
             TxInErrorToJSON(txin, vErrors, "Peg-in input has invalid proof.");
             continue;
+        }
+        // Report warning about immature peg-in though
+        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout, true)) {
+            immature_pegin = true;
         }
         const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.wit.vtxinwit[i].m_pegin_witness).scriptPubKey : coins->vout[txin.prevout.n].scriptPubKey;
         const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.wit.vtxinwit[i].m_pegin_witness).nValue : coins->vout[txin.prevout.n].nValue;
@@ -1454,6 +1462,9 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     result.push_back(Pair("complete", fComplete));
     if (!vErrors.empty()) {
         result.push_back(Pair("errors", vErrors));
+    }
+    if (immature_pegin) {
+        result.push_back(Pair("warning", "Possibly immature peg-in input(s) detected, signed anyways."));
     }
 
     AuditLogPrintf("%s : signrawtransaction %s\n", getUser(), EncodeHexTx(mergedTx));

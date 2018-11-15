@@ -240,25 +240,50 @@ class FedPegTest(BitcoinTestFramework):
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 6:
             raise Exception("Peg-in should be back to 6 confirms.")
 
-        # Do many claims in mempool
-        n_claims = 5
+        # Do multiple claims in mempool
+        n_claims = 6
 
         print("Flooding mempool with many small claims")
         pegtxs = []
         sidechain.generate(101)
 
+        # Do mixture of raw peg-in and automatic peg-in tx construction
+        # where raw creation is done on another node
         for i in range(n_claims):
             addrs = sidechain.getpeginaddress()
             txid = parent.sendtoaddress(addrs["mainchain_address"], 1)
-            parent.generate(12)
+            parent.generate(1)
             proof = parent.gettxoutproof([txid])
             raw = parent.getrawtransaction(txid)
-            pegtxs += [sidechain.claimpegin(raw, proof)]
+            if i % 2 == 0:
+                parent.generate(11)
+                pegtxs += [sidechain.claimpegin(raw, proof)]
+            else:
+                # The raw API doesn't check for the additional 2 confirmation buffer
+                # So we only get 10 confirms then send off. Miners will add to block anyways.
+
+                # Don't mature whole way yet to test signing immature peg-in input
+                parent.generate(8)
+                # Wallet in sidechain2 gets funds instead of sidechain
+                raw_pegin = sidechain2.createrawpegin(raw, proof, addrs["claim_script"])["hex"]
+                # First node should also be able to make a valid transaction with or without 3rd arg
+                # since this wallet originated the claim_script itself
+                sidechain.createrawpegin(raw, proof, addrs["claim_script"])
+                sidechain.createrawpegin(raw, proof)
+                signed_pegin = sidechain.signrawtransaction(raw_pegin)
+                assert(signed_pegin["complete"])
+                assert("warning" in signed_pegin) # warning for immature peg-in
+                # fully mature them now
+                parent.generate(1)
+                pegtxs += [sidechain.sendrawtransaction(signed_pegin["hex"])]
 
         self.sync_all()
         sidechain2.generate(1)
-        for pegtxid in pegtxs:
-            tx = sidechain.gettransaction(pegtxid)
+        for i, pegtxid in enumerate(pegtxs):
+            if i % 2 == 0:
+                tx = sidechain.gettransaction(pegtxid)
+            else:
+                tx = sidechain2.gettransaction(pegtxid)
             if "confirmations" not in tx or tx["confirmations"] == 0:
                 raise Exception("Peg-in confirmation has failed.")
 
