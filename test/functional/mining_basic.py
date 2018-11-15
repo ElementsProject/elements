@@ -10,7 +10,6 @@
 
 import copy
 from binascii import b2a_hex
-from decimal import Decimal
 
 from test_framework.blocktools import create_coinbase
 from test_framework.messages import CBlock
