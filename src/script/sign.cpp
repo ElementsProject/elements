@@ -11,6 +11,8 @@
 #include <script/standard.h>
 #include <uint256.h>
 
+#include <chainparams.h>
+
 typedef std::vector<unsigned char> valtype;
 
 MutableTransactionSignatureCreator::MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn) : txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), amount(amountIn), checker(txTo, nIn, amountIn) {}
@@ -156,6 +158,9 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
             return true;
         }
         return false;
+
+    case TX_TRUE:
+        return Params().anyonecanspend_aremine;
 
     default:
         return false;

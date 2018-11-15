@@ -308,6 +308,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_blocksubsidy=5000000000\n")
         f.write("con_connect_coinbase=0\n")
         f.write("con_signed_blocks=0\n")
+        f.write("anyonecanspendaremine=0\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
