@@ -29,7 +29,7 @@
 
 #include <keystore.h> // combineblocksigs
 #include <script/generic.hpp> // combineblocksigs
-#include<blockencodings.h> // getcompactsketch
+#include <blockencodings.h> // getcompactsketch
 
 #include <memory>
 #include <stdint.h>
