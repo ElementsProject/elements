@@ -960,7 +960,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
 
     int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
     if (required_wait < 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMS, "required_wait must be non-negative.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "required_wait must be non-negative.");
     }
 
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;

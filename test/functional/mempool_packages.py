@@ -9,6 +9,7 @@ from decimal import Decimal
 from test_framework.messages import COIN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, satoshi_round, sync_blocks, sync_mempools
+import time
 
 MAX_ANCESTORS = 25
 MAX_DESCENDANTS = 25
@@ -49,7 +50,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
         block = self.nodes[0].getnewblockhex(required_age=0)
         self.nodes[0].submitblock(block)
         assert(txid not in self.nodes[0].getrawmempool())
-        assert_raises_message(JSONRPCException, "required_wait must be non-negative.", self.nodes[0].getnewblockhex, -1)
+        assert_raises_rpc_error(-8, "required_wait must be non-negative.", self.nodes[0].getnewblockhex, -1)
 
         ''' Mine some blocks and have them mature. '''
         self.nodes[0].generate(101)
