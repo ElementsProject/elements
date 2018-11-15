@@ -58,7 +58,9 @@ class BlockSignTest(BitcoinTestFramework):
             "-con_max_block_sig_size={}".format(self.num_nodes*74),
             "-con_blocksubsidy=5000000000",
         ]] * self.num_nodes
-        self.is_network_split = True
+
+    def setup_network(self):
+        self.setup_nodes()
 
     def check_height(self, expected_height):
         for n in self.nodes:
@@ -76,8 +78,6 @@ class BlockSignTest(BitcoinTestFramework):
 
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
-            import pdb
-            pdb.set_trace()
             for i in range(5):
                 miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()/10), "", "", True)
         # miner makes a block
