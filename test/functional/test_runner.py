@@ -150,7 +150,6 @@ BASE_SCRIPTS = [
     'feature_logging.py',
     'p2p_node_network_limited.py',
     'feature_blocksign.py',
-    'feature_signed_blockchain.py',
     'feature_blocksdir.py',
     'feature_config_args.py',
     'feature_help.py',

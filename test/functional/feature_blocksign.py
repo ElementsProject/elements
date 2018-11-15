@@ -74,7 +74,7 @@ class BlockSignTest(BitcoinTestFramework):
         self.extra_args = [[
             "-signblockscript={}".format(signblockscript),
             "-con_max_block_sig_size={}".format(self.required_signers*74),
-            "-con_blocksubsidy=5000000000",
+            "-anyonecanspendaremine=1"
         ]] * self.num_nodes
 
     def setup_network(self):
@@ -103,8 +103,8 @@ class BlockSignTest(BitcoinTestFramework):
         # miner makes a block
         block = miner.getnewblockhex()
 
-        # other nodes get fed compact blocks
-        for i in range(self.num_nodes):
+        # other signing nodes get fed compact blocks
+        for i in range(self.num_keys):
             if i == mineridx:
                 continue
             sketch = miner.getcompactsketch(block)
