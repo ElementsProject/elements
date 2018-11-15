@@ -9,6 +9,7 @@
 #include <keystore.h>
 #include <script/script.h>
 #include <script/sign.h>
+#include <chainparams.h>
 
 
 typedef std::vector<unsigned char> valtype;
@@ -163,6 +164,10 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
         }
         break;
     }
+    case TX_TRUE:
+        if (Params().anyonecanspend_aremine) {
+            return IsMineResult::SPENDABLE;
+        }
     }
 
     if (ret == IsMineResult::NO && keystore.HaveWatchOnly(scriptPubKey)) {

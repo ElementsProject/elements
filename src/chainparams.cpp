@@ -106,6 +106,7 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        anyonecanspend_aremine = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -223,6 +224,7 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        anyonecanspend_aremine = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -315,6 +317,7 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        anyonecanspend_aremine = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -438,6 +441,8 @@ class CCustomParams : public CRegTestParams {
 
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = gArgs.GetArg("-con_connect_coinbase", true);
+
+        anyonecanspend_aremine = gArgs.GetBoolArg("-anyonecanspendaremine", true);
 
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);

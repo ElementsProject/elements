@@ -11,6 +11,8 @@
 #include <util.h>
 #include <utilstrencodings.h>
 
+#include <chainparams.h>
+
 
 typedef std::vector<unsigned char> valtype;
 
@@ -37,6 +39,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITNESS_UNKNOWN: return "witness_unknown";
+    case TX_TRUE: return "true";
     }
     return nullptr;
 }
@@ -90,6 +93,11 @@ static bool MatchMultisig(const CScript& script, unsigned int& required, std::ve
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet)
 {
     vSolutionsRet.clear();
+
+    if (Params().anyonecanspend_aremine && scriptPubKey == CScript() << OP_TRUE) {
+        typeRet = TX_TRUE;
+        return true;
+    }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:
     // it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
