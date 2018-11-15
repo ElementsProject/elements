@@ -1032,7 +1032,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     }
 
     // Finalizes the signatures, has no access to keys
-    ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data, STANDARD_SCRIPT_VERIFY_FLAGS|SCRIPT_NO_SIGHASH_BYTE);
+    ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data, SCRIPT_NO_SIGHASH_BYTE);
     block.proof.solution = sig_data.scriptSig;
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
