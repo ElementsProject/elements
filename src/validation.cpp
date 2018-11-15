@@ -3977,6 +3977,9 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
 
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, int64_t nAdjustedTime)
 {
+    assert(pindexPrev != NULL);
+    const int nHeight = pindexPrev->nHeight + 1;
+
     // Check proof of work
     if (!CheckChallenge(block, *pindexPrev, consensusParams))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work");
@@ -3986,7 +3989,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         return state.Invalid(false, REJECT_INVALID, "time-too-old", "block's timestamp is too early");
 
     // Check height in header against prev
-    if ((uint32_t)pindexPrev->nHeight + 1 != block.nHeight)
+    if ((uint32_t)nHeight != block.nHeight)
         return state.Invalid(error("%s: block height in header is incorrect", __func__),
                              REJECT_INVALID, "bad-header-height");
 
