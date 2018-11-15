@@ -9,7 +9,6 @@ from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_
 from test_framework import (
     address,
     key,
-    test_framework,
 )
 
 # Generate wallet import format from private key.
