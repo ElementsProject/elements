@@ -10,7 +10,6 @@
 #include <primitives/block.h>
 #include <uint256.h>
 #include <script/interpreter.h>
-#include <script/sign.h>
 #include <script/generic.hpp>
 
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
