@@ -55,7 +55,8 @@ class BlockSignTest(BitcoinTestFramework):
         signblockscript = make_signblockscript(self.num_nodes, self.required_signers, self.keys)
         self.extra_args = [[
             "-signblockscript={}".format(signblockscript),
-            "-con_max_block_sig_size={}".format(self.num_nodes*74)
+            "-con_max_block_sig_size={}".format(self.num_nodes*74),
+            "-con_blocksubsidy=5000000000",
         ]] * self.num_nodes
         self.is_network_split = True
 
@@ -75,6 +76,8 @@ class BlockSignTest(BitcoinTestFramework):
 
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
+            import pdb
+            pdb.set_trace()
             for i in range(5):
                 miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()/10), "", "", True)
         # miner makes a block
@@ -95,8 +98,6 @@ class BlockSignTest(BitcoinTestFramework):
             # Block should be complete, sans signatures
             self.nodes[i].testproposedblock(final_block)
 
-        import pdb
-        pdb.set_trace()
 
         # collect required_signers signatures
         sigs = []
@@ -114,9 +115,9 @@ class BlockSignTest(BitcoinTestFramework):
         for node in self.nodes:
             node.submitblock(result["hex"])
 
-    def mine_blocks(self, num_blocks):
+    def mine_blocks(self, num_blocks, transactions):
         for i in range(num_blocks):
-            self.mine_block(True)
+            self.mine_block(transactions)
 
     def run_test(self):
         # Have every node import its block signing private key.
@@ -126,14 +127,14 @@ class BlockSignTest(BitcoinTestFramework):
         self.check_height(0)
 
         # mine a block with no transactions
-        print("Mining and signing a single empty block")
-        self.mine_block(False)
+        print("Mining and signing 101 blocks to unlock funds")
+        self.mine_blocks(101, False)
 
         # mine blocks with transactions
         print("Mining and signing non-empty blocks")
-        self.mine_blocks(10)
+        self.mine_blocks(10, True)
 
-        self.check_height(11)
+        self.check_height(111)
 
 if __name__ == '__main__':
     BlockSignTest().main()
