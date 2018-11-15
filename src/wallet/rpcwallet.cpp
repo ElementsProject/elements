@@ -3937,7 +3937,7 @@ UniValue signblock(const JSONRPCRequest& request)
 
     // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
     SignatureData block_sigs;
-    GenericSignScript(*pwallet, block, block.proof.challenge, block_sigs);
+    GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs);
 
     // Error if sig data didn't "grow"
     if (!block_sigs.complete && block_sigs.signatures.empty()) {
