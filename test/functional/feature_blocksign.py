@@ -2,12 +2,10 @@
 
 import codecs
 import hashlib
-import os
 import random
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi)
-from test_framework.authproxy import JSONRPCException
 from test_framework import (
     address,
     key,
