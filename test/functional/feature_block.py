@@ -17,7 +17,6 @@ from test_framework.messages import (
     CTxIn,
     CTxOut,
     MAX_BLOCK_BASE_SIZE,
-    uint256_from_compact,
     uint256_from_str,
 )
 from test_framework.mininode import P2PDataStore
