@@ -1005,6 +1005,10 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
             + HelpExampleCli("combineblocksigs", "<hex> [\"signature1\", \"signature2\", ...]")
         );
 
+    if (!g_signed_blocks) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Signed blocks are not active for this network.");
+    }
+
     CBlock block;
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
