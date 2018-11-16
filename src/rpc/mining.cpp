@@ -1009,7 +1009,6 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
-    UniValue result(UniValue::VOBJ);
     const Consensus::Params& params = Params().GetConsensus();
     const UniValue& sigs = request.params[1].get_array();
     CBasicKeyStore keystore;
@@ -1038,10 +1037,9 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
     ssBlock << block;
-    result.pushKV("final scriptSig", HexStr(block.proof.solution.begin(), block.proof.solution.end()));
+    UniValue result(UniValue::VOBJ);
     result.pushKV("hex", HexStr(ssBlock.begin(), ssBlock.end()));
     result.pushKV("complete", CheckProof(block, params));
-    result.pushKV("sigdata_complete", sig_data.complete);
     return result;
 }
 
