@@ -115,18 +115,9 @@ static bool CheckProofGeneric(const CBlockHeader& block, const Consensus::Params
         return false;
     }
 
-    // Some important anti-DoS flags.
-    // Note: Blockhashes do not commit to the proof.
-    // Therefore we may have a signature be mealleated
-    // to stay valid, but cause the block to fail
-    // validation, in this case, block weight.
-    // In that case, the block will be marked as permanently
-    // invalid and not processed.
-    // NOTE: These have only been deemed sufficient for OP_CMS
-    // ANY OTHER SCRIPT TYPE MAY REQUIRE DIFFERENT FLAGS/CONSIDERATIONS
-    // TODO: Better design to not have to worry about script specifics
-    // i.e. exempt block header solution from weight limit
-    unsigned int proof_flags = SCRIPT_VERIFY_P2SH // Just allows P2SH evaluation
+    // Some anti-DoS flags, though consensus.max_block_signature_size caps the possible
+    // danger in malleation of the block witness data.
+    unsigned int proof_flags = SCRIPT_VERIFY_P2SH // For cleanstack evalution under segwit flag
         | SCRIPT_VERIFY_STRICTENC // Minimally-sized DER sigs
         | SCRIPT_VERIFY_NULLDUMMY // No extra data stuffed into OP_CMS witness
         | SCRIPT_VERIFY_CLEANSTACK // No extra pushes leftover in witness
