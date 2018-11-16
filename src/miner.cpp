@@ -143,13 +143,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus()) && fMineWitnessTx;
 
-    // Pad block weight by block proof fields (including upper-bound of signature)
-    nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
-    nBlockWeight += chainparams.GetConsensus().max_block_signature_size * WITNESS_SCALE_FACTOR;
-
-    // Reset block proof
-    ResetProof(*pblock);
-    ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
+    if (g_signed_blocks) {
+        // Pad block weight by block proof fields (including upper-bound of signature)
+        nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
+        nBlockWeight += chainparams.GetConsensus().max_block_signature_size * WITNESS_SCALE_FACTOR;
+        // Reset block proof
+        ResetProof(*pblock);
+        ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
+    }
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
