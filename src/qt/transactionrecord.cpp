@@ -85,8 +85,13 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
 
         isminetype fAllToMe = ISMINE_SPENDABLE;
-        for (const isminetype mine : wtx.txout_is_mine)
-        {
+        for (unsigned int i = 0; i < wtx.txout_is_mine.size(); ++i) {
+            const isminetype mine = wtx.txout_is_mine[i];
+            const CTxOut txout = wtx.tx->vout[i];
+            if (txout.IsFee()) {
+                // explicit fee; ignore
+                continue;
+            }
             if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
             if(fAllToMe > mine) fAllToMe = mine;
         }
