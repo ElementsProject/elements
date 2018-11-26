@@ -368,11 +368,12 @@ class CScriptNum():
 
     @staticmethod
     def encode(obj):
+        val = obj.value
         r = bytearray(0)
-        if obj.value == 0:
+        if val == 0:
             return bytes(r)
-        neg = obj.value < 0
-        absvalue = -obj.value if neg else obj.value
+        neg = val < 0
+        absvalue = -val if neg else val
         while (absvalue):
             r.append(absvalue & 0xff)
             absvalue >>= 8
@@ -382,6 +383,22 @@ class CScriptNum():
             r[-1] |= 0x80
         return bytes([len(r)]) + r
 
+    @staticmethod
+    def decode(vch):
+        # We assume valid push_size and minimal encoding
+        value = vch[1:]
+        # Mask for all but the highest result bit
+        num_mask = (2**(len(value)*8) - 1) >> 1
+        if len(value) == 0:
+            return 0
+        else :
+            result = 0
+            for i in range(len(value)):
+                result |= int(value[i]) << 8*i
+            if value[-1] >= 0x80:
+                result &= num_mask
+                result *= -1
+            return result
 
 class CScript(bytes):
     """Serialized script
