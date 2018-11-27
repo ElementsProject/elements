@@ -60,7 +60,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
         tmpl = self.nodes[0].getblocktemplate()
 
         # Template with invalid amount(50*COIN) will be invalid in both
-        coinbase_tx = create_coinbase(height=int(tmpl["height"]) + 1)
+        coinbase_tx = create_coinbase(height=int(tmpl["height"]))
 
         block = CBlock()
         block.nVersion = tmpl["version"]
@@ -68,6 +68,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
         block.nTime = tmpl["curtime"]
         block.nBits = int(tmpl["bits"], 16)
         block.nNonce = 0
+        block.block_height = int(tmpl["height"])
         block.vtx = [coinbase_tx]
 
         assert_template(self.nodes[0], block, "bad-cb-amount")

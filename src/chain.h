@@ -210,6 +210,7 @@ public:
     int32_t nVersion;
     uint256 hashMerkleRoot;
     uint32_t nTime;
+    uint32_t block_height;
     uint32_t nBits;
     uint32_t nNonce;
 
@@ -238,6 +239,7 @@ public:
         nVersion       = 0;
         hashMerkleRoot = uint256();
         nTime          = 0;
+        block_height   = 0;
         nBits          = 0;
         nNonce         = 0;
     }
@@ -254,6 +256,7 @@ public:
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
         nTime          = block.nTime;
+        block_height   = block.block_height;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
     }
@@ -284,6 +287,7 @@ public:
             block.hashPrevBlock = pprev->GetBlockHash();
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
+        block.block_height   = block_height;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         return block;
@@ -403,6 +407,7 @@ public:
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
+        READWRITE(block_height);
         READWRITE(nBits);
         READWRITE(nNonce);
     }
@@ -414,6 +419,7 @@ public:
         block.hashPrevBlock   = hashPrev;
         block.hashMerkleRoot  = hashMerkleRoot;
         block.nTime           = nTime;
+        block.block_height    = block_height;
         block.nBits           = nBits;
         block.nNonce          = nNonce;
         return block.GetHash();

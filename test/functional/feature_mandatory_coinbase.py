@@ -51,7 +51,7 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         tmpl = node1.getblocktemplate()
 
         # We make a block with OP_TRUE coinbase output that will fail on node0
-        coinbase_tx = create_coinbase(height=int(tmpl["height"]) + 1)
+        coinbase_tx = create_coinbase(height=int(tmpl["height"]))
         # sequence numbers must not be max for nLockTime to have effect
         coinbase_tx.vin[0].nSequence = 2 ** 32 - 2
         coinbase_tx.rehash()
@@ -63,6 +63,7 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         block.nBits = int(tmpl["bits"], 16)
         block.nNonce = 0
         block.vtx = [coinbase_tx]
+        block.block_height = int(tmpl["height"])
 
         self.log.info("getblocktemplate: Test block on both nodes")
         assert_equal(node0.submitblock(b2x(block.serialize())), 'invalid')

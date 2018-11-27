@@ -10,6 +10,8 @@
 #include <serialize.h>
 #include <uint256.h>
 
+extern bool g_con_blockheightinheader;
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -25,6 +27,9 @@ public:
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
+    // Height in header as well as in coinbase for easier hsm validation
+    // Is set for serialization with `-con_blockheightinheader=1`
+    uint32_t block_height;
     uint32_t nBits;
     uint32_t nNonce;
 
@@ -41,6 +46,9 @@ public:
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
+        if (g_con_blockheightinheader) {
+            READWRITE(block_height);
+        }
         READWRITE(nBits);
         READWRITE(nNonce);
     }
@@ -51,6 +59,7 @@ public:
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
+        block_height = 0;
         nBits = 0;
         nNonce = 0;
     }
@@ -111,6 +120,7 @@ public:
         block.hashPrevBlock  = hashPrevBlock;
         block.hashMerkleRoot = hashMerkleRoot;
         block.nTime          = nTime;
+        block.block_height   = block_height;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         return block;

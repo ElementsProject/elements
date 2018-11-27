@@ -435,6 +435,10 @@ class CCustomParams : public CRegTestParams {
         // No subsidy for custom chains by default
         consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", 0);
 
+        // Note: This global is needed to avoid circular dependency
+        // Defaults to true for custom chains.
+        g_con_blockheightinheader = gArgs.GetBoolArg("-con_blockheightinheader", true);
+
         // All non-zero coinbase outputs must go to this scriptPubKey
         std::vector<unsigned char> man_bytes = ParseHex(gArgs.GetArg("-con_mandatorycoinbase", ""));
         consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination

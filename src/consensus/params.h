@@ -78,11 +78,11 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
-
     // Elements-specific chainparams
     CScript mandatory_coinbase_destination;
     CAmount genesis_subsidy;
     bool connect_genesis_outputs;
+    // g_con_blockheightinheader global hack instead of proper arg due to circular dep
 };
 } // namespace Consensus
 
