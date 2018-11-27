@@ -8,6 +8,82 @@ from test_framework.util import *
 
 " Tests issued assets functionality including (re)issuance, and de-issuance "
 
+# Creates a raw issuance transaction based on the passed in list, checking important details after
+def process_raw_issuance(node, issuance_list):
+    if len(issuance_list) > 5:
+        raise Exception('Issuance list too long')
+    # Make enough outputs for any subsequent spend
+    next_destinations = {}
+    output_values = (node.getbalance()['bitcoin']-1)/5
+    for i in range(5):
+        next_destinations[node.getnewaddress()] = output_values
+
+    raw_tx = node.createrawtransaction([], next_destinations)
+    funded_tx = node.fundrawtransaction(raw_tx)['hex']
+    issued_call_details = node.rawissueasset(funded_tx, issuance_list)
+    issued_tx = issued_call_details[-1]["hex"] # Get hex from end
+    # don't accept blinding fail, and blind all issuances or none at all
+    blind_tx = node.blindrawtransaction(issued_tx, False, [], issuance_list[0]["blind"])
+    signed_tx = node.signrawtransaction(blind_tx)
+    tx_id = node.sendrawtransaction(signed_tx['hex'])
+    node.generate(1)
+    assert_equal(node.gettransaction(tx_id)["confirmations"], 1)
+    num_issuance = 0
+    decoded_tx = node.decoderawtransaction(signed_tx['hex'])
+    decoded_unblind_tx = node.decoderawtransaction(issued_tx)
+    for i, (issuance_req, tx_input, issuance_result) in enumerate(zip(issuance_list, decoded_tx["vin"], issued_call_details)):
+        if "issuance" not in tx_input:
+            break
+
+        num_issuance += 1
+        issuance_details = tx_input["issuance"]
+        if "blind" not in issuance_req or issuance_req["blind"] == True:
+
+            assert("assetamount" not in issuance_details)
+            assert("tokenamount" not in issuance_details)
+            assert_equal(issuance_details["assetBlindingNonce"], "00"*32)
+            if "asset_amount" in issuance_req:
+                assert("assetamountcommitment" in issuance_details)
+            if "token_amount" in issuance_req:
+                assert("tokenamountcommitment" in issuance_details)
+        else:
+            if "asset_amount" in issuance_req:
+                assert_equal(issuance_details["assetamount"], issuance_req["asset_amount"])
+            if "token_amount" in issuance_req:
+                assert_equal(issuance_details["tokenamount"], issuance_req["token_amount"])
+
+        # Cross-check RPC call result details with raw details
+        assert_equal(issuance_result["vin"], i)
+        assert_equal(issuance_result["entropy"], issuance_details["assetEntropy"])
+        if "asset" in issuance_details:
+            assert_equal(issuance_result["asset"], issuance_details["asset"])
+        if "token" in issuance_details:
+            assert_equal(issuance_result["token"], issuance_details["token"])
+
+        # Look for outputs assets where we expect them, or not, initial issuance first then token
+        for issuance_type in ["asset", "token"]:
+            blind_dest = issuance_type+"_address" not in issuance_req or node.validateaddress(issuance_req[issuance_type+"_address"])["confidential_key"] != ""
+            if blind_dest:
+                # We should not find any the issuances we made since the addresses confidential
+                for output in decoded_tx["vout"]:
+                    if "asset" in output and output["asset"] == issuance_details[issuance_type]:
+                        raise Exception("Found asset in plaintext that should be confidential!")
+
+            # Now scan unblinded version of issuance outputs
+            asset_found = False
+            for output in decoded_unblind_tx["vout"]:
+                if "asset" in output and output["asset"] == issuance_details[issuance_type]:
+                    if issuance_type+"_address" not in issuance_req:
+                        raise Exception("Found asset type not requested")
+                    if "value" in output and \
+                        output["value"] == issuance_req[issuance_type+"_amount"]:
+                        asset_found = True
+
+            # Find the asset type if it was created
+            assert(asset_found if issuance_type+"_address" in issuance_req else True)
+
+    assert_equal(num_issuance, len(issuance_list))
+
 class IssuanceTest (BitcoinTestFramework):
 
     def __init__(self):
@@ -159,6 +235,81 @@ class IssuanceTest (BitcoinTestFramework):
         assert(issued["asset"] not in self.nodes[0].getwalletinfo()["balance"])
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
 
+
+        print("Raw issuance tests")
+        # Addresses to send to to check proper blinding
+        blind_addr = self.nodes[0].getnewaddress()
+        nonblind_addr = self.nodes[0].validateaddress(blind_addr)['unconfidential']
+
+        # Fail making non-witness issuance sourcing a single unblinded output.
+        # See: https://github.com/ElementsProject/elements/issues/473
+        total_amount = self.nodes[0].getbalance()['bitcoin']
+        self.nodes[0].sendtoaddress(nonblind_addr, total_amount, "", "", True)
+        self.nodes[1].generate(1)
+        raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr:self.nodes[0].getbalance()['bitcoin']-1})
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]["hex"]
+        blind_tx = self.nodes[0].blindrawtransaction(issued_tx)
+        signed_tx = self.nodes[0].signrawtransaction(blind_tx)
+        assert_raises_jsonrpc(-26, "", self.nodes[0].sendrawtransaction, signed_tx['hex'])
+
+        # Make single blinded output to ensure we work around above issue
+        total_amount = self.nodes[0].getbalance()['bitcoin']
+        self.nodes[0].sendtoaddress(blind_addr, total_amount, "", "", True)
+        self.nodes[1].generate(1)
+
+        # Start with single issuance input, unblinded (makes 5 outputs for later larger issuances)
+        process_raw_issuance(self.nodes[0], [{"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":2, "asset_address":nonblind_addr, "blind":True}])
+        process_raw_issuance(self.nodes[0], [{"token_amount":5, "token_address":nonblind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":nonblind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":blind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":blind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}])
+        # Now do multiple with some issuance outputs blind, some unblinded
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":nonblind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":blind_addr, "token_amount":2, "token_address":nonblind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        # Up to 5 issuances since we're making 5 outputs each time
+        process_raw_issuance(self.nodes[0], [{"asset_amount":7, "asset_address":nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}, {"asset_amount":2, "asset_address":nonblind_addr, "blind":False}])
+        process_raw_issuance(self.nodes[0], [{"asset_amount":1, "asset_address":nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":False}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":False}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":False}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":False}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr, "blind":False}])
+        # Default "blind" value is true, ommitting explicit argument for last
+        process_raw_issuance(self.nodes[0], [{"asset_amount":1, "asset_address":nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":True}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":True}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":True}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":True}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr}])
+
+        # Make sure contract hash is being interpreted as expected, resulting in different asset ids
+        raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr:self.nodes[0].getbalance()['bitcoin']-1})
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
+        id_set = set()
+
+        # First issue an asset with no argument
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]["hex"]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+
+        # Again with 00..00 argument, which match the no-argument case
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"00"*32}])[0]["hex"]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+        assert_equal(len(id_set), 1)
+
+        # Random contract string should again differ
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeef"*8}])[0]["hex"]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+        assert_equal(len(id_set), 2)
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeee"*8}])[0]["hex"]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+        assert_equal(len(id_set), 3)
+
+        # Finally, append an issuance on top of an already-"issued" raw tx
+        # Same contract, different utxo being spent results in new asset type
+        issued_tx = self.nodes[2].rawissueasset(issued_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract":"deadbeee"*8}])[0]["hex"]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        id_set.add(decode_tx["vin"][1]["issuance"]["asset"])
+        assert_equal(len(id_set), 4)
+        # This issuance should not have changed
+        id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+        assert_equal(len(id_set), 4)
 
 if __name__ == '__main__':
     IssuanceTest ().main ()
