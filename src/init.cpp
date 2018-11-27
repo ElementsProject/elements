@@ -43,6 +43,7 @@
 #include <ui_interface.h>
 #include <util.h>
 #include <utilmoneystr.h>
+#include <utilstrencodings.h>
 #include <validationinterface.h>
 #include <warnings.h>
 #include <walletinitinterface.h>
@@ -349,7 +350,6 @@ void SetupServerArgs()
     // Hidden Options
     std::vector<std::string> hidden_args = {"-rpcssl", "-benchmark", "-h", "-help", "-socks", "-tor", "-debugnet", "-whitelistalwaysrelay",
         "-prematurewitness", "-walletprematurewitness", "-promiscuousmempoolflags", "-blockminsize", "-dbcrashratio", "-forcecompactdb", "-usehd",
-        "-con_fpowallowmindifficultyblocks", "-con_fpownoretargeting", "-con_nsubsidyhalvinginterval", "-con_bip16exception", "-con_bip34height", "-con_bip65height", "-con_bip66height", "-con_npowtargettimespan", "-con_npowtargetspacing", "-con_nrulechangeactivationthreshold", "-con_nminerconfirmationwindow", "-con_powlimit", "-con_bip34hash", "-con_nminimumchainwork", "-con_defaultassumevalid", "-npruneafterheight", "-fdefaultconsistencychecks", "-fmineblocksondemand", "-bech32_hrp", "-fallback_fee_enabled", "-pubkeyprefix", "-scriptprefix", "-secretprefix", "-extpubkeyprefix", "-extprvkeyprefix", "-pchmessagestart",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
         "-allowselfsignedrootcertificates", "-choosedatadir", "-lang=<lang>", "-min", "-resetguisettings", "-rootcertificates=<file>", "-splash", "-uiplatform"};
 
@@ -516,14 +516,30 @@ void SetupServerArgs()
     gArgs.AddArg("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE), true, OptionsCategory::RPC);
     gArgs.AddArg("-server", "Accept command line and JSON-RPC commands", false, OptionsCategory::RPC);
 
+    // chain params
+    gArgs.AddArg("-pubkeyprefix", strprintf("The byte prefix, in decimal, of the chain's base58 pubkey address. (default: %d)", defaultChainParams->Base58Prefix(CChainParams::PUBKEY_ADDRESS)[0]), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-scriptprefix", strprintf("The byte prefix, in decimal, of the chain's base58 script address. (default: %d)", defaultChainParams->Base58Prefix(CChainParams::SCRIPT_ADDRESS)[0]), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-secretprefix", strprintf("The byte prefix, in decimal, of the chain's base58 secret key encoding. (default: %d)", defaultChainParams->Base58Prefix(CChainParams::SECRET_KEY)[0]), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-extpubkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended public key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_PUBLIC_KEY))), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-extprvkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended private key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_SECRET_KEY))), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-bech32_hrp", strprintf("The human-readable part of the chain's bech32 encoding. (default: %s)", defaultChainParams->Bech32HRP()), false, OptionsCategory::CHAINPARAMS);
+
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
 #else
     hidden_args.emplace_back("-daemon");
 #endif
 
+    //
+    // Elements-specific arguments.
+    //
+
+    std::vector<std::string> elements_hidden_args = {"-con_fpowallowmindifficultyblocks", "-con_fpownoretargeting", "-con_nsubsidyhalvinginterval", "-con_bip16exception", "-con_bip34height", "-con_bip65height", "-con_bip66height", "-con_npowtargettimespan", "-con_npowtargetspacing", "-con_nrulechangeactivationthreshold", "-con_nminerconfirmationwindow", "-con_powlimit", "-con_bip34hash", "-con_nminimumchainwork", "-con_defaultassumevalid", "-npruneafterheight", "-fdefaultconsistencychecks", "-fmineblocksondemand", "-fallback_fee_enabled", "-pchmessagestart"};
+
+
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
+    gArgs.AddHiddenArgs(elements_hidden_args);
 }
 
 std::string LicenseInfo()

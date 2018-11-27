@@ -130,6 +130,7 @@ enum class OptionsCategory {
     BLOCK_CREATION,
     RPC,
     GUI,
+    ELEMENTS,
     COMMANDS,
     REGISTER_COMMANDS,
 
