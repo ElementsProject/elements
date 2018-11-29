@@ -266,7 +266,7 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
             // New Issuance
             if (issuance.assetBlindingNonce.IsNull()) {
                 bool assetToBlind = (vBlindIssuanceAsset.size() > i && vBlindIssuanceAsset[i].IsValid()) ? true : false;
-                GenerateAssetEntropy(entropy, tx.vin[0].prevout, issuance.assetEntropy);
+                GenerateAssetEntropy(entropy, tx.vin[i].prevout, issuance.assetEntropy);
                 CalculateAsset(asset, entropy);
                 CalculateReissuanceToken(token, entropy, assetToBlind);
             } else {
