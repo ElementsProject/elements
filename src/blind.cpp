@@ -174,12 +174,28 @@ void CreateValueCommitment(CConfidentialValue& confValue, secp256k1_pedersen_com
     assert(confValue.IsValid());
 }
 
+size_t GetNumIssuances(const CMutableTransaction& tx)
+{
+    unsigned int numIssuances = 0;
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        if (!tx.vin[i].assetIssuance.IsNull()) {
+            if (!tx.vin[i].assetIssuance.nAmount.IsNull()) {
+                numIssuances++;
+            }
+            if (!tx.vin[i].assetIssuance.nInflationKeys.IsNull()) {
+                numIssuances++;
+            }
+        }
+    }
+    return numIssuances;
+}
+
 int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& vBlindIssuanceAsset, const std::vector<CKey>& vBlindIssuanceToken, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators)
 {
     // Sanity check input data and output_pubkey size, clear other output data
     assert(tx.vout.size() >= output_pubkeys.size());
-    assert(tx.vin.size() >= vBlindIssuanceAsset.size());
-    assert(tx.vin.size() >= vBlindIssuanceToken.size());
+    assert(tx.vin.size()+GetNumIssuances(tx) >= vBlindIssuanceAsset.size());
+    assert(tx.vin.size()+GetNumIssuances(tx) >= vBlindIssuanceToken.size());
     output_blinding_factors.clear();
     output_blinding_factors.resize(tx.vout.size());
     output_asset_blinding_factors.clear();
