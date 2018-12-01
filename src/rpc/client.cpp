@@ -143,6 +143,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendtomainchain", 2, "subtractfeefromamount"},
     { "getnewblockhex", 0, "required_age"},
     { "rawissueasset", 1, "issuances"},
+    { "rawreissueasset", 1, "reissuances"},
     // Echo with conversion (For testing only)
     { "echojson", 0, "arg0" },
     { "echojson", 1, "arg1" },
