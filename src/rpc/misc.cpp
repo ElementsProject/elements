@@ -184,6 +184,7 @@ UniValue validateaddress(const JSONRPCRequest& request)
             "  \"timestamp\" : timestamp,        (number, optional) The creation time of the key if available in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"unconfidential\" : \"address\"  (string) The address without confidentiality key\n"
             "  \"confidential\" : \"address\"    (string) Confidential version of the address, only if it is yours and unconfidential\n"
+            "  \"confidential_key\" : \"publickeyhex\" (string) The hex value of the raw blinding public key for that address, if any.\n"
             "  \"hdkeypath\" : \"keypath\"       (string, optional) The HD keypath if the key is HD and available\n"
             "  \"hdmasterkeyid\" : \"<hash160>\" (string, optional) The Hash160 of the HD master pubkey\n"
             "}\n"
