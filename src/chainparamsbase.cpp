@@ -28,6 +28,9 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_connect_coinbase", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_blockheightinheader", "Whether the chain includes the block height directly in the header, for easier validation of block height in low-resource environments. (default: true)", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_genesis_style=<style>", "Use genesis style <style> (default: elements). Results in genesis block compatibility with various networks. Allowed values: elements, bitcoin", true, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blocks` set to true.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_max_block_sig_size", "Max allowed witness data for the signed block header.", false, OptionsCategory::CHAINPARAMS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

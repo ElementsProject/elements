@@ -11,6 +11,7 @@
 #include <crypto/common.h>
 
 bool g_con_blockheightinheader = false;
+bool g_signed_blocks = false;
 
 uint256 CBlockHeader::GetHash() const
 {
