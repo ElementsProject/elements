@@ -120,6 +120,11 @@ void CBlockIndex::BuildSkip()
 
 arith_uint256 GetBlockProof(const CBlockIndex& block)
 {
+    // All valid signed blocks have "weight" 1
+    if (g_signed_blocks) {
+        return 1;
+    }
+
     arith_uint256 bnTarget;
     bool fNegative;
     bool fOverflow;
