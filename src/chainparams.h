@@ -93,6 +93,7 @@ protected:
     std::string bech32_hrp;
     std::string strNetworkID;
     CBlock genesis;
+    CAmount initialFreeCoins;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;

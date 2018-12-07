@@ -12,7 +12,7 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         # First node doesn't connect coinbase output to db, second does
-        self.extra_args = [["-con_connect_coinbase=0"], ["-con_connect_coinbase=1"]]
+        self.extra_args = [["-con_connect_coinbase=0", "-initialfreecoins=5000000000"], ["-con_connect_coinbase=1", "-initialfreecoins=5000000000"]]
 
     def run_test(self):
         # Same genesis block
@@ -31,10 +31,17 @@ class ConnectGenesisTest(BitcoinTestFramework):
         assert_equal(node1_info["total_amount"], 50)
 
         coinbase_tx = self.nodes[0].getblock(self.nodes[0].getblockhash(0))["tx"][0]
+        issuance_tx = self.nodes[0].getblock(self.nodes[0].getblockhash(0))["tx"][1]
 
         # Test rpc getraw functionality
-        assert_raises_rpc_error(-5, "The genesis block coinbase is not considered an ordinary transaction and cannot be retrieved", self.nodes[0].getrawtransaction, coinbase_tx)
-        self.nodes[1].getrawtransaction(coinbase_tx)
+
+        # Coinbase transaction is provably unspendable (OP_RETURN), so even AddCoin won't add it
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, coinbase_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, coinbase_tx)
+
+        # Issuance transaction is an OP_TRUE, so will be available to second node
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, issuance_tx)
+        self.nodes[1].getrawtransaction(issuance_tx)
 
 if __name__ == '__main__':
     ConnectGenesisTest().main()

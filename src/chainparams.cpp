@@ -10,6 +10,7 @@
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <crypto/sha256.h>
 #include <versionbitsinfo.h>
 
 #include <assert.h>
@@ -17,13 +18,25 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+// Safer for users if they load incorrect parameters via arguments.
+static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID)
+{
+    CSHA256 sha2;
+    unsigned char commitment[32];
+    sha2.Write((const unsigned char*)networkID.c_str(), networkID.length());
+    // sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
+    // sha2.Write((const unsigned char*)HexStr(params.signblockscript).c_str(), HexStr(params.signblockscript).length());
+    sha2.Finalize(commitment);
+    return std::vector<unsigned char>(commitment, commitment + 32);
+}
+
+static CBlock CreateGenesisBlock(const CScript& genesisScriptSig, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vin[0].scriptSig = genesisScriptSig;
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
@@ -52,8 +65,26 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
 static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    const CScript genesisScriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+    return CreateGenesisBlock(genesisScriptSig, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+}
+
+/** Add an issuance transaction to the genesis block. Typically used to pre-issue
+ * the policyAsset of a blockchain. The genesis block is not actually validated,
+ * so this transaction simply has to match issuance structure. */
+static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const int64_t asset_values, const CScript& issuance_destination) {
+
+    // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
+    CMutableTransaction txNew;
+    txNew.nVersion = 1;
+    txNew.vin.resize(1);
+    txNew.vin[0].prevout = prevout;
+
+    txNew.vout.push_back(CTxOut(asset_values, issuance_destination));
+
+    genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+    genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
 
 /**
@@ -442,6 +473,7 @@ class CCustomParams : public CRegTestParams {
         // All non-zero coinbase outputs must go to this scriptPubKey
         std::vector<unsigned char> man_bytes = ParseHex(gArgs.GetArg("-con_mandatorycoinbase", ""));
         consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
+        initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
 
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = gArgs.GetArg("-con_connect_coinbase", true);
@@ -485,7 +517,11 @@ public:
     {
         strNetworkID = chain;
         UpdateFromArgs(args);
-        genesis = CreateGenesisBlock(strNetworkID.c_str(), CScript(OP_TRUE), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
+        genesis = CreateGenesisBlock(CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
+        if (initialFreeCoins != 0) {
+          AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), initialFreeCoins, CScript() << OP_TRUE);
+        }
         consensus.hashGenesisBlock = genesis.GetHash();
     }
 };
