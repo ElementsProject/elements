@@ -727,7 +727,6 @@ void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& 
                 if (fUseWallet && UnblindConfidentialPair(pwalletMain->GetBlindingKey(&blindingScript), confValue, CConfidentialAsset(asset), CConfidentialNonce(), CScript(), vchRangeproof, amount, blinding_factor, asset, asset_blinding_factor) != 0) {
                     // Wipe out confidential info from issuance
                     vchRangeproof.clear();
-                    confValue = CConfidentialValue(amount);
                     // One key both blinded values, single key needed for issuance reveal
                     asset_keys.push_back(pwalletMain->GetBlindingKey(&blindingScript));
                     token_keys.push_back(pwalletMain->GetBlindingKey(&blindingScript));
