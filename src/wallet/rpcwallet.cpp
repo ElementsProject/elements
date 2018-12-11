@@ -38,6 +38,8 @@
 
 #include <functional>
 
+#include <script/generic.hpp> // signblock
+
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
 bool GetWalletNameFromJSONRPCRequest(const JSONRPCRequest& request, std::string& wallet_name)
@@ -3879,6 +3881,78 @@ static UniValue bumpfee(const JSONRPCRequest& request)
     return result;
 }
 
+UniValue signblock(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "signblock \"blockhex\"\n"
+            "\nSigns a block proposal, checking that it would be accepted first. Errors if it cannot sign the block.\n"
+            "\nArguments:\n"
+            "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
+            "\nResult\n"
+            "[\n"
+            "    {\n"
+            "        pubkeys,   (hex) The signature's pubkey\n"
+            "        sig      (hex) The signature script\n"
+            "    },\n"
+            "    ...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("signblock", "0000002018c6f2f913f9902aeab...5ca501f77be96de63f609010000000000000000015100000000")
+        );
+
+    if (!g_signed_blocks) {
+        throw JSONRPCError(RPC_MISC_ERROR, "Signed blocks are not active for this network.");
+    }
+
+    CBlock block;
+    if (!DecodeHexBlk(block, request.params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
+
+    LOCK(cs_main);
+
+    uint256 hash = block.GetHash();
+    BlockMap::iterator mi = mapBlockIndex.find(hash);
+    if (mi != mapBlockIndex.end())
+        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+
+    CBlockIndex* const pindexPrev = chainActive.Tip();
+    // TestBlockValidity only supports blocks built on the current Tip
+    if (block.hashPrevBlock != pindexPrev->GetBlockHash())
+        throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
+
+    CValidationState state;
+    if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
+        std::string strRejectReason = state.GetRejectReason();
+        if (strRejectReason.empty())
+            throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
+        throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+    }
+
+    // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
+    SignatureData block_sigs;
+    GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs);
+
+    // Error if sig data didn't "grow"
+    if (!block_sigs.complete && block_sigs.signatures.empty()) {
+        throw JSONRPCError(RPC_VERIFY_ERROR, "Could not sign the block.");
+    }
+    UniValue ret(UniValue::VARR);
+    for (const auto& signature : block_sigs.signatures) {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("pubkey", HexStr(signature.second.first.begin(), signature.second.first.end()));
+        obj.pushKV("sig", HexStr(signature.second.second.begin(), signature.second.second.end()));
+        ret.push_back(obj);
+    }
+    return ret;
+}
+
 UniValue generate(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -4838,6 +4912,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
     { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
+    { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)
