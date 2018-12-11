@@ -177,6 +177,11 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
+    if (whichType == TX_NULL_DATA) {
+        // This is data, not addresses
+        return false;
+    }
+
     if (whichType == TX_PUBKEY)
     {
         CPubKey pubKey(vSolutions[0]);
@@ -301,6 +306,16 @@ public:
     {
         script->clear();
         *script << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
+        return true;
+    }
+
+    bool operator()(const NullData& id) const
+    {
+        script->clear();
+        *script << OP_RETURN;
+        for (const auto& push : id.null_data) {
+            *script << push;
+        }
         return true;
     }
 };
