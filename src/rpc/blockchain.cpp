@@ -2212,6 +2212,55 @@ UniValue scantxoutset(const JSONRPCRequest& request)
     return result;
 }
 
+//
+// ELEMENTS:
+
+UniValue getsidechaininfo(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "getsidechaininfo\n"
+            "Returns an object containing various state info regarding sidechain functionality.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"fedpegscript\": \"xxxx\",         (string) The fedpegscript in hex\n"
+            "  \"pegged_asset\" : \"xxxx\",        (string) Pegged asset type in hex\n"
+            "  \"min_peg_diff\" : \"xxxx\",        (string) The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure.\n"
+            "  \"parent_blockhash\" : \"xxxx\",    (string) The parent genesis blockhash as source of pegged-in funds.\n"
+            "  \"parent_chain_has_pow\": \"xxxx\", (boolean) Whether parent chain has pow or signed blocks.\n"
+            "  \"parent_chain_signblockscript_asm\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in ASM.\n"
+            "  \"parent_chain_signblockscript_hex\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in hex.\n"
+            "  \"parent_pegged_asset\": \"xxxx\",  (boolean) If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getsidechaininfo", "")
+            + HelpExampleRpc("getsidechaininfo", "")
+        );
+
+    LOCK(cs_main);
+
+    const Consensus::Params& consensus = Params().GetConsensus();
+    const uint256& parent_blockhash = Params().ParentGenesisBlockHash();
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript.begin(), consensus.fedpegScript.end()));
+    //TODO(rebase) CA
+    //obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
+    obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
+    obj.pushKV("parent_blockhash", parent_blockhash.GetHex());
+    obj.pushKV("parent_chain_has_pow", consensus.ParentChainHasPow());
+    //TODO(rebase) signed blocks
+    //if (!consensus.ParentChainHasPow()) {
+    //    obj.pushKV("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript));
+    //    obj.pushKV("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript));
+    //    obj.pushKV("parent_pegged_asset", HexStr(consensus.parent_pegged_asset));
+    //}
+    return obj;
+}
+
+// END ELEMENTS
+//
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -2238,6 +2287,9 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "preciousblock",          &preciousblock,          {"blockhash"} },
     { "blockchain",         "scantxoutset",           &scantxoutset,           {"action", "scanobjects"} },
+
+    // ELEMENTS:
+    { "blockchain",         "getsidechaininfo",       &getsidechaininfo,       {} },
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        {"blockhash"} },
