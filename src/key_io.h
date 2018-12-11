@@ -26,4 +26,8 @@ CTxDestination DecodeDestination(const std::string& str);
 bool IsValidDestinationString(const std::string& str);
 bool IsValidDestinationString(const std::string& str, const CChainParams& params);
 
+// ELEMENTS
+std::string EncodeParentDestination(const CTxDestination& dest);
+CTxDestination DecodeParentDestination(const std::string& str);
+
 #endif // BITCOIN_KEY_IO_H
