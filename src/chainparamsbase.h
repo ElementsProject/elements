@@ -23,12 +23,14 @@ public:
 
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
+    int MainchainRPCPort() const { return nMainchainRPCPort; }
 
     CBaseChainParams() = delete;
-    CBaseChainParams(const std::string& data_dir, int rpc_port) : nRPCPort(rpc_port), strDataDir(data_dir) {}
+    CBaseChainParams(const std::string& data_dir, int rpc_port, int mainchain_rpc_port) : nRPCPort(rpc_port), nMainchainRPCPort(mainchain_rpc_port), strDataDir(data_dir) {}
 
 private:
     int nRPCPort;
+    int nMainchainRPCPort;
     std::string strDataDir;
 };
 

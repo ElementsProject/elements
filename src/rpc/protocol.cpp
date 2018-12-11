@@ -123,6 +123,39 @@ bool GetAuthCookie(std::string *cookie_out)
     return true;
 }
 
+//
+// ELEMENTS:
+
+/** Default name for mainchain auth cookie file */
+static const std::string MAINCHAIN_COOKIEAUTH_FILE = "regtest/.cookie";
+/** Get name mainchain RPC authentication cookie file */
+static fs::path GetMainchainAuthCookieFile()
+{
+    boost::filesystem::path path(gArgs.GetArg("-mainchainrpccookiefile", MAINCHAIN_COOKIEAUTH_FILE));
+    if (!path.is_complete()) path = GetDataDir(false) / path;
+    return path;
+}
+
+bool GetMainchainAuthCookie(std::string *cookie_out)
+{
+    std::ifstream file;
+    std::string cookie;
+
+    boost::filesystem::path filepath = GetMainchainAuthCookieFile();
+    file.open(filepath.string().c_str());
+    if (!file.is_open())
+        return false;
+    std::getline(file, cookie);
+    file.close();
+
+    if (cookie_out)
+        *cookie_out = cookie;
+    return true;
+}
+
+// END ELEMENTS
+//
+
 void DeleteAuthCookie()
 {
     try {
