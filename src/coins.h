@@ -81,25 +81,6 @@ public:
     }
 };
 
-class SaltedOutpointHasher
-{
-private:
-    /** Salt */
-    const uint64_t k0, k1;
-
-public:
-    SaltedOutpointHasher();
-
-    /**
-     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
-     * unordered_map will behave unpredictably if the custom hasher returns a
-     * uint64_t, resulting in failures when syncing the chain (#4634).
-     */
-    size_t operator()(const COutPoint& id) const {
-        return SipHashUint256Extra(k0, k1, id.hash, id.n);
-    }
-};
-
 struct CCoinsCacheEntry
 {
     Coin coin; // The actual cached data.
@@ -119,7 +100,31 @@ struct CCoinsCacheEntry
     explicit CCoinsCacheEntry(Coin&& coin_) : coin(std::move(coin_)), flags(0) {}
 };
 
-typedef std::unordered_map<COutPoint, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
+// For PEGIN entries, the first is the genesis hash, the second is the outpoint.
+// For ~PEGIN entries, the first is zero, the second is the outpoint.
+typedef std::pair<uint256, COutPoint> CCoinsMapKey;
+class SaltedOutpointHasher
+{
+private:
+    /** Salt */
+    const uint64_t k0, k1;
+
+public:
+    SaltedOutpointHasher();
+
+    /**
+     * This *must* return size_t. With Boost 1.46 on 32-bit systems the
+     * unordered_map will behave unpredictably if the custom hasher returns a
+     * uint64_t, resulting in failures when syncing the chain (#4634).
+     */
+    size_t operator()(const CCoinsMapKey& key) const {
+        return SipHashUint256(k0, k1, key.first) ^ SipHashUint256Extra(k0, k1, key.second.hash, key.second.n);
+    }
+    size_t operator()(const COutPoint& id) const {
+        return SipHashUint256Extra(k0, k1, id.hash, id.n);
+    }
+};
+typedef std::unordered_map<CCoinsMapKey, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor

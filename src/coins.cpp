@@ -37,14 +37,22 @@ size_t CCoinsViewCache::DynamicMemoryUsage() const {
     return memusage::DynamicUsage(cacheCoins) + cachedCoinsUsage;
 }
 
+// ELEMENTS:
+// Create a CCoinsMapKey for non-PEGIN utxo.
+static inline CCoinsMapKey native_key(const COutPoint& outpoint) {
+    return std::make_pair(uint256(), outpoint);
+}
+
 CCoinsMap::iterator CCoinsViewCache::FetchCoin(const COutPoint &outpoint) const {
-    CCoinsMap::iterator it = cacheCoins.find(outpoint);
+    CCoinsMap::iterator it = cacheCoins.find(native_key(outpoint));
     if (it != cacheCoins.end())
         return it;
     Coin tmp;
     if (!base->GetCoin(outpoint, tmp))
         return cacheCoins.end();
-    CCoinsMap::iterator ret = cacheCoins.emplace(std::piecewise_construct, std::forward_as_tuple(outpoint), std::forward_as_tuple(std::move(tmp))).first;
+    CCoinsMap::iterator ret = cacheCoins.emplace(std::piecewise_construct,
+            std::forward_as_tuple(native_key(outpoint)),
+            std::forward_as_tuple(std::move(tmp))).first;
     if (ret->second.coin.IsSpent()) {
         // The parent only has an empty entry for this outpoint; we can consider our
         // version as fresh.
@@ -68,7 +76,8 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
     if (coin.out.scriptPubKey.IsUnspendable()) return;
     CCoinsMap::iterator it;
     bool inserted;
-    std::tie(it, inserted) = cacheCoins.emplace(std::piecewise_construct, std::forward_as_tuple(outpoint), std::tuple<>());
+    std::tie(it, inserted) = cacheCoins.emplace(std::piecewise_construct,
+            std::forward_as_tuple(native_key(outpoint)), std::tuple<>());
     bool fresh = false;
     if (!inserted) {
         cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
@@ -128,7 +137,7 @@ bool CCoinsViewCache::HaveCoin(const COutPoint &outpoint) const {
 }
 
 bool CCoinsViewCache::HaveCoinInCache(const COutPoint &outpoint) const {
-    CCoinsMap::const_iterator it = cacheCoins.find(outpoint);
+    CCoinsMap::const_iterator it = cacheCoins.find(native_key(outpoint));
     return (it != cacheCoins.end() && !it->second.coin.IsSpent());
 }
 
@@ -207,9 +216,9 @@ bool CCoinsViewCache::Flush() {
     return fOk;
 }
 
-void CCoinsViewCache::Uncache(const COutPoint& hash)
+void CCoinsViewCache::Uncache(const COutPoint& point)
 {
-    CCoinsMap::iterator it = cacheCoins.find(hash);
+    CCoinsMap::iterator it = cacheCoins.find(native_key(point));
     if (it != cacheCoins.end() && it->second.flags == 0) {
         cachedCoinsUsage -= it->second.coin.DynamicMemoryUsage();
         cacheCoins.erase(it);
