@@ -499,6 +499,8 @@ public:
     const setEntries & GetMemPoolParents(txiter entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
     const setEntries & GetMemPoolChildren(txiter entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
     uint64_t CalculateDescendantMaximum(txiter entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    // ELEMENTS:
+    std::map<std::pair<uint256, COutPoint>, uint256> mapPeginsSpentToTxid;
 private:
     typedef std::map<txiter, setEntries, CompareIteratorByHash> cacheMap;
 
@@ -711,6 +713,8 @@ protected:
 public:
     CCoinsViewMemPool(CCoinsView* baseIn, const CTxMemPool& mempoolIn);
     bool GetCoin(const COutPoint &outpoint, Coin &coin) const override;
+    // ELEMENTS:
+    bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override;
 };
 
 /**

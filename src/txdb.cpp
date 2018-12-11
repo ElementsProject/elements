@@ -32,6 +32,9 @@ static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
 
+// ELEMENTS:
+static const char DB_PEGIN_FLAG = 'w';
+
 namespace {
 
 struct CoinEntry {
@@ -66,6 +69,11 @@ bool CCoinsViewDB::GetCoin(const COutPoint &outpoint, Coin &coin) const {
 
 bool CCoinsViewDB::HaveCoin(const COutPoint &outpoint) const {
     return db.Exists(CoinEntry(&outpoint));
+}
+
+// ELEMENTS:
+bool CCoinsViewDB::IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const {
+    return db.Exists(std::make_pair(DB_PEGIN_FLAG, outpoint));
 }
 
 uint256 CCoinsViewDB::GetBestBlock() const {
@@ -110,11 +118,24 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
 
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            CoinEntry entry(&it->first);
-            if (it->second.coin.IsSpent())
-                batch.Erase(entry);
-            else
-                batch.Write(entry, it->second.coin);
+            // ELEMENTS:
+            if (it->second.flags & CCoinsCacheEntry::PEGIN) {
+                if (!it->second.peginSpent) {
+                    batch.Erase(std::make_pair(DB_PEGIN_FLAG, it->first));
+                } else {
+                    // Once spent, we don't care about the entry data, so we store
+                    // a static byte to indicate spentness.
+                    batch.Write(std::make_pair(DB_PEGIN_FLAG, it->first), '1');
+                }
+            } else {
+                // Non-pegin entries are stored the same way as in Core.
+                CoinEntry entry(&it->first.second);
+                if (it->second.coin.IsSpent()) {
+                    batch.Erase(entry);
+                } else {
+                    batch.Write(entry, it->second.coin);
+                }
+            }
             changed++;
         }
         count++;

@@ -898,6 +898,11 @@ bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
     return base->GetCoin(outpoint, coin);
 }
 
+// ELEMENTS:
+bool CCoinsViewMemPool::IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const {
+    return mempool.mapPeginsSpentToTxid.count(outpoint) || base->IsPeginSpent(outpoint);
+}
+
 size_t CTxMemPool::DynamicMemoryUsage() const {
     LOCK(cs);
     // Estimate the overhead of mapTx to be 12 pointers + an allocation, as no exact formula for boost::multi_index_contained is implemented.
