@@ -475,6 +475,9 @@ class CCustomParams : public CRegTestParams {
         consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
         initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
 
+        // Determines type of genesis block
+        consensus.genesis_style = gArgs.GetArg("-con_genesis_style", "elements");
+
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = gArgs.GetArg("-con_connect_coinbase", true);
 
@@ -512,16 +515,28 @@ class CCustomParams : public CRegTestParams {
         }
     }
 
+    void SetGenesisBlock() {
+        if (consensus.genesis_style == "bitcoin") {
+            // For compatibility with bitcoin (regtest)
+            genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN);
+        } else if (consensus.genesis_style == "elements") {
+            // Intended compatibility with Liquid v1 and elements-0.14.1
+            std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
+            genesis = CreateGenesisBlock(CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
+            if (initialFreeCoins != 0) {
+                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), initialFreeCoins, CScript() << OP_TRUE);
+            }
+        } else {
+            throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
+        }
+    }
+
 public:
     CCustomParams(const std::string& chain, ArgsManager& args) : CRegTestParams(args)
     {
         strNetworkID = chain;
         UpdateFromArgs(args);
-        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
-        genesis = CreateGenesisBlock(CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
-        if (initialFreeCoins != 0) {
-          AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), initialFreeCoins, CScript() << OP_TRUE);
-        }
+        SetGenesisBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
     }
 };

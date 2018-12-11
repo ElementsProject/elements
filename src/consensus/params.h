@@ -83,6 +83,7 @@ struct Params {
     CAmount genesis_subsidy;
     bool connect_genesis_outputs;
     // g_con_blockheightinheader global hack instead of proper arg due to circular dep
+    std::string genesis_style;
 };
 } // namespace Consensus
 

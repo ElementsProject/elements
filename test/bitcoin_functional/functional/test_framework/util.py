@@ -312,6 +312,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip34height=100000000\n")
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
+        f.write("con_genesis_style=bitcoin\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
