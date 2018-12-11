@@ -395,6 +395,12 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, LockPoints* lp, bool 
         prevheights.resize(tx.vin.size());
         for (size_t txinIndex = 0; txinIndex < tx.vin.size(); txinIndex++) {
             const CTxIn& txin = tx.vin[txinIndex];
+            // pegins should not restrict validity of sequence locks
+            if (txin.m_is_pegin) {
+                prevheights[txinIndex] = -1;
+                continue;
+            }
+
             Coin coin;
             if (!viewMemPool.GetCoin(txin.prevout, coin)) {
                 return error("%s: Missing input", __func__);
@@ -537,6 +543,10 @@ static bool CheckInputsFromMempoolAndCache(const CTransaction& tx, CValidationSt
 
     assert(!tx.IsCoinBase());
     for (const CTxIn& txin : tx.vin) {
+        if (txin.m_is_pegin) {
+            continue;
+        }
+
         const Coin& coin = view.AccessCoin(txin.prevout);
 
         // At this point we haven't actually checked if the coins are all
@@ -658,6 +668,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // do all inputs exist?
         for (const CTxIn& txin : tx.vin) {
+            // ELEMENTS:
+            // Don't look for coins that only exist in parent chain
+            if (txin.m_is_pegin) {
+                continue;
+            }
+
             if (!pcoinsTip->HaveCoinInCache(txin.prevout)) {
                 coins_to_uncache.push_back(txin.prevout);
             }
@@ -714,6 +730,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // during reorgs to ensure COINBASE_MATURITY is still met.
         bool fSpendsCoinbase = false;
         for (const CTxIn &txin : tx.vin) {
+            // ELEMENTS:
+            if (txin.m_is_pegin) {
+                continue;
+            }
             const Coin &coin = view.AccessCoin(txin.prevout);
             if (coin.IsCoinBase()) {
                 fSpendsCoinbase = true;
@@ -2040,7 +2060,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // be in ConnectBlock because they require the UTXO set
             prevheights.resize(tx.vin.size());
             for (size_t j = 0; j < tx.vin.size(); j++) {
-                prevheights[j] = view.AccessCoin(tx.vin[j].prevout).nHeight;
+                if (tx.vin[j].m_is_pegin) {
+                    prevheights[j] = -1;
+                } else {
+                    prevheights[j] = view.AccessCoin(tx.vin[j].prevout).nHeight;
+                }
             }
 
             if (!SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {

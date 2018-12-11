@@ -236,6 +236,9 @@ bool CCoinsViewCache::HaveInputs(const CTransaction& tx) const
 {
     if (!tx.IsCoinBase()) {
         for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            if (tx.vin[i].m_is_pegin) {
+                continue;
+            }
             if (!HaveCoin(tx.vin[i].prevout)) {
                 return false;
             }

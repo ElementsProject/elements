@@ -3080,6 +3080,10 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
             // Notify that old coins are spent
             for (const CTxIn& txin : wtxNew.tx->vin)
             {
+                // Pegins are not in our UTXO set.
+                if (txin.m_is_pegin)
+                    continue;
+
                 CWalletTx &coin = mapWallet.at(txin.prevout.hash);
                 coin.BindWallet(this);
                 NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);

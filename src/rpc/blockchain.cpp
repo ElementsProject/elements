@@ -1889,6 +1889,10 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             }
             CAmount tx_total_in = 0;
             for (const CTxIn& in : tx->vin) {
+                if (in.m_is_pegin) {
+                    continue;
+                }
+
                 CTransactionRef tx_in;
                 uint256 hashBlock;
                 if (!GetTransaction(in.prevout.hash, tx_in, Params().GetConsensus(), hashBlock, false)) {

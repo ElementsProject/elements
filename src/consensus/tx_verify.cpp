@@ -54,6 +54,11 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
     for (size_t txinIndex = 0; txinIndex < tx.vin.size(); txinIndex++) {
         const CTxIn& txin = tx.vin[txinIndex];
 
+        // Peg-ins have no output height
+        if (txin.m_is_pegin) {
+            continue;
+        }
+
         // Sequence numbers with the most significant bit set are not
         // treated as relative lock-times, nor are they given any
         // consensus-enforced meaning at this point.
@@ -126,6 +131,11 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
     unsigned int nSigOps = 0;
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
+        // Peg-in inputs are segwit-only
+        if (tx.vin[i].m_is_pegin) {
+            continue;
+        }
+
         const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
         assert(!coin.IsSpent());
         const CTxOut &prevout = coin.out;
