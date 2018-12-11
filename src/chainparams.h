@@ -53,6 +53,9 @@ public:
         SECRET_KEY,
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
+        // ELEMENTS
+        PARENT_PUBKEY_ADDRESS,
+        PARENT_SCRIPT_ADDRESS,
 
         MAX_BASE58_TYPES
     };
@@ -80,7 +83,11 @@ public:
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
+    // ELEMENTS extra fields:
+    const uint256 ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
     bool anyonecanspend_aremine;
+    const std::string& ParentBech32HRP() const { return parent_bech32_hrp; }
+
 protected:
     CChainParams() {}
 
@@ -101,6 +108,9 @@ protected:
     CCheckpointData checkpointData;
     ChainTxData chainTxData;
     bool m_fallback_fee_enabled;
+    // ELEMENTS extra fields:
+    uint256 parentGenesisBlockHash;
+    std::string parent_bech32_hrp;
 };
 
 /**

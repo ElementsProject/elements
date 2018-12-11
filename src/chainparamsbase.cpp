@@ -31,6 +31,12 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blocks` set to true.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_max_block_sig_size", "Max allowed witness data for the signed block header.", false, OptionsCategory::CHAINPARAMS);
+
+    gArgs.AddArg("-con_has_parent_chain", "Whether or not there is a parent chain.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-parentgenesisblockhash", "The genesis blockhash of the parent chain.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parentpowlimit", "The proof-of-work limit value for the parent chain.", false, OptionsCategory::CHAINPARAMS);
+
+    gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

@@ -78,10 +78,18 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
-    // Elements-specific chainparams
+
+    //
+    // ELEMENTS CHAIN PARAMS
     CScript mandatory_coinbase_destination;
     CAmount genesis_subsidy;
     bool connect_genesis_outputs;
+    bool has_parent_chain;
+    uint256 parentChainPowLimit;
+    uint32_t pegin_min_depth;
+    CScript parent_chain_signblockscript; //TODO(rebase) change when implementing parents with signed blocks
+    bool ParentChainHasPow() const { return parent_chain_signblockscript == CScript();}
+    CScript fedpegScript;
     // g_con_blockheightinheader global hack instead of proper arg due to circular dep
     std::string genesis_style;
     CScript signblockscript;

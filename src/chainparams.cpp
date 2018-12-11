@@ -18,13 +18,25 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
+static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
+{
+    CScript returnScript;
+    if (!strScript.empty()) {
+        std::vector<unsigned char> scriptData = ParseHex(strScript);
+        returnScript = CScript(scriptData.begin(), scriptData.end());
+    } else {
+        returnScript = defaultScript;
+    }
+    return returnScript;
+}
+
 // Safer for users if they load incorrect parameters via arguments.
 static std::vector<unsigned char> CommitToArguments(const Consensus::Params& params, const std::string& networkID)
 {
     CSHA256 sha2;
     unsigned char commitment[32];
     sha2.Write((const unsigned char*)networkID.c_str(), networkID.length());
-    //sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
+    sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
     sha2.Write((const unsigned char*)HexStr(params.signblockscript).c_str(), HexStr(params.signblockscript).length());
     sha2.Finalize(commitment);
     return std::vector<unsigned char>(commitment, commitment + 32);
@@ -466,33 +478,6 @@ class CCustomParams : public CRegTestParams {
         consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
         consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
 
-        // No subsidy for custom chains by default
-        consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", 0);
-
-        // Note: This global is needed to avoid circular dependency
-        // Defaults to true for custom chains.
-        g_con_blockheightinheader = gArgs.GetBoolArg("-con_blockheightinheader", true);
-
-        // All non-zero coinbase outputs must go to this scriptPubKey
-        std::vector<unsigned char> man_bytes = ParseHex(gArgs.GetArg("-con_mandatorycoinbase", ""));
-        consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
-        initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
-
-        // Determines type of genesis block
-        consensus.genesis_style = gArgs.GetArg("-con_genesis_style", "elements");
-
-        // Block signing encumberance script, default of 51 aka OP_TRUE
-        std::vector<unsigned char> sign_bytes = ParseHex(gArgs.GetArg("-signblockscript", "51"));
-        consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
-        // Default signature size is the size of dummy push, and single 72 byte DER signature
-        consensus.max_block_signature_size = gArgs.GetArg("-con_max_block_sig_size", 74);
-        g_signed_blocks = gArgs.GetBoolArg("-con_signed_blocks", true);
-
-        // Custom chains connect coinbase outputs to db by default
-        consensus.connect_genesis_outputs = gArgs.GetArg("-con_connect_coinbase", true);
-
-        anyonecanspend_aremine = gArgs.GetBoolArg("-anyonecanspendaremine", true);
-
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
         fMineBlocksOnDemand = args.GetBoolArg("-fmineblocksondemand", fMineBlocksOnDemand);
@@ -517,12 +502,61 @@ class CCustomParams : public CRegTestParams {
         std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
 
         vSeeds.clear();
-        if (gArgs.IsArgSet("-seednode")) {
-            const auto seednodes = gArgs.GetArgs("-seednode");
+        if (args.IsArgSet("-seednode")) {
+            const auto seednodes = args.GetArgs("-seednode");
             if (seednodes.size() != 1 || seednodes[0] != "0") {
                 vSeeds = seednodes;
             }
         }
+
+        //
+        // ELEMENTS fields
+
+        // Determines type of genesis block
+        consensus.genesis_style = gArgs.GetArg("-con_genesis_style", "elements");
+
+        // Block signing encumberance script, default of 51 aka OP_TRUE
+        std::vector<unsigned char> sign_bytes = ParseHex(gArgs.GetArg("-signblockscript", "51"));
+        consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
+        // Default signature size is the size of dummy push, and single 72 byte DER signature
+        consensus.max_block_signature_size = gArgs.GetArg("-con_max_block_sig_size", 74);
+        g_signed_blocks = gArgs.GetBoolArg("-con_signed_blocks", true);
+
+        // Note: This global is needed to avoid circular dependency
+        // Defaults to true for custom chains.
+        g_con_blockheightinheader = args.GetBoolArg("-con_blockheightinheader", true);
+
+        // No subsidy for custom chains by default
+        consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", 0);
+
+        // All non-zero coinbase outputs must go to this scriptPubKey
+        std::vector<unsigned char> man_bytes = ParseHex(args.GetArg("-con_mandatorycoinbase", ""));
+        consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
+
+        // Custom chains connect coinbase outputs to db by default
+        consensus.connect_genesis_outputs = args.GetArg("-con_connect_coinbase", true);
+
+        initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
+
+        anyonecanspend_aremine = args.GetBoolArg("-anyonecanspendaremine", true);
+
+        consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", true);
+        // bitcoin regtest is the parent chain by default
+        parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
+        // Either it has a parent chain or not
+        const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
+        assert(consensus.has_parent_chain != parent_genesis_is_null);
+        consensus.parentChainPowLimit = uint256S(args.GetArg("-con_parentpowlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+
+        const CScript default_script(CScript() << OP_TRUE);
+        consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), default_script);
+
+        base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentpubkeyprefix", 111));
+        base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
+        parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
+
+        // END ELEMENTS fields
+        //
     }
 
     void SetGenesisBlock() {
