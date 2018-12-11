@@ -419,6 +419,18 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
             CTxOut out(0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
+        } else if (name_ == "vdata") {
+            // ELEMENTS: support multi-push OP_RETURN
+            UniValue vdata = outputs[name_].get_array();
+            CScript datascript = CScript() << OP_RETURN;
+            for (size_t i = 0; i < vdata.size(); i++) {
+                std::vector<unsigned char> data = ParseHexV(vdata[i].get_str(), "Data");
+                datascript << data;
+            }
+
+            //TODO(rebase) CA asset
+            CTxOut out(0, datascript);
+            rawTx.vout.push_back(out);
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
@@ -472,7 +484,8 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
             "      \"address\": x.xxx,    (obj, optional) A key-value pair. The key (string) is the bitcoin address, the value (float or string) is the amount in " + CURRENCY_UNIT + "\n"
             "    },\n"
             "    {\n"
-            "      \"data\": \"hex\"        (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+            "      \"data\": \"hex\" ,    (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
+            "      \"vdata\": [\"hex\"]   (string, optional) The key is \"vdata\", the value is an array of hex encoded data\n"
             "    }\n"
             "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
             "                             accepted as second parameter.\n"
