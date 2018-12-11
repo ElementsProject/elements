@@ -200,12 +200,23 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             in.pushKV("scriptSig", o);
+
             if (!tx.vin[i].scriptWitness.IsNull()) {
                 UniValue txinwitness(UniValue::VARR);
                 for (const auto& item : tx.vin[i].scriptWitness.stack) {
                     txinwitness.push_back(HexStr(item.begin(), item.end()));
                 }
                 in.pushKV("txinwitness", txinwitness);
+            }
+
+            // ELEMENTS:
+            in.pushKV("is_pegin", txin.m_is_pegin);
+            if (!tx.vin[i].m_pegin_witness.IsNull()) {
+                UniValue pegin_witness(UniValue::VARR);
+                for (const auto& item : tx.vin[i].m_pegin_witness.stack) {
+                    pegin_witness.push_back(HexStr(item.begin(), item.end()));
+                }
+                in.pushKV("pegin_witness", pegin_witness);
             }
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
