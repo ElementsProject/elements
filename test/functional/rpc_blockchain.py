@@ -7,17 +7,14 @@
 Test the following RPCs:
     - getblockchaininfo
     - gettxoutsetinfo
-    - getdifficulty
     - getbestblockhash
     - getblockhash
     - getblockheader
     - getchaintxstats
-    - getnetworkhashps
     - verifychain
 
 Tests correspond to code in rpc/blockchain.cpp.
 """
-
 from decimal import Decimal
 import http.client
 import subprocess
@@ -29,7 +26,6 @@ from test_framework.util import (
     assert_greater_than_or_equal,
     assert_raises,
     assert_raises_rpc_error,
-    assert_is_hex_string,
     assert_is_hash_string,
 )
 from test_framework.blocktools import (
@@ -54,8 +50,6 @@ class BlockchainTest(BitcoinTestFramework):
         self._test_getchaintxstats()
         self._test_gettxoutsetinfo()
         self._test_getblockheader()
-        self._test_getdifficulty()
-        self._test_getnetworkhashps()
         self._test_stopatheight()
         self._test_waitforblockheight()
         assert self.nodes[0].verifychain(4, 0)
@@ -68,17 +62,18 @@ class BlockchainTest(BitcoinTestFramework):
             'bip9_softforks',
             'blocks',
             'chain',
-            'chainwork',
-            'difficulty',
             'headers',
             'initialblockdownload',
             'mediantime',
             'pruned',
+            'signblock_asm',
+            'signblock_hex',
             'size_on_disk',
             'softforks',
             'verificationprogress',
             'warnings',
         ]
+
         res = self.nodes[0].getblockchaininfo()
 
         # result should have these additional pruning keys if manual pruning is enabled
@@ -212,29 +207,14 @@ class BlockchainTest(BitcoinTestFramework):
         assert_equal(header['height'], 200)
         assert_equal(header['confirmations'], 1)
         assert_equal(header['previousblockhash'], secondbesthash)
-        assert_is_hex_string(header['chainwork'])
         assert_equal(header['nTx'], 1)
         assert_is_hash_string(header['hash'])
         assert_is_hash_string(header['previousblockhash'])
         assert_is_hash_string(header['merkleroot'])
-        assert_is_hash_string(header['bits'], length=None)
         assert isinstance(header['time'], int)
         assert isinstance(header['mediantime'], int)
-        assert isinstance(header['nonce'], int)
         assert isinstance(header['version'], int)
         assert isinstance(int(header['versionHex'], 16), int)
-        assert isinstance(header['difficulty'], Decimal)
-
-    def _test_getdifficulty(self):
-        difficulty = self.nodes[0].getdifficulty()
-        # 1 hash in 2 should be valid, so difficulty should be 1/2**31
-        # binary => decimal => binary math is why we do this check
-        assert abs(difficulty * 2**31 - 1) < 0.0001
-
-    def _test_getnetworkhashps(self):
-        hashes_per_second = self.nodes[0].getnetworkhashps()
-        # This should be 2 hashes every 10 minutes or 1/300
-        assert abs(hashes_per_second * 300 - 1) < 0.0001
 
     def _test_stopatheight(self):
         assert_equal(self.nodes[0].getblockcount(), 200)

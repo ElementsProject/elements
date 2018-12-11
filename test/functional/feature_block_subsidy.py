@@ -8,7 +8,7 @@ from binascii import b2a_hex
 from decimal import Decimal
 
 from test_framework.blocktools import create_coinbase
-from test_framework.messages import CBlock
+from test_framework.messages import CBlock, CProof
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
 
@@ -34,7 +34,6 @@ class BlockSubsidyTest(BitcoinTestFramework):
         # Block will have 10 satoshi output, node 1 will ban
         addr = self.nodes[0].getnewaddress()
         sub_block = self.nodes[0].generatetoaddress(1, addr)
-
         raw_coinbase = self.nodes[0].getrawtransaction(self.nodes[0].getblock(sub_block[0])["tx"][0])
         decoded_coinbase = self.nodes[0].decoderawtransaction(raw_coinbase)
 
@@ -69,6 +68,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
         block.nBits = int(tmpl["bits"], 16)
         block.nNonce = 0
         block.block_height = int(tmpl["height"])
+        block.proof = CProof(bytearray.fromhex('51'))
         block.vtx = [coinbase_tx]
 
         assert_template(self.nodes[0], block, "bad-cb-amount")

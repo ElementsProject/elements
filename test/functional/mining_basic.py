@@ -10,7 +10,6 @@
 
 import copy
 from binascii import b2a_hex
-from decimal import Decimal
 
 from test_framework.blocktools import create_coinbase
 from test_framework.messages import CBlock
@@ -40,8 +39,6 @@ class MiningTest(BitcoinTestFramework):
         assert_equal(mining_info['chain'], self.chain)
         assert_equal(mining_info['currentblocktx'], 0)
         assert_equal(mining_info['currentblockweight'], 0)
-        assert_equal(mining_info['difficulty'], Decimal('4.656542373906925E-10'))
-        assert_equal(mining_info['networkhashps'], Decimal('0.003333333333333334'))
         assert_equal(mining_info['pooledtx'], 0)
 
         # Mine a block to leave initial block download
@@ -61,7 +58,7 @@ class MiningTest(BitcoinTestFramework):
         block.hashPrevBlock = int(tmpl["previousblockhash"], 16)
         block.nTime = tmpl["curtime"]
         block.block_height = node.getblockcount()+1
-        block.nBits = int(tmpl["bits"], 16)
+        block.nBits = 0
         block.nNonce = 0
         block.vtx = [coinbase_tx]
 
@@ -110,10 +107,11 @@ class MiningTest(BitcoinTestFramework):
         bad_block_sn[TX_COUNT_OFFSET] += 1
         assert_raises_rpc_error(-22, "Block decode failed", node.getblocktemplate, {'data': b2x(bad_block_sn), 'mode': 'proposal'})
 
-        self.log.info("getblocktemplate: Test bad bits")
-        bad_block = copy.deepcopy(block)
-        bad_block.nBits = 469762303  # impossible in the real world
-        assert_template(node, bad_block, 'bad-diffbits')
+        # No PoW test
+#        self.log.info("getblocktemplate: Test bad bits")
+#        bad_block = copy.deepcopy(block)
+#        bad_block.nBits = 469762303  # impossible in the real world
+#        assert_template(node, bad_block, 'bad-diffbits')
 
         self.log.info("getblocktemplate: Test bad merkle root")
         bad_block = copy.deepcopy(block)

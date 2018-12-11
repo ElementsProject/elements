@@ -7,7 +7,7 @@
 from binascii import b2a_hex
 
 from test_framework.blocktools import create_coinbase
-from test_framework.messages import CBlock
+from test_framework.messages import CBlock, CProof
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
@@ -39,7 +39,6 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         node0.importprivkey(mandatory_privkey)
 
         self.log.info("generatetoaddress: Making blocks of various kinds, checking for rejection")
-
         # Create valid blocks to get out of IBD and get some funds (subsidy goes to permitted addr)
         node0.generatetoaddress(101, mandatory_address)
 
@@ -62,6 +61,7 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         block.nTime = tmpl["curtime"]
         block.nBits = int(tmpl["bits"], 16)
         block.nNonce = 0
+        block.proof = CProof(bytearray.fromhex('51'))
         block.vtx = [coinbase_tx]
         block.block_height = int(tmpl["height"])
 
