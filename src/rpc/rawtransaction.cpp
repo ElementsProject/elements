@@ -1667,7 +1667,7 @@ UniValue rawissueasset(const JSONRPCRequest& request)
             "rawissueasset transaction [{\"asset_amount\":x.xxx, \"asset_address\":\"address\", \"token_amount\":x.xxx, \"token_address\":\"address\", \"blind\":bool, ( \"contract_hash\":\"hash\" )}, ...]\n"
             "\nCreate an asset by attaching issuances to transaction inputs. Returns the transaction hex. There must be as many inputs as issuances requested. The final transaction hex is the final version of the transaction appended to the last object in the array.\n"
             "\nArguments:\n"
-            "1. \"transaction\"           (string, required) Transaction in hex in which to include a peg-in input.\n"
+            "1. \"transaction\"           (string, required) Transaction in hex in which to include an issuance input.\n"
             "2. \"issuances\"              (list, required) List of issuances to create. Each issuance must have one non-zero amount. \n"
             "[\n"
             "   {\n"
