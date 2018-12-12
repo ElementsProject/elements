@@ -1635,10 +1635,13 @@ void issueasset_base(CMutableTransaction& mtx, IssuanceDetails& issuance_details
         CPubKey asset_blind = asset_address.GetBlindingKey();
         asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
     }
-    // Don't issue stuff or set values unless non-zero (both are against consensus)
+    // Explicit 0 is represented by a null value, don't set to non-null in that case
+    if (blind_issuance || asset_amount != 0) {
+        mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
+    }
+    // Don't make zero value output(impossible by consensus)
     if (asset_amount > 0) {
         mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
-        mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
     }
 
     CTxOut token_out(token, token_amount, token_destination);
@@ -1647,10 +1650,13 @@ void issueasset_base(CMutableTransaction& mtx, IssuanceDetails& issuance_details
         CPubKey token_blind = token_address.GetBlindingKey();
         token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
     }
-    // Don't issue stuff or set values unless non-zero (both are against consensus)
+    // Explicit 0 is represented by a null value, don't set to non-null in that case
+    if (blind_issuance || token_amount != 0) {
+        mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
+    }
+    // Don't make zero value output(impossible by consensus)
     if (token_amount > 0) {
         mtx.vout.insert(mtx.vout.begin()+token_place, token_out);
-        mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
     }
 }
 
