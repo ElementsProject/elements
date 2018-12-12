@@ -93,6 +93,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rawblindrawtransaction", 6, "ignoreblindfail" },
     { "blindrawtransaction", 1, "assetcommitments" },
     { "blindrawtransaction", 2, "ignoreblindfail" },
+    { "blindrawtransaction", 3, "blind_issuances" },
     { "createrawtransaction", 0, "inputs" },
     { "createrawtransaction", 1, "outputs" },
     { "dumpissuanceblindingkey", 1, "vin" },
