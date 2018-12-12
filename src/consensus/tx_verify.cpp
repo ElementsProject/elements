@@ -8,6 +8,7 @@
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
 #include <consensus/validation.h>
+#include <validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -158,9 +159,18 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
-        assert(!coin.IsSpent());
-        const CTxOut &prevout = coin.out;
+        if (tx.vin[i].m_is_pegin && !IsValidPeginWitness(tx.vin[i].m_pegin_witness, tx.vin[i].prevout)) {
+            continue;
+        }
+
+        CTxOut prevout;
+        if (tx.vin[i].m_is_pegin) {
+            prevout = GetPeginOutputFromWitness(tx.vin[i].m_pegin_witness);
+        } else {
+            const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
+            assert(!coin.IsSpent());
+            prevout = coin.out;
+        }
         nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
     }
     return nSigOps;
@@ -215,7 +225,8 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     return true;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee)
+namespace Consensus {
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -226,23 +237,47 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     CAmount nValueIn = 0;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
-        const Coin& coin = inputs.AccessCoin(prevout);
-        assert(!coin.IsSpent());
+        if (tx.vin[i].m_is_pegin) {
+            // Check existence and validity of pegin witness
+            if (!IsValidPeginWitness(tx.vin[i].m_pegin_witness, prevout)) {
+                return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness");
+            }
+            std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.vin[i].m_pegin_witness.stack[2]), prevout);
+            if (inputs.IsPeginSpent(pegin)) {
+                return state.Invalid(false, REJECT_INVALID, "bad-txns-double-pegin", strprintf("Double-pegin of %s:%d", prevout.hash.ToString(), prevout.n));
+            }
+            if (setPeginsSpent.count(pegin)) {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-double-pegin-in-obj", false,
+                    strprintf("Double-pegin of %s:%d in single tx/block", prevout.hash.ToString(), prevout.n));
+            }
+            setPeginsSpent.insert(pegin);
 
-        // If prev is coinbase, check that it's matured
-        if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
-            return state.Invalid(false,
-                REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
-                strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
-        }
+            // Tally the input amount.
+            const CTxOut out = GetPeginOutputFromWitness(tx.vin[i].m_pegin_witness);
+            if (!MoneyRange(out.nValue)) {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-pegin-inputvalue-outofrange");
+            }
+            nValueIn += out.nValue;
+        } else {
+            const Coin& coin = inputs.AccessCoin(prevout);
+            assert(!coin.IsSpent());
 
-        // Check for negative or overflow input values
-        nValueIn += coin.out.nValue;
-        if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            // If prev is coinbase, check that it's matured
+            if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
+                return state.Invalid(false,
+                    REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
+                    strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
+            }
+
+            // Check for negative or overflow input values
+            nValueIn += coin.out.nValue;
+            if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValueIn)) {
+                return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            }
         }
     }
 
+    //TODO(rebase) you need to replace these two blocks with the `VerifyAmounts` and `HasValidFee` methods
     const CAmount value_out = tx.GetValueOut();
     if (nValueIn < value_out) {
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
@@ -258,3 +293,4 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     txfee = txfee_aux;
     return true;
 }
+}// namespace Consensus

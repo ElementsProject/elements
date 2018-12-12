@@ -34,6 +34,7 @@ static const char DB_LAST_BLOCK = 'l';
 
 // ELEMENTS:
 static const char DB_PEGIN_FLAG = 'w';
+static const char DB_INVALID_BLOCK_Q = 'q';
 
 namespace {
 
@@ -268,6 +269,14 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
         return false;
     fValue = ch == '1';
     return true;
+}
+
+// ELEMENTS:
+bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
+    return Read(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);//FIXME: why uint 56 and not ""
+}
+bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
+    return Write(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex)

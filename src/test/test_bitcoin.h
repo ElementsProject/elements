@@ -43,7 +43,7 @@ static inline bool InsecureRandBool() { return insecure_rand_ctx.randbool(); }
 struct BasicTestingSetup {
     ECCVerifyHandle globalVerifyHandle;
 
-    explicit BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN);
+    explicit BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "");
     ~BasicTestingSetup();
 
     fs::path SetDataDir(const std::string& name);
@@ -69,7 +69,7 @@ struct TestingSetup: public BasicTestingSetup {
     CScheduler scheduler;
     std::unique_ptr<PeerLogicValidation> peerLogic;
 
-    explicit TestingSetup(const std::string& chainName = CBaseChainParams::MAIN);
+    explicit TestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "");
     ~TestingSetup();
 };
 
@@ -106,6 +106,8 @@ struct TestMemPoolEntryHelper
     bool spendsCoinbase;
     unsigned int sigOpCost;
     LockPoints lp;
+    // ELEMENTS:
+    std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
 
     TestMemPoolEntryHelper() :
         nFee(0), nTime(0), nHeight(1),
@@ -120,6 +122,8 @@ struct TestMemPoolEntryHelper
     TestMemPoolEntryHelper &Height(unsigned int _height) { nHeight = _height; return *this; }
     TestMemPoolEntryHelper &SpendsCoinbase(bool _flag) { spendsCoinbase = _flag; return *this; }
     TestMemPoolEntryHelper &SigOpsCost(unsigned int _sigopsCost) { sigOpCost = _sigopsCost; return *this; }
+    // ELEMENTS:
+    TestMemPoolEntryHelper &PeginsSpent(std::set<std::pair<uint256, COutPoint> >& _setPeginsSpent) { setPeginsSpent = _setPeginsSpent; return *this; }
 };
 
 CBlock getBlock13b8a();

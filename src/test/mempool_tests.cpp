@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <policy/policy.h>
+#include <policy/fees.h>
 #include <txmempool.h>
 #include <util.h>
 
@@ -389,7 +390,8 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     /* after tx6 is mined, tx7 should move up in the sort */
     std::vector<CTransactionRef> vtx;
     vtx.push_back(MakeTransactionRef(tx6));
-    pool.removeForBlock(vtx, 1);
+    std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
+    pool.removeForBlock(vtx, 1, setPeginsSpentDummy);
 
     sortedOrder.erase(sortedOrder.begin()+1);
     // Ties are broken by hash
@@ -418,6 +420,93 @@ BOOST_AUTO_TEST_CASE(MempoolAncestorIndexingTest)
     CheckSort<ancestor_score>(pool, sortedOrder);
 }
 
+// ELEMENTS:
+BOOST_AUTO_TEST_CASE(PeginSpentTest)
+{
+    CBlockPolicyEstimator feeEst;
+    CTxMemPool pool(&feeEst);
+    LOCK(pool.cs);
+
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+    TestMemPoolEntryHelper entry;
+
+    std::pair<uint256, COutPoint> pegin1, pegin2, pegin3;
+    GetRandBytes(pegin1.first.begin(), pegin1.first.size());
+    GetRandBytes(pegin2.first.begin(), pegin2.first.size());
+    GetRandBytes(pegin3.first.begin(), pegin3.first.size());
+    GetRandBytes(pegin1.second.hash.begin(), pegin1.second.hash.size());
+    GetRandBytes(pegin2.second.hash.begin(), pegin2.second.hash.size());
+    pegin3.second.hash = pegin2.second.hash;
+    pegin1.second.n = 0;
+    pegin2.second.n = 0;
+    pegin3.second.n = 1;
+
+    CMutableTransaction tx;
+    tx.vin.resize(1);
+    tx.vout.resize(1);
+    tx.vout[0].nValue = 0;
+    const uint256 tx1Hash(tx.GetHash());
+    pool.addUnchecked(tx1Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    BOOST_CHECK(pool.mapPeginsSpentToTxid.empty());
+
+    setPeginsSpent = {pegin1};
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(2);
+    tx.vout[1].nValue = 0;
+    const uint256 tx2Hash(tx.GetHash());
+    pool.addUnchecked(tx2Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin1].ToString(), tx2Hash.ToString());
+
+    setPeginsSpent = {pegin2};
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(3);
+    tx.vout[2].nValue = 0;
+    const uint256 tx3Hash(tx.GetHash());
+    pool.addUnchecked(tx3Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin2].ToString(), tx3Hash.ToString());
+
+    setPeginsSpent = {pegin3};
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(4);
+    tx.vout[3].nValue = 0;
+    CTransactionRef txref(MakeTransactionRef(tx));
+    pool.removeForBlock({txref}, 1, setPeginsSpent);
+
+    BOOST_CHECK_EQUAL(pool.size(), 3);
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid.size(), 2);
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin1].ToString(), tx2Hash.ToString());
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin2].ToString(), tx3Hash.ToString());
+
+    setPeginsSpent = {pegin1};
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(5);
+    tx.vout[4].nValue = 0;
+    txref = MakeTransactionRef(tx);
+    pool.removeForBlock({txref}, 2, setPeginsSpent);
+
+    BOOST_CHECK_EQUAL(pool.size(), 2);
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid.size(), 1);
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin2].ToString(), tx3Hash.ToString());
+
+    setPeginsSpent = {pegin1, pegin3};
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(6);
+    tx.vout[5].nValue = 0;
+    const uint256 tx4Hash(tx.GetHash());
+    pool.addUnchecked(tx4Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin1].ToString(), tx4Hash.ToString());
+    BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin3].ToString(), tx4Hash.ToString());
+
+    setPeginsSpent = {pegin2, pegin3};
+    GetRandBytes(tx.vin[0].prevout.hash.begin(), tx.vin[0].prevout.hash.size());
+    tx.vout.resize(7);
+    tx.vout[6].nValue = 0;
+    txref = MakeTransactionRef(tx);
+    pool.removeForBlock({txref}, 3, setPeginsSpent);
+
+    BOOST_CHECK_EQUAL(pool.size(), 1);
+    BOOST_CHECK(pool.mapPeginsSpentToTxid.empty());
+}
 
 BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
 {
@@ -549,7 +638,8 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     SetMockTime(42 + CTxMemPool::ROLLING_FEE_HALFLIFE);
     BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), maxFeeRateRemoved.GetFeePerK() + 1000);
     // ... we should keep the same min fee until we get a block
-    pool.removeForBlock(vtx, 1);
+    std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
+    pool.removeForBlock(vtx, 1, setPeginsSpentDummy);
     SetMockTime(42 + 2*CTxMemPool::ROLLING_FEE_HALFLIFE);
     BOOST_CHECK_EQUAL(pool.GetMinFee(1).GetFeePerK(), llround((maxFeeRateRemoved.GetFeePerK() + 1000)/2.0));
     // ... then feerate should drop 1/2 each halflife

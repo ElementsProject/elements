@@ -20,9 +20,12 @@
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp):
+                                 bool _spendsCoinbase,
+                                 int64_t _sigOpsCost, LockPoints lp,
+                                 std::set<std::pair<uint256, COutPoint>>& _setPeginsSpent):
     tx(_tx), nFee(_nFee), nTime(_nTime), entryHeight(_entryHeight),
-    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp)
+    spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp),
+    setPeginsSpent(_setPeginsSpent)
 {
     nTxWeight = GetTransactionWeight(*tx);
     nUsageSize = RecursiveDynamicUsage(tx);
@@ -409,6 +412,12 @@ void CTxMemPool::addUnchecked(const uint256& hash, const CTxMemPoolEntry &entry,
 
     vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
+
+    typedef std::pair<uint256, COutPoint> PeginPair;
+    for(const PeginPair& it : entry.setPeginsSpent) {
+        std::pair<std::map<std::pair<uint256, COutPoint>, uint256>::iterator, bool> ret = mapPeginsSpentToTxid.insert(std::make_pair(it, hash));
+        assert(ret.second);
+    }
 }
 
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
@@ -417,6 +426,12 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     const uint256 hash = it->GetTx().GetHash();
     for (const CTxIn& txin : it->GetTx().vin)
         mapNextTx.erase(txin.prevout);
+
+    // ELEMENTS:
+    typedef std::pair<uint256, COutPoint> PeginPair;
+    for (const PeginPair& it2 : it->setPeginsSpent) {
+        mapPeginsSpentToTxid.erase(it2);
+    }
 
     if (vTxHashes.size() > 1) {
         vTxHashes[it->vTxHashesIdx] = std::move(vTxHashes.back());
@@ -554,7 +569,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent)
 {
     LOCK(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -579,6 +594,24 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         removeConflicts(*tx);
         ClearPrioritisation(tx->GetHash());
     }
+
+    // ELEMENTS:
+    // Eject any conflicting pegins
+    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setPeginsSpent.begin(); it != setPeginsSpent.end(); it++) {
+        std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it2 = mapPeginsSpentToTxid.find(*it);
+        if (it2 != mapPeginsSpentToTxid.end()) {
+            uint256 tx_id = it2->second;
+            txiter txit = mapTx.find(tx_id);
+            assert(txit != mapTx.end());
+            const CTransaction& tx = txit->GetTx();
+            setEntries stage;
+            stage.insert(txit);
+            RemoveStaged(stage, true);
+            removeRecursive(tx, MemPoolRemovalReason::CONFLICT);
+            ClearPrioritisation(tx_id);
+        }
+    }
+
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
 }
@@ -602,13 +635,21 @@ void CTxMemPool::clear()
     _clear();
 }
 
-static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, const int64_t spendheight)
+static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCache& mempoolDuplicate, const int64_t spendheight, std::set<std::pair<uint256, COutPoint>>& setGlobalPeginsSpent)
 {
+    CTransaction tx = entry.GetTx();
     CValidationState state;
     CAmount txfee = 0;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee);
+    std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee, setPeginsSpent);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);
+
+    // ELEMENTS:
+    assert(setPeginsSpent == entry.setPeginsSpent);
+    size_t prevPeginsCount = setGlobalPeginsSpent.size();
+    setGlobalPeginsSpent.insert(setPeginsSpent.begin(), setPeginsSpent.end());
+    assert(setGlobalPeginsSpent.size() == prevPeginsCount + setPeginsSpent.size());
 }
 
 void CTxMemPool::check(const CCoinsViewCache *pcoins) const
@@ -629,6 +670,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     const int64_t spendheight = GetSpendHeight(mempoolDuplicate);
 
     std::list<const CTxMemPoolEntry*> waitingOnDependants;
+    // ELEMENTS:
+    std::set<std::pair<uint256, COutPoint> > setGlobalPeginsSpent;
+
     for (indexed_transaction_set::const_iterator it = mapTx.begin(); it != mapTx.end(); it++) {
         unsigned int i = 0;
         checkTotal += it->GetTxSize();
@@ -654,7 +698,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
                     parentSigOpCost += it2->GetSigOpCost();
                 }
             } else {
-                assert(pcoins->HaveCoin(txin.prevout));
+                // peg-in inputs are not sanity-checked to be valid
+                assert(txin.m_is_pegin || pcoins->HaveCoin(txin.prevout));
             }
             // Check whether its inputs are marked in mapNextTx.
             auto it3 = mapNextTx.find(txin.prevout);
@@ -704,7 +749,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         if (fDependsWait)
             waitingOnDependants.push_back(&(*it));
         else {
-            CheckInputsAndUpdateCoins(tx, mempoolDuplicate, spendheight);
+            CheckInputsAndUpdateCoins(*it, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
         }
     }
     unsigned int stepsSinceLastRemove = 0;
@@ -716,7 +761,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             stepsSinceLastRemove++;
             assert(stepsSinceLastRemove < waitingOnDependants.size());
         } else {
-            CheckInputsAndUpdateCoins(entry->GetTx(), mempoolDuplicate, spendheight);
+            CheckInputsAndUpdateCoins(*entry, mempoolDuplicate, spendheight, setGlobalPeginsSpent);
             stepsSinceLastRemove = 0;
         }
     }
@@ -727,6 +772,18 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
         assert(it2 != mapTx.end());
         assert(&tx == it->second);
     }
+
+    //
+    // ELEMENTS:
+    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setGlobalPeginsSpent.begin(); it != setGlobalPeginsSpent.end(); it++) {
+        assert(!pcoins->IsPeginSpent(*it));
+    }
+    for (std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it = mapPeginsSpentToTxid.begin(); it != mapPeginsSpentToTxid.end(); it++) {
+        assert(setGlobalPeginsSpent.erase(it->first));
+    }
+    assert(setGlobalPeginsSpent.size() == 0);
+    // END ELEMENTS
+    //
 
     assert(totalTxSize == checkTotal);
     assert(innerUsage == cachedInnerUsage);
