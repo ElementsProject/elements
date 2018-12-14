@@ -151,30 +151,50 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
     }
 }
 
-void ScriptPubKeyToUniv(const CScript& scriptPubKey,
-                        UniValue& out, bool fIncludeHex)
+// ELEMENTS:
+static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool is_parent_chain)
 {
+    const std::string prefix = is_parent_chain ? "pegout_" : "";
     txnouttype type;
     std::vector<CTxDestination> addresses;
     int nRequired;
 
-    out.pushKV("asm", ScriptToAsmStr(scriptPubKey));
+    out.pushKV(prefix + "asm", ScriptToAsmStr(scriptPubKey));
     if (fIncludeHex)
-        out.pushKV("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+        out.pushKV(prefix + "hex", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
     if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
-        out.pushKV("type", GetTxnOutputType(type));
+        out.pushKV(prefix + "type", GetTxnOutputType(type));
         return;
     }
 
-    out.pushKV("reqSigs", nRequired);
-    out.pushKV("type", GetTxnOutputType(type));
+    out.pushKV(prefix + "reqSigs", nRequired);
+    out.pushKV(prefix + "type", GetTxnOutputType(type));
 
     UniValue a(UniValue::VARR);
-    for (const CTxDestination& addr : addresses) {
-        a.push_back(EncodeDestination(addr));
+    if (is_parent_chain) {
+        for (const CTxDestination& addr : addresses) {
+            a.push_back(EncodeParentDestination(addr));
+        }
+    } else {
+        for (const CTxDestination& addr : addresses) {
+            a.push_back(EncodeDestination(addr));
+        }
     }
-    out.pushKV("addresses", a);
+    out.pushKV(prefix + "addresses", a);
+}
+
+void ScriptPubKeyToUniv(const CScript& scriptPubKey,
+                        UniValue& out, bool fIncludeHex)
+{
+    SidechainScriptPubKeyToJSON(scriptPubKey, out, fIncludeHex, false);
+
+    uint256 pegout_chain;
+    CScript pegout_scriptpubkey;
+    if (scriptPubKey.IsPegoutScript(pegout_chain, pegout_scriptpubkey)) {
+        out.pushKV("pegout_chain", pegout_chain.GetHex());
+        SidechainScriptPubKeyToJSON(pegout_scriptpubkey, out, fIncludeHex, true);
+    }
 }
 
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex, int serialize_flags)

@@ -13,6 +13,7 @@
 #include <net.h>
 #include <netbase.h>
 #include <outputtype.h>
+#include <pegins.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>

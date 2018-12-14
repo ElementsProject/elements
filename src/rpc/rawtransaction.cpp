@@ -10,11 +10,10 @@
 #include <core_io.h>
 #include <index/txindex.h>
 #include <keystore.h>
-#include <validation.h>
-#include <validationinterface.h>
 #include <key_io.h>
 #include <merkleblock.h>
 #include <net.h>
+#include <pegins.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
@@ -27,6 +26,8 @@
 #include <txmempool.h>
 #include <uint256.h>
 #include <utilstrencodings.h>
+#include <validation.h>
+#include <validationinterface.h>
 #ifdef ENABLE_WALLET
 #include <wallet/rpcwallet.h>
 #endif
@@ -124,7 +125,12 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             "         \"addresses\" : [           (json array of string)\n"
             "           \"address\"        (string) bitcoin address\n"
             "           ,...\n"
-            "         ]\n"
+            "         ],\n"
+            "         \"pegout_chain\" : \"hex\", (string) (only pegout) Hash of genesis block of parent chain'\n"
+            "         \"pegout_asm\":\"asm\",     (string) (only pegout) pegout scriptpubkey (asm)'\n"
+            "         \"pegout_hex\":\"hex\",     (string) (only pegout) pegout scriptpubkey (hex)'\n"
+            "         \"pegout_type\" : \"pubkeyhash\", (string) (only pegout) The pegout type, eg 'pubkeyhash'\n"
+            "         \"pegout_addresses\" : [    (json array of string) (only pegout)\n"
             "       }\n"
             "     }\n"
             "     ,...\n"
@@ -866,19 +872,34 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
 
+    // ELEMENTS:
+    // Track an immature peg-in that's otherwise valid, give warning
+    bool immature_pegin = false;
+
     // Use CTransaction for the constant parts of the
     // transaction to avoid rehashing.
     const CTransaction txConst(mtx);
-    // Sign what we can:
+    // Sign what we can, including pegin inputs:
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         CTxIn& txin = mtx.vin[i];
         const Coin& coin = view.AccessCoin(txin.prevout);
-        if (coin.IsSpent()) {
+
+        if (!txin.m_is_pegin && coin.IsSpent()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
+        } else if (txin.m_is_pegin && (!IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, false))) {
+            TxInErrorToJSON(txin, vErrors, "Peg-in input has invalid proof.");
+            continue;
         }
-        const CScript& prevPubKey = coin.out.scriptPubKey;
-        const CAmount& amount = coin.out.nValue;
+        // Report warning about immature peg-in though
+        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, true)) {
+            immature_pegin = true;
+        }
+
+        const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.vin[i].m_pegin_witness).scriptPubKey : coin.out.scriptPubKey;
+        //TODO(rebase) CT
+        //const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.vin[i].m_pegin_witness).nValue : coin.out.nValue;
+        const CAmount& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.vin[i].m_pegin_witness).nValue : coin.out.nValue;
 
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -910,6 +931,9 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     result.pushKV("complete", fComplete);
     if (!vErrors.empty()) {
         result.pushKV("errors", vErrors);
+    }
+    if (immature_pegin) {
+        result.pushKV("warning", "Possibly immature peg-in input(s) detected, signed anyways.");
     }
 
     return result;
@@ -966,6 +990,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
             "    }\n"
             "    ,...\n"
             "  ]\n"
+            "  \"warning\" : \"text\"            (string) Warning that a peg-in input signed may be immature. This could mean lack of connectivity to or misconfiguration of the bitcoind."
             "}\n"
 
             "\nExamples:\n"
@@ -1052,6 +1077,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
             "    }\n"
             "    ,...\n"
             "  ]\n"
+            "  \"warning\" : \"text\"            (string) Warning that a peg-in input signed may be immature. This could mean lack of connectivity to or misconfiguration of the bitcoind."
             "}\n"
 
             "\nExamples:\n"
@@ -1094,7 +1120,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     }
 }
 
-static UniValue sendrawtransaction(const JSONRPCRequest& request)
+UniValue sendrawtransaction(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(

@@ -10,6 +10,7 @@
 #include <consensus/validation.h>
 #include <validation.h>
 #include <coins.h>
+#include <pegins.h>
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>

@@ -18,6 +18,7 @@
 #include <hash.h>
 #include <index/txindex.h>
 #include <mainchainrpc.h>
+#include <pegins.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -27,7 +28,6 @@
 #include <reverse_iterator.h>
 #include <script/script.h>
 #include <script/sigcache.h>
-#include <script/standard.h>
 #include <shutdown.h>
 #include <timedata.h>
 #include <tinyformat.h>
@@ -35,7 +35,6 @@
 #include <txmempool.h>
 #include <ui_interface.h>
 #include <undo.h>
-#include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
 #include <validationinterface.h>
