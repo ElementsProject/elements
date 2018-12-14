@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright (c) 2013-2015 Pieter Wuille                              *
+ * Copyright (c) 2013-2015 Pieter Wuille, Gregory Maxwell             *
  * Distributed under the MIT software license, see the accompanying   *
  * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
@@ -13,7 +13,7 @@
 #include "testrand.h"
 #include "hash.h"
 
-static secp256k1_rfc6979_hmac_sha256_t secp256k1_test_rng;
+static secp256k1_rfc6979_hmac_sha256 secp256k1_test_rng;
 static uint32_t secp256k1_test_rng_precomputed[8];
 static int secp256k1_test_rng_precomputed_used = 8;
 static uint64_t secp256k1_test_rng_integer;
@@ -105,6 +105,23 @@ static void secp256k1_rand_bytes_test(unsigned char *bytes, size_t len) {
 
 static void secp256k1_rand256_test(unsigned char *b32) {
     secp256k1_rand_bytes_test(b32, 32);
+}
+
+SECP256K1_INLINE static int64_t secp256k1_rands64(uint64_t min, uint64_t max) {
+    uint64_t range;
+    uint64_t r;
+    uint64_t clz;
+    VERIFY_CHECK(max >= min);
+    if (max == min) {
+        return min;
+    }
+    range = max - min;
+    clz = secp256k1_clz64_var(range);
+    do {
+        r = ((uint64_t)secp256k1_rand32() << 32) | secp256k1_rand32();
+        r >>= clz;
+    } while (r > range);
+    return min + (int64_t)r;
 }
 
 #endif /* SECP256K1_TESTRAND_IMPL_H */
