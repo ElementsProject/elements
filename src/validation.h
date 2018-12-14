@@ -137,6 +137,13 @@ static const bool DEFAULT_PEERBLOOMFILTERS = true;
 /** Default for -stopatheight */
 static const int DEFAULT_STOPATHEIGHT = 0;
 
+// ELEMENTS constants:
+/** The minimum version for the mainchain node.
+ *  We need v0.16.3 to get the nTx field in getblockheader and inflation fix.
+ *  Note that Elements-based parent chains may not have fixes based on this
+ *  version check! */
+static const int MIN_MAINCHAIN_NODE_VERSION = 160300; // 0.16.3
+
 struct BlockHasher
 {
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
@@ -501,5 +508,9 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 {
     return (fHavePruned && !(pblockindex->nStatus & BLOCK_HAVE_DATA) && pblockindex->nTx > 0);
 }
+
+// ELEMENTS:
+/** Check if bitcoind connection via RPC is correctly working*/
+bool BitcoindRPCCheck(bool init);
 
 #endif // BITCOIN_VALIDATION_H

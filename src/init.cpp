@@ -21,7 +21,6 @@
 #include <httprpc.h>
 #include <index/txindex.h>
 #include <key.h>
-#include <validation.h>
 #include <mainchainrpc.h>
 #include <miner.h>
 #include <netbase.h>
@@ -45,6 +44,7 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
+#include <validation.h>
 #include <validationinterface.h>
 #include <warnings.h>
 #include <walletinitinterface.h>
@@ -546,6 +546,7 @@ void SetupServerArgs()
     gArgs.AddArg("-mainchainrpccookiefile=<file>", "The bitcoind cookie auth path which the daemon will use to connect to the trusted bitcoind to validate peg-ins. (default: `<datadir>/regtest/.cookie`)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-mainchainrpctimeout=<n>", strprintf("Timeout in seconds during mainchain RPC requests, or 0 for no timeout. (default: %d)", DEFAULT_HTTP_CLIENT_TIMEOUT), false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-peginconfirmationdepth=<n>", strprintf("Pegin claims must be this deep to be considered valid. (default: %d)", DEFAULT_PEGIN_CONFIRMATION_DEPTH), false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-recheckpeginblockinterval=<n>", strprintf("The interval in seconds at which a peg-in witness failing block is re-evaluated in case of intermittant peg-in witness failure. 0 means never. (default: %u)", 120), false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-parentpubkeyprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)", 111), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parentscriptprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)", 196), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parent_bech32_hrp", strprintf("The human-readable part of the parent chain's bech32 encoding. (default: %s)", "bc"), false, OptionsCategory::CHAINPARAMS);
@@ -1762,6 +1763,18 @@ bool AppInitMain()
     // ********************************************************* Step 13: finished
 
     SetRPCWarmupFinished();
+
+    // ELEMENTS:
+    CScheduler::Function f2 = boost::bind(&BitcoindRPCCheck, false);
+    unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120);
+    if (check_rpc_every) {
+        scheduler.scheduleEvery(f2, check_rpc_every);
+    }
+    uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
+    if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
+        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
+    }
+
     uiInterface.InitMessage(_("Done loading"));
 
     g_wallet_init_interface.Start(scheduler);

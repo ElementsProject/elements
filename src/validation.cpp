@@ -17,6 +17,7 @@
 #include <cuckoocache.h>
 #include <hash.h>
 #include <index/txindex.h>
+#include <mainchainrpc.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -4979,3 +4980,127 @@ public:
         mapBlockIndex.clear();
     }
 } instance_of_cmaincleanup;
+
+// ELEMENTS:
+/* This function has two major purposes:
+ * 1) Checks that the RPC connection to the parent chain node
+ * can be attained, and is returning back reasonable answers.
+ * 2) Re-evaluates a list of blocks that have been deemed "bad"
+ * from the perspective of peg-in witness validation. Blocks are
+ * added to this queue in ConnectTip based on the error code returned.
+ */
+bool BitcoindRPCCheck(const bool init)
+{
+    // First, we can clear out any blocks thatsomehow are now deemed valid
+    // eg reconsiderblock rpc call manually
+    std::vector<uint256> vblocksToReconsider;
+    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
+    std::vector<uint256> vblocksToReconsiderAgain;
+    for(uint256& blockhash : vblocksToReconsider) {
+        LOCK(cs_main);
+        if (mapBlockIndex.count(blockhash)) {
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+            if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                vblocksToReconsiderAgain.push_back(blockhash);
+            }
+        }
+    }
+    vblocksToReconsider = vblocksToReconsiderAgain;
+    vblocksToReconsiderAgain.clear();
+    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
+
+    // Next, check for working and valid rpc
+    if (gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        // During init try until a non-RPC_IN_WARMUP result
+        while (true) {
+            try {
+                // The first thing we have to check is the version of the node.
+                UniValue params(UniValue::VARR);
+                UniValue reply = CallMainChainRPC("getnetworkinfo", params);
+                UniValue error = reply["error"];
+                if (!error.isNull()) {
+                    // On the first call, it's possible to node is still in
+                    // warmup; in that case, just wait and retry.
+                    if (error["code"].get_int() == RPC_IN_WARMUP) {
+                        MilliSleep(1000);
+                        continue;
+                    }
+                    else {
+                        LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+                        return false;
+                    }
+                }
+                UniValue result = reply["result"];
+                if (!result.isObject() || !result.get_obj()["version"].isNum() ||
+                        result.get_obj()["version"].get_int() < MIN_MAINCHAIN_NODE_VERSION) {
+                    LogPrintf("ERROR: Parent chain daemon too old; need Bitcoin Core version 0.16.3 or newer.\n");
+                    return false;
+                }
+
+                // Then check the genesis block to correspond to parent chain.
+                params.push_back(UniValue(0));
+                reply = CallMainChainRPC("getblockhash", params);
+                error = reply["error"];
+                if (!error.isNull()) {
+                    LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+                    return false;
+                }
+                result = reply["result"];
+                if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
+                    LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
+                    return false;
+                }
+            } catch (const std::runtime_error& re) {
+                LogPrintf("ERROR: Failure connecting to bitcoind RPC: %s\n", std::string(re.what()));
+                return false;
+            }
+            // Success
+            break;
+        }
+    }
+
+    //Sanity startup check won't reconsider queued blocks
+    if (init) {
+       return true;
+    }
+
+    // Getting this far means we either aren't validating pegins(so let's make sure that's why
+    // it failed previously) or we successfully connected to bitcoind
+    // Time to reconsider blocks
+    if (vblocksToReconsider.size() > 0) {
+        CValidationState state;
+        for(const uint256& blockhash : vblocksToReconsider) {
+            {
+                LOCK(cs_main);
+                if (mapBlockIndex.count(blockhash) == 0)
+                    continue;
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+                ResetBlockFailureFlags(pblockindex);
+            }
+        }
+
+        //All blocks are now being reconsidered
+        ActivateBestChain(state, Params());
+        //This simply checks for DB errors
+        if (!state.IsValid()) {
+            //Something scary?
+        }
+
+        //Now to clear out now-valid blocks
+        for(const uint256& blockhash : vblocksToReconsider) {
+            LOCK(cs_main);
+            if (mapBlockIndex.count(blockhash)) {
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+
+                //Marked as invalid still, put back into queue
+                if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                    vblocksToReconsiderAgain.push_back(blockhash);
+                }
+            }
+        }
+
+        //Write back remaining blocks
+        pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
+    }
+    return true;
+}
