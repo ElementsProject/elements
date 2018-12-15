@@ -80,19 +80,67 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     {
         bool involvesWatchAddress = false;
         isminetype fAllFromMe = ISMINE_SPENDABLE;
+        std::set<CAsset> assets_issued_to_me_only;
+        CAmountMap assets_received_by_me_only;
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
+        {
+            const CAsset& asset = wtx.txout_assets[i];
+            if (assets_received_by_me_only.count(asset) && assets_received_by_me_only.at(asset) < 0) {
+                // Already known to be received by not-me
+                continue;
+            }
+            isminetype mine = wtx.txout_address_is_mine[i];
+            if (!mine) {
+                assets_received_by_me_only[asset] = -1;
+            } else {
+                assets_received_by_me_only[asset] += wtx.txout_amounts[i];
+            }
+        }
+
         for (size_t i = 0; i < wtx.tx->vin.size(); ++i)
         {
             isminetype mine = wtx.txin_is_mine[i];
             if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
             if(fAllFromMe > mine) fAllFromMe = mine;
-            if (!wtx.txin_issuance_asset[i].IsNull()) {
+            const CAsset& asset = wtx.txin_issuance_asset[i];
+            const CAmount& asset_amount = wtx.txin_issuance_asset_amount[i];
+            const CAsset& token = wtx.txin_issuance_token[i];
+            const CAmount& token_amount = wtx.txin_issuance_token_amount[i];
+            if (!asset.IsNull()) {
+                if (assets_received_by_me_only.count(asset) == 0) {
+                    continue;
+                }
+                if (asset_amount == assets_received_by_me_only.at(asset)) {
+                    // Special case: collapse the chain of issue, send, receive to just an issue
+                    assets_issued_to_me_only.insert(asset);
+                    continue;
+                }
+
                 TransactionRecord sub(hash, nTime);
                 sub.involvesWatchAddress = involvesWatchAddress;
-                sub.asset = wtx.txin_issuance_asset[i];
-                sub.amount = wtx.txin_issuance_asset_amount[i];
+                sub.asset = asset;
+                sub.amount = asset_amount;
                 sub.type = TransactionRecord::IssuedAsset;
                 parts.append(sub);
             }
+            if (!token.IsNull()) {
+                if (assets_received_by_me_only.count(token) == 0) {
+                    continue;
+                }
+                if (token_amount == assets_received_by_me_only.at(asset)) {
+                    // Special case: collapse the chain of issue, send, receive to just an issue
+                    assets_issued_to_me_only.insert(asset);
+                    continue;
+                }
+
+                TransactionRecord sub(hash, nTime);
+                sub.involvesWatchAddress = involvesWatchAddress;
+                sub.asset = token;
+                sub.amount = token_amount;
+                sub.type = TransactionRecord::IssuedAsset;
+                parts.append(sub);
+            }
+
             if (!wtx.txin_issuance_token[i].IsNull()) {
                 TransactionRecord sub(hash, nTime);
                 sub.involvesWatchAddress = involvesWatchAddress;
@@ -126,13 +174,16 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         }
         else if (fAllFromMe)
         {
+
             //
             // Debit
             //
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
+
                 const CTxOut& txout = wtx.tx->vout[nOut];
+                const CAsset& asset = wtx.txout_assets[nOut];
 
                 if(wtx.txout_is_mine[nOut] || txout.IsFee())
                 {
@@ -141,11 +192,16 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     continue;
                 }
 
+                // Short-circuit when it's an issuance to self
+                if (assets_issued_to_me_only.count(asset) == 0) {
+                    continue;
+                }
+
                 TransactionRecord sub(hash, nTime);
                 sub.idx = nOut;
                 sub.involvesWatchAddress = involvesWatchAddress;
                 sub.amount = -wtx.txout_amounts[nOut];
-                sub.asset = wtx.txout_assets[nOut];
+                sub.asset = asset;
 
                 if (!boost::get<CNoDestination>(&wtx.txout_address[nOut]))
                 {
@@ -158,6 +214,9 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     // Sent to IP, or other non-address transaction like OP_EVAL
                     sub.type = TransactionRecord::SendToOther;
                     sub.address = mapValue["to"];
+                }
+                if (assets_issued_to_me_only.count(asset)) {
+                    sub.type = TransactionRecord::IssuedAsset;
                 }
                 parts.append(sub);
             }
