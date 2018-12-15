@@ -144,13 +144,13 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 }
                 parts.append(sub);
             }
-            CAmount nTxFee = GetFeeMap(*wtx.tx)[::policyAsset];
-            if (nTxFee > 0)
-            {
+
+            for (const auto& tx_fee : GetFeeMap(*wtx.tx)) {
+                if (!tx_fee.second) continue;
                 TransactionRecord sub(hash, nTime);
                 sub.type = TransactionRecord::Fee;
-                sub.amount = -nTxFee;
-                sub.asset = ::policyAsset;
+                sub.asset = tx_fee.first;
+                sub.amount = -tx_fee.second;
                 parts.append(sub);
             }
         }
