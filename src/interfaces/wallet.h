@@ -337,6 +337,10 @@ struct WalletTx
     std::vector<isminetype> txout_address_is_mine;
     std::vector<CAmount> txout_amounts;
     std::vector<CAsset> txout_assets;
+    std::vector<CAmount> txin_issuance_asset_amount;
+    std::vector<CAsset> txin_issuance_asset;
+    std::vector<CAmount> txin_issuance_token_amount;
+    std::vector<CAsset> txin_issuance_token;
     CAmountMap credit;
     CAmountMap debit;
     CAmountMap change;

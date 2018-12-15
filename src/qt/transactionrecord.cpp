@@ -80,10 +80,27 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     {
         bool involvesWatchAddress = false;
         isminetype fAllFromMe = ISMINE_SPENDABLE;
-        for (const isminetype mine : wtx.txin_is_mine)
+        for (size_t i = 0; i < wtx.tx->vin.size(); ++i)
         {
+            isminetype mine = wtx.txin_is_mine[i];
             if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
             if(fAllFromMe > mine) fAllFromMe = mine;
+            if (!wtx.txin_issuance_asset[i].IsNull()) {
+                TransactionRecord sub(hash, nTime);
+                sub.involvesWatchAddress = involvesWatchAddress;
+                sub.asset = wtx.txin_issuance_asset[i];
+                sub.amount = wtx.txin_issuance_asset_amount[i];
+                sub.type = TransactionRecord::IssuedAsset;
+                parts.append(sub);
+            }
+            if (!wtx.txin_issuance_token[i].IsNull()) {
+                TransactionRecord sub(hash, nTime);
+                sub.involvesWatchAddress = involvesWatchAddress;
+                sub.asset = wtx.txin_issuance_token[i];
+                sub.amount = wtx.txin_issuance_token_amount[i];
+                sub.type = TransactionRecord::IssuedAsset;
+                parts.append(sub);
+            }
         }
 
         isminetype fAllToMe = ISMINE_SPENDABLE;

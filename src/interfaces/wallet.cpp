@@ -61,8 +61,14 @@ static WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LO
     WalletTx result;
     result.tx = wtx.tx;
     result.txin_is_mine.reserve(wtx.tx->vin.size());
-    for (const auto& txin : wtx.tx->vin) {
+    result.txin_issuance_asset.resize(wtx.tx->vin.size());
+    result.txin_issuance_token.resize(wtx.tx->vin.size());
+    for (unsigned int i = 0; i < wtx.tx->vin.size(); ++i) {
+        const auto& txin = wtx.tx->vin[i];
         result.txin_is_mine.emplace_back(wallet.IsMine(txin));
+        wtx.GetIssuanceAssets(i, &result.txin_issuance_asset[i], &result.txin_issuance_token[i]);
+        result.txin_issuance_asset_amount.emplace_back(wtx.GetIssuanceAmount(i, false));
+        result.txin_issuance_token_amount.emplace_back(wtx.GetIssuanceAmount(i, true));
     }
     result.txout_is_mine.reserve(wtx.tx->vout.size());
     result.txout_address.reserve(wtx.tx->vout.size());
