@@ -535,6 +535,8 @@ public:
     CAsset GetOutputAsset(unsigned int output_index) const;
     //! Get the issuance CAssets for both the asset itself and the issuing tokens
     void GetIssuanceAssets(unsigned int vinIndex, CAsset* out_asset, CAsset* out_reissuance_token) const;
+    // ! Return map of issued assets at input_index
+    CAmountMap GetIssuanceAssets(unsigned int input_index) const;
     // ! Returns receiver's blinding pubkey
     CPubKey GetOutputBlindingPubKey(unsigned int output_index) const;
     //! Get the issuance blinder for either the asset itself or the issuing tokens

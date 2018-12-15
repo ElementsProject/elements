@@ -2024,6 +2024,19 @@ bool CWalletTx::IsEquivalentTo(const CWalletTx& _tx) const
         return CTransaction(tx1) == CTransaction(tx2);
 }
 
+CAmountMap CWalletTx::GetIssuanceAssets(unsigned int input_index) const {
+    CAmountMap ret;
+    CAsset asset, token;
+    GetIssuanceAssets(input_index, &asset, &token);
+    if (!asset.IsNull()) {
+        ret[asset] = GetIssuanceAmount(input_index, false);
+    }
+    if (!token.IsNull()) {
+        ret[token] = GetIssuanceAmount(input_index, true);
+    }
+    return ret;
+}
+
 std::vector<uint256> CWallet::ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman)
 {
     std::vector<uint256> result;
@@ -5196,9 +5209,9 @@ CPubKey CWalletTx::GetOutputBlindingPubKey(unsigned int output_index) const {
     return ret;
 }
 
-void CWalletTx::GetIssuanceAssets(unsigned int vinIndex, CAsset* out_asset, CAsset* out_reissuance_token) const {
-    assert(vinIndex < tx->vin.size());
-    const CAssetIssuance& issuance = tx->vin[vinIndex].assetIssuance;
+void CWalletTx::GetIssuanceAssets(unsigned int input_index, CAsset* out_asset, CAsset* out_reissuance_token) const {
+    assert(input_index < tx->vin.size());
+    const CAssetIssuance& issuance = tx->vin[input_index].assetIssuance;
 
     if (out_asset && issuance.nAmount.IsNull()) {
         out_asset->SetNull();
@@ -5212,7 +5225,7 @@ void CWalletTx::GetIssuanceAssets(unsigned int vinIndex, CAsset* out_asset, CAss
 
     if (issuance.assetBlindingNonce.IsNull()) {
         uint256 entropy;
-        GenerateAssetEntropy(entropy, tx->vin[vinIndex].prevout, issuance.assetEntropy);
+        GenerateAssetEntropy(entropy, tx->vin[input_index].prevout, issuance.assetEntropy);
         if (out_reissuance_token) {
             CalculateReissuanceToken(*out_reissuance_token, entropy, issuance.nAmount.IsCommitment());
         }
