@@ -429,22 +429,7 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
 
 QString TransactionTableModel::formatTxAmount(const TransactionRecord *wtx, bool showUnconfirmed, BitcoinUnits::SeparatorStyle separators) const
 {
-    QString str;
-    if (wtx->asset == ::policyAsset) {
-        str = BitcoinUnits::formatWithUnit(walletModel->getOptionsModel()->getDisplayUnit(), wtx->amount, false, separators);
-    } else {
-        qlonglong whole = wtx->amount / 100000000;
-        qlonglong fraction = wtx->amount % 100000000;
-        str = QString("%1").arg(whole);
-        if (fraction) {
-            str += QString(".%1").arg(fraction, 8, 10, QLatin1Char('0'));
-        }
-        std::string asset_label = gAssetsDir.GetLabel(wtx->asset);
-        if (asset_label.empty()) {
-            asset_label = wtx->asset.GetHex();
-        }
-        str += QString(" ") + QString::fromStdString(asset_label);
-    }
+    QString str = GUIUtil::formatAssetAmount(wtx->asset, wtx->amount, walletModel->getOptionsModel()->getDisplayUnit(), separators);
     if(showUnconfirmed)
     {
         if(!wtx->status.countsForBalance)

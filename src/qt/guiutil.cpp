@@ -11,6 +11,7 @@
 
 #include <asset.h>
 #include <base58.h>
+#include "assetsdir.h"
 #include <chainparams.h>
 #include <primitives/transaction.h>
 #include <key_io.h>
@@ -771,6 +772,26 @@ fs::path qstringToBoostPath(const QString &path)
 QString boostPathToQString(const fs::path &path)
 {
     return QString::fromStdString(path.string(utf8));
+}
+
+QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        return BitcoinUnits::formatWithUnit(bitcoin_unit, amount, false, separators);
+    }
+
+    qlonglong whole = amount / 100000000;
+    qlonglong fraction = amount % 100000000;
+    QString str = QString("%1").arg(whole);
+    if (fraction) {
+        str += QString(".%1").arg(fraction, 8, 10, QLatin1Char('0'));
+    }
+    std::string asset_label = gAssetsDir.GetLabel(asset);
+    if (asset_label.empty()) {
+        asset_label = asset.GetHex();
+    }
+    str += QString(" ") + QString::fromStdString(asset_label);
+    return str;
 }
 
 QString formatDurationStr(int secs)
