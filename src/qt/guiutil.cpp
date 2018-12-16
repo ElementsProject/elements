@@ -797,9 +797,7 @@ QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int 
 QString formatMultiAssetAmount(const CAmountMap& amountmap, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators, QString line_separator)
 {
     QStringList ret;
-    if (amountmap.count(Params().GetConsensus().pegged_asset) && amountmap.at(Params().GetConsensus().pegged_asset)) {
-        ret << formatAssetAmount(Params().GetConsensus().pegged_asset, amountmap.at(Params().GetConsensus().pegged_asset), bitcoin_unit, separators);
-    }
+    ret << formatAssetAmount(Params().GetConsensus().pegged_asset, amountmap.count(Params().GetConsensus().pegged_asset) ? amountmap.at(Params().GetConsensus().pegged_asset) : 0, bitcoin_unit, separators);
     for (const auto& assetamount : amountmap) {
         if (assetamount.first == Params().GetConsensus().pegged_asset) {
             // Already handled first
