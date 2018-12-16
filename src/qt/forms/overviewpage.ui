@@ -220,6 +220,9 @@
               <property name="text">
                <string>Total:</string>
               </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+              </property>
              </widget>
             </item>
             <item row="3" column="1">
@@ -264,6 +267,9 @@
              <widget class="QLabel" name="labelImmatureText">
               <property name="text">
                <string>Immature:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
               </property>
              </widget>
             </item>
@@ -332,6 +338,9 @@
               <property name="text">
                <string>Available:</string>
               </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+              </property>
              </widget>
             </item>
             <item row="1" column="1">
@@ -388,6 +397,9 @@
              <widget class="QLabel" name="labelPendingText">
               <property name="text">
                <string>Pending:</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
               </property>
              </widget>
             </item>
