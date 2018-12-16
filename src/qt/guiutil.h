@@ -192,6 +192,9 @@ namespace GUIUtil
     /* Format an amount of assets in a user-friendly style */
     QString formatAssetAmount(const CAsset&, const CAmount&, int bitcoin_unit, BitcoinUnits::SeparatorStyle);
 
+    /* Format one or more asset+amounts in a user-friendly style */
+    QString formatMultiAssetAmount(const CAmountMap&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, QString line_separator);
+
     /* Convert seconds into a QString with days, hours, mins, secs */
     QString formatDurationStr(int secs);
 
