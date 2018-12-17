@@ -840,7 +840,7 @@ public:
     CExtPubKey offline_xpub;
 
     //! The derivation counter for offline_xpub
-    int offline_counter;
+    int offline_counter = -1;
     // END ELEMENTS
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
