@@ -5082,8 +5082,7 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     return pak;
 }
 
-
-UniValue sendtomainchain(const JSONRPCRequest& request)
+UniValue sendtomainchain_base(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -5146,6 +5145,22 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     ////SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, CPubKey(), wtxNew, true);
 
     return (*tx).GetHash().GetHex();
+
+}
+
+UniValue sendtomainchain_pak(const JSONRPCRequest& request)
+{
+    return NullUniValue;
+}
+
+// We only expose the appropriate peg-out method type per network
+UniValue sendtomainchain(const JSONRPCRequest& request)
+{
+    if (Params().GetEnforcePak()) {
+        return sendtomainchain_pak(request);
+    } else {
+        return sendtomainchain_base(request);
+    }
 }
 
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
