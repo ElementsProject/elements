@@ -492,6 +492,54 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue FormatPAKList(CPAKList &paklist) {
+    UniValue paklist_value(UniValue::VOBJ);
+    std::vector<std::vector<unsigned char> > offline_keys;
+    std::vector<std::vector<unsigned char> > online_keys;
+    bool is_reject;
+    paklist.ToBytes(offline_keys, online_keys, is_reject);
+
+    UniValue retOnline(UniValue::VARR);
+    UniValue retOffline(UniValue::VARR);
+    for (unsigned int i = 0; i < offline_keys.size(); i++) {
+        retOffline.push_back(HexStr(offline_keys[i]));
+        retOnline.push_back(HexStr(online_keys[i]));
+
+    }
+    paklist_value.push_back(Pair("online", retOnline));
+    paklist_value.push_back(Pair("offline", retOffline));
+    paklist_value.push_back(Pair("reject", is_reject));
+    return paklist_value;
+}
+
+UniValue getpakinfo(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "getpakinfo\n"
+            "\nReturns relevant pegout authorization key (PAK) information about this node, both from command line arguments and blockchain data.\n"
+            "\nResult:\n"
+            "{\n"
+                "\"config_paklist\"          (array) The PAK list loaded from beta.conf at startup\n"
+                "\"block_paklist\"           (array) The PAK list loaded from latest block commitment\n"
+            "}\n"
+        );
+
+    LOCK(cs_main);
+
+
+    UniValue paklist_value(UniValue::VOBJ);
+    if (g_paklist_config) {
+        paklist_value = FormatPAKList(*g_paklist_config);
+    }
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("config_paklist", paklist_value);
+    ret.pushKV("block_paklist", FormatPAKList(g_paklist_blockchain));
+
+    return ret;
+}
+
+
 // END ELEMENTS CALLS
 //
 
@@ -517,6 +565,7 @@ static const CRPCCommand commands[] =
     { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
     // ELEMENTS:
+    { "util",               "getpakinfo",             &getpakinfo,             {}},
     { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script"} },
 
     /* Not shown in help */
