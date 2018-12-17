@@ -5648,6 +5648,7 @@ extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue rescanblockchain(const JSONRPCRequest& request);
+extern UniValue getwalletpakinfo(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames
@@ -5708,6 +5709,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "createrawpegin",                   &createrawpegin,                {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_xpub", "bip32_counter", "liquid_pak"} },
+    { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
 
 
     /** Account functions (deprecated) */
