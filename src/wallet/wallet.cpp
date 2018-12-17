@@ -4471,3 +4471,32 @@ std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outpu
     }
     return groups;
 }
+
+bool CWallet::SetOnlinePubKey(const CPubKey& online_key_in)
+{
+    LOCK(cs_wallet);
+    if (!WalletBatch(*database).WriteOnlineKey(online_key_in)) {
+        return false;
+    }
+    online_key = online_key_in;
+    return true;
+}
+
+bool CWallet::SetOfflineXPubKey(const CExtPubKey& offline_xpub_in)
+{
+    LOCK(cs_wallet);
+    if (!WalletBatch(*database).WriteOfflineXPubKey(offline_xpub_in)) {
+        return false;
+    }
+    offline_xpub = offline_xpub_in;
+    return true;
+}
+
+bool CWallet::SetOfflineCounter(int counter) {
+    LOCK(cs_wallet);
+    if (!WalletBatch(*database).WriteOfflineCounter(counter)) {
+        return false;
+    }
+    offline_counter = counter;
+    return true;
+}

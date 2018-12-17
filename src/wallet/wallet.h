@@ -832,6 +832,17 @@ public:
 
     std::set<COutPoint> setLockedCoins;
 
+    // ELEMENTS //
+    //! The online PAK aka `liquid_pak` in the wallet set by `initpegoutwallet`
+    CPubKey online_key;
+
+    //! The offline xpub aka `bitcoin_xpub` in the wallet set by `initpegoutwallet`
+    CExtPubKey offline_xpub;
+
+    //! The derivation counter for offline_xpub
+    int offline_counter;
+    // END ELEMENTS
+
     const CWalletTx* GetWalletTx(const uint256& hash) const;
 
     //! check whether we are allowed to upgrade (or already support) to the named feature
@@ -1210,6 +1221,12 @@ public:
     void WalletLogPrintf(std::string fmt, Params... parameters) const {
         LogPrintf(("%s " + fmt).c_str(), GetDisplayName(), parameters...);
     };
+
+    // ELEMENTS
+    //! Setters for online/offline pubkey pairs for PAK
+    bool SetOnlinePubKey(const CPubKey& online_key_in);
+    bool SetOfflineXPubKey(const CExtPubKey& offline_xpub_in);
+    bool SetOfflineCounter(int counter);
 
 };
 

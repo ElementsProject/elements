@@ -171,6 +171,24 @@ bool WalletBatch::WriteAccountingEntry(const uint64_t nAccEntryNum, const CAccou
     return WriteIC(std::make_pair(std::string("acentry"), std::make_pair(acentry.strAccount, nAccEntryNum)), acentry);
 }
 
+bool WalletBatch::WriteOnlineKey(const CPubKey& online_key)
+{
+    return WriteIC(std::string("onlinekey"), online_key);
+}
+
+bool WalletBatch::WriteOfflineXPubKey(const CExtPubKey& offline_xpub)
+{
+    std::vector<unsigned char> vxpub;
+    vxpub.resize(BIP32_EXTKEY_SIZE);
+    offline_xpub.Encode(&vxpub[0]);
+    return WriteIC(std::string("offlinexpub"), vxpub);
+}
+
+bool WalletBatch::WriteOfflineCounter(int counter)
+{
+    return WriteIC(std::string("offlinecounter"), counter);
+}
+
 CAmount WalletBatch::GetAccountCreditDebit(const std::string& strAccount)
 {
     std::list<CAccountingEntry> entries;
@@ -509,6 +527,26 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 strErr = "Error reading wallet database: Unknown non-tolerable wallet flags found";
                 return false;
             }
+        }
+        else if (strType == "onlinekey")
+        {
+            CPubKey key;
+            ssValue >> key;
+            pwallet->online_key = key;
+        }
+        else if (strType == "offlinexpub")
+        {
+            std::vector<unsigned char> vxpub;
+            CExtPubKey xpub;
+            ssValue >> vxpub;
+            xpub.Decode(&vxpub[0]);
+            pwallet->offline_xpub = xpub;
+        }
+        else if (strType == "offlinecounter")
+        {
+            int counter;
+            ssValue >> counter;
+            pwallet->offline_counter = counter;
         } else if (strType != "bestblock" && strType != "bestblock_nomerkle") {
             wss.m_unknown_records++;
         }

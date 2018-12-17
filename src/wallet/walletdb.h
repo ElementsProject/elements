@@ -214,6 +214,11 @@ public:
     CAmount GetAccountCreditDebit(const std::string& strAccount);
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& acentries);
 
+    /// ELEMENTS: Storage of PAK settings
+    bool WriteOnlineKey(const CPubKey& online_key);
+    bool WriteOfflineXPubKey(const CExtPubKey& offline_xpub);
+    bool WriteOfflineCounter(int counter);
+
     DBErrors LoadWallet(CWallet* pwallet);
     DBErrors FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);
     DBErrors ZapWalletTx(std::vector<CWalletTx>& vWtx);
