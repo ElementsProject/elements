@@ -101,6 +101,8 @@ public:
     // ELEMENTS:
     bool ReadInvalidBlockQueue(std::vector<uint256> &vBlocks);
     bool WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks);
+    bool ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject);
+    bool WritePAKList(const std::vector<std::vector<unsigned char> >& offline_list, const std::vector<std::vector<unsigned char> >& online_list, bool reject);
 };
 
 #endif // BITCOIN_TXDB_H
