@@ -38,6 +38,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_parent_chain_signblockscript", "Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])", false, OptionsCategory::CHAINPARAMS);
 
     gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation, and miner to include PAK commitments when configured. Can not be set when acceptnonstdtx is set to true.", false, OptionsCategory::ELEMENTS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

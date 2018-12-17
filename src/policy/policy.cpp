@@ -14,6 +14,7 @@
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
+#include <chainparams.h> // Peg-out enforcement
 
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
@@ -61,6 +62,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
 
+    CChainParams params = Params();
     if (whichType == TX_MULTISIG)
     {
         unsigned char m = vSolutions.front()[0];
@@ -70,6 +72,10 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
             return false;
         if (m < 1 || m > n)
             return false;
+    } else if (whichType == TX_NULL_DATA && params.GetEnforcePak() &&
+            scriptPubKey.IsPegoutScript(Params().ParentGenesisBlockHash()) ) {
+        // If we're enforcing pak let through larger peg-out scripts
+        return true;
     } else if (whichType == TX_NULL_DATA &&
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
           return false;
@@ -113,6 +119,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
         }
     }
 
+    CChainParams params = Params();
     unsigned int nDataOut = 0;
     txnouttype whichType;
     for (const CTxOut& txout : tx.vout) {
@@ -121,9 +128,18 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
             return false;
         }
 
-        if (whichType == TX_NULL_DATA)
+        if (whichType == TX_NULL_DATA) {
+        }
+        if (whichType == TX_NULL_DATA) {
             nDataOut++;
-        else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
+            if (params.GetEnforcePak() &&
+                    txout.scriptPubKey.IsPegoutScript(params.ParentGenesisBlockHash()) &&
+                (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash()))) {
+                // TODO(rebase) CT/CA check for asset type
+                reason = "invalid-pegout-proof";
+                return false;
+            }
+        } else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
         } else if (IsDust(txout, ::dustRelayFee)) {
