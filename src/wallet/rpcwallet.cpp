@@ -4968,6 +4968,121 @@ CTxDestination DeriveBitcoinOfflineAddress(const CExtPubKey& xpub, const uint32_
     return CTxDestination(btcpub.GetID());
 }
 
+UniValue initpegoutwallet(const JSONRPCRequest& request)
+{
+
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+        throw std::runtime_error(
+            "initpegoutwallet bitcoin_xpub ( bip32_counter liquid_pak )\n"
+            "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) and stores it in the Liquid wallet. It then combines this with the `bitcoin_xpub` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the `/0/k` non-hardened derivation path from the bitcoin_xpub using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required.\n"
+            "\nArguments:\n"
+            "1. \"bitcoin_xpub\"        (string, required) The Bitcoin extended pubkey to be used as the root for the Bitcoin destination wallet. The derivation path from this key will be `0/k`.\n"
+            "2. \"bip32_counter\"       (numeric, default=0) The `k` in `0/k` to be set as the next address to derive from the `bitcoin_xpub`. This will be stored in the wallet and incremented on each successful `sendtomainchain` invocation.\n"
+            "3. \"liquid_pak\"          (string, optional) The Liquid wallet pubkey in hex to be used as the Liquid PAK for pegout authorization. The private key must be in the wallet if argument is given. If this argument is not provided one will be generated and stored in the wallet automatically and returned.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nResult:\n"
+            "{\n"
+                "\"pakentry\"       (string) The resulting PAK entry to be used at network initialization time in the form of: `pak=<bitcoin_pak>:<liquid_pak>`.\n"
+                "\"liquid_pak\"     (string) The Liquid PAK pubkey in hex, which is stored in the local Liquid wallet. This can be used in subsequent calls to `initpegoutwallet` to avoid generating a new `liquid_pak`.\n"
+                "\"liquid_pak_address\" (string) The corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer.\n"
+                "\"address_lookahead\"(array)  The three next Bitcoin addresses the wallet will use for `sendtomainchain` based on `bip32_counter`.\n"
+            "}\n"
+            + HelpExampleCli("initpegoutwallet", "tpubDAY5hwtonH4NE8zY46ZMFf6B6F3fqMis7cwfNihXXpAg6XzBZNoHAdAzAZx2peoU8nTWFqvUncXwJ9qgE5VxcnUKxdut8F6mptVmKjfiwDQ")
+            + HelpExampleRpc("initpegoutwallet", "tpubDAY5hwtonH4NE8zY46ZMFf6B6F3fqMis7cwfNihXXpAg6XzBZNoHAdAzAZx2peoU8nTWFqvUncXwJ9qgE5VxcnUKxdut8F6mptVmKjfiwDQ")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    // Check that network cares about PAK
+    if (!Params().GetEnforcePak()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "PAK enforcement is not enabled on this network.");
+    }
+
+    if (!pwallet->IsLocked())
+        pwallet->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet or set from argument
+    CPubKey online_pubkey;
+    if (request.params.size() < 3) {
+        if (!pwallet->GetKeyFromPool(online_pubkey)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        }
+        if (!pwallet->SetOnlinePubKey(online_pubkey)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error: Could not write liquid_pak to wallet.");
+        }
+    } else {
+        online_pubkey = CPubKey(ParseHex(request.params[2].get_str()));
+        if (!online_pubkey.IsFullyValid()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error: Given liquid_pak is not valid.");
+        }
+        if (!pwallet->HaveKey(online_pubkey.GetID())) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error: liquid_pak could not be found in wallet");
+        }
+    }
+
+    CKeyID online_key_id = online_pubkey.GetID();
+
+    // Parse offline counter
+    int counter = 0;
+    if (request.params.size() > 1) {
+        counter = request.params[1].get_int();
+        if (counter < 0 || counter > 1000000000) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "bip32_counter must be between 0 and 1,000,000,000, inclusive.");
+        }
+    }
+
+    //offline_xpub
+    CExtPubKey xpub = DecodeExtPubKey(request.params[0].get_str());
+
+    if (!xpub.pubkey.IsFullyValid()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_xpub is invalid for this network.");
+    }
+
+    // Parse master pubkey
+    CPubKey masterpub = xpub.pubkey;
+    secp256k1_pubkey masterpub_secp;
+    int ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &masterpub_secp, masterpub.begin(), masterpub.size());
+    if (ret != 1) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "bitcoin_xpub could not be parsed.");
+    }
+
+    // Store the keys and metadata
+    if (!pwallet->SetOnlinePubKey(online_pubkey) ||
+            !pwallet->SetOfflineXPubKey(xpub) ||
+            !pwallet->SetOfflineCounter(counter)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: Failure to initialize pegout wallet.");
+    }
+
+    // Negate the pubkey
+    ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &masterpub_secp);
+
+    std::vector<unsigned char> negatedpubkeybytes;
+    negatedpubkeybytes.resize(33);
+    size_t len = 33;
+    ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &negatedpubkeybytes[0], &len, &masterpub_secp, SECP256K1_EC_COMPRESSED);
+    assert(ret == 1);
+    assert(len == 33);
+    assert(negatedpubkeybytes.size() == 33);
+
+    UniValue address_list(UniValue::VARR);
+    for (unsigned int i = 0; i < 3; i++) {
+        address_list.push_back(EncodeParentDestination(DeriveBitcoinOfflineAddress(xpub, counter+i)));
+    }
+    UniValue pak(UniValue::VOBJ);
+    pak.push_back(Pair("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey)));
+    pak.push_back(Pair("liquid_pak", HexStr(online_pubkey)));
+    pak.push_back(Pair("liquid_pak_address", EncodeDestination(online_key_id)));
+    pak.push_back(Pair("address_lookahead", address_list));
+    return pak;
+}
+
+
 UniValue sendtomainchain(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -5403,6 +5518,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "claimpegin",                       &claimpegin,                    {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",                   &createrawpegin,                {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
+    { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_xpub", "bip32_counter", "liquid_pak"} },
 
 
     /** Account functions (deprecated) */
