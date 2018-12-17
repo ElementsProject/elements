@@ -2231,6 +2231,7 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
             "  \"parent_chain_signblockscript_asm\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in ASM.\n"
             "  \"parent_chain_signblockscript_hex\": \"xxxx\", (string) If the parent chain has signed blocks, its signblockscript in hex.\n"
             "  \"parent_pegged_asset\": \"xxxx\",  (boolean) If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain.\n"
+            "  \"enforce_pak\": \"xxxx\",              (boolean) If peg-out authorization is being enforced.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getsidechaininfo", "")
@@ -2249,6 +2250,7 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
     obj.pushKV("parent_blockhash", parent_blockhash.GetHex());
     obj.pushKV("parent_chain_has_pow", consensus.ParentChainHasPow());
+    obj.pushKV("enforce_pak", Params().GetEnforcePak());
     if (!consensus.ParentChainHasPow()) {
         obj.pushKV("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript));
         obj.pushKV("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript));
