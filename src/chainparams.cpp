@@ -154,6 +154,7 @@ public:
         consensus.connect_genesis_outputs = false;
         anyonecanspend_aremine = false;
         enforce_pak = false;
+        multi_data_permitted = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -273,6 +274,7 @@ public:
         consensus.connect_genesis_outputs = false;
         anyonecanspend_aremine = false;
         enforce_pak = false;
+        multi_data_permitted = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -367,6 +369,7 @@ public:
         consensus.connect_genesis_outputs = false;
         anyonecanspend_aremine = false;
         enforce_pak = false;
+        multi_data_permitted = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -546,6 +549,9 @@ class CCustomParams : public CRegTestParams {
         consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", true);
 
         enforce_pak = args.GetBoolArg("-enforce_pak", false);
+
+        // Allow multiple op_return outputs by relay policy
+        multi_data_permitted = args.GetBoolArg("-multi_data_permitted", true);
 
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));

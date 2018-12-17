@@ -260,11 +260,12 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: dust'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
+        # Elements: We allow multi op_return outputs by default. This still fails because relay fee isn't met
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
         tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff'])
         tx.vout = [tx.vout[0]] * 2
         self.check_mempool_result(
-            result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: multi-op-return'}],
+                result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '66: min relay fee not met'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
 

@@ -88,6 +88,7 @@ public:
     bool anyonecanspend_aremine;
     const std::string& ParentBech32HRP() const { return parent_bech32_hrp; }
     bool GetEnforcePak() const { return enforce_pak; }
+    bool GetMultiDataPermitted() const { return multi_data_permitted; }
 
 protected:
     CChainParams() {}
@@ -113,6 +114,7 @@ protected:
     uint256 parentGenesisBlockHash;
     std::string parent_bech32_hrp;
     bool enforce_pak;
+    bool multi_data_permitted;
 };
 
 /**

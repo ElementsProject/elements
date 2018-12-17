@@ -39,6 +39,7 @@ void SetupChainParamsBaseOptions()
 
     gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation, and miner to include PAK commitments when configured. Can not be set when acceptnonstdtx is set to true.", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: true)", false, OptionsCategory::ELEMENTS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
