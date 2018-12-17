@@ -2585,10 +2585,25 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(chainparams, state, FlushStateMode::IF_NEEDED))
         return false;
+
+    // Get PAK commitment from coinbase, if it exists
+    boost::optional<CPAKList> paklist = GetPAKKeysFromCommitment(*blockConnecting.vtx[0]);
+    if (paklist) {
+        std::vector<std::vector<unsigned char> > offline_keys;
+        std::vector<std::vector<unsigned char> > online_keys;
+        bool is_reject;
+        paklist->ToBytes(offline_keys, online_keys, is_reject);
+        pblocktree->WritePAKList(offline_keys, online_keys, is_reject);
+        g_paklist_blockchain = *paklist;
+    }
+
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, setPeginsSpent);
+    // ELEMENTS: We also eject now-invalid peg-outs based on block transition if not config list set
+    // If config is set, this means all peg-outs have been filtered for that list already and other
+    // functionaries aren't matching your list. Operator should restart with no list or new matching list.
+    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, setPeginsSpent, (paklist && !g_paklist_config));
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);

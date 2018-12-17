@@ -17,6 +17,7 @@
 #include <util.h>
 #include <utilmoneystr.h>
 #include <utiltime.h>
+#include <chainparams.h> // removeForBlock paklist transition
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
@@ -569,7 +570,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, bool pak_transition)
 {
     LOCK(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -611,7 +612,25 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
             ClearPrioritisation(tx_id);
         }
     }
-
+    // Eject any newly-invalid peg-outs based on changing block commitment
+    const CChainParams& chainparams = Params();
+    if (pak_transition && !gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard())) {
+        for (const auto& entry : mapTx) {
+            for (const auto& out : entry.GetTx().vout) {
+                if (out.scriptPubKey.IsPegoutScript(Params().ParentGenesisBlockHash()) &&
+                            !ScriptHasValidPAKProof(out.scriptPubKey, Params().ParentGenesisBlockHash())) {
+                    txiter it = mapTx.find(entry.GetTx().GetHash());
+                    const CTransaction& tx = it->GetTx();
+                    setEntries stage;
+                    stage.insert(it);
+                    RemoveStaged(stage, true, MemPoolRemovalReason::BLOCK);
+                    removeRecursive(tx, MemPoolRemovalReason::BLOCK);
+                    ClearPrioritisation(tx.GetHash());
+                    break;
+                }
+            }
+        }
+    }
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
 }
