@@ -307,7 +307,6 @@ class IssuanceTest (BitcoinTestFramework):
         issued_tx = self.nodes[2].rawissueasset(issued_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "token_address":nonblind_addr, "contract":"deadbeee"*8}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][1]["issuance"]["asset"])
-        non_null_contract_token = decode_tx["vin"][1]["issuance"]["token"]
         assert_equal(len(id_set), 4)
         # This issuance should not have changed
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
