@@ -774,10 +774,14 @@ QString boostPathToQString(const fs::path &path)
     return QString::fromStdString(path.string(utf8));
 }
 
-QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators)
+QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators, bool include_asset_name)
 {
     if (asset == Params().GetConsensus().pegged_asset) {
-        return BitcoinUnits::formatWithUnit(bitcoin_unit, amount, false, separators);
+        if (include_asset_name) {
+            return BitcoinUnits::formatWithUnit(bitcoin_unit, amount, false, separators);
+        } else {
+            return BitcoinUnits::format(bitcoin_unit, amount, false, separators);
+        }
     }
 
     qlonglong whole = amount / 100000000;
@@ -790,7 +794,9 @@ QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int 
     if (asset_label.empty()) {
         asset_label = asset.GetHex();
     }
-    str += QString(" ") + QString::fromStdString(asset_label);
+    if (include_asset_name) {
+        str += QString(" ") + QString::fromStdString(asset_label);
+    }
     return str;
 }
 

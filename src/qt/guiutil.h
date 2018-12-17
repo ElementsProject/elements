@@ -190,7 +190,7 @@ namespace GUIUtil
     QString boostPathToQString(const fs::path &path);
 
     /* Format an amount of assets in a user-friendly style */
-    QString formatAssetAmount(const CAsset&, const CAmount&, int bitcoin_unit, BitcoinUnits::SeparatorStyle);
+    QString formatAssetAmount(const CAsset&, const CAmount&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, bool include_asset_name = true);
 
     /* Format one or more asset+amounts in a user-friendly style */
     QString formatMultiAssetAmount(const CAmountMap&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, QString line_separator);
