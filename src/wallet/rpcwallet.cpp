@@ -4910,6 +4910,64 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     return fundinginfo;
 }
 
+//! Derive BIP32 tweak from master xpub to child pubkey.
+bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster, const ChainCode &ccMaster, std::vector<unsigned char>& tweakSum)
+{
+    tweakSum.clear();
+    tweakSum.resize(32);
+    std::vector<unsigned char> tweak;
+    CPubKey keyParent = keyMaster;
+    CPubKey keyChild;
+    ChainCode ccChild;
+    ChainCode ccParent = ccMaster;
+    for (unsigned int i = 0; i < vPath.size(); i++) {
+        if ((vPath[i] >> 31) != 0) {
+            return false;
+        }
+        keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak);
+        assert(tweak.size() == 32);
+        ccParent = ccChild;
+        keyParent = keyChild;
+        bool ret = secp256k1_ec_privkey_tweak_add(secp256k1_ctx, tweakSum.data(), tweak.data());
+        if (!ret) {
+            return false;
+        }
+    }
+    return true;
+}
+
+CTxDestination DeriveBitcoinOfflineAddress(const CExtPubKey& xpub, const uint32_t counter)
+{
+    std::vector<uint32_t> vPath;
+    vPath.push_back(0);
+    vPath.push_back(counter);
+
+    std::vector<unsigned char> tweakSum;
+    if (!DerivePubTweak(vPath, xpub.pubkey, xpub.chaincode, tweakSum)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not derive the pubkey tweak for given counter and xpub.");
+    }
+
+    secp256k1_pubkey masterpub_secp;
+    int ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &masterpub_secp, xpub.pubkey.begin(), xpub.pubkey.size());
+    if (ret != 1) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Master pubkey could not be parsed.");
+    }
+
+    ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &masterpub_secp, tweakSum.data());
+    assert(ret);
+
+    std::vector<unsigned char> btcpubkeybytes;
+    btcpubkeybytes.resize(33);
+    size_t btclen = 33;
+    ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &btcpubkeybytes[0], &btclen, &masterpub_secp, SECP256K1_EC_COMPRESSED);
+    assert(ret == 1);
+    assert(btclen == 33);
+    assert(btcpubkeybytes.size() == 33);
+
+    CPubKey btcpub(btcpubkeybytes);
+    return CTxDestination(btcpub.GetID());
+}
+
 UniValue sendtomainchain(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
