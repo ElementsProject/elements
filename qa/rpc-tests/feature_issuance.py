@@ -248,8 +248,8 @@ class IssuanceTest (BitcoinTestFramework):
         self.nodes[1].generate(1)
         raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr:self.nodes[0].getbalance()['bitcoin']-1})
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
-        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]["hex"]
-        blind_tx = self.nodes[0].blindrawtransaction(issued_tx)
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "blind":False}])[0]["hex"]
+        blind_tx = self.nodes[0].blindrawtransaction(issued_tx) # This is a no-op
         signed_tx = self.nodes[0].signrawtransaction(blind_tx)
         assert_raises_jsonrpc(-26, "", self.nodes[0].sendrawtransaction, signed_tx['hex'])
 
@@ -303,13 +303,126 @@ class IssuanceTest (BitcoinTestFramework):
 
         # Finally, append an issuance on top of an already-"issued" raw tx
         # Same contract, different utxo being spent results in new asset type
-        issued_tx = self.nodes[2].rawissueasset(issued_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract":"deadbeee"*8}])[0]["hex"]
+        # We also create a reissuance token to test reissuance with contract hash
+        issued_tx = self.nodes[2].rawissueasset(issued_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "token_address":nonblind_addr, "contract":"deadbeee"*8}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][1]["issuance"]["asset"])
         assert_equal(len(id_set), 4)
         # This issuance should not have changed
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 4)
+
+        print("Raw reissuance tests")
+        issued_asset = self.nodes[0].issueasset(0, 1)
+        self.nodes[0].generate(1)
+        utxo_info = None
+        # Find info about the token output using wallet
+        for utxo in self.nodes[0].listunspent():
+            if utxo["asset"] == issued_asset["token"]:
+                utxo_info = utxo
+                break
+        assert(utxo_info is not None)
+
+        issued_address = self.nodes[0].getnewaddress()
+        # Create transaction spending the reissuance token
+        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:Decimal('0.00000001')}, 0, {issued_address:issued_asset["token"]})
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
+        # Find the reissuance input
+        reissuance_index = -1
+        for i, tx_input in enumerate(self.nodes[0].decoderawtransaction(funded_tx)["vin"]):
+            if tx_input["txid"] == utxo_info["txid"] and tx_input["vout"] == utxo_info["vout"]:
+                reissuance_index = i
+                break
+        assert(reissuance_index != -1)
+        reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
+        blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
+        signed_tx = self.nodes[0].signrawtransaction(blind_tx)
+        tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
+
+        # Now send reissuance token to blinded multisig, then reissue
+        addrs = []
+        for i in range(3):
+            addrs.append(self.nodes[0].validateaddress(self.nodes[0].getnewaddress())["pubkey"])
+
+
+        multisig_addr = self.nodes[0].createmultisig(2,addrs)
+        blinded_addr = self.nodes[0].getnewaddress()
+        blinding_pubkey = self.nodes[0].validateaddress(blinded_addr)["confidential_key"]
+        blinding_privkey = self.nodes[0].dumpblindingkey(blinded_addr)
+        blinded_multisig = self.nodes[0].createblindedaddress(multisig_addr["address"], blinding_pubkey)
+        # Import address so we consider the reissuance tokens ours
+        self.nodes[0].importaddress(blinded_multisig)
+        # Import blinding key to be able to decrypt values sent to it
+        self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
+
+        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, issued_asset["asset"])
+        self.nodes[0].generate(1)
+
+        # Get that multisig output
+        utxo_info = None
+        # Find info about the token output using wallet
+        for utxo in self.nodes[0].listunspent():
+            if utxo["asset"] == issued_asset["token"]:
+                utxo_info = utxo
+                break
+        assert(utxo_info is not None)
+
+        # Now make transaction spending that input
+        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, {issued_address:issued_asset["token"]})
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
+        # Find the reissuance input
+        reissuance_index = -1
+        for i, tx_input in enumerate(self.nodes[0].decoderawtransaction(funded_tx)["vin"]):
+            if tx_input["txid"] == utxo_info["txid"] and tx_input["vout"] == utxo_info["vout"]:
+                reissuance_index = i
+                break
+        assert(reissuance_index != -1)
+        reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
+
+        blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
+        signed_tx = self.nodes[0].signrawtransaction(blind_tx)
+        tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
+
+        # Now make transaction spending a token that had non-null contract_hash
+        contract_hash = "deadbeee"*8
+        raw_tx = self.nodes[0].createrawtransaction([], {self.nodes[0].getnewaddress():1})
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
+        issued_tx = self.nodes[0].rawissueasset(funded_tx, [{"token_amount":1, "token_address":self.nodes[0].getnewaddress(), "contract_hash":contract_hash}])[0]
+        blinded_tx = self.nodes[0].blindrawtransaction(issued_tx["hex"])
+        signed_tx = self.nodes[0].signrawtransaction(blinded_tx)
+        tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
+
+        utxo_info = None
+        # Find info about the token output using wallet
+        for utxo in self.nodes[0].listunspent():
+            if utxo["asset"] == issued_tx["token"]:
+                utxo_info = utxo
+                break
+        assert(utxo_info is not None)
+
+        # Now spend the token, and create reissuance
+        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, {issued_address:issued_tx["token"]})
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
+        # Find the reissuance input
+        reissuance_index = -1
+        for i, tx_input in enumerate(self.nodes[0].decoderawtransaction(funded_tx)["vin"]):
+            if tx_input["txid"] == utxo_info["txid"] and tx_input["vout"] == utxo_info["vout"]:
+                reissuance_index = i
+                break
+        assert(reissuance_index != -1)
+        reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_tx["entropy"]}])
+
+        blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"], False)
+        signed_tx = self.nodes[0].signrawtransaction(blind_tx)
+        tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
+        self.nodes[0].generate(1)
+        assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
 
 if __name__ == '__main__':
     IssuanceTest ().main ()

@@ -93,6 +93,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rawblindrawtransaction", 6, "ignoreblindfail" },
     { "blindrawtransaction", 1, "assetcommitments" },
     { "blindrawtransaction", 2, "ignoreblindfail" },
+    { "blindrawtransaction", 3, "blind_issuances" },
     { "createrawtransaction", 0, "inputs" },
     { "createrawtransaction", 1, "outputs" },
     { "dumpissuanceblindingkey", 1, "vin" },
@@ -142,6 +143,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendtomainchain", 2, "subtractfeefromamount"},
     { "getnewblockhex", 0, "required_age"},
     { "rawissueasset", 1, "issuances"},
+    { "rawreissueasset", 1, "reissuances"},
     // Echo with conversion (For testing only)
     { "echojson", 0, "arg0" },
     { "echojson", 1, "arg1" },
