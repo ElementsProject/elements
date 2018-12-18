@@ -266,7 +266,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx.vout = [tx.vout[0]] * 2
         self.check_mempool_result(
                 result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '66: min relay fee not met'}],
-            rawtxs=[bytes_to_hex_str(tx.serialize())],
+                rawtxs=[bytes_to_hex_str(tx.serialize())],
         )
 
         self.log.info('A timelocked transaction')
