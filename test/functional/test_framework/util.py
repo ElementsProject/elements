@@ -305,9 +305,11 @@ def initialize_datadir(dirname, n, chain):
         f.write("discover=0\n")
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
+        # Elements:
         f.write("con_blocksubsidy=5000000000\n")
         f.write("con_connect_coinbase=0\n")
         f.write("anyonecanspendaremine=0\n")
+        f.write("walletrbf=0\n") # Default is 1 in Elements
         f.write("con_bip34height=100000000\n")
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
