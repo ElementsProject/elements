@@ -417,10 +417,10 @@ class CCustomParams : public CRegTestParams {
 
         consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
         consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", "0x0"));
-        consensus.BIP34Height = args.GetArg("-con_bip34height", consensus.BIP34Height);
+        consensus.BIP34Height = args.GetArg("-con_bip34height", 0);
         consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", "0x0"));
-        consensus.BIP65Height = args.GetArg("-con_bip65height", consensus.BIP65Height);
-        consensus.BIP66Height = args.GetArg("-con_bip66height", consensus.BIP66Height);
+        consensus.BIP65Height = args.GetArg("-con_bip65height", 0);
+        consensus.BIP66Height = args.GetArg("-con_bip66height", 0);
         consensus.powLimit = uint256S(args.GetArg("-con_powlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
         consensus.nPowTargetTimespan = args.GetArg("-con_npowtargettimespan", consensus.nPowTargetTimespan);
         consensus.nPowTargetSpacing = args.GetArg("-con_npowtargetspacing", consensus.nPowTargetSpacing);

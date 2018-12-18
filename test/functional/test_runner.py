@@ -170,6 +170,7 @@ BASE_SCRIPTS = [
     'feature_mandatory_coinbase.py',
     'feature_block_subsidy.py',
     'feature_connect_coinbase.py',
+    'feature_block_v4.py'
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
