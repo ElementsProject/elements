@@ -24,7 +24,7 @@ make
 make install # optional
 ```
 
-This will build bitcoin-qt as well if the dependencies are met.
+This will build elements-qt as well if the dependencies are met.
 
 Dependencies
 ---------------------
@@ -99,7 +99,7 @@ ZMQ dependencies (provides ZMQ API 4.x):
 
 #### Dependencies for the GUI
 
-If you want to build bitcoin-qt, make sure that the required packages for Qt development
+If you want to build Elements-Qt, make sure that the required packages for Qt development
 are installed. Qt 5 is necessary to build the GUI.
 To build without GUI pass `--without-gui`.
 
@@ -111,7 +111,7 @@ libqrencode (optional) can be installed with:
 
     sudo apt-get install libqrencode-dev
 
-Once these are installed, they will be found by configure and a bitcoin-qt executable will be
+Once these are installed, they will be found by configure and a elements-qt executable will be
 built by default.
 
 
