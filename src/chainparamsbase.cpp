@@ -27,6 +27,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_connect_coinbase", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_blockheightinheader", "Whether the chain includes the block height directly in the header, for easier validation of block height in low-resource environments. (default: true)", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_genesis_style=<style>", "Use genesis style <style> (default: elements). Results in genesis block compatibility with various networks. Allowed values: elements, bitcoin", true, OptionsCategory::ELEMENTS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

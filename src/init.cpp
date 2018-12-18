@@ -536,6 +536,7 @@ void SetupServerArgs()
 
     std::vector<std::string> elements_hidden_args = {"-con_fpowallowmindifficultyblocks", "-con_fpownoretargeting", "-con_nsubsidyhalvinginterval", "-con_bip16exception", "-con_bip34height", "-con_bip65height", "-con_bip66height", "-con_npowtargettimespan", "-con_npowtargetspacing", "-con_nrulechangeactivationthreshold", "-con_nminerconfirmationwindow", "-con_powlimit", "-con_bip34hash", "-con_nminimumchainwork", "-con_defaultassumevalid", "-npruneafterheight", "-fdefaultconsistencychecks", "-fmineblocksondemand", "-fallback_fee_enabled", "-pchmessagestart"};
 
+    gArgs.AddArg("-initialfreecoins", strprintf("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)", 0), true, OptionsCategory::DEBUG_TEST);
 
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
