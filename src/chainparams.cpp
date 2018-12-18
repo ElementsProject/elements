@@ -24,8 +24,8 @@ static std::vector<unsigned char> CommitToArguments(const Consensus::Params& par
     CSHA256 sha2;
     unsigned char commitment[32];
     sha2.Write((const unsigned char*)networkID.c_str(), networkID.length());
-    // sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
-    // sha2.Write((const unsigned char*)HexStr(params.signblockscript).c_str(), HexStr(params.signblockscript).length());
+    //sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
+    sha2.Write((const unsigned char*)HexStr(params.signblockscript).c_str(), HexStr(params.signblockscript).length());
     sha2.Finalize(commitment);
     return std::vector<unsigned char>(commitment, commitment + 32);
 }
