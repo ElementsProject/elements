@@ -20,7 +20,6 @@
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
-#include <pow.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <random.h>
@@ -40,6 +39,9 @@
 #include <utilstrencodings.h>
 #include <validationinterface.h>
 #include <warnings.h>
+
+// ELEMENTS
+#include <block_proof.h> // CheckChallenge, CheckProof
 
 #include <future>
 #include <sstream>
@@ -1097,7 +1099,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
 
     // Check the header
     const uint256 block_hash = block.GetHash();
-    if (!CheckProofOfWork(block_hash, block.nBits, consensusParams) &&
+    if (!CheckProof(block, consensusParams) &&
         block_hash != consensusParams.hashGenesisBlock) {
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
     }
@@ -3106,8 +3108,8 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 {
     // Check proof of work matches claimed amount
     if (fCheckPOW && block.GetHash() != consensusParams.hashGenesisBlock
-            && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
-        return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
+            && !CheckProof(block, consensusParams)) {
+        return state.DoS(50, false, REJECT_INVALID, g_signed_blocks ? "block-proof-invalid" : "high-hash", false, "proof of work failed");
     }
     return true;
 }
@@ -3257,9 +3259,9 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
-    // Check proof of work
+    // Check proof of work if necessary
     const Consensus::Params& consensusParams = params.GetConsensus();
-    if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams))
+    if (!CheckChallenge(block, *pindexPrev, consensusParams))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work");
 
     // Check against checkpoints

@@ -27,6 +27,7 @@ from .messages import (
     ser_uint256,
     sha256,
     uint256_from_str,
+    CProof,
 )
 from .script import (
     CScript,
@@ -61,6 +62,7 @@ def create_block(hashprev, coinbase, ntime=None):
     block.hashPrevBlock = hashprev
     block.nBits = 0x207fffff  # difficulty retargeting is disabled in REGTEST chainparams
     block.vtx.append(coinbase)
+    block.proof = CProof(bytearray.fromhex('51'), bytearray.fromhex(''))
     block.hashMerkleRoot = block.calc_merkle_root()
     block.calc_sha256()
     return block

@@ -97,12 +97,16 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.pushKV("merkleroot", blockindex->hashMerkleRoot.GetHex());
     result.pushKV("time", (int64_t)blockindex->nTime);
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("nonce", (uint64_t)blockindex->nNonce);
-    result.pushKV("bits", strprintf("%08x", blockindex->nBits));
-    result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    if (!g_signed_blocks) {
+        result.pushKV("nonce", (uint64_t)blockindex->nNonce);
+        result.pushKV("bits", strprintf("%08x", blockindex->nBits));
+        result.pushKV("difficulty", GetDifficulty(blockindex));
+        result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    } else {
+        result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+        result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+    }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
-
     if (blockindex->pprev)
         result.pushKV("previousblockhash", blockindex->pprev->GetBlockHash().GetHex());
     CBlockIndex *pnext = chainActive.Next(blockindex);
@@ -143,10 +147,16 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.pushKV("tx", txs);
     result.pushKV("time", block.GetBlockTime());
     result.pushKV("mediantime", (int64_t)blockindex->GetMedianTimePast());
-    result.pushKV("nonce", (uint64_t)block.nNonce);
-    result.pushKV("bits", strprintf("%08x", block.nBits));
-    result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    if (!g_signed_blocks) {
+        result.pushKV("nonce", (uint64_t)block.nNonce);
+        result.pushKV("bits", strprintf("%08x", block.nBits));
+        result.pushKV("difficulty", GetDifficulty(blockindex));
+        result.pushKV("chainwork", blockindex->nChainWork.GetHex());
+    } else {
+        result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+        result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+        result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
+    }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
     if (blockindex->pprev)
@@ -703,6 +713,8 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
             "  \"chainwork\" : \"0000...1f3\"     (string) Expected number of hashes required to produce the current chain (in hex)\n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
+            "  \"signblock_witness_asm\" : \"xxxx\", (string) ASM of sign block witness data.\n"
+            "  \"signblock_witness_hex\" : \"xxxx\", (string) Hex of sign block witness data.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\",      (string) The hash of the next block\n"
             "}\n"
@@ -792,6 +804,8 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
             "  \"chainwork\" : \"xxxx\",  (string) Expected number of hashes required to produce the chain up to this block (in hex)\n"
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
+            "  \"signblock_witness_asm\" : \"xxxx\", (string) ASM of sign block witness data.\n"
+            "  \"signblock_witness_hex\" : \"xxxx\", (string) Hex of sign block witness data.\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
@@ -1198,6 +1212,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"chainwork\": \"xxxx\"           (string) total amount of work in active chain, in hexadecimal\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
             "  \"pruned\": xx,                 (boolean) if the blocks are subject to pruning\n"
+            "  \"signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data.\n"
+            "  \"signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data.\n"
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
             "  \"prune_target_size\": xxxxxx,  (numeric) the target size used by pruning (only present if automatic pruning is enabled)\n"
@@ -1235,18 +1251,30 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
+    const CChainParams& chainparams = Params();
+
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("chain",                 Params().NetworkIDString());
+    obj.pushKV("chain",                 chainparams.NetworkIDString());
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
-    obj.pushKV("difficulty",            (double)GetDifficulty(chainActive.Tip()));
+    if (!g_signed_blocks) {
+        obj.pushKV("difficulty",            (double)GetDifficulty(chainActive.Tip()));
+    }
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
+    obj.pushKV("verificationprogress",  GuessVerificationProgress(chainparams.TxData(), chainActive.Tip()));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
-    obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    if (!g_signed_blocks) {
+        obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    }
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
     obj.pushKV("pruned",                fPruneMode);
+    if (g_signed_blocks) {
+        CScript sign_block_script = chainparams.GetConsensus().signblockscript;
+        obj.pushKV("signblock_asm", ScriptToAsmStr(sign_block_script));
+        obj.pushKV("signblock_hex", HexStr(sign_block_script));
+    }
+
     if (fPruneMode) {
         CBlockIndex* block = chainActive.Tip();
         assert(block);

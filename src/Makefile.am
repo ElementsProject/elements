@@ -96,6 +96,7 @@ BITCOIN_CORE_H = \
   bech32.h \
   bloom.h \
   blockencodings.h \
+  block_proof.h \
   chain.h \
   chainparams.h \
   chainparamsbase.h \
@@ -159,6 +160,7 @@ BITCOIN_CORE_H = \
   rpc/util.h \
   scheduler.h \
   script/descriptor.h \
+  script/generic.hpp \
   script/ismine.h \
   script/sigcache.h \
   script/sign.h \
@@ -220,6 +222,7 @@ libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   bloom.cpp \
   blockencodings.cpp \
+  block_proof.cpp \
   chain.cpp \
   checkpoints.cpp \
   consensus/tx_verify.cpp \

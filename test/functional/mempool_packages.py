@@ -9,6 +9,7 @@ from decimal import Decimal
 from test_framework.messages import COIN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, satoshi_round, sync_blocks, sync_mempools
+import time
 
 MAX_ANCESTORS = 25
 MAX_DESCENDANTS = 25
@@ -34,6 +35,23 @@ class MempoolPackagesTest(BitcoinTestFramework):
         return (txid, send_value)
 
     def run_test(self):
+
+        # Create transaction with 3-second block delay, should fail to enter the template
+        txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
+        block = self.nodes[0].getnewblockhex(min_tx_age=3)
+        self.nodes[0].submitblock(block)
+        assert(txid in self.nodes[0].getrawmempool())
+        time.sleep(3)
+        block = self.nodes[0].getnewblockhex(min_tx_age=3)
+        self.nodes[0].submitblock(block)
+        assert(txid not in self.nodes[0].getrawmempool())
+        # Once more with no delay (default is 0, just testing default arg)
+        txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
+        block = self.nodes[0].getnewblockhex(min_tx_age=0)
+        self.nodes[0].submitblock(block)
+        assert(txid not in self.nodes[0].getrawmempool())
+        assert_raises_rpc_error(-8, "min_tx_age must be non-negative.", self.nodes[0].getnewblockhex, -1)
+
         ''' Mine some blocks and have them mature. '''
         self.nodes[0].generate(101)
         utxo = self.nodes[0].listunspent(10)

@@ -18,6 +18,9 @@
 
 #include <boost/thread.hpp>
 
+// ELEMENTS
+#include <block_proof.h> // CheckProof
+
 static const char DB_COIN = 'C';
 static const char DB_COINS = 'c';
 static const char DB_BLOCK_FILES = 'f';
@@ -272,13 +275,14 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nTime          = diskindex.nTime;
                 pindexNew->nBits          = diskindex.nBits;
                 pindexNew->nNonce         = diskindex.nNonce;
+                pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
 
                 const uint256 block_hash = pindexNew->GetBlockHash();
-                if (!CheckProofOfWork(block_hash, pindexNew->nBits, consensusParams) &&
+                if (!CheckProof(pindexNew->GetBlockHeader(), consensusParams) &&
                     block_hash != consensusParams.hashGenesisBlock) {
-                    return error("%s: CheckProofOfWork: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
+                    return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
                 }
                 pcursor->Next();
             } else {

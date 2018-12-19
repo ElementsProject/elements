@@ -7,10 +7,48 @@
 #define BITCOIN_PRIMITIVES_BLOCK_H
 
 #include <primitives/transaction.h>
+#include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
 
 extern bool g_con_blockheightinheader;
+extern bool g_signed_blocks;
+
+class CProof
+{
+public:
+    CScript challenge;
+    CScript solution;
+
+    CProof()
+    {
+        SetNull();
+    }
+    CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(*(CScriptBase*)(&challenge));
+        if (!(s.GetType() & SER_GETHASH))
+            READWRITE(*(CScriptBase*)(&solution));
+    }
+
+    void SetNull()
+    {
+        challenge.clear();
+        solution.clear();
+    }
+
+    bool IsNull() const
+    {
+        return challenge.empty();
+    }
+
+    std::string ToString() const;
+};
 
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
@@ -32,6 +70,7 @@ public:
     uint32_t block_height;
     uint32_t nBits;
     uint32_t nNonce;
+    CProof proof;
 
     CBlockHeader()
     {
@@ -49,8 +88,12 @@ public:
         if (g_con_blockheightinheader) {
             READWRITE(block_height);
         }
-        READWRITE(nBits);
-        READWRITE(nNonce);
+        if (g_signed_blocks) {
+            READWRITE(proof);
+        } else {
+            READWRITE(nBits);
+            READWRITE(nNonce);
+        }
     }
 
     void SetNull()
@@ -62,11 +105,16 @@ public:
         block_height = 0;
         nBits = 0;
         nNonce = 0;
+        proof.SetNull();
     }
 
     bool IsNull() const
     {
-        return (nBits == 0);
+        if (g_signed_blocks) {
+            return proof.IsNull();
+        } else {
+            return (nBits == 0);
+        }
     }
 
     uint256 GetHash() const;
@@ -123,6 +171,7 @@ public:
         block.block_height   = block_height;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.proof          = proof;
         return block;
     }
 

@@ -496,6 +496,35 @@ class CTransaction():
             % (self.nVersion, repr(self.vin), repr(self.vout), repr(self.wit), self.nLockTime)
 
 
+class CProof(object):
+    # Default allows OP_TRUE blocks
+    def __init__(self, challenge=bytearray.fromhex('51'), solution=b""):
+        self.challenge = challenge
+        self.solution = solution
+
+    def set_null(self):
+        self.challenge = b""
+        self.solution = b""
+
+    def deserialize(self, f):
+        self.challenge = deser_string(f)
+        self.solution = deser_string(f)
+
+    def serialize(self):
+        r = b""
+        r += ser_string(self.challenge)
+        r += ser_string(self.solution)
+        return r
+
+    def serialize_for_hash(self):
+        r = b""
+        r += ser_string(self.challenge)
+        return r
+
+    def __repr__(self):
+        return "CProof(challenge=%s solution=%s)" \
+            % (self.challenge, self.solution)
+
 class CBlockHeader():
     def __init__(self, header=None):
         if header is None:
@@ -506,8 +535,7 @@ class CBlockHeader():
             self.hashMerkleRoot = header.hashMerkleRoot
             self.nTime = header.nTime
             self.block_height = header.block_height
-            self.nBits = header.nBits
-            self.nNonce = header.nNonce
+            self.proof = header.proof
             self.sha256 = header.sha256
             self.hash = header.hash
             self.calc_sha256()
@@ -518,8 +546,7 @@ class CBlockHeader():
         self.hashMerkleRoot = 0
         self.nTime = 0
         self.block_height = 0
-        self.nBits = 0
-        self.nNonce = 0
+        self.proof = CProof()
         self.sha256 = None
         self.hash = None
 
@@ -529,8 +556,7 @@ class CBlockHeader():
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.block_height = struct.unpack("<I", f.read(4))[0]
-        self.nBits = struct.unpack("<I", f.read(4))[0]
-        self.nNonce = struct.unpack("<I", f.read(4))[0]
+        self.proof.deserialize(f)
         self.sha256 = None
         self.hash = None
 
@@ -541,8 +567,7 @@ class CBlockHeader():
         r += ser_uint256(self.hashMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("<I", self.block_height)
-        r += struct.pack("<I", self.nBits)
-        r += struct.pack("<I", self.nNonce)
+        r += self.proof.serialize()
         return r
 
     def calc_sha256(self):
@@ -553,8 +578,7 @@ class CBlockHeader():
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.block_height)
-            r += struct.pack("<I", self.nBits)
-            r += struct.pack("<I", self.nNonce)
+            r += self.proof.serialize_for_hash()
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
@@ -564,9 +588,9 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x block_height=%s nTime=%s nBits=%08x nNonce=%08x)" \
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x block_height=%s nTime=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.block_height, self.nBits, self.nNonce)
+               time.ctime(self.nTime), self.block_height)
 
 
 class CBlock(CBlockHeader):
@@ -618,9 +642,10 @@ class CBlock(CBlockHeader):
 
     def is_valid(self):
         self.calc_sha256()
-        target = uint256_from_compact(self.nBits)
-        if self.sha256 > target:
-            return False
+# TODO: check signatures
+#        target = uint256_from_compact(self.nBits)
+#        if self.sha256 > target:
+#            return False
         for tx in self.vtx:
             if not tx.is_valid():
                 return False
@@ -630,15 +655,15 @@ class CBlock(CBlockHeader):
 
     def solve(self):
         self.rehash()
-        target = uint256_from_compact(self.nBits)
-        while self.sha256 > target:
-            self.nNonce += 1
-            self.rehash()
+#        target = uint256_from_compact(self.nBits)
+#        while self.sha256 > target:
+#            self.nNonce += 1
+#            self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s nBits=%08x nNonce=%08x vtx=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s vtx=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), self.nBits, self.nNonce, repr(self.vtx))
+               time.ctime(self.nTime), repr(self.vtx))
 
 
 class PrefilledTransaction():
