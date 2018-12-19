@@ -3,10 +3,10 @@
 
 class wldbWhitelist: public wldbCollection{
 public:
+  wldbWhitelist();
   ~wldbWhitelist();
   static wldbWhitelist* getInstance();
-  
+
 private:
-  wldbWhitelist();
   static wldbWhitelist* _instance;
 };

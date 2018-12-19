@@ -3,35 +3,14 @@
 whitelistDB* whitelistDB::_instance = nullptr;
 
 //Returns the one and only instance of whitelistDB, instantiating first if necessary.
-whitelistDB* whitelistDB::getInstance(std::string username,
-				      std::string password,
-				      std::string port,
-				      std::string host,
-				      std::string database,
-				      std::string authSource,
-				      std::string authMechanism){
+whitelistDB* whitelistDB::getInstance(){
   if (_instance == nullptr){
-    _instance = new whitelistDB(username, password, port, host, database, authSource, authMechanism);
+    _instance = new whitelistDB();
   }
   return _instance;
 }
 
-whitelistDB::whitelistDB(std::string username,
-			 std::string password,
-			 std::string port,
-			 std::string host,
-			 std::string database,
-			 std::string authSource,
-			 std::string authMechanism){
-  _s_username=username;
-  _s_password=password;
-  _s_port=port;
-  _s_host=host;
-  _s_database=database;
-  _s_authSource=authSource;
-  _s_authMechanism=authMechanism;
-  init();
-}
+whitelistDB::whitelistDB(){;}
 
 whitelistDB::~whitelistDB(){
   delete _uri;
@@ -39,7 +18,21 @@ whitelistDB::~whitelistDB(){
   delete _database;
 }
 
-void whitelistDB::init(){
+void whitelistDB::init(std::string username,
+        std::string password,
+        std::string port,
+        std::string host,
+        std::string database,
+        std::string authSource,
+        std::string authMechanism){
+  _s_username=username;
+  _s_password=password;
+  _s_port=port;
+  _s_host=host;
+  _s_database=database;
+  _s_authSource=authSource;
+  _s_authMechanism=authMechanism;
+
   initUri();
   initPool();
   initDatabase();
@@ -48,7 +41,7 @@ void whitelistDB::init(){
 void whitelistDB::initUri(){
   std::string uri_string = std::string("mongodb://") + 
     _s_username + std::string(":") + 
-    _s_password + std::string("@") + ("mongodbhost:") + 
+    _s_password + std::string("@") + _s_host + (":") + 
     _s_port + std::string("/") + 
     _s_database + 
     std::string("?authSource=") + _s_authSource + std::string("&authMechanism=") + _s_authMechanism;

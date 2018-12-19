@@ -18,6 +18,8 @@
 #include "httpserver.h"
 #include "httprpc.h"
 #include "utilstrencodings.h"
+#include "validation.h"
+#include "policy/wldbWhitelist.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
@@ -148,6 +150,12 @@ bool AppInit(int argc, char* argv[])
             // InitError will have been called with detailed error, which ends up on console
             exit(1);
         }
+        if(fWhitelistMongoDB){
+            //Read the whitelist database
+            fprintf(stdout,"Loading whitelist addresses from database.");
+            wldbWhitelist::getInstance()->read(&addressWhitelist);
+        }
+
         if (GetBoolArg("-daemon", false))
         {
 #if HAVE_DECL_DAEMON

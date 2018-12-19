@@ -159,7 +159,7 @@ if ENABLE_WALLET
 test_test_elements_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-test_test_elements_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS)
+test_test_elements_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS) $(MONGOCXX_LIBS)
 test_test_elements_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
 if ENABLE_ZMQ
@@ -170,8 +170,8 @@ endif
 # test_bitcoin_fuzzy binary #
 test_test_elements_fuzzy_SOURCES = test/test_bitcoin_fuzzy.cpp
 test_test_elements_fuzzy_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-test_test_elements_fuzzy_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-test_test_elements_fuzzy_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+test_test_elements_fuzzy_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(MONGOCXX_CFLAGS)
+test_test_elements_fuzzy_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(MONGOCXX_LIBS)
 
 test_test_elements_fuzzy_LDADD = \
   $(LIBUNIVALUE) \
@@ -182,7 +182,7 @@ test_test_elements_fuzzy_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
 
-test_test_elements_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
+test_test_elements_fuzzy_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(MONGOCXX_LIBS)
 #
 
 nodist_test_test_elements_SOURCES = $(GENERATED_TEST_FILES)

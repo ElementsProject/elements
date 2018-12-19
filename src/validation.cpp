@@ -79,6 +79,7 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
+bool fWhitelistMongoDB = DEFAULT_WHITELIST_MONGODB;
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
@@ -93,9 +94,9 @@ uint256 hashAssumeValid;
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
-AWhitelist addressWhitelist;
-AWhitelist addressBurnlist;
-AWhitelist addressFreezelist;
+CPolicylist addressWhitelist;
+CPolicylist addressBurnlist;
+CPolicylist addressFreezelist;
 
 CTxMemPool mempool(::minRelayTxFee);
 

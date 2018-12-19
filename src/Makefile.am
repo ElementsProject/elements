@@ -19,7 +19,7 @@ LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
 BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
-BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
+BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS) $(MONGOCXX_CFLAGS)
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
@@ -176,8 +176,8 @@ obj/build.h: FORCE
 libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 
 # server: shared between bitcoind and bitcoin-qt
-libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) $(MONGOCXX_CFLAGS)
-libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) 
+libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(MONGOCXX_CFLAGS)
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   addrdb.cpp \
@@ -197,6 +197,9 @@ libbitcoin_server_a_SOURCES = \
   policy/fees.cpp \
   policy/policy.cpp \
   policy/whitelistDB.cpp \
+  policy/wldbWhitelist.cpp \
+  policy/wldbCollection.cpp \
+  policy/policyList.cpp \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
@@ -216,6 +219,7 @@ libbitcoin_server_a_SOURCES = \
   validationinterface.cpp \
   versionbits.cpp \
   $(BITCOIN_CORE_H)
+
 
 if ENABLE_ZMQ
 libbitcoin_zmq_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)
@@ -317,8 +321,8 @@ libbitcoin_consensus_a_SOURCES = \
   version.h
 
 # common: shared between bitcoind, and bitcoin-qt and non-server tools
-libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) 
+libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
 libbitcoin_common_a_SOURCES = \
   amount.cpp \
   assetsdir.cpp \
@@ -388,8 +392,8 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 # bitcoind binary #
 elementsd_SOURCES = bitcoind.cpp
 elementsd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elementsd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elementsd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elementsd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(MONGOCXX_CFLAGS)
+elementsd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(MONGOCXX_LIBS)
 
 if TARGET_WINDOWS
 elementsd_SOURCES += bitcoind-res.rc
@@ -413,8 +417,8 @@ elementsd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUP
 # bitcoin-cli binary #
 elements_cli_SOURCES = bitcoin-cli.cpp
 elements_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elements_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elements_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(MONGOCXX_CFLAGS)
+elements_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(MONGOCXX_LIBS)
 
 if TARGET_WINDOWS
 elements_cli_SOURCES += bitcoin-cli-res.rc
@@ -432,8 +436,8 @@ elements_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS) $(M
 # bitcoin-tx binary #
 elements_tx_SOURCES = bitcoin-tx.cpp
 elements_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elements_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(MONGOCXX_CFLAGS)
+elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  $(MONGOCXX_LIBS)
 
 if TARGET_WINDOWS
 elements_tx_SOURCES += bitcoin-tx-res.rc
@@ -459,7 +463,7 @@ if GLIBC_BACK_COMPAT
   libelementsconsensus_la_SOURCES += compat/glibc_compat.cpp
 endif
 
-libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS)
+libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS) $(MONGOCXX_LIBS)
 libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
 libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
 libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
@@ -506,11 +510,11 @@ bitcoind bitcoin-cli bitcoin-tx:
 .rc.o:
 	@test -f $(WINDRES)
 	## FIXME: How to get the appropriate modulename_CPPFLAGS in here?
-	$(AM_V_GEN) $(WINDRES) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) -DWINDRES_PREPROC -i $< -o $@
+	$(AM_V_GEN) $(WINDRES) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(CPPFLAGS) $(MONGOCXX_FLAGS) -DWINDRES_PREPROC -i $< -o $@
 
 .mm.o:
 	$(AM_V_CXX) $(OBJCXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	  $(CPPFLAGS) $(AM_CXXFLAGS) $(QT_INCLUDES) $(AM_CXXFLAGS) $(PIE_FLAGS) $(CXXFLAGS) -c -o $@ $<
+	  $(CPPFLAGS) $(AM_CXXFLAGS) $(QT_INCLUDES) $(AM_CXXFLAGS) $(PIE_FLAGS) $(CXXFLAGS) $(MONGOCXX_CFLAGS) -c -o $@ $<
 
 check-symbols: $(bin_PROGRAMS)
 if GLIBC_BACK_COMPAT

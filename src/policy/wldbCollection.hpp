@@ -1,34 +1,35 @@
 //A collection
 #include "whitelistDB.hpp"
+#include "policyList.hpp"
 
 class wldbCollection{
 public:
-  wldbCollection(std::string name);
-  ~wldbCollection();
+    wldbCollection(std::string name);
+    ~wldbCollection();
 
-  void init();
+    void init();
+     void init(std::string username,
+        std::string password,
+        std::string port,
+        std::string host,
+        std::string database,
+        std::string authSource,
+        std::string authMechanism);
+
   void print();
 
-
-  enum status{
-    SUCCESS, END
-  };
-
-  wldbCollection::status first_address_key(std::vector<std::string>& keypair); 
-  wldbCollection::status next_address_key(std::vector<std::string>& keypair); 
-
+  void read(CPolicylist* plist);
 
 protected:
   std::string _name;
-  wldbCollection();
-  
+    
 private:
-
+  wldbCollection();
   whitelistDB* _db;
 
   mongocxx::collection* _collection = nullptr;
   mongocxx::cursor* _cursor = nullptr;
-
+  
   //Move the cursor to the first document
   void begin();
 

@@ -42,6 +42,8 @@
 #include "validationinterface.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
+#include "policy/wldbWhitelist.hpp"
+#include "policy/policy.h"
 #endif
 #include "warnings.h"
 #include <stdint.h>
@@ -385,6 +387,14 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-onlynet=<net>", _("Only connect to nodes in network <net> (ipv4, ipv6 or onion)"));
     strUsage += HelpMessageOpt("-permitbaremultisig", strprintf(_("Relay non-P2SH multisig (default: %u)"), DEFAULT_PERMIT_BAREMULTISIG));
     strUsage += HelpMessageOpt("-pkhwhitelist", strprintf(_("Enable node mempool address whitelisting (default: %u)"), DEFAULT_WHITELIST_CHECK));
+    strUsage += HelpMessageOpt("-pkhwhitelistmongodb", strprintf(_("Read whitelist addresses from a mongodb database. (default: %u)"), DEFAULT_WHITELIST_MONGODB));
+    strUsage += HelpMessageOpt("-wldbuser", strprintf(_("Whitelist database username (default: %s)"), DEFAULT_WLDBUSER));
+    strUsage += HelpMessageOpt("-wldbpass", strprintf(_("Whitelist database password (default: %s)"), DEFAULT_WLDBPASS));
+    strUsage += HelpMessageOpt("-wldbport", strprintf(_("Whitelist database port (default: %s)"), DEFAULT_WLDBPORT));
+    strUsage += HelpMessageOpt("-wldbhost", strprintf(_("Whitelist database host (default: %s)"), DEFAULT_WLDBHOST));
+    strUsage += HelpMessageOpt("-wldbdatabase", strprintf(_("Whitelist database name(default: %s)"), DEFAULT_WLDBDATABASE));
+    strUsage += HelpMessageOpt("-wldbauthsource", strprintf(_("Whitelist database authsource (default: %s)"), DEFAULT_WLDBAUTHSOURCE));
+    strUsage += HelpMessageOpt("-wldbauthmechanism", strprintf(_("Whitelist database authmechanism (default: %s)"), DEFAULT_WLDBAUTHMECHANISM));
     strUsage += HelpMessageOpt("-freezelist", strprintf(_("Enable node mempool address freezelisting (default: %u)"), DEFAULT_FREEZELIST_CHECK));
     strUsage += HelpMessageOpt("-burnlist", strprintf(_("Enable node mempool address burnlisting (default: %u)"), DEFAULT_BURNLIST_CHECK));
     strUsage += HelpMessageOpt("-peerbloomfilters", strprintf(_("Support filtering of blocks and transaction with bloom filters (default: %u)"), DEFAULT_PEERBLOOMFILTERS));
@@ -1077,7 +1087,26 @@ bool AppInitParameterInteraction()
         return false;
 #endif
 
+    //address whitelisting
     fRequireWhitelistCheck = GetBoolArg("-pkhwhitelist", DEFAULT_WHITELIST_CHECK);
+    //read whitelisted addresses from a mongodb database
+    fWhitelistMongoDB = GetBoolArg("-pkhwhitelistmongodb", DEFAULT_WHITELIST_MONGODB);
+    if(fWhitelistMongoDB){
+        //Initialize the whitelist database
+        std::string wldbuser = GetArg("-wldbuser", DEFAULT_WLDBUSER);
+        std::string wldbpass = GetArg("-wldbpass", DEFAULT_WLDBPASS);
+        std::string wldbport = GetArg("-wldbport", DEFAULT_WLDBPORT);
+        std::string wldbhost = GetArg("-wldbhost", DEFAULT_WLDBHOST);
+        std::string wldbdatabase = GetArg("-wldbdatabase", DEFAULT_WLDBDATABASE);
+        std::string wldbauthsource = GetArg("-wldbauthsource", DEFAULT_WLDBAUTHSOURCE);
+        std::string wldbauthmechanism = GetArg("-wldbauthmechanism", DEFAULT_WLDBAUTHMECHANISM);
+
+        //read the whitelist from the database
+        wldbWhitelist::getInstance()->init(wldbuser, wldbpass, wldbport, 
+                                wldbhost, wldbdatabase, wldbauthsource, wldbauthmechanism);
+    }
+
+
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);

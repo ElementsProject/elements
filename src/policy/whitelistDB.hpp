@@ -44,27 +44,21 @@ using bsoncxx::builder::stream::open_document;
 class whitelistDB{
 public:
   //Returns the instance of whitelistDB, instantiating first if necessary.
-  static whitelistDB* getInstance(std::string username = std::getenv("MONGODB_USER"),
-        std::string password = std::getenv("MONGODB_PASS"),
-        std::string port     = std::getenv("MONGODB_PORT"),
-        std::string host     = "mongodbhost",
-        std::string database = std::getenv("MONGODB_USER"),
-        std::string authSource = std::getenv("MONGODB_USER"),
-        std::string authMechanism = "SCRAM-SHA-256");
+  static whitelistDB* getInstance();
   ~whitelistDB();
-  void init();
+  void init(std::string username,
+        std::string password,
+        std::string port,
+        std::string host,
+        std::string database,
+        std::string authSource,
+        std::string authMechanism);
 
   mongocxx::collection* getCollection(std::string name);
 
 private:
   static whitelistDB* _instance;
-  whitelistDB(std::string username ,
-	      std::string password,
-	      std::string port,
-	      std::string host,
-	      std::string database,
-	      std::string authSource,
-	      std::string authMechanism);
+  whitelistDB();
 
   mongocxx::instance _mongo_instance{};
   std::string _s_username="";

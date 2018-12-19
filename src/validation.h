@@ -18,6 +18,10 @@
 #include "script/script_error.h"
 #include "sync.h"
 #include "versionbits.h"
+#include "base58.h"
+#include "utilstrencodings.h"
+#include "util.h"
+#include "policy/policyList.hpp"
 
 #include <algorithm>
 #include <exception>
@@ -156,13 +160,11 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
 
-//whitelist address list
-typedef std::vector<CKeyID> AWhitelist;
-extern AWhitelist addressWhitelist;
+extern CPolicylist addressWhitelist;
 //freezelist address list
-extern AWhitelist addressFreezelist;
+extern CPolicylist addressFreezelist;
 //burnlist address list
-extern AWhitelist addressBurnlist;
+extern CPolicylist addressBurnlist;
 
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
@@ -181,6 +183,7 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
 extern bool fRequireWhitelistCheck;
+extern bool fWhitelistMongoDB;
 extern bool fRequireFreezelistCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;
