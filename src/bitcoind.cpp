@@ -150,12 +150,6 @@ bool AppInit(int argc, char* argv[])
             // InitError will have been called with detailed error, which ends up on console
             exit(1);
         }
-        if(fWhitelistMongoDB){
-            //Read the whitelist database
-            fprintf(stdout,"Loading whitelist addresses from database.");
-            wldbWhitelist::getInstance()->read(&addressWhitelist);
-        }
-
         if (GetBoolArg("-daemon", false))
         {
 #if HAVE_DECL_DAEMON

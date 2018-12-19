@@ -1,6 +1,7 @@
 //A collection
 #include "whitelistDB.hpp"
 #include "policyList.hpp"
+#include <pthread.h>
 
 class wldbCollection{
 public:
@@ -18,27 +19,56 @@ public:
 
   void print();
 
-  void read(CPolicylist* plist);
+  //Set the policy list that will be updated by this collection
+  void policyList(CPolicylist* plist){
+    _plist=plist;
+  }
+
+  void read(CPolicylist* plist){
+    policyList(plist);
+    read();
+  }
+
+  void read();
+
+  void watch(CPolicylist* plist){
+    policyList(plist);
+    watch();
+  }
+
+  void watch();
+
+  void stopWatch();
 
 protected:
   std::string _name;
+
+  //Change stream event operation types
+  const std::string _updateOpType = "update";
+  const std::string _insertOpType = "insert";
+  const std::string _deleteOpType = "delete";
     
+  //Change stream event processor
+  void processEvent(const bsoncxx::v_noabi::document::view event);
+
+  //Pointer to the policy list to be updated by this collection
+  CPolicylist* _plist;
+
 private:
   wldbCollection();
   whitelistDB* _db;
 
   mongocxx::collection* _collection = nullptr;
   mongocxx::cursor* _cursor = nullptr;
+
   
   //Move the cursor to the first document
   void begin();
-
-  //Key cursors
-  bsoncxx::v_noabi::array::view::const_iterator _key_iter;
-  bsoncxx::v_noabi::array::view::const_iterator _add_iter;
-  bsoncxx::v_noabi::array::view::const_iterator _key_iter_end;
-  bsoncxx::v_noabi::array::view::const_iterator _add_iter_end;
     
   void initCollection();
   void initCursor();
+
+  void readAddressesKeys(const bsoncxx::v_noabi::document::view* doc);
+  void deleteAddresses(const bsoncxx::v_noabi::document::view* doc);
+
 };
