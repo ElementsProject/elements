@@ -112,6 +112,24 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
+    std::vector<CScript> commitments;
+
+    // ELEMENTS: PAK
+    // Create block pak commitment if set in conf file and validating pegouts
+    if (!gArgs.GetBoolArg("-acceptnonstdtxn", !Params().RequireStandard())
+            && g_paklist_config) {
+        if (*g_paklist_config != g_paklist_blockchain) {
+            g_paklist_config->CreateCommitments(commitments);
+        }
+    }
+
+    // Pad block weight to account for OP_RETURN commitments with two compressed pubkeys
+    for (const auto& commitment : commitments) {
+        CTxOut output(0, commitment);
+        nBlockWeight += ::GetSerializeSize(output, SER_NETWORK, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
+    }
+    // END PAK
+
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
     pblocktemplate->vTxFees.push_back(-1); // updated at end
@@ -172,6 +190,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
     coinbaseTx.vout[0].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+    // ELEMENTS: PAK
+    // Add PAK transition commitments
+    for (unsigned int i = 0; i < commitments.size(); i++) {
+        coinbaseTx.vout.push_back(CTxOut(0, commitments[i]));
+    }
+    // END PAK
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
