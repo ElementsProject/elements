@@ -3,6 +3,8 @@
 //See e.g. wldbWhitelist.cpp
 #include "wldbCollection.hpp"
 
+wldbCollection::wldbCollection(){;}
+
 wldbCollection::wldbCollection(std::string name){
   ////boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _name=name;
@@ -22,13 +24,7 @@ void wldbCollection::init(std::string username,
         std::string authSource,
         std::string authMechanism){
   //boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  _db=whitelistDB::getInstance();
-  _db->init(username,password,port,host,database,authSource,authMechanism);
-  init();
-}
-
-void wldbCollection::init(){
-  //boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  whitelistDB::init(username,password,port,host,database,authSource,authMechanism);
   initCollection();
   initCursor();
 }
@@ -37,7 +33,7 @@ void wldbCollection::initCollection(){
   //boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   delete _collection;
   //Copy the collection object from the database
-  _collection = new mongocxx::collection(*_db->getCollection(_name));
+  _collection = new mongocxx::collection(*whitelistDB::getCollection(_name));
 }
 
 void wldbCollection::initCursor(){

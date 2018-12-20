@@ -47,7 +47,7 @@ using bsoncxx::builder::stream::open_document;
 class whitelistDB{
 public:
   //Returns the instance of whitelistDB, instantiating first if necessary.
-  static whitelistDB* getInstance();
+  whitelistDB();
   ~whitelistDB();
   void init(std::string username,
         std::string password,
@@ -61,10 +61,6 @@ public:
 
 private:
 //  boost::recursive_mutex _mtx;
-
-  static whitelistDB* _instance;
-  whitelistDB();
-
   mongocxx::instance _mongo_instance{};
   std::string _s_username="";
   std::string _s_password="";

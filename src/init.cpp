@@ -27,6 +27,7 @@
 #include "net.h"
 #include "net_processing.h"
 #include "policy/policy.h"
+#include "policy/wldbCollection.hpp"
 #include "rpc/server.h"
 #include "rpc/register.h"
 #include "script/standard.h"
@@ -100,6 +101,7 @@ enum BindFlags {
 };
 
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
+
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -1110,9 +1112,9 @@ bool AppInitParameterInteraction()
         std::string wldbauthmechanism = GetArg("-wldbauthmechanism", DEFAULT_WLDBAUTHMECHANISM);
 
         //read the whitelist from the database
-//        wldbWhitelist::getInstance()->init(wldbuser, wldbpass, wldbport, 
-                     //           wldbhost, wldbdatabase, wldbauthsource, wldbauthmechanism);
-//        wldbWhitelist::getInstance()->policyList(&addressWhitelist);
+        whitelistDatabase.init(wldbuser, wldbpass, wldbport, 
+                                wldbhost, wldbdatabase, wldbauthsource, wldbauthmechanism);
+        whitelistDatabase.policyList(&addressWhitelist);
     }
 
 
@@ -1687,6 +1689,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // threadGroup.create_thread(&ThreadWatchWhitelistDatabase);
 //    wldbWhitelist::getInstance()->read();
+        whitelistDatabase.read();
     // Wait for genesis block to be processed
     {
         boost::unique_lock<boost::mutex> lock(cs_GenesisWait);

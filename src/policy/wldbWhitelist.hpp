@@ -7,10 +7,7 @@ class wldbWhitelist: public wldbCollection{
 public:
   wldbWhitelist();
   ~wldbWhitelist();
-  static wldbWhitelist* getInstance();
 
 private:
   //boost::recursive_mutex _mtx;
-
-  static wldbWhitelist* _instance;
 };

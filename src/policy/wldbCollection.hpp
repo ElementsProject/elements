@@ -4,13 +4,12 @@
 #include "policyList.hpp"
 #include <pthread.h>
 
-class wldbCollection{
+class wldbCollection : public whitelistDB{
 public:
     wldbCollection(std::string name);
     ~wldbCollection();
 
-    void init();
-     void init(std::string username,
+    void init(std::string username,
         std::string password,
         std::string port,
         std::string host,
@@ -57,9 +56,7 @@ protected:
 
 private:
   //boost::recursive_mutex _mtx;
-
   wldbCollection();
-  whitelistDB* _db;
 
   mongocxx::collection* _collection = nullptr;
   mongocxx::cursor* _cursor = nullptr;

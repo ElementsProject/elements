@@ -1,15 +1,5 @@
 #include "whitelistDB.hpp"
 
-whitelistDB* whitelistDB::_instance = nullptr;
-
-//Returns the one and only instance of whitelistDB, instantiating first if necessary.
-whitelistDB* whitelistDB::getInstance(){
-  if (_instance == nullptr){
-    _instance = new whitelistDB();
-  }
-  return _instance;
-}
-
 whitelistDB::whitelistDB(){
   //boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 }

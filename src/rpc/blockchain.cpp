@@ -1527,11 +1527,10 @@ UniValue readwhitelistdb(const JSONRPCRequest& request)
 			+ HelpExampleRpc("readwhitelistdb","")
 			);
 
-  //Get the whitelist collection from mongodb
-  wldbWhitelist* wl=wldbWhitelist::getInstance();
+
   //Read the addrsses from mongodb into addressWhitelist
   try{
-    wl->read(&addressWhitelist);
+    whitelistDatabase.read(&addressWhitelist);
   } catch (const mongocxx::exception& e){
     throw JSONRPCError(RPC_MONGOCXX_EXCEPTION, string(e.what()));
   }  

@@ -9,6 +9,7 @@
 #include "consensus/consensus.h"
 #include "script/interpreter.h"
 #include "script/standard.h"
+#include "wldbWhitelist.hpp"
 
 #include <string>
 #include <vector>
@@ -147,6 +148,8 @@ void AddToWhitelist(const std::vector<std::string> address_key);
  *b) The tweaked address cannot be derived from the public key and the contract hash.
  *
  **/
+
+extern wldbCollection whitelistDatabase;
 
 extern CFeeRate incrementalRelayFee;
 extern CFeeRate dustRelayFee;
