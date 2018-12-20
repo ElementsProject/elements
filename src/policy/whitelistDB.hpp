@@ -33,6 +33,8 @@
 #include <mongocxx/database.hpp>
 #include <mongocxx/collection.hpp>
 
+#include <boost/thread/recursive_mutex.hpp>
+
 using bsoncxx::builder::stream::close_array;
 using bsoncxx::builder::stream::close_document;
 using bsoncxx::builder::stream::document;
@@ -42,6 +44,8 @@ using bsoncxx::builder::stream::open_document;
 
 
 class whitelistDB{
+  boost::recursive_mutex _mtx;
+
 public:
   //Returns the instance of whitelistDB, instantiating first if necessary.
   static whitelistDB* getInstance();

@@ -10,9 +10,10 @@ wldbWhitelist* wldbWhitelist::getInstance(){
 }
 
 wldbWhitelist::wldbWhitelist():wldbCollection("whitelist"){
-	;
+	boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 }
   
 wldbWhitelist::~wldbWhitelist(){
-  delete _instance;
+	boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  	delete _instance;
 }

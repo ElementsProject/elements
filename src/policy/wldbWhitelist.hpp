@@ -3,6 +3,7 @@
 
 class wldbWhitelist: public wldbCollection{
 public:
+	boost::recursive_mutex _mtx;
   wldbWhitelist();
   ~wldbWhitelist();
   static wldbWhitelist* getInstance();

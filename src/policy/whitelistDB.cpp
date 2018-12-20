@@ -10,9 +10,12 @@ whitelistDB* whitelistDB::getInstance(){
   return _instance;
 }
 
-whitelistDB::whitelistDB(){;}
+whitelistDB::whitelistDB(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+}
 
 whitelistDB::~whitelistDB(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   delete _uri;
   delete _pool;
   delete _database;
@@ -25,6 +28,7 @@ void whitelistDB::init(std::string username,
         std::string database,
         std::string authSource,
         std::string authMechanism){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _s_username=username;
   _s_password=password;
   _s_port=port;
@@ -39,6 +43,7 @@ void whitelistDB::init(std::string username,
 }
 									  
 void whitelistDB::initUri(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   std::string uri_string = std::string("mongodb://") + 
     _s_username + std::string(":") + 
     _s_password + std::string("@") + _s_host + (":") + 
@@ -50,11 +55,13 @@ void whitelistDB::initUri(){
 }
 
 void whitelistDB::initPool(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   delete _pool;
   _pool = new mongocxx::pool(*_uri);
 }
 
 void whitelistDB::initDatabase(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   auto client = _pool->acquire();
   //admin is the default database
   delete _database;
@@ -62,6 +69,7 @@ void whitelistDB::initDatabase(){
 }
 
 mongocxx::collection* whitelistDB::getCollection(std::string name){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   mongocxx::collection* coll = new mongocxx::collection((*_database)[name.c_str()]);
   return coll;
 }

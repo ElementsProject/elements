@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 class wldbCollection{
+  boost::recursive_mutex _mtx;
 public:
     wldbCollection(std::string name);
     ~wldbCollection();
