@@ -1,3 +1,4 @@
+#pragma once
 //A whitelist mongdo document class.
 
 #include <cstdint>

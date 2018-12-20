@@ -1,3 +1,4 @@
+#pragma once
 //A class for interfacting with the whitelist mongodb database.
 
 #include <cstdint>

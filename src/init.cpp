@@ -1104,6 +1104,7 @@ bool AppInitParameterInteraction()
         //read the whitelist from the database
         wldbWhitelist::getInstance()->init(wldbuser, wldbpass, wldbport, 
                                 wldbhost, wldbdatabase, wldbauthsource, wldbauthmechanism);
+        wldbWhitelist::getInstance()->policyList(&addressWhitelist); 
     }
 
 
