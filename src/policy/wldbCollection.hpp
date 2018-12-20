@@ -4,7 +4,6 @@
 #include <pthread.h>
 
 class wldbCollection{
-  boost::recursive_mutex _mtx;
 public:
     wldbCollection(std::string name);
     ~wldbCollection();
@@ -56,6 +55,8 @@ protected:
   CPolicylist* _plist;
 
 private:
+  //boost::recursive_mutex _mtx;
+
   wldbCollection();
   whitelistDB* _db;
 

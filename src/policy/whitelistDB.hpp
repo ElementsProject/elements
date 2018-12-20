@@ -44,8 +44,6 @@ using bsoncxx::builder::stream::open_document;
 
 
 class whitelistDB{
-  boost::recursive_mutex _mtx;
-
 public:
   //Returns the instance of whitelistDB, instantiating first if necessary.
   static whitelistDB* getInstance();
@@ -61,6 +59,8 @@ public:
   mongocxx::collection* getCollection(std::string name);
 
 private:
+//  boost::recursive_mutex _mtx;
+
   static whitelistDB* _instance;
   whitelistDB();
 
