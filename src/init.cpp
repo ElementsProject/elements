@@ -1764,6 +1764,11 @@ bool AppInitMain()
 
     // ********************************************************* Step 13: Load PAK List
 
+    // First, make sure -enforce_pak and -acceptnonstdtxn aren't conflicting
+    if (Params().GetEnforcePak() && gArgs.GetBoolArg("-acceptnonstdtxn", !Params().RequireStandard())) {
+        return InitError("-enforce_pak can not be true if the network accepts non-standard transactions for relay.");
+    }
+
     //Entire list of PAK entries from conf must be of valid format
     std::vector<std::string> pak_list_str = gArgs.GetArgs("-pak");
     bool valid_paklist = true;
