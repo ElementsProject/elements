@@ -116,8 +116,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     // ELEMENTS: PAK
     // Create block pak commitment if set in conf file and validating pegouts
-    if (!gArgs.GetBoolArg("-acceptnonstdtxn", !Params().RequireStandard())
-            && g_paklist_config) {
+    if (Params().GetEnforcePak() && g_paklist_config) {
         if (*g_paklist_config != g_paklist_blockchain) {
             g_paklist_config->CreateCommitments(commitments);
         }
