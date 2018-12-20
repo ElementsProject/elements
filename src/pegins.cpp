@@ -11,6 +11,7 @@
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <mainchainrpc.h>
+#include <merkleblock.h>
 #include <pow.h>
 #include <primitives/transaction.h>
 #include <primitives/bitcoin/merkleblock.h>
@@ -299,22 +300,21 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
         num_txs = merkle_block_pow.txn.GetNumTransactions();
     } else {
-        //TODO(rebase) parent signed blocks
-        //CMerkleBlock merkle_block;
-        //if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
-        //    return false;
-        //}
+        CMerkleBlock merkle_block;
+        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
+            return false;
+        }
 
-        //if (!CheckProofSignedParent(merkle_block.header, Params().GetConsensus())) {
-        //    return false;
-        //}
+        if (!CheckProofSignedParent(merkle_block.header, Params().GetConsensus())) {
+            return false;
+        }
 
-        //CTransactionRef pegtx;
-        //if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
-        //    return false;
-        //}
+        CTransactionRef pegtx;
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+            return false;
+        }
 
-        //num_txs = merkle_block.txn.GetNumTransactions();
+        num_txs = merkle_block.txn.GetNumTransactions();
     }
 
     // Check that the merkle proof corresponds to the txid

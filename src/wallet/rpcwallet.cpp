@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
+#include <block_proof.h>
 #include <chain.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -11,6 +12,7 @@
 #include <validation.h>
 #include <key_io.h>
 #include <mainchainrpc.h>
+#include <merkleblock.h>
 #include <net.h>
 #include <outputtype.h>
 #include <pegins.h>
@@ -5197,14 +5199,13 @@ UniValue createrawpegin(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
         }
     } else {
-        //TODO(rebase) parent signed blocks
-        //CTransactionRef txBTCRef;
-        //CTransaction tx_aux;
-        //CMerkleBlock merkleBlock;
-        //ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
-        //if (!CheckProofSignedParent(merkleBlock.header, Params().GetConsensus())) {
-        //    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
-        //}
+        CTransactionRef txBTCRef;
+        CTransaction tx_aux;
+        CMerkleBlock merkleBlock;
+        ret = createrawpegin(request, txBTCRef, tx_aux, merkleBlock);
+        if (!CheckProofSignedParent(merkleBlock.header, Params().GetConsensus())) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+        }
     }
     return ret;
 }

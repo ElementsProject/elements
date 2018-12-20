@@ -19,6 +19,7 @@ class CScript;
 
 /** Check on header proof, depending on chain type, PoW or signed **/
 bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
+bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params&);
 void ResetProof(CBlockHeader& block);
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);

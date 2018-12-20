@@ -2249,12 +2249,12 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
     obj.pushKV("parent_blockhash", parent_blockhash.GetHex());
     obj.pushKV("parent_chain_has_pow", consensus.ParentChainHasPow());
-    //TODO(rebase) signed blocks
-    //if (!consensus.ParentChainHasPow()) {
-    //    obj.pushKV("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript));
-    //    obj.pushKV("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript));
-    //    obj.pushKV("parent_pegged_asset", HexStr(consensus.parent_pegged_asset));
-    //}
+    if (!consensus.ParentChainHasPow()) {
+        obj.pushKV("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript));
+        obj.pushKV("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript));
+        //TODO(stevenroose) rebase CA
+        //obj.pushKV("parent_pegged_asset", HexStr(consensus.parent_pegged_asset));
+    }
     return obj;
 }
 

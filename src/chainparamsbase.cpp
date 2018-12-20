@@ -35,6 +35,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_has_parent_chain", "Whether or not there is a parent chain.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parentgenesisblockhash", "The genesis blockhash of the parent chain.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_parentpowlimit", "The proof-of-work limit value for the parent chain.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parent_chain_signblockscript", "Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])", false, OptionsCategory::CHAINPARAMS);
 
     gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
 }

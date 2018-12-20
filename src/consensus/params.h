@@ -87,7 +87,7 @@ struct Params {
     bool has_parent_chain;
     uint256 parentChainPowLimit;
     uint32_t pegin_min_depth;
-    CScript parent_chain_signblockscript; //TODO(rebase) change when implementing parents with signed blocks
+    CScript parent_chain_signblockscript;
     bool ParentChainHasPow() const { return parent_chain_signblockscript == CScript();}
     CScript fedpegScript;
     // g_con_blockheightinheader global hack instead of proper arg due to circular dep
