@@ -651,9 +651,9 @@ void CleanupBlockRevFiles()
 //First read the mongodb whitelist database, then begin watching it for changes.
 void ThreadWatchWhitelistDatabase(){
     LogPrintf("Reading whitelist database.");
-//    wldbWhitelist::getInstance()->read();
+    wldbWhitelist::getInstance()->read();
     LogPrintf("Watching for changes to whitelist database.");  
-//    wldbWhitelist::getInstance()->watch();
+    wldbWhitelist::getInstance()->watch();
 }
 
 void ThreadImport(std::vector<boost::filesystem::path> vImportFiles)
@@ -1685,8 +1685,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
         //Read and montor the whitelist from a new thread
 
-//    threadGroup.create_thread(&ThreadWatchWhitelistDatabase);
-    wldbWhitelist::getInstance()->read();
+     threadGroup.create_thread(&ThreadWatchWhitelistDatabase);
+//    wldbWhitelist::getInstance()->read();
     // Wait for genesis block to be processed
     {
         boost::unique_lock<boost::mutex> lock(cs_GenesisWait);

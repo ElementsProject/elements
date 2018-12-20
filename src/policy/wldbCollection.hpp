@@ -1,3 +1,4 @@
+#pragma once
 //A collection
 #include "whitelistDB.hpp"
 #include "policyList.hpp"

@@ -1,4 +1,6 @@
 //The one and only  mongodb "whitelist" collection.
+#pragma once
+
 #include "wldbCollection.hpp"
 
 class wldbWhitelist: public wldbCollection{
