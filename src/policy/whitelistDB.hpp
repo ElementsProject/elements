@@ -60,7 +60,7 @@ public:
   mongocxx::collection* getCollection(std::string name);
 
 private:
-//  boost::recursive_mutex _mtx;
+  boost::recursive_mutex _mtx;
   mongocxx::instance _mongo_instance{};
   std::string _s_username="";
   std::string _s_password="";

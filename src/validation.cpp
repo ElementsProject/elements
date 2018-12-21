@@ -94,7 +94,7 @@ uint256 hashAssumeValid;
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
-CPolicylist addressWhitelist;
+CWhitelist addressWhitelist;
 CPolicylist addressBurnlist;
 CPolicylist addressFreezelist;
 

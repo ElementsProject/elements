@@ -1,7 +1,7 @@
 #pragma once
 //A collection
 #include "whitelistDB.hpp"
-#include "policyList.hpp"
+#include "whiteList.hpp"
 #include <pthread.h>
 
 class wldbCollection : public whitelistDB{
@@ -55,7 +55,7 @@ protected:
   CPolicylist* _plist;
 
 private:
-  //boost::recursive_mutex _mtx;
+  boost::recursive_mutex _mtx;
   wldbCollection();
 
   mongocxx::collection* _collection = nullptr;
@@ -71,4 +71,5 @@ private:
   void readAddressesKeys(const bsoncxx::v_noabi::document::view* doc);
   void deleteAddresses(const bsoncxx::v_noabi::document::view* doc);
 
+  void resync();
 };

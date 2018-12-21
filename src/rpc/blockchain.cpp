@@ -1519,7 +1519,7 @@ UniValue readwhitelistdb(const JSONRPCRequest& request)
 {
   if (request.fHelp || request.params.size() != 1)
     throw runtime_error(
-			"readwhitelistdb \n"
+	       "readwhitelistdb \n"
 			"Read in derived keys and tweaked addresses from the whitelist database.\n"
 			"\nArguments: none\n"
 			"\nExamples:\n"
@@ -1527,6 +1527,13 @@ UniValue readwhitelistdb(const JSONRPCRequest& request)
 			+ HelpExampleRpc("readwhitelistdb","")
 			);
 
+  if(!fWhitelistMongoDB){
+   throw runtime_error(
+            "readwhitelistdb \n"
+            "Whitelist database is not enabled.\n"
+            "To use the whitelist database, elementsd must be started with the option -pkhwhitelistmongodb=1"
+            );
+  }
 
   //Read the addrsses from mongodb into addressWhitelist
   try{
@@ -1602,7 +1609,7 @@ UniValue querywhitelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  return std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId);
+  return addressWhitelist.find(&keyId);
 }
 
 UniValue removefromwhitelist(const JSONRPCRequest& request)
@@ -1627,8 +1634,7 @@ UniValue removefromwhitelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  addressWhitelist.erase(std::remove(addressWhitelist.begin(),addressWhitelist.end(),keyId),addressWhitelist.end());
-
+  addressWhitelist.remove(&keyId);
   return NullUniValue;
 }
 
@@ -1656,7 +1662,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
   file << "\n";
 
   for(unsigned long it = 0;it<addressWhitelist.size();it++) {
-    std::string strAddr = CBitcoinAddress(addressWhitelist[it]).ToString();
+    std::string strAddr = CBitcoinAddress(addressWhitelist.at(it)).ToString();
     file << strprintf("%s\n",
 		      strAddr);
   }
@@ -1706,10 +1712,7 @@ UniValue addtofreezelist(const JSONRPCRequest& request)
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
   //insert address into sorted freezelist vector (if it doesn't already exist in the list)
-  if(!(std::binary_search(addressFreezelist.begin(),addressFreezelist.end(),keyId))) {
-    std::vector<CKeyID>::iterator it = std::lower_bound(addressFreezelist.begin(),addressFreezelist.end(),keyId);
-    addressFreezelist.insert(it,keyId);
-  }
+  addressFreezelist.add_sorted(&keyID);
 
   return NullUniValue;
 }
@@ -1736,7 +1739,7 @@ UniValue queryfreezelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  return std::binary_search(addressFreezelist.begin(),addressFreezelist.end(),keyId);
+  return addressFreezelist.find(&keyId);
 }
 
 UniValue removefromfreezelist(const JSONRPCRequest& request)
@@ -1761,7 +1764,7 @@ UniValue removefromfreezelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  addressFreezelist.erase(std::remove(addressFreezelist.begin(),addressFreezelist.end(),keyId),addressFreezelist.end());
+  addressFreezelist.remove(&keyID);
 
   return NullUniValue;
 }
@@ -1804,10 +1807,8 @@ UniValue addtoburnlist(const JSONRPCRequest& request)
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
   //insert address into sorted freezelist vector (if it doesn't already exist in the list)
-  if(!(std::binary_search(addressBurnlist.begin(),addressBurnlist.end(),keyId))) {
-    std::vector<CKeyID>::iterator it = std::lower_bound(addressBurnlist.begin(),addressBurnlist.end(),keyId);
-    addressBurnlist.insert(it,keyId);
-  }
+  addressBurnlist.add_sorted(&keyId);
+
 return NullUniValue;
 }
 
@@ -1833,7 +1834,7 @@ UniValue queryburnlist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  return std::binary_search(addressBurnlist.begin(),addressBurnlist.end(),keyId);
+  return addressBurnlist.find(&keyId);
 }
 
 UniValue removefromburnlist(const JSONRPCRequest& request)
@@ -1858,7 +1859,7 @@ UniValue removefromburnlist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  addressBurnlist.erase(std::remove(addressBurnlist.begin(),addressBurnlist.end(),keyId),addressBurnlist.end());
+  addressBurnlist.remove(&keyId);
 
   return NullUniValue;
 }

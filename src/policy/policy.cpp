@@ -143,9 +143,9 @@ bool IsWhitelisted(const CTransaction& tx)
     CKeyID keyId;
     keyId = CKeyID(uint160(vSolutions[0]));
 
-    // search in whitelist for the presence of qaddress: if not found return false
-    if(!(std::binary_search(addressWhitelist.begin(),addressWhitelist.end(),keyId))) return false;
-
+    //Search in whitelist for the presence of each output address. 
+    //If one is not found, return false.
+    if(!addressWhitelist.find(&keyId)) return false;
   }
   return true;
 }
@@ -174,7 +174,7 @@ bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 	keyId = CKeyID(uint160(vSolutions[0]));
 
 	// search in freezelist for the presence of keyid
-	if(std::binary_search(addressFreezelist.begin(),addressFreezelist.end(),keyId)) return true;
+  if(addressFreezelist.find(&keyId)) return true;
       }
   }
   return false;
@@ -204,7 +204,7 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 	keyId = CKeyID(uint160(vSolutions[0]));
 
 	// search in freezelist for the presence of keyid
-	if(std::binary_search(addressBurnlist.begin(),addressBurnlist.end(),keyId)) nin++;
+  if(addressBurnlist.find(&keyId)) nin++;
       }
   }
 
