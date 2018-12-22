@@ -196,10 +196,10 @@ libbitcoin_server_a_SOURCES = \
   noui.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
-  policy/whitelistDB.cpp \
-  policy/wldbWhitelist.cpp \
-  policy/wldbCollection.cpp \
+  policy/policyListDatabase.cpp \
+  policy/whiteListDatabase.cpp \
   policy/policyList.cpp \
+  policy/whiteList.cpp \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \

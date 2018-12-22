@@ -9,7 +9,7 @@
 #include "consensus/consensus.h"
 #include "script/interpreter.h"
 #include "script/standard.h"
-#include "wldbWhitelist.hpp"
+#include "whiteListDatabase.hpp"
 
 #include <string>
 #include <vector>
@@ -149,7 +149,7 @@ void AddToWhitelist(const std::vector<std::string> address_key);
  *
  **/
 
-extern wldbCollection whitelistDatabase;
+extern whiteListDatabase theWhiteListDatabase;
 
 extern CFeeRate incrementalRelayFee;
 extern CFeeRate dustRelayFee;

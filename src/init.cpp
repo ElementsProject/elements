@@ -27,7 +27,7 @@
 #include "net.h"
 #include "net_processing.h"
 #include "policy/policy.h"
-#include "policy/wldbCollection.hpp"
+#include "policy/whiteListDatabase.hpp"
 #include "rpc/server.h"
 #include "rpc/register.h"
 #include "script/standard.h"
@@ -43,7 +43,6 @@
 #include "validationinterface.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
-#include "policy/wldbWhitelist.hpp"
 #include "policy/policy.h"
 #endif
 #include "warnings.h"
@@ -651,7 +650,7 @@ void CleanupBlockRevFiles()
 }
 
 //First read the mongodb whitelist database, then begin watching it for changes.
-void ThreadWatchWhitelistDatabase(wldbCollection* db){
+void ThreadWatchWhitelistDatabase(whiteListDatabase* db){
     LogPrintf("Reading whitelist database.");
     db->read();
     LogPrintf("Watching for changes to whitelist database.");  
@@ -1112,9 +1111,9 @@ bool AppInitParameterInteraction()
         std::string wldbauthmechanism = GetArg("-wldbauthmechanism", DEFAULT_WLDBAUTHMECHANISM);
 
         //read the whitelist from the database
-        whitelistDatabase.init(wldbuser, wldbpass, wldbport, 
+        theWhiteListDatabase.init(wldbuser, wldbpass, wldbport, 
                                 wldbhost, wldbdatabase, wldbauthsource, wldbauthmechanism);
-        whitelistDatabase.policyList(&addressWhitelist);
+        theWhiteListDatabase.setPolicyList(&addressWhitelist);
     }
 
 
@@ -1687,7 +1686,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
         //Read and montor the whitelist from a new thread
     if(fWhitelistMongoDB){   
-         threadGroup.create_thread(boost::bind(&ThreadWatchWhitelistDatabase, &whitelistDatabase));
+         threadGroup.create_thread(boost::bind(&ThreadWatchWhitelistDatabase, &theWhiteListDatabase));
     }
 //   
     {

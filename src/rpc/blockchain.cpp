@@ -21,7 +21,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
-#include "policy/wldbWhitelist.hpp"
+#include "policy/whitelistDatabase.hpp"
 
 #include <fstream>
 
@@ -1537,7 +1537,7 @@ UniValue readwhitelistdb(const JSONRPCRequest& request)
 
   //Read the addrsses from mongodb into addressWhitelist
   try{
-    whitelistDatabase.read(&addressWhitelist);
+    theWhiteListDatabase.read();
   } catch (const mongocxx::exception& e){
     throw JSONRPCError(RPC_MONGOCXX_EXCEPTION, string(e.what()));
   }  
@@ -1712,7 +1712,7 @@ UniValue addtofreezelist(const JSONRPCRequest& request)
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
   //insert address into sorted freezelist vector (if it doesn't already exist in the list)
-  addressFreezelist.add_sorted(&keyID);
+  addressFreezelist.add_sorted(&keyId);
 
   return NullUniValue;
 }
@@ -1764,7 +1764,7 @@ UniValue removefromfreezelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  addressFreezelist.remove(&keyID);
+  addressFreezelist.remove(&keyId);
 
   return NullUniValue;
 }

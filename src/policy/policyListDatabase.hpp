@@ -1,3 +1,7 @@
+// Copyright (c) 2018 The CommerceBlock Developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #pragma once
 //A class for interfacting with the whitelist mongodb database.
 
@@ -36,6 +40,8 @@
 
 #include <boost/thread/recursive_mutex.hpp>
 
+#include "policyList.hpp"
+
 using bsoncxx::builder::stream::close_array;
 using bsoncxx::builder::stream::close_document;
 using bsoncxx::builder::stream::document;
@@ -44,11 +50,10 @@ using bsoncxx::builder::stream::open_array;
 using bsoncxx::builder::stream::open_document;
 
 
-class whitelistDB{
+class policyListDatabase{
 public:
-  //Returns the instance of whitelistDB, instantiating first if necessary.
-  whitelistDB();
-  ~whitelistDB();
+  policyListDatabase();
+  ~policyListDatabase();
   void init(std::string username,
         std::string password,
         std::string port,
@@ -57,10 +62,59 @@ public:
         std::string authSource,
         std::string authMechanism);
 
-  mongocxx::collection* getCollection(std::string name);
+  mongocxx::collection* getCollection();
+
+  void print();
+
+  //Set the policy list that will be updated by this collection
+  void setPolicyList(CPolicyList* plist){
+    _plist=plist;
+  }
+
+  void read(CPolicyList* plist){
+    setPolicyList(plist);
+    read();
+  }
+
+  virtual void read() = 0;
+
+  void watch(CPolicyList* plist){
+    setPolicyList(plist);
+    watch();
+  }
+
+  void watch();
+
+  void stopWatch();
+
+protected:
+	 boost::recursive_mutex _mtx;
+  //Concrete classes must override this method to specify the collection name: 
+  //"whitelist", "freezelist", "burnlist", etc.
+  virtual void collectionName() = 0;  
+  std::string _collectionName="";
+  virtual void readAddressesKeys(const bsoncxx::v_noabi::document::view* doc) = 0;
+
+
+  //Change stream event operation types
+  const std::string _updateOpType = "update";
+  const std::string _insertOpType = "insert";
+  const std::string _deleteOpType = "delete";
+    
+  //Change stream event processor
+  virtual void processEvent(const bsoncxx::v_noabi::document::view event);
+
+  //Pointer to the policy list to be updated by this collection
+  CPolicyList* _plist;
+
+  mongocxx::collection* _collection = nullptr;
+  mongocxx::cursor* _cursor = nullptr;
+  
+  //Move the cursor to the first document
+  void begin();
 
 private:
-  boost::recursive_mutex _mtx;
+
   mongocxx::instance _mongo_instance{};
   std::string _s_username="";
   std::string _s_password="";
@@ -76,5 +130,15 @@ private:
 
   mongocxx::uri* _uri = nullptr;
   mongocxx::pool* _pool = nullptr;
-  mongocxx::database* _database = nullptr;    
+  mongocxx::database* _database = nullptr;  
+
+
+    
+  void initCollection();
+  void initCursor();
+
+  void deleteAddresses(const bsoncxx::v_noabi::document::view* doc);
+
+  void resync();
+
 };

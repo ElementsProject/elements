@@ -21,6 +21,7 @@
 #include "base58.h"
 #include "utilstrencodings.h"
 #include "util.h"
+#include "policy/whiteList.hpp"
 #include "policy/policyList.hpp"
 
 #include <algorithm>
@@ -160,11 +161,11 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
 
-extern CPolicylist addressWhitelist;
+extern CWhiteList addressWhitelist;
 //freezelist address list
-extern CPolicylist addressFreezelist;
+extern CPolicyList addressFreezelist;
 //burnlist address list
-extern CPolicylist addressBurnlist;
+extern CPolicyList addressBurnlist;
 
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
