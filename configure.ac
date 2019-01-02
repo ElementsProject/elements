@@ -791,7 +791,7 @@ if test x$use_pkgconfig = xyes; then
     [PKG_CHECK_MODULES],
     [
       PKG_CHECK_MODULES([SSL], [libssl],, [AC_MSG_ERROR(openssl  not found.)])
-      PKG_CHECK_MODULES([MONGOCXX], [libmongocxx-static],, [AC_MSG_ERROR(mongocxx-static  not found.)])
+      PKG_CHECK_MODULES([MONGOCXX], [libmongocxx],, [AC_MSG_ERROR(mongocxx  not found.)])
       PKG_CHECK_MODULES([CRYPTO], [libcrypto],,[AC_MSG_ERROR(libcrypto  not found.)])
       BITCOIN_QT_CHECK([PKG_CHECK_MODULES([PROTOBUF], [protobuf], [have_protobuf=yes], [BITCOIN_QT_FAIL(libprotobuf not found)])])
       if test x$use_qr != xno; then
@@ -822,8 +822,8 @@ else
   AC_CHECK_HEADER([openssl/ssl.h],, AC_MSG_ERROR(libssl headers missing),)
   AC_CHECK_LIB([ssl],         [main],SSL_LIBS=-lssl, AC_MSG_ERROR(libssl missing))
 
-  AC_CHECK_HEADER([mongocxx/client.hpp],, AC_MSG_ERROR(libmongocxx-static headers missing),)
-  AC_CHECK_LIB([mongocxx-static],         [main],MONGOCXX_LIBS=-lmongocxx-static, AC_MSG_ERROR(libmongocxx-static missing))
+  AC_CHECK_HEADER([mongocxx/client.hpp],, AC_MSG_ERROR(libmongocxx headers missing),)
+  AC_CHECK_LIB([mongocxx],         [main],MONGOCXX_LIBS=-lmongocxx, AC_MSG_ERROR(libmongocxx missing))
 
   if test x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests != xnononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)
