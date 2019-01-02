@@ -9,9 +9,11 @@
 class CWhiteList : public CPolicyList{
 public:
 	CWhiteList();
-	~CWhiteList();
+	virtual ~CWhiteList();
 
 	void add_derived(std::string addressIn, std::string key);
+
+	void synchronise(CWhiteList* wl_new);
 
 private:
 	//Make add_sorted private because we only want verified derived keys 

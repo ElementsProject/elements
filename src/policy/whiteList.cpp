@@ -48,3 +48,4 @@ void CWhiteList::add_derived(std::string addressIn, std::string key){
   //insert new address into sorted CWhiteList vector 
   add_sorted(&keyId);
 }
+

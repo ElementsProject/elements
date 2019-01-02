@@ -53,7 +53,7 @@ using bsoncxx::builder::stream::open_document;
 class policyListDatabase{
 public:
   policyListDatabase();
-  ~policyListDatabase();
+  virtual ~policyListDatabase();
   void init(std::string username,
         std::string password,
         std::string port,
@@ -71,13 +71,14 @@ public:
     _plist=plist;
   }
 
-  void read(CPolicyList* plist){
+  void synchronise(CPolicyList* plist){
     setPolicyList(plist);
-    read();
+    synchronise();
   }
 
-  virtual void read() = 0;
+  virtual void synchronise() = 0;
 
+  
   void watch(CPolicyList* plist){
     setPolicyList(plist);
     watch();
@@ -105,7 +106,9 @@ protected:
   virtual void processEvent(const bsoncxx::v_noabi::document::view event);
 
   //Pointer to the policy list to be updated by this collection
-  CPolicyList* _plist;
+  CPolicyList* _plist = nullptr;
+  //A buffer used when resynching the database. 
+  CPolicyList* _plist_buffer = nullptr;
 
   mongocxx::collection* _collection = nullptr;
   mongocxx::cursor* _cursor = nullptr;
@@ -138,7 +141,5 @@ private:
   void initCursor();
 
   void deleteAddresses(const bsoncxx::v_noabi::document::view* doc);
-
-  void resync();
 
 };

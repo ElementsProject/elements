@@ -652,7 +652,7 @@ void CleanupBlockRevFiles()
 //First read the mongodb whitelist database, then begin watching it for changes.
 void ThreadWatchWhitelistDatabase(whiteListDatabase* db){
     LogPrintf("Reading whitelist database.");
-    db->read();
+    db->synchronise();
     LogPrintf("Watching for changes to whitelist database.");  
     db->watch();
 }

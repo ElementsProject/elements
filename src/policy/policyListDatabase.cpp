@@ -141,7 +141,7 @@ void policyListDatabase::watch(){
 //Process the event this->_event, and update the policy list plist accordingly.
 void policyListDatabase::processEvent(const bsoncxx::v_noabi::document::view event){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-//  std::cout << bsoncxx::to_json(event) << std::endl;
+  //std::cout << bsoncxx::to_json(event) << std::endl;
   std::string opType = event["operationType"].get_utf8().value.to_string();
 
   if(opType == _insertOpType){
@@ -149,9 +149,9 @@ void policyListDatabase::processEvent(const bsoncxx::v_noabi::document::view eve
      bsoncxx::document::view  doc = event["fullDocument"].get_document().view();
      readAddressesKeys(&doc);
   } else if(opType == _updateOpType){
-    resync();
+    synchronise();
   }else if(opType == _deleteOpType){
-    resync();
+    synchronise();
   } else {
   //Are there any other operation types? TODOLD
   throw std::runtime_error(std::string(__func__) + 
@@ -161,14 +161,4 @@ void policyListDatabase::processEvent(const bsoncxx::v_noabi::document::view eve
   return;
 }
 
-//Resync the modified database with the policylist.
-void policyListDatabase::resync(){
-    //Block access from other threads during resync.
-    _plist->lock();
-    //Reread the database and unlock.
-    _plist->clear();
-    read();
-    _plist->unlock();
-    return;
-}
 

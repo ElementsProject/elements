@@ -1537,7 +1537,7 @@ UniValue readwhitelistdb(const JSONRPCRequest& request)
 
   //Read the addrsses from mongodb into addressWhitelist
   try{
-    theWhiteListDatabase.read();
+    theWhiteListDatabase.synchronise();
   } catch (const mongocxx::exception& e){
     throw JSONRPCError(RPC_MONGOCXX_EXCEPTION, string(e.what()));
   }  

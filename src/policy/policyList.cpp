@@ -19,29 +19,37 @@ bool CPolicyList::find(CKeyID* id){
 
 void CPolicyList::clear(){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  return std::vector<CKeyID>::clear();
+  return base::clear();
 }
 
-void CPolicyList::remove(CKeyID* id){
+//Erase elements, and return the next valid iterator.
+CPolicyList::baseIter CPolicyList::remove(CKeyID* id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  erase(std::remove(begin(),end(),*id),end());
+  return erase(std::remove(begin(),end(),*id),end());
 }
 
-CKeyID CPolicyList::at(std::vector<CKeyID>::size_type pos) {
+CKeyID CPolicyList::at(base::size_type pos) {
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  return std::vector<CKeyID>::at(pos);
+  return base::at(pos);
 }
 
-std::vector<CKeyID>::size_type CPolicyList::size(){
+CPolicyList::base::size_type CPolicyList::size(){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  return std::vector<CKeyID>::size();
+  return base::size();
 }
 
 //Add to the sorted list
 void CPolicyList::add_sorted(CKeyID* id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(!find(id)) {
-    std::vector<CKeyID>::iterator it = std::lower_bound(begin(),end(),*id);
+    baseIter it = std::lower_bound(begin(),end(),*id);
     insert(it,*id);
   }
 }
+
+//Swap the contents of this list for another list.
+void CPolicyList::swap(CPolicyList* l_new){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  base::swap(*l_new);
+}
+

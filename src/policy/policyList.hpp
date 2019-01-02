@@ -17,20 +17,24 @@
 
 class CPolicyList : private std::vector<CKeyID>
 {
+  using base = std::vector<CKeyID>;
+  using baseIter = base::iterator;
+
  public:
   CPolicyList();
-  ~CPolicyList();
+  virtual ~CPolicyList();
   void lock(){_mtx.lock();}
   void unlock(){_mtx.unlock();}
   bool find(CKeyID* id);
   virtual void clear();
-  void remove(CKeyID* id);
-  virtual CKeyID at(std::vector<CKeyID>::size_type pos);
-  virtual std::vector<CKeyID>::size_type size();
+  baseIter remove(CKeyID* id);
+  virtual CKeyID at(base::size_type pos);
+  virtual base::size_type size();
   void delete_address(std::string addressIn);
 
   //This will be made prive int CWhitelist.
   virtual void add_sorted(CKeyID* keyId);
+  void swap(CPolicyList* l_new);
 
  enum Errc{
     INVALID_ADDRESS_OR_KEY,

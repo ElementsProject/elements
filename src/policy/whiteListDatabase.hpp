@@ -9,11 +9,12 @@
 class whiteListDatabase : public policyListDatabase{
 public:
 	whiteListDatabase();
-	~whiteListDatabase();
+	virtual ~whiteListDatabase();
 
-	virtual void read();
+	virtual void synchronise();
 
 private:
 	virtual void collectionName(){_collectionName="whitelist";}
 	virtual void readAddressesKeys(const bsoncxx::v_noabi::document::view* doc);
+	virtual void readAddressesKeys(const bsoncxx::v_noabi::document::view* doc, CWhiteList* wl);
 };
