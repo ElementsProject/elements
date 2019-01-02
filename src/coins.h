@@ -81,6 +81,32 @@ public:
     }
 };
 
+struct CCoinsCacheEntry
+{
+    Coin coin; // The actual cached data.
+    unsigned char flags;
+    // ELEMENTS:
+    bool peginSpent;
+
+    enum Flags {
+        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
+        FRESH = (1 << 1), // The parent view does not have this entry (or it is pruned).
+        /* Note that FRESH is a performance optimization with which we can
+         * erase coins that are fully spent if we know we do not need to
+         * flush the changes to the parent cache.  It is always safe to
+         * not mark FRESH if that condition is not guaranteed.
+         */
+        // ELEMENTS:
+        PEGIN = (1 << 2), // represents a pegin (coins is actually empty/useless, look at peginSpent instead)
+    };
+
+    CCoinsCacheEntry() : flags(0) {}
+    explicit CCoinsCacheEntry(Coin&& coin_) : coin(std::move(coin_)), flags(0) {}
+};
+
+// For PEGIN entries, the first is the genesis hash, the second is the outpoint.
+// For ~PEGIN entries, the first is zero, the second is the outpoint.
+typedef std::pair<uint256, COutPoint> CCoinsMapKey;
 class SaltedOutpointHasher
 {
 private:
@@ -95,31 +121,14 @@ public:
      * unordered_map will behave unpredictably if the custom hasher returns a
      * uint64_t, resulting in failures when syncing the chain (#4634).
      */
+    size_t operator()(const CCoinsMapKey& key) const {
+        return SipHashUint256(k0, k1, key.first) ^ SipHashUint256Extra(k0, k1, key.second.hash, key.second.n);
+    }
     size_t operator()(const COutPoint& id) const {
         return SipHashUint256Extra(k0, k1, id.hash, id.n);
     }
 };
-
-struct CCoinsCacheEntry
-{
-    Coin coin; // The actual cached data.
-    unsigned char flags;
-
-    enum Flags {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1), // The parent view does not have this entry (or it is pruned).
-        /* Note that FRESH is a performance optimization with which we can
-         * erase coins that are fully spent if we know we do not need to
-         * flush the changes to the parent cache.  It is always safe to
-         * not mark FRESH if that condition is not guaranteed.
-         */
-    };
-
-    CCoinsCacheEntry() : flags(0) {}
-    explicit CCoinsCacheEntry(Coin&& coin_) : coin(std::move(coin_)), flags(0) {}
-};
-
-typedef std::unordered_map<COutPoint, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
+typedef std::unordered_map<CCoinsMapKey, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
 
 /** Cursor for iterating over CoinsView state */
 class CCoinsViewCursor
@@ -153,6 +162,10 @@ public:
 
     //! Just check whether a given outpoint is unspent.
     virtual bool HaveCoin(const COutPoint &outpoint) const;
+
+    // ELEMENTS:
+    //! Check if a given pegin has been spent
+    virtual bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const;
 
     //! Retrieve the block hash whose state this CCoinsView currently represents
     virtual uint256 GetBestBlock() const;
@@ -194,6 +207,8 @@ public:
     bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override;
     CCoinsViewCursor *Cursor() const override;
     size_t EstimateSize() const override;
+    // ELEMENTS:
+    bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override;
 };
 
 
@@ -228,6 +243,9 @@ public:
     CCoinsViewCursor* Cursor() const override {
         throw std::logic_error("CCoinsViewCache cursor iteration not supported.");
     }
+    // ELEMENTS:
+    bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override;
+    void SetPeginSpent(const std::pair<uint256, COutPoint> &outpoint, bool fSpent);
 
     /**
      * Check if we have the given utxo already loaded in this cache.

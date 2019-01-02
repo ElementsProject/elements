@@ -31,6 +31,13 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blocks` set to true.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_max_block_sig_size", "Max allowed witness data for the signed block header.", false, OptionsCategory::CHAINPARAMS);
+
+    gArgs.AddArg("-con_has_parent_chain", "Whether or not there is a parent chain.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-parentgenesisblockhash", "The genesis blockhash of the parent chain.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parentpowlimit", "The proof-of-work limit value for the parent chain.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parent_chain_signblockscript", "Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])", false, OptionsCategory::CHAINPARAMS);
+
+    gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
@@ -44,13 +51,14 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
-        return MakeUnique<CBaseChainParams>("", 8332);
+        return MakeUnique<CBaseChainParams>("", 8332, 18332);
     else if (chain == CBaseChainParams::TESTNET)
-        return MakeUnique<CBaseChainParams>("testnet3", 18332);
+        return MakeUnique<CBaseChainParams>("testnet3", 18332, 8332);
     else if (chain == CBaseChainParams::REGTEST)
-        return MakeUnique<CBaseChainParams>("regtest", 18443);
+        return MakeUnique<CBaseChainParams>("regtest", 18443, 18332);
 
-    return MakeUnique<CBaseChainParams>(chain, 18553);
+    // ELEMENTS:
+    return MakeUnique<CBaseChainParams>(chain, 7041, 18332);
 }
 
 void SelectBaseParams(const std::string& chain)

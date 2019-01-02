@@ -56,6 +56,11 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
     }
 }
 
+bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params)
+{
+    return CheckProofGeneric(block, params, params.parent_chain_signblockscript);
+}
+
 void ResetProof(CBlockHeader& block)
 {
     block.proof.solution.clear();

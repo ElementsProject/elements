@@ -131,6 +131,7 @@ BITCOIN_CORE_H = \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
+  mainchainrpc.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -141,6 +142,7 @@ BITCOIN_CORE_H = \
   netmessagemaker.h \
   noui.h \
   outputtype.h \
+  pegins.h \
   policy/feerate.h \
   policy/fees.h \
   policy/policy.h \
@@ -232,12 +234,14 @@ libbitcoin_server_a_SOURCES = \
   index/txindex.cpp \
   init.cpp \
   dbwrapper.cpp \
+  mainchainrpc.cpp \
   merkleblock.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
   noui.cpp \
   outputtype.cpp \
+  pegins.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
   policy/rbf.cpp \

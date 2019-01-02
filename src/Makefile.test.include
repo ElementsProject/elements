@@ -90,7 +90,10 @@ BITCOIN_TESTS =\
   test/uint256_tests.cpp \
   test/util_tests.cpp \
   test/validation_block_tests.cpp \
-  test/versionbits_tests.cpp
+  test/versionbits_tests.cpp \
+  test/pegin_spent_tests.cpp \
+  test/pegin_witness_tests.cpp
+# ELEMENTS IN THE END
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \

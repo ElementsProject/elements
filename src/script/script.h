@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <string>
+#include <uint256.h>
 #include <vector>
 
 // Maximum number of bytes pushable to the stack
@@ -37,6 +38,12 @@ static const int MAX_STACK_SIZE = 1000;
 // Threshold for nLockTime: below this value it is interpreted as block number,
 // otherwise as UNIX timestamp.
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
+
+// ELEMENTS:
+// Validate pegin proof by checking Bitcoin transaction inclusion in mainchain.
+static const bool DEFAULT_VALIDATE_PEGIN = false;
+// Number of confirms on parent chain required to confirm on sidechain.
+static const unsigned int DEFAULT_PEGIN_CONFIRMATION_DEPTH = 8;
 
 template <typename T>
 std::vector<unsigned char> ToByteVector(const T& in)
@@ -533,6 +540,15 @@ public:
     bool IsPayToScriptHash() const;
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
+
+    // ELEMENTS:
+    // Returns true if script follows OP_RETURN <genesis_block_hash> <pegout_scriptpubkey>
+    // and if correct it returns both things in the output parameters.
+    bool IsPegoutScript(uint256& genesis_hash, CScript& pegout_scriptpubkey) const;
+    // Returns true if script follows OP_RETURN <genesis_block_hash> <destination_scriptpubkey>
+    // it may also have additional pushes at the end. It checks
+    // the genesis hash matches the specified one.
+    bool IsPegoutScript(const uint256& genesis_hash) const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
     bool IsPushOnly(const_iterator pc) const;

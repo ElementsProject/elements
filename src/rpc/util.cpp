@@ -120,6 +120,14 @@ public:
         obj.pushKV("witness_program", HexStr(id.program, id.program + id.length));
         return obj;
     }
+
+    UniValue operator()(const NullData& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("isscript", false);
+        obj.pushKV("iswitness", false);
+        return obj;
+    }
 };
 
 UniValue DescribeAddress(const CTxDestination& dest)

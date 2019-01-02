@@ -304,7 +304,7 @@ public:
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {
-        SerializeTransaction(*this, s);
+        Sidechain::Bitcoin::SerializeTransaction(*this, s);
     }
 
     /** This deserializing constructor is provided instead of an Unserialize method.
@@ -372,13 +372,13 @@ struct CMutableTransaction
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {
-        SerializeTransaction(*this, s);
+        Sidechain::Bitcoin::SerializeTransaction(*this, s);
     }
 
 
     template <typename Stream>
     inline void Unserialize(Stream& s) {
-        UnserializeTransaction(*this, s);
+        Sidechain::Bitcoin::UnserializeTransaction(*this, s);
     }
 
     template <typename Stream>

@@ -13,6 +13,7 @@
 #include <net.h>
 #include <netbase.h>
 #include <outputtype.h>
+#include <pegins.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -456,6 +457,44 @@ static UniValue echo(const JSONRPCRequest& request)
     return request.params;
 }
 
+//
+// ELEMENTS CALLS
+
+UniValue tweakfedpegscript(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "tweakfedpegscript \"claim_script\"\n"
+            "\nReturns a tweaked fedpegscript.\n"
+            "\nArguments:\n"
+            "1. \"claim_script\"         (string, required) Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress.\n"
+            "\nResult:\n"
+            "{\n"
+                "\"script\"           (string) The fedpegscript tweaked with claim_script\n"
+                "\"address\"          (string) The address corresponding to the tweaked fedpegscript\n"
+            "}\n"
+        );
+
+
+    if (!IsHex(request.params[0].get_str())) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
+    }
+
+    std::vector<unsigned char> scriptData = ParseHex(request.params[0].get_str());
+    CScript claim_script = CScript(scriptData.begin(), scriptData.end());
+    CScript tweaked_script = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
+    CTxDestination parent_addr(CScriptID(GetScriptForWitness(tweaked_script)));
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("script", HexStr(tweaked_script));
+    ret.pushKV("address", EncodeParentDestination(parent_addr));
+
+    return ret;
+}
+
+// END ELEMENTS CALLS
+//
+
 static UniValue getinfo_deprecated(const JSONRPCRequest& request)
 {
     throw JSONRPCError(RPC_METHOD_NOT_FOUND,
@@ -477,6 +516,8 @@ static const CRPCCommand commands[] =
     { "util",               "createmultisig",         &createmultisig,         {"nrequired","keys"} },
     { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
+    // ELEMENTS:
+    { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script"} },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},

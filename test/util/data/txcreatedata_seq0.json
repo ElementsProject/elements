@@ -14,6 +14,7 @@
                 "asm": "",
                 "hex": ""
             },
+            "is_pegin": false,
             "sequence": 4294967293
         }
     ],

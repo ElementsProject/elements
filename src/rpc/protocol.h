@@ -106,4 +106,8 @@ void DeleteAuthCookie();
 /** Parse JSON-RPC batch reply into a vector */
 std::vector<UniValue> JSONRPCProcessBatchReply(const UniValue &in, size_t num);
 
+// ELEMENTS:
+/** Needs to know cookiedir path info -cli doesn't require */
+bool GetMainchainAuthCookie(std::string *cookie_out);
+
 #endif // BITCOIN_RPC_PROTOCOL_H

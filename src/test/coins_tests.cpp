@@ -16,7 +16,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out);
+int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness);
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight);
 
 namespace
@@ -57,10 +57,10 @@ public:
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); ) {
             if (it->second.flags & CCoinsCacheEntry::DIRTY) {
                 // Same optimization used in CCoinsViewDB is to only write dirty entries.
-                map_[it->first] = it->second.coin;
+                map_[it->first.second] = it->second.coin;
                 if (it->second.coin.IsSpent() && InsecureRandRange(3) == 0) {
                     // Randomly delete empty entries on write.
-                    map_.erase(it->first);
+                    map_.erase(it->first.second);
                 }
             }
             mapCoins.erase(it++);
@@ -407,7 +407,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             if (!tx.IsCoinBase()) {
                 const COutPoint &out = tx.vin[0].prevout;
                 Coin coin = undo.vprevout[0];
-                ApplyTxInUndo(std::move(coin), *(stack.back()), out);
+                ApplyTxInUndo(std::move(coin), *(stack.back()), out, tx.vin[0], tx.vin[0].m_pegin_witness);
             }
             // Store as a candidate for reconnection
             disconnected_coins.insert(utxod->first);
@@ -525,7 +525,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     }
 }
 
-const static COutPoint OUTPOINT;
+const static std::pair<uint256, COutPoint> OUTPOINT;
 const static CAmount PRUNED = -1;
 const static CAmount ABSENT = -2;
 const static CAmount FAIL = -3;
@@ -608,7 +608,7 @@ public:
 static void CheckAccessCoin(CAmount base_value, CAmount cache_value, CAmount expected_value, char cache_flags, char expected_flags)
 {
     SingleEntryCacheTest test(base_value, cache_value, cache_flags);
-    test.cache.AccessCoin(OUTPOINT);
+    test.cache.AccessCoin(OUTPOINT.second);
     test.cache.SelfTest();
 
     CAmount result_value;
@@ -659,7 +659,7 @@ BOOST_AUTO_TEST_CASE(ccoins_access)
 static void CheckSpendCoins(CAmount base_value, CAmount cache_value, CAmount expected_value, char cache_flags, char expected_flags)
 {
     SingleEntryCacheTest test(base_value, cache_value, cache_flags);
-    test.cache.SpendCoin(OUTPOINT);
+    test.cache.SpendCoin(OUTPOINT.second);
     test.cache.SelfTest();
 
     CAmount result_value;
@@ -716,7 +716,7 @@ static void CheckAddCoinBase(CAmount base_value, CAmount cache_value, CAmount mo
     try {
         CTxOut output;
         output.nValue = modify_value;
-        test.cache.AddCoin(OUTPOINT, Coin(std::move(output), 1, coinbase), coinbase);
+        test.cache.AddCoin(OUTPOINT.second, Coin(std::move(output), 1, coinbase), coinbase);
         test.cache.SelfTest();
         GetCoinsMapEntry(test.cache.map(), result_value, result_flags);
     } catch (std::logic_error& e) {

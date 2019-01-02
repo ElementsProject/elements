@@ -7,13 +7,16 @@
 
 #include <amount.h>
 
+#include <set>
 #include <stdint.h>
 #include <vector>
+#include <uint256.h>
 
 class CBlockIndex;
 class CCoinsViewCache;
 class CTransaction;
 class CValidationState;
+class COutPoint;
 
 /** Transaction validation functions */
 
@@ -27,7 +30,7 @@ namespace Consensus {
  * @param[out] txfee Set to the transaction fee if successful.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmount& txfee, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent);
 } // namespace Consensus
 
 /** Auxiliary functions for transaction validation (ideally should not be exposed) */
