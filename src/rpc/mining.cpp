@@ -1254,7 +1254,7 @@ UniValue testproposedblock(const JSONRPCRequest& request)
             "\nChecks a block proposal for validity, and that it extends chaintip\n"
             "\nArguments:\n"
             "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"acceptnonstd\" (bool, optional) If set false, returns error if block contains non-standard transaction. Default is set via `-acceptnonstdtxn`\n"
+            "2. \"acceptnonstd\" (bool, optional) If set false, returns error if block contains non-standard transaction. Default is set via `-acceptnonstdtxn`. If PAK enforcement is set, block commitment mismatches with configuration PAK lists are rejected as well.\n"
             "\nResult\n"
             "\nExamples:\n"
             + HelpExampleCli("testproposedblock", "<hex>")
@@ -1287,6 +1287,25 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     const CChainParams& chainparams = Params();
     const bool acceptnonstd = !request.params[1].isNull() ? request.params[1].get_bool() : gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard());
     if (!acceptnonstd) {
+
+        // Get PAK commitment, if any
+        boost::optional<CPAKList> paklist_block = GetPAKKeysFromCommitment(*block.vtx[0]);
+
+        // Possible PAK commitment mismatch between blocks and config
+        if (chainparams.GetEnforcePak() && g_paklist_config) {
+            if(paklist_block) {
+                if (*paklist_block != *g_paklist_config) {
+                    throw JSONRPCError(RPC_VERIFY_ERROR, "Proposal PAK commitment and config PAK do not match.");
+                }
+                // else it may be an unnecessary commitment but that's ok.
+            } else {
+                // Waiting for block that has commitment to config list
+                if (*g_paklist_config != g_paklist_blockchain) {
+                    throw JSONRPCError(RPC_VERIFY_ERROR, "Proposal does not have required PAK commitment.");
+                }
+            }
+        }
+
         for (auto& transaction : block.vtx) {
             if (transaction->IsCoinBase()) continue;
             std::string reason;
