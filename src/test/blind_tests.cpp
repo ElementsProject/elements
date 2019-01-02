@@ -302,6 +302,20 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(asset_out == unblinded_id);
         BOOST_CHECK(unblinded_amount == 50);
 
+        // Make invalid public keys in nonce commitment, first of right size
+        tx4.vout[2].nNonce.vchCommitment = std::vector<unsigned char>(33, 0);
+        tx4.vout[2].nNonce.vchCommitment[0] = 0x03;
+        BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, scriptCommit, tx4.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
+
+        // Next, leading byte claiming to be 33 bytes in size
+        tx4.vout[2].nNonce.vchCommitment.resize(1);
+        BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, scriptCommit, tx4.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
+
+        // Last, blank
+        tx4.vout[2].nNonce.vchCommitment.clear();
+        BOOST_CHECK(UnblindConfidentialPair(key2, tx4.vout[2].nValue, tx4.vout[2].nAsset, tx4.vout[2].nNonce, scriptCommit, tx4.wit.vtxoutwit[2].vchRangeproof, unblinded_amount, blind4, asset_out, asset_blinder_out) == 0);
+
+
         CCoinsModifier in4 = cache.ModifyCoins(ArithToUint256(4));
         in4->vout.resize(4);
         in4->vout[0] = tx4.vout[0];

@@ -45,7 +45,7 @@ bool UnblindConfidentialPair(const CKey &key, const CConfidentialValue& confValu
         return false;
     }
     CPubKey ephemeral_key(nNonce.vchCommitment);
-    if (nNonce.vchCommitment.size() > 0 && !ephemeral_key.IsValid()) {
+    if (nNonce.vchCommitment.size() > 0 && !ephemeral_key.IsFullyValid()) {
         return false;
     }
 
