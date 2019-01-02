@@ -322,7 +322,8 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     SignatureData data;
     assert(tx.vin.size() > nIn);
     data.scriptSig = tx.vin[nIn].scriptSig;
-    data.scriptWitness = tx.vin[nIn].scriptWitness;
+    data.scriptWitness = (tx.witness.vtxinwit.size() > nIn) ? tx.witness.vtxinwit[nIn].scriptWitness : CScriptWitness();
+//M.S.    data.scriptWitness = tx.vin[nIn].scriptWitness;
     Stacks stack(data);
 
     // Get signatures
@@ -383,10 +384,17 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     return data;
 }
 
-void UpdateInput(CTxIn& input, const SignatureData& data)
-{
-    input.scriptSig = data.scriptSig;
-    input.scriptWitness = data.scriptWitness;
+//MS void UpdateInput(CTxIn& input, const SignatureData& data)
+//{
+//    input.scriptSig = data.scriptSig;
+//    input.scriptWitness = data.scriptWitness;
+//}
+
+void UpdateTransaction(CMutableTransaction& tx, unsigned int nIn, const SignatureData& data) {
+    assert(tx.vin.size() > nIn);
+    tx.witness.vtxinwit.resize(tx.vin.size());
+    tx.vin[nIn].scriptSig = data.scriptSig;
+    tx.witness.vtxinwit[nIn].scriptWitness = data.scriptWitness;
 }
 
 void SignatureData::MergeSignatureData(SignatureData sigdata)
@@ -408,12 +416,16 @@ void SignatureData::MergeSignatureData(SignatureData sigdata)
 bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const CAmount& amount, int nHashType)
 {
     assert(nIn < txTo.vin.size());
+    txTo.witness.vtxinwit.resize(txTo.vin.size());
+    CTransaction txToConst(txTo);
+    //TransactionSignatureCreator creator(&keystore, &txToConst, nIn, amount, nHashType);
 
     MutableTransactionSignatureCreator creator(&txTo, nIn, amount, nHashType);
 
     SignatureData sigdata;
     bool ret = ProduceSignature(provider, creator, fromPubKey, sigdata);
-    UpdateInput(txTo.vin.at(nIn), sigdata);
+//MS    UpdateInput(txTo.vin.at(nIn), sigdata);
+    UpdateTransaction(txTo, nIn, sigdata);
     return ret;
 }
 

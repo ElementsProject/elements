@@ -308,6 +308,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         valid_with_witness_tx.vin.resize(1);
         valid_with_witness_tx.vin[0].prevout.hash = spend_tx.GetHash();
         valid_with_witness_tx.vin[0].prevout.n = 1;
+        valid_with_witness_tx.witness.vtxinwit.resize(1);
         valid_with_witness_tx.vout.resize(1);
         valid_with_witness_tx.vout[0].nValue = 11*CENT;
         valid_with_witness_tx.vout[0].scriptPubKey = p2pk_scriptPubKey;
@@ -315,13 +316,15 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         // Sign
         SignatureData sigdata;
         ProduceSignature(keystore, MutableTransactionSignatureCreator(&valid_with_witness_tx, 0, 11*CENT, SIGHASH_ALL), spend_tx.vout[1].scriptPubKey, sigdata);
-        UpdateInput(valid_with_witness_tx.vin[0], sigdata);
+//MS        UpdateInput(valid_with_witness_tx.vin[0], sigdata);
+        UpdateTransaction(valid_with_witness_tx, 0, sigdata);
 
         // This should be valid under all script flags.
         ValidateCheckInputsForAllFlags(valid_with_witness_tx, 0, true);
 
         // Remove the witness, and check that it is now invalid.
-        valid_with_witness_tx.vin[0].scriptWitness.SetNull();
+//MS        valid_with_witness_tx.vin[0].scriptWitness.SetNull();
+        valid_with_witness_tx.witness.vtxinwit[0].scriptWitness.SetNull();
         ValidateCheckInputsForAllFlags(valid_with_witness_tx, SCRIPT_VERIFY_WITNESS, true);
     }
 
@@ -335,6 +338,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         tx.vin[0].prevout.n = 0;
         tx.vin[1].prevout.hash = spend_tx.GetHash();
         tx.vin[1].prevout.n = 1;
+        tx.witness.vtxinwit.resize(2);
         tx.vout.resize(1);
         tx.vout[0].nValue = 22*CENT;
         tx.vout[0].scriptPubKey = p2pk_scriptPubKey;
@@ -343,7 +347,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         for (int i=0; i<2; ++i) {
             SignatureData sigdata;
             ProduceSignature(keystore, MutableTransactionSignatureCreator(&tx, i, 11*CENT, SIGHASH_ALL), spend_tx.vout[i].scriptPubKey, sigdata);
-            UpdateInput(tx.vin[i], sigdata);
+//MS            UpdateInput(tx.vin[i], sigdata);
+            UpdateTransaction(tx, i, sigdata);
         }
 
         // This should be valid under all script flags
@@ -352,7 +357,8 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         // Check that if the second input is invalid, but the first input is
         // valid, the transaction is not cached.
         // Invalidate vin[1]
-        tx.vin[1].scriptWitness.SetNull();
+//MS        tx.vin[1].scriptWitness.SetNull();
+        tx.witness.vtxinwit[1].scriptWitness.SetNull();
 
         CValidationState state;
         PrecomputedTransactionData txdata(tx);

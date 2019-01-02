@@ -199,7 +199,8 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     {
         // We don't care if witness for this input is empty, since it must not be bloated.
         // If the script is invalid without witness, it would be caught sooner or later during validation.
-        if (tx.vin[i].scriptWitness.IsNull())
+        if ((tx.witness.vtxinwit.size() <= i) || (tx.witness.vtxinwit[i].scriptWitness.IsNull()))
+//M.S.        if (tx.vin[i].scriptWitness.IsNull())
             continue;
 
         const CTxOut &prev = mapInputs.AccessCoin(tx.vin[i].prevout).out;
@@ -228,13 +229,17 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
         // Check P2WSH standard limits
         if (witnessversion == 0 && witnessprogram.size() == WITNESS_V0_SCRIPTHASH_SIZE) {
-            if (tx.vin[i].scriptWitness.stack.back().size() > MAX_STANDARD_P2WSH_SCRIPT_SIZE)
+            const CScriptWitness& scriptWitness = tx.witness.vtxinwit[i].scriptWitness;
+            if (scriptWitness.stack.back().size() > MAX_STANDARD_P2WSH_SCRIPT_SIZE)
+//M.S.            if (tx.vin[i].scriptWitness.stack.back().size() > MAX_STANDARD_P2WSH_SCRIPT_SIZE)
                 return false;
-            size_t sizeWitnessStack = tx.vin[i].scriptWitness.stack.size() - 1;
+            size_t sizeWitnessStack = scriptWitness.stack.size() - 1;
+//M.S.            size_t sizeWitnessStack = tx.vin[i].scriptWitness.stack.size() - 1;
             if (sizeWitnessStack > MAX_STANDARD_P2WSH_STACK_ITEMS)
                 return false;
             for (unsigned int j = 0; j < sizeWitnessStack; j++) {
-                if (tx.vin[i].scriptWitness.stack[j].size() > MAX_STANDARD_P2WSH_STACK_ITEM_SIZE)
+                if (scriptWitness.stack[j].size() > MAX_STANDARD_P2WSH_STACK_ITEM_SIZE)
+//M.S.                if (tx.vin[i].scriptWitness.stack[j].size() > MAX_STANDARD_P2WSH_STACK_ITEM_SIZE)
                     return false;
             }
         }
@@ -255,8 +260,11 @@ int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
 {
     return GetVirtualTransactionSize(GetTransactionWeight(tx), nSigOpCost);
 }
-
-int64_t GetVirtualTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
+//M.S. int64_t GetVirtualTransactionInputSize(const CTxIn& txin, int64_t nSigOpCost)
+//{
+//    return GetVirtualTransactionSize(GetTransactionInputWeight(txin), nSigOpCost);
+//}
+int64_t GetVirtualTransactionInputSize(const CTransaction& tx, int64_t nSigOpCost)
 {
-    return GetVirtualTransactionSize(GetTransactionInputWeight(txin), nSigOpCost);
+    return GetVirtualTransactionSize(GetTransactionInputWeight(tx), nSigOpCost);
 }

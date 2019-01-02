@@ -26,4 +26,9 @@ uint256 BlockMerkleRoot(const CBlock& block, bool* mutated = nullptr);
  */
 uint256 BlockWitnessMerkleRoot(const CBlock& block, bool* mutated = nullptr);
 
+/*
+ * Compute the Merkle root of the transactions in a block using mid-state only.
+ */
+uint256 ComputeFastMerkleRoot(const std::vector<uint256>& hashes);
+
 #endif // BITCOIN_CONSENSUS_MERKLE_H

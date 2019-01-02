@@ -61,7 +61,9 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
 
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
     txCoinbase.vout.resize(1);
-    txCoinbase.vin[0].scriptWitness.SetNull();
+//MS    txCoinbase.vin[0].scriptWitness.SetNull();
+    txCoinbase.witness.vtxinwit.resize(1);
+    txCoinbase.witness.vtxinwit[0].scriptWitness.SetNull();
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
 
     return pblock;

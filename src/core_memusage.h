@@ -18,9 +18,45 @@ static inline size_t RecursiveDynamicUsage(const COutPoint& out) {
 }
 
 static inline size_t RecursiveDynamicUsage(const CTxIn& in) {
-    size_t mem = RecursiveDynamicUsage(in.scriptSig) + RecursiveDynamicUsage(in.prevout) + memusage::DynamicUsage(in.scriptWitness.stack);
-    for (std::vector<std::vector<unsigned char> >::const_iterator it = in.scriptWitness.stack.begin(); it != in.scriptWitness.stack.end(); it++) {
-         mem += memusage::DynamicUsage(*it);
+    size_t mem = RecursiveDynamicUsage(in.scriptSig) + RecursiveDynamicUsage(in.prevout);
+    return mem;
+}
+
+//static inline size_t RecursiveDynamicUsage(const CTxIn& in) {
+//    size_t mem = RecursiveDynamicUsage(in.scriptSig) + RecursiveDynamicUsage(in.prevout) + memusage::DynamicUsage(in.scriptWitness.stack);
+//    for (std::vector<std::vector<unsigned char> >::const_iterator it = in.scriptWitness.stack.begin(); it != in.scriptWitness.stack.end(); it++) {
+//         mem += memusage::DynamicUsage(*it);
+//    }
+//    return mem;
+//}
+
+static inline size_t RecursiveDynamicUsage(const CScriptWitness& scriptWit) {
+    size_t mem = memusage::DynamicUsage(scriptWit.stack);
+    for (std::vector<std::vector<unsigned char> >::const_iterator it = scriptWit.stack.begin(); it != scriptWit.stack.end(); it++) {
+        mem += memusage::DynamicUsage(*it);
+    }
+    return mem;
+}
+
+static inline size_t RecursiveDynamicUsage(const CTxInWitness& txInWit) {
+    size_t mem = RecursiveDynamicUsage(txInWit.scriptWitness);
+    mem += RecursiveDynamicUsage(txInWit.m_pegin_witness);
+    return mem;
+}
+
+static inline size_t RecursiveDynamicUsage(const CTxOutWitness& txOutWit) {
+    size_t mem = memusage::DynamicUsage(txOutWit.vchRangeproof);
+    mem += memusage::DynamicUsage(txOutWit.vchSurjectionproof);
+    return mem;
+}
+
+static inline size_t RecursiveDynamicUsage(const CTxWitness& wit) {
+    size_t mem = memusage::DynamicUsage(wit.vtxinwit) + memusage::DynamicUsage(wit.vtxoutwit);
+    for (const auto& txInWit: wit.vtxinwit) {
+        mem += RecursiveDynamicUsage(txInWit);
+    }
+    for (const auto& txOutWit: wit.vtxoutwit) {
+        mem += RecursiveDynamicUsage(txOutWit);
     }
     return mem;
 }

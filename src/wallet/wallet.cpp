@@ -1544,7 +1544,8 @@ int64_t CWalletTx::GetTxTime() const
 
 // Helper for producing a max-sized low-S low-R signature (eg 71 bytes)
 // or a max-sized low-S signature (e.g. 72 bytes) if use_max_sig is true
-bool CWallet::DummySignInput(CTxIn &tx_in, const CTxOut &txout, bool use_max_sig) const
+//MS bool CWallet::DummySignInput(CTxIn &tx_in, const CTxOut &txout, bool use_max_sig) const
+bool CWallet::DummySignInput(CMutableTransaction& tx, unsigned int nIn, const CTxOut& txout, bool use_max_sig) const
 {
     // Fill in dummy signatures for fee calculation.
     const CScript& scriptPubKey = txout.scriptPubKey;
@@ -1553,7 +1554,8 @@ bool CWallet::DummySignInput(CTxIn &tx_in, const CTxOut &txout, bool use_max_sig
     if (!ProduceSignature(*this, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
         return false;
     }
-    UpdateInput(tx_in, sigdata);
+//MS    UpdateInput(tx_in, sigdata);
+    UpdateTransaction(tx, nIn, sigdata);
     return true;
 }
 
@@ -1564,7 +1566,8 @@ bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> 
     int nIn = 0;
     for (const auto& txout : txouts)
     {
-        if (!DummySignInput(txNew.vin[nIn], txout, use_max_sig)) {
+//MS        if (!DummySignInput(txNew.vin[nIn], txout, use_max_sig)) {
+        if (!DummySignInput(txNew, nIn, txout, use_max_sig)) {
             return false;
         }
 
@@ -1606,12 +1609,14 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, 
 {
     CMutableTransaction txn;
     txn.vin.push_back(CTxIn(COutPoint()));
-    if (!wallet->DummySignInput(txn.vin[0], txout, use_max_sig)) {
+//MS    if (!wallet->DummySignInput(txn.vin[0], txout, use_max_sig)) {
+    if (!wallet->DummySignInput(txn, 0, txout, use_max_sig)) {
         // This should never happen, because IsAllFromMe(ISMINE_SPENDABLE)
         // implies that we can sign for every input.
         return -1;
     }
-    return GetVirtualTransactionInputSize(txn.vin[0]);
+//M.S.    return GetVirtualTransactionInputSize(txn.vin[0]);
+    return GetVirtualTransactionInputSize(txn);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
@@ -2573,7 +2578,8 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
         if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
             return false;
         }
-        UpdateInput(input, sigdata);
+//MS        UpdateInput(input, sigdata);
+        UpdateTransaction(tx, nIn, sigdata);
         nIn++;
     }
     return true;
@@ -3007,7 +3013,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     strFailReason = _("Signing transaction failed");
                     return false;
                 } else {
-                    UpdateInput(txNew.vin.at(nIn), sigdata);
+//MS                    UpdateInput(txNew.vin.at(nIn), sigdata);
+                    UpdateTransaction(txNew, nIn, sigdata);
                 }
 
                 nIn++;

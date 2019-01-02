@@ -647,7 +647,8 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         if (!fHashSingle || (i < mergedTx.vout.size()))
             ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata);
 
-        UpdateInput(txin, sigdata);
+//MS        UpdateInput(txin, sigdata);
+        UpdateTransaction(mergedTx, i, sigdata);
     }
 
     tx = mergedTx;

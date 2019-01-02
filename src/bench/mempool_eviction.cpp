@@ -8,6 +8,7 @@
 
 #include <list>
 #include <vector>
+#include "../primitives/transaction.h"
 
 static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(pool.cs)
 {
@@ -29,7 +30,9 @@ static void MempoolEviction(benchmark::State& state)
     CMutableTransaction tx1 = CMutableTransaction();
     tx1.vin.resize(1);
     tx1.vin[0].scriptSig = CScript() << OP_1;
-    tx1.vin[0].scriptWitness.stack.push_back({1});
+//MS    tx1.vin[0].scriptWitness.stack.push_back({1});
+    tx1.witness.vtxinwit.resize(1);
+    tx1.witness.vtxinwit[0].scriptWitness.stack.push_back({1});
     tx1.vout.resize(1);
     tx1.vout[0].scriptPubKey = CScript() << OP_1 << OP_EQUAL;
     tx1.vout[0].nValue = 10 * COIN;
@@ -37,7 +40,9 @@ static void MempoolEviction(benchmark::State& state)
     CMutableTransaction tx2 = CMutableTransaction();
     tx2.vin.resize(1);
     tx2.vin[0].scriptSig = CScript() << OP_2;
-    tx2.vin[0].scriptWitness.stack.push_back({2});
+//MS    tx2.vin[0].scriptWitness.stack.push_back({2});
+    tx1.witness.vtxinwit.resize(1);
+    tx2.witness.vtxinwit[0].scriptWitness.stack.push_back({2});
     tx2.vout.resize(1);
     tx2.vout[0].scriptPubKey = CScript() << OP_2 << OP_EQUAL;
     tx2.vout[0].nValue = 10 * COIN;
@@ -46,7 +51,9 @@ static void MempoolEviction(benchmark::State& state)
     tx3.vin.resize(1);
     tx3.vin[0].prevout = COutPoint(tx2.GetHash(), 0);
     tx3.vin[0].scriptSig = CScript() << OP_2;
-    tx3.vin[0].scriptWitness.stack.push_back({3});
+//MS    tx3.vin[0].scriptWitness.stack.push_back({3});
+    tx1.witness.vtxinwit.resize(1);
+    tx3.witness.vtxinwit[0].scriptWitness.stack.push_back({3});
     tx3.vout.resize(1);
     tx3.vout[0].scriptPubKey = CScript() << OP_3 << OP_EQUAL;
     tx3.vout[0].nValue = 10 * COIN;
@@ -55,10 +62,14 @@ static void MempoolEviction(benchmark::State& state)
     tx4.vin.resize(2);
     tx4.vin[0].prevout.SetNull();
     tx4.vin[0].scriptSig = CScript() << OP_4;
-    tx4.vin[0].scriptWitness.stack.push_back({4});
+//MS    tx4.vin[0].scriptWitness.stack.push_back({4});
+    tx1.witness.vtxinwit.resize(1);
+    tx4.witness.vtxinwit[0].scriptWitness.stack.push_back({4});
     tx4.vin[1].prevout.SetNull();
     tx4.vin[1].scriptSig = CScript() << OP_4;
-    tx4.vin[1].scriptWitness.stack.push_back({4});
+//MS    tx4.vin[1].scriptWitness.stack.push_back({4});
+    tx1.witness.vtxinwit.resize(2);
+    tx4.witness.vtxinwit[1].scriptWitness.stack.push_back({4});
     tx4.vout.resize(2);
     tx4.vout[0].scriptPubKey = CScript() << OP_4 << OP_EQUAL;
     tx4.vout[0].nValue = 10 * COIN;
@@ -69,10 +80,14 @@ static void MempoolEviction(benchmark::State& state)
     tx5.vin.resize(2);
     tx5.vin[0].prevout = COutPoint(tx4.GetHash(), 0);
     tx5.vin[0].scriptSig = CScript() << OP_4;
-    tx5.vin[0].scriptWitness.stack.push_back({4});
+//MS    tx5.vin[0].scriptWitness.stack.push_back({4});
+    tx1.witness.vtxinwit.resize(1);
+    tx5.witness.vtxinwit[0].scriptWitness.stack.push_back({4});
     tx5.vin[1].prevout.SetNull();
     tx5.vin[1].scriptSig = CScript() << OP_5;
-    tx5.vin[1].scriptWitness.stack.push_back({5});
+//MS    tx5.vin[1].scriptWitness.stack.push_back({5});
+    tx1.witness.vtxinwit.resize(2);
+    tx5.witness.vtxinwit[1].scriptWitness.stack.push_back({5});
     tx5.vout.resize(2);
     tx5.vout[0].scriptPubKey = CScript() << OP_5 << OP_EQUAL;
     tx5.vout[0].nValue = 10 * COIN;
@@ -83,10 +98,14 @@ static void MempoolEviction(benchmark::State& state)
     tx6.vin.resize(2);
     tx6.vin[0].prevout = COutPoint(tx4.GetHash(), 1);
     tx6.vin[0].scriptSig = CScript() << OP_4;
-    tx6.vin[0].scriptWitness.stack.push_back({4});
+//MS    tx6.vin[0].scriptWitness.stack.push_back({4});
+    tx1.witness.vtxinwit.resize(1);
+    tx6.witness.vtxinwit[0].scriptWitness.stack.push_back({4});
     tx6.vin[1].prevout.SetNull();
     tx6.vin[1].scriptSig = CScript() << OP_6;
-    tx6.vin[1].scriptWitness.stack.push_back({6});
+//MS    tx6.vin[1].scriptWitness.stack.push_back({6});
+    tx1.witness.vtxinwit.resize(2);
+    tx6.witness.vtxinwit[1].scriptWitness.stack.push_back({6});
     tx6.vout.resize(2);
     tx6.vout[0].scriptPubKey = CScript() << OP_6 << OP_EQUAL;
     tx6.vout[0].nValue = 10 * COIN;
@@ -97,10 +116,14 @@ static void MempoolEviction(benchmark::State& state)
     tx7.vin.resize(2);
     tx7.vin[0].prevout = COutPoint(tx5.GetHash(), 0);
     tx7.vin[0].scriptSig = CScript() << OP_5;
-    tx7.vin[0].scriptWitness.stack.push_back({5});
+//MS    tx7.vin[0].scriptWitness.stack.push_back({5});
+    tx1.witness.vtxinwit.resize(1);
+    tx7.witness.vtxinwit[0].scriptWitness.stack.push_back({5});
     tx7.vin[1].prevout = COutPoint(tx6.GetHash(), 0);
     tx7.vin[1].scriptSig = CScript() << OP_6;
-    tx7.vin[1].scriptWitness.stack.push_back({6});
+//MS    tx7.vin[1].scriptWitness.stack.push_back({6});
+    tx1.witness.vtxinwit.resize(2);
+    tx7.witness.vtxinwit[1].scriptWitness.stack.push_back({6});
     tx7.vout.resize(2);
     tx7.vout[0].scriptPubKey = CScript() << OP_7 << OP_EQUAL;
     tx7.vout[0].nValue = 10 * COIN;

@@ -11,6 +11,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include "CTxWitness.h"
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
@@ -64,7 +65,7 @@ public:
     COutPoint prevout;
     CScript scriptSig;
     uint32_t nSequence;
-    CScriptWitness scriptWitness; //! Only serialized through CTransaction
+//M.S.    std::shared_ptr<CScriptWitness> scriptWitness; //! Only serialized through CTransaction
 
     /* Setting nSequence to this value for every input in a transaction
      * disables nLockTime. */
@@ -201,6 +202,7 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
     unsigned char flags = 0;
     tx.vin.clear();
     tx.vout.clear();
+    tx.witness.SetNull();
     /* Try to read the vin. In case the dummy is there, this will be read as an empty vector. */
     s >> tx.vin;
     if (tx.vin.size() == 0 && fAllowWitness) {
@@ -214,18 +216,34 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         /* We read a non-empty vin. Assume a normal vout follows. */
         s >> tx.vout;
     }
-    if ((flags & 1) && fAllowWitness) {
+//MS    if ((flags & 1) && fAllowWitness) {
         /* The witness flag is present, and we support witnesses. */
+//        flags ^= 1;
+//        for (size_t i = 0; i < tx.vin.size(); i++) {
+//            s >> tx.vin[i].scriptWitness.stack;
+//        }
+
+//    }
+
+    if ((flags & 1) && fAllowWitness) {
+        /* The witness flag is present. */
         flags ^= 1;
-        for (size_t i = 0; i < tx.vin.size(); i++) {
-            s >> tx.vin[i].scriptWitness.stack;
+        const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
+        const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+        for (size_t i = 0; i < tx.witness.vtxinwit.size(); ++i) {
+            s >> tx.witness.vtxinwit[i].scriptWitness.stack;
         }
+//        s >> tx.witness;
     }
+
     if (flags) {
         /* Unknown flag in the serialization */
         throw std::ios_base::failure("Unknown transaction optional data");
     }
+
     s >> tx.nLockTime;
+
+
 }
 
 template<typename Stream, typename TxType>
@@ -250,8 +268,12 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     s << tx.vin;
     s << tx.vout;
     if (flags & 1) {
-        for (size_t i = 0; i < tx.vin.size(); i++) {
-            s << tx.vin[i].scriptWitness.stack;
+//MS        for (size_t i = 0; i < tx.vin.size(); i++) {
+//MS            s << tx.vin[i].scriptWitness.stack;
+        for (size_t i = 0; i < tx.witness.vtxinwit.size(); i++) {
+            s << tx.witness.vtxinwit[i].scriptWitness.stack;
+
+//todo: Use ols witness
         }
     }
     s << tx.nLockTime;
@@ -282,6 +304,8 @@ public:
     const std::vector<CTxOut> vout;
     const int32_t nVersion;
     const uint32_t nLockTime;
+    // For elements we need to keep track of some extra state for script witness outside of vin
+    const CTxWitness witness;
 
 private:
     /** Memory only. */
@@ -347,12 +371,14 @@ public:
 
     bool HasWitness() const
     {
-        for (size_t i = 0; i < vin.size(); i++) {
-            if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
+        //TODO: Previous version only checked IsNull?
+        return (!witness.IsNull() && !witness.IsEmpty());
+//        for (size_t i = 0; i < vin.size(); i++) {
+//            if (!vin[i].scriptWitness.IsNull()) {
+//                return true;
+//            }
+//        }
+//        return false;
     }
 };
 
@@ -363,6 +389,8 @@ struct CMutableTransaction
     std::vector<CTxOut> vout;
     int32_t nVersion;
     uint32_t nLockTime;
+    // For elements we need to keep track of some extra state for script witness outside of vin
+    CTxWitness witness;
 
     CMutableTransaction();
     explicit CMutableTransaction(const CTransaction& tx);
@@ -390,12 +418,14 @@ struct CMutableTransaction
 
     bool HasWitness() const
     {
-        for (size_t i = 0; i < vin.size(); i++) {
-            if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
+        //TODO: Previous version only checked IsNull?
+        return (!witness.IsNull() && !witness.IsEmpty());
+//        for (size_t i = 0; i < vin.size(); i++) {
+//            if (!vin[i].scriptWitness.IsNull()) {
+//                return true;
+//            }
+//        }
+//        return false;
     }
 };
 
