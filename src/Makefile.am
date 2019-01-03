@@ -361,6 +361,8 @@ libbitcoin_consensus_a_SOURCES = \
   primitives/block.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
+  primitives/pak.cpp \
+  primitives/pak.h \
   primitives/bitcoin/block.cpp \
   primitives/bitcoin/block.h \
   primitives/bitcoin/merkleblock.cpp \
