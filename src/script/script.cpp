@@ -244,6 +244,13 @@ bool CScript::IsPayToPubkeyHash() const
             (*this)[23] == OP_EQUALVERIFY &&
             (*this)[24] == OP_CHECKSIG);
 }
+bool CScript::IsPayToWitnessPubkeyHash() const
+{
+    return (this->size() == 22 &&
+            (*this)[0] == 0x00 &&
+            (*this)[1] == 0x14);
+}
+
 // END ELEMENTS
 //
 
