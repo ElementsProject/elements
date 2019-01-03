@@ -179,29 +179,37 @@ bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash)
     script.GetOp(pc, opcode, data);
     script.GetOp(pc, opcode, data);
 
-    CScript destination(data.begin(), data.end());
-
-    // Only accept p2pkh
-    if (!destination.IsPayToPubkeyHash()) {
-        return false;
-    }
+    CScript chain_dest(data.begin(), data.end());
 
     // Grab pubkey hash within the extracted sub-script
-    CScript::const_iterator pc2 = destination.begin();
-    std::vector<unsigned char> data2;
-    opcodetype opcode2;
-    if (!destination.GetOp(pc2, opcode2, data2) || !destination.GetOp(pc2, opcode2, data2) ||!destination.GetOp(pc2, opcode2, data2)) {
-        return false;
-    }
+    std::vector<unsigned char> extracted_pubkey_hash;
 
-    // Follow-up with full pubkey
+    // Get full pubkey
     if (!script.GetOp(pc, opcode, data) || opcode != 33 || data.size() != 33) {
         return false;
     }
+    CPubKey full_pubkey(data.begin(), data.end());
 
-    CPubKey cpubkey(data.begin(), data.end());
-    //Ensure the chaindest p2pkh matches the included pubkey
-    if (cpubkey.GetID() != uint160(data2)) {
+    // Accept any standard single-key type
+    if (chain_dest.IsPayToPubkeyHash()) {
+        extracted_pubkey_hash = std::vector<unsigned char>(chain_dest.begin()+3, chain_dest.begin()+23);
+        if (full_pubkey.GetID() != uint160(extracted_pubkey_hash)) {
+            return false;
+        }
+    } else if (chain_dest.IsPayToWitnessPubkeyHash()) {
+        extracted_pubkey_hash = std::vector<unsigned char>(chain_dest.begin()+2, chain_dest.begin()+22);
+        if (full_pubkey.GetID() != uint160(extracted_pubkey_hash)) {
+            return false;
+        }
+    } else if (chain_dest.IsPayToScriptHash()) {
+        // Take full_pubkey, and hash it to match against chain_dest
+        CScript p2wpkh(CScript() << OP_0 << ToByteVector(full_pubkey.GetID()));
+        unsigned char h160[20];
+        CHash160().Write(p2wpkh.data(), p2wpkh.size()).Finalize(h160);
+        if (memcmp(h160, chain_dest.data()+2, sizeof(h160))) {
+            return false;
+        }
+    } else {
         return false;
     }
 
