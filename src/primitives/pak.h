@@ -7,6 +7,7 @@
 
 #include <script/script.h>
 #include <secp256k1/include/secp256k1_whitelist.h>
+#include <boost/optional.hpp>
 
 class CPAKList
 {
@@ -74,5 +75,9 @@ public:
  **/
 bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash);
 
+// ELEMENTS:
+extern boost::optional<CPAKList> g_paklist_config;
+extern CPAKList g_paklist_blockchain;
+///////////
 
 #endif // BITCOIN_PRIMITIVES_PAK_H
