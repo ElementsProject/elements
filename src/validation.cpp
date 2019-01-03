@@ -757,7 +757,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     vData.reserve((tx.vin.size() + tx.vout.size() + GetNumIssuances(tx)));
     secp256k1_pedersen_commitment *p = vData.data();
     secp256k1_pedersen_commitment commit;
-    secp256k1_generator gen, gencmp;
+    secp256k1_generator gen;
     // This is used to add in the explicit values
     unsigned char explBlinds[32];
     memset(explBlinds, 0, sizeof(explBlinds));
@@ -847,13 +847,22 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
 
             // Must check that prevout is the blinded issuance token
             // prevout's asset tag = assetTokenID + assetBlindingNonce
+            if (secp256k1_generator_generate_blinded(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin(), issuance.assetBlindingNonce.begin()) != 1) {
+                return false;
+            }
+            // Serialize the generator for direct comparison
+            unsigned char derived_generator[33];
+            secp256k1_generator_serialize(secp256k1_ctx_verify_amounts, derived_generator, &gen);
 
-            if (secp256k1_generator_generate_blinded(secp256k1_ctx_verify_amounts, &gen, assetTokenID.begin(), issuance.assetBlindingNonce.begin()) != 1)
+            // Belt-and-suspenders: Check that asset commitment from issuance input is correct size
+            if (asset.vchCommitment.size() != sizeof(derived_generator)) {
                 return false;
-            if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gencmp, &asset.vchCommitment[0]) != 1)
+            }
+
+            // We have already checked the outputs' generator commitment for general validity, so directly compare serialized bytes
+            if (memcmp(asset.vchCommitment.data(), derived_generator, sizeof(derived_generator))) {
                 return false;
-            if (memcmp(&gen, &gencmp, 33))
-                return false;
+            }
         }
 
         // Process issuance of asset
