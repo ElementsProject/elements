@@ -72,6 +72,13 @@ std::string CAssetsDir::GetLabel(const CAsset& asset) const
     return GetMetadata(asset).GetLabel();
 }
 
+std::string CAssetsDir::GetIdentifier(const CAsset& asset) const
+{
+    const std::string label = GetMetadata(asset).GetLabel();
+    if (!label.empty()) return label;
+    return asset.GetHex();
+}
+
 std::vector<CAsset> CAssetsDir::GetKnownAssets() const
 {
     std::vector<CAsset> knownAssets;

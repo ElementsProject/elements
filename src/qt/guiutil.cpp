@@ -790,12 +790,8 @@ QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int 
     if (fraction) {
         str += QString(".%1").arg(fraction, 8, 10, QLatin1Char('0'));
     }
-    std::string asset_label = gAssetsDir.GetLabel(asset);
-    if (asset_label.empty()) {
-        asset_label = asset.GetHex();
-    }
     if (include_asset_name) {
-        str += QString(" ") + QString::fromStdString(asset_label);
+        str += QString(" ") + QString::fromStdString(gAssetsDir.GetIdentifier(asset));
     }
     return str;
 }
