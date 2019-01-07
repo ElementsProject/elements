@@ -64,6 +64,7 @@ private Q_SLOTS:
     void on_addressBookButton_clicked();
     void on_pasteButton_clicked();
     void updateDisplayUnit();
+    void updateAssetTypes();
 
 private:
     SendCoinsRecipient recipient;

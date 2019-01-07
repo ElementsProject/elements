@@ -81,8 +81,10 @@ void SendCoinsEntry::setModel(WalletModel *_model)
 {
     this->model = _model;
 
-    if (_model && _model->getOptionsModel())
+    if (_model && _model->getOptionsModel()) {
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &SendCoinsEntry::updateDisplayUnit);
+        connect(_model, SIGNAL(assetTypesChanged()), this, SLOT(updateAssetTypes()));
+    }
 
     clear();
 }
@@ -107,6 +109,7 @@ void SendCoinsEntry::clear()
     ui->payAmount_s->clear();
 
     // update the display unit, to not use the default ("BTC")
+    updateAssetTypes();
     updateDisplayUnit();
 }
 
@@ -249,6 +252,13 @@ bool SendCoinsEntry::isClear()
 void SendCoinsEntry::setFocus()
 {
     ui->payTo->setFocus();
+}
+
+void SendCoinsEntry::updateAssetTypes()
+{
+    if (model) {
+        ui->payAmount->setAllowedAssets(model->getAssetTypes());
+    }
 }
 
 void SendCoinsEntry::updateDisplayUnit()
