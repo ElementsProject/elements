@@ -614,18 +614,18 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     }
     // Eject any newly-invalid peg-outs based on changing block commitment
     const CChainParams& chainparams = Params();
-    if (pak_transition && !gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard())) {
+    if (pak_transition && chainparams.GetEnforcePak()) {
         for (const auto& entry : mapTx) {
             for (const auto& out : entry.GetTx().vout) {
                 if (out.scriptPubKey.IsPegoutScript(Params().ParentGenesisBlockHash()) &&
                             !ScriptHasValidPAKProof(out.scriptPubKey, Params().ParentGenesisBlockHash())) {
-                    txiter it = mapTx.find(entry.GetTx().GetHash());
+                    const uint256 tx_id = entry.GetTx().GetHash();
+                    txiter it = mapTx.find(tx_id);
                     const CTransaction& tx = it->GetTx();
                     setEntries stage;
                     stage.insert(it);
-                    RemoveStaged(stage, true, MemPoolRemovalReason::BLOCK);
                     removeRecursive(tx, MemPoolRemovalReason::BLOCK);
-                    ClearPrioritisation(tx.GetHash());
+                    ClearPrioritisation(tx_id);
                     break;
                 }
             }
