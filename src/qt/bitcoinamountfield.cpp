@@ -266,14 +266,7 @@ BitcoinAmountField::BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget 
     unit = new QComboBox(this);
     m_allowed_assets = allowed_assets;
     for (const auto& asset : allowed_assets) {
-        if (asset == Params().GetConsensus().pegged_asset) {
-            // Special handling
-            for (const auto& pegged_unit : BitcoinUnits::availableUnits()) {
-                unit->addItem(BitcoinUnits::shortName(pegged_unit), int(pegged_unit));
-            }
-            continue;
-        }
-        unit->addItem(QString::fromStdString(gAssetsDir.GetIdentifier(asset)), QVariant::fromValue(asset));
+        addAssetChoice(asset);
     }
     layout->addWidget(unit);
     layout->addStretch(1);
@@ -371,8 +364,42 @@ void BitcoinAmountField::setReadOnly(bool fReadOnly)
     amount->setReadOnly(fReadOnly);
 }
 
+bool BitcoinAmountField::hasAssetChoice(const CAsset& asset) const
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        return -1 != unit->findData(0, Qt::UserRole);
+    }
+    return -1 != unit->findData(QVariant::fromValue(asset), Qt::UserRole);
+}
+
+void BitcoinAmountField::addAssetChoice(const CAsset& asset)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        // Special handling
+        for (const auto& pegged_unit : BitcoinUnits::availableUnits()) {
+            unit->addItem(BitcoinUnits::shortName(pegged_unit), int(pegged_unit));
+        }
+        return;
+    }
+    unit->addItem(QString::fromStdString(gAssetsDir.GetIdentifier(asset)), QVariant::fromValue(asset));
+}
+
+void BitcoinAmountField::removeAssetChoice(const CAsset& asset)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        // Special handling
+        for (const auto& pegged_unit : BitcoinUnits::availableUnits()) {
+            unit->removeItem(unit->findData(int(pegged_unit), Qt::UserRole));
+        }
+        return;
+    }
+    unit->removeItem(unit->findData(QVariant::fromValue(asset), Qt::UserRole));
+}
+
 void BitcoinAmountField::unitChanged(int idx)
 {
+    const CAsset previous_asset = amount->value().first;
+
     // Use description tooltip for current unit for the combobox
     const QVariant& userdata = unit->itemData(idx, Qt::UserRole);
     if (userdata.type() == QVariant::UserType) {
@@ -388,6 +415,10 @@ void BitcoinAmountField::unitChanged(int idx)
 
         amount->setDisplayUnit(newUnit);
     }
+
+    if (!(m_allowed_assets.count(previous_asset) || amount->value().first == previous_asset)) {
+        removeAssetChoice(previous_asset);
+    }
 }
 
 void BitcoinAmountField::setDisplayUnit(const CAsset& asset)
@@ -396,12 +427,17 @@ void BitcoinAmountField::setDisplayUnit(const CAsset& asset)
         setDisplayUnit(amount->currentPeggedUnit());
         return;
     }
-    // TODO: make sure it's an item
+    if (!hasAssetChoice(asset)) {
+        addAssetChoice(asset);
+    }
     unit->setCurrentIndex(unit->findData(QVariant::fromValue(asset), Qt::UserRole));
 }
 
 void BitcoinAmountField::setDisplayUnit(int newUnit)
 {
+    if (!hasAssetChoice(Params().GetConsensus().pegged_asset)) {
+        addAssetChoice(Params().GetConsensus().pegged_asset);
+    }
     unit->setCurrentIndex(unit->findData(newUnit, Qt::UserRole));
 }
 
