@@ -99,7 +99,9 @@ public:
         }
         val.second = val.second + steps * singleStep;
         val.second = qMax(val.second, CAmount(0));
-        if (val.first == Params().GetConsensus().pegged_asset) {
+        // FIXME: Add this back in when assets can have > MAX_MONEY
+        // if (val.first == Params().GetConsensus().pegged_asset)
+        {
             val.second = qMin(val.second, BitcoinUnits::maxMoney());
         }
         setValue(val);
@@ -198,7 +200,8 @@ private:
         bool valid = GUIUtil::parseAssetAmount(current_asset, text, currentUnit, &val);
         if(valid)
         {
-            if (val < 0 || (val > BitcoinUnits::maxMoney() && current_asset == Params().GetConsensus().pegged_asset)) {
+            // FIXME: Add this back in when assets can have > MAX_MONEY
+            if (val < 0 || (val > BitcoinUnits::maxMoney() /*&& current_asset == Params().GetConsensus().pegged_asset*/)) {
                 valid = false;
             }
         }
