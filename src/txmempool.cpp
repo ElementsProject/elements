@@ -615,6 +615,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     // Eject any newly-invalid peg-outs based on changing block commitment
     const CChainParams& chainparams = Params();
     if (pak_transition && chainparams.GetEnforcePak()) {
+        std::vector<CTransactionRef> tx_to_remove;
         for (const auto& entry : mapTx) {
             for (const auto& out : entry.GetTx().vout) {
                 if (out.scriptPubKey.IsPegoutScript(Params().ParentGenesisBlockHash()) &&
@@ -622,13 +623,15 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
                     const uint256 tx_id = entry.GetTx().GetHash();
                     txiter it = mapTx.find(tx_id);
                     const CTransaction& tx = it->GetTx();
-                    setEntries stage;
-                    stage.insert(it);
-                    removeRecursive(tx, MemPoolRemovalReason::BLOCK);
-                    ClearPrioritisation(tx_id);
+                    tx_to_remove.push_back(MakeTransactionRef(tx));
                     break;
                 }
             }
+        }
+        for (auto& tx : tx_to_remove) {
+            const uint256 tx_id = tx->GetHash();
+            removeRecursive(*tx, MemPoolRemovalReason::BLOCK);
+            ClearPrioritisation(tx_id);
         }
     }
     lastRollingFeeUpdate = GetTime();
