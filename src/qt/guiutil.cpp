@@ -814,6 +814,15 @@ QString formatMultiAssetAmount(const CAmountMap& amountmap, const int bitcoin_un
     return ret.join(line_separator);
 }
 
+bool parseAssetAmount(const CAsset& asset, const QString& text, const int bitcoin_unit, CAmount *val_out)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        return BitcoinUnits::parse(bitcoin_unit, text, val_out);
+    }
+
+    return BitcoinUnits::parse(BitcoinUnits::BTC, text, val_out);
+}
+
 QString formatDurationStr(int secs)
 {
     QStringList strList;
