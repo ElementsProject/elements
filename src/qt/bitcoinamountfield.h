@@ -48,6 +48,8 @@ public:
     /** Perform input validation, mark field as invalid if entered value is not valid. */
     bool validate();
 
+    void setAllowedAssets(const std::set<CAsset>& allowed_assets);
+
     /** Change unit used to display amount. */
     void setDisplayUnit(const CAsset&);
     void setDisplayUnit(int unit);

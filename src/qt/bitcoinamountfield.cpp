@@ -396,6 +396,30 @@ void BitcoinAmountField::removeAssetChoice(const CAsset& asset)
     unit->removeItem(unit->findData(QVariant::fromValue(asset), Qt::UserRole));
 }
 
+void BitcoinAmountField::setAllowedAssets(const std::set<CAsset>& allowed_assets)
+{
+    std::set<CAsset> assets_to_remove;
+    for (const auto& asset : m_allowed_assets) {
+        if (!allowed_assets.count(asset)) {
+            assets_to_remove.insert(asset);
+        }
+    }
+    m_allowed_assets = allowed_assets;
+    const QVariant& sel_userdata = unit->itemData(unit->currentIndex(), Qt::UserRole);
+    const CAsset sel_asset = (sel_userdata.type() == QVariant::UserType) ? sel_userdata.value<CAsset>() : Params().GetConsensus().pegged_asset;
+    for (const auto& asset : assets_to_remove) {
+        // Leave it in place for now if it's selected
+        if (sel_asset == asset) continue;
+
+        removeAssetChoice(asset);
+    }
+    for (const auto& asset : allowed_assets) {
+        if (!hasAssetChoice(asset)) {
+            addAssetChoice(asset);
+        }
+    }
+}
+
 void BitcoinAmountField::unitChanged(int idx)
 {
     const CAsset previous_asset = amount->value().first;
