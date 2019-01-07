@@ -93,6 +93,7 @@ bool operator>(const CAmountMap& a, const CAmountMap& b);
 bool operator>=(const CAmountMap& a, const CAmountMap& b);
 bool operator==(const CAmountMap& a, const CAmountMap& b);
 bool operator!=(const CAmountMap& a, const CAmountMap& b);
+bool operator!(const CAmountMap& a); // Check if all values are 0
 
 inline bool MoneyRange(const CAmountMap& mapValue) {
     for(CAmountMap::const_iterator it = mapValue.begin(); it != mapValue.end(); it++) {
