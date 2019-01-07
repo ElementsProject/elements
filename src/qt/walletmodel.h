@@ -140,6 +140,7 @@ public:
     TransactionTableModel *getTransactionTableModel();
     RecentRequestsTableModel *getRecentRequestsTableModel();
 
+    std::set<CAsset> getAssetTypes() const;
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
@@ -230,6 +231,7 @@ private:
 
     // Cache some values to be able to detect changes
     interfaces::WalletBalances m_cached_balances;
+    std::set<CAsset> cached_asset_types;
     EncryptionStatus cachedEncryptionStatus;
     int cachedNumBlocks;
 
@@ -242,6 +244,9 @@ private:
 Q_SIGNALS:
     // Signal that balance in wallet changed
     void balanceChanged(const interfaces::WalletBalances& balances);
+
+    // Signal that the set of possessed asset types changed
+    void assetTypesChanged();
 
     // Encryption status of wallet changed
     void encryptionStatusChanged();

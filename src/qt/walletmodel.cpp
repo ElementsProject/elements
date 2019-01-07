@@ -56,6 +56,11 @@ WalletModel::~WalletModel()
     unsubscribeFromCoreSignals();
 }
 
+std::set<CAsset> WalletModel::getAssetTypes() const
+{
+    return cached_asset_types;
+}
+
 void WalletModel::updateStatus()
 {
     EncryptionStatus newEncryptionStatus = getEncryptionStatus();
@@ -95,6 +100,16 @@ void WalletModel::checkBalanceChanged(const interfaces::WalletBalances& new_bala
     if(new_balances.balanceChanged(m_cached_balances)) {
         m_cached_balances = new_balances;
         Q_EMIT balanceChanged(new_balances);
+
+        std::set<CAsset> new_asset_types;
+        for (const auto& assetamount : new_balances.balance + new_balances.unconfirmed_balance) {
+            if (!assetamount.second) continue;
+            new_asset_types.insert(assetamount.first);
+        }
+        if (new_asset_types != cached_asset_types) {
+            cached_asset_types = new_asset_types;
+            Q_EMIT assetTypesChanged();
+        }
     }
 }
 
