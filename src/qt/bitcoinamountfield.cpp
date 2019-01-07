@@ -7,12 +7,18 @@
 #include <qt/bitcoinunits.h>
 #include <qt/guiconstants.h>
 #include <qt/qvaluecombobox.h>
+#include "guiutil.h"
+
+#include "assetsdir.h"
+#include "chainparams.h"
 
 #include <QApplication>
 #include <QAbstractSpinBox>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLineEdit>
+
+Q_DECLARE_METATYPE(CAsset)
 
 /** QSpinBox that uses fixed-point numbers internally and uses our own
  * formatting/parsing functions.
@@ -27,6 +33,8 @@ public:
         currentUnit(BitcoinUnits::BTC),
         singleStep(0)
     {
+        current_asset = Params().GetConsensus().pegged_asset;
+
         setAlignment(Qt::AlignRight);
 
         connect(lineEdit(), &QLineEdit::textEdited, this, &AmountSpinBox::valueChanged);
@@ -48,42 +56,87 @@ public:
         CAmount val = parse(input, &valid);
         if(valid)
         {
-            input = BitcoinUnits::format(currentUnit, val, false, BitcoinUnits::separatorAlways);
+            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::separatorAlways, false);
             lineEdit()->setText(input);
         }
     }
 
-    CAmount value(bool *valid_out=0) const
+    int currentPeggedUnit() const
     {
-        return parse(text(), valid_out);
+        assert(current_asset == Params().GetConsensus().pegged_asset);
+        return currentUnit;
     }
 
-    void setValue(const CAmount& value)
+    std::pair<CAsset, CAmount> value(bool *valid_out=0) const
     {
-        lineEdit()->setText(BitcoinUnits::format(currentUnit, value, false, BitcoinUnits::separatorAlways));
+        return std::make_pair(current_asset, parse(text(), valid_out));
+    }
+
+    void setValue(const CAsset& asset, CAmount value)
+    {
+        current_asset = asset;
+        lineEdit()->setText(GUIUtil::formatAssetAmount(asset, value, currentUnit, BitcoinUnits::separatorAlways, false));
         Q_EMIT valueChanged();
     }
+
+    inline void setValue(const std::pair<CAsset, CAmount>& value)
+    {
+        setValue(value.first, value.second);
+    }
+
 
     void stepBy(int steps)
     {
         bool valid = false;
-        CAmount val = value(&valid);
+        auto val = value(&valid);
         CAmount currentSingleStep = singleStep;
         if (!currentSingleStep) {
-            currentSingleStep = 100000;  // satoshis
+            if (current_asset == Params().GetConsensus().pegged_asset) {
+                currentSingleStep = 100000;  // satoshis
+            } else {
+                currentSingleStep = 100000000;  // a whole asset
+            }
         }
-        val = val + steps * singleStep;
-        val = qMin(qMax(val, CAmount(0)), BitcoinUnits::maxMoney());
+        val.second = val.second + steps * singleStep;
+        val.second = qMax(val.second, CAmount(0));
+        if (val.first == Params().GetConsensus().pegged_asset) {
+            val.second = qMin(val.second, BitcoinUnits::maxMoney());
+        }
         setValue(val);
+    }
+
+    void setDisplayUnit(const CAsset& asset)
+    {
+        if (asset == Params().GetConsensus().pegged_asset) {
+            setDisplayUnit(currentUnit);
+            return;
+        }
+
+        // Only used for bitcoins -> other asset
+        // Leave the number alone, since the user probably intended it for this asset
+
+        current_asset = asset;
+        Q_EMIT valueChanged();
     }
 
     void setDisplayUnit(int unit)
     {
         bool valid = false;
-        CAmount val = value(&valid);
+        std::pair<CAsset, CAmount> val = value(&valid);
+        const bool was_pegged = (val.first == Params().GetConsensus().pegged_asset);
 
+        current_asset = Params().GetConsensus().pegged_asset;
         currentUnit = unit;
 
+        if (!was_pegged) {
+            // Leave the text as-is, if it's valid
+            value(&valid);
+            if (valid) {
+                Q_EMIT valueChanged();
+            } else {
+                clear();
+            }
+        } else
         if(valid)
             setValue(val);
         else
@@ -129,6 +182,7 @@ public:
     }
 
 private:
+    CAsset current_asset;
     int currentUnit;
     CAmount singleStep;
     mutable QSize cachedMinimumSizeHint;
@@ -141,11 +195,12 @@ private:
     CAmount parse(const QString &text, bool *valid_out=0) const
     {
         CAmount val = 0;
-        bool valid = BitcoinUnits::parse(currentUnit, text, &val);
+        bool valid = GUIUtil::parseAssetAmount(current_asset, text, currentUnit, &val);
         if(valid)
         {
-            if(val < 0 || val > BitcoinUnits::maxMoney())
+            if (val < 0 || (val > BitcoinUnits::maxMoney() && current_asset == Params().GetConsensus().pegged_asset)) {
                 valid = false;
+            }
         }
         if(valid_out)
             *valid_out = valid;
@@ -177,13 +232,15 @@ protected:
 
         StepEnabled rv = 0;
         bool valid = false;
-        CAmount val = value(&valid);
+        const std::pair<CAsset, CAmount> val = value(&valid);
         if(valid)
         {
-            if(val > 0)
+            if (val.second > 0) {
                 rv |= StepDownEnabled;
-            if(val < BitcoinUnits::maxMoney())
+            }
+            if (val.second < BitcoinUnits::maxMoney() || val.first != Params().GetConsensus().pegged_asset) {
                 rv |= StepUpEnabled;
+            }
         }
         return rv;
     }
@@ -194,8 +251,9 @@ Q_SIGNALS:
 
 #include <qt/bitcoinamountfield.moc>
 
-BitcoinAmountField::BitcoinAmountField(QWidget *parent) :
+BitcoinAmountField::BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent) :
     QWidget(parent),
+    m_allowed_assets(allowed_assets),
     amount(0)
 {
     amount = new AmountSpinBox(this);
@@ -205,8 +263,18 @@ BitcoinAmountField::BitcoinAmountField(QWidget *parent) :
 
     QHBoxLayout *layout = new QHBoxLayout(this);
     layout->addWidget(amount);
-    unit = new QValueComboBox(this);
-    unit->setModel(new BitcoinUnits(this));
+    unit = new QComboBox(this);
+    m_allowed_assets = allowed_assets;
+    for (const auto& asset : allowed_assets) {
+        if (asset == Params().GetConsensus().pegged_asset) {
+            // Special handling
+            for (const auto& pegged_unit : BitcoinUnits::availableUnits()) {
+                unit->addItem(BitcoinUnits::shortName(pegged_unit), int(pegged_unit));
+            }
+            continue;
+        }
+        unit->addItem(QString::fromStdString(gAssetsDir.GetIdentifier(asset)), QVariant::fromValue(asset));
+    }
     layout->addWidget(unit);
     layout->addStretch(1);
     layout->setContentsMargins(0,0,0,0);
@@ -224,6 +292,11 @@ BitcoinAmountField::BitcoinAmountField(QWidget *parent) :
     unitChanged(unit->currentIndex());
 }
 
+BitcoinAmountField::BitcoinAmountField(QWidget *parent) :
+    BitcoinAmountField(std::set<CAsset>({Params().GetConsensus().pegged_asset}), parent)
+{
+}
+
 void BitcoinAmountField::clear()
 {
     amount->clear();
@@ -239,7 +312,7 @@ void BitcoinAmountField::setEnabled(bool fEnabled)
 bool BitcoinAmountField::validate()
 {
     bool valid = false;
-    value(&valid);
+    fullValue(&valid);
     setValid(valid);
     return valid;
 }
@@ -269,14 +342,28 @@ QWidget *BitcoinAmountField::setupTabChain(QWidget *prev)
     return unit;
 }
 
-CAmount BitcoinAmountField::value(bool *valid_out) const
+std::pair<CAsset, CAmount> BitcoinAmountField::fullValue(bool *valid_out) const
 {
     return amount->value(valid_out);
 }
 
+void BitcoinAmountField::setFullValue(const CAsset& asset, const CAmount& value)
+{
+    amount->setValue(asset, value);
+    setDisplayUnit(asset);
+}
+
+CAmount BitcoinAmountField::value(bool *valid_out) const
+{
+    std::pair<CAsset, CAmount> val = amount->value(valid_out);
+    assert(val.first == Params().GetConsensus().pegged_asset);
+    return val.second;
+}
+
 void BitcoinAmountField::setValue(const CAmount& value)
 {
-    amount->setValue(value);
+    amount->setValue(Params().GetConsensus().pegged_asset, value);
+    setDisplayUnit(amount->currentPeggedUnit());
 }
 
 void BitcoinAmountField::setReadOnly(bool fReadOnly)
@@ -287,17 +374,35 @@ void BitcoinAmountField::setReadOnly(bool fReadOnly)
 void BitcoinAmountField::unitChanged(int idx)
 {
     // Use description tooltip for current unit for the combobox
-    unit->setToolTip(unit->itemData(idx, Qt::ToolTipRole).toString());
+    const QVariant& userdata = unit->itemData(idx, Qt::UserRole);
+    if (userdata.type() == QVariant::UserType) {
+        const CAsset asset = userdata.value<CAsset>();
+        unit->setToolTip(tr("Custom asset (%1)").arg(QString::fromStdString(asset.GetHex())));
 
-    // Determine new unit ID
-    int newUnit = unit->itemData(idx, BitcoinUnits::UnitRole).toInt();
+        amount->setDisplayUnit(asset);
+    } else {
+        // Determine new unit ID
+        int newUnit = userdata.toInt();
 
-    amount->setDisplayUnit(newUnit);
+        unit->setToolTip(BitcoinUnits::description(newUnit));
+
+        amount->setDisplayUnit(newUnit);
+    }
+}
+
+void BitcoinAmountField::setDisplayUnit(const CAsset& asset)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        setDisplayUnit(amount->currentPeggedUnit());
+        return;
+    }
+    // TODO: make sure it's an item
+    unit->setCurrentIndex(unit->findData(QVariant::fromValue(asset), Qt::UserRole));
 }
 
 void BitcoinAmountField::setDisplayUnit(int newUnit)
 {
-    unit->setValue(newUnit);
+    unit->setCurrentIndex(unit->findData(newUnit, Qt::UserRole));
 }
 
 void BitcoinAmountField::setSingleStep(const CAmount& step)

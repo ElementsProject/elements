@@ -6,13 +6,15 @@
 #define BITCOIN_QT_BITCOINAMOUNTFIELD_H
 
 #include <amount.h>
+#include <asset.h>
 
+#include <set>
 #include <QWidget>
 
 class AmountSpinBox;
 
 QT_BEGIN_NAMESPACE
-class QValueComboBox;
+class QComboBox;
 QT_END_NAMESPACE
 
 /** Widget for entering bitcoin amounts.
@@ -26,7 +28,11 @@ class BitcoinAmountField: public QWidget
     Q_PROPERTY(qint64 value READ value WRITE setValue NOTIFY valueChanged USER true)
 
 public:
+    explicit BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent = 0);
     explicit BitcoinAmountField(QWidget *parent = 0);
+
+    std::pair<CAsset, CAmount> fullValue(bool *valid=0) const;
+    void setFullValue(const CAsset& asset, const CAmount& value);
 
     CAmount value(bool *value=0) const;
     void setValue(const CAmount& value);
@@ -43,6 +49,7 @@ public:
     bool validate();
 
     /** Change unit used to display amount. */
+    void setDisplayUnit(const CAsset&);
     void setDisplayUnit(int unit);
 
     /** Make field empty and ready for new input. */
@@ -64,8 +71,10 @@ protected:
     bool eventFilter(QObject *object, QEvent *event);
 
 private:
+    std::set<CAsset> m_allowed_assets;
+    CAsset asset;
     AmountSpinBox *amount;
-    QValueComboBox *unit;
+    QComboBox *unit;
 
 private Q_SLOTS:
     void unitChanged(int idx);
