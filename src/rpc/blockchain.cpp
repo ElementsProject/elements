@@ -21,7 +21,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
-#include "policy/whitelistDatabase.hpp"
+#include "policy/whiteListDatabase.hpp"
 
 #include <fstream>
 

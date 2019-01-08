@@ -25,12 +25,15 @@ void Shutdown();
 void InitLogging();
 //!Parameter interaction: change current parameters depending on various rules
 void InitParameterInteraction();
-
 /** Initialize bitcoin core: Basic context setup.
  *  @note This can be done before daemonization.
  *  @pre Parameters should be parsed and config file should be read.
  */
 bool AppInitBasicSetup();
+
+//Return either an environment varibale or a default value
+std::string GetEnvOrDefault(const std::string& var, 
+                            const std::string& def);
 /**
  * Initialization: parameter interaction.
  * @note This can be done before daemonization.

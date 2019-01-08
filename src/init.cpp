@@ -26,8 +26,6 @@
 #include "netbase.h"
 #include "net.h"
 #include "net_processing.h"
-#include "policy/policy.h"
-#include "policy/whiteListDatabase.hpp"
 #include "rpc/server.h"
 #include "rpc/register.h"
 #include "script/standard.h"
@@ -44,6 +42,7 @@
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #include "policy/policy.h"
+#include "policy/whiteListDatabase.hpp"
 #endif
 #include "warnings.h"
 #include <stdint.h>
@@ -922,6 +921,13 @@ bool AppInitBasicSetup()
     return true;
 }
 
+std::string GetEnvOrDefault(const std::string& var, 
+                            const std::string& def)
+{
+    const char* val = getenv(var.c_str());
+    return val ? val : def;
+}
+
 bool AppInitParameterInteraction()
 {
     const CChainParams& chainparams = Params();
@@ -1102,13 +1108,13 @@ bool AppInitParameterInteraction()
     fWhitelistMongoDB = GetBoolArg("-pkhwhitelistmongodb", DEFAULT_WHITELIST_MONGODB);
     if(fWhitelistMongoDB){
         //Initialize the whitelist database
-        std::string wldbuser = GetArg("-wldbuser", DEFAULT_WLDBUSER);
-        std::string wldbpass = GetArg("-wldbpass", DEFAULT_WLDBPASS);
-        std::string wldbport = GetArg("-wldbport", DEFAULT_WLDBPORT);
-        std::string wldbhost = GetArg("-wldbhost", DEFAULT_WLDBHOST);
-        std::string wldbdatabase = GetArg("-wldbdatabase", DEFAULT_WLDBDATABASE);
-        std::string wldbauthsource = GetArg("-wldbauthsource", DEFAULT_WLDBAUTHSOURCE);
-        std::string wldbauthmechanism = GetArg("-wldbauthmechanism", DEFAULT_WLDBAUTHMECHANISM);
+        std::string wldbuser = GetArg("-wldbuser", GetEnvOrDefault("WLDBUSER", DEFAULT_WLDBUSER));
+        std::string wldbpass = GetArg("-wldbpass", GetEnvOrDefault("WLDBPASS",DEFAULT_WLDBPASS));
+        std::string wldbport = GetArg("-wldbport", GetEnvOrDefault("WLDBPORT", DEFAULT_WLDBPORT));
+        std::string wldbhost = GetArg("-wldbhost", GetEnvOrDefault("WLDBHOST", DEFAULT_WLDBHOST));
+        std::string wldbdatabase = GetArg("-wldbdatabase", GetEnvOrDefault("WLDBDATABASE", DEFAULT_WLDBDATABASE));
+        std::string wldbauthsource = GetArg("-wldbauthsource", GetEnvOrDefault("WLDBAUTHSOURCE", DEFAULT_WLDBAUTHSOURCE));
+        std::string wldbauthmechanism = GetArg("-wldbauthmechanism", GetEnvOrDefault("WLDBAUTHMECHANISM", DEFAULT_WLDBAUTHMECHANISM));
 
         //read the whitelist from the database
         theWhiteListDatabase.init(wldbuser, wldbpass, wldbport, 

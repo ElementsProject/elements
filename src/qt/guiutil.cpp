@@ -12,7 +12,6 @@
 #include "primitives/transaction.h"
 #include "init.h"
 #include "policy/policy.h"
-#include "policy/policy.h"
 #include "protocol.h"
 #include "script/script.h"
 #include "script/standard.h"

@@ -18,7 +18,6 @@
 #include "issuance.h"
 #include "net.h"
 #include "policy/policy.h"
-#include "policy/policy.h"
 #include "policy/rbf.h"
 #include "primitives/bitcoin/merkleblock.h"
 #include "primitives/bitcoin/transaction.h"

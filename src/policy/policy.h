@@ -78,24 +78,15 @@ static const unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCRIPT_
 /** Used as the flags parameter to sequence and nLocktime checks in non-consensus code. */
 static const unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUENCE |
                                                            LOCKTIME_MEDIAN_TIME_PAST;
-
-std::string GetEnvOrDef(const std::string& var, 
-                            const std::string& def)
-{
-    const char* val = getenv(var.c_str());
-    return val ? val : def;
-}
-
 static const bool DEFAULT_WHITELIST_MONGODB = false;
 
-static const std::string DEFAULT_WLDBUSER = GetEnvOrDef("WLDBUSER","");
-static const std::string DEFAULT_WLDBPASS = GetEnvOrDef("WLDBPASS","");
-static const std::string DEFAULT_WLDBPORT = GetEnvOrDef("WLDBPORT","");
-static const std::string DEFAULT_WLDBHOST = GetEnvOrDef("WLDBHOST","wldbhost");
-static const std::string DEFAULT_WLDBDATABASE = GetEnvOrDef("WLDBDATABASE", "");
-static const std::string DEFAULT_WLDBAUTHSOURCE = GetEnvOrDef("WLDBAUTHSOURCE","");
-static const std::string DEFAULT_WLDBAUTHMECHANISM = GetEnvOrDef("WLDBAUTHMECHANISM","SCRAM-SHA-256");
-
+static const std::string DEFAULT_WLDBUSER = "";
+static const std::string DEFAULT_WLDBPASS = "";
+static const std::string DEFAULT_WLDBPORT = "";
+static const std::string DEFAULT_WLDBHOST = "wldbhost";
+static const std::string DEFAULT_WLDBDATABASE = "";
+static const std::string DEFAULT_WLDBAUTHSOURCE = "";
+static const std::string DEFAULT_WLDBAUTHMECHANISM = "SCRAM-SHA-256";
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
     /**

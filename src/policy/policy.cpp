@@ -339,3 +339,8 @@ int64_t GetVirtualTransactionSize(const CTransaction& tx, int64_t nSigOpCost)
 }
 
 whiteListDatabase theWhiteListDatabase;
+
+
+
+
+
