@@ -26,6 +26,7 @@
 #include "primitives/bitcoin/transaction.h"
 #include "primitives/bitcoin/merkleblock.h"
 #include "random.h"
+#include "script/script_error.h"
 #include "script/script.h"
 #include "script/sigcache.h"
 #include "script/standard.h"
