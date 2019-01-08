@@ -217,7 +217,7 @@ void SendCoinsDialog::on_sendButton_clicked()
     if(!model || !model->getOptionsModel())
         return;
 
-    QList<SendCoinsRecipient> recipients;
+    QList<SendAssetsRecipient> recipients;
     bool valid = true;
 
     for(int i = 0; i < ui->entries->count(); ++i)
@@ -276,7 +276,7 @@ void SendCoinsDialog::on_sendButton_clicked()
 
     // Format confirmation message
     QStringList formatted;
-    for (const SendCoinsRecipient &rcp : currentTransaction.getRecipients())
+    for (const SendAssetsRecipient &rcp : currentTransaction.getRecipients())
     {
         // generate bold amount string with wallet name in case of multiwallet
         QString amount = "<b>" + BitcoinUnits::formatHtmlWithUnit(model->getOptionsModel()->getDisplayUnit(), rcp.amount);
@@ -511,7 +511,7 @@ void SendCoinsDialog::pasteEntry(const SendCoinsRecipient &rv)
         entry = addEntry();
     }
 
-    entry->setValue(rv);
+    entry->setValue(SendAssetsRecipient(rv));
     updateTabsAndLabels();
 }
 
@@ -871,7 +871,7 @@ void SendCoinsDialog::coinControlUpdateLabels()
         SendCoinsEntry *entry = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
         if(entry && !entry->isHidden())
         {
-            SendCoinsRecipient rcp = entry->getValue();
+            auto rcp = entry->getValue();
             CoinControlDialog::payAmounts.append(rcp.amount);
             if (rcp.fSubtractFeeFromAmount)
                 CoinControlDialog::fSubtractFeeFromAmount = true;

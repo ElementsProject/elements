@@ -7,13 +7,13 @@
 #include <interfaces/node.h>
 #include <policy/policy.h>
 
-WalletModelTransaction::WalletModelTransaction(const QList<SendCoinsRecipient> &_recipients) :
+WalletModelTransaction::WalletModelTransaction(const QList<SendAssetsRecipient> &_recipients) :
     recipients(_recipients),
     fee(0)
 {
 }
 
-QList<SendCoinsRecipient> WalletModelTransaction::getRecipients() const
+QList<SendAssetsRecipient> WalletModelTransaction::getRecipients() const
 {
     return recipients;
 }
@@ -42,9 +42,9 @@ void WalletModelTransaction::reassignAmounts(int nChangePosRet)
 {
     const CTransaction* walletTransaction = &wtx->get();
     int i = 0;
-    for (QList<SendCoinsRecipient>::iterator it = recipients.begin(); it != recipients.end(); ++it)
+    for (auto it = recipients.begin(); it != recipients.end(); ++it)
     {
-        SendCoinsRecipient& rcp = (*it);
+        auto& rcp = (*it);
 
         if (rcp.paymentRequest.IsInitialized())
         {
@@ -74,7 +74,7 @@ void WalletModelTransaction::reassignAmounts(int nChangePosRet)
 CAmount WalletModelTransaction::getTotalTransactionAmount() const
 {
     CAmount totalTransactionAmount = 0;
-    for (const SendCoinsRecipient &rcp : recipients)
+    for (const SendAssetsRecipient &rcp : recipients)
     {
         totalTransactionAmount += rcp.amount;
     }

@@ -105,6 +105,23 @@ public:
     }
 };
 
+class SendAssetsRecipient
+{
+public:
+    explicit SendAssetsRecipient() : fSubtractFeeFromAmount(false) { }
+    explicit SendAssetsRecipient(SendCoinsRecipient r);
+public:
+    QString address;
+    QString label;
+    CAmount amount;
+    QString message;
+
+    PaymentRequestPlus paymentRequest;
+    QString authenticatedMerchant;
+
+    bool fSubtractFeeFromAmount; // memory only
+};
+
 /** Interface to Bitcoin wallet from Qt view code. */
 class WalletModel : public QObject
 {
@@ -260,7 +277,7 @@ Q_SIGNALS:
     void message(const QString &title, const QString &message, unsigned int style);
 
     // Coins sent: from wallet, to recipient, in (serialized) transaction:
-    void coinsSent(WalletModel* wallet, SendCoinsRecipient recipient, QByteArray transaction);
+    void coinsSent(WalletModel* wallet, SendAssetsRecipient recipient, QByteArray transaction);
 
     // Show progress dialog e.g. for rescan
     void showProgress(const QString &title, int nProgress);
