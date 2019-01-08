@@ -32,9 +32,9 @@ public:
     void setTransactionFee(const CAmount& newFee);
     CAmount getTransactionFee() const;
 
-    CAmount getTotalTransactionAmount() const;
+    CAmountMap getTotalTransactionAmount() const;
 
-    void reassignAmounts(int nChangePosRet); // needed for the subtract-fee-from-amount feature
+    void reassignAmounts(const std::vector<CAmount>& out_amounts, int nChangePosRet); // needed for the subtract-fee-from-amount feature
 
 private:
     QList<SendAssetsRecipient> recipients;

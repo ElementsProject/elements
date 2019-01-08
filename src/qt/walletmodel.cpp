@@ -20,6 +20,7 @@
 #include <util.h> // for GetBoolArg
 #include <wallet/coincontrol.h>
 #include <wallet/wallet.h>
+#include <rpc/util.h>
 
 #include <stdint.h>
 
@@ -31,13 +32,16 @@
 SendAssetsRecipient::SendAssetsRecipient(SendCoinsRecipient r) :
     address(r.address),
     label(r.label),
-    amount(r.amount),
+    asset(Params().GetConsensus().pegged_asset),
+    asset_amount(r.amount),
     message(r.message),
     paymentRequest(r.paymentRequest),
     authenticatedMerchant(r.authenticatedMerchant),
     fSubtractFeeFromAmount(r.fSubtractFeeFromAmount)
 {
 }
+
+#define SendCoinsRecipient SendAssetsRecipient
 
 WalletModel::WalletModel(std::unique_ptr<interfaces::Wallet> wallet, interfaces::Node& node, const PlatformStyle *platformStyle, OptionsModel *_optionsModel, QObject *parent) :
     QObject(parent), m_wallet(std::move(wallet)), m_node(node), optionsModel(_optionsModel), addressTableModel(0),
@@ -149,9 +153,9 @@ bool WalletModel::validateAddress(const QString &address)
 
 WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl)
 {
-    CAmount total = 0;
+    CAmountMap total;
     bool fSubtractFeeFromAmount = false;
-    auto recipients = transaction.getRecipients();
+    QList<SendCoinsRecipient> recipients = transaction.getRecipients();
     std::vector<CRecipient> vecSend;
 
     if(recipients.empty())
@@ -163,7 +167,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
     int nAddresses = 0;
 
     // Pre-check input data for validity
-    for (const SendAssetsRecipient &rcp : recipients)
+    for (const SendCoinsRecipient &rcp : recipients)
     {
         if (rcp.fSubtractFeeFromAmount)
             fSubtractFeeFromAmount = true;
@@ -187,7 +191,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return InvalidAmount;
             }
-            total += subtotal;
+            total[Params().GetConsensus().pegged_asset] += subtotal;
         }
         else
         {   // User-entered bitcoin address / amount:
@@ -195,18 +199,20 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return InvalidAddress;
             }
-            if(rcp.amount <= 0)
+            if(rcp.asset_amount <= 0)
             {
                 return InvalidAmount;
             }
             setAddress.insert(rcp.address);
             ++nAddresses;
 
-            CScript scriptPubKey = GetScriptForDestination(DecodeDestination(rcp.address.toStdString()));
-            CRecipient recipient = {scriptPubKey, rcp.amount, ::policyAsset, CPubKey(), rcp.fSubtractFeeFromAmount};
+            CTxDestination dest = DecodeDestination(rcp.address.toStdString());
+            CScript scriptPubKey = GetScriptForDestination(dest);
+            CPubKey confidentiality_pubkey = GetDestinationBlindingKey(dest);
+            CRecipient recipient = {scriptPubKey, rcp.asset_amount, rcp.asset, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
-            total += rcp.amount;
+            total[rcp.asset] += rcp.asset_amount;
         }
     }
     if(setAddress.size() != nAddresses)
@@ -214,7 +220,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         return DuplicateAddress;
     }
 
-    CAmount nBalance = m_wallet->getAvailableBalance(coinControl)[::policyAsset];
+    CAmountMap nBalance = m_wallet->getAvailableBalance(coinControl);
 
     if(total > nBalance)
     {
@@ -227,14 +233,16 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::string strFailReason;
 
         auto& newTx = transaction.getWtx();
+        std::vector<CAmount> out_amounts;
         newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx)
-            transaction.reassignAmounts(nChangePosRet);
+            transaction.reassignAmounts(out_amounts, nChangePosRet);
 
         if(!newTx)
         {
-            if(!fSubtractFeeFromAmount && (total + nFeeRequired) > nBalance)
+            total[Params().GetConsensus().pegged_asset] += nFeeRequired;
+            if(!fSubtractFeeFromAmount && total > nBalance)
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }
@@ -259,7 +267,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
 
     {
         std::vector<std::pair<std::string, std::string>> vOrderForm;
-        for (const SendAssetsRecipient &rcp : transaction.getRecipients())
+        for (const SendCoinsRecipient &rcp : transaction.getRecipients())
         {
             if (rcp.paymentRequest.IsInitialized())
             {
@@ -289,7 +297,7 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
 
     // Add addresses / update labels that we've sent to the address book,
     // and emit coinsSent signal for each recipient
-    for (const SendAssetsRecipient &rcp : transaction.getRecipients())
+    for (const SendCoinsRecipient &rcp : transaction.getRecipients())
     {
         // Don't touch the address book when we have a payment request
         if (!rcp.paymentRequest.IsInitialized())

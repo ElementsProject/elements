@@ -7,13 +7,15 @@
 #include <interfaces/node.h>
 #include <policy/policy.h>
 
-WalletModelTransaction::WalletModelTransaction(const QList<SendAssetsRecipient> &_recipients) :
+#define SendCoinsRecipient SendAssetsRecipient
+
+WalletModelTransaction::WalletModelTransaction(const QList<SendCoinsRecipient> &_recipients) :
     recipients(_recipients),
     fee(0)
 {
 }
 
-QList<SendAssetsRecipient> WalletModelTransaction::getRecipients() const
+QList<SendCoinsRecipient> WalletModelTransaction::getRecipients() const
 {
     return recipients;
 }
@@ -38,9 +40,8 @@ void WalletModelTransaction::setTransactionFee(const CAmount& newFee)
     fee = newFee;
 }
 
-void WalletModelTransaction::reassignAmounts(int nChangePosRet)
+void WalletModelTransaction::reassignAmounts(const std::vector<CAmount>& outAmounts, int nChangePosRet)
 {
-    const CTransaction* walletTransaction = &wtx->get();
     int i = 0;
     for (auto it = recipients.begin(); it != recipients.end(); ++it)
     {
@@ -56,27 +57,27 @@ void WalletModelTransaction::reassignAmounts(int nChangePosRet)
                 if (out.amount() <= 0) continue;
                 if (i == nChangePosRet)
                     i++;
-                subtotal += walletTransaction->vout[i].nValue.GetAmount();
+                subtotal += outAmounts[i];
                 i++;
             }
-            rcp.amount = subtotal;
+            rcp.asset_amount = subtotal;
         }
         else // normal recipient (no payment request)
         {
             if (i == nChangePosRet)
                 i++;
-            rcp.amount = walletTransaction->vout[i].nValue.GetAmount();
+            rcp.asset_amount = outAmounts[i];
             i++;
         }
     }
 }
 
-CAmount WalletModelTransaction::getTotalTransactionAmount() const
+CAmountMap WalletModelTransaction::getTotalTransactionAmount() const
 {
-    CAmount totalTransactionAmount = 0;
-    for (const SendAssetsRecipient &rcp : recipients)
+    CAmountMap totalTransactionAmount;
+    for (const auto &rcp : recipients)
     {
-        totalTransactionAmount += rcp.amount;
+        totalTransactionAmount[rcp.asset] += rcp.asset_amount;
     }
     return totalTransactionAmount;
 }

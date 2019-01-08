@@ -14,6 +14,8 @@
 #include <QApplication>
 #include <QClipboard>
 
+#include <policy/policy.h>
+
 SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *parent) :
     QStackedWidget(parent),
     ui(new Ui::SendCoinsEntry),
@@ -152,14 +154,15 @@ bool SendCoinsEntry::validate(interfaces::Node& node)
     }
 
     // Sending a zero amount is invalid
-    if (ui->payAmount->value(0) <= 0)
+    const auto send_assets = ui->payAmount->fullValue();
+    if (send_assets.second <= 0)
     {
         ui->payAmount->setValid(false);
         retval = false;
     }
 
     // Reject dust outputs:
-    if (retval && GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
+    if (retval && send_assets.first == ::policyAsset && GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
         ui->payAmount->setValid(false);
         retval = false;
     }
@@ -176,7 +179,7 @@ SendAssetsRecipient SendCoinsEntry::getValue()
     // Normal payment
     recipient.address = ui->payTo->text();
     recipient.label = ui->addAsLabel->text();
-    recipient.amount = ui->payAmount->value();
+    std::tie(recipient.asset, recipient.asset_amount) = ui->payAmount->fullValue();
     recipient.message = ui->messageTextLabel->text();
     recipient.fSubtractFeeFromAmount = (ui->checkboxSubtractFeeFromAmount->checkState() == Qt::Checked);
 
@@ -205,7 +208,7 @@ void SendCoinsEntry::setValue(const SendAssetsRecipient &value)
         {
             ui->payTo_is->setText(recipient.address);
             ui->memoTextLabel_is->setText(recipient.message);
-            ui->payAmount_is->setValue(recipient.amount);
+            ui->payAmount_is->setFullValue(recipient.asset, recipient.asset_amount);
             ui->payAmount_is->setReadOnly(true);
             setCurrentWidget(ui->SendCoins_UnauthenticatedPaymentRequest);
         }
@@ -213,7 +216,7 @@ void SendCoinsEntry::setValue(const SendAssetsRecipient &value)
         {
             ui->payTo_s->setText(recipient.authenticatedMerchant);
             ui->memoTextLabel_s->setText(recipient.message);
-            ui->payAmount_s->setValue(recipient.amount);
+            ui->payAmount_s->setFullValue(recipient.asset, recipient.asset_amount);
             ui->payAmount_s->setReadOnly(true);
             setCurrentWidget(ui->SendCoins_AuthenticatedPaymentRequest);
         }
@@ -229,7 +232,7 @@ void SendCoinsEntry::setValue(const SendAssetsRecipient &value)
         ui->payTo->setText(recipient.address); // this may set a label from addressbook
         if (!recipient.label.isEmpty()) // if a label had been set from the addressbook, don't overwrite with an empty label
             ui->addAsLabel->setText(recipient.label);
-        ui->payAmount->setValue(recipient.amount);
+        ui->payAmount->setFullValue(recipient.asset, recipient.asset_amount);
     }
 }
 
