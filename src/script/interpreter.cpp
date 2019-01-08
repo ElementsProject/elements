@@ -1126,6 +1126,42 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                  }
                  break;
 
+                case OP_CHECKSIGFROMSTACK:
+                case OP_CHECKSIGFROMSTACKVERIFY:
+                {
+                    // (sig data pubkey  -- bool)
+                    if (stack.size() < 3)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    valtype& vchSig    = stacktop(-3);
+                    valtype& vchData   = stacktop(-2);
+                    valtype& vchPubKey = stacktop(-1);
+
+                    // Sigs from stack have no hash byte ever
+                    if (!CheckSignatureEncoding(vchSig, (flags | SCRIPT_NO_SIGHASH_BYTE), serror) || !CheckPubKeyEncoding(vchPubKey, flags, sigversion, serror)) {
+                        //serror is set
+                        return false;
+                    }
+
+                    valtype vchHash(32);
+                    CSHA256().Write(vchData.data(), vchData.size()).Finalize(vchHash.data());
+                    uint256 hash(vchHash);
+
+                    CPubKey pubkey(vchPubKey);
+                    bool fSuccess = pubkey.Verify(hash, vchSig);
+
+                    popstack(stack);
+                    popstack(stack);
+                    popstack(stack);
+                    stack.push_back(fSuccess ? vchTrue : vchFalse);
+                    if (opcode == OP_CHECKSIGFROMSTACKVERIFY)
+                        popstack(stack);
+
+                    if (!fSuccess)
+                        return set_error(serror, SCRIPT_ERR_CHECKSIGVERIFY);
+                }
+                break;
+
                 default:
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);
             }
