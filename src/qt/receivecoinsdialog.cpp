@@ -31,6 +31,11 @@ ReceiveCoinsDialog::ReceiveCoinsDialog(const PlatformStyle *_platformStyle, QWid
 {
     ui->setupUi(this);
 
+    // Hide URI-specific fields, since we don't support URIs
+    ui->label_5->hide();
+    ui->label->hide(); ui->reqAmount->hide();
+    ui->label_3->hide(); ui->reqMessage->hide();
+
     if (!_platformStyle->getImagesOnButtons()) {
         ui->clearButton->setIcon(QIcon());
         ui->receiveButton->setIcon(QIcon());
@@ -85,6 +90,8 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
         tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
         tableView->setSelectionMode(QAbstractItemView::ContiguousSelection);
         tableView->setColumnWidth(RecentRequestsTableModel::Date, DATE_COLUMN_WIDTH);
+        tableView->horizontalHeader()->setStretchLastSection(true);
+#if 0
         tableView->setColumnWidth(RecentRequestsTableModel::Label, LABEL_COLUMN_WIDTH);
         tableView->setColumnWidth(RecentRequestsTableModel::Amount, AMOUNT_MINIMUM_COLUMN_WIDTH);
 
@@ -93,7 +100,7 @@ void ReceiveCoinsDialog::setModel(WalletModel *_model)
             &ReceiveCoinsDialog::recentRequestsView_selectionChanged);
         // Last 2 columns are set by the columnResizingFixer, when the table geometry is ready.
         columnResizingFixer = new GUIUtil::TableViewLastColumnResizingFixer(tableView, AMOUNT_MINIMUM_COLUMN_WIDTH, DATE_COLUMN_WIDTH, this);
-
+#endif
         if (model->wallet().getDefaultAddressType() == OutputType::BECH32) {
             ui->useBech32->setCheckState(Qt::Checked);
         } else {
@@ -213,7 +220,6 @@ void ReceiveCoinsDialog::on_removeRequestButton_clicked()
 void ReceiveCoinsDialog::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    columnResizingFixer->stretchColumnWidth(RecentRequestsTableModel::Message);
 }
 
 void ReceiveCoinsDialog::keyPressEvent(QKeyEvent *event)

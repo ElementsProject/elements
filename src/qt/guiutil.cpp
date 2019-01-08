@@ -122,6 +122,8 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
 
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
+    return false;  // TODO
+
     // return if URI is not valid or is no bitcoin: URI
     if(!uri.isValid() || uri.scheme() != QString("bitcoin"))
         return false;

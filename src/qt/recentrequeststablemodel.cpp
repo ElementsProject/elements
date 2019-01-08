@@ -24,7 +24,7 @@ RecentRequestsTableModel::RecentRequestsTableModel(WalletModel *parent) :
         addNewRequest(request);
 
     /* These columns must match the indices in the ColumnIndex enumeration */
-    columns << tr("Date") << tr("Label") << tr("Message") << getAmountTitle();
+    columns << tr("Date") << tr("Label");
 
     connect(walletModel->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &RecentRequestsTableModel::updateDisplayUnit);
 }
