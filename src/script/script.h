@@ -116,6 +116,7 @@ enum opcodetype
     // splice ops
     OP_CAT = 0x7e,
     OP_SUBSTR = 0x7f,
+    OP_SUBSTR_LAZY = 0xc3,
     OP_LEFT = 0x80,
     OP_RIGHT = 0x81,
     OP_SIZE = 0x82,
@@ -195,7 +196,7 @@ enum opcodetype
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_CHECKSIGFROMSTACKVERIFY;
+static const unsigned int MAX_OPCODE = OP_SUBSTR_LAZY; // 0xc3
 
 const char* GetOpName(opcodetype opcode);
 

@@ -815,6 +815,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 break;
 
                 case OP_SUBSTR:
+                case OP_SUBSTR_LAZY:
                 {
                     if (stack.size() < 3)
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
@@ -822,6 +823,30 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     valtype vch1 = stacktop(-3);
                     CScriptNum start(stacktop(-2), fRequireMinimal);
                     CScriptNum length(stacktop(-1), fRequireMinimal);
+
+                    if (opcode == OP_SUBSTR_LAZY) {
+                        if (start < 0)
+                            start = 0;
+
+                        if (length < 0)
+                            length = 0;
+
+                        if (start >= vch1.size()) {
+                            popstack(stack);
+                            popstack(stack);
+                            popstack(stack);
+                            stack.push_back(vchZero);
+                            break;
+                        }
+
+                        if (length > MAX_SCRIPT_ELEMENT_SIZE)
+                            length = MAX_SCRIPT_ELEMENT_SIZE;
+
+                        // start + length cannot overflow because of the restrictions immediately abo
+                        if (start + length > vch1.size()) {
+                            length = CScriptNum(vch1.size()) - start;
+                        }
+                    }
 
                     if (length < 0 || start < 0)
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
