@@ -25,6 +25,8 @@
 
 #include <univalue.h>
 
+#include <script/descriptor.h> // getwalletpakinfo
+
 
 int64_t static DecodeDumpTime(const std::string &str) {
     static const boost::posix_time::ptime epoch = boost::posix_time::from_time_t(0);
@@ -1276,8 +1278,6 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
     return response;
 }
 
-extern CTxDestination DeriveBitcoinOfflineAddress(const CExtPubKey& xpub, const uint32_t counter);
-
 UniValue getwalletpakinfo(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -1293,8 +1293,8 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
             "\nReturns relevant pegout authorization key (PAK) information about this wallet. Throws an error if initpegoutwallet` has not been invoked on this wallet.\n"
             "\nResult:\n"
             "{\n"
-                "\"derivation_path\"  (string) The next index to be used by the wallet for `sendtomainchain`.\n"
-                "\"bitcoin_xpub\"     (string) The Bitcoin xpubkey loaded in the wallet for pegouts.\n"
+                "\"bip32_counter\"  (string) The next index to be used by the wallet for `sendtomainchain`.\n"
+                "\"bitcoin_descriptor\"     (string) The Bitcoin script descriptor loaded in the wallet for pegouts.\n"
                 "\"liquid_pak\"       (string) Pubkey in hex corresponding to the Liquid PAK loaded in the wallet for pegouts.\n"
                 "\"liquid_pak_address\" (string) The corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer.\n"
                 "\"address_lookahead\"(array)  The three next Bitcoin addresses the wallet will use for `sendtomainchain` based on the internal counter.\n"
@@ -1310,18 +1310,28 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
     std::stringstream ss;
     ss << pwallet->offline_counter;
-    ret.push_back(Pair("derivation_path", "/0/"+ss.str()));
+    ret.push_back(Pair("bip32_counter", ss.str()));
 
-    CExtPubKey& xpub = pwallet->offline_xpub;
+    const std::string desc_str = pwallet->offline_desc;
 
-    ret.pushKV("bitcoin_xpub", EncodeExtPubKey(xpub));
+    FlatSigningProvider provider;
+    const auto& desc = Parse(desc_str, provider);
+
+    ret.pushKV("bitcoin_descriptor", desc_str);
     ret.pushKV("liquid_pak", HexStr(pwallet->online_key));
     ret.pushKV("liquid_pak_address", EncodeDestination((pwallet->online_key.GetID())));
 
     UniValue address_list(UniValue::VARR);
     for (unsigned int i = 0; i < 3; i++) {
-        address_list.push_back(EncodeParentDestination(DeriveBitcoinOfflineAddress(xpub, pwallet->offline_counter+i)));
+        std::vector<CScript> scripts;
+        if (!desc->Expand(i, provider, scripts, provider)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. This is a bug.");
+        }
+        CTxDestination destination;
+        ExtractDestination(scripts[0], destination);
+        address_list.push_back(EncodeParentDestination(destination));
     }
+
     ret.push_back(Pair("address_lookahead", address_list));
     return ret;
 }

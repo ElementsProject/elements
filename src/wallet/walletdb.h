@@ -216,8 +216,10 @@ public:
 
     /// ELEMENTS: Storage of PAK settings
     bool WriteOnlineKey(const CPubKey& online_key);
-    bool WriteOfflineXPubKey(const CExtPubKey& offline_xpub);
     bool WriteOfflineCounter(int counter);
+    bool WriteOfflineDescriptor(const std::string& offline_desc);
+    // DEPRECATED
+    bool WriteOfflineXPubKey(const CExtPubKey& offline_xpub);
 
     DBErrors LoadWallet(CWallet* pwallet);
     DBErrors FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);

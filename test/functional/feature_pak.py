@@ -33,8 +33,9 @@ pak2 = [("03767a74373b7207c5ae1214295197a88ec2abdf92e9e2a29daf024c322fae9fcb", "
         ("02f4a7445f9c48ee8590a930d3fc4f0f5763e3d1d003fdf5fc822e7ba18f380632", "036b3786f029751ada9f02f519a86c7e02fb2963a7013e7e668eb5f7ec069b9e7e")]
 
 # Args that will be re-used in slightly different ways across runs
-args = [["-acceptnonstdtxn=0", "-initialfreecoins=100000000"]] \
-       + [["-acceptnonstdtxn=0", "-enforce_pak=1", "-initialfreecoins=100000000"]]*4
+# TODO remove lol once parent chain hrp default is changed
+args = [["-acceptnonstdtxn=0", "-initialfreecoins=100000000", "-parent_bech32_hrp=lol"]] \
+       + [["-acceptnonstdtxn=0", "-enforce_pak=1", "-initialfreecoins=100000000", "-parent_bech32_hrp=lol"]]*4
 args[i_reject] = args[i_reject] + ['-pak=reject']
 # Novalidate has pak entry, should not act on it ever
 args[i_novalidate] = args[i_novalidate] + pak_to_option(pak1)
@@ -199,6 +200,7 @@ class PAKTest (BitcoinTestFramework):
         # We will re-use the same xpub, but each wallet will create its own online pak
         # so the lists will be incompatible, even if all else was synced
         xpub = "tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B"
+        xpub_desc = "pkh("+xpub+"/0/*)" # Transform this into a descriptor
         init_results = []
         info_results = []
         for i in range(5):
@@ -213,8 +215,8 @@ class PAKTest (BitcoinTestFramework):
             assert_equal(init_results[i]["address_lookahead"], info_results[i]["address_lookahead"])
             assert_equal(init_results[i]["liquid_pak"], info_results[i]["liquid_pak"])
             assert_equal(init_results[i]["liquid_pak_address"], info_results[i]["liquid_pak_address"])
-            assert_equal(info_results[i]["bitcoin_xpub"], xpub)
-            assert_equal(info_results[i]["derivation_path"], "/0/0")
+            assert_equal(info_results[i]["bitcoin_descriptor"], xpub_desc)
+            assert_equal(info_results[i]["bip32_counter"], "0")
 
         # Use custom derivation counter values, check if stored correctly,
         # address lookahead looks correct and that new liquid_pak was chosen
@@ -224,7 +226,7 @@ class PAKTest (BitcoinTestFramework):
         assert_raises_rpc_error(-8, "bip32_counter must be between 0 and 1,000,000,000, inclusive.", self.nodes[i_undefined].initpegoutwallet, xpub, 1000000001)
 
         new_init = self.nodes[i_undefined].initpegoutwallet(xpub, 2)
-        assert_equal(self.nodes[i_undefined].getwalletpakinfo()["derivation_path"], "/0/2")
+        assert_equal(self.nodes[i_undefined].getwalletpakinfo()["bip32_counter"], "2")
         assert_equal(new_init["address_lookahead"][0], init_results[i_undefined]["address_lookahead"][2])
         assert(new_init["liquid_pak"] != init_results[i_undefined]["liquid_pak"])
 
@@ -244,9 +246,9 @@ class PAKTest (BitcoinTestFramework):
 
         # Check PAK settings persistance in wallet across restart
         restarted_info = self.nodes[i_undefined].getwalletpakinfo()
-        assert_equal(restarted_info["bitcoin_xpub"], xpub)
+        assert_equal(restarted_info["bitcoin_descriptor"], xpub_desc)
         assert_equal(restarted_info["liquid_pak"], new_init["liquid_pak"])
-        assert_equal(restarted_info["derivation_path"], "/0/2")
+        assert_equal(restarted_info["bip32_counter"], "2")
 
         # Have nodes send pegouts, check it fails to enter mempool of other nodes with incompatible
         # PAK settings
@@ -260,10 +262,12 @@ class PAKTest (BitcoinTestFramework):
 
         # pak1 will now create a pegout.
         pak1_pegout_txid = self.nodes[i_pak1].sendtomainchain("", 1)["txid"]
-        assert_equal(self.nodes[i_pak1].getwalletpakinfo()["derivation_path"], "/0/1")
+        assert_equal(self.nodes[i_pak1].getwalletpakinfo()["bip32_counter"], "1")
+        # Also spend the change to make chained payment that will be rejected as well
+        pak1_child_txid = self.nodes[i_pak1].sendtoaddress(self.nodes[i_pak1].getnewaddress(), self.nodes[i_pak1].getbalance(), "", "", True)
 
 
-        # Wait for two nodes to get transaction in mempool only
+        # Wait for node("follow the leader" conf-undefined) to get transaction in
         time_to_wait = 15
         while time_to_wait > 0:
             # novalidate doesn't allow >80 byte op_return outputs due to no enforce_pak
@@ -283,15 +287,111 @@ class PAKTest (BitcoinTestFramework):
 
         assert_equal(pak1_pegout_txid in self.nodes[i_novalidate].getrawmempool(), False)
         assert_equal(pak1_pegout_txid in self.nodes[i_undefined].getrawmempool(), False)
+        assert_equal(pak1_pegout_txid in self.nodes[i_pak1].getrawmempool(), True)
         assert_equal(pak1_pegout_txid in self.nodes[i_pak2].getrawmempool(), False)
         assert_equal(pak1_pegout_txid in self.nodes[i_reject].getrawmempool(), False)
 
+        assert_equal(self.nodes[i_pak1].gettransaction(pak1_pegout_txid)["confirmations"], 0)
+
+        # Make sure child payment also bumped from mempool
+        assert_equal(pak1_child_txid in self.nodes[i_novalidate].getrawmempool(), False)
+        assert_equal(pak1_child_txid in self.nodes[i_undefined].getrawmempool(), False)
+        assert_equal(pak1_child_txid in self.nodes[i_pak1].getrawmempool(), True)
+        assert_equal(pak1_child_txid in self.nodes[i_pak2].getrawmempool(), False)
+        assert_equal(pak1_child_txid in self.nodes[i_reject].getrawmempool(), False)
+
+        assert_equal(self.nodes[i_pak1].gettransaction(pak1_child_txid)["confirmations"], 0)
         # Fail to peg-out too-small value
         assert_raises_rpc_error(-8, "Invalid amount for send, must send more than 0.0001 BTC", self.nodes[i_undefined].sendtomainchain, "", Decimal('0.0009'))
 
         # Use wrong network's extended pubkey
         mainnetxpub = "xpub6AATBi58516uxLogbuaG3jkom7x1qyDoZzMN2AePBuQnMFKUV9xC2BW9vXsFJ9rELsvbeGQcFWhtbyM4qDeijM22u3AaSiSYEvuMZkJqtLn"
-        assert_raises_rpc_error(-8, "bitcoin_xpub is invalid for this network", self.nodes[i_undefined].initpegoutwallet, mainnetxpub)
+        assert_raises_rpc_error(-8, "bitcoin_descriptor is not a valid descriptor string.", self.nodes[i_undefined].initpegoutwallet, mainnetxpub)
+
+        # Test fixed online pubkey
+        init_info = self.nodes[i_pak1].initpegoutwallet(xpub)
+        init_info2 = self.nodes[i_pak1].initpegoutwallet(xpub, 0, init_info['liquid_pak'])
+        assert_equal(init_info, init_info2)
+        init_info3 = self.nodes[i_pak1].initpegoutwallet(xpub)
+        assert(init_info != init_info3)
+
+        # Test Descriptor PAK Support
+
+        # Non-supported descriptors
+        assert_raises_rpc_error(-8, "bitcoin_descriptor is not of any type supported: pkh(<xpub>), sh(wpkh(<xpub>)), wpkh(<xpub>), or <xpub>.", self.nodes[i_pak1].initpegoutwallet, "pk(tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B/0/*)")
+
+        assert_raises_rpc_error(-8, "bitcoin_descriptor must be a ranged descriptor.", self.nodes[i_pak1].initpegoutwallet, "pkh(tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B)")
+
+        # key origins aren't supported in 0.17
+        assert_raises_rpc_error(-8, "bitcoin_descriptor is not a valid descriptor string.", self.nodes[i_pak1].initpegoutwallet, "pkh([d34db33f/44'/0'/0']tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B/1/*)")
+
+        # Peg out with each new type, check that destination script matches
+        wpkh_desc = "wpkh("+xpub+"/0/*)"
+        wpkh_info = self.nodes[i_pak1].initpegoutwallet(wpkh_desc)
+        wpkh_pak_info = self.nodes[i_pak1].getwalletpakinfo()
+
+        # Add to pak list for pak1, restart
+        self.stop_nodes()
+        extra_args = copy.deepcopy(args)
+        extra_args[i_pak1] = extra_args[i_pak1]+["-"+wpkh_info["pakentry"]]
+        self.start_nodes(extra_args)
+
+        # Make block commitment and get some block subsidy
+        self.nodes[i_pak1].generate(101)
+        wpkh_stmc = self.nodes[i_pak1].sendtomainchain("", 1)
+        wpkh_txid = wpkh_stmc['txid']
+
+        # Also check some basic return fields of sendtomainchain with pak
+        assert_equal(wpkh_stmc["bitcoin_address"], wpkh_info["address_lookahead"][0])
+        validata = self.nodes[i_pak1].validateaddress(wpkh_stmc["bitcoin_address"])
+        assert(not validata["isvalid"])
+        assert(validata["isvalid_parent"])
+        assert_equal(wpkh_pak_info["bip32_counter"], wpkh_stmc["bip32_counter"])
+        assert_equal(wpkh_pak_info["bitcoin_descriptor"], wpkh_stmc["bitcoin_descriptor"])
+
+        sh_wpkh_desc = "sh(wpkh("+xpub+"/0/1/*))"
+        sh_wpkh_info = self.nodes[i_pak1].initpegoutwallet(sh_wpkh_desc)
+
+        # Add to pak list for pak1, restart
+        self.stop_nodes()
+        extra_args = copy.deepcopy(args)
+        extra_args[i_pak1] = extra_args[i_pak1]+["-"+sh_wpkh_info["pakentry"]]
+
+        # Restart and connect peers
+        self.start_nodes(extra_args)
+        connect_nodes_bi(self.nodes,0,1)
+        connect_nodes_bi(self.nodes,1,2)
+        connect_nodes_bi(self.nodes,2,3)
+        connect_nodes_bi(self.nodes,3,4)
+
+        self.nodes[i_pak1].generate(1)
+        sh_wpkh_txid = self.nodes[i_pak1].sendtomainchain("", 1)['txid']
+
+        # Make sure peg-outs look correct
+        wpkh_raw = self.nodes[i_pak1].decoderawtransaction(self.nodes[i_pak1].gettransaction(wpkh_txid)['hex'])
+        sh_wpkh_raw = self.nodes[i_pak1].decoderawtransaction(self.nodes[i_pak1].gettransaction(sh_wpkh_txid)['hex'])
+
+        peg_out_found = False
+        for output in wpkh_raw["vout"]:
+            if "pegout_addresses" in output["scriptPubKey"]:
+                if output["scriptPubKey"]["pegout_addresses"][0] \
+                        == wpkh_info["address_lookahead"][0]:
+                    peg_out_found = True
+                    break
+                else:
+                    raise Exception("Found unexpected peg-out output")
+        assert(peg_out_found)
+
+        peg_out_found = False
+        for output in sh_wpkh_raw["vout"]:
+            if "pegout_addresses" in output["scriptPubKey"]:
+                if output["scriptPubKey"]["pegout_addresses"][0] \
+                        == sh_wpkh_info["address_lookahead"][0]:
+                    peg_out_found = True
+                    break
+                else:
+                    raise Exception("Found unexpected peg-out output")
+        assert(peg_out_found)
 
 if __name__ == '__main__':
     PAKTest ().main ()

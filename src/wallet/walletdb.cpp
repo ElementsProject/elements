@@ -184,6 +184,11 @@ bool WalletBatch::WriteOfflineXPubKey(const CExtPubKey& offline_xpub)
     return WriteIC(std::string("offlinexpub"), vxpub);
 }
 
+bool WalletBatch::WriteOfflineDescriptor(const std::string& offline_desc)
+{
+    return WriteIC(std::string("offlinedesc"), offline_desc);
+}
+
 bool WalletBatch::WriteOfflineCounter(int counter)
 {
     return WriteIC(std::string("offlinecounter"), counter);
@@ -547,6 +552,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             int counter;
             ssValue >> counter;
             pwallet->offline_counter = counter;
+        }
+        else if (strType == "offlinedesc")
+        {
+            std::string descriptor;
+            ssValue >> descriptor;
+            pwallet->offline_desc = descriptor;
         } else if (strType != "bestblock" && strType != "bestblock_nomerkle") {
             wss.m_unknown_records++;
         }

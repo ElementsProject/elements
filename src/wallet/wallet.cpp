@@ -4492,6 +4492,16 @@ bool CWallet::SetOfflineXPubKey(const CExtPubKey& offline_xpub_in)
     return true;
 }
 
+bool CWallet::SetOfflineDescriptor(const std::string& offline_desc_in)
+{
+    LOCK(cs_wallet);
+    if (!WalletBatch(*database).WriteOfflineDescriptor(offline_desc_in)) {
+        return false;
+    }
+    offline_desc = offline_desc_in;
+    return true;
+}
+
 bool CWallet::SetOfflineCounter(int counter) {
     LOCK(cs_wallet);
     if (!WalletBatch(*database).WriteOfflineCounter(counter)) {
