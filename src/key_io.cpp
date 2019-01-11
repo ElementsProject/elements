@@ -50,7 +50,8 @@ public:
         std::vector<unsigned char> data = {0};
         data.reserve(33);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
-        return bech32::Encode(m_params.Bech32HRP(), data);
+        const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
+        return bech32::Encode(hrp, data);
     }
 
     std::string operator()(const WitnessV0ScriptHash& id) const
@@ -58,7 +59,8 @@ public:
         std::vector<unsigned char> data = {0};
         data.reserve(53);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
-        return bech32::Encode(m_params.Bech32HRP(), data);
+        const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
+        return bech32::Encode(hrp, data);
     }
 
     std::string operator()(const WitnessUnknown& id) const
