@@ -1374,8 +1374,8 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                     hasher.Write(vchSeed.data(), vchSeed.size());
                     do {
                         if (nHashIndex >= 3) {
-                            //TODO this isn't endian safe
-                            CSHA256(hasher).Write((const unsigned char*)&nCounter, sizeof(nCounter)).Finalize(vchHash.data());
+                            uint64_t le_counter = htole64(nCounter);
+                            CSHA256(hasher).Write((const unsigned char*)&le_counter, sizeof(nCounter)).Finalize(vchHash.data());
                             nHashIndex = 0;
                             nCounter++;
                         }
