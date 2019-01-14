@@ -842,7 +842,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         if (length > MAX_SCRIPT_ELEMENT_SIZE)
                             length = MAX_SCRIPT_ELEMENT_SIZE;
 
-                        // start + length cannot overflow because of the restrictions immediately abo
+                        // start + length cannot overflow because of the restrictions immediately above
                         if (start + length > vch1.size()) {
                             length = CScriptNum(vch1.size()) - start;
                         }
