@@ -196,4 +196,6 @@ size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey,
 
 int FindAndDelete(CScript& script, const CScript& b);
 
+bool CheckMinimalPush(const std::vector<unsigned char>& data, opcodetype opcode);
+
 #endif // BITCOIN_SCRIPT_INTERPRETER_H

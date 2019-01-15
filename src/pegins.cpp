@@ -70,20 +70,23 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
 }
 
 // Takes federation redeem script and adds HMAC_SHA256(pubkey, scriptPubKey) as a tweak to each pubkey
-CScript calculate_contract(const CScript& federationRedeemScript, const CScript& scriptPubKey) {
+CScript calculate_contract(const CScript& federation_script, const CScript& scriptPubKey) {
     CScript scriptDestination;
-    txnouttype type;
     std::vector<std::vector<unsigned char> > solutions;
-    // Sanity check fedRedeemScript
-    if (!Solver(federationRedeemScript, type, solutions) || (type != TX_MULTISIG && type != TX_TRUE)) {
+    unsigned int required;
+    std::vector<std::vector<unsigned char>> keys;
+    // Sanity check federation_script only to match 3 templates
+    if (federation_script != CScript() << OP_TRUE &&
+            !MatchMultisig(federation_script, required, keys) &&
+            !MatchLiquidWatchman(federation_script)) {
        assert(false);
     }
 
     {
-        CScript::const_iterator sdpc = federationRedeemScript.begin();
+        CScript::const_iterator sdpc = federation_script.begin();
         std::vector<unsigned char> vch;
         opcodetype opcodeTmp;
-        while (federationRedeemScript.GetOp(sdpc, opcodeTmp, vch))
+        while (federation_script.GetOp(sdpc, opcodeTmp, vch))
         {
             size_t pub_len = 33;
             if (vch.size() == pub_len)
@@ -351,4 +354,76 @@ CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
     //TODO(rebase) CA
     //return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
     return CTxOut(value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+}
+
+bool MatchLiquidWatchman(const CScript& script)
+{
+    CScript::const_iterator it = script.begin();
+    std::vector<unsigned char> data;
+    opcodetype opcode;
+
+    // Stack depth check for branch choice
+    if (!script.GetOp(it, opcode, data) || opcode != OP_DEPTH) {
+        return false;
+    }
+    // Take in value, then check equality
+    if (!script.GetOp(it, opcode, data) ||
+            !script.GetOp(it, opcode, data) ||
+            opcode != OP_EQUAL) {
+        return false;
+    }
+    // IF EQUAL
+    if (!script.GetOp(it, opcode, data) || opcode != OP_IF) {
+        return false;
+    }
+    // Take in value k, make sure minimally encoded number from 1 to 16
+    if (!script.GetOp(it, opcode, data) ||
+            opcode > OP_16 ||
+            (opcode < OP_1NEGATE && !CheckMinimalPush(data, opcode))) {
+        return false;
+    }
+    opcodetype opcode2 = opcode;
+    std::vector<unsigned char> num = data;
+    // Iterate through multisig stuff until ELSE is hit
+    while (opcode != OP_ELSE) {
+        if (!script.GetOp(it, opcode, data)) {
+            return false;
+        }
+    }
+    // Take minimally-encoded CSV push number k'
+    if (!script.GetOp(it, opcode, data) ||
+            opcode > OP_16 || (opcode < OP_1NEGATE && !CheckMinimalPush(data, opcode))) {
+        return false;
+    }
+    // CSV
+    if (!script.GetOp(it, opcode, data) || opcode != OP_CHECKSEQUENCEVERIFY) {
+        return false;
+    }
+    // Drop the CSV number
+    if (!script.GetOp(it, opcode, data) || opcode != OP_DROP) {
+        return false;
+    }
+    // Take the minimally-encoded n of k-of-n multisig arg
+    if (!script.GetOp(it, opcode, data) ||
+            opcode > OP_16 || (opcode < OP_1NEGATE && !CheckMinimalPush(data, opcode)) ) {
+        return false;
+    }
+
+    // The two multisig k-numbers must not match, otherwise ELSE branch can not be reached
+    if (opcode == opcode2 && num == data) {
+        return false;
+    }
+
+    // Find the ENDIF
+    while (opcode != OP_ENDIF) {
+        if (!script.GetOp(it, opcode, data)) {
+            return false;
+        }
+    }
+    // CHECKMULTISIG
+    if (!script.GetOp(it, opcode, data) || opcode != OP_CHECKMULTISIG) {
+        return false;
+    }
+    // No more pushes
+    return (it + 1 == script.end());
 }
