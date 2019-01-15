@@ -258,9 +258,6 @@
 ["0", "IF 0xbd ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
 ["0", "IF 0xbe ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
 ["0", "IF 0xbf ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
-["0", "IF 0xc0 ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
-["0", "IF 0xc1 ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
-["0", "IF 0xc2 ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
 ["0", "IF 0xc3 ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
 ["0", "IF 0xc4 ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
 ["0", "IF 0xc5 ELSE 1 ENDIF", "P2SH,STRICTENC", "OK"],
@@ -829,26 +826,13 @@
 ["NOP", "2SWAP 1", "P2SH,STRICTENC", "INVALID_STACK_OPERATION"],
 ["1", "2 3 2SWAP 1", "P2SH,STRICTENC", "INVALID_STACK_OPERATION"],
 
-["'a' 'b'", "CAT", "P2SH,STRICTENC", "DISABLED_OPCODE", "CAT disabled"],
-["'a' 'b' 0", "IF CAT ELSE 1 ENDIF", "P2SH,STRICTENC", "DISABLED_OPCODE", "CAT disabled"],
-["'abc' 1 1", "SUBSTR", "P2SH,STRICTENC", "DISABLED_OPCODE", "SUBSTR disabled"],
-["'abc' 1 1 0", "IF SUBSTR ELSE 1 ENDIF", "P2SH,STRICTENC", "DISABLED_OPCODE", "SUBSTR disabled"],
-["'abc' 2 0", "IF LEFT ELSE 1 ENDIF", "P2SH,STRICTENC", "DISABLED_OPCODE", "LEFT disabled"],
-["'abc' 2 0", "IF RIGHT ELSE 1 ENDIF", "P2SH,STRICTENC", "DISABLED_OPCODE", "RIGHT disabled"],
-
 ["NOP", "SIZE 1", "P2SH,STRICTENC", "INVALID_STACK_OPERATION"],
 
-["'abc'", "IF INVERT ELSE 1 ENDIF", "P2SH,STRICTENC", "DISABLED_OPCODE", "INVERT disabled"],
-["1 2 0 IF AND ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "AND disabled"],
-["1 2 0 IF OR ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "OR disabled"],
-["1 2 0 IF XOR ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "XOR disabled"],
 ["2 0 IF 2MUL ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "2MUL disabled"],
 ["2 0 IF 2DIV ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "2DIV disabled"],
 ["2 2 0 IF MUL ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "MUL disabled"],
 ["2 2 0 IF DIV ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "DIV disabled"],
 ["2 2 0 IF MOD ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "MOD disabled"],
-["2 2 0 IF LSHIFT ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "LSHIFT disabled"],
-["2 2 0 IF RSHIFT ELSE 1 ENDIF", "NOP", "P2SH,STRICTENC", "DISABLED_OPCODE", "RSHIFT disabled"],
 
 ["", "EQUAL NOT", "P2SH,STRICTENC", "INVALID_STACK_OPERATION", "EQUAL must error when there are no stack items"],
 ["0", "EQUAL NOT", "P2SH,STRICTENC", "INVALID_STACK_OPERATION", "EQUAL must error when there are not 2 stack items"],
@@ -866,8 +850,6 @@
 ["2 2MUL", "4 EQUAL", "P2SH,STRICTENC", "DISABLED_OPCODE", "disabled"],
 ["2 2DIV", "1 EQUAL", "P2SH,STRICTENC", "DISABLED_OPCODE", "disabled"],
 ["7 3 MOD", "1 EQUAL", "P2SH,STRICTENC", "DISABLED_OPCODE", "disabled"],
-["2 2 LSHIFT", "8 EQUAL", "P2SH,STRICTENC", "DISABLED_OPCODE", "disabled"],
-["2 1 RSHIFT", "1 EQUAL", "P2SH,STRICTENC", "DISABLED_OPCODE", "disabled"],
 
 ["1", "NOP1 CHECKLOCKTIMEVERIFY CHECKSEQUENCEVERIFY NOP4 NOP5 NOP6 NOP7 NOP8 NOP9 NOP10 2 EQUAL", "P2SH,STRICTENC", "EVAL_FALSE"],
 ["'NOP_1_to_10' NOP1 CHECKLOCKTIMEVERIFY CHECKSEQUENCEVERIFY NOP4 NOP5 NOP6 NOP7 NOP8 NOP9 NOP10","'NOP_1_to_11' EQUAL", "P2SH,STRICTENC", "EVAL_FALSE"],
@@ -894,10 +876,6 @@
 ["1", "IF 0xbd ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
 ["1", "IF 0xbe ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
 ["1", "IF 0xbf ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
-["1", "IF 0xc0 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
-["1", "IF 0xc1 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
-["1", "IF 0xc2 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
-["1", "IF 0xc3 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
 ["1", "IF 0xc4 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
 ["1", "IF 0xc5 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
 ["1", "IF 0xc6 ELSE 1 ENDIF", "P2SH,STRICTENC", "BAD_OPCODE"],
@@ -2614,6 +2592,147 @@
 ["0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0x09 0x300602010102010101", "0x01 0x14 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0x01 0x14 CHECKMULTISIG NOT", "DERSIG,NULLFAIL", "NULLFAIL", "BIP66-compliant but not NULLFAIL-compliant"],
 ["0 0x09 0x300602010102010101 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0", "0x01 0x14 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0x01 0x14 CHECKMULTISIG NOT", "DERSIG", "OK", "BIP66-compliant but not NULLFAIL-compliant"],
 ["0 0x09 0x300602010102010101 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0", "0x01 0x14 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0x01 0x14 CHECKMULTISIG NOT", "DERSIG,NULLFAIL", "NULLFAIL", "BIP66-compliant but not NULLFAIL-compliant"],
+
+
+["ELEMENTS:"],
+
+
+["re-enabled opcodes:"],
+
+["0x08 0x0102030405060708", "-1 RIGHT 0x00 EQUAL", "", "UNKNOWN_ERROR", "-1 is not allowed"],
+["0x08 0x0102030405060708", "-1 LEFT 0x00 EQUAL", "", "UNKNOWN_ERROR", "-1 is not allowed"],
+
+["0x08 0xffffffffffffffff 0x07 0x00000000000000", "AND 0x08 0x0000000000000001 EQUAL", "", "INVALID_STACK_OPERATION", "unequal length"],
+["0x08 0xffffffffffffffff 0x06 0x020000000000", "AND 0x08 0x0200000000000002 EQUAL", "", "INVALID_STACK_OPERATION", "unequal length"],
+
+["0x08 0x0f0f0f0f0f0f0f0f 0x07 0xf0f0f0f0f0f0f0", "OR 0x08 0xffffffffffffffff EQUAL", "", "INVALID_STACK_OPERATION", "unequal length"],
+["0x08 0xffffffffffffffff 0x06 0x000000000000", "OR 0x08 0xffffffffffffffff EQUAL", "", "INVALID_STACK_OPERATION", "unequal length"],
+
+["0x08 0x01ffffffffffffff", "-1 7 SUBSTR 0x07 0xffffffffffffff EQUAL", "", "INVALID_STACK_OPERATION", "-1 is not allowed"],
+["0x08 0x01ffffffffffffff", "1 -7 SUBSTR 0x07 0xffffffffffffff EQUAL", "", "INVALID_STACK_OPERATION", "-1 is not allowed"],
+["0x08 0x01ffffffffffffff", "9 1 SUBSTR 0x07 0xffffffffffffff EQUAL", "", "INVALID_STACK_OPERATION", "range exceeds length"],
+["0x08 0x01ffffffffffffff", "0 9 SUBSTR 0x07 0xffffffffffffff EQUAL", "", "INVALID_STACK_OPERATION", "range exceeds length"],
+
+["0x08 0x0000000000000000", "INVERT 0x08 0x0000000000000000 EQUAL", "", "EVAL_FALSE", "not equal"],
+["", "INVERT 0x08 0x0000000000000000 EQUAL", "", "INVALID_STACK_OPERATION", "nothing on stack"],
+
+["0x08 0x0000000000000000 0x08 0xffffffffffffffff", "CAT DEPTH 1 EQUALVERIFY 0x10 0xffffffffffffffff0000000000000000 EQUAL", "STRICTENC", "EVAL_FALSE", "wrong CAT order", "size > MAX_SCRIPT_ELEMENT_SIZE"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT", "STRICTENC", "INVALID_STACK_OPERATION", "size > MAX_SCRIPT_ELEMENT_SIZE"],
+["0x08 0xffffffffffffffff 0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT CAT DEPTH 1 EQUALVERIFY 0x4d 0x0802 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+[""],
+
+["1", "4  LSHIFT 16 EQUAL", "", "OK"],
+
+["0x08 0x0102030405060708", "0  LSHIFT 0x08 0x0102030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "4  LSHIFT 0x09 0x1020304050607080 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "8  LSHIFT 0x09 0x000102030405060708 EQUAL", "", "OK"],
+
+["0x08 0x0102030405060708", "0  RSHIFT 0x08 0x0102030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "8  RSHIFT 0x07 0x02030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "16 RSHIFT 0x06 0x030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "24 RSHIFT 0x05 0x0405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "32 RSHIFT 0x04 0x05060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "40 RSHIFT 0x03 0x060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "48 RSHIFT 0x02 0x0708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "56 RSHIFT 0x01 0x08 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "64 RSHIFT 0x00 EQUAL", "", "OK"],
+
+["0x08 0xffffffffffffffff", "0  RSHIFT 0x08 0xffffffffffffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "4  RSHIFT 0x08 0xffffffffffffff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "8  RSHIFT 0x07 0xffffffffffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "12 RSHIFT 0x07 0xffffffffffff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "16 RSHIFT 0x06 0xffffffffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "20 RSHIFT 0x06 0xffffffffff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "24 RSHIFT 0x05 0xffffffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "28 RSHIFT 0x05 0xffffffff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "32 RSHIFT 0x04 0xffffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "36 RSHIFT 0x04 0xffffff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "40 RSHIFT 0x03 0xffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "44 RSHIFT 0x03 0xffff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "48 RSHIFT 0x02 0xffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "52 RSHIFT 0x02 0xff0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "56 RSHIFT 0x01 0xff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "60 RSHIFT 0x01 0x0f EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff", "64 RSHIFT 0x00 EQUAL", "", "OK"],
+
+["0x08 0xffffffffffffff0f", "4  RSHIFT 0x08 0xffffffffffffff EQUAL", "", "OK"],
+["0x01 0x0f", "4  RSHIFT 0x00 EQUAL", "", "OK"],
+
+["0x08 0x0102030405060708", "0 RIGHT 0x08 0x0102030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "1 RIGHT 0x07 0x02030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "2 RIGHT 0x06 0x030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "3 RIGHT 0x05 0x0405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "4 RIGHT 0x04 0x05060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "5 RIGHT 0x03 0x060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "6 RIGHT 0x02 0x0708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "7 RIGHT 0x01 0x08 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "8 RIGHT 0x00 EQUAL", "", "OK"],
+
+["0x08 0x0102030405060708", "8 LEFT 0x08 0x0102030405060708 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "7 LEFT 0x07 0x01020304050607 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "6 LEFT 0x06 0x010203040506 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "5 LEFT 0x05 0x0102030405 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "4 LEFT 0x04 0x01020304 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "3 LEFT 0x03 0x010203 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "2 LEFT 0x02 0x0102 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "1 LEFT 0x01 0x01 EQUAL", "", "OK"],
+["0x08 0x0102030405060708", "0 LEFT 0x00 EQUAL", "", "OK"],
+
+["0x08 0xffffffffffffffff 0x08 0x0000000000000001", "AND 0x08 0x0000000000000001 EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff 0x08 0x0200000000000002", "AND 0x08 0x0200000000000002 EQUAL", "", "OK"],
+
+["0x08 0x0f0f0f0f0f0f0f0f 0x08 0xf0f0f0f0f0f0f0f0", "OR 0x08 0xffffffffffffffff EQUAL", "", "OK"],
+["0x08 0xffffffffffffffff 0x08 0x0000000000000000", "OR 0x08 0xffffffffffffffff EQUAL", "", "OK"],
+
+["0x08 0x01ffffffffffffff", "0 8 SUBSTR 0x08 0x01ffffffffffffff EQUAL", "", "OK"],
+["0x08 0x01ffffffffffffff", "1 7 SUBSTR 0x07 0xffffffffffffff EQUAL", "", "OK"],
+
+["0x08 0x0000000000000000", "INVERT 0x08 0xffffffffffffff EQUAL", "", "OK"],
+
+["0x08 0xffffffffffffffff 0x08 0x0000000000000000", "CAT DEPTH 1 EQUALVERIFY 0x10 0xffffffffffffffff0000000000000000 EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP CAT DEPTH 1 EQUALVERIFY 0x10 0xffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x20 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x40 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x4c 0x80 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x4d 0x0001 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+
+["0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 1 EQUALVERIFY 0x4d 0x0002 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DEPTH 2 EQUALVERIFY 0x10 0xffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x20 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x40 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x4c 0x80 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x4d 0x0001 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DEPTH 2 EQUALVERIFY 0x4d 0x0002 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff", "DUP DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT CAT DEPTH 1 EQUALVERIFY 0x4d 0x0802 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+["0x08 0xffffffffffffffff 0x08 0xffffffffffffffff", "DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT DUP CAT CAT DEPTH 1 EQUALVERIFY 0x4d 0x0802 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff EQUAL", "STRICTENC", "OK"],
+
+["0 0","XOR 0 EQUAL", "STRICTENC", "OK"],
+["0x51 0x51","XOR 0x01 0x00 EQUAL", "STRICTENC", "OK"],
+["0x01 0x00 0x51","XOR 0x51 EQUAL", "STRICTENC", "OK"],
+["0x14 0x2595860bbba83109178f70419941302a3c2bf6eb 0x14 0x517051988cbe5bbcc1348b835694117138517800","XOR 0x14 0x74e5d79337166ab5d6bbfbc2cfd5215b047a8eeb EQUAL", "STRICTENC", "OK"],
+
+
+["new Elements-only opcodes:"],
+
+["", "0x08 0xffffffffffffffff 0 0x01 0x00 DETERMINISTICRANDOM 0 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x02 DETERMINISTICRANDOM 0 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x03 DETERMINISTICRANDOM 0 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x05 DETERMINISTICRANDOM 0x01 0x03 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x07 DETERMINISTICRANDOM 0 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x0b DETERMINISTICRANDOM 0x01 0x02 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x0d DETERMINISTICRANDOM 0x01 0x01 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x11 DETERMINISTICRANDOM 0x01 0x0B EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x13 DETERMINISTICRANDOM 0x01 0x0C EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x17 DETERMINISTICRANDOM 0x01 0x04 EQUAL", "", "OK"],
+["", "0x08 0xFFFFFFFFFFFFFFF0 0 0x01 0x1d DETERMINISTICRANDOM 0x01 0x0E EQUAL", "", "OK"],
+
+["0x46 0x304402206daa2cecefaa8930244efea8d8e6db945161a2040d48f67542b5f9cdc592110202204b83b83ad3d3a2359c36b6c4f57306de46246e5cd321c6bd5881df4ff319cda9", "0x03 0x776174 0x21 0x0292408c54f68eb7609ac8b1ac234192a1f5a5706b37854bcecf51ddd8b202885c CHECKSIGFROMSTACK", "", "OK"],
+
+["these arguments are not allowed in SUBSTR, but are in SUBSTR_LAZY:"],
+["0x08 0x0102030405060708", "-1 7 SUBSTR_LAZY 0x07 0x01020304050607 EQUAL", "", "OK", "SUBSTR: -1 is not allowed"],
+["0x08 0x0102030405060708", "1 -7 SUBSTR_LAZY 0x00 EQUAL", "", "OK", "SUBSTR: -1 is not allowed"],
+["0x08 0x0102030405060708", "9 1 SUBSTR_LAZY 0x00 EQUAL", "", "OK", "SUBSTR: range exceeds length"],
+["0x08 0x0102030405060708", "0 9 SUBSTR_LAZY 0x08 0x0102030405060708 EQUAL", "", "OK", "SUBSTR: ange exceeds length"],
 
 ["The End"]
 ]
