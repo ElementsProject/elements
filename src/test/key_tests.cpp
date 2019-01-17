@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "key.h"
+#include "ecies.h"
 
 #include "base58.h"
 #include "script/script.h"
@@ -107,6 +108,14 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(addr1C.Get() == CTxDestination(pubkey1C.GetID()));
     BOOST_CHECK(addr2C.Get() == CTxDestination(pubkey2C.GetID()));
 
+    CECIES ecies1, ecies2;
+    std::string m1 = "Test plain text 1";
+    std::string m2 = "Test plain text 2";
+    BOOST_CHECK(ecies1.Initialize(key1.GetPrivKey()));
+    BOOST_CHECK(ecies2.Initialize(key2.GetPrivKey()));
+
+
+
     for (int n=0; n<16; n++)
     {
         std::string strMsg = strprintf("Very secret message %i: 11", n);
@@ -184,6 +193,7 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(key2C.SignCompact(hashMsg, detsigc));
     BOOST_CHECK(detsig == ParseHex("1c52d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
     BOOST_CHECK(detsigc == ParseHex("2052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()
