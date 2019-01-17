@@ -9,7 +9,6 @@
 #include "consensus/consensus.h"
 #include "script/interpreter.h"
 #include "script/standard.h"
-#include "whiteListDatabase.hpp"
 
 #include <string>
 #include <vector>
@@ -78,15 +77,6 @@ static const unsigned int STANDARD_NOT_MANDATORY_VERIFY_FLAGS = STANDARD_SCRIPT_
 /** Used as the flags parameter to sequence and nLocktime checks in non-consensus code. */
 static const unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUENCE |
                                                            LOCKTIME_MEDIAN_TIME_PAST;
-static const bool DEFAULT_WHITELIST_MONGODB = false;
-
-static const std::string DEFAULT_WLDBUSER = "";
-static const std::string DEFAULT_WLDBPASS = "";
-static const std::string DEFAULT_WLDBPORT = "";
-static const std::string DEFAULT_WLDBHOST = "wldbhost";
-static const std::string DEFAULT_WLDBDATABASE = "";
-static const std::string DEFAULT_WLDBAUTHSOURCE = "";
-static const std::string DEFAULT_WLDBAUTHMECHANISM = "SCRAM-SHA-256";
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
     /**
@@ -140,7 +130,6 @@ void AddToWhitelist(const std::vector<std::string> address_key);
  *
  **/
 
-extern whiteListDatabase theWhiteListDatabase;
 
 extern CFeeRate incrementalRelayFee;
 extern CFeeRate dustRelayFee;

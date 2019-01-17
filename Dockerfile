@@ -4,8 +4,6 @@ COPY . /usr/src/package
 
 # Build Ocean
 RUN set -ex \
-    && export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH \
-    && export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig \
     && cd /usr/src/package \
     && ./autogen.sh \
     && ./configure \
