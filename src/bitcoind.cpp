@@ -19,7 +19,6 @@
 #include "httprpc.h"
 #include "utilstrencodings.h"
 #include "validation.h"
-#include "policy/whiteListDatabase.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>

@@ -184,7 +184,6 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
 extern bool fRequireWhitelistCheck;
-extern bool fWhitelistMongoDB;
 extern bool fRequireFreezelistCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;

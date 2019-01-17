@@ -21,7 +21,6 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
-#include "policy/whiteListDatabase.hpp"
 
 #include <fstream>
 
@@ -33,7 +32,6 @@
 #include <boost/thread/thread.hpp> // boost::thread::interrupt
 #include <boost/algorithm/string.hpp>
 
-#include <mongocxx/exception/exception.hpp>
 
 #include <mutex>
 #include <condition_variable>
@@ -1515,36 +1513,6 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
   return NullUniValue;
 }
 
-UniValue readwhitelistdb(const JSONRPCRequest& request)
-{
-  if (request.fHelp || request.params.size() != 1)
-    throw runtime_error(
-	       "readwhitelistdb \n"
-			"Read in derived keys and tweaked addresses from the whitelist database.\n"
-			"\nArguments: none\n"
-			"\nExamples:\n"
-			+ HelpExampleCli("readwhitelistdb","")
-			+ HelpExampleRpc("readwhitelistdb","")
-			);
-
-  if(!fWhitelistMongoDB){
-   throw runtime_error(
-            "readwhitelistdb \n"
-            "Whitelist database is not enabled.\n"
-            "To use the whitelist database, elementsd must be started with the option -pkhwhitelistmongodb=1"
-            );
-  }
-
-  //Read the addrsses from mongodb into addressWhitelist
-  try{
-    theWhiteListDatabase.synchronise();
-  } catch (const mongocxx::exception& e){
-    throw JSONRPCError(RPC_MONGOCXX_EXCEPTION, string(e.what()));
-  }  
-
-  return NullUniValue;
-}
-
 UniValue readwhitelist(const JSONRPCRequest& request)
 {
   if (request.fHelp || request.params.size() != 1)
@@ -2349,7 +2317,6 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"address","basepubkey"} },
     { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename"} },
-    { "blockchain",         "readwhitelistdb",        &readwhitelistdb,        true,  {} },
     { "blockchain",         "querywhitelist",         &querywhitelist,         true,  {"address"} },
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
