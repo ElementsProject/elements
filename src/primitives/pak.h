@@ -67,4 +67,12 @@ public:
     void ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, std::vector<std::vector<unsigned char> >& online_keys, bool &is_reject) const;
 };
 
+/**
+ ** Returns true if the script includes valid pegout proof
+ ** given the PAK list loaded. Two pushes after regular pegout script:
+ ** <full_pubkey> <proof>
+ **/
+bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash);
+
+
 #endif // BITCOIN_PRIMITIVES_PAK_H

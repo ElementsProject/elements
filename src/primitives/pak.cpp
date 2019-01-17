@@ -3,18 +3,19 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <primitives/pak.h>
+#include <pubkey.h>
 
 namespace {
 
-static secp256k1_context *secp256k1_ctx;
+static secp256k1_context *secp256k1_ctx_pak;
 
 class CSecp256k1Init {
 public:
     CSecp256k1Init() {
-        secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        secp256k1_ctx_pak = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
     }
     ~CSecp256k1Init() {
-        secp256k1_context_destroy(secp256k1_ctx);
+        secp256k1_context_destroy(secp256k1_ctx_pak);
     }
 };
 static CSecp256k1Init instance_of_csecp256k1;
@@ -42,10 +43,10 @@ std::vector<CScript> CPAKList::GenerateCoinbasePAKCommitments() const
         CScript scriptCommitment(scriptPubKey);
         unsigned char pubkey[33];
         size_t outputlen = 33;
-        secp256k1_ec_pubkey_serialize(secp256k1_ctx, pubkey, &outputlen, &m_offline_keys[i], SECP256K1_EC_COMPRESSED);
+        secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_offline_keys[i], SECP256K1_EC_COMPRESSED);
         assert(outputlen == 33);
         scriptCommitment << std::vector<unsigned char>(pubkey, pubkey+outputlen);
-        secp256k1_ec_pubkey_serialize(secp256k1_ctx, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
+        secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
         assert(outputlen == 33);
         scriptCommitment << std::vector<unsigned char>(pubkey, pubkey+outputlen);
         commitments.push_back(scriptCommitment);
@@ -111,8 +112,8 @@ bool CPAKList::FromBytes(CPAKList &paklist, std::vector<std::vector<unsigned cha
     for (unsigned int i = 0; i < offline_keys_bytes.size(); i++) {
         secp256k1_pubkey pubkey1;
         secp256k1_pubkey pubkey2;
-        int ret1 = secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey1, &offline_keys_bytes[i][0], offline_keys_bytes[i].size());
-        int ret2 = secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey2, &online_keys_bytes[i][0], online_keys_bytes[i].size());
+        int ret1 = secp256k1_ec_pubkey_parse(secp256k1_ctx_pak, &pubkey1, &offline_keys_bytes[i][0], offline_keys_bytes[i].size());
+        int ret2 = secp256k1_ec_pubkey_parse(secp256k1_ctx_pak, &pubkey2, &online_keys_bytes[i][0], online_keys_bytes[i].size());
 
         if (ret1 != 1 || ret2 != 1) {
             return false;
@@ -133,12 +134,92 @@ void CPAKList::ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, s
     for (unsigned int i = 0; i < m_offline_keys.size(); i++) {
         unsigned char pubkey[33];
         size_t outputlen = 33;
-        secp256k1_ec_pubkey_serialize(secp256k1_ctx, pubkey, &outputlen, &m_offline_keys[i], SECP256K1_EC_COMPRESSED);
+        secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_offline_keys[i], SECP256K1_EC_COMPRESSED);
         offline_keys.push_back(std::vector<unsigned char>(pubkey, pubkey+outputlen));
-        secp256k1_ec_pubkey_serialize(secp256k1_ctx, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
+        secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
         online_keys.push_back(std::vector<unsigned char>(pubkey, pubkey+outputlen));
     }
     is_reject = reject;
 }
 
+// Proof follows the OP_RETURN <genesis_block_hash> <destination_scriptpubkey>
+// in multiple pushes: <full_pubkey> <proof>
+bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash)
+{
+    assert(script.IsPegoutScript(genesis_hash));
 
+    CPAKList paklist;
+    if (g_paklist_config) {
+        paklist = *g_paklist_config;
+    } else {
+        paklist = g_paklist_blockchain;
+    }
+
+    if (paklist.IsReject() || paklist.IsEmpty()) {
+        return false;
+    }
+
+    CScript::const_iterator pc = script.begin();
+    std::vector<unsigned char> data;
+    opcodetype opcode;
+
+    script.GetOp(pc, opcode, data);
+    script.GetOp(pc, opcode, data);
+    script.GetOp(pc, opcode, data);
+
+    CScript destination(data.begin(), data.end());
+
+    // Only accept p2pkh
+    if (!destination.IsPayToPubkeyHash()) {
+        return false;
+    }
+
+    // Grab pubkey hash within the extracted sub-script
+    CScript::const_iterator pc2 = destination.begin();
+    std::vector<unsigned char> data2;
+    opcodetype opcode2;
+    if (!destination.GetOp(pc2, opcode2, data2) || !destination.GetOp(pc2, opcode2, data2) ||!destination.GetOp(pc2, opcode2, data2)) {
+        return false;
+    }
+
+    // Follow-up with full pubkey
+    if (!script.GetOp(pc, opcode, data) || opcode != 33 || data.size() != 33) {
+        return false;
+    }
+
+    CPubKey cpubkey(data.begin(), data.end());
+    //Ensure the chaindest p2pkh matches the included pubkey
+    if (cpubkey.GetID() != uint160(data2)) {
+        return false;
+    }
+
+    // Parse pubkey
+    secp256k1_pubkey pubkey;
+    if (secp256k1_ec_pubkey_parse(secp256k1_ctx_pak, &pubkey, &data[0], data.size()) != 1) {
+        return false;
+    }
+
+    if (!script.GetOp(pc, opcode, data) || opcode > OP_PUSHDATA4 || data.size() == 0) {
+        return false;
+    }
+
+    // Parse whitelist proof
+    secp256k1_whitelist_signature sig;
+    if (secp256k1_whitelist_signature_parse(secp256k1_ctx_pak, &sig, &data[0], data.size()) != 1)
+        return false;
+
+    if (secp256k1_whitelist_signature_n_keys(&sig) != paklist.size()) {
+        return false;
+    }
+
+    if (secp256k1_whitelist_verify(secp256k1_ctx_pak, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &pubkey) != 1) {
+        return false;
+    }
+
+    //No more pushes allowed
+    if (script.GetOp(pc, opcode, data)) {
+        return false;
+    }
+
+    return true;
+}
