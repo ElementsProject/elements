@@ -106,6 +106,7 @@ BITCOIN_CORE_H = \
   indirectmap.h \
   init.h \
   key.h \
+  ecies.h \
   keystore.h \
   dbwrapper.h \
   limitedmap.h \
@@ -336,6 +337,7 @@ libbitcoin_common_a_SOURCES = \
   core_write.cpp \
   global/common.cpp \
   key.cpp \
+  ecies.cpp \
   keystore.cpp \
   netaddress.cpp \
   issuance.cpp \

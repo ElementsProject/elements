@@ -743,6 +743,61 @@ UniValue signmessage(const JSONRPCRequest& request)
     return EncodeBase64(&vchSig[0], vchSig.size());
 }
 
+UniValue encryptmessage(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(
+            "signmessage \"address\" \"message\"\n"
+            "\nEncrypts a message with the private key of an address"
+            + HelpRequiringPassphrase() + "\n"
+            "\nArguments:\n"
+            "1. \"address\"         (string, required) The bitcoin address to use for the private key.\n"
+            "2. \"message\"         (string, required) The message to be encrypted.\n"
+            "\nResult:\n"
+            "\"encrypted message\"          (string) The encrypted message.\n"
+            "\nExamples:\n"
+            "\nUnlock the wallet for 30 seconds\n"
+            + HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
+            "\nEncrypt the message\n"
+            + HelpExampleCli("encryptmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"my message\"") +
+            "\nDecrypt the message\n"
+            + HelpExampleCli("decryptmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"encrypted message\"") +
+            "\nAs json rpc\n"
+            + HelpExampleRpc("encryptmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"my message\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    string strAddress = request.params[0].get_str();
+    string strMessage = request.params[1].get_str();
+
+    CBitcoinAddress addr(strAddress);
+    if (!addr.IsValid())
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
+
+    CKeyID keyID;
+    if (!addr.GetKeyID(keyID))
+        throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
+
+    CKey key;
+    if (!pwalletMain->GetKey(keyID, key))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
+
+    CHashWriter ss(SER_GETHASH, 0);
+    ss << strMessage;
+
+    vector<unsigned char> vchSig;
+    if (!key.SignCompact(ss.GetHash(), vchSig))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Sign failed");
+
+    return EncodeBase64(&vchSig[0], vchSig.size());
+}
+
 UniValue getreceivedbyaddress(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))

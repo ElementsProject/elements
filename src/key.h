@@ -10,6 +10,7 @@
 #include "serialize.h"
 #include "support/allocators/secure.h"
 #include "uint256.h"
+#include "cryptopp/eccrypto.h"
 
 #include <stdexcept>
 #include <vector>
@@ -48,6 +49,7 @@ private:
     //! Check whether the 32-byte array pointed to be vch is valid keydata.
     bool static Check(const unsigned char* vch);
 
+    
 public:
     //! Construct an invalid private key.
     CKey() : fValid(false), fCompressed(false)
@@ -123,6 +125,7 @@ public:
      */
     bool Sign(const uint256& hash, std::vector<unsigned char>& vchSig, uint32_t test_case = 0) const;
 
+   
     /**
      * Create a compact signature (65 bytes), which allows reconstructing the used public key.
      * The format is one header byte, followed by two times 32 bytes for the serialized r and s values.
