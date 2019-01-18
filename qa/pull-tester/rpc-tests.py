@@ -155,6 +155,7 @@ testScripts = [
     'unconfidential_transactions.py',
     'asset_stats.py',
     'raw_issuance.py',
+    'mempool_accept.py',
     'preciousblock.py',
     #'p2p-segwit.py',
     #'importprunedfunds.py',
