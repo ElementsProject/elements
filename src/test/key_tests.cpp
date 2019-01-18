@@ -108,13 +108,12 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(addr1C.Get() == CTxDestination(pubkey1C.GetID()));
     BOOST_CHECK(addr2C.Get() == CTxDestination(pubkey2C.GetID()));
 
-    CECIES ecies1, ecies2;
-    std::string m1 = "Test plain text 1";
-    std::string m2 = "Test plain text 2";
-    BOOST_CHECK(ecies1.Initialize(key1.GetPrivKey()));
-    BOOST_CHECK(ecies2.Initialize(key2.GetPrivKey()));
-
-
+    CECIES  ecies1(key1, key2.GetPubKey());
+    CECIES  ecies2(key2, key1.GetPubKey(), ecies1.iv());
+    unsigned char m[10*AES_BLOCKSIZE];
+    GetStrongRandBytes(m, AES_BLOCKSIZE);
+    std::vector<unsigned char> vm(m, m+AES_BLOCKSIZE);
+    std::vector<unsigned char> vem1, vem2, vdm1, vdm2;
 
     for (int n=0; n<16; n++)
     {
