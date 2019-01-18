@@ -52,7 +52,6 @@ enum RPCErrorCode
     RPC_VERIFY_ALREADY_IN_CHAIN     = -27, //!< Transaction already in chain
     RPC_IN_WARMUP                   = -28, //!< Client still warming up
     RPC_INVALID_KEY_DERIVATION      = -32, //!< Invalid key derivation when tweaking key with contract hash
-    RPC_MONGOCXX_EXCEPTION          = -33, //!< mongocxx database exception
     
     //! Aliases for backward compatibility
     RPC_TRANSACTION_ERROR           = RPC_VERIFY_ERROR,

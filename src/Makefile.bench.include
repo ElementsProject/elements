@@ -30,7 +30,7 @@ bench_bench_bitcoin_SOURCES = \
 nodist_bench_bench_bitcoin_SOURCES = $(GENERATED_TEST_FILES)
 
 bench_bench_bitcoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CLFAGS) $(EVENT_PTHREADS_CFLAGS) -I$(builddir)/bench/
-bench_bench_bitcoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) $(MONGOCXX_FLAGS)
+bench_bench_bitcoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
 bench_bench_bitcoin_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
@@ -52,7 +52,7 @@ bench_bench_bitcoin_LDADD += $(LIBBITCOIN_WALLET) $(LIBBITCOIN_CRYPTO)
 endif
 
 bench_bench_bitcoin_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS)
-bench_bench_bitcoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(MONGOCXX_LIBS)
+bench_bench_bitcoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) 
 
 CLEAN_BITCOIN_BENCH = bench/*.gcda bench/*.gcno $(GENERATED_TEST_FILES)
 
