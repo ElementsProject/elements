@@ -31,9 +31,6 @@ void InitParameterInteraction();
  */
 bool AppInitBasicSetup();
 
-//Return either an environment varibale or a default value
-std::string GetEnvOrDefault(const std::string& var, 
-                            const std::string& def);
 /**
  * Initialization: parameter interaction.
  * @note This can be done before daemonization.

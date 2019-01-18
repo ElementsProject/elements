@@ -904,13 +904,6 @@ bool AppInitBasicSetup()
     return true;
 }
 
-std::string GetEnvOrDefault(const std::string& var, 
-                            const std::string& def)
-{
-    const char* val = getenv(var.c_str());
-    return val ? val : def;
-}
-
 bool AppInitParameterInteraction()
 {
     const CChainParams& chainparams = Params();
