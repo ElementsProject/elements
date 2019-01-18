@@ -115,6 +115,16 @@ BOOST_AUTO_TEST_CASE(key_test1)
     std::vector<unsigned char> vm(m, m+AES_BLOCKSIZE);
     std::vector<unsigned char> vem1, vem2, vdm1, vdm2;
 
+    ecies1.Encrypt(vem1, vm);
+    ecies2.Decrypt(vdm1, vem1);
+    BOOST_CHECK(vem1 != vm);
+    BOOST_CHECK(vdm1 == vm);
+
+    ecies2.Encrypt(vem2, vm);
+    ecies1.Decrypt(vdm2, vem2);
+    BOOST_CHECK(vem2 != vm);
+    BOOST_CHECK(vdm2 == vm);
+
     for (int n=0; n<16; n++)
     {
         std::string strMsg = strprintf("Very secret message %i: 11", n);
