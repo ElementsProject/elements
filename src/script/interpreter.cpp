@@ -503,6 +503,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 break;
 
                 case OP_RETURN:
+                case OP_REGISTERADDRESS:
                 {
                     return set_error(serror, SCRIPT_ERR_OP_RETURN);
                 }

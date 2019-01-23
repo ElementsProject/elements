@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
+static const bool DEFAULT_ACCEPT_REGISTERADDRESS = true;
 
 class CKeyID;
 class CScript;
@@ -29,8 +30,11 @@ public:
 };
 
 static const unsigned int MAX_OP_RETURN_RELAY = 83; //!< bytes (+1 for OP_RETURN, +2 for the pushdata opcodes)
+static const unsigned int MAX_OP_REGISTERADDRESS_RELAY = 3203; //!< bytes to register ~100 addresses (+1 for OP_RETURN, +2 for the pushdata opcodes)
 extern bool fAcceptDatacarrier;
 extern unsigned nMaxDatacarrierBytes;
+extern bool fAcceptRegisteraddress;
+extern unsigned nMaxRegisteraddressBytes;
 
 /**
  * Mandatory script verification flags that all new blocks must comply with for
@@ -52,6 +56,7 @@ enum txnouttype
     TX_SCRIPTHASH,
     TX_MULTISIG,
     TX_NULL_DATA,
+    TX_REGISTERADDRESS,
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
     TX_TRUE,

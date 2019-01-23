@@ -1093,8 +1093,12 @@ bool AppInitParameterInteraction()
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
     fIsBareMultisigStd = GetBoolArg("-permitbaremultisig", DEFAULT_PERMIT_BAREMULTISIG);
+    //Acceptance of data in OP_RETURN
     fAcceptDatacarrier = GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
+    //Acceptance of OP_REGISTERADDRESS 
+    fAcceptDatacarrier = GetBoolArg("-registeraddress", DEFAULT_ACCEPT_REGISTERADDRESS);
+    nMaxDatacarrierBytes = GetArg("-registeraddresssize", nMaxRegisteraddressBytes);
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op

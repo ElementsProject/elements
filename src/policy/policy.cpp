@@ -54,6 +54,9 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     } else if (whichType == TX_NULL_DATA &&
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
           return false;
+    else if (whichType == TX_REGISTERADDRESS &&
+               (!fAcceptRegisteraddress || scriptPubKey.size() > nMaxRegisteraddressBytes))
+          return false;
     else if (whichType == TX_TRUE)
         return false;
 
@@ -106,7 +109,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
 
 bool IsBurn(const CTransaction& tx)
 {
-  //function that determines if all outputs of a transaction are OP_RETURN
+  //function that determines if all outputs of a transaction are OP_RETURN 
   txnouttype whichType;
 
   BOOST_FOREACH(const CTxOut& txout, tx.vout) {

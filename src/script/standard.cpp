@@ -19,6 +19,8 @@ typedef vector<unsigned char> valtype;
 
 bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
+bool fAcceptRegisteraddress = DEFAULT_ACCEPT_REGISTERADDRESS;
+unsigned nMaxRegisteraddressBytes = MAX_OP_REGISTERADDRESS_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
@@ -32,6 +34,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
+    case TX_REGISTERADDRESS; return "registeraddress";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_TRUE: return "true";
@@ -97,8 +100,19 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     // So long as script passes the IsUnspendable() test and all but the first
     // byte passes the IsPushOnly() test we don't care what exactly is in the
     // script.
-    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN  && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_NULL_DATA;
+        return true;
+    }
+
+    //Register address transaction  - unspendable.
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS  && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
+        typeRet = TX_REGISTERADDRESS;
+        //Verify
+        //Return the data
+        //std::vector<unsigned char> sizevec(scriptPubKey)
+        //int datasize = ByteVectorLE4ToInt
+        //vSolutionsRet.insert(vSolutionsRet.begin(), scriptPubKey[5])
         return true;
     }
 
@@ -334,11 +348,12 @@ CScript GetScriptForAddToWhitelist(const CKey& key,
     std::vector<unsigned char> iv = encryptor.get_iv();
     enc_mess.insert(enc_mess.end(), iv.begin(), iv.end()); 
 
+
+
     //Assemble the script and return
     CScript script;
-    script << OP_REGISTERADDRESS << 
-    CastToByteVector(enc_mess.size()) << 
-    enc_mess;
+    script << OP_REGISTERADDRESS << OP_PUSHDATA4 <<
+    CastToByteVectorLE4(enc_mess.size()) << enc_mess;
     return script;
 }
 
