@@ -16,6 +16,8 @@
 #include <boost/foreach.hpp>
 
 CAsset policyAsset;
+CAsset freezelistAsset;
+CAsset burnlistAsset;
 
     /**
      * Check transaction inputs to mitigate two

@@ -78,7 +78,9 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
 /** Add an issuance transaction to the genesis block. Typically used to pre-issue
  * the policyAsset of a blockchain. The genesis block is not actually validated,
  * so this transaction simply has to match issuance structure. */
-static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs, const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination) {
+static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs, 
+    const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination, 
+    const CScript& freezetoken_destination, const CScript& burntoken_destination) {
 
     uint256 entropy;
     GenerateAssetEntropy(entropy, prevout, contract);
@@ -107,6 +109,51 @@ static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevou
     }
 
     genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+
+    if(!freezetoken_destination.IsUnspendable()) {
+        uint256 entropy_freeze;
+        uint256 contract_freeze = uint256S("0000000000000000000000000000000000000000000000000000000000000010");
+        GenerateAssetEntropy(entropy_freeze, prevout, contract_freeze);
+        CAsset asset_freeze;
+        CalculateAsset(asset_freeze, entropy_freeze);
+
+        // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
+        CMutableTransaction txNew_freeze;
+        txNew_freeze.nVersion = 1;
+        txNew_freeze.vin.resize(1);
+        txNew_freeze.vin[0].prevout = prevout;
+        txNew_freeze.vin[0].assetIssuance.assetEntropy = contract_freeze;
+        txNew_freeze.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
+        txNew_freeze.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
+
+        for (unsigned int i = 0; i < asset_outputs; i++) {
+            txNew_freeze.vout.push_back(CTxOut(asset_freeze, asset_values, freezetoken_destination));
+        }
+        genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew_freeze)));
+    }
+
+    if(!burntoken_destination.IsUnspendable()) {
+        uint256 entropy_burn;
+        uint256 contract_burn = uint256S("0000000000000000000000000000000000000000000000000000000000000020");
+        GenerateAssetEntropy(entropy_burn, prevout, contract_burn);
+        CAsset asset_burn;
+        CalculateAsset(asset_burn, entropy_burn);
+
+        // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
+        CMutableTransaction txNew_burn;
+        txNew_burn.nVersion = 1;
+        txNew_burn.vin.resize(1);
+        txNew_burn.vin[0].prevout = prevout;
+        txNew_burn.vin[0].assetIssuance.assetEntropy = contract_burn;
+        txNew_burn.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
+        txNew_burn.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
+
+        for (unsigned int i = 0; i < asset_outputs; i++) {
+            txNew_burn.vout.push_back(CTxOut(asset_burn, asset_values, burntoken_destination));
+        }
+        genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew_burn)));
+    }
+
     genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
 
@@ -149,6 +196,8 @@ protected:
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
         initialFreeCoinsDestination = StrHexToScriptWithDefault(GetArg("-initialfreecoinsdestination", ""), CScript() << OP_TRUE);
+        freezeListCoinsDestination = StrHexToScriptWithDefault(GetArg("-freezelistcoinsdestination", ""), CScript() << OP_RETURN);
+        burnListCoinsDestination = StrHexToScriptWithDefault(GetArg("-burnlistcoinsdestination", ""), CScript() << OP_RETURN);
         attestationHash = uint256S(GetArg("-attestationhash", ""));
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
@@ -197,13 +246,22 @@ public:
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
+        if(!freezeListCoinsDestination.IsUnspendable()) {
+            GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), uint256S("0000000000000000000000000000000000000000000000000000000000000010"));
+            CalculateAsset(consensus.freezelist_asset, entropy);
+        }
+
+        if(!burnListCoinsDestination.IsUnspendable()) {
+            GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), uint256S("0000000000000000000000000000000000000000000000000000000000000020"));
+            CalculateAsset(consensus.burnlist_asset, entropy);
+        }
+
         genesis = CreateGenesisBlock(consensus, strNetworkID, 1514764800, genesisChallengeScript, 1);
         if (initialFreeCoins != 0) {
-            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);
+            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination,
+                freezeListCoinsDestination, burnListCoinsDestination);
         }
         consensus.hashGenesisBlock = genesis.GetHash();
-
-
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.
         vSeeds.clear();      //!< Regtest mode doesn't have any DNS seeds.
