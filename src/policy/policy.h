@@ -18,6 +18,11 @@ class CCoinsViewCache;
 /** The sha256 of Bitcoin genesis block, for easy reference **/
 extern CAsset policyAsset;
 
+/** the asset for freezelist policy **/
+extern CAsset freezelistAsset;
+/** the asset for burnlist policy **/
+extern CAsset burnlistAsset;
+
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
