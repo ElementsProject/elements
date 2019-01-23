@@ -8,38 +8,43 @@
 CWhiteList::CWhiteList(){;}
 CWhiteList::~CWhiteList(){;}
 
-void CWhiteList::add_derived(std::string addressIn, std::string key){
-   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  CBitcoinAddress address;
-  if (!address.SetString(addressIn))
-    throw std::system_error(
-			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, 
-					    std::system_category()), 
-			    std::string(std::string(__func__) + ": invalid Bitcoin address: ") + addressIn);
-  
-  std::vector<unsigned char> pubKeyData(ParseHex(key));
-  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+void CWhiteList::add_derived(CBitcoinAddress address, CPubKey pubKey){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if (!pubKey.IsFullyValid())
     throw std::system_error(
-			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category())
-			    ,std::string(std::string(__func__) +  ": invalid public key: ") + key);
-  
-  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-  if (!contract.IsNull())
-    pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category())
+          ,std::string(std::string(__func__) +  ": invalid public key"));
+
+    //Will throw an error if address is not a valid derived address.
   CKeyID keyId;
   if (!address.GetKeyID(keyId))
     throw std::system_error(
-			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-			    std::string(__func__) + ": invalid key id");
-  
-  if (pubKey.GetID() != keyId)
-    throw std::system_error(
-			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()), 
-			    std::string(__func__) + std::string(": invalid key derivation when tweaking key with contract hash for tweaked address: ") 
-			    + addressIn + std::string(", public key ") + key );
-
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+          std::string(__func__) + ": invalid key id");
+  try{
+    if(!Consensus::CheckValidTweakedAddress(keyId, pubKey)) return;
+  } catch (std::system_error e) {
+    throw e;
+  } 
   //insert new address into sorted CWhiteList vector 
   add_sorted(&keyId);
 }
+
+void CWhiteList::add_derived(std::string addressIn, std::string key){
+   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+    CBitcoinAddress address;
+  if (!address.SetString(addressIn))
+    throw std::system_error(
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, 
+              std::system_category()), 
+          std::string(std::string(__func__) + ": invalid Bitcoin address: ") + addressIn);
+  
+
+  std::vector<unsigned char> pubKeyData(ParseHex(key));
+  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+
+  add_derived(address, pubKey);
+}
+
+
 

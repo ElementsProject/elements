@@ -109,21 +109,23 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(addr2C.Get() == CTxDestination(pubkey2C.GetID()));
 
     CECIES  ecies1(key1, key2.GetPubKey());
-    CECIES  ecies2(key2, key1.GetPubKey(), ecies1.iv());
-    unsigned char m[10*AES_BLOCKSIZE];
+    CECIES  ecies2(key2, key1.GetPubKey(), ecies1.get_iv());
+    unsigned char m[AES_BLOCKSIZE];
     GetStrongRandBytes(m, AES_BLOCKSIZE);
     std::vector<unsigned char> vm(m, m+AES_BLOCKSIZE);
-    std::vector<unsigned char> vem1, vem2, vdm1, vdm2;
+    std::vector<unsigned char> vem1, vem3, vdm1, vdm3;
 
     ecies1.Encrypt(vem1, vm);
     ecies2.Decrypt(vdm1, vem1);
     BOOST_CHECK(vem1 != vm);
     BOOST_CHECK(vdm1 == vm);
 
-    ecies2.Encrypt(vem2, vm);
-    ecies1.Decrypt(vdm2, vem2);
-    BOOST_CHECK(vem2 != vm);
-    BOOST_CHECK(vdm2 == vm);
+    CECIES  ecies4(key2, key1.GetPubKey());
+    CECIES  ecies3(key1, key2.GetPubKey(), ecies4.get_iv());
+    ecies3.Encrypt(vem3, vm);
+    ecies4.Decrypt(vdm3, vem3);
+    BOOST_CHECK(vem3 != vm);
+    BOOST_CHECK(vdm3 == vm);
 
     for (int n=0; n<16; n++)
     {

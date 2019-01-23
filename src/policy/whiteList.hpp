@@ -11,6 +11,7 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
+	void add_derived(CBitcoinAddress address, CPubKey pubKey);
 	void add_derived(std::string addressIn, std::string key);
 
 	void synchronise(CWhiteList* wl_new);

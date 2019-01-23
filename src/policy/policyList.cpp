@@ -12,7 +12,7 @@ void CPolicyList::delete_address(std::string addressIn){
     boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   }
 
-bool CPolicyList::find(CKeyID* id){
+bool CPolicyList::find(const CKeyID* id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return std::binary_search(begin(),end(),*id);
 }

@@ -8,6 +8,7 @@
 
 #include "script/interpreter.h"
 #include "uint256.h"
+#include "key.h"
 
 #include <boost/variant.hpp>
 
@@ -79,6 +80,9 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
 
 CScript GetScriptForDestination(const CTxDestination& dest);
+CScript GetScriptForAddToWhitelist(const CKey& key, 
+                                   const std::vector<std::pair<CKeyID, CPubKey> >& addresses, 
+                                   const CPubKey& idPubKey); 
 CScript GetScriptForRawPubKey(const CPubKey& pubkey);
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 CScript GetScriptForWitness(const CScript& redeemscript);

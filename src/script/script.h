@@ -49,6 +49,16 @@ std::vector<unsigned char> ToByteVector(const T& in)
     return std::vector<unsigned char>(in.begin(), in.end());
 }
 
+template <typename T>
+std::vector<unsigned char> CastToByteVector(const T& in)
+{
+    unsigned char bytes[sizeof in];
+    std::copy(static_cast<const char*>(static_cast<const void*>(&in)),
+          static_cast<const char*>(static_cast<const void*>(&in)) + sizeof in,
+          bytes);
+    return std::vector<unsigned char>(bytes, bytes + sizeof(bytes));
+}
+
 /** Script opcodes */
 enum opcodetype
 {
@@ -188,8 +198,8 @@ enum opcodetype
     OP_NOP6 = 0xb5,
     OP_NOP7 = 0xb6,
     OP_NOP8 = 0xb7,
-    OP_NOP9 = 0xb8,
-    OP_NOP10 = 0xb9,
+    OP_REGISTERADDRESS = 0xb8,
+    OP_NOP10  = 0xb9,
 
 
     // template matching params

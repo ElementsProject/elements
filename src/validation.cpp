@@ -1895,6 +1895,20 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
+bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  
+  CPubKey tmpPubKey = pubKey;
+
+  if (!contract.IsNull())
+    tmpPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+  
+  if (tmpPubKey.GetID() != keyID)
+    throw std::system_error(
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()), 
+          std::string(__func__) + std::string(": invalid key derivation when tweaking key with contract hash"));
+}
+
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier

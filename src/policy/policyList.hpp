@@ -25,7 +25,7 @@ class CPolicyList : private std::vector<CKeyID>
   virtual ~CPolicyList();
   void lock(){_mtx.lock();}
   void unlock(){_mtx.unlock();}
-  bool find(CKeyID* id);
+  bool find(const CKeyID* id);
   virtual void clear();
   baseIter remove(CKeyID* id);
   virtual CKeyID at(base::size_type pos);

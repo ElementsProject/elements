@@ -674,6 +674,9 @@ private:
      */
     bool AddWatchOnly(const CScript& dest) override;
 
+    //The KYC ID public key associated with this wallet.
+    CPubKey _idPubKey;
+
 public:
     /*
      * Main wallet lock.
@@ -836,6 +839,10 @@ public:
     bool EncryptWallet(const SecureString& strWalletPassphrase);
 
     void GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const;
+
+
+    CPubKey GetIDPubKey(){return _idPubKey;}
+    void SetIDPubKey(CPubKey val){_idPubKey=val;}
 
     /**
      * Increment the next transaction order id

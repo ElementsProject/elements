@@ -9,6 +9,7 @@
 #include "script/script.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "ecies.h"
 
 #include <boost/foreach.hpp>
 
@@ -294,6 +295,50 @@ CScript GetScriptForDestination(const CTxDestination& dest)
     CScript script;
 
     boost::apply_visitor(CScriptVisitor(&script), dest);
+    return script;
+}
+
+CScript GetScriptForAddToWhitelist(const CKey& key, 
+                                   const std::vector<std::pair<CKeyID, CPubKey> >& addresses, 
+                                   const CPubKey idPubKey){
+   
+    //OP_REGISTERADDRESS||nbytestofollow||E_k(address||pubkey)  
+    std::vector<unsigned char> message;
+
+    //Get the addresses to register.
+    //TODO - naddresses
+    unsigned int size = addresses.size();
+    std::vector<unsigned char> naddr = CastToByteVector(addresses.size());
+    //Number of addresses
+    message.insert(message.begin(), naddr.begin(), naddr.end());
+    //Append the addresses (with raw pub keys)
+    for(auto address : addresses){
+        std::vector<unsigned char> vKeyIDNew = CastToByteVector(address.first);
+        message.insert(message.end(), 
+                    vKeyIDNew.begin(), 
+                    vKeyIDNew.end());
+        message.insert(message.end(), 
+                    address.second.begin(), 
+                    address.second.end());
+    }
+
+    //Add the ID pubic key
+    message.insert(message.end(), idPubKey.begin(), idPubKey.end()); 
+    
+    //Encrypt the above with the address private key and the ID public key
+    CECIES encryptor(key,idPubKey);
+    std::vector<unsigned char> enc_mess;
+    encryptor.Encrypt(enc_mess, message);
+
+    //Append the initialization vector used in the encryption
+    std::vector<unsigned char> iv = encryptor.get_iv();
+    enc_mess.insert(enc_mess.end(), iv.begin(), iv.end()); 
+
+    //Assemble the script and return
+    CScript script;
+    script << OP_REGISTERADDRESS << 
+    CastToByteVector(enc_mess.size()) << 
+    enc_mess;
     return script;
 }
 
