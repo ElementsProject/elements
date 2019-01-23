@@ -1,0 +1,37 @@
+version: '{branch}.{build}'
+skip_tags: true
+image: Visual Studio 2017
+configuration: Release
+platform: x64
+environment:
+  APPVEYOR_SAVE_CACHE_ON_ERROR: true
+cache: C:\tools\vcpkg\installed\
+before_build:
+- ps: >-
+    $packages = @(
+        "boost-filesystem",
+        "boost-signals2",
+        "boost-interprocess",
+        "boost-test",
+        "libevent",
+        "openssl",
+        "zeromq",
+        "berkeleydb",
+        "secp256k1",
+        "leveldb"
+    )
+
+    for ($i=0; $i -lt $packages.length; $i++) {
+        $all_packages += $packages[$i] + ":" + $env:PLATFORM + "-windows-static "
+    }
+
+    git -C C:\Tools\vcpkg pull # This is a temporary fix, can be removed after appveyor update its image to include Microsoft/vcpkg#4046
+
+    Invoke-Expression -Command "vcpkg install $all_packages"
+build:
+  project: build_msvc\bitcoin.sln
+  parallel: true
+  verbosity: minimal
+test_script:
+- cmd: build_msvc\%PLATFORM%\Release\test_bitcoin.exe
+deploy: off
