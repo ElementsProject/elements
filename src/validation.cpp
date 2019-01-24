@@ -2802,6 +2802,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
+        //check if a freeselist transaction and update the freezelist
+        const CTxOut& prevoutput = view.GetOutputFor(tx.vin[0]);
+        if(prevoutput.nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) UpdateFreezeList(tx,view);
+        if(prevoutput.nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) UpdateBurnList(tx,view);
+
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
