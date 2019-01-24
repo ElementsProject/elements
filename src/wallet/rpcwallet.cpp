@@ -5729,7 +5729,7 @@ UniValue importwallet(const JSONRPCRequest& request);
 UniValue importprunedfunds(const JSONRPCRequest& request);
 UniValue removeprunedfunds(const JSONRPCRequest& request);
 UniValue importmulti(const JSONRPCRequest& request);
-extern UniValue getwalletpakinfo(const JSONRPCRequest& request);
+UniValue getwalletpakinfo(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames
