@@ -72,7 +72,7 @@ static constexpr bool IsSmallInteger(opcodetype opcode)
     return opcode >= OP_1 && opcode <= OP_16;
 }
 
-static bool MatchMultisig(const CScript& script, unsigned int& required, std::vector<valtype>& pubkeys)
+bool MatchMultisig(const CScript& script, unsigned int& required, std::vector<valtype>& pubkeys)
 {
     opcodetype opcode;
     valtype data;
