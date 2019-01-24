@@ -60,16 +60,6 @@ std::vector<unsigned char> CastToByteVector(const T& in)
 }
 
 template <typename T>
-std::vector<unsigned char> CastToByteVector(const T& in)
-{
-    unsigned char bytes[sizeof in];
-    std::copy(static_cast<const char*>(static_cast<const void*>(&in)),
-          static_cast<const char*>(static_cast<const void*>(&in)) + sizeof in,
-          bytes);
-    return std::vector<unsigned char>(bytes, bytes + sizeof(bytes));
-}
-
-template <typename T>
 std::vector<unsigned char> CastToByteVectorLE(const T& in)
 {
   std::vector<unsigned char> res=CastToByteVector(in);
@@ -710,7 +700,7 @@ public:
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
+        return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
     }
 
     void clear()

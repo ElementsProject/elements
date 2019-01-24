@@ -503,7 +503,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                 break;
 
                 case OP_RETURN:
-                case OP_REGISTERADDRESS:
                 {
                     return set_error(serror, SCRIPT_ERR_OP_RETURN);
                 }
@@ -1393,6 +1392,16 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, un
                     stack.push_back(result.getvch());
                  }
                  break;
+
+                 //Just pop from the stack.
+                 case OP_REGISTERADDRESS:
+                 {
+                      if (stack.size() < 1)
+                        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    bool fValue = CastToBool(stacktop(-1));
+                    if (fValue)
+                        popstack(stack);
+                 }
 
                  default:
                     return set_error(serror, SCRIPT_ERR_BAD_OPCODE);

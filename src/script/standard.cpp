@@ -34,7 +34,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
-    case TX_REGISTERADDRESS; return "registeraddress";
+    case TX_REGISTERADDRESS: return "registeraddress";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_TRUE: return "true";
@@ -105,14 +105,58 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         return true;
     }
 
-    //Register address transaction  - unspendable.
-    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS  && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
+    //Register address transaction 
+    //Firt byte OP_REGISTERADDRESS, remainder is push only (unspendable)
+    //Decode the metadata
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS  &&  scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_REGISTERADDRESS;
-        //Verify
-        //Return the data
-        //std::vector<unsigned char> sizevec(scriptPubKey)
-        //int datasize = ByteVectorLE4ToInt
-        //vSolutionsRet.insert(vSolutionsRet.begin(), scriptPubKey[5])
+        
+        //To decrypt the metadata, we first need to know the id_pubkey associated with the address that posted this transaction.
+        //This is determined by scanning the blockchain and stored in a map regAddrScriptInputPubKeyMap <scriptPubKeyHash, inputpubkey>
+
+        CPubKey inputPubKey; //= regAddrScriptPubKeyMap[scriptPubKeyHash];
+
+        //The input pubkey is used to look up the idPubKey from inputPubKeyIdPubKeyMap
+
+        CPubKey idPubKey; //= regAddrScriptPubKeyMap[inputPubKeyHash];
+
+        //Get the message
+        opcodetype opcode;
+        std::vector<unsigned char> bytes;
+        CScript::const_iterator pc = scriptPubKey.begin();
+        if (!scriptPubKey.GetOp(++pc, opcode, bytes))
+                return true;
+
+        //The final 32 bytes of the message are the initialization vector. The rest is encrypted
+        std::vector<unsigned char> initVec(bytes.end(), bytes.begin()+32);
+        std::vector<unsigned char> encryptedData(bytes.begin()+32, bytes.end());
+
+        //Get the private key that is paired with idPubKey
+        CKey idKey; 
+        //Decrypt the data
+        CECIES decryptor(idKey, inputPubKey, initVec);
+        std::vector<unsigned char> data;
+        decryptor.Decrypt(data, encryptedData);
+
+        //Interpret the data
+        //First 20 bytes: keyID 
+        std::vector<unsigned char>::const_iterator it = data.begin();
+        std::vector<unsigned char>::const_iterator pend = data.end();
+        std::vector<unsigned char> vKeyID, vPubKey;
+        unsigned int keyIDSize=20;
+        unsigned int pubKeySize=32;
+
+        std::vector<std::vector<unsigned char> > vSolutions;
+
+        while(it<pend){
+            if(it+keyIDSize>pend) return true;
+            vSolutions.push_back(std::vector<unsigned char>(it,it=it+keyIDSize));
+            if(it+pubKeySize>pend) return true;
+            vSolutions.push_back(std::vector<unsigned char>(it,it=it+pubKeySize));
+        }
+
+        //Returns a list of keyID, pubKey pairs
+        vSolutionsRet=vSolutions;
         return true;
     }
 
@@ -338,22 +382,21 @@ CScript GetScriptForAddToWhitelist(const CKey& key,
 
     //Add the ID pubic key
     message.insert(message.end(), idPubKey.begin(), idPubKey.end()); 
+
     
     //Encrypt the above with the address private key and the ID public key
     CECIES encryptor(key,idPubKey);
     std::vector<unsigned char> enc_mess;
     encryptor.Encrypt(enc_mess, message);
 
-    //Append the initialization vector used in the encryption
-    std::vector<unsigned char> iv = encryptor.get_iv();
-    enc_mess.insert(enc_mess.end(), iv.begin(), iv.end()); 
-
-
+    //Prepend the initialization vector used in the encryption
+    std::vector<unsigned char> sendData = encryptor.get_iv();
+    sendData.insert(sendData.end(), enc_mess.begin(), enc_mess.end()); 
 
     //Assemble the script and return
     CScript script;
     script << OP_REGISTERADDRESS << OP_PUSHDATA4 <<
-    CastToByteVectorLE4(enc_mess.size()) << enc_mess;
+    CastToByteVectorLE4(sendData.size()) << sendData;
     return script;
 }
 
