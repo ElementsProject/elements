@@ -143,19 +143,17 @@ class PSBTTest(BitcoinTestFramework):
         # replaceable arg
         block_height = self.nodes[0].getblockcount()
         unspent = self.nodes[0].listunspent()[0]
-        psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height+2, {"replaceable":True}, False)
+        psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height+2, {"replaceable":True})
         decoded_psbt = self.nodes[0].decodepsbt(psbtx_info["psbt"])
-        for tx_in, psbt_in in zip(decoded_psbt["tx"]["vin"], decoded_psbt["inputs"]):
+        for tx_in in decoded_psbt["tx"]["vin"]:
            assert_equal(tx_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
-           assert "bip32_derivs" not in psbt_in
         assert_equal(decoded_psbt["tx"]["locktime"], block_height+2)
 
         # Same construction with only locktime set
-        psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height, {}, True)
+        psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], block_height)
         decoded_psbt = self.nodes[0].decodepsbt(psbtx_info["psbt"])
-        for tx_in, psbt_in in zip(decoded_psbt["tx"]["vin"], decoded_psbt["inputs"]):
+        for tx_in in decoded_psbt["tx"]["vin"]:
             assert tx_in["sequence"] > MAX_BIP125_RBF_SEQUENCE
-            assert "bip32_derivs" in psbt_in
         assert_equal(decoded_psbt["tx"]["locktime"], block_height)
 
         # Same construction without optional arguments
