@@ -55,6 +55,10 @@ script: |
 
   export ZERO_AR_DATE=1
 
+  ls librsvg*.deb || wget http://mirrors.kernel.org/ubuntu/pool/main/libr/librsvg/librsvg2-2_2.40.13-3_amd64.deb
+  dpkg -x librsvg*.deb new-rsvg
+  export LD_LIBRARY_PATH="$(echo $PWD/new-rsvg/usr/lib/*/)"
+
   function create_global_faketime_wrappers {
   for prog in ${FAKETIME_PROGS}; do
     echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${prog}
