@@ -239,6 +239,23 @@ bool CScript::IsPegoutScript(const uint256& genesis_hash_check) const
     return false;
 }
 
+bool CScript::IsPayToPubkeyHash() const
+{
+    // Extra-fast test for pay-to-pubkey-hash CScripts:
+    return (this->size() == 25 &&
+            (*this)[0] == OP_DUP &&
+            (*this)[1] == OP_HASH160 &&
+            (*this)[2] == 0x14 &&
+            (*this)[23] == OP_EQUALVERIFY &&
+            (*this)[24] == OP_CHECKSIG);
+}
+bool CScript::IsPayToWitnessPubkeyHash() const
+{
+    return (this->size() == 22 &&
+            (*this)[0] == 0x00 &&
+            (*this)[1] == 0x14);
+}
+
 // END ELEMENTS
 //
 

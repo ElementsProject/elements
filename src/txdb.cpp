@@ -35,6 +35,7 @@ static const char DB_LAST_BLOCK = 'l';
 // ELEMENTS:
 static const char DB_PEGIN_FLAG = 'w';
 static const char DB_INVALID_BLOCK_Q = 'q';
+static const char DB_PAK = 'p';
 
 namespace {
 
@@ -277,6 +278,16 @@ bool CBlockTreeDB::ReadInvalidBlockQueue(std::vector<uint256> &vBlocks) {
 }
 bool CBlockTreeDB::WriteInvalidBlockQueue(const std::vector<uint256> &vBlocks) {
     return Write(std::make_pair(DB_INVALID_BLOCK_Q, uint256S("0")), vBlocks);
+}
+
+bool CBlockTreeDB::ReadPAKList(std::vector<std::vector<unsigned char> >& offline_list, std::vector<std::vector<unsigned char> >& online_list, bool& reject)
+{
+        return Read(std::make_pair(DB_PAK, uint256S("1")), offline_list) && Read(std::make_pair(DB_PAK, uint256S("2")), online_list) && Read(std::make_pair(DB_PAK, uint256S("3")), reject);
+}
+
+bool CBlockTreeDB::WritePAKList(const std::vector<std::vector<unsigned char> >& offline_list, const std::vector<std::vector<unsigned char> >& online_list, bool reject)
+{
+        return Write(std::make_pair(DB_PAK, uint256S("1")), offline_list) && Write(std::make_pair(DB_PAK, uint256S("2")), online_list) && Write(std::make_pair(DB_PAK, uint256S("3")), reject);
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, std::function<CBlockIndex*(const uint256&)> insertBlockIndex)

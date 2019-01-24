@@ -31,6 +31,9 @@
 
 #include <atomic>
 
+#include <boost/optional.hpp> // GetPAKKeysFromCommitment
+#include <primitives/pak.h> // CPAKList
+
 class CBlockIndex;
 class CBlockTreeDB;
 class CChainParams;
@@ -425,6 +428,10 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 
 /** Produce the necessary coinbase commitment for a block (modifies the hash, don't call for mined blocks). */
 std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
+
+// ELEMENTS
+/** Extract pak commitment from coinbase, if it exists. List must be ordered, but not necessarily consecutive in output index */
+boost::optional<CPAKList> GetPAKKeysFromCommitment(const CTransaction& coinbase);
 
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB {

@@ -552,7 +552,7 @@ public:
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
     void removeConflicts(const CTransaction &tx) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight,
-                        const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent);
+                        const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, bool pak_transition=false);
 
     void clear();
     void _clear() EXCLUSIVE_LOCKS_REQUIRED(cs); //lock free

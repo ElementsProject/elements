@@ -10,6 +10,7 @@
 #include <utilstrencodings.h>
 #include <crypto/common.h>
 
+
 bool g_con_blockheightinheader = false;
 bool g_signed_blocks = false;
 
