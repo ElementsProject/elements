@@ -4938,6 +4938,7 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
     return true;
 }
 
+// For general cryptographic design of peg-out authorization scheme, see: https://github.com/ElementsProject/secp256k1-zkp/blob/secp256k1-zkp/src/modules/whitelist/whitelist.md
 UniValue initpegoutwallet(const JSONRPCRequest& request)
 {
 
