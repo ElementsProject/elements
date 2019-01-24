@@ -22,6 +22,8 @@ extern CAsset policyAsset;
 extern CAsset freezelistAsset;
 /** the asset for burnlist policy **/
 extern CAsset burnlistAsset;
+/** the asset for burnlist policy **/
+extern CAsset whitelistAsset;
 
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;
@@ -112,6 +114,20 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are present in the freezelist
     */
 bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**                                                                
+    * Update the freezelist with the input tx encoding
+    * if the tx has an encoded address in its outputs, these are added to the freezelist
+    * if the tx has encoded addresses in its inputs, these are removed from the freezelist
+    */
+bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**                                                                
+    * Update the burnlist with the input tx encoding
+    * if the tx has an encoded address in its outputs, these are added to the burnlist
+    * if the tx has encoded addresses in its inputs, these are removed from the burnlist
+    */
+bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
     /**
      * Check for standard transaction types

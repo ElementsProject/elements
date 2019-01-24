@@ -70,6 +70,7 @@ struct Params {
     CAsset pegged_asset;
     CAsset freezelist_asset;
     CAsset burnlist_asset;
+    CAsset whitelist_asset;
 
     uint256 defaultAssumeValid;
     uint32_t pegin_min_depth;
