@@ -2585,10 +2585,25 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     // Write the chain state to disk, if necessary.
     if (!FlushStateToDisk(chainparams, state, FlushStateMode::IF_NEEDED))
         return false;
+
+    // Get PAK commitment from coinbase, if it exists
+    boost::optional<CPAKList> paklist = GetPAKKeysFromCommitment(*blockConnecting.vtx[0]);
+    if (paklist) {
+        std::vector<std::vector<unsigned char> > offline_keys;
+        std::vector<std::vector<unsigned char> > online_keys;
+        bool is_reject;
+        paklist->ToBytes(offline_keys, online_keys, is_reject);
+        pblocktree->WritePAKList(offline_keys, online_keys, is_reject);
+        g_paklist_blockchain = *paklist;
+    }
+
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, setPeginsSpent);
+    // ELEMENTS: We also eject now-invalid peg-outs based on block transition if not config list set
+    // If config is set, this means all peg-outs have been filtered for that list already and other
+    // functionaries aren't matching your list. Operator should restart with no list or new matching list.
+    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, setPeginsSpent, (paklist && !g_paklist_config));
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);
@@ -3341,6 +3356,75 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     UpdateUncommittedBlockStructures(block, pindexPrev, consensusParams);
     return commitment;
 }
+
+// ELEMENTS
+boost::optional<CPAKList> GetPAKKeysFromCommitment(const CTransaction& coinbase)
+{
+    std::vector<std::vector<unsigned char> > offline_keys;
+    std::vector<std::vector<unsigned char> > online_keys;
+    bool is_reject = false;
+    for (unsigned int i = 0; i < coinbase.vout.size(); i++) {
+        const CScript& scriptPubKey = coinbase.vout[i].scriptPubKey;
+
+        // OP + push + 4 bytes + push + 33 bytes + push + 33 bytes
+        // or
+        // OP + push + 4 bytes + push + 6 bytes (REJECT)
+
+        CScript::const_iterator pc = scriptPubKey.begin();
+        std::vector<unsigned char> data;
+        opcodetype opcode;
+
+        if (!scriptPubKey.GetOp(pc, opcode, data) || opcode != OP_RETURN){
+            continue;
+        }
+
+        if (!scriptPubKey.GetOp(pc, opcode, data) || data.size() != 4 ||
+                data[0] != 0xab || data[1] != 0x22 || data[2] != 0xaa || data[3] != 0xee) {
+            continue;
+        }
+
+        if (!scriptPubKey.GetOp(pc, opcode, data)){
+            continue;
+        }
+
+        // Check for pak list reject signal
+        // Returns an empty list regardless of other commitments
+        if (data.size() == 6 && data[0] == 'R' && data[1] == 'E' && data[2] == 'J' && data[3] == 'E' && data[4] == 'C' && data[5] == 'T') {
+            is_reject = true;
+            continue;
+        }
+
+        // Check for offline key
+        if (data.size() != 33) {
+            continue;
+        }
+
+        // Check for online key
+        std::vector<unsigned char> data_online;
+        if (!scriptPubKey.GetOp(pc, opcode, data_online) || data_online.size() != 33) {
+            continue;
+        }
+
+        offline_keys.push_back(data);
+        online_keys.push_back(data_online);
+    }
+    if (is_reject) {
+        offline_keys.clear();
+        online_keys.clear();
+    }
+    if (!is_reject && offline_keys.size() == 0) {
+        return boost::none;
+    }
+    CPAKList paklist;
+    if (!CPAKList::FromBytes(paklist, offline_keys, online_keys, is_reject)) {
+        return boost::none;
+    } else {
+        return paklist;
+    }
+}
+
+
+
 
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO

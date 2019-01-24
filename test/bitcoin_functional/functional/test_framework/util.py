@@ -311,6 +311,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("anyonecanspendaremine=0\n")
         f.write("con_blockheightinheader=0\n")
         f.write("con_signed_blocks=0\n")
+        f.write("multi_data_permitted=0\n")
         f.write("walletrbf=0\n") # Default is 1 in Elements
         f.write("con_bip34height=100000000\n")
         f.write("con_bip65height=1351\n")

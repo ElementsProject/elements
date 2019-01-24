@@ -48,6 +48,8 @@
 #include <functional>
 
 #include <script/generic.hpp> // signblock
+#include <script/descriptor.h> // initpegoutwallet
+#include <span.h> // sendtomainchain_pak
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -4910,7 +4912,193 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     return fundinginfo;
 }
 
-UniValue sendtomainchain(const JSONRPCRequest& request)
+//! Derive BIP32 tweak from master xpub to child pubkey.
+bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster, const ChainCode &ccMaster, std::vector<unsigned char>& tweakSum)
+{
+    tweakSum.clear();
+    tweakSum.resize(32);
+    std::vector<unsigned char> tweak;
+    CPubKey keyParent = keyMaster;
+    CPubKey keyChild;
+    ChainCode ccChild;
+    ChainCode ccParent = ccMaster;
+    for (unsigned int i = 0; i < vPath.size(); i++) {
+        if ((vPath[i] >> 31) != 0) {
+            return false;
+        }
+        keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak);
+        assert(tweak.size() == 32);
+        ccParent = ccChild;
+        keyParent = keyChild;
+        bool ret = secp256k1_ec_privkey_tweak_add(secp256k1_ctx, tweakSum.data(), tweak.data());
+        if (!ret) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// For general cryptographic design of peg-out authorization scheme, see: https://github.com/ElementsProject/secp256k1-zkp/blob/secp256k1-zkp/src/modules/whitelist/whitelist.md
+UniValue initpegoutwallet(const JSONRPCRequest& request)
+{
+
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+        throw std::runtime_error(
+            "initpegoutwallet bitcoin_descriptor ( bip32_counter liquid_pak )\n"
+            "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) and stores it in the Liquid wallet. It then combines this with the `bitcoin_descriptor` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the derived path from the bitcoin_descriptor using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required.\n"
+            "\nArguments:\n"
+            "1. \"bitcoin_descriptor\"  (string, required) The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the root for the Bitcoin destination wallet. The derivation path from the xpub will be `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md\n"
+            "2. \"bip32_counter\"       (numeric, default=0) The `k` in `0/k` to be set as the next address to derive from the `bitcoin_descriptor`. This will be stored in the wallet and incremented on each successful `sendtomainchain` invocation.\n"
+            "3. \"liquid_pak\"          (string, optional) The Liquid wallet pubkey in hex to be used as the Liquid PAK for pegout authorization. The private key must be in the wallet if argument is given. If this argument is not provided one will be generated and stored in the wallet automatically and returned.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nResult:\n"
+            "{\n"
+                "\"pakentry\"       (string) The resulting PAK entry to be used at network initialization time in the form of: `pak=<bitcoin_pak>:<liquid_pak>`.\n"
+                "\"liquid_pak\"     (string) The Liquid PAK pubkey in hex, which is stored in the local Liquid wallet. This can be used in subsequent calls to `initpegoutwallet` to avoid generating a new `liquid_pak`.\n"
+                "\"liquid_pak_address\" (string) The corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer.\n"
+                "\"address_lookahead\"(array)  The three next Bitcoin addresses the wallet will use for `sendtomainchain` based on `bip32_counter`.\n"
+            "}\n"
+            + HelpExampleCli("initpegoutwallet", "sh(wpkh(tpubDAY5hwtonH4NE8zY46ZMFf6B6F3fqMis7cwfNihXXpAg6XzBZNoHAdAzAZx2peoU8nTWFqvUncXwJ9qgE5VxcnUKxdut8F6mptVmKjfiwDQ/0/*))")
+            + HelpExampleRpc("initpegoutwallet", "sh(wpkh(tpubDAY5hwtonH4NE8zY46ZMFf6B6F3fqMis7cwfNihXXpAg6XzBZNoHAdAzAZx2peoU8nTWFqvUncXwJ9qgE5VxcnUKxdut8F6mptVmKjfiwDQ/0/*))")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    // Check that network cares about PAK
+    if (!Params().GetEnforcePak()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "PAK enforcement is not enabled on this network.");
+    }
+
+    if (!pwallet->IsLocked())
+        pwallet->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet or set from argument
+    CPubKey online_pubkey;
+    if (request.params.size() < 3) {
+        if (!pwallet->GetKeyFromPool(online_pubkey)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        }
+        if (!pwallet->SetOnlinePubKey(online_pubkey)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error: Could not write liquid_pak to wallet.");
+        }
+    } else {
+        online_pubkey = CPubKey(ParseHex(request.params[2].get_str()));
+        if (!online_pubkey.IsFullyValid()) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error: Given liquid_pak is not valid.");
+        }
+        if (!pwallet->HaveKey(online_pubkey.GetID())) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error: liquid_pak could not be found in wallet");
+        }
+    }
+
+    CKeyID online_key_id = online_pubkey.GetID();
+
+    // Parse offline counter
+    int counter = 0;
+    if (request.params.size() > 1) {
+        counter = request.params[1].get_int();
+        if (counter < 0 || counter > 1000000000) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "bip32_counter must be between 0 and 1,000,000,000, inclusive.");
+        }
+    }
+
+    std::string bitcoin_desc = request.params[0].get_str();
+    std::string xpub_str = "";
+
+    // First check for naked xpub, and impute it as pkh(<xpub>/0/*) for backwards compat
+    CExtPubKey xpub = DecodeExtPubKey(bitcoin_desc);
+    if (xpub.pubkey.IsFullyValid()) {
+        bitcoin_desc = "pkh(" + bitcoin_desc + "/0/*)";
+    }
+
+    FlatSigningProvider provider;
+    auto desc = Parse(bitcoin_desc, provider);
+    if (!desc) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not a valid descriptor string.");
+    } else if (!desc->IsRange()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor must be a ranged descriptor.");
+    }
+
+    // Three acceptable descriptors:
+    if (bitcoin_desc.substr(0, 8) ==  "sh(wpkh("
+            && bitcoin_desc.substr(bitcoin_desc.size()-2, 2) == "))") {
+        xpub_str = bitcoin_desc.substr(8, bitcoin_desc.size()-2);
+    } else if (bitcoin_desc.substr(0, 5) ==  "wpkh("
+            && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
+        xpub_str = bitcoin_desc.substr(5, bitcoin_desc.size()-1);
+    } else if (bitcoin_desc.substr(0, 4) == "pkh("
+            && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
+        xpub_str = bitcoin_desc.substr(4, bitcoin_desc.size()-1);
+    } else {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not of any type supported: pkh(<xpub>), sh(wpkh(<xpub>)), wpkh(<xpub>), or <xpub>.");
+    }
+
+    // Strip off leading key origin
+    if (xpub_str.find("]") != std::string::npos) {
+        xpub_str = xpub_str.substr(xpub_str.find("]"), std::string::npos);
+    }
+
+    // Strip off following range
+    xpub_str = xpub_str.substr(0, xpub_str.find("/"));
+
+    xpub = DecodeExtPubKey(xpub_str);
+
+    if (!xpub.pubkey.IsFullyValid()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor does not contain a valid extended pubkey for this network.");
+    }
+
+    // Parse master pubkey
+    CPubKey masterpub = xpub.pubkey;
+    secp256k1_pubkey masterpub_secp;
+    int ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &masterpub_secp, masterpub.begin(), masterpub.size());
+    if (ret != 1) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "bitcoin_descriptor could not be parsed.");
+    }
+
+    // Store the keys and metadata
+    if (!pwallet->SetOnlinePubKey(online_pubkey) ||
+            !pwallet->SetOfflineXPubKey(xpub) ||
+            !pwallet->SetOfflineCounter(counter) ||
+            !pwallet->SetOfflineDescriptor(bitcoin_desc)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: Failure to initialize pegout wallet.");
+    }
+
+    // Negate the pubkey
+    ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &masterpub_secp);
+
+    std::vector<unsigned char> negatedpubkeybytes;
+    negatedpubkeybytes.resize(33);
+    size_t len = 33;
+    ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &negatedpubkeybytes[0], &len, &masterpub_secp, SECP256K1_EC_COMPRESSED);
+    assert(ret == 1);
+    assert(len == 33);
+    assert(negatedpubkeybytes.size() == 33);
+
+    UniValue address_list(UniValue::VARR);
+    for (int i = counter; i < counter+3; i++) {
+        std::vector<CScript> scripts;
+        if (!desc->Expand(i, provider, scripts, provider)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. This is a bug.");
+        }
+        CTxDestination destination;
+        ExtractDestination(scripts[0], destination);
+        address_list.push_back(EncodeParentDestination(destination));
+    }
+    UniValue pak(UniValue::VOBJ);
+    pak.push_back(Pair("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey)));
+    pak.push_back(Pair("liquid_pak", HexStr(online_pubkey)));
+    pak.push_back(Pair("liquid_pak_address", EncodeDestination(online_key_id)));
+    pak.push_back(Pair("address_lookahead", address_list));
+    return pak;
+}
+
+UniValue sendtomainchain_base(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
@@ -4952,14 +5140,14 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     }
 
     // Parse Bitcoin address for destination, embed script
-    CScript scriptPubKeyMainchain(GetScriptForDestination(parent_address));
+    CScript mainchain_script(GetScriptForDestination(parent_address));
 
     uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
 
     // Asset type is implicit, no need to add to script
     NullData nulldata;
     nulldata << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
-    nulldata << std::vector<unsigned char>(scriptPubKeyMainchain.begin(), scriptPubKeyMainchain.end());
+    nulldata << std::vector<unsigned char>(mainchain_script.begin(), mainchain_script.end());
     CTxDestination address(nulldata);
 
     EnsureWalletIsUnlocked(pwallet);
@@ -4973,6 +5161,267 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
     ////SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, CPubKey(), wtxNew, true);
 
     return (*tx).GetHash().GetHex();
+
+}
+
+// ELEMENTS: Copied from script/descriptor.cpp
+
+typedef std::vector<uint32_t> KeyPath;
+
+/** Split a string on every instance of sep, returning a vector. */
+std::vector<Span<const char>> Split(const Span<const char>& sp, char sep)
+{
+    std::vector<Span<const char>> ret;
+    auto it = sp.begin();
+    auto start = it;
+    while (it != sp.end()) {
+        if (*it == sep) {
+            ret.emplace_back(start, it);
+            start = it + 1;
+        }
+        ++it;
+    }
+    ret.emplace_back(start, it);
+    return ret;
+}
+
+/** Parse a key path, being passed a split list of elements (the first element is ignored). */
+bool ParseKeyPath(const std::vector<Span<const char>>& split, KeyPath& out)
+{
+    for (size_t i = 1; i < split.size(); ++i) {
+        Span<const char> elem = split[i];
+        bool hardened = false;
+        if (elem.size() > 0 && (elem[elem.size() - 1] == '\'' || elem[elem.size() - 1] == 'h')) {
+            elem = elem.first(elem.size() - 1);
+            hardened = true;
+        }
+        uint32_t p;
+        if (!ParseUInt32(std::string(elem.begin(), elem.end()), &p) || p > 0x7FFFFFFFUL) return false;
+        out.push_back(p | (((uint32_t)hardened) << 31));
+    }
+    return true;
+}
+
+////////////////////////////
+
+UniValue sendtomainchain_pak(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "sendtomainchain "" amount ( subtractfeefromamount ) \n"
+            "\nSends Liquid funds to the Bitcoin mainchain, through the federated withdraw mechanism. The wallet internally generates the returned `bitcoin_address` via `bitcoin_descriptor` and `bip32_counter` previously set in `initpegoutwallet`. The counter will be incremented upon successful send, avoiding address re-use.\n"
+            + HelpRequiringPassphrase(pwallet) +
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) Must be \"\". Only for non-PAK `sendtomainchain` compatibility.\n"
+            "2. \"amount\"   (numeric, required) The amount being sent to `bitcoin_address`.\n"
+            "3. \"subtractfeefromamount\"  (boolean, optional, default=false) The fee will be deducted from the amount being pegged-out.\n"
+            "\nResult:\n"
+            "\nResult:\n"
+            "{\n"
+                "\"bitcoin_address\"   (string) The destination address on Bitcoin mainchain."
+                "\"txid\"              (string) Transaction ID of the resulting Liquid transaction\n"
+                "\"bitcoin_descriptor\"      (string) The xpubkey of the child destination address.\n"
+                "\"bip32_counter\"   (string) The derivation counter for the `bitcoin_descriptor`.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendtomainchain", "\"\" 0.1")
+            + HelpExampleRpc("sendtomainchain", "\"\" 0.1")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    if (!request.params[0].get_str().empty()) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "`address` argument must be \"\" for PAK-enabled networks as the address is generated automatically.");
+    }
+
+    //amount
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount < 100000)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount for send, must send more than 0.0001 BTC");
+
+    bool subtract_fee = false;
+    if (request.params.size() > 2) {
+        subtract_fee = request.params[1].get_bool();
+    }
+
+    CPAKList paklist = g_paklist_blockchain;
+    if (g_paklist_config) {
+        paklist = *g_paklist_config;
+    }
+    if (paklist.IsReject()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pegout freeze is under effect to aid a pak transition to a new list. Please consult the network operator.");
+    }
+
+    // Fetch pegout key data
+    int counter = pwallet->offline_counter;
+    CExtPubKey& xpub = pwallet->offline_xpub;
+    CPubKey& onlinepubkey = pwallet->online_key;
+
+    if (counter < 0) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization for this wallet has not been set. Please call `initpegoutwallet` with the appropriate arguments first.");
+    }
+
+    FlatSigningProvider provider;
+    const auto descriptor = Parse(pwallet->offline_desc, provider);
+
+    // If descriptor not previously set, generate it
+    if (!descriptor) {
+        std::string offline_desc = "pkh(" + EncodeExtPubKey(xpub) + "0/*)";
+        if (!pwallet->SetOfflineDescriptor(offline_desc)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Couldn't set wallet descriptor for peg-outs.");
+        }
+    }
+
+    std::string desc_str = pwallet->offline_desc;
+    std::string xpub_str = EncodeExtPubKey(xpub);
+
+    // TODO: More properly expose key parsing functionality
+
+    // Strip last parenths(up to 2) and "/*" to let ParseKeyPath do its thing
+    desc_str.erase(std::remove(desc_str.begin(), desc_str.end(), ')'), desc_str.end());
+    desc_str = desc_str.substr(0, desc_str.size()-2);
+
+    // Since we know there are no key origin data, directly call inner parsing functions
+    Span<const char> span(desc_str.data(), desc_str.size());
+    auto split = Split(span, '/');
+    KeyPath key_path;
+    if (!ParseKeyPath(split, key_path)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Stored keypath in descriptor cannot be parsed.");
+    }
+    key_path.push_back(counter);
+
+    secp256k1_pubkey onlinepubkey_secp;
+    if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &onlinepubkey_secp, onlinepubkey.begin(), onlinepubkey.size()) != 1) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Pubkey is invalid");
+    }
+
+    // Get index of given online key
+    int whitelistindex=-1;
+    std::vector<secp256k1_pubkey> pak_online = paklist.OnlineKeys();
+    for (unsigned int i=0; i<pak_online.size(); i++) {
+        if (memcmp((void *)&pak_online[i], (void *)&onlinepubkey_secp, sizeof(secp256k1_pubkey)) == 0)
+            whitelistindex = i;
+            break;
+    }
+    if (whitelistindex == -1)
+        throw JSONRPCError(RPC_WALLET_ERROR, "Given online key is not in Pegout Authorization Key List");
+
+    // Parse master pubkey
+    CPubKey masterpub = xpub.pubkey;
+    secp256k1_pubkey masterpub_secp;
+    int ret = secp256k1_ec_pubkey_parse(secp256k1_ctx, &masterpub_secp, masterpub.begin(), masterpub.size());
+    if (ret != 1) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Master pubkey could not be parsed.");
+    }
+
+    secp256k1_pubkey btcpub_secp;
+    memcpy(&btcpub_secp, &masterpub_secp, sizeof(secp256k1_pubkey));
+
+    // Negate master pubkey
+    ret = secp256k1_ec_pubkey_negate(secp256k1_ctx, &masterpub_secp);
+
+    // Make sure negated master pubkey is in PAK list at same index as online_pubkey
+    if (memcmp((void *)&paklist.OfflineKeys()[whitelistindex], (void *)&masterpub_secp, sizeof(secp256k1_pubkey)) != 0) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Given bitcoin_descriptor cannot be found in same entry as known liquid_pak");
+    }
+
+    // Get online PAK
+    CKey masterOnlineKey;
+    if (!pwallet->GetKey(onlinepubkey.GetID(), masterOnlineKey))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Given online key is in master set but not in wallet");
+
+    // Tweak offline pubkey by tweakSum aka sumkey to get bitcoin key
+    std::vector<unsigned char> tweakSum;
+    if (!DerivePubTweak(key_path, xpub.pubkey, xpub.chaincode, tweakSum)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Could not create xpub tweak to generate proof.");
+    }
+    ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &btcpub_secp, tweakSum.data());
+    assert(ret);
+
+    std::vector<unsigned char> btcpubkeybytes;
+    btcpubkeybytes.resize(33);
+    size_t btclen = 33;
+    ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &btcpubkeybytes[0], &btclen, &btcpub_secp, SECP256K1_EC_COMPRESSED);
+    assert(ret == 1);
+    assert(btclen == 33);
+    assert(btcpubkeybytes.size() == 33);
+
+    //Create, verify whitelist proof
+    secp256k1_whitelist_signature sig;
+    if(secp256k1_whitelist_sign(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpub_secp, masterOnlineKey.begin(), &tweakSum[0], whitelistindex, NULL, NULL) != 1) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization proof signing failed");
+    }
+
+    if (secp256k1_whitelist_verify(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpub_secp) != 1) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization proof was created and signed but is invalid");
+    }
+
+    //Serialize
+    const size_t expectedOutputSize = 1 + 32 * (1 + paklist.size());
+    assert(1 + 32 * (1 + 256) >= expectedOutputSize);
+    unsigned char output[1 + 32 * (1 + 256)];
+    size_t outlen = expectedOutputSize;
+    secp256k1_whitelist_signature_serialize(secp256k1_ctx, output, &outlen, &sig);
+    assert(outlen == expectedOutputSize);
+    std::vector<unsigned char> whitelistproof(output, output + expectedOutputSize / sizeof(unsigned char));
+
+    // Derive the end address in mainchain
+    std::vector<CScript> scripts;
+    if (!descriptor->Expand(counter, provider, scripts, provider)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate mainchain destination with descriptor. This is a bug.");
+    }
+    assert(scripts.size() == 1);
+    CScript mainchain_script = scripts[0];
+    CTxDestination bitcoin_address;
+    ExtractDestination(mainchain_script, bitcoin_address);
+
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+    NullData nulldata;
+    nulldata << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
+    nulldata << std::vector<unsigned char>(mainchain_script.begin(), mainchain_script.end());
+    nulldata << btcpubkeybytes;
+    nulldata << whitelistproof;
+    CTxDestination address(nulldata);
+    assert(GetScriptForDestination(nulldata).IsPegoutScript(genesisBlockHash));
+
+    txnouttype txntype;
+    if (!IsStandard(GetScriptForDestination(nulldata), txntype)) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Resulting scriptPubKey is non-standard. Ensure pak=reject is not set");
+    }
+
+    mapValue_t mapValue;
+    CCoinControl no_coin_control; // This is a deprecated API
+    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue), {});
+
+    pwallet->SetOfflineCounter(counter+1);
+
+    std::stringstream ss;
+    ss << counter;
+
+    UniValue obj(UniValue::VOBJ);
+    obj.push_back(Pair("txid", tx->GetHash().GetHex()));
+    obj.push_back(Pair("bitcoin_address", EncodeParentDestination(bitcoin_address)));
+    obj.push_back(Pair("bip32_counter", ss.str()));
+    obj.push_back(Pair("bitcoin_descriptor", pwallet->offline_desc));
+    return obj;
+}
+
+// We only expose the appropriate peg-out method type per network
+UniValue sendtomainchain(const JSONRPCRequest& request)
+{
+    if (Params().GetEnforcePak()) {
+        return sendtomainchain_pak(request);
+    } else {
+        return sendtomainchain_base(request);
+    }
 }
 
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
@@ -5286,6 +5735,7 @@ extern UniValue importprunedfunds(const JSONRPCRequest& request);
 extern UniValue removeprunedfunds(const JSONRPCRequest& request);
 extern UniValue importmulti(const JSONRPCRequest& request);
 extern UniValue rescanblockchain(const JSONRPCRequest& request);
+extern UniValue getwalletpakinfo(const JSONRPCRequest& request);
 
 static const CRPCCommand commands[] =
 { //  category              name                                actor (function)                argNames
@@ -5345,6 +5795,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "claimpegin",                       &claimpegin,                    {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",                   &createrawpegin,                {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
+    { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_descriptor", "bip32_counter", "liquid_pak"} },
+    { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
 
 
     /** Account functions (deprecated) */
