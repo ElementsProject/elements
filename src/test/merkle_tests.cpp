@@ -249,4 +249,25 @@ BOOST_AUTO_TEST_CASE(merkle_test)
     }
 }
 
+// ELEMENTS
+// Test fast merkle root calculations used in witness merkle tree calculation,
+// and asset issuance derivation
+BOOST_AUTO_TEST_CASE(fast_merkle_test)
+{
+
+    // generated using elements-0.14.1 implementation:
+    std::vector<uint256> test_leaves = { uint256S("b66b041650db0f297b53f8d93c0e8706925bf3323f8c59c14a6fac37bfdcd06f"), uint256S("99cb2fa68b2294ae133550a9f765fc755d71baa7b24389fed67d1ef3e5cb0255"), uint256S("257e1b2fa49dd15724c67bac4df7911d44f6689860aa9f65a881ae0a2f40a303"), uint256S("b67b0b9f093fa83d5e44b707ab962502b7ac58630e556951136196e65483bb80") };
+
+    std::vector<uint256> test_roots = {  uint256S("0000000000000000000000000000000000000000000000000000000000000000"), uint256S("b66b041650db0f297b53f8d93c0e8706925bf3323f8c59c14a6fac37bfdcd06f"), uint256S("f752938da0cb71c051aabdd5a86658e8d0b7ac00e1c2074202d8d2a79d8a6cf6"), uint256S("245d364a28e9ad20d522c4a25ffc6a7369ab182f884e1c7dcd01aa3d32896bd3"), uint256S("317d6498574b6ca75ee0368ec3faec75e096e245bdd5f36e8726fa693f775dfc") };
+
+    std::vector<uint256> leaves;
+
+    for (unsigned int i = 0; i < 4; i++) {
+        uint256 root = ComputeFastMerkleRoot(leaves);
+        BOOST_CHECK(root == test_roots[i]);
+        leaves.push_back(test_leaves[i]);
+    }
+    BOOST_CHECK(ComputeFastMerkleRoot(leaves) == test_roots.back());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
