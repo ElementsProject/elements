@@ -65,3 +65,9 @@ if [ "$RUN_FUNCTIONAL_TESTS" = "true" ]; then
   DOCKER_EXEC test/functional/test_runner.py --combinedlogslen=4000 --coverage --quiet --failfast ${extended}
   END_FOLD
 fi
+
+if [ "$RUN_BITCOIN_TESTS" = "true" ]; then
+  BEGIN_FOLD bitcoin-functional-tests
+  DOCKER_EXEC test/bitcoin_functional/functional/test_runner.py --combinedlogslen=4000 --coverage --quiet --failfast ${extended}
+  END_FOLD
+fi
