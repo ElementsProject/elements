@@ -250,7 +250,7 @@ class TestNode():
 
     @contextlib.contextmanager
     def assert_debug_log(self, expected_msgs):
-        debug_log = os.path.join(self.datadir, 'regtest', 'debug.log')
+        debug_log = os.path.join(self.datadir, 'regtest2', 'debug.log')
         with open(debug_log, encoding='utf-8') as dl:
             dl.seek(0, 2)
             prev_size = dl.tell()
