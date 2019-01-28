@@ -1629,10 +1629,10 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
   file << strprintf("# Whitelisted address dump");
   file << "\n";
 
-  for(unsigned long it = 0;it<addressWhitelist.size();it++) {
-    std::string strAddr = CBitcoinAddress(addressWhitelist.at(it)).ToString();
+  for(auto it=addressWhitelist.begin(); it!=addressWhitelist.end(); ++it){
+     std::string strAddr = CBitcoinAddress(*it).ToString();
     file << strprintf("%s\n",
-		      strAddr);
+              strAddr);
   }
 
   file << "\n";

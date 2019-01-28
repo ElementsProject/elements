@@ -141,30 +141,30 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return true;
       break;
     }
-  }
+  } 
 
-  //The first 32 bytes of the message are the initialization vector
-  //used to decrypt the rest of the message
-  std::vector<unsigned char> initVec(bytes.end(), bytes.begin()+32);
-  std::vector<unsigned char> encryptedData(bytes.begin()+32, bytes.end());
+  add_derived(address, pubKey, kycKey);
+}
 
-  //Get the private key that is paired with kycKey
-  CKey kycPrivKey;
-  pwalletMain->GetKey(kycKey, kycPrivKey); 
-  
-  //Decrypt the data
+bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
+  //Check if this is a ID registration (whitetoken) transaction
+    unsigned int keyIDSize=20;
+    unsigned int pubKeySize=33;
+    unsigned int initVecSize=32;
 
-  CECIES decryptor(kycPrivKey, inputKey, initVec);
-  std::vector<unsigned char> data;
-  decryptor.Decrypt(data, encryptedData);
-    
-  //Interpret the data
-  //First 20 bytes: keyID 
-  std::vector<unsigned char>::const_iterator it = data.begin();
-  std::vector<unsigned char>::const_iterator pend = data.end();
-  std::vector<unsigned char> vKeyID, vPubKey;
-  unsigned int keyIDSize=20;
-  unsigned int pubKeySize=32;
+
+  // Get input addresses an lookup associated idpubkeys
+  if (tx.IsCoinBase())
+    return false; // Coinbases don't use vin normally
+
+  //Get input addresses
+  std::vector<CBitcoinAddress> inputAddresses;
+  std::vector<CPubKey> inputPubKeys;
+
+  for (unsigned int i = 0; i < tx.vin.size(); i++) {
+    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
+
+    CScript scriptSig = tx.vin[i].scriptSig;
 
 
   CKeyID keyIDNew;
@@ -181,6 +181,148 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     }
   }
   return true;
+}
+
+    //The public key is the last 33 bytes of the scriptsig
+    inputPubKeys.push_back(CPubKey(scriptSig.end()-pubKeySize, scriptSig.end()));
+
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    const CScript& prevScript = prev.scriptPubKey;
+    //if (!Solver(prevScript, whichType, vSolutions)) continue;
+
+    CTxDestination dest;
+    if(!ExtractDestination(prevScript, dest)) continue;
+
+    CBitcoinAddress addr;
+    if(!addr.Set(dest)) continue;
+
+    inputAddresses.push_back(addr);
+  }
+
+  if(inputAddresses.size()==0) return false;
+  
+  //Lookup the ID public keys of the input addresses
+  std::set<CKeyID> kycKeys;
+  CKeyID kycKey;
+  CKeyID inputKey;
+  CPubKey inputPubKey;
+
+/*
+  for(std::vector<CBitcoinAddress>::const_iterator it = inputAddresses.begin();
+      it != inputAddresses.end();
+      ++it){
+    it->GetKeyID(inputKey);
+    //All input addresses must be owned by someone whitelisted
+    if(!LookupKYCKey(inputKey, kycKey)) return false;
+    kycKeys.insert(kycKey);
+  }
+*/
+
+  for(std::vector<CPubKey>::const_iterator it = inputPubKeys.begin();
+      it != inputPubKeys.end();
+      ++it){
+    //All input addresses must be owned by someone whitelisted
+    CKeyID keyID = CKeyID(uint160(Hash160((*it).begin(), (*it).end())));
+    if(!LookupKYCKey(keyID, kycKey)) return false;
+    kycKeys.insert(kycKey);
+  }
+
+  //There must be exactly 1 kyc key (all input addresses owned by 1 person)
+  if(kycKeys.size() != 1) return false;
+  
+  //There should be one OP_REGISTERADDRESS transaction output
+  std::set<CScript> scriptPubKeys;
+  //tx.vout[0].scriptPubKey;
+
+  //Get the message bytes
+  opcodetype opcode;
+  std::vector<unsigned char> bytes;
+  //registeraddress script
+  CScript raScript;
+  std::vector<CScript> raScripts;
+
+  //Get the data from the registeraddress script
+  for (unsigned int i = 0; i < tx.vout.size(); i++) {
+    const CTxOut& txout = tx.vout[i];
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
+
+    if(whichType == TX_REGISTERADDRESS){
+      CScript::const_iterator pc = txout.scriptPubKey.begin();
+      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return true;
+      break;
+    }
+  }
+
+  //The first 32 bytes of the message are the initialization vector
+  //used to decrypt the rest of the message
+  std::vector<unsigned char> initVec(bytes.begin(), bytes.begin()+initVecSize);
+  std::vector<unsigned char> encryptedData(bytes.begin()+initVecSize, bytes.end());
+
+  //Get the private key that is paired with kycKey
+  CKey kycPrivKey;
+  pwalletMain->GetKey(kycKey, kycPrivKey); 
+  
+  //Decrypt the data
+  //One of the input public keys together with the KYC private key 
+  //will compute the shared secret used to encrypt the data
+
+  bool bSuccess=false;
+
+  for(std::vector<CPubKey>::const_iterator it = inputPubKeys.begin();
+    it != inputPubKeys.end();
+    ++it)
+  {
+    bool bEnd=false;
+
+    CECIES decryptor(kycPrivKey, *it, initVec);
+    std::vector<unsigned char> data;
+    decryptor.Decrypt(data, encryptedData);
+    
+    //Interpret the data
+    //First 20 bytes: keyID 
+    std::vector<unsigned char>::const_iterator itData1 = data.begin();
+    std::vector<unsigned char>::const_iterator itData2 = data.begin();
+    std::vector<unsigned char>::const_iterator pend = data.end();
+    std::vector<unsigned char> vKeyID, vPubKey;
+
+    for(int i=0; i<pubKeySize; i++){
+      if(itData2++ == pend) {
+        bEnd=true;
+        break;
+      }
+    }
+
+    if(bEnd) break;
+
+    CBitcoinAddress addrNew;
+    addrNew.Set(CKeyID(uint160(std::vector<unsigned char>(itData1,itData2))));
+
+    itData1=itData2;
+    for(int i=0; i<pubKeySize; i++){
+      if(itData2++ == pend){
+      bEnd=true;
+       break;
+     }
+    }
+      
+    if(bEnd) break;
+
+    CPubKey pubKeyNew = CPubKey(itData1,itData2);
+      try{
+        //This will succeeed if the decrypted addresses are valid.
+       add_derived(addrNew, pubKeyNew, kycKey);
+       bSuccess=true;
+      } catch (std::invalid_argument e){
+       bSuccess=false; // Do nothing
+      }
+  }
+
+  return bSuccess;
 }
 
 bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){

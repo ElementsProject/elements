@@ -108,3 +108,64 @@ bool CPolicyList::Update(const CTransaction& tx, const CCoinsViewCache& mapInput
     }
     return true;
 }
+
+
+
+//Update from transaction
+bool CPolicyList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+{
+    if (tx.IsCoinBase())
+      return false; // Coinbases don't use vin normally
+
+    // check inputs for encoded address data
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
+
+        std::vector<std::vector<unsigned char> > vSolutions;
+        txnouttype whichType;
+
+        const CScript& prevScript = prev.scriptPubKey;
+        if (!Solver(prevScript, whichType, vSolutions)) continue;
+
+        // extract address from second multisig public key and remove from freezelist
+        // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
+        if (whichType == TX_MULTISIG && vSolutions.size() == 4)
+        {
+            CKeyID keyId;
+            std::vector<unsigned char> ex_addr;
+            std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
+            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 32;
+            std::vector<unsigned char> extracted_addr(first,last);
+
+            keyId = CKeyID(uint160(extracted_addr));
+
+            remove(&keyId);
+        }
+    }
+
+    //check outputs for encoded address data
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        const CTxOut& txout = tx.vout[i];
+
+        std::vector<std::vector<unsigned char> > vSolutions;
+        txnouttype whichType;
+
+        if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
+
+        // extract address from second multisig public key and add to the freezelist
+        // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
+        if (whichType == TX_MULTISIG && vSolutions.size() == 4)
+        {
+            CKeyID keyId;
+            std::vector<unsigned char> ex_addr;
+            std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
+            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 32;
+            std::vector<unsigned char> extracted_addr(first,last);
+
+            keyId = CKeyID(uint160(extracted_addr));
+
+            add_sorted(&keyId);
+        }
+    }
+    return true;
+}

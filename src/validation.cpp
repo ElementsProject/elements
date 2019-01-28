@@ -2821,7 +2821,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         const CTxOut& prevoutput = view.GetOutputFor(tx.vin[0]);
         if(prevoutput.nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
         if(prevoutput.nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
-        if(prevoutput.nAsset.GetAsset() == whitelistAsset && fEnableWhitelistCheck) idWhitelist.Update(tx,view);
+        if(prevoutput.nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) idWhitelist.Update(tx,view);
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
