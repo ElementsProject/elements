@@ -95,7 +95,6 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
 CWhiteList addressWhitelist;
-CPolicyList idWhitelist;
 CPolicyList addressBurnlist;
 CPolicyList addressFreezelist;
 
@@ -2817,11 +2816,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
-        //check if a freeselist transaction and update the freezelist
+        //check if a freeselist/burnlist/whitelist transaction and update the list
         const CTxOut& prevoutput = view.GetOutputFor(tx.vin[0]);
         if(prevoutput.nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
         if(prevoutput.nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
-        if(prevoutput.nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) idWhitelist.Update(tx,view);
+        if(prevoutput.nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) addressWhitelist.Update(tx,view);
+        txnouttype type;
+        std::vector<std::vector<unsigned char> > solutions;
+        if( Solver(prevoutput.scriptPubKey,type, solutions) ){
+            if(type == TX_REGISTERADDRESS){
+                addressWhitelist.RegisterAddress(tx);
+            }
+        }
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);

@@ -233,36 +233,6 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     return false;
 }
 
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
-{
-    vector<valtype> vSolutions;
-    txnouttype whichType;
-    if (!Solver(scriptPubKey, whichType, vSolutions))
-        return false;
-
-    if (whichType == TX_PUBKEY)
-    {
-        CPubKey pubKey(vSolutions[0]);
-        if (!pubKey.IsValid())
-            return false;
-
-        addressRet = pubKey.GetID();
-        return true;
-    }
-    else if (whichType == TX_PUBKEYHASH)
-    {
-        addressRet = CKeyID(uint160(vSolutions[0]));
-        return true;
-    }
-    else if (whichType == TX_SCRIPTHASH)
-    {
-        addressRet = CScriptID(uint160(vSolutions[0]));
-        return true;
-    }
-    // Multisig txns have more than one address...
-    return false;
-}
-
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vector<CTxDestination>& addressRet, int& nRequiredRet)
 {
     addressRet.clear();
@@ -346,12 +316,6 @@ CScript GetScriptForAddToWhitelist(const CKey& key,
     //OP_REGISTERADDRESS||nbytestofollow||E_k(address||pubkey)  
     std::vector<unsigned char> message;
 
-    //Get the addresses to register.
-    //TODO - naddresses
-    unsigned int size = addresses.size();
-    std::vector<unsigned char> naddr = CastToByteVector(addresses.size());
-    //Number of addresses
-    message.insert(message.begin(), naddr.begin(), naddr.end());
     //Append the addresses (with raw pub keys)
     for(auto address : addresses){
         std::vector<unsigned char> vKeyIDNew = CastToByteVector(address.first);

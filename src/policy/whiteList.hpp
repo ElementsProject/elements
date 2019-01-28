@@ -21,11 +21,8 @@ public:
 
 	void synchronise(CWhiteList* wl_new);
 
-  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+  	bool RegisterAddress(const CTransaction& tx);
 
-
-  	//Lookup owner (idpubkey) of address
-  	bool LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound);
 
   	//Lookup owner (idpubkey) of address
   	bool LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound);

@@ -62,93 +62,8 @@ void CWhiteList::add_derived(std::string sAddress, std::string sPubKey, std::str
   add_derived(address, pubKey, kycKey);
 }
 
-bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
+bool CWhiteList::RegisterAddress(const CTransaction& tx){
   //Check if this is a ID registration (whitetoken) transaction
-
-
-  // Get input addresses an lookup associated idpubkeys
-  if (tx.IsCoinBase())
-    return false; // Coinbases don't use vin normally
-
-  //Get input addresses
-  std::vector<CBitcoinAddress> inputAddresses;
-  std::vector<CPubKey> inputPubKeys;
-
-  for (unsigned int i = 0; i < tx.vin.size(); i++) {
-    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
-
-    CScript scriptSig = tx.vin[i].scriptSig
-
-    //The public key is the last 32 bytes of the scriptsig
-    inputPubKeys.push_back(inputPubKey(scriptSig.end()-32, scriptSig.end()));
-
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
-
-    const CScript& prevScript = prev.scriptPubKey;
-    //if (!Solver(prevScript, whichType, vSolutions)) continue;
-
-    CTxDestination dest;
-    if(!ExtractDestination(prevScript, dest)) continue;
-
-    CBitcoinAddress addr;
-    if(!addr.Set(dest)) continue;
-
-    inputAddresses.push_back(addr);
-  }
-
-  if(inputAddresses.size()==0) return false;
-  
-  //Lookup the ID public keys of the input addresses
-  std::set<CKeyID> kycKeys;
-  CKeyID kycKey;
-  CKeyID inputKey;
-  CPubKey inputPubKey;
-
-  for(std::vector<CBitcoinAddress>::const_iterator it = inputAddresses.begin();
-      it != inputAddresses.end();
-      ++it){
-    it->GetKeyID(inputKey);
-    //All input addresses must be owned by someone whitelisted
-    if(!LookupKYCKey(inputKey, kycKey)) return false;
-    kycKeys.insert(kycKey);
-  }
-
-  //There must be exactly 1 kyc key (all input addresses owned by 1 person)
-  if(kycKeys.size() != 1) return false;
-  
-  //There should be one OP_REGISTERADDRESS transaction output
-  std::set<CScript> scriptPubKeys;
-  tx.vout[0].scriptPubKey;
-
-  //Get the message bytes
-  opcodetype opcode;
-  std::vector<unsigned char> bytes;
-  //registeraddress script
-  CScript raScript;
-  std::vector<CScript> raScripts;
-
-  //Get the data from the registeraddress script
-  for (unsigned int i = 0; i < tx.vout.size(); i++) {
-    const CTxOut& txout = tx.vout[i];
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
-
-    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
-
-    if(whichType == TX_REGISTERADDRESS){
-      CScript::const_iterator pc = txout.scriptPubKey.begin();
-      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return true;
-      break;
-    }
-  } 
-
-  add_derived(address, pubKey, kycKey);
-}
-
-bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
-  //Check if this is a ID registration (whitetoken) transaction
-    unsigned int keyIDSize=20;
     unsigned int pubKeySize=33;
     unsigned int initVecSize=32;
 
@@ -158,67 +73,20 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     return false; // Coinbases don't use vin normally
 
   //Get input addresses
-  std::vector<CBitcoinAddress> inputAddresses;
   std::vector<CPubKey> inputPubKeys;
 
   for (unsigned int i = 0; i < tx.vin.size(); i++) {
-    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
-
     CScript scriptSig = tx.vin[i].scriptSig;
-
-
-  CKeyID keyIDNew;
-  CPubKey pubKeyNew;
-  while(it<pend){
-    if(it+keyIDSize>pend) return true;
-    keyIDNew.assign(it,it=it+keyIDSize);
-    if(it+pubKeySize>pend) return true;
-    pubKeyNew.assign(it,it=it+pubKeySize);
-    try{
-      add_derived(keyIDNew, pubKeyNew, kycKey);
-    } catch (std::invalid_argument e){
-      ; // Do nothing
-    }
-  }
-  return true;
-}
-
-    //The public key is the last 33 bytes of the scriptsig
     inputPubKeys.push_back(CPubKey(scriptSig.end()-pubKeySize, scriptSig.end()));
-
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
-
-    const CScript& prevScript = prev.scriptPubKey;
-    //if (!Solver(prevScript, whichType, vSolutions)) continue;
-
-    CTxDestination dest;
-    if(!ExtractDestination(prevScript, dest)) continue;
-
-    CBitcoinAddress addr;
-    if(!addr.Set(dest)) continue;
-
-    inputAddresses.push_back(addr);
   }
 
-  if(inputAddresses.size()==0) return false;
+  if(inputPubKeys.size()==0) return false;
   
   //Lookup the ID public keys of the input addresses
   std::set<CKeyID> kycKeys;
   CKeyID kycKey;
   CKeyID inputKey;
   CPubKey inputPubKey;
-
-/*
-  for(std::vector<CBitcoinAddress>::const_iterator it = inputAddresses.begin();
-      it != inputAddresses.end();
-      ++it){
-    it->GetKeyID(inputKey);
-    //All input addresses must be owned by someone whitelisted
-    if(!LookupKYCKey(inputKey, kycKey)) return false;
-    kycKeys.insert(kycKey);
-  }
-*/
 
   for(std::vector<CPubKey>::const_iterator it = inputPubKeys.begin();
       it != inputPubKeys.end();
@@ -232,16 +100,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   //There must be exactly 1 kyc key (all input addresses owned by 1 person)
   if(kycKeys.size() != 1) return false;
   
-  //There should be one OP_REGISTERADDRESS transaction output
-  std::set<CScript> scriptPubKeys;
-  //tx.vout[0].scriptPubKey;
-
   //Get the message bytes
   opcodetype opcode;
   std::vector<unsigned char> bytes;
-  //registeraddress script
-  CScript raScript;
-  std::vector<CScript> raScripts;
 
   //Get the data from the registeraddress script
   for (unsigned int i = 0; i < tx.vout.size(); i++) {
@@ -290,7 +151,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     std::vector<unsigned char>::const_iterator pend = data.end();
     std::vector<unsigned char> vKeyID, vPubKey;
 
-    for(int i=0; i<pubKeySize; i++){
+    for(unsigned int i=0; i<pubKeySize; i++){
       if(itData2++ == pend) {
         bEnd=true;
         break;
@@ -303,7 +164,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     addrNew.Set(CKeyID(uint160(std::vector<unsigned char>(itData1,itData2))));
 
     itData1=itData2;
-    for(int i=0; i<pubKeySize; i++){
+    for(unsigned int i=0; i<pubKeySize; i++){
       if(itData2++ == pend){
       bEnd=true;
        break;
