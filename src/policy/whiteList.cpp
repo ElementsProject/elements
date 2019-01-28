@@ -4,11 +4,17 @@
 
 #include "whiteList.hpp"
 #include "validation.h"
+#include "wallet/wallet.h"
+#include "ecies.h"
 
 CWhiteList::CWhiteList(){;}
 CWhiteList::~CWhiteList(){;}
 
 void CWhiteList::add_derived(CBitcoinAddress address, CPubKey pubKey){
+  CWhiteList::add_derived(address, pubKey, CKeyID());
+}
+
+void CWhiteList::add_derived(CBitcoinAddress address, CPubKey pubKey, CKeyID kycKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if (!pubKey.IsFullyValid())
     throw std::system_error(
@@ -28,23 +34,161 @@ void CWhiteList::add_derived(CBitcoinAddress address, CPubKey pubKey){
   } 
   //insert new address into sorted CWhiteList vector 
   add_sorted(&keyId);
+
+  //Add to the ID map
+  _kycMap[keyId]=kycKey;
 }
 
 void CWhiteList::add_derived(std::string addressIn, std::string key){
-   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-    CBitcoinAddress address;
-  if (!address.SetString(addressIn))
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, 
-              std::system_category()), 
-          std::string(std::string(__func__) + ": invalid Bitcoin address: ") + addressIn);
-  
-
-  std::vector<unsigned char> pubKeyData(ParseHex(key));
-  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-
-  add_derived(address, pubKey);
+  add_derived(addressIn, key, std::string(""));
 }
 
+void CWhiteList::add_derived(std::string sAddress, std::string sPubKey, std::string sKYCKey){
+   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+    CBitcoinAddress address;
+  if (!address.SetString(sAddress))
+    throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid Bitcoin address: ") + sAddress);
+  
+  std::vector<unsigned char> pubKeyData(ParseHex(sPubKey));
+  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
 
+  CKeyID kycKey;
+  if(sKYCKey.size()>0){ //TODO - size?
+    std::vector<unsigned char> kycKeyData(ParseHex(sKYCKey));
+    kycKey = uint160(kycKeyData);
+  } 
+
+  add_derived(address, pubKey, kycKey);
+}
+
+bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
+  //Check if this is a ID registration (whitetoken) transaction
+
+
+  // Get input addresses an lookup associated idpubkeys
+  if (tx.IsCoinBase())
+    return false; // Coinbases don't use vin normally
+
+  //Get input addresses
+  std::vector<CBitcoinAddress> inputAddresses;
+  std::vector<CPubKey> inputPubKeys;
+
+  for (unsigned int i = 0; i < tx.vin.size(); i++) {
+    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
+
+    CScript scriptSig = tx.vin[i].scriptSig
+
+    //The public key is the last 32 bytes of the scriptsig
+    inputPubKeys.push_back(inputPubKey(scriptSig.end()-32, scriptSig.end()));
+
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    const CScript& prevScript = prev.scriptPubKey;
+    //if (!Solver(prevScript, whichType, vSolutions)) continue;
+
+    CTxDestination dest;
+    if(!ExtractDestination(prevScript, dest)) continue;
+
+    CBitcoinAddress addr;
+    if(!addr.Set(dest)) continue;
+
+    inputAddresses.push_back(addr);
+  }
+
+  if(inputAddresses.size()==0) return false;
+  
+  //Lookup the ID public keys of the input addresses
+  std::set<CKeyID> kycKeys;
+  CKeyID kycKey;
+  CKeyID inputKey;
+  CPubKey inputPubKey;
+
+  for(std::vector<CBitcoinAddress>::const_iterator it = inputAddresses.begin();
+      it != inputAddresses.end();
+      ++it){
+    it->GetKeyID(inputKey);
+    //All input addresses must be owned by someone whitelisted
+    if(!LookupKYCKey(inputKey, kycKey)) return false;
+    kycKeys.insert(kycKey);
+  }
+
+  //There must be exactly 1 kyc key (all input addresses owned by 1 person)
+  if(kycKeys.size() != 1) return false;
+  
+  //There should be one OP_REGISTERADDRESS transaction output
+  std::set<CScript> scriptPubKeys;
+  tx.vout[0].scriptPubKey;
+
+  //Get the message bytes
+  opcodetype opcode;
+  std::vector<unsigned char> bytes;
+  //registeraddress script
+  CScript raScript;
+  std::vector<CScript> raScripts;
+
+  //Get the data from the registeraddress script
+  for (unsigned int i = 0; i < tx.vout.size(); i++) {
+    const CTxOut& txout = tx.vout[i];
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
+
+    if(whichType == TX_REGISTERADDRESS){
+      CScript::const_iterator pc = txout.scriptPubKey.begin();
+      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return true;
+      break;
+    }
+  }
+
+  //The first 32 bytes of the message are the initialization vector
+  //used to decrypt the rest of the message
+  std::vector<unsigned char> initVec(bytes.end(), bytes.begin()+32);
+  std::vector<unsigned char> encryptedData(bytes.begin()+32, bytes.end());
+
+  //Get the private key that is paired with kycKey
+  CKey kycPrivKey;
+  pwalletMain->GetKey(kycKey, kycPrivKey); 
+  
+  //Decrypt the data
+
+  CECIES decryptor(kycPrivKey, inputKey, initVec);
+  std::vector<unsigned char> data;
+  decryptor.Decrypt(data, encryptedData);
+    
+  //Interpret the data
+  //First 20 bytes: keyID 
+  std::vector<unsigned char>::const_iterator it = data.begin();
+  std::vector<unsigned char>::const_iterator pend = data.end();
+  std::vector<unsigned char> vKeyID, vPubKey;
+  unsigned int keyIDSize=20;
+  unsigned int pubKeySize=32;
+
+
+  CKeyID keyIDNew;
+  CPubKey pubKeyNew;
+  while(it<pend){
+    if(it+keyIDSize>pend) return true;
+    keyIDNew.assign(it,it=it+keyIDSize);
+    if(it+pubKeySize>pend) return true;
+    pubKeyNew.assign(it,it=it+pubKeySize);
+    try{
+      add_derived(keyIDNew, pubKeyNew, kycKey);
+    } catch (std::invalid_argument e){
+      ; // Do nothing
+    }
+  }
+  return true;
+}
+
+bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
+  auto search = _kycMap.find(address);
+  if(search != _kycMap.end()){
+    kycKeyFound = search->second;
+    return true;
+  }
+  return false;
+}
 

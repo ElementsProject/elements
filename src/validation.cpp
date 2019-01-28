@@ -95,6 +95,7 @@ CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
 CWhiteList addressWhitelist;
+CPolicyList idWhitelist;
 CPolicyList addressBurnlist;
 CPolicyList addressFreezelist;
 
@@ -2818,8 +2819,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         //check if a freeselist transaction and update the freezelist
         const CTxOut& prevoutput = view.GetOutputFor(tx.vin[0]);
-        if(prevoutput.nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) UpdateFreezeList(tx,view);
-        if(prevoutput.nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) UpdateBurnList(tx,view);
+        if(prevoutput.nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
+        if(prevoutput.nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
+        if(prevoutput.nAsset.GetAsset() == whitelistAsset && fEnableWhitelistCheck) idWhitelist.Update(tx,view);
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
