@@ -177,7 +177,7 @@ void CCoinsViewCache::SetPeginSpent(const std::pair<uint256, COutPoint> &outpoin
     else
         hadSpent = it->second.peginSpent;
 
-    // If we aren't changing spentness, dont do anything at all
+    // If we aren't changing spentness, don't do anything at all
     if (hadSpent == fSpent)
         return;
 

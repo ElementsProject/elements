@@ -76,7 +76,7 @@ public:
     }
 
     std::string operator()(const CNoDestination& no) const { return {}; }
-    std::string operator()(const NullData& nd) const { return {}; }
+    std::string operator()(const NullData& null) const { return {}; }
 };
 
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, const bool for_parent)

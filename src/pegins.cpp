@@ -64,7 +64,7 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
     //    return false;
     //}
     //amount = txBTC.vout[nOut].nValue.GetAmount();
-    //TODO(rebase) reenable above for CA/CT
+    //TODO(rebase) re-enable above for CA/CT
     amount = txBTC.vout[nOut].nValue;
     return true;
 }

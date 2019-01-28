@@ -331,7 +331,7 @@ class FedPegTest(BitcoinTestFramework):
                 break
         assert pegout_tested
 
-        print ("Now test failure to validate peg-ins based on intermittant bitcoind rpc failure")
+        print ("Now test failure to validate peg-ins based on intermittent bitcoind rpc failure")
         self.stop_node(1)
         txid = parent.sendtoaddress(addr, 1)
         parent.generate(12)

@@ -1917,7 +1917,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (mandatory_coinbase_destination != CScript()) {
         for (auto& txout : block.vtx[0]->vout) {
             if (txout.scriptPubKey != mandatory_coinbase_destination && txout.nValue != 0) {
-                return state.DoS(100, error("ConnectBlock(): Coinbase outputs didnt match required scriptPubKey"),
+                return state.DoS(100, error("ConnectBlock(): Coinbase outputs didn't match required scriptPubKey"),
                                  REJECT_INVALID, "bad-coinbase-txos");
             }
         }

@@ -244,7 +244,7 @@ class PAKTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes,2,3)
         connect_nodes_bi(self.nodes,3,4)
 
-        # Check PAK settings persistance in wallet across restart
+        # Check PAK settings persistence in wallet across restart
         restarted_info = self.nodes[i_undefined].getwalletpakinfo()
         assert_equal(restarted_info["bitcoin_descriptor"], xpub_desc)
         assert_equal(restarted_info["liquid_pak"], new_init["liquid_pak"])
