@@ -59,15 +59,19 @@ BASE_SCRIPTS = [
     # Scripts that are run by the travis build process.
     # vv First elements tests vv
     'feature_fedpeg.py',
+    'feature_mandatory_coinbase.py',
+    'feature_block_subsidy.py',
+    'feature_connect_coinbase.py',
+    'feature_block_v4.py',
+    'feature_pak.py',
+    'feature_blocksign.py',
     # Longest test should go first, to favor running tests in parallel
-    'mempool_packages.py',
-    'feature_maxuploadtarget.py',
-    'p2p_timeouts.py',
-    'mining_getblocktemplate_longpoll.py',
     'feature_fee_estimation.py',
     'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
+    'mining_getblocktemplate_longpoll.py',
+    'feature_maxuploadtarget.py',
     'feature_block.py',
     'rpc_fundrawtransaction.py',
     'p2p_compactblocks.py',
@@ -75,8 +79,8 @@ BASE_SCRIPTS = [
     # vv Tests less than 2m vv
     'wallet_basic.py',
     'wallet_labels.py',
-    'p2p_feefilter.py',
     'p2p_segwit.py',
+    'p2p_timeouts.py',
     'wallet_dump.py',
     'wallet_listtransactions.py',
     # vv Tests less than 60s vv
@@ -90,6 +94,8 @@ BASE_SCRIPTS = [
     'feature_csv_activation.py',
     'rpc_rawtransaction.py',
     'wallet_address_types.py',
+    'feature_bip68_sequence.py',
+    'p2p_feefilter.py',
     'feature_reindex.py',
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
@@ -120,18 +126,23 @@ BASE_SCRIPTS = [
     'rpc_deprecated.py',
     'wallet_disable.py',
     'rpc_net.py',
-    'example_test.py',
     'wallet_keypool.py',
     'p2p_mempool.py',
     'mining_prioritisetransaction.py',
     'p2p_invalid_locator.py',
     'p2p_invalid_block.py',
-    'feature_bip68_sequence.py',
     'p2p_invalid_tx.py',
+    'feature_assumevalid.py',
+    'example_test.py',
+    'wallet_txn_doublespend.py',
+    'wallet_txn_clone.py --mineblock',
+    'feature_notifications.py',
+    'rpc_invalidateblock.py',
+    'feature_rbf.py',
+    'mempool_packages.py',
     'rpc_createmultisig.py',
     'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
-    'feature_assumevalid.py',
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',
     'rpc_signmessage.py',
@@ -141,11 +152,6 @@ BASE_SCRIPTS = [
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
     'rpc_bind.py --nonloopback',
-    'wallet_txn_doublespend.py',
-    'wallet_txn_clone.py --mineblock',
-    'feature_notifications.py',
-    'rpc_invalidateblock.py',
-    'feature_rbf.py',
     'mining_basic.py',
     'wallet_bumpfee.py',
     'rpc_named_arguments.py',
@@ -157,6 +163,7 @@ BASE_SCRIPTS = [
     'rpc_uptime.py',
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
+    'feature_minchainwork.py',
     'rpc_getblockstats.py',
     'p2p_fingerprint.py',
     'feature_uacomment.py',
@@ -165,15 +172,10 @@ BASE_SCRIPTS = [
     'rpc_scantxoutset.py',
     'feature_logging.py',
     'p2p_node_network_limited.py',
-    'feature_blocksign.py',
     'feature_blocksdir.py',
     'feature_config_args.py',
+    'rpc_help.py',
     'feature_help.py',
-    'feature_mandatory_coinbase.py',
-    'feature_block_subsidy.py',
-    'feature_connect_coinbase.py',
-    'feature_block_v4.py',
-    'feature_pak.py'
     # Don't append tests at the end to avoid merge conflicts
     # Put them in a random line within the section that fits their approximate run-time
 ]
@@ -237,8 +239,6 @@ def main():
 
     logging.debug("Temporary test directory at %s" % tmpdir)
 
-    enable_wallet = config["components"].getboolean("ENABLE_WALLET")
-    enable_utils = config["components"].getboolean("ENABLE_UTILS")
     enable_bitcoind = config["components"].getboolean("ENABLE_BITCOIND")
 
     if config["environment"]["EXEEXT"] == ".exe" and not args.force:
@@ -247,9 +247,9 @@ def main():
         print("Tests currently disabled on Windows by default. Use --force option to enable")
         sys.exit(0)
 
-    if not (enable_wallet and enable_utils and enable_bitcoind):
-        print("No functional tests to run. Wallet, utils, and bitcoind must all be enabled")
-        print("Rerun `configure` with -enable-wallet, -with-utils and -with-daemon and rerun make")
+    if not enable_bitcoind:
+        print("No functional tests to run.")
+        print("Rerun ./configure with --with-daemon and then make")
         sys.exit(0)
 
     # Build list of tests

@@ -27,7 +27,7 @@ private:
     const bool for_parent;
 
 public:
-    DestinationEncoder(const CChainParams& params, const bool for_parent) : m_params(params), for_parent(for_parent) {}
+    explicit DestinationEncoder(const CChainParams& params, const bool for_parent) : m_params(params), for_parent(for_parent) {}
 
     std::string operator()(const CKeyID& id) const
     {
