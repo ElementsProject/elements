@@ -95,8 +95,7 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
     vSolutionsRet.clear();
 
     if (Params().anyonecanspend_aremine && scriptPubKey == CScript() << OP_TRUE) {
-        typeRet = TX_TRUE;
-        return true;
+        return TX_TRUE;
     }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:

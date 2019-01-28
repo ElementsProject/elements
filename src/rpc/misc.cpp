@@ -492,9 +492,9 @@ UniValue FormatPAKList(CPAKList &paklist) {
         retOnline.push_back(HexStr(online_keys[i]));
 
     }
-    paklist_value.push_back(Pair("online", retOnline));
-    paklist_value.push_back(Pair("offline", retOffline));
-    paklist_value.push_back(Pair("reject", is_reject));
+    paklist_value.pushKV("online", retOnline);
+    paklist_value.pushKV("offline", retOffline);
+    paklist_value.pushKV("reject", is_reject);
     return paklist_value;
 }
 

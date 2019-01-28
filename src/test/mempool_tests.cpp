@@ -446,7 +446,7 @@ BOOST_AUTO_TEST_CASE(PeginSpentTest)
     tx.vout.resize(1);
     tx.vout[0].nValue = 0;
     const uint256 tx1Hash(tx.GetHash());
-    pool.addUnchecked(tx1Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    pool.addUnchecked(entry.PeginsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK(pool.mapPeginsSpentToTxid.empty());
 
     setPeginsSpent = {pegin1};
@@ -454,7 +454,7 @@ BOOST_AUTO_TEST_CASE(PeginSpentTest)
     tx.vout.resize(2);
     tx.vout[1].nValue = 0;
     const uint256 tx2Hash(tx.GetHash());
-    pool.addUnchecked(tx2Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    pool.addUnchecked(entry.PeginsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin1].ToString(), tx2Hash.ToString());
 
     setPeginsSpent = {pegin2};
@@ -462,7 +462,7 @@ BOOST_AUTO_TEST_CASE(PeginSpentTest)
     tx.vout.resize(3);
     tx.vout[2].nValue = 0;
     const uint256 tx3Hash(tx.GetHash());
-    pool.addUnchecked(tx3Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    pool.addUnchecked(entry.PeginsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin2].ToString(), tx3Hash.ToString());
 
     setPeginsSpent = {pegin3};
@@ -493,7 +493,7 @@ BOOST_AUTO_TEST_CASE(PeginSpentTest)
     tx.vout.resize(6);
     tx.vout[5].nValue = 0;
     const uint256 tx4Hash(tx.GetHash());
-    pool.addUnchecked(tx4Hash, entry.PeginsSpent(setPeginsSpent).FromTx(tx));
+    pool.addUnchecked(entry.PeginsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin1].ToString(), tx4Hash.ToString());
     BOOST_CHECK_EQUAL(pool.mapPeginsSpentToTxid[pegin3].ToString(), tx4Hash.ToString());
 

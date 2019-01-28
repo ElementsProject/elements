@@ -1284,7 +1284,7 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
     std::stringstream ss;
     ss << pwallet->offline_counter;
-    ret.push_back(Pair("bip32_counter", ss.str()));
+    ret.pushKV("bip32_counter", ss.str());
 
     const std::string desc_str = pwallet->offline_desc;
 
@@ -1306,6 +1306,6 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
         address_list.push_back(EncodeParentDestination(destination));
     }
 
-    ret.push_back(Pair("address_lookahead", address_list));
+    ret.pushKV("address_lookahead", address_list);
     return ret;
 }

@@ -21,7 +21,7 @@
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
-                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint>>& _setPeginsSpent):
+                                 bool _spendsCoinbase, int64_t _sigOpsCost, LockPoints lp, std::set<std::pair<uint256, COutPoint>>& _setPeginsSpent)
     : tx(_tx), nFee(_nFee), nTxWeight(GetTransactionWeight(*tx)), nUsageSize(RecursiveDynamicUsage(tx)), nTime(_nTime), entryHeight(_entryHeight),
     spendsCoinbase(_spendsCoinbase), sigOpCost(_sigOpsCost), lockPoints(lp),
     setPeginsSpent(_setPeginsSpent)
@@ -406,7 +406,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
     typedef std::pair<uint256, COutPoint> PeginPair;
     for(const PeginPair& it : entry.setPeginsSpent) {
-        std::pair<std::map<std::pair<uint256, COutPoint>, uint256>::iterator, bool> ret = mapPeginsSpentToTxid.insert(std::make_pair(it, hash));
+        std::pair<std::map<std::pair<uint256, COutPoint>, uint256>::iterator, bool> ret = mapPeginsSpentToTxid.insert(std::make_pair(it, tx.GetHash()));
         assert(ret.second);
     }
 }

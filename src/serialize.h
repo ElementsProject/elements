@@ -928,6 +928,9 @@ public:
     }
 
     int GetVersion() const { return nVersion; }
+
+    // ELEMENTS: Required for CProof size computation to deal with SER_GETHASH
+    int GetType() const { return 0; }
 };
 
 template<typename Stream>

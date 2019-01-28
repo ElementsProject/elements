@@ -4387,10 +4387,10 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
         address_list.push_back(EncodeParentDestination(destination));
     }
     UniValue pak(UniValue::VOBJ);
-    pak.push_back(Pair("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey)));
-    pak.push_back(Pair("liquid_pak", HexStr(online_pubkey)));
-    pak.push_back(Pair("liquid_pak_address", EncodeDestination(online_key_id)));
-    pak.push_back(Pair("address_lookahead", address_list));
+    pak.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey));
+    pak.pushKV("liquid_pak", HexStr(online_pubkey));
+    pak.pushKV("liquid_pak_address", EncodeDestination(online_key_id));
+    pak.pushKV("address_lookahead", address_list);
     return pak;
 }
 
@@ -4450,7 +4450,7 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue), {});
+    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue));
 
     //TODO(rebase) CT/CA
     //  v this line was in elements-0.14 instead of the line above here
@@ -4695,7 +4695,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue), {});
+    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue));
 
     pwallet->SetOfflineCounter(counter+1);
 
@@ -4703,10 +4703,10 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     ss << counter;
 
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("txid", tx->GetHash().GetHex()));
-    obj.push_back(Pair("bitcoin_address", EncodeParentDestination(bitcoin_address)));
-    obj.push_back(Pair("bip32_counter", ss.str()));
-    obj.push_back(Pair("bitcoin_descriptor", pwallet->offline_desc));
+    obj.pushKV("txid", tx->GetHash().GetHex());
+    obj.pushKV("bitcoin_address", EncodeParentDestination(bitcoin_address));
+    obj.pushKV("bip32_counter", ss.str());
+    obj.pushKV("bitcoin_descriptor", pwallet->offline_desc);
     return obj;
 }
 
@@ -5009,7 +5009,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     CValidationState state;
     mapValue_t mapValue;
     CReserveKey reservekey(pwallet);
-    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, "", reservekey, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservekey, g_connman.get(), state)) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }

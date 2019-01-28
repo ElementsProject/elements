@@ -1019,7 +1019,6 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
     // CRPCCommand table and rpc/client.cpp.
     throw JSONRPCError(RPC_METHOD_DEPRECATED, "signrawtransaction was removed in v0.18.\n"
         "Clients should transition to using signrawtransactionwithkey and signrawtransactionwithwallet");
-            "  \"warning\" : \"text\"            (string) Warning that a peg-in input signed may be immature. This could mean lack of connectivity to or misconfiguration of the bitcoind."
 }
 
 UniValue sendrawtransaction(const JSONRPCRequest& request)
