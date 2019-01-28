@@ -21,9 +21,6 @@ public:
 
 	void synchronise(CWhiteList* wl_new);
 
-	//Update from a registerid transaction
-  	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 

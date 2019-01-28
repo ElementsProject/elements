@@ -108,3 +108,6 @@ bool CPolicyList::Update(const CTransaction& tx, const CCoinsViewCache& mapInput
     }
     return true;
 }
+
+
+

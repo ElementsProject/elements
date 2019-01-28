@@ -33,6 +33,10 @@ class CPolicyList : private std::set<CKeyID>
   virtual base::size_type size();
   void delete_address(std::string addressIn);
 
+  //Enable public access to base class iterator accessors 
+  using base::begin;
+  using base::end;
+
   //This will be made prive int CWhitelist.
   virtual void add_sorted(CKeyID* keyId);
   void swap(CPolicyList* l_new);
