@@ -10,14 +10,15 @@
 #include "base58.h"
 #include "utilstrencodings.h"
 #include "util.h"
+#include "coins.h"
 #include <string>
-#include <vector>
+#include <set>
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/thread/mutex.hpp>
 
-class CPolicyList : private std::vector<CKeyID>
+class CPolicyList : private std::set<CKeyID>
 {
-  using base = std::vector<CKeyID>;
+  using base = std::set<CKeyID>;
   using baseIter = base::iterator;
 
  public:
@@ -28,13 +29,16 @@ class CPolicyList : private std::vector<CKeyID>
   bool find(const CKeyID* id);
   virtual void clear();
   baseIter remove(CKeyID* id);
-  virtual CKeyID at(base::size_type pos);
+  //virtual CKeyID at(base::size_type pos);
   virtual base::size_type size();
   void delete_address(std::string addressIn);
 
   //This will be made prive int CWhitelist.
   virtual void add_sorted(CKeyID* keyId);
   void swap(CPolicyList* l_new);
+
+  //Update from transaction
+  virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
  enum Errc{
     INVALID_ADDRESS_OR_KEY,

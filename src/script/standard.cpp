@@ -110,53 +110,6 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     //Decode the metadata
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS  &&  scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_REGISTERADDRESS;
-        
-        //To decrypt the metadata, we first need to know the id_pubkey associated with the address that posted this transaction.
-        //This is determined by scanning the blockchain and stored in a map regAddrScriptInputPubKeyMap <scriptPubKeyHash, inputpubkey>
-
-        CPubKey inputPubKey; //= regAddrScriptPubKeyMap[scriptPubKeyHash];
-
-        //The input pubkey is used to look up the idPubKey from inputPubKeyIdPubKeyMap
-
-        CPubKey idPubKey; //= regAddrScriptPubKeyMap[inputPubKeyHash];
-
-        //Get the message
-        opcodetype opcode;
-        std::vector<unsigned char> bytes;
-        CScript::const_iterator pc = scriptPubKey.begin();
-        if (!scriptPubKey.GetOp(++pc, opcode, bytes))
-                return true;
-
-        //The final 32 bytes of the message are the initialization vector. The rest is encrypted
-        std::vector<unsigned char> initVec(bytes.end(), bytes.begin()+32);
-        std::vector<unsigned char> encryptedData(bytes.begin()+32, bytes.end());
-
-        //Get the private key that is paired with idPubKey
-        CKey idKey; 
-        //Decrypt the data
-        CECIES decryptor(idKey, inputPubKey, initVec);
-        std::vector<unsigned char> data;
-        decryptor.Decrypt(data, encryptedData);
-
-        //Interpret the data
-        //First 20 bytes: keyID 
-        std::vector<unsigned char>::const_iterator it = data.begin();
-        std::vector<unsigned char>::const_iterator pend = data.end();
-        std::vector<unsigned char> vKeyID, vPubKey;
-        unsigned int keyIDSize=20;
-        unsigned int pubKeySize=32;
-
-        std::vector<std::vector<unsigned char> > vSolutions;
-
-        while(it<pend){
-            if(it+keyIDSize>pend) return true;
-            vSolutions.push_back(std::vector<unsigned char>(it,it=it+keyIDSize));
-            if(it+pubKeySize>pend) return true;
-            vSolutions.push_back(std::vector<unsigned char>(it,it=it+pubKeySize));
-        }
-
-        //Returns a list of keyID, pubKey pairs
-        vSolutionsRet=vSolutions;
         return true;
     }
 
@@ -247,6 +200,36 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
     vSolutionsRet.clear();
     typeRet = TX_NONSTANDARD;
+    return false;
+}
+
+bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
+{
+    vector<valtype> vSolutions;
+    txnouttype whichType;
+    if (!Solver(scriptPubKey, whichType, vSolutions))
+        return false;
+
+    if (whichType == TX_PUBKEY)
+    {
+        CPubKey pubKey(vSolutions[0]);
+        if (!pubKey.IsValid())
+            return false;
+
+        addressRet = pubKey.GetID();
+        return true;
+    }
+    else if (whichType == TX_PUBKEYHASH)
+    {
+        addressRet = CKeyID(uint160(vSolutions[0]));
+        return true;
+    }
+    else if (whichType == TX_SCRIPTHASH)
+    {
+        addressRet = CScriptID(uint160(vSolutions[0]));
+        return true;
+    }
+    // Multisig txns have more than one address...
     return false;
 }
 

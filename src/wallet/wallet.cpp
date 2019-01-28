@@ -39,6 +39,7 @@
 using namespace std;
 
 CWallet* pwalletMain = NULL;
+CWallet* pwalletID = NULL;
 /** Transaction fee set by the user */
 CFeeRate payTxFee(DEFAULT_TRANSACTION_FEE);
 unsigned int nTxConfirmTarget = DEFAULT_TX_CONFIRM_TARGET;

@@ -5,19 +5,36 @@
 #pragma once
 
 #include "policyList.hpp"
+#include "wallet/wallet.h"
+#include <map>
 
 class CWhiteList : public CPolicyList{
 public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
+	void add_derived(CBitcoinAddress address, CPubKey pubKey, CKeyID kycKey);
 	void add_derived(CBitcoinAddress address, CPubKey pubKey);
-	void add_derived(std::string addressIn, std::string key);
+
+	void add_derived(std::string sAddress, std::string sPubKey, std::string sKYCKey);
+	void add_derived(std::string sAddress, std::string sKey);
 
 	void synchronise(CWhiteList* wl_new);
+
+	//Update from a registerid transaction
+  	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+
+  	//Lookup owner (idpubkey) of address
+  	bool LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound);
 
 private:
 	//Make add_sorted private because we only want verified derived keys 
 	//to be added to the CWhiteList.
 	using CPolicyList::add_sorted;
+
+	//A map of address to idPubKey
+	std::map<CKeyID, CKeyID> _kycMap;
 };
