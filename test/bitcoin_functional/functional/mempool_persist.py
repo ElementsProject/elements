@@ -47,6 +47,9 @@ class MempoolPersistTest(BitcoinTestFramework):
         self.num_nodes = 3
         self.extra_args = [[], ["-persistmempool=0"], []]
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         chain_height = self.nodes[0].getblockcount()
         assert_equal(chain_height, 200)
@@ -94,8 +97,8 @@ class MempoolPersistTest(BitcoinTestFramework):
         self.start_node(0)
         wait_until(lambda: len(self.nodes[0].getrawmempool()) == 5)
 
-        mempooldat0 = os.path.join(self.nodes[0].datadir, self.chain, 'mempool.dat')
-        mempooldat1 = os.path.join(self.nodes[1].datadir, self.chain, 'mempool.dat')
+        mempooldat0 = os.path.join(self.nodes[0].datadir, 'regtest', 'mempool.dat')
+        mempooldat1 = os.path.join(self.nodes[1].datadir, 'regtest', 'mempool.dat')
         self.log.debug("Remove the mempool.dat file. Verify that savemempool to disk via RPC re-creates it")
         os.remove(mempooldat0)
         self.nodes[0].savemempool()

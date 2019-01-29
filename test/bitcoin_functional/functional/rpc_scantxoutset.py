@@ -14,6 +14,10 @@ class ScantxoutsetTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         self.log.info("Mining blocks...")
         self.nodes[0].generate(110)
@@ -47,7 +51,7 @@ class ScantxoutsetTest(BitcoinTestFramework):
 
         self.log.info("Stop node, remove wallet, mine again some blocks...")
         self.stop_node(0)
-        shutil.rmtree(os.path.join(self.nodes[0].datadir, self.chain, 'wallets'))
+        shutil.rmtree(os.path.join(self.nodes[0].datadir, "regtest", 'wallets'))
         self.start_node(0)
         self.nodes[0].generate(110)
 

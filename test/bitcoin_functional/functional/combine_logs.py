@@ -13,7 +13,7 @@ import re
 import sys
 
 # Matches on the date format at the start of the log event
-TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z")
+TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{6})?Z")
 
 LogEvent = namedtuple('LogEvent', ['timestamp', 'source', 'event'])
 
@@ -23,7 +23,6 @@ def main():
     parser = argparse.ArgumentParser(usage='%(prog)s [options] <test temporary directory>', description=__doc__)
     parser.add_argument('-c', '--color', dest='color', action='store_true', help='outputs the combined log with events colored by source (requires posix terminal colors. Use less -r for viewing)')
     parser.add_argument('--html', dest='html', action='store_true', help='outputs the combined log as html. Requires jinja2. pip install jinja2')
-    parser.add_argument('--chain', dest='chain', help='selected chain in the tests (default: regtest2)', default='regtest2')
     args, unknown_args = parser.parse_known_args()
 
     if args.color and os.name != 'posix':
@@ -39,11 +38,11 @@ def main():
         print("Unexpected arguments" + str(unknown_args))
         sys.exit(1)
 
-    log_events = read_logs(unknown_args[0], args.chain)
+    log_events = read_logs(unknown_args[0])
 
     print_logs(log_events, color=args.color, html=args.html)
 
-def read_logs(tmp_dir, chain):
+def read_logs(tmp_dir):
     """Reads log files.
 
     Delegates to generator function get_log_events() to provide individual log events
@@ -51,7 +50,7 @@ def read_logs(tmp_dir, chain):
 
     files = [("test", "%s/test_framework.log" % tmp_dir)]
     for i in itertools.count():
-        logfile = "{}/node{}/{}/debug.log".format(tmp_dir, i, chain)
+        logfile = "{}/node{}/regtest/debug.log".format(tmp_dir, i)
         if not os.path.isfile(logfile):
             break
         files.append(("node%d" % i, logfile))
@@ -76,11 +75,17 @@ def get_log_events(source, logfile):
                 if time_match:
                     if event:
                         yield LogEvent(timestamp=timestamp, source=source, event=event.rstrip())
-                    event = line
                     timestamp = time_match.group()
+                    if time_match.group(1) is None:
+                        # timestamp does not have microseconds. Add zeroes.
+                        timestamp_micro = timestamp.replace("Z", ".000000Z")
+                        line = line.replace(timestamp, timestamp_micro)
+                        timestamp = timestamp_micro
+                    event = line
                 # if it doesn't have a timestamp, it's a continuation line of the previous log.
                 else:
-                    event += "\n" + line
+                    # Add the line. Prefix with space equivalent to the source + timestamp so log lines are aligned
+                    event += "                                   " + line
             # Flush the final event
             yield LogEvent(timestamp=timestamp, source=source, event=event.rstrip())
     except FileNotFoundError:
@@ -99,7 +104,11 @@ def print_logs(log_events, color=False, html=False):
             colors["reset"] = "\033[0m"     # Reset font color
 
         for event in log_events:
-            print("{0} {1: <5} {2} {3}".format(colors[event.source.rstrip()], event.source, event.event, colors["reset"]))
+            lines = event.event.splitlines()
+            print("{0} {1: <5} {2} {3}".format(colors[event.source.rstrip()], event.source, lines[0], colors["reset"]))
+            if len(lines) > 1:
+                for line in lines[1:]:
+                    print("{0}{1}{2}".format(colors[event.source.rstrip()], line, colors["reset"]))
 
     else:
         try:

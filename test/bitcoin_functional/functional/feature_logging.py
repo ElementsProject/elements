@@ -15,8 +15,11 @@ class LoggingTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def relative_log_path(self, name):
-        return os.path.join(self.nodes[0].datadir, self.chain, name)
+        return os.path.join(self.nodes[0].datadir, "regtest", name)
 
     def run_test(self):
         # test default log file name
