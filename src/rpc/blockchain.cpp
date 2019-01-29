@@ -1493,22 +1493,26 @@ UniValue preciousblock(const JSONRPCRequest& request)
 
 UniValue addtowhitelist(const JSONRPCRequest& request)
 {
-
-  if (request.fHelp || request.params.size() != 2)
+    unsigned int nparams=request.params.size();
+  if (request.fHelp || nparams < 2 || nparams > 3)
     throw runtime_error(
-            "addtowhitelist \"tweakedaddress\" \"basepubkey\"\n"
+            "addtowhitelist \"tweakedaddress\" \"basepubkey\" \"kycpubkey\"\n"
             "\nAttempts to add an address (tweakedaddress) to the node mempool whitelist.\n"
             "The address is checked that it has been tweaked with the contract hash.\n"
             "\nArguments:\n"
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
             "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
+            "3. \"kycpubkey\"     (string, optional) Hex encoded of the compressed KYC public key\n"
             "\nExamples:\n"
-            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
-            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968\
-355\"")
+            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02fe47cdfbcdd814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
+            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02fe47cdfbcdd814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
                         );
-
-  addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
+if(nparams == 2){
+    addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
+} else {
+    addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str(),
+        request.params[2].get_str());
+}
 
   return NullUniValue;
 }
@@ -1626,13 +1630,16 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
 
   // produce output
-  file << strprintf("# Whitelisted address dump");
+  file << strprintf("# Whitelisted address dump - format: [address] [kyckey]");
   file << "\n";
 
   for(auto it=addressWhitelist.begin(); it!=addressWhitelist.end(); ++it){
      std::string strAddr = CBitcoinAddress(*it).ToString();
-    file << strprintf("%s\n",
-              strAddr);
+     CKeyID kycKey;
+     addressWhitelist.LookupKYCKey(CKeyID(*it), kycKey);
+     std::string strKYCKey = CBitcoinAddress(*it).ToString();
+    file << strprintf("%s %s\n",
+              strAddr, strKYCKey);
   }
 
   file << "\n";
@@ -1641,6 +1648,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
 
   return NullUniValue;
 }
+
 
 UniValue clearwhitelist(const JSONRPCRequest& request)
 {

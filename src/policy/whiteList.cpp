@@ -85,7 +85,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx){
   //Lookup the ID public keys of the input addresses
   std::set<CKeyID> kycKeys;
   CKeyID kycKey;
-  CKeyID inputKey;
   CPubKey inputPubKey;
 
   for(std::vector<CPubKey>::const_iterator it = inputPubKeys.begin();

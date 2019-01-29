@@ -114,6 +114,7 @@ protected:
     CBlock genesis;
     uint256 parentGenesisBlockHash;
     uint256 attestationHash;
+    std::string kycMasterPubKey;
     CAmount initialFreeCoins;
     CScript initialFreeCoinsDestination;
     CScript freezeListCoinsDestination;

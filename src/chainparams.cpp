@@ -223,6 +223,9 @@ protected:
         whiteListCoinsDestination = StrHexToScriptWithDefault(GetArg("-whitelistcoinsdestination", ""), CScript() << OP_RETURN);
         attestationHash = uint256S(GetArg("-attestationhash", ""));
 
+        // The KYC wallet master public key
+        kycMasterPubKey = GetArg("-kycmasterpubkey","");
+
         nDefaultPort = GetArg("-ndefaultport", 7042);
         nPruneAfterHeight = GetArg("-npruneafterheight", 1000);
         fMiningRequiresPeers = GetBoolArg("-fminingrequirespeers", false);

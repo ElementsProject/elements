@@ -593,7 +593,7 @@ UniValue sendaddtowhitelist(const JSONRPCRequest& request){
             "\"txid\"                  (string) The transaction id.\n"
             "\"[addresses]\"           (string[]) The addresses that were registered.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendaddtowhitelist", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\"")
+            + HelpExampleCli("sendaddtowhitelist", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" ,\"2\"")
         );
     }
 
