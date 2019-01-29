@@ -124,6 +124,16 @@ bool IsBurn(const CTransaction& tx)
   return true;
 }
 
+bool IsPolicy(const CTransaction& tx)
+{
+  //function that determines if any outputs of a transaction are policy assets
+  BOOST_FOREACH(const CTxOut& txout, tx.vout) {
+    if(txout.nAsset.GetAsset() == policyAsset || txout.nAsset.GetAsset() == freezelistAsset || 
+        txout.nAsset.GetAsset() == burnlistAsset || txout.nAsset.GetAsset() == whitelistAsset) return true;
+  }
+  return false;
+}
+
 bool IsWhitelisted(const CTransaction& tx)
 {
   //function that determines that all outputs of a transaction are P2PKH
@@ -232,6 +242,18 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
   return true;
 }
 
+  //  LogPrintf("POLICY: freeze-list update transaction executed");
+
+
+    //        LogPrintf("POLICY: removed address from freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
+
+      //      LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
+//    LogPrintf("POLICY: burn-list update transaction executed");
+
+
+//            LogPrintf("POLICY: removed address from burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
+
+  //          LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
     if (tx.IsCoinBase())
