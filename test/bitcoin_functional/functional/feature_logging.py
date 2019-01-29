@@ -19,7 +19,7 @@ class LoggingTest(BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def relative_log_path(self, name):
-        return os.path.join(self.nodes[0].datadir, "regtest", name)
+        return os.path.join(self.nodes[0].datadir, "regtest2", name)
 
     def run_test(self):
         # test default log file name

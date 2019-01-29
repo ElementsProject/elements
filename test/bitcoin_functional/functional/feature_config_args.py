@@ -74,7 +74,7 @@ class ConfArgsTest(BitcoinTestFramework):
         os.mkdir(new_data_dir_2)
         self.nodes[0].datadir = new_data_dir_2
         self.start_node(0, ['-datadir='+new_data_dir_2, '-conf='+conf_file, '-wallet=w2'])
-        assert os.path.exists(os.path.join(new_data_dir_2, 'regtest', 'wallets', 'w2'))
+        assert os.path.exists(os.path.join(new_data_dir_2, 'regtest2', 'wallets', 'w2'))
 
 if __name__ == '__main__':
     ConfArgsTest().main()
