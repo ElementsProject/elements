@@ -878,15 +878,17 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         CTxIn& txin = mtx.vin[i];
         const Coin& coin = view.AccessCoin(txin.prevout);
 
+        std::string err;
         if (!txin.m_is_pegin && coin.IsSpent()) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
-        } else if (txin.m_is_pegin && (!IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, false))) {
-            TxInErrorToJSON(txin, vErrors, "Peg-in input has invalid proof.");
+        } else if (txin.m_is_pegin && (!IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, err, false))) {
+            TxInErrorToJSON(txin, vErrors, "Peg-in witness error: " + err);
             continue;
         }
         // Report warning about immature peg-in though
-        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, true)) {
+        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, err, true)) {
+            assert(err == "Needs more confirmations.");
             immature_pegin = true;
         }
 

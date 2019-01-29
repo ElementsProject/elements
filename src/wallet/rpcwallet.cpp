@@ -4900,7 +4900,8 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     // Peg-in witness isn't valid, even though the block header is(without depth check)
     // We re-check depth before returning with more descriptive result
-    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout, false)) {
+    std::string err;
+    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout, err, false)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
     }
 

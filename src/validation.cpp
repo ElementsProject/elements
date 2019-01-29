@@ -1615,7 +1615,8 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, cons
         // it is an overwrite.
         view.AddCoin(out, std::move(undo), !fClean);
     } else {
-        if (!IsValidPeginWitness(pegin_witness, txin.prevout)) {
+        std::string err;
+        if (!IsValidPeginWitness(pegin_witness, txin.prevout, err, false)) {
             fClean = fClean && error("%s: peg-in occurred without proof", __func__);
         } else {
             std::pair<uint256, COutPoint> outpoint = std::make_pair(uint256(pegin_witness.stack[2]), txin.prevout);

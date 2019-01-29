@@ -49,7 +49,10 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CScriptWitness witness;
     witness.stack = witness_stack;
 
-    BOOST_CHECK(IsValidPeginWitness(witness, prevout));
+    std::string err;
+
+    bool valid = IsValidPeginWitness(witness, prevout, err, false);
+    BOOST_CHECK(err == "");
 
     // Missing byte on each field to make claim ill-formatted
     // This will break deserialization and other data-matching checks
@@ -59,32 +62,32 @@ BOOST_AUTO_TEST_CASE(witness_valid)
             continue;
         }
         witness.stack[i].pop_back();
-        BOOST_CHECK(!IsValidPeginWitness(witness, prevout));
+        BOOST_CHECK(!IsValidPeginWitness(witness, prevout, err, false));
         witness.stack = witness_stack;
-        BOOST_CHECK(IsValidPeginWitness(witness, prevout));
+        BOOST_CHECK(IsValidPeginWitness(witness, prevout, err, false));
     }
 
     // Test mismatched but valid nOut to proof
     COutPoint fake_prevout = prevout;
     fake_prevout.n = 0;
-    BOOST_CHECK(!IsValidPeginWitness(witness, fake_prevout));
+    BOOST_CHECK(!IsValidPeginWitness(witness, fake_prevout, err, false));
 
     // Test mistmatched but valid txid
     fake_prevout = prevout;
     fake_prevout.hash = uint256S("2f103ee04a5649eecb932b4da4ca9977f53a12bbe04d9d1eb5ccc0f4a06334");
-    BOOST_CHECK(!IsValidPeginWitness(witness, fake_prevout));
+    BOOST_CHECK(!IsValidPeginWitness(witness, fake_prevout, err, false));
 
     // Ensure that all witness stack sizes are handled
-    BOOST_CHECK(IsValidPeginWitness(witness, prevout));
+    BOOST_CHECK(IsValidPeginWitness(witness, prevout, err, false));
     for (unsigned int i = 0; i < witness.stack.size(); i++) {
         witness.stack.pop_back();
-        BOOST_CHECK(!IsValidPeginWitness(witness, prevout));
+        BOOST_CHECK(!IsValidPeginWitness(witness, prevout, err, false));
     }
     witness.stack = witness_stack;
 
     // Extra element causes failure
     witness.stack.push_back(witness.stack.back());
-    BOOST_CHECK(!IsValidPeginWitness(witness, prevout));
+    BOOST_CHECK(!IsValidPeginWitness(witness, prevout, err, false));
     witness.stack = witness_stack;
 
     // Check validation of peg-in transaction's inputs and balance
@@ -99,7 +102,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     // Check that serialization doesn't cause issuance to become non-null
     //TODO(rebase) CA
     //BOOST_CHECK(tx.vin[0].assetIssuance.IsNull());
-    BOOST_CHECK(IsValidPeginWitness(tx.vin[0].m_pegin_witness, prevout));
+    BOOST_CHECK(IsValidPeginWitness(tx.vin[0].m_pegin_witness, prevout, err, false));
 
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     CValidationState state;
