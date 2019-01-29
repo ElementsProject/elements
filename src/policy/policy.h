@@ -98,6 +98,11 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason);
 bool IsBurn(const CTransaction& tx);
 
     /**
+     * Check if a transaction has outputs what are of a policy asset type
+     */
+bool IsPolicy(const CTransaction& tx);
+
+    /**
      * Check all type and whitelist status of outputs of tx
      * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database 
      */

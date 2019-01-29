@@ -121,6 +121,16 @@ bool IsBurn(const CTransaction& tx)
   return true;
 }
 
+bool IsPolicy(const CTransaction& tx)
+{
+  //function that determines if any outputs of a transaction are policy assets
+  BOOST_FOREACH(const CTxOut& txout, tx.vout) {
+    if(txout.nAsset.GetAsset() == policyAsset || txout.nAsset.GetAsset() == freezelistAsset || 
+        txout.nAsset.GetAsset() == burnlistAsset || txout.nAsset.GetAsset() == whitelistAsset) return true;
+  }
+  return false;
+}
+
 bool IsWhitelisted(const CTransaction& tx)
 {
   //function that determines that all outputs of a transaction are P2PKH
@@ -229,6 +239,8 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
 bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
+    LogPrintf("POLICY: freeze-list update transaction executed");
+
     if (tx.IsCoinBase())
       return false; // Coinbases don't use vin normally
 
@@ -255,6 +267,8 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             keyId = CKeyID(uint160(extracted_addr));
 
             addressFreezelist.remove(&keyId);
+
+            LogPrintf("POLICY: removed address from freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
 
@@ -280,6 +294,8 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             keyId = CKeyID(uint160(extracted_addr));
 
             addressFreezelist.add_sorted(&keyId);
+
+            LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
     return true;
@@ -287,6 +303,8 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
 bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
+    LogPrintf("POLICY: burn-list update transaction executed");
+
     if (tx.IsCoinBase())
       return false; // Coinbases don't use vin normally
 
@@ -313,6 +331,8 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             keyId = CKeyID(uint160(extracted_addr));
 
             addressBurnlist.remove(&keyId);
+
+            LogPrintf("POLICY: removed address from burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
 
@@ -338,6 +358,8 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             keyId = CKeyID(uint160(extracted_addr));
 
             addressBurnlist.add_sorted(&keyId);
+
+            LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
     return true;
