@@ -198,6 +198,9 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         wallet->WalletLogPrintf("Bumping fee and discarding dust output\n");
         new_fee += poutput->nValue;
         mtx.vout.erase(mtx.vout.begin() + nOutput);
+        if (mtx.witness.vtxoutwit.size() > (size_t) nOutput) {
+            mtx.witness.vtxoutwit.erase(mtx.witness.vtxoutwit.begin() + nOutput);
+        }
     }
 
     // Mark new tx not replaceable, if requested.

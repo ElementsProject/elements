@@ -17,6 +17,7 @@ from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, get_bip9_status, satoshi_round, sync_blocks, wait_until
+from test_framework import util
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.
 class TestP2PConn(P2PInterface):
@@ -795,6 +796,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(int(node.getbestblockhash(), 16), block.sha256)
 
     def run_test(self):
+        util.node_fastmerkle = self.nodes[0]
         # Setup the p2p connections
         self.test_node = self.nodes[0].add_p2p_connection(TestP2PConn())
         self.segwit_node = self.nodes[1].add_p2p_connection(TestP2PConn(), services=NODE_NETWORK | NODE_WITNESS)

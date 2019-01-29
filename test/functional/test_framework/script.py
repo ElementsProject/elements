@@ -7,7 +7,7 @@
 This file is modified from python-bitcoinlib.
 """
 
-from .messages import CTransaction, CTxOut, sha256, hash256, uint256_from_str, ser_uint256, ser_string
+from .messages import CTransaction, CTxOut, sha256, hash256, uint256_from_str, ser_uint256, ser_string, ser_vector
 
 from binascii import hexlify
 import hashlib
@@ -648,7 +648,15 @@ def SignatureHash(script, txTo, inIdx, hashtype):
         txtmp.vin = []
         txtmp.vin.append(tmp)
 
-    s = txtmp.serialize_without_witness()
+    # sighash serialization is different from non-witness serialization
+    # do manual sighash serialization:
+    s = b""
+    s += struct.pack("<i", txtmp.nVersion)
+    s += ser_vector(txtmp.vin)
+    s += ser_vector(txtmp.vout)
+    s += struct.pack("<I", txtmp.nLockTime)
+
+    # add sighash type
     s += struct.pack(b"<I", hashtype)
 
     hash = hash256(s)

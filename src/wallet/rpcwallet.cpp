@@ -4906,7 +4906,9 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     }
 
     // Put input witness in transaction
-    mtx.vin[0].m_pegin_witness = pegin_witness;
+    CTxInWitness txinwit;
+    txinwit.m_pegin_witness = pegin_witness;
+    mtx.witness.vtxinwit.push_back(txinwit);
 
     // Estimate fee for transaction, decrement fee output(including witness data)
     unsigned int nBytes = GetVirtualTransactionSize(mtx) +

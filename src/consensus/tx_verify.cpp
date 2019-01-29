@@ -159,20 +159,21 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        std::string err;
-        if (tx.vin[i].m_is_pegin && !IsValidPeginWitness(tx.vin[i].m_pegin_witness, tx.vin[i].prevout, err, true)) {
-            continue;
-        }
-
         CTxOut prevout;
         if (tx.vin[i].m_is_pegin) {
-            prevout = GetPeginOutputFromWitness(tx.vin[i].m_pegin_witness);
+            std::string err;
+            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err, true)) {
+                continue;
+            }
+            prevout = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
         } else {
             const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
             assert(!coin.IsSpent());
             prevout = coin.out;
         }
-        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, &tx.vin[i].scriptWitness, flags);
+
+        const CScriptWitness* pScriptWitness = tx.witness.vtxinwit.size() > i ? &tx.witness.vtxinwit[i].scriptWitness : NULL;
+        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, pScriptWitness, flags);
     }
     return nSigOps;
 }
@@ -241,10 +242,10 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (tx.vin[i].m_is_pegin) {
             // Check existence and validity of pegin witness
             std::string err;
-            if (!IsValidPeginWitness(tx.vin[i].m_pegin_witness, prevout, err, true)) {
+            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, prevout, err, true)) {
                 return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness");
             }
-            std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.vin[i].m_pegin_witness.stack[2]), prevout);
+            std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
             if (inputs.IsPeginSpent(pegin)) {
                 return state.Invalid(false, REJECT_INVALID, "bad-txns-double-pegin", strprintf("Double-pegin of %s:%d", prevout.hash.ToString(), prevout.n));
             }
@@ -255,7 +256,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             setPeginsSpent.insert(pegin);
 
             // Tally the input amount.
-            const CTxOut out = GetPeginOutputFromWitness(tx.vin[i].m_pegin_witness);
+            const CTxOut out = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
             if (!MoneyRange(out.nValue)) {
                 return state.DoS(100, false, REJECT_INVALID, "bad-txns-pegin-inputvalue-outofrange");
             }

@@ -675,14 +675,14 @@ static UniValue decodescript(const JSONRPCRequest& request)
 }
 
 /** Pushes a JSON object for script verification or signing errors to vErrorsRet. */
-static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::string& strMessage)
+static void TxInErrorToJSON(const CTxIn& txin, const CTxInWitness& txinwit, UniValue& vErrorsRet, const std::string& strMessage)
 {
     UniValue entry(UniValue::VOBJ);
     entry.pushKV("txid", txin.prevout.hash.ToString());
     entry.pushKV("vout", (uint64_t)txin.prevout.n);
     UniValue witness(UniValue::VARR);
-    for (unsigned int i = 0; i < txin.scriptWitness.stack.size(); i++) {
-        witness.push_back(HexStr(txin.scriptWitness.stack[i].begin(), txin.scriptWitness.stack[i].end()));
+    for (unsigned int i = 0; i < txinwit.scriptWitness.stack.size(); i++) {
+        witness.push_back(HexStr(txinwit.scriptWitness.stack[i].begin(), txinwit.scriptWitness.stack[i].end()));
     }
     entry.pushKV("witness", witness);
     entry.pushKV("scriptSig", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
@@ -770,7 +770,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         }
         ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, 1), coin.out.scriptPubKey, sigdata);
 
-        UpdateInput(txin, sigdata);
+        UpdateTransaction(mergedTx, i, sigdata);
     }
 
     return EncodeHexTx(mergedTx);
@@ -874,28 +874,30 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     // transaction to avoid rehashing.
     const CTransaction txConst(mtx);
     // Sign what we can, including pegin inputs:
+    mtx.witness.vtxinwit.resize(mtx.vin.size());
     for (unsigned int i = 0; i < mtx.vin.size(); i++) {
         CTxIn& txin = mtx.vin[i];
+        const CTxInWitness& inWitness = mtx.witness.vtxinwit[i];
         const Coin& coin = view.AccessCoin(txin.prevout);
 
         std::string err;
         if (!txin.m_is_pegin && coin.IsSpent()) {
-            TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
+            TxInErrorToJSON(txin, inWitness, vErrors, "Input not found or already spent");
             continue;
-        } else if (txin.m_is_pegin && (!IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, err, false))) {
-            TxInErrorToJSON(txin, vErrors, "Peg-in witness error: " + err);
+        } else if (txin.m_is_pegin && (txConst.witness.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, txin.prevout, err, false))) {
+            TxInErrorToJSON(txin, inWitness, vErrors, "Peg-in input has invalid proof.");
             continue;
         }
         // Report warning about immature peg-in though
-        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.vin[i].m_pegin_witness, txin.prevout, err, true)) {
+        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, txin.prevout, err, true)) {
             assert(err == "Needs more confirmations.");
             immature_pegin = true;
         }
 
-        const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.vin[i].m_pegin_witness).scriptPubKey : coin.out.scriptPubKey;
+        const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).scriptPubKey : coin.out.scriptPubKey;
         //TODO(rebase) CT
-        //const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.vin[i].m_pegin_witness).nValue : coin.out.nValue;
-        const CAmount& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.vin[i].m_pegin_witness).nValue : coin.out.nValue;
+        //const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).nValue : coin.out.nValue;
+        const CAmount& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).nValue : coin.out.nValue;
 
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -903,20 +905,20 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
             ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
         }
 
-        UpdateInput(txin, sigdata);
+        UpdateTransaction(mtx, i, sigdata);
 
         // amount must be specified for valid segwit signature
-        if (amount == MAX_MONEY && !txin.scriptWitness.IsNull()) {
+        if (amount == MAX_MONEY && !inWitness.scriptWitness.IsNull()) {
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin.out.ToString()));
         }
 
         ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
-                TxInErrorToJSON(txin, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");
+                TxInErrorToJSON(txin, inWitness, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");
             } else {
-                TxInErrorToJSON(txin, vErrors, ScriptErrorString(serror));
+                TxInErrorToJSON(txin, inWitness, vErrors, ScriptErrorString(serror));
             }
         }
     }
@@ -1592,9 +1594,10 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
     bool extract = request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool());
     if (complete && extract) {
         CMutableTransaction mtx(*psbtx.tx);
+        mtx.witness.vtxinwit.resize(mtx.vin.size());
         for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
             mtx.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
-            mtx.vin[i].scriptWitness = psbtx.inputs[i].final_script_witness;
+            mtx.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
         }
         ssTx << mtx;
         result.pushKV("hex", HexStr(ssTx.begin(), ssTx.end()));
@@ -1712,12 +1715,17 @@ UniValue converttopsbt(const JSONRPCRequest& request)
 
     // Remove all scriptSigs and scriptWitnesses from inputs
     for (CTxIn& input : tx.vin) {
-        if ((!input.scriptSig.empty() || !input.scriptWitness.IsNull()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
-            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs and scriptWitnesses");
+        if ((!input.scriptSig.empty()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs");
         }
         input.scriptSig.clear();
-        input.scriptWitness.SetNull();
     }
+    for (CTxInWitness& witness: tx.witness.vtxinwit) {
+        if ((!witness.scriptWitness.IsNull()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptWitnesses");
+        }
+    }
+    tx.witness.SetNull();
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx;

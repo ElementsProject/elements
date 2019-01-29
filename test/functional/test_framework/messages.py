@@ -24,7 +24,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -347,30 +347,87 @@ class CScriptWitness():
         return True
 
 
-class CTxInWitness():
+class CTxInWitness(object):
     def __init__(self):
+        self.vchIssuanceAmountRangeproof = b''
+        self.vchInflationKeysRangeproof = b''
         self.scriptWitness = CScriptWitness()
+        self.peginWitness = CScriptWitness()
 
     def deserialize(self, f):
+        #TODO(rebase) CA/CT
+        #self.vchIssuanceAmountRangeproof = deser_string(f)
+        #self.vchInflationKeysRangeproof = deser_string(f)
         self.scriptWitness.stack = deser_string_vector(f)
+        self.peginWitness.stack = deser_string_vector(f)
 
     def serialize(self):
-        return ser_string_vector(self.scriptWitness.stack)
+        r = b''
+        #TODO(rebase) CA/CT
+        #r += ser_string(self.vchIssuanceAmountRangeproof)
+        #r += ser_string(self.vchInflationKeysRangeproof)
+        r += ser_string_vector(self.scriptWitness.stack)
+        r += ser_string_vector(self.peginWitness.stack)
+        return r
+
+    def calc_witness_hash(self):
+        leaves = [
+            encode(hash256(ser_string_vector(self.scriptWitness.stack))[::-1], 'hex_codec').decode('ascii'),
+            encode(hash256(ser_string_vector(self.peginWitness.stack))[::-1], 'hex_codec').decode('ascii')
+        ]
+        return calcfastmerkleroot(leaves)
 
     def __repr__(self):
-        return repr(self.scriptWitness)
+        return "CTxInWitness (%s, %s, %s)" % (self.vchIssuanceAmountRangeproof,
+            self.vchInflationKeysRangeproof, self.scriptWitness)
 
     def is_null(self):
-        return self.scriptWitness.is_null()
+        return len(self.vchIssuanceAmountRangeproof) == 0 \
+        and len(self.vchInflationKeysRangeproof) == 0 \
+        and self.scriptWitness.is_null()
 
 
-class CTxWitness():
+class CTxOutWitness(object):
+    def __init__(self):
+        self.vchSurjectionproof = b''
+        self.vchRangeproof = b''
+
+    def deserialize(self, f):
+        self.vchSurjectionproof = deser_string(f)
+        self.vchRangeproof = deser_string(f)
+
+    def serialize(self):
+        r = b''
+        r += ser_string(self.vchSurjectionproof)
+        r += ser_string(self.vchRangeproof)
+        return r
+
+    def calc_witness_hash(self):
+        leaves = [
+            encode(hash256(ser_string(self.vchSurjectionproof))[::-1], 'hex_codec').decode('ascii'),
+            encode(hash256(ser_string(self.vchRangeproof))[::-1], 'hex_codec').decode('ascii')
+        ]
+        return calcfastmerkleroot(leaves)
+
+    def __repr__(self):
+        return "CTxOutWitness (%s, %s)" % (self.vchSurjectionproof, self.vchRangeproof)
+
+    def is_null(self):
+        return len(self.vchSurjectionproof) == 0 \
+            and len(self.vchRangeproof) == 0
+
+
+class CTxWitness(object):
     def __init__(self):
         self.vtxinwit = []
+        self.vtxoutwit = []
 
     def deserialize(self, f):
         for i in range(len(self.vtxinwit)):
             self.vtxinwit[i].deserialize(f)
+        #TODO(rebase) CA/CT
+        #for i in range(len(self.vtxoutwit)):
+        #    self.vtxoutwit[i].deserialize(f)
 
     def serialize(self):
         r = b""
@@ -382,17 +439,21 @@ class CTxWitness():
         return r
 
     def __repr__(self):
-        return "CTxWitness(%s)" % \
-               (';'.join([repr(x) for x in self.vtxinwit]))
+        return "CTxWitness([%s], [%s])" % \
+               (';'.join([repr(x) for x in self.vtxinwit]),
+               ';'.join([repr(x) for x in self.vtxoutwit]))
 
     def is_null(self):
         for x in self.vtxinwit:
             if not x.is_null():
                 return False
+        for x in self.vtxoutwit:
+            if not x.is_null():
+                return False
         return True
 
 
-class CTransaction():
+class CTransaction(object):
     def __init__(self, tx=None):
         if tx is None:
             self.nVersion = 1
@@ -413,27 +474,25 @@ class CTransaction():
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
+        flags = struct.unpack("<B", f.read(1))[0]
         self.vin = deser_vector(f, CTxIn)
-        flags = 0
-        if len(self.vin) == 0:
-            flags = struct.unpack("<B", f.read(1))[0]
-            # Not sure why flags can't be zero, but this
-            # matches the implementation in bitcoind
-            if (flags != 0):
-                self.vin = deser_vector(f, CTxIn)
-                self.vout = deser_vector(f, CTxOut)
-        else:
-            self.vout = deser_vector(f, CTxOut)
-        if flags != 0:
-            self.wit.vtxinwit = [CTxInWitness() for i in range(len(self.vin))]
-            self.wit.deserialize(f)
+        self.vout = deser_vector(f, CTxOut)
         self.nLockTime = struct.unpack("<I", f.read(4))[0]
+        if flags & 1 > 0:
+            self.wit.vtxinwit = [CTxInWitness() for i in range(len(self.vin))]
+            self.wit.vtxoutwit = [CTxOutWitness() for i in range(len(self.vout))]
+            self.wit.deserialize(f)
+        if flags > 1:
+            raise TypeError('Extra witness flags:' + str(flags))
+
         self.sha256 = None
         self.hash = None
 
+    # Only applicable for non-CT, non-segwit transactions
     def serialize_without_witness(self):
         r = b""
         r += struct.pack("<i", self.nVersion)
+        r += struct.pack("B", 0)
         r += ser_vector(self.vin)
         r += ser_vector(self.vout)
         r += struct.pack("<I", self.nLockTime)
@@ -446,28 +505,25 @@ class CTransaction():
             flags |= 1
         r = b""
         r += struct.pack("<i", self.nVersion)
-        if flags:
-            dummy = []
-            r += ser_vector(dummy)
-            r += struct.pack("<B", flags)
+        r += struct.pack("<B", flags)
         r += ser_vector(self.vin)
         r += ser_vector(self.vout)
+        r += struct.pack("<I", self.nLockTime)
         if flags & 1:
             if (len(self.wit.vtxinwit) != len(self.vin)):
                 # vtxinwit must have the same length as vin
                 self.wit.vtxinwit = self.wit.vtxinwit[:len(self.vin)]
                 for i in range(len(self.wit.vtxinwit), len(self.vin)):
                     self.wit.vtxinwit.append(CTxInWitness())
+                self.wit.vtxoutwit = self.wit.vtxoutwit[:len(self.vout)]
+                for i in range(len(self.wit.vtxoutwit), len(self.vout)):
+                    self.wit.vtxoutwit.append(CTxInWitness())
             r += self.wit.serialize()
-        r += struct.pack("<I", self.nLockTime)
         return r
 
-    # Regular serialization is with witness -- must explicitly
-    # call serialize_without_witness to exclude witness data.
     def serialize(self):
         return self.serialize_with_witness()
 
-    # Recalculate the txid (transaction hash without witness)
     def rehash(self):
         self.sha256 = None
         self.calc_sha256()
@@ -483,6 +539,21 @@ class CTransaction():
         if self.sha256 is None:
             self.sha256 = uint256_from_str(hash256(self.serialize_without_witness()))
         self.hash = encode(hash256(self.serialize_without_witness())[::-1], 'hex_codec').decode('ascii')
+
+    def calc_witness_hash(self):
+        leaves = []
+        for i in range(len(self.vin)):
+            wit = self.wit.vtxinwit[i] if i < len(self.wit.vtxinwit) else CTxInWitness()
+            leaves.append(wit.calc_witness_hash())
+        inwitroot = calcfastmerkleroot(leaves)
+
+        leaves = []
+        for i in range(len(self.vout)):
+            wit = self.wit.vtxoutwit[i] if i < len(self.wit.vtxoutwit) else CTxOutWitness()
+            leaves.append(wit.calc_witness_hash())
+        outwitroot = calcfastmerkleroot(leaves)
+
+        return uint256_from_str(hex_str_to_bytes(calcfastmerkleroot([inwitroot, outwitroot]))[::-1])
 
     def is_valid(self):
         self.calc_sha256()
@@ -636,7 +707,7 @@ class CBlock(CBlockHeader):
 
         for tx in self.vtx[1:]:
             # Calculate the hashes with witness data
-            hashes.append(ser_uint256(tx.calc_sha256(True)))
+            hashes.append(ser_uint256(tx.calc_witness_hash()))
 
         return self.get_merkle_root(hashes)
 

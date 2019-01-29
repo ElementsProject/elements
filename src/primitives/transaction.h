@@ -11,6 +11,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <primitives/txwitness.h>
 
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
@@ -88,7 +89,6 @@ public:
     COutPoint prevout;
     CScript scriptSig;
     uint32_t nSequence;
-    CScriptWitness scriptWitness; //! Only serialized through CTransaction
 
     //
     // ELEMENTS:
@@ -96,8 +96,6 @@ public:
     /* If this is set to true, the input is interpreted as a
      * peg-in claim and processed as such */
     bool m_is_pegin = false;
-    // Re-use script witness struct to include its own witness
-    CScriptWitness m_pegin_witness;
 
     // END ELEMENTS
     //
@@ -293,41 +291,64 @@ struct CMutableTransaction;
  */
 template<typename Stream, typename TxType>
 inline void UnserializeTransaction(TxType& tx, Stream& s) {
-    const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
     s >> tx.nVersion;
     unsigned char flags = 0;
     tx.vin.clear();
     tx.vout.clear();
-    /* Try to read the vin. In case the dummy is there, this will be read as an empty vector. */
-    s >> tx.vin;
-    if (tx.vin.size() == 0 && fAllowWitness) {
-        /* We read a dummy or an empty vin. */
+    tx.witness.SetNull();
+
+    // Witness serialization is different between Elements and Core.
+    // See code comments in SerializeTransaction for details about the differences.
+    if (g_con_elementswitness) {
         s >> flags;
-        if (flags != 0) {
-            s >> tx.vin;
-            s >> tx.vout;
+        s >> tx.vin;
+        s >> tx.vout;
+        s >> tx.nLockTime;
+        if (flags & 1) {
+            /* The witness flag is present. */
+            flags ^= 1;
+            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
+            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            s >> tx.witness;
         }
     } else {
-        /* We read a non-empty vin. Assume a normal vout follows. */
-        s >> tx.vout;
-    }
-    if ((flags & 1) && fAllowWitness) {
-        /* The witness flag is present, and we support witnesses. */
-        flags ^= 1;
-        for (size_t i = 0; i < tx.vin.size(); i++) {
-            s >> tx.vin[i].scriptWitness.stack;
-            // ELEMENTS:
-            if (tx.vin[i].m_is_pegin) {
-                s >> tx.vin[i].m_pegin_witness.stack;
+        const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+
+        /* Try to read the vin. In case the dummy is there, this will be read as an empty vector. */
+        s >> tx.vin;
+        if (tx.vin.size() == 0 && fAllowWitness) {
+            /* We read a dummy or an empty vin. */
+            s >> flags;
+            if (flags != 0) {
+                s >> tx.vin;
+                s >> tx.vout;
+            }
+        } else {
+            /* We read a non-empty vin. Assume a normal vout follows. */
+            s >> tx.vout;
+        }
+
+        if ((flags & 1) && fAllowWitness) {
+            /* The witness flag is present. */
+            flags ^= 1;
+            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
+            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            for (size_t i = 0; i < tx.vin.size(); i++) {
+                s >> tx.witness.vtxinwit[i].scriptWitness.stack;
+                // ELEMENTS:
+                if (tx.vin[i].m_is_pegin) {
+                    s >> tx.witness.vtxinwit[i].m_pegin_witness.stack;
+                }
             }
         }
+        s >> tx.nLockTime;
     }
+
     if (flags) {
         /* Unknown flag in the serialization */
         throw std::ios_base::failure("Unknown transaction optional data");
     }
-    s >> tx.nLockTime;
 }
 
 template<typename Stream, typename TxType>
@@ -335,32 +356,56 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
     s << tx.nVersion;
-    unsigned char flags = 0;
+
     // Consistency check
-    if (fAllowWitness) {
-        /* Check whether witnesses need to be serialized. */
-        if (tx.HasWitness()) {
-            flags |= 1;
-        }
+    assert(tx.witness.vtxinwit.size() <= tx.vin.size());
+    assert(tx.witness.vtxoutwit.size() <= tx.vout.size());
+
+    // Check whether witnesses need to be serialized.
+    unsigned char flags = 0;
+    if (fAllowWitness && tx.HasWitness()) {
+        flags |= 1;
     }
-    if (flags) {
-        /* Use extended format in case witnesses are to be serialized. */
-        std::vector<CTxIn> vinDummy;
-        s << vinDummy;
+
+    // Witness serialization is different between Elements and Core.
+    if (g_con_elementswitness) {
+        // In Elements-style serialization, all normal data is serialized first and the
+        // witnesses all in the end.
         s << flags;
-    }
-    s << tx.vin;
-    s << tx.vout;
-    if (flags & 1) {
-        for (size_t i = 0; i < tx.vin.size(); i++) {
-            s << tx.vin[i].scriptWitness.stack;
-            // ELEMENTS:
-            if (tx.vin[i].m_is_pegin) {
-                s << tx.vin[i].m_pegin_witness.stack;
+        s << tx.vin;
+        s << tx.vout;
+        s << tx.nLockTime;
+        if (flags & 1) {
+            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
+            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            s << tx.witness;
+        }
+    } else {
+        // In Core-style serialization, we encode the input dummy and the witnesses
+        // follow the outputs before the nLockTime.
+
+        if (flags) {
+            /* Use extended format in case witnesses are to be serialized. */
+            std::vector<CTxIn> vinDummy;
+            s << vinDummy;
+            s << flags;
+        }
+        s << tx.vin;
+        s << tx.vout;
+
+        if (flags & 1) {
+            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
+            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            for (size_t i = 0; i < tx.vin.size(); i++) {
+                s << tx.witness.vtxinwit[i].scriptWitness.stack;
+                // ELEMENTS:
+                if (tx.vin[i].m_is_pegin) {
+                    s << tx.witness.vtxinwit[i].m_pegin_witness.stack;
+                }
             }
         }
+        s << tx.nLockTime;
     }
-    s << tx.nLockTime;
 }
 
 
@@ -388,6 +433,8 @@ public:
     const std::vector<CTxOut> vout;
     const int32_t nVersion;
     const uint32_t nLockTime;
+    // For elements we need to keep track of some extra state for script witness outside of vin
+    const CTxWitness witness;
 
 private:
     /** Memory only. */
@@ -421,6 +468,8 @@ public:
 
     const uint256& GetHash() const { return hash; }
     const uint256& GetWitnessHash() const { return m_witness_hash; };
+    // ELEMENTS: the witness only hash used in elements witness roots
+    uint256 GetWitnessOnlyHash() const;
 
     // Return sum of txouts.
     CAmount GetValueOut() const;
@@ -453,16 +502,7 @@ public:
 
     bool HasWitness() const
     {
-        for (size_t i = 0; i < vin.size(); i++) {
-            if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-            // ELEMENTS:
-            if (!vin[i].m_pegin_witness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
+        return !witness.IsNull();
     }
 };
 
@@ -473,6 +513,8 @@ struct CMutableTransaction
     std::vector<CTxOut> vout;
     int32_t nVersion;
     uint32_t nLockTime;
+    // For elements we need to keep track of some extra state for script witness outside of vin
+    CTxWitness witness;
 
     CMutableTransaction();
     explicit CMutableTransaction(const CTransaction& tx);
@@ -500,12 +542,7 @@ struct CMutableTransaction
 
     bool HasWitness() const
     {
-        for (size_t i = 0; i < vin.size(); i++) {
-            if (!vin[i].scriptWitness.IsNull()) {
-                return true;
-            }
-        }
-        return false;
+        return !witness.IsNull();
     }
 };
 

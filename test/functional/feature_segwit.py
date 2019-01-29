@@ -101,13 +101,13 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['sizelimit'] == 1000000)
         assert('weightlimit' not in tmpl)
         assert(tmpl['sigoplimit'] == 20000)
-        assert(tmpl['transactions'][0]['hash'] == txid)
+        assert(tmpl['transactions'][0]['txid'] == txid)
         assert(tmpl['transactions'][0]['sigops'] == 2)
         tmpl = self.nodes[0].getblocktemplate({'rules':['segwit']})
         assert(tmpl['sizelimit'] == 1000000)
         assert('weightlimit' not in tmpl)
         assert(tmpl['sigoplimit'] == 20000)
-        assert(tmpl['transactions'][0]['hash'] == txid)
+        assert(tmpl['transactions'][0]['txid'] == txid)
         assert(tmpl['transactions'][0]['sigops'] == 2)
         self.nodes[0].generate(1) #block 162
 
@@ -564,10 +564,10 @@ class SegWitTest(BitcoinTestFramework):
         for use_p2wsh in [False, True]:
             if use_p2wsh:
                 scriptPubKey = "00203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a"
-                transaction = "01000000000100e1f505000000002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000"
+                transaction = "0100000000000100e1f505000000002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000"
             else:
                 scriptPubKey = "a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d87"
-                transaction = "01000000000100e1f5050000000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000"
+                transaction = "0100000000000100e1f5050000000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000"
 
             self.nodes[1].importaddress(scriptPubKey, "", False)
             rawtxfund = self.nodes[1].fundrawtransaction(transaction)['hex']
