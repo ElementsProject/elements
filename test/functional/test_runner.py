@@ -65,6 +65,7 @@ BASE_SCRIPTS = [
     'feature_block_v4.py',
     'feature_pak.py',
     'feature_blocksign.py',
+    'rpc_calcfastmerkleroot.py',
     # Longest test should go first, to favor running tests in parallel
     'feature_fee_estimation.py',
     'wallet_hd.py',

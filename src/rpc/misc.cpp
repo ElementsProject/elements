@@ -5,6 +5,7 @@
 
 #include <chain.h>
 #include <clientversion.h>
+#include <consensus/merkle.h>
 #include <core_io.h>
 #include <crypto/ripemd160.h>
 #include <key_io.h>
@@ -525,6 +526,22 @@ UniValue getpakinfo(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue calcfastmerkleroot(const JSONRPCRequest& request)
+{
+    std::vector<uint256> leaves;
+    for (const UniValue& leaf : request.params[0].get_array().getValues()) {
+        uint256 l;
+        l.SetHex(leaf.get_str());
+        leaves.push_back(l);
+    }
+
+    uint256 root = ComputeFastMerkleRoot(leaves);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.setStr(root.GetHex());
+    return ret;
+}
+
 
 // END ELEMENTS CALLS
 //
@@ -543,6 +560,7 @@ static const CRPCCommand commands[] =
     // ELEMENTS:
     { "util",               "getpakinfo",             &getpakinfo,             {}},
     { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script"} },
+    { "hidden",             "calcfastmerkleroot",     &calcfastmerkleroot,     {"leaves"} },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},

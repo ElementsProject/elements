@@ -22,6 +22,13 @@ from .authproxy import AuthServiceProxy, JSONRPCException
 
 logger = logging.getLogger("TestFramework.utils")
 
+# This variable should be set to the node being used for CalcFastMerkleRoot calls
+node_fastmerkle = None
+
+def calcfastmerkleroot(leaves):
+    global node_fastmerkle
+    return node_fastmerkle.calcfastmerkleroot(leaves)
+
 # Assert functions
 ##################
 
