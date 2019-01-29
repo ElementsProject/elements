@@ -146,6 +146,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        consensus.has_parent_chain = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -266,6 +267,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        consensus.has_parent_chain = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -361,6 +363,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        consensus.has_parent_chain = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
