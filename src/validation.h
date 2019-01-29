@@ -21,8 +21,8 @@
 #include "base58.h"
 #include "utilstrencodings.h"
 #include "util.h"
-#include "policy/whiteList.hpp"
-#include "policy/policyList.hpp"
+#include "policy/whiteList.h"
+#include "policy/policyList.h"
 
 #include <algorithm>
 #include <exception>
