@@ -35,7 +35,6 @@ before_script:
   - set -o errexit; source .travis/test_05_before_script.sh
 script:
   - set -o errexit; source .travis/test_06_script.sh
-    - if [ "$RUN_BITCOIN_TESTS" = "true" ]; then BEGIN_FOLD bitcoin-functional-tests; DOCKER_EXEC test/bitcoin_functional/functional/test_runner.py --combinedlogslen=4000 --coverage --quiet --failfast ${extended}; END_FOLD; fi
 after_script:
   - echo $TRAVIS_COMMIT_RANGE
   - echo $TRAVIS_COMMIT_LOG
