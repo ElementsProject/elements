@@ -5,16 +5,15 @@
 #ifndef BITCOIN_PRIMITIVES_TXWITNESS_H
 #define BITCOIN_PRIMITIVES_TXWITNESS_H
 
+#include <primitives/confidential.h>
 #include <script/script.h>
 #include <uint256.h>
 
 class CTxInWitness
 {
 public:
-    // TODO generalize CScriptWitness into just CWitness
-    //TODO(rebase) CA/CT
-    //std::vector<unsigned char> vchIssuanceAmountRangeproof;
-    //std::vector<unsigned char> vchInflationKeysRangeproof;
+    std::vector<unsigned char> vchIssuanceAmountRangeproof;
+    std::vector<unsigned char> vchInflationKeysRangeproof;
     CScriptWitness scriptWitness;
     // Re-use script witness struct to include its own witness
     CScriptWitness m_pegin_witness;
@@ -24,8 +23,8 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
-        //READWRITE(vchIssuanceAmountRangeproof);
-        //READWRITE(vchInflationKeysRangeproof);
+        READWRITE(vchIssuanceAmountRangeproof);
+        READWRITE(vchInflationKeysRangeproof);
         READWRITE(scriptWitness.stack);
         READWRITE(m_pegin_witness.stack);
     }
@@ -34,13 +33,12 @@ public:
 
     bool IsNull() const
     {
-        //return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull() && m_pegin_witness.IsNull();
-        return scriptWitness.IsNull() && m_pegin_witness.IsNull();
+        return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull() && m_pegin_witness.IsNull();
     }
     void SetNull()
     {
-        //vchIssuanceAmountRangeproof.clear();
-        //vchInflationKeysRangeproof.clear();
+        vchIssuanceAmountRangeproof.clear();
+        vchInflationKeysRangeproof.clear();
         scriptWitness.stack.clear();
         m_pegin_witness.stack.clear();
     }
@@ -107,10 +105,9 @@ public:
         for (size_t n = 0; n < vtxinwit.size(); n++) {
             READWRITE(vtxinwit[n]);
         }
-        //TODO(rebase) CA/CT
-        //for (size_t n = 0; n < vtxoutwit.size(); n++) {
-        //    READWRITE(vtxoutwit[n]);
-        //}
+        for (size_t n = 0; n < vtxoutwit.size(); n++) {
+            READWRITE(vtxoutwit[n]);
+        }
         //TODO(stevenroose) re-enabled after testing
         //if (IsNull()) {
         //    /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */

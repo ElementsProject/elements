@@ -889,9 +889,13 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
     for (const auto& output : outputs) {
         ss << VARINT(output.first + 1);
         ss << output.second.out.scriptPubKey;
-        ss << VARINT(output.second.out.nValue, VarIntMode::NONNEGATIVE_SIGNED);
+        ss << output.second.out.nValue;
+        ss << output.second.out.nAsset;
+        ss << output.second.out.nNonce;
         stats.nTransactionOutputs++;
-        stats.nTotalAmount += output.second.out.nValue;
+        if (output.second.out.nValue.IsExplicit()) {
+            stats.nTotalAmount += output.second.out.nValue.GetAmount();
+        }
         stats.nBogoSize += 32 /* txid */ + 4 /* vout index */ + 4 /* height + coinbase */ + 8 /* amount */ +
                            2 /* scriptPubKey len */ + output.second.out.scriptPubKey.size() /* scriptPubKey */;
     }
@@ -1098,7 +1102,9 @@ UniValue gettxout(const JSONRPCRequest& request)
     } else {
         ret.pushKV("confirmations", (int64_t)(pindex->nHeight - coin.nHeight + 1));
     }
-    ret.pushKV("value", ValueFromAmount(coin.out.nValue));
+    if (coin.out.nValue.IsExplicit()) {
+        ret.pushKV("value", ValueFromAmount(coin.out.nValue.GetAmount()));
+    }
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToUniv(coin.out.scriptPubKey, o, true);
     ret.pushKV("scriptPubKey", o);
@@ -1819,6 +1825,9 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         }
     }
 
+    // ELEMENTS:
+    const CAsset asset = policyAsset; // TODO Make configurable
+
     const CBlock block = GetBlockChecked(pindex);
 
     const bool do_all = stats.size() == 0; // Calculate everything if nothing selected (default)
@@ -1857,10 +1866,25 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         outputs += tx->vout.size();
 
         CAmount tx_total_out = 0;
-        if (loop_outputs) {
-            for (const CTxOut& out : tx->vout) {
-                tx_total_out += out.nValue;
-                utxo_size_inc += GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+        // ELEMENTS:
+        CAmount elements_txfee = 0;
+        if (g_con_elementswitness) {
+            if (loop_outputs) {
+                for (const CTxOut& out : tx->vout) {
+                    if (out.IsFee() && out.nAsset.GetAsset() == asset) {
+                        elements_txfee += out.nValue.GetAmount();
+                    }
+                    if (out.nValue.IsExplicit() && out.nAsset.IsExplicit() && out.nAsset.GetAsset() == asset) {
+                        tx_total_out += out.nValue.GetAmount();
+                    }
+                }
+            }
+        } else {
+            if (loop_outputs) {
+                for (const CTxOut& out : tx->vout) {
+                    tx_total_out += out.nValue.GetAmount();
+                    utxo_size_inc += GetSerializeSize(out, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+                }
             }
         }
 
@@ -1900,7 +1924,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
             if (!g_txindex) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "One or more of the selected stats requires -txindex enabled");
             }
-            CAmount tx_total_in = 0;
+            CAmount tx_total_in = 0; // Only needed for bitcoin serialization
             for (const CTxIn& in : tx->vin) {
                 if (in.m_is_pegin) {
                     continue;
@@ -1913,12 +1937,11 @@ static UniValue getblockstats(const JSONRPCRequest& request)
                 }
 
                 CTxOut prevoutput = tx_in->vout[in.prevout.n];
-
-                tx_total_in += prevoutput.nValue;
+                tx_total_in += g_con_elementswitness ? 0 : prevoutput.nValue.GetAmount();
                 utxo_size_inc -= GetSerializeSize(prevoutput, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
             }
 
-            CAmount txfee = tx_total_in - tx_total_out;
+            CAmount txfee = g_con_elementswitness ? elements_txfee : (tx_total_in - tx_total_out);
             assert(MoneyRange(txfee));
             if (do_medianfee) {
                 fee_array.push_back(txfee);
@@ -2114,10 +2137,11 @@ UniValue scantxoutset(const JSONRPCRequest& request)
             "    \"vout\": n,                    (numeric) the vout value\n"
             "    \"scriptPubKey\" : \"script\",    (string) the script key\n"
             "    \"amount\" : x.xxx,             (numeric) The total amount in " + CURRENCY_UNIT + " of the unspent output\n"
+            "    \"asset\" : \"asset\",           (hex) The asset ID\n"
             "    \"height\" : n,                 (numeric) Height of the unspent transaction output\n"
             "   }\n"
             "   ,...], \n"
-            " \"total_amount\" : x.xxx,          (numeric) The total amount of all found unspent outputs in " + CURRENCY_UNIT + "\n"
+            " \"total_unblinded_bitcoin_amount\" : x.xxx, (numeric) The total amount of all found unspent unblinded outputs in " + CURRENCY_UNIT + "\n"
             "]\n"
         );
 
@@ -2201,24 +2225,57 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         result.pushKV("success", res);
         result.pushKV("searched_items", count);
 
-        for (const auto& it : coins) {
-            const COutPoint& outpoint = it.first;
-            const Coin& coin = it.second;
-            const CTxOut& txo = coin.out;
-            input_txos.push_back(txo);
-            total_in += txo.nValue;
+		if (!g_con_elementswitness) {
+            for (const auto& it : coins) {
+                const COutPoint& outpoint = it.first;
+                const Coin& coin = it.second;
+                const CTxOut& txo = coin.out;
+                input_txos.push_back(txo);
+                total_in += txo.nValue.GetAmount();
 
-            UniValue unspent(UniValue::VOBJ);
-            unspent.pushKV("txid", outpoint.hash.GetHex());
-            unspent.pushKV("vout", (int32_t)outpoint.n);
-            unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
-            unspent.pushKV("amount", ValueFromAmount(txo.nValue));
-            unspent.pushKV("height", (int32_t)coin.nHeight);
+                UniValue unspent(UniValue::VOBJ);
+                unspent.pushKV("txid", outpoint.hash.GetHex());
+                unspent.pushKV("vout", (int32_t)outpoint.n);
+                unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
+                unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
+                unspent.pushKV("height", (int32_t)coin.nHeight);
 
-            unspents.push_back(unspent);
+                unspents.push_back(unspent);
+            }
+            result.pushKV("unspents", unspents);
+            result.pushKV("total_amount", ValueFromAmount(total_in));
+        } else {
+            CAmount total_in_explicit_parent = 0;
+            for (const auto& it : coins) {
+                const COutPoint& outpoint = it.first;
+                const Coin& coin = it.second;
+                const CTxOut& txo = coin.out;
+                input_txos.push_back(txo);
+                if (txo.nValue.IsExplicit() && txo.nAsset.IsExplicit() && txo.nAsset.GetAsset() == Params().GetConsensus().pegged_asset) {
+                    total_in_explicit_parent += txo.nValue.GetAmount();
+                }
+
+                UniValue unspent(UniValue::VOBJ);
+                unspent.pushKV("txid", outpoint.hash.GetHex());
+                unspent.pushKV("vout", (int32_t)outpoint.n);
+                unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
+                if (txo.nValue.IsExplicit()) {
+                    unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
+                } else {
+                    unspent.pushKV("amountcommitment", HexStr(txo.nValue.vchCommitment));
+                }
+                if (txo.nAsset.IsExplicit()) {
+                    unspent.pushKV("asset", txo.nAsset.GetAsset().GetHex());
+                } else {
+                    unspent.pushKV("assetcommitment", HexStr(txo.nAsset.vchCommitment));
+                }
+                unspent.pushKV("height", (int32_t)coin.nHeight);
+
+                unspents.push_back(unspent);
+            }
+            result.pushKV("unspents", unspents);
+            result.pushKV("total_unblinded_bitcoin_amount", ValueFromAmount(total_in_explicit_parent));
         }
-        result.pushKV("unspents", unspents);
-        result.pushKV("total_amount", ValueFromAmount(total_in));
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid command");
     }
@@ -2258,8 +2315,7 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript.begin(), consensus.fedpegScript.end()));
-    //TODO(rebase) CA
-    //obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
+    obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
     obj.pushKV("parent_blockhash", parent_blockhash.GetHex());
     obj.pushKV("parent_chain_has_pow", consensus.ParentChainHasPow());
@@ -2267,8 +2323,7 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     if (!consensus.ParentChainHasPow()) {
         obj.pushKV("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript));
         obj.pushKV("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript));
-        //TODO(stevenroose) rebase CA
-        //obj.pushKV("parent_pegged_asset", HexStr(consensus.parent_pegged_asset));
+        obj.pushKV("parent_pegged_asset", HexStr(consensus.parent_pegged_asset));
     }
     return obj;
 }

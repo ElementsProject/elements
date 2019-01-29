@@ -20,6 +20,9 @@
 #include <uint256.h>
 #include <vector>
 
+// IsUnspendable() compatibility
+extern bool g_con_elementswitness;
+
 // Maximum number of bytes pushable to the stack
 static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 520;
 
@@ -570,7 +573,8 @@ public:
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
+        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE) ||
+            (g_con_elementswitness && size() == 0 /* Elements rule for fee outputs */);
     }
 
     void clear()

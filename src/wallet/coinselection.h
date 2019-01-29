@@ -25,7 +25,8 @@ public:
 
         outpoint = COutPoint(tx->GetHash(), i);
         txout = tx->vout[i];
-        effective_value = txout.nValue;
+        //TODO(rebase) wallet
+        effective_value = txout.nValue.GetAmount();
     }
 
     CInputCoin(const CTransactionRef& tx, unsigned int i, int input_bytes) : CInputCoin(tx, i)

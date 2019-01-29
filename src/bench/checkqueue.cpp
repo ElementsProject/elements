@@ -45,11 +45,13 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
         // Make insecure_rand here so that each iteration is identical.
         FastRandomContext insecure_rand(true);
         CCheckQueueControl<PrevectorJob> control(&queue);
-        std::vector<std::vector<PrevectorJob>> vBatches(BATCHES);
+        std::vector<std::vector<PrevectorJob*>> vBatches(BATCHES);
         for (auto& vChecks : vBatches) {
             vChecks.reserve(BATCH_SIZE);
-            for (size_t x = 0; x < BATCH_SIZE; ++x)
-                vChecks.emplace_back(insecure_rand);
+            for (size_t x = 0; x < BATCH_SIZE; ++x) {
+                PrevectorJob j(insecure_rand);
+                vChecks.emplace_back(&j);
+            }
             control.Add(vChecks);
         }
         // control waits for completion by RAII, but

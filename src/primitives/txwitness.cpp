@@ -16,9 +16,8 @@
 uint256 CTxInWitness::GetHash() const
 {
     std::vector<uint256> leaves;
-    //TODO(rebase) CA/CT
-    //leaves.push_back(SerializeHash(vchIssuanceAmountRangeproof, SER_GETHASH, 0));
-    //leaves.push_back(SerializeHash(vchInflationKeysRangeproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(vchIssuanceAmountRangeproof, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(vchInflationKeysRangeproof, SER_GETHASH, 0));
     leaves.push_back(SerializeHash(scriptWitness.stack, SER_GETHASH, 0));
     leaves.push_back(SerializeHash(m_pegin_witness.stack, SER_GETHASH, 0));
     return ComputeFastMerkleRoot(leaves);

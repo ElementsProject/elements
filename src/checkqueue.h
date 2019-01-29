@@ -41,7 +41,7 @@ private:
 
     //! The queue of elements to be processed.
     //! As the order of booleans doesn't matter, it is used as a LIFO (stack)
-    std::vector<T> queue;
+    std::vector<T*> queue;
 
     //! The number of workers (including the master) that are idle.
     int nIdle;
@@ -66,7 +66,7 @@ private:
     bool Loop(bool fMaster = false)
     {
         boost::condition_variable& cond = fMaster ? condMaster : condWorker;
-        std::vector<T> vChecks;
+        std::vector<T*> vChecks;
         vChecks.reserve(nBatchSize);
         unsigned int nNow = 0;
         bool fOk = true;
@@ -105,20 +105,18 @@ private:
                 // * Try to account for idle jobs which will instantly start helping.
                 // * Don't do batches smaller than 1 (duh), or larger than nBatchSize.
                 nNow = std::max(1U, std::min(nBatchSize, (unsigned int)queue.size() / (nTotal + nIdle + 1)));
-                vChecks.resize(nNow);
-                for (unsigned int i = 0; i < nNow; i++) {
-                    // We want the lock on the mutex to be as short as possible, so swap jobs from the global
-                    // queue to the local batch vector instead of copying.
-                    vChecks[i].swap(queue.back());
-                    queue.pop_back();
-                }
+                vChecks.clear();
+                vChecks.insert(vChecks.end(), queue.end() - nNow, queue.end());
+                queue.resize(queue.size() - nNow);
                 // Check whether we need to do work at all
                 fOk = fAllOk;
             }
             // execute work
-            for (T& check : vChecks)
+            for (T* check : vChecks) {
                 if (fOk)
-                    fOk = check();
+                    fOk = (*check)();
+                delete check;
+            }
             vChecks.clear();
         } while (true);
     }
@@ -143,13 +141,10 @@ public:
     }
 
     //! Add a batch of checks to the queue
-    void Add(std::vector<T>& vChecks)
+    void Add(const std::vector<T*> vChecks)
     {
         boost::unique_lock<boost::mutex> lock(mutex);
-        for (T& check : vChecks) {
-            queue.push_back(T());
-            check.swap(queue.back());
-        }
+        queue.insert(queue.end(), vChecks.begin(), vChecks.end());
         nTodo += vChecks.size();
         if (vChecks.size() == 1)
             condWorker.notify_one();
@@ -159,6 +154,7 @@ public:
 
     ~CCheckQueue()
     {
+        assert(queue.empty());
     }
 
 };
@@ -171,14 +167,14 @@ template <typename T>
 class CCheckQueueControl
 {
 private:
-    CCheckQueue<T> * const pqueue;
+    CCheckQueue<T>* const pqueue;
     bool fDone;
 
 public:
     CCheckQueueControl() = delete;
     CCheckQueueControl(const CCheckQueueControl&) = delete;
     CCheckQueueControl& operator=(const CCheckQueueControl&) = delete;
-    explicit CCheckQueueControl(CCheckQueue<T> * const pqueueIn) : pqueue(pqueueIn), fDone(false)
+    explicit CCheckQueueControl(CCheckQueue<T>* const pqueueIn) : pqueue(pqueueIn), fDone(false)
     {
         // passed queue is supposed to be unused, or nullptr
         if (pqueue != nullptr) {
@@ -195,7 +191,7 @@ public:
         return fRet;
     }
 
-    void Add(std::vector<T>& vChecks)
+    void Add(std::vector<T*> vChecks)
     {
         if (pqueue != nullptr)
             pqueue->Add(vChecks);

@@ -25,16 +25,14 @@
 
 std::vector<std::vector<unsigned char> > witness_stack = {
     ParseHex("00ca9a3b00000000"),
-    ParseHex("e48a1a02a8f799892fda58347c2d794144311d4307dbfd10f77ffe28088c60be"),
+    ParseHex("ef4699c160d014d5ff79636d8a4cb990b9df4ebab649f144d19f5c495c585e47"),
     ParseHex("06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f"),
     ParseHex("00141eef6361cd1507a303834285d1521d6baf1b19ae"),
     ParseHex("0200000001b399292c8100b8a1b66eb23896f799c1712390d560af0f70e81acd2d17a3b06e0000000049483045022100c3c749623486ea57ea93dfaf78d85590d78c7590a25768fe80f0ea4d6047419002202a0a00a90392b86c53c0fdda908c4591ba28040c16c25734c23b7df3c8b70acd01feffffff0228196bee000000001976a914470dd41542ee1a1bd75f1a838878648c8d65622488ac00ca9a3b0000000017a914cb60b1d7f76ba12b45a116c482c165a74c5d7e388765000000"),
     ParseHex("000000205e3913a320cd2e3a2efa141e47419f54cb9e82320cf8dbc812fc19b9a1b2413a57f5e9fb4fa22de191454a241387f5d10cc794ee0fbf72ae2841baf3129a4eab8133025affff7f20000000000200000002f9d0be670007d38fceece999cb6144658a99c307ccc37f6d8f69129ed0f4545ff321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce0105")
 };
 
-//std::vector<unsigned char> pegin_transaction = ParseHex("020000000101f321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce0100004000ffffffff0201e48a1a02a8f799892fda58347c2d794144311d4307dbfd10f77ffe28088c60be01000000003b9ab2e0001976a914809326f7628dc976fbe63806479a1b8dfcc8c4b988ac01e48a1a02a8f799892fda58347c2d794144311d4307dbfd10f77ffe28088c60be010000000000001720000000000000000002483045022100ae17064745d80650a6a5cbcbe15c8c45ba498d1c6f45a7c0f5f32d871b463fc60220799f2836471702c21f7cfe124651727b530ad41f7af4dc213c65f5030a2f6fc4012103a9d3c6c7c161a565a76113632fe13330cf2c0207ba79a76d1154cdc3cb94d940060800ca9a3b0000000020e48a1a02a8f799892fda58347c2d794144311d4307dbfd10f77ffe28088c60be2006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f1600141eef6361cd1507a303834285d1521d6baf1b19aebe0200000001b399292c8100b8a1b66eb23896f799c1712390d560af0f70e81acd2d17a3b06e0000000049483045022100c3c749623486ea57ea93dfaf78d85590d78c7590a25768fe80f0ea4d6047419002202a0a00a90392b86c53c0fdda908c4591ba28040c16c25734c23b7df3c8b70acd01feffffff0228196bee000000001976a914470dd41542ee1a1bd75f1a838878648c8d65622488ac00ca9a3b0000000017a914cb60b1d7f76ba12b45a116c482c165a74c5d7e38876500000097000000205e3913a320cd2e3a2efa141e47419f54cb9e82320cf8dbc812fc19b9a1b2413a57f5e9fb4fa22de191454a241387f5d10cc794ee0fbf72ae2841baf3129a4eab8133025affff7f20000000000200000002f9d0be670007d38fceece999cb6144658a99c307ccc37f6d8f69129ed0f4545ff321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce010500000000");
-std::vector<unsigned char> pegin_transaction = ParseHex("020000000101f321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce0100004000ffffffff02e0b29a3b000000001976a914809326f7628dc976fbe63806479a1b8dfcc8c4b988ac2017000000000000000000000002483045022100ae17064745d80650a6a5cbcbe15c8c45ba498d1c6f45a7c0f5f32d871b463fc60220799f2836471702c21f7cfe124651727b530ad41f7af4dc213c65f5030a2f6fc4012103a9d3c6c7c161a565a76113632fe13330cf2c0207ba79a76d1154cdc3cb94d940060800ca9a3b0000000020e48a1a02a8f799892fda58347c2d794144311d4307dbfd10f77ffe28088c60be2006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f1600141eef6361cd1507a303834285d1521d6baf1b19aebe0200000001b399292c8100b8a1b66eb23896f799c1712390d560af0f70e81acd2d17a3b06e0000000049483045022100c3c749623486ea57ea93dfaf78d85590d78c7590a25768fe80f0ea4d6047419002202a0a00a90392b86c53c0fdda908c4591ba28040c16c25734c23b7df3c8b70acd01feffffff0228196bee000000001976a914470dd41542ee1a1bd75f1a838878648c8d65622488ac00ca9a3b0000000017a914cb60b1d7f76ba12b45a116c482c165a74c5d7e38876500000097000000205e3913a320cd2e3a2efa141e47419f54cb9e82320cf8dbc812fc19b9a1b2413a57f5e9fb4fa22de191454a241387f5d10cc794ee0fbf72ae2841baf3129a4eab8133025affff7f20000000000200000002f9d0be670007d38fceece999cb6144658a99c307ccc37f6d8f69129ed0f4545ff321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce0105");
-
+std::vector<unsigned char> pegin_transaction = ParseHex("020000000101f321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce0100004000ffffffff0201ef4699c160d014d5ff79636d8a4cb990b9df4ebab649f144d19f5c495c585e4701000000003b9ab2e0001976a914809326f7628dc976fbe63806479a1b8dfcc8c4b988ac01ef4699c160d014d5ff79636d8a4cb990b9df4ebab649f144d19f5c495c585e47010000000000001720000000000000000002483045022100ae17064745d80650a6a5cbcbe15c8c45ba498d1c6f45a7c0f5f32d871b463fc60220799f2836471702c21f7cfe124651727b530ad41f7af4dc213c65f5030a2f6fc4012103a9d3c6c7c161a565a76113632fe13330cf2c0207ba79a76d1154cdc3cb94d940060800ca9a3b0000000020ef4699c160d014d5ff79636d8a4cb990b9df4ebab649f144d19f5c495c585e472006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f1600141eef6361cd1507a303834285d1521d6baf1b19aebe0200000001b399292c8100b8a1b66eb23896f799c1712390d560af0f70e81acd2d17a3b06e0000000049483045022100c3c749623486ea57ea93dfaf78d85590d78c7590a25768fe80f0ea4d6047419002202a0a00a90392b86c53c0fdda908c4591ba28040c16c25734c23b7df3c8b70acd01feffffff0228196bee000000001976a914470dd41542ee1a1bd75f1a838878648c8d65622488ac00ca9a3b0000000017a914cb60b1d7f76ba12b45a116c482c165a74c5d7e38876500000097000000205e3913a320cd2e3a2efa141e47419f54cb9e82320cf8dbc812fc19b9a1b2413a57f5e9fb4fa22de191454a241387f5d10cc794ee0fbf72ae2841baf3129a4eab8133025affff7f20000000000200000002f9d0be670007d38fceece999cb6144658a99c307ccc37f6d8f69129ed0f4545ff321df9790633bc33c67239c4174df8142ee616ee6a2e2788fe4820fe70e9bce010500000000");
 
 COutPoint prevout(uint256S("ce9b0ee70f82e48f78e2a2e66e61ee4281df74419c23673cc33b639097df21f3"), 1);
 
@@ -59,10 +57,6 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     // Missing byte on each field to make claim ill-formatted
     // This will break deserialization and other data-matching checks
     for (unsigned int i = 0; i < witness.stack.size(); i++) {
-        //TODO(rebase) CA remove this exception
-        if (i == 1) {
-            continue;
-        }
         witness.stack[i].pop_back();
         BOOST_CHECK(!IsValidPeginWitness(witness, prevout, err, false));
         witness.stack = witness_stack;
@@ -95,7 +89,12 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     // Check validation of peg-in transaction's inputs and balance
     CDataStream ssTx(pegin_transaction, SER_NETWORK, PROTOCOL_VERSION);
     CTransactionRef txRef;
-    ssTx >> txRef;
+    try {
+        ssTx >> txRef;
+    } catch (...) {
+        BOOST_CHECK(false);
+        return;
+    }
     CTransaction tx(*txRef);
 
     // Only one(valid) input witness should exist, and should match
@@ -103,16 +102,16 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     BOOST_CHECK(tx.witness.vtxinwit[0].m_pegin_witness.stack == witness_stack);
     BOOST_CHECK(tx.vin[0].m_is_pegin);
     // Check that serialization doesn't cause issuance to become non-null
-    //TODO(rebase) CA
-    //BOOST_CHECK(tx.vin[0].assetIssuance.IsNull());
+    BOOST_CHECK(tx.vin[0].assetIssuance.IsNull());
     BOOST_CHECK(IsValidPeginWitness(tx.witness.vtxinwit[0].m_pegin_witness, prevout, err, false));
+
+    CAmountMap fee_map;
 
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     CValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
-    CAmount txfee;
-    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, txfee, setPeginsSpent));
+    BOOST_CHECK(Consensus::CheckTxInputs(tx, state, coins, 0, fee_map, setPeginsSpent, NULL, false, true));
     BOOST_CHECK(setPeginsSpent.size() == 1);
     setPeginsSpent.clear();
 
@@ -120,7 +119,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn(tx);
     mtxn.witness.vtxinwit[0].m_pegin_witness.SetNull();
     CTransaction tx2(mtxn);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, txfee, setPeginsSpent));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, coins, 0, fee_map, setPeginsSpent, NULL, false, true));
     BOOST_CHECK(setPeginsSpent.empty());
 
     // Invalidate peg-in (and spending) authorization by pegin marker.
@@ -129,7 +128,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CMutableTransaction mtxn2(tx);
     mtxn2.vin[0].m_is_pegin = false;
     CTransaction tx3(mtxn2);
-    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, txfee, setPeginsSpent));
+    BOOST_CHECK(!Consensus::CheckTxInputs(tx3, state, coins, 0, fee_map, setPeginsSpent, NULL, false, true));
     BOOST_CHECK(setPeginsSpent.empty());
 
 

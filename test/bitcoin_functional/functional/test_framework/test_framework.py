@@ -430,7 +430,6 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             if not os.path.isdir(get_datadir_path(self.options.cachedir, i)):
                 create_cache = True
                 break
-
         if create_cache:
             self.log.debug("Creating data directories from cached datadir")
 

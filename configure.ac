@@ -256,7 +256,7 @@ if test "x$enable_debug" = xyes; then
   # Prefer -Og, fall back to -O0 if that is unavailable.
   AX_CHECK_COMPILE_FLAG(
     [-Og],
-    [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -Og"]],
+    [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"]],
     [AX_CHECK_COMPILE_FLAG([-O0],[[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"]],,[[$CXXFLAG_WERROR]])],
     [[$CXXFLAG_WERROR]])
 
@@ -1459,7 +1459,7 @@ if test x$need_bundled_univalue = xyes; then
   AC_CONFIG_SUBDIRS([src/univalue])
 fi
 
-ac_configure_args="${ac_configure_args} --disable-shared --with-pic --with-bignum=no --enable-module-recovery --disable-jni --enable-experimental --enable-module-whitelist --enable-module-rangeproof --enable-module-generator"
+ac_configure_args="${ac_configure_args} --disable-shared --with-pic --with-bignum=no --enable-module-recovery --disable-jni --enable-experimental --enable-module-whitelist --enable-module-rangeproof --enable-module-generator --enable-module-surjectionproof --enable-module-ecdh"
 AC_CONFIG_SUBDIRS([src/secp256k1])
 
 AC_OUTPUT

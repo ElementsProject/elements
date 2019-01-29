@@ -6,6 +6,7 @@
 #define BITCOIN_CORE_IO_H
 
 #include <amount.h>
+#include <asset.h>
 
 #include <string>
 #include <vector>
@@ -38,5 +39,8 @@ std::string SighashToStr(unsigned char sighash_type);
 void ScriptPubKeyToUniv(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address);
 void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry, bool include_hex = true, int serialize_flags = 0);
+
+// ELEMENTS:
+UniValue AmountMapToUniv(const CAmountMap& mapValue);
 
 #endif // BITCOIN_CORE_IO_H

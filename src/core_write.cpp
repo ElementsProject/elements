@@ -256,7 +256,14 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 
         UniValue out(UniValue::VOBJ);
 
-        out.pushKV("value", ValueFromAmount(txout.nValue));
+        if (txout.nValue.IsExplicit()) {
+            out.pushKV("value", ValueFromAmount(txout.nValue.GetAmount()));
+        } else {
+            out.pushKV("valuecommitment", txout.nValue.GetHex());
+        }
+        if (g_con_elementswitness){
+            out.pushKV("assetcommitment", txout.nAsset.GetHex());
+        }
         out.pushKV("n", (int64_t)i);
 
         UniValue o(UniValue::VOBJ);
@@ -272,4 +279,13 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
     if (include_hex) {
         entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
     }
+}
+
+// ELEMENTS:
+UniValue AmountMapToUniv(const CAmountMap& mapValue) {
+    UniValue ret(UniValue::VOBJ);
+    for(std::map<CAsset, CAmount>::const_iterator it = mapValue.begin(); it != mapValue.end(); ++it) {
+        ret.pushKV(it->first.GetHex(), it->second);
+    }
+    return ret;
 }

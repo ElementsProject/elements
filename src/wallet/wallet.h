@@ -173,6 +173,8 @@ struct CRecipient
 {
     CScript scriptPubKey;
     CAmount nAmount;
+    CAsset asset;
+    CPubKey confidentiality_key;
     bool fSubtractFeeFromAmount;
 };
 
@@ -448,6 +450,7 @@ public:
         fImmatureWatchCreditCached = false;
         fDebitCached = false;
         fChangeCached = false;
+        WipeUnknownBlindingData();
     }
 
     void BindWallet(CWallet *pwalletIn)
@@ -493,6 +496,48 @@ public:
     bool AcceptToMemoryPool(const CAmount& nAbsurdFee, CValidationState& state) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     std::set<uint256> GetConflicts() const;
+
+    // ELEMENTS:
+
+private:
+    /* Computes, stores and returns the unblinded info, or retrieves if already computed previously.
+    * @param[in]    map_index - Where to store the blinding data. Issuance data is stored after the output data, with additional index offset calculated via GetPseudoInputOffset
+    * @param[in]    vchRangeproof - The rangeproof to unwind
+    * @param[in]    conf_value - The value to unblind
+    * @param[in]    conf_asset - The asset to unblind
+    * @param[in]    nonce - The nonce used to ECDH with the blinding key. This is null for issuance as blinding key is directly used as nonce
+    * @param[in]    scriptPubKey - The script being committed to by the rangeproof
+    * @param[out]   blinding_pubkey_out - Pointer to the recovered pubkey of the destination
+    * @param[out]   value_out - Pointer to the CAmount where the unblinded amount will be stored
+    * @param[out]   value_factor_out - Pointer to the recovered value blinding factor of the output
+    * @param[out]   asset_out - Pointer to the recovered underlying asset type
+    * @param[out]   asset_factor_out - Pointer to the recovered asset blinding factor of the output
+    */
+    void GetBlindingData(const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out);
+    void WipeUnknownBlindingData();
+
+public:
+    // For use in wallet transaction creation to remember 3rd party values
+    // Unneeded for issuance.
+    void SetBlindingData(const unsigned int output_index, const CPubKey& blinding_pubkey, const CAmount value, const uint256& value_factor, const CAsset& asset, const uint256& asset_factor);
+
+    //! Returns either the value out (if it is known) or -1
+    CAmount GetOutputValueOut(unsigned int ouput_index);
+
+    //! Returns either the blinding factor (if it is to us) or 0
+    uint256 GetOutputBlindingFactor(unsigned int output_index);
+    uint256 GetOutputAssetBlindingFactor(unsigned int output_index);
+    //! Returns the underlying asset type, or 0 if unknown
+    CAsset GetOutputAsset(unsigned int output_index);
+    // ! Returns receiver's blinding pubkey
+    CPubKey GetOutputBlindingPubKey(unsigned int output_index);
+    //! Get the issuance blinder for either the asset itself or the issuing tokens
+    uint256 GetIssuanceBlindingFactor(unsigned int input_index, bool reissuance_token);
+    //! Get the issuance amount for either the asset itself or the issuing tokens
+    CAmount GetIssuanceAmount(unsigned int input_index, bool reissuance_token);
+
+    //! Get the mapValue offset for a specific vin index and type of issuance pseudo-input
+    unsigned int GetPseudoInputOffset(unsigned int input_index, bool reissuance_token) const;
 };
 
 class COutput
@@ -765,6 +810,11 @@ public:
     //The offline xpub aka `bitcoin_xpub` in the wallet set by `initpegoutwallet`
     CExtPubKey offline_xpub;
 
+    // Master derivation blinding key
+    uint256 blinding_derivation_key;
+    // Specifically imported blinding keys
+    std::map<CScriptID, uint256> mapSpecificBlindingKeys;
+
     // END ELEMENTS
 
     const CWalletTx* GetWalletTx(const uint256& hash) const;
@@ -905,9 +955,9 @@ public:
      * selected by SelectCoins(); Also create the change output, when needed
      * @note passing nChangePosInOut as -1 will result in setting a random position
      */
-    bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
+    bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
                            std::string& strFailReason, const CCoinControl& coin_control, bool sign = true);
-    bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CReserveKey& reservekey, CConnman* connman, CValidationState& state);
+    bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CConnman* connman, CValidationState& state);
 
     bool DummySignTx(CMutableTransaction &txNew, const std::set<CTxOut> &txouts, bool use_max_sig = false) const
     {
@@ -1149,6 +1199,18 @@ public:
     bool SetOfflineCounter(int counter);
     bool SetOfflineDescriptor(const std::string& offline_desc_in);
     bool SetOfflineXPubKey(const CExtPubKey& offline_xpub_in);
+
+    void ComputeBlindingData(const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce& nonce, const CScript& scriptPubKey, const std::vector<unsigned char>& vchRangeproof, CAmount& value, CPubKey& blinding_pubkey, uint256& value_factor, CAsset& asset, uint256& asset_factor) const;
+
+    // First looks in imported blinding key store, then derives on its own
+    CKey GetBlindingKey(const CScript* script) const;
+    // Pubkey accessor for GetBlindingKey
+    CPubKey GetBlindingPubKey(const CScript& script) const;
+
+    bool LoadSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
+    bool AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
+
+    std::map<uint256, std::pair<CAsset, CAsset> > GetReissuanceTokenTypes() const;
 };
 
 /** A key allocated from the key pool. */

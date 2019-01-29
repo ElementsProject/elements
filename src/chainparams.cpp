@@ -7,6 +7,7 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
+#include <issuance.h>
 #include <primitives/transaction.h>
 #include <tinyformat.h>
 #include <util.h>
@@ -49,7 +50,7 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const CScript&
     txNew.vin.resize(1);
     txNew.vout.resize(1);
     txNew.vin[0].scriptSig = genesisScriptSig;
-    txNew.vout[0].nValue = genesisReward;
+    txNew.vout[0].nValue = CConfidentialValue(genesisReward);
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
     CBlock genesis;
@@ -83,23 +84,6 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
     const CScript genesisScriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return CreateGenesisBlock(params, genesisScriptSig, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
-}
-
-/** Add an issuance transaction to the genesis block. Typically used to pre-issue
- * the policyAsset of a blockchain. The genesis block is not actually validated,
- * so this transaction simply has to match issuance structure. */
-static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const int64_t asset_values, const CScript& issuance_destination) {
-
-    // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
-    CMutableTransaction txNew;
-    txNew.nVersion = 1;
-    txNew.vin.resize(1);
-    txNew.vin[0].prevout = prevout;
-
-    txNew.vout.push_back(CTxOut(asset_values, issuance_destination));
-
-    genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
-    genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
 
 /**
@@ -144,11 +128,14 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
+        g_con_elementswitness = false;
+        g_con_blockheightinheader = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -266,10 +253,14 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
+        g_signed_blocks = false;
+        g_con_elementswitness = false;
+        g_con_blockheightinheader = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -362,10 +353,14 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
+        g_signed_blocks = false;
+        g_con_elementswitness = false;
+        g_con_blockheightinheader = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -566,6 +561,27 @@ class CCustomParams : public CRegTestParams {
         base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
 
+        // Calculate pegged Bitcoin asset
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
+        uint256 entropy;
+        GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
+
+        // Elements serialization uses derivation, bitcoin serialization uses 0x00
+        if (g_con_elementswitness) {
+            CalculateAsset(consensus.pegged_asset, entropy);
+        } else {
+            assert(consensus.pegged_asset == CAsset());
+        }
+
+        consensus.parent_pegged_asset.SetHex(args.GetArg("-con_parent_pegged_asset", "0x00"));
+        initial_reissuance_tokens = args.GetArg("-initialreissuancetokens", 0);
+
+        // Subsidy asset, like policyAsset, defaults to the pegged_asset
+        consensus.subsidy_asset = consensus.pegged_asset;
+        if (gArgs.IsArgSet("-subsidyasset")) {
+            consensus.subsidy_asset = CAsset(uint256S(gArgs.GetArg("-subsidyasset", "0x00")));
+        }
+
         // END ELEMENTS fields
 
         // CSV always active by default, unlike regtest
@@ -583,8 +599,8 @@ class CCustomParams : public CRegTestParams {
             // Intended compatibility with Liquid v1 and elements-0.14.1
             std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
             genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
-            if (initialFreeCoins != 0) {
-                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), initialFreeCoins, CScript() << OP_TRUE);
+            if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
+                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
         } else {
             throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));

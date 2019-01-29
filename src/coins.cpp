@@ -306,7 +306,8 @@ CAmount CCoinsViewCache::GetValueIn(const CTransaction& tx) const
 
     CAmount nResult = 0;
     for (unsigned int i = 0; i < tx.vin.size(); i++)
-        nResult += AccessCoin(tx.vin[i].prevout).out.nValue;
+        // ELEMENTS: this method is for tests only, just naively add amounts
+        nResult += AccessCoin(tx.vin[i].prevout).out.nValue.GetAmount();
 
     return nResult;
 }

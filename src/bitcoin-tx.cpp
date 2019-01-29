@@ -6,6 +6,7 @@
 #include <config/bitcoin-config.h>
 #endif
 
+#include <asset.h>
 #include <clientversion.h>
 #include <coins.h>
 #include <consensus/consensus.h>
@@ -46,7 +47,7 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("in=TXID:VOUT(:SEQUENCE_NUMBER)", "Add input to TX", false, OptionsCategory::COMMANDS);
     gArgs.AddArg("locktime=N", "Set TX lock time to N", false, OptionsCategory::COMMANDS);
     gArgs.AddArg("nversion=N", "Set TX version to N", false, OptionsCategory::COMMANDS);
-    gArgs.AddArg("outaddr=VALUE:ADDRESS", "Add address-based output to TX", false, OptionsCategory::COMMANDS);
+    gArgs.AddArg("outaddr=VALUE:ADDRESS(:ASSET)", "Add address-based output to TX", false, OptionsCategory::COMMANDS);
     gArgs.AddArg("outdata=[VALUE:]DATA", "Add data-based output to TX", false, OptionsCategory::COMMANDS);
     gArgs.AddArg("outmultisig=VALUE:REQUIRED:PUBKEYS:PUBKEY1:PUBKEY2:....[:FLAGS]", "Add Pay To n-of-m Multi-sig output to TX. n = REQUIRED, m = PUBKEYS. "
         "Optionally add the \"W\" flag to produce a pay-to-witness-script-hash output. "
@@ -66,6 +67,8 @@ static void SetupBitcoinTxArgs()
 
     gArgs.AddArg("load=NAME:FILENAME", "Load JSON file FILENAME into register NAME", false, OptionsCategory::REGISTER_COMMANDS);
     gArgs.AddArg("set=NAME:JSON-STRING", "Set register NAME to given JSON-STRING", false, OptionsCategory::REGISTER_COMMANDS);
+
+    gArgs.AddArg("-serialization=TYPE", "Sets the serialization of transactions. ELEMENTS or BITCOIN are the two valid options.", false, OptionsCategory::REGISTER_COMMANDS);
 
     // Hidden
     gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
@@ -270,7 +273,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
     std::vector<std::string> vStrInputParts;
     boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
-    if (vStrInputParts.size() != 2)
+    if (vStrInputParts.size() < 2)
         throw std::runtime_error("TX output missing or too many separators");
 
     // Extract and validate VALUE
@@ -284,8 +287,22 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
     }
     CScript scriptPubKey = GetScriptForDestination(destination);
 
+    // extract and validate ASSET
+    CAsset asset;
+    if (!g_con_elementswitness && vStrInputParts.size() == 3) {
+        throw std::runtime_error("TX output asset type invalid for BITCOIN serialization");
+    }
+    if (vStrInputParts.size() == 3) {
+        asset = CAsset(uint256S(vStrInputParts[2]));
+        if (asset.IsNull()) {
+            throw std::runtime_error("invalid TX output asset type");
+        }
+    } else {
+        asset = Params().GetConsensus().pegged_asset;
+    }
+
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(asset, CConfidentialValue(value), scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -329,7 +346,7 @@ static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& str
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, CConfidentialValue(value), scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -403,7 +420,7 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, CConfidentialValue(value), scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -411,26 +428,46 @@ static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strIn
 {
     CAmount value = 0;
 
-    // separate [VALUE:]DATA in string
-    size_t pos = strInput.find(':');
+    // separate [VALUE:]DATA[:ASSET] in string
+    std::vector<std::string> vStrInputParts;
+    boost::split(vStrInputParts, strInput, boost::is_any_of(":"));
 
-    if (pos==0)
+    // Check that there are enough parameters
+    if (vStrInputParts[0].empty())
         throw std::runtime_error("TX output value not specified");
 
-    if (pos != std::string::npos) {
-        // Extract and validate VALUE
-        value = ExtractAndValidateValue(strInput.substr(0, pos));
+    if (vStrInputParts.size()>3)
+        throw std::runtime_error("too many separators");
+
+    std::vector<unsigned char> data;
+    CAsset asset(Params().GetConsensus().pegged_asset);
+
+    if (vStrInputParts.size()==1) {
+        std::string strData = vStrInputParts[0];
+        if (!IsHex(strData))
+            throw std::runtime_error("invalid TX output data");
+        data = ParseHex(strData);
+
+    } else {
+        value = ExtractAndValidateValue(vStrInputParts[0]);
+        std::string strData = vStrInputParts[1];
+        if (!IsHex(strData))
+            throw std::runtime_error("invalid TX output data");
+        data = ParseHex(strData);
+
+        if (vStrInputParts.size()==3) {
+            std::string strAsset = vStrInputParts[2];
+            if (!IsHex(strAsset))
+                throw std::runtime_error("invalid TX output asset type");
+
+            asset.SetHex(strAsset);
+            if (asset.IsNull()) {
+                throw std::runtime_error("invalid TX output asset type");
+            }
+        }
     }
 
-    // extract and validate DATA
-    std::string strData = strInput.substr(pos + 1, std::string::npos);
-
-    if (!IsHex(strData))
-        throw std::runtime_error("invalid TX output data");
-
-    std::vector<unsigned char> data = ParseHex(strData);
-
-    CTxOut txout(value, CScript() << OP_RETURN << data);
+    CTxOut txout(asset, CConfidentialValue(value), CScript() << OP_RETURN << data);
     tx.vout.push_back(txout);
 }
 
@@ -475,7 +512,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& str
     }
 
     // construct TxOut, append to transaction output list
-    CTxOut txout(value, scriptPubKey);
+    CTxOut txout(Params().GetConsensus().pegged_asset, CConfidentialValue(value), scriptPubKey);
     tx.vout.push_back(txout);
 }
 
@@ -612,7 +649,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
                 newcoin.out.scriptPubKey = scriptPubKey;
                 newcoin.out.nValue = 0;
                 if (prevOut.exists("amount")) {
-                    newcoin.out.nValue = AmountFromValue(prevOut["amount"]);
+                    newcoin.out.nValue = CConfidentialValue(AmountFromValue(prevOut["amount"]));
                 }
                 newcoin.nHeight = 1;
                 view.AddCoin(out, std::move(newcoin), true);
@@ -642,7 +679,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
             continue;
         }
         const CScript& prevPubKey = coin.out.scriptPubKey;
-        const CAmount& amount = coin.out.nValue;
+        const CConfidentialValue& amount = coin.out.nValue;
 
         SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
@@ -810,6 +847,16 @@ static int CommandLineRawTx(int argc, char* argv[])
             else {
                 key = arg.substr(0, eqpos);
                 value = arg.substr(eqpos + 1);
+            }
+
+            std::string serialization = gArgs.GetArg("-serialization", "ELEMENTS");
+            if (serialization == "ELEMENTS") {
+                g_con_elementswitness = true;
+            } else if (serialization == "BITCOIN") {
+                g_con_elementswitness = false;
+            } else {
+                PrintExceptionContinue(nullptr, "Invalid serialization argument");
+                throw;
             }
 
             MutateTx(tx, key, value);
