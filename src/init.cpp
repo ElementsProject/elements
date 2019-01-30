@@ -1560,6 +1560,9 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
             fLoaded = true;
         } while(false);
 
+        LoadFreezeList(pcoinsTip);
+        LoadBurnList(pcoinsTip);
+
         if (!fLoaded) {
             // first suggest a reindex
             if (!fReset) {

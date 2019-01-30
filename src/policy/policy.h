@@ -14,6 +14,7 @@
 #include <vector>
 
 class CCoinsViewCache;
+class CCoinsView;
 
 /** The sha256 of Bitcoin genesis block, for easy reference **/
 extern CAsset policyAsset;
@@ -133,6 +134,12 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     * if the tx has encoded addresses in its inputs, these are removed from the burnlist
     */
 bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    //function to scan the UTXO set for freezelist addresses
+bool LoadFreezeList(CCoinsView *view);
+
+    //function to scane the UTXO set for burnlist addresses
+bool LoadBurnList(CCoinsView *view);
 
     /**
      * Check for standard transaction types
