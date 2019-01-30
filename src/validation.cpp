@@ -1226,10 +1226,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
             return true;
         }
 
-                //check if a freeselist transaction and update the freezelist
-//        if(tx.vout[0].nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) UpdateFreezeList(tx,view);
-//        if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) UpdateBurnList(tx,view);
-
         // Check for non-standard witness in P2WSH
         if (tx.HasWitness() && fRequireStandard && !IsWitnessStandard(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
