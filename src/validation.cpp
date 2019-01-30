@@ -1907,6 +1907,7 @@ bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
     throw std::system_error(
           std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()), 
           std::string(__func__) + std::string(": invalid key derivation when tweaking key with contract hash"));
+return true;
 }
 
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
@@ -2815,18 +2816,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
-
-        //check if a freeselist/burnlist/whitelist transaction and update the list
-        if(prevoutput.nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
-        if(prevoutput.nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
-        if(prevoutput.nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) addressWhitelist.Update(tx,view);
-        txnouttype type;
-        std::vector<std::vector<unsigned char> > solutions;
-        if( Solver(prevoutput.scriptPubKey,type, solutions) ){
-            if(type == TX_REGISTERADDRESS){
-                addressWhitelist.RegisterAddress(tx);
-            }
-        }
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 
@@ -2836,9 +2825,17 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!MoneyRange(mapFees))
             return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
 
-        //check if a freeselist transaction and update the freezelist
-        if(tx.vout[0].nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck && false) UpdateFreezeList(tx,view);
-        if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck && false) UpdateBurnList(tx,view);
+        //check if a freeselist/burnlist/whitelist transaction and update the list
+        if(tx.vout[0].nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
+        if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
+        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) addressWhitelist.Update(tx,view);
+        txnouttype type;
+        std::vector<std::vector<unsigned char> > solutions;
+        if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
+            if(type == TX_REGISTERADDRESS){
+                addressWhitelist.RegisterAddress(tx);
+            }
+        }
     }
 
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
