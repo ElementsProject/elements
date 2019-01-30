@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "policyList.hpp"
+#include "policyList.h"
 
 class CWhiteList : public CPolicyList{
 public:
