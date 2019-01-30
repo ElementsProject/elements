@@ -125,7 +125,7 @@ bool IsPolicy(const CTransaction& tx)
 {
   //function that determines if any outputs of a transaction are policy assets
   BOOST_FOREACH(const CTxOut& txout, tx.vout) {
-    if(txout.nAsset.GetAsset() == policyAsset || txout.nAsset.GetAsset() == freezelistAsset || 
+    if(txout.nAsset.GetAsset() == freezelistAsset || 
         txout.nAsset.GetAsset() == burnlistAsset || txout.nAsset.GetAsset() == whitelistAsset) return true;
   }
   return false;
@@ -239,8 +239,6 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
 bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
-    LogPrintf("POLICY: freeze-list update transaction executed");
-
     if (tx.IsCoinBase())
       return false; // Coinbases don't use vin normally
 
@@ -261,13 +259,12 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             CKeyID keyId;
             std::vector<unsigned char> ex_addr;
             std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
-            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 32;
+            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
 
             keyId = CKeyID(uint160(extracted_addr));
 
             addressFreezelist.remove(&keyId);
-
             LogPrintf("POLICY: removed address from freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -288,13 +285,12 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             CKeyID keyId;
             std::vector<unsigned char> ex_addr;
             std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
-            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 32;
+            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
 
             keyId = CKeyID(uint160(extracted_addr));
 
             addressFreezelist.add_sorted(&keyId);
-
             LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -303,18 +299,14 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
 bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
-    LogPrintf("POLICY: burn-list update transaction executed");
-
     if (tx.IsCoinBase())
       return false; // Coinbases don't use vin normally
 
     // check inputs for encoded address data
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
-
         std::vector<std::vector<unsigned char> > vSolutions;
         txnouttype whichType;
-
         const CScript& prevScript = prev.scriptPubKey;
         if (!Solver(prevScript, whichType, vSolutions)) continue;
 
@@ -325,13 +317,12 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             CKeyID keyId;
             std::vector<unsigned char> ex_addr;
             std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
-            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 32;
+            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
 
             keyId = CKeyID(uint160(extracted_addr));
 
             addressBurnlist.remove(&keyId);
-
             LogPrintf("POLICY: removed address from burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -352,11 +343,9 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             CKeyID keyId;
             std::vector<unsigned char> ex_addr;
             std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
-            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 32;
+            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
-
             keyId = CKeyID(uint160(extracted_addr));
-
             addressBurnlist.add_sorted(&keyId);
 
             LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
