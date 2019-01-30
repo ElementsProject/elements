@@ -1560,9 +1560,6 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
             fLoaded = true;
         } while(false);
 
-        LoadFreezeList(pcoinsTip);
-        LoadBurnList(pcoinsTip);
-
         if (!fLoaded) {
             // first suggest a reindex
             if (!fReset) {
@@ -1671,6 +1668,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     const CBlock &genesisBlock = Params().GenesisBlock();
     for (unsigned int i = 0; i<genesis->nTx ; i++) {
         GetMainSignals().SyncTransaction(*(genesisBlock.vtx[i]), genesis, (int)i);
+    }
+
+    if(chainActive.Height() > 1) {
+        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
+        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
     }
 
     // ********************************************************* Step 11: start node
