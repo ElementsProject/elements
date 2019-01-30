@@ -128,7 +128,7 @@ bool IsPolicy(const CTransaction& tx)
 {
   //function that determines if any outputs of a transaction are policy assets
   BOOST_FOREACH(const CTxOut& txout, tx.vout) {
-    if(txout.nAsset.GetAsset() == policyAsset || txout.nAsset.GetAsset() == freezelistAsset || 
+    if(txout.nAsset.GetAsset() == freezelistAsset || 
         txout.nAsset.GetAsset() == burnlistAsset || txout.nAsset.GetAsset() == whitelistAsset) return true;
   }
   return false;
@@ -246,10 +246,8 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
 
     //        LogPrintf("POLICY: removed address from freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
-
       //      LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
 //    LogPrintf("POLICY: burn-list update transaction executed");
-
 
 //            LogPrintf("POLICY: removed address from burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
 

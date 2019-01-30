@@ -1502,7 +1502,7 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
             "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
-            "3. \"kycpubkey\"     (string, optional) Hex encoded of the compressed KYC public key\n"
+            "3. \"kycpubkey\"     (string, optional) Hex encoded of the compressed KYC public key ID\n"
             "\nExamples:\n"
             + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02fe47cdfbcdd814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
             + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02fe47cdfbcdd814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
@@ -1637,7 +1637,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
      std::string strAddr = CBitcoinAddress(*it).ToString();
      CKeyID kycKey;
      addressWhitelist.LookupKYCKey(CKeyID(*it), kycKey);
-     std::string strKYCKey = CBitcoinAddress(*it).ToString();
+     std::string strKYCKey = CBitcoinAddress(kycKey).ToString();
     file << strprintf("%s %s\n",
               strAddr, strKYCKey);
   }

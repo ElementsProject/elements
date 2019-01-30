@@ -125,20 +125,6 @@ bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     * if the tx has an encoded address in its outputs, these are added to the freezelist
     * if the tx has encoded addresses in its inputs, these are removed from the freezelist
     */
-bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
-    /**                                                                
-    * Update the burnlist with the input tx encoding
-    * if the tx has an encoded address in its outputs, these are added to the burnlist
-    * if the tx has encoded addresses in its inputs, these are removed from the burnlist
-    */
-bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
-    /**
-     * Check for standard transaction types
-     * @param[in] mapInputs    Map of previous transactions that have outputs we're spending
-     * @return True if all inputs (scriptSigs) use only standard transaction forms
-     */
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     /**
      * Check if the transaction is over standard P2WSH resources limit:
