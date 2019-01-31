@@ -147,6 +147,7 @@ public:
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
+        g_signed_blocks = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
