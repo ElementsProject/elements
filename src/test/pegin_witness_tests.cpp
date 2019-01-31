@@ -38,11 +38,11 @@ std::vector<unsigned char> pegin_transaction = ParseHex("02000000000101f321df979
 COutPoint prevout(uint256S("ce9b0ee70f82e48f78e2a2e66e61ee4281df74419c23673cc33b639097df21f3"), 1);
 
 // Needed for easier parent PoW check, and setting fedpegscript
-struct RegtestingSetup : public TestingSetup {
-        RegtestingSetup() : TestingSetup("custom", "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae") {}
+struct FedpegSetup : public BasicTestingSetup {
+        FedpegSetup() : BasicTestingSetup("custom", "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae") {}
 };
 
-BOOST_FIXTURE_TEST_SUITE(pegin_witness_tests, RegtestingSetup)
+BOOST_FIXTURE_TEST_SUITE(pegin_witness_tests, FedpegSetup)
 
 BOOST_AUTO_TEST_CASE(witness_valid)
 {
@@ -53,6 +53,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 
     bool valid = IsValidPeginWitness(witness, prevout, err, false);
     BOOST_CHECK(err == "");
+    BOOST_CHECK(valid);
 
     // Missing byte on each field to make claim ill-formatted
     // This will break deserialization and other data-matching checks
