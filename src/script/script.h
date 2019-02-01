@@ -672,7 +672,7 @@ public:
 
 struct CScriptWitness
 {
-    // Note that this encodes the data elements being pushed, rather than
+    // Note that this encodes the data ocean being pushed, rather than
     // encoding them as a CScript that pushes them.
     std::vector<std::vector<unsigned char> > stack;
 

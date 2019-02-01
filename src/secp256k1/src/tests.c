@@ -1790,7 +1790,7 @@ void run_field_inv_var(void) {
 void run_field_inv_all_var(void) {
     secp256k1_fe x[16], xi[16], xii[16];
     int i;
-    /* Check it's safe to call for 0 elements */
+    /* Check it's safe to call for 0 ocean */
     secp256k1_fe_inv_all_var(xi, x, 0);
     for (i = 0; i < count; i++) {
         size_t j;
@@ -2547,9 +2547,9 @@ void test_wnaf(const secp256k1_scalar *number, int w) {
         int v = wnaf[i];
         secp256k1_scalar_mul(&x, &x, &two);
         if (v) {
-            CHECK(zeroes == -1 || zeroes >= w-1); /* check that distance between non-zero elements is at least w-1 */
+            CHECK(zeroes == -1 || zeroes >= w-1); /* check that distance between non-zero ocean is at least w-1 */
             zeroes=0;
-            CHECK((v & 1) == 1); /* check non-zero elements are odd */
+            CHECK((v & 1) == 1); /* check non-zero ocean are odd */
             CHECK(v <= (1 << (w-1)) - 1); /* check range below */
             CHECK(v >= -(1 << (w-1)) - 1); /* check range above */
         } else {

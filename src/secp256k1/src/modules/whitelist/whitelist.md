@@ -49,7 +49,7 @@ the overall system security.
 
 A modification of this scheme, which prevents this "garbage key" attack, is to
 instead have participants sign some message with the key `P + H(W)W`, for `H`
-some random-oracle hash that maps group elements to scalars. This key, and its
+some random-oracle hash that maps group ocean to scalars. This key, and its
 discrete logarithm, cannot be known until after `W` is chosen, so `W` cannot
 be selected as the difference between it and `P`. (Note that `P` could still
 be some chosen difference; however `P` is a fixed key and must be verified

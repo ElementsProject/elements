@@ -636,7 +636,7 @@ public:
 struct CMutableTransaction;
 
 /**
- * Elements transaction serialization format:
+ * Ocean transaction serialization format:
  * - int32_t nVersion
  * - unsigned char flags
  *     - bit 1: witness data

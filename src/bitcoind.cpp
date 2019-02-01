@@ -87,7 +87,7 @@ bool AppInit(int argc, char* argv[])
         else
         {
             strUsage += "\n" + _("Usage:") + "\n" +
-                  "  elementsd [options]                     " + strprintf(_("Start %s Daemon"), _(PACKAGE_NAME)) + "\n";
+                  "  oceand [options]                     " + strprintf(_("Start %s Daemon"), _(PACKAGE_NAME)) + "\n";
 
             strUsage += "\n" + HelpMessage(HMM_BITCOIND);
         }
@@ -126,7 +126,7 @@ bool AppInit(int argc, char* argv[])
 
         if (fCommandLine)
         {
-            fprintf(stderr, "Error: There is no RPC client functionality in elementsd anymore. Use the elements-cli utility instead.\n");
+            fprintf(stderr, "Error: There is no RPC client functionality in oceand anymore. Use the ocean-cli utility instead.\n");
             exit(EXIT_FAILURE);
         }
         // -server defaults to true for bitcoind but not for the GUI so do this here
@@ -152,7 +152,7 @@ bool AppInit(int argc, char* argv[])
         if (GetBoolArg("-daemon", false))
         {
 #if HAVE_DECL_DAEMON
-            fprintf(stdout, "Elements server starting\n");
+            fprintf(stdout, "Ocean server starting\n");
 
             // Daemonize
             if (daemon(1, 0)) { // don't chdir (1), do close FDs (0)

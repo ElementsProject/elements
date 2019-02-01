@@ -62,7 +62,7 @@ class KeyPoolTest(BitcoinTestFramework):
         time.sleep(1.1)
         assert_equal(nodes[0].getwalletinfo()["unlocked_until"], 0)
 
-        # drain them by mining #Not in elements regtest
+        # drain them by mining #Not in ocean regtest
         #nodes[0].generate(1)
         #nodes[0].generate(1)
         #nodes[0].generate(1)

@@ -91,7 +91,7 @@ void SendCoinsEntry::setModel(WalletModel *_model)
 
 void SendCoinsEntry::clear()
 {
-    // clear UI elements for normal payment
+    // clear UI ocean for normal payment
     ui->payTo->clear();
     ui->addAsLabel->clear();
     ui->payAmount->clear();
@@ -99,11 +99,11 @@ void SendCoinsEntry::clear()
     ui->messageTextLabel->clear();
     ui->messageTextLabel->hide();
     ui->messageLabel->hide();
-    // clear UI elements for unauthenticated payment request
+    // clear UI ocean for unauthenticated payment request
     ui->payTo_is->clear();
     ui->memoTextLabel_is->clear();
     ui->payAmount_is->clear();
-    // clear UI elements for authenticated payment request
+    // clear UI ocean for authenticated payment request
     ui->payTo_s->clear();
     ui->memoTextLabel_s->clear();
     ui->payAmount_s->clear();

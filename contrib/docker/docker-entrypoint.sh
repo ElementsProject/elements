@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-if [[ "$1" = "elementsd" ]]; then
+if [[ "$1" = "oceand" ]]; then
     exec gosu bitcoin "$@"
-elif [[ "$1" == "elements-cli" ]]; then
+elif [[ "$1" == "ocean-cli" ]]; then
     exec gosu bitcoin "$@"
-elif [[ "$1" == "elements-tx" ]]; then
+elif [[ "$1" == "ocean-tx" ]]; then
     exec gosu bitcoin "$@"
 else
     exec "$@"

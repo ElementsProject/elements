@@ -32,7 +32,7 @@ class InvalidateTest(BitcoinTestFramework):
         assert(self.nodes[0].getblockcount() == 104)
         besthash = self.nodes[0].getbestblockhash()
 
-        #Mining extra blocks to properly fork elements chain
+        #Mining extra blocks to properly fork ocean chain
         print("Mine competing 106 blocks on Node 1")
         self.nodes[1].generate(100)
         self.nodes[1].sendtoaddress(self.nodes[1].getnewaddress(), 1)

@@ -21,4 +21,4 @@ RUN set -ex \
 COPY contrib/docker/docker-entrypoint.sh /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["elementsd"]
+CMD ["oceand"]

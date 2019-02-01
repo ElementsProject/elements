@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE(cuckoocache_hit_rate_ok)
 }
 
 
-/** This helper checks that erased elements are preferentially inserted onto and
+/** This helper checks that erased ocean are preferentially inserted onto and
  * that the hit rate of "fresher" keys is reasonable*/
 template <typename Cache>
 void test_cache_erase(size_t megabytes)
@@ -177,11 +177,11 @@ void test_cache_erase(size_t megabytes)
     for (uint32_t i = (n_insert / 2); i < n_insert; ++i)
         set.insert(hashes_insert_copy[i]);
 
-    /** elements that we marked erased but that are still there */
+    /** ocean that we marked erased but that are still there */
     size_t count_erased_but_contained = 0;
-    /** elements that we did not erase but are older */
+    /** ocean that we did not erase but are older */
     size_t count_stale = 0;
-    /** elements that were most recently inserted */
+    /** ocean that were most recently inserted */
     size_t count_fresh = 0;
 
     for (uint32_t i = 0; i < (n_insert / 4); ++i)
@@ -197,8 +197,8 @@ void test_cache_erase(size_t megabytes)
 
     // Check that our hit_rate_fresh is perfect
     BOOST_CHECK_EQUAL(hit_rate_fresh, 1.0);
-    // Check that we have a more than 2x better hit rate on stale elements than
-    // erased elements.
+    // Check that we have a more than 2x better hit rate on stale ocean than
+    // erased ocean.
     BOOST_CHECK(hit_rate_stale > 2 * hit_rate_erased_but_contained);
 }
 
@@ -265,11 +265,11 @@ void test_cache_erase_parallel(size_t megabytes)
     for (uint32_t i = (n_insert / 2); i < n_insert; ++i)
         set.insert(hashes_insert_copy[i]);
 
-    /** elements that we marked erased but that are still there */
+    /** ocean that we marked erased but that are still there */
     size_t count_erased_but_contained = 0;
-    /** elements that we did not erase but are older */
+    /** ocean that we did not erase but are older */
     size_t count_stale = 0;
-    /** elements that were most recently inserted */
+    /** ocean that were most recently inserted */
     size_t count_fresh = 0;
 
     for (uint32_t i = 0; i < (n_insert / 4); ++i)
@@ -285,8 +285,8 @@ void test_cache_erase_parallel(size_t megabytes)
 
     // Check that our hit_rate_fresh is perfect
     BOOST_CHECK_EQUAL(hit_rate_fresh, 1.0);
-    // Check that we have a more than 2x better hit rate on stale elements than
-    // erased elements.
+    // Check that we have a more than 2x better hit rate on stale ocean than
+    // erased ocean.
     BOOST_CHECK(hit_rate_stale > 2 * hit_rate_erased_but_contained);
 }
 BOOST_AUTO_TEST_CASE(cuckoocache_erase_parallel_ok)
@@ -316,7 +316,7 @@ void test_cache_generations()
     // cache.
     insecure_rand = FastRandomContext(true);
 
-    // block_activity models a chunk of network activity. n_insert elements are
+    // block_activity models a chunk of network activity. n_insert ocean are
     // adde to the cache. The first and last n/4 are stored for removal later
     // and the middle n/2 are not stored. This models a network which uses half
     // the signatures of recently (since the last block) added transactions

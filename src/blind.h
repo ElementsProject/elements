@@ -38,7 +38,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
  * @param[in]   vBlindIssuanceAsset - List of keys to use as nonces for issuance asset blinding.
  * @param[in]   vBlindIssuanceToken - List of keys to use as nonces for issuance token blinding.
  * @param[in/out]   tx - The transaction to be modified.
- * @param[in] auxiliary_generators - a list of generators to create surjection proofs when inputs are not owned by caller. Passing in non-empty elements results in ignoring of other input arguments for that index
+ * @param[in] auxiliary_generators - a list of generators to create surjection proofs when inputs are not owned by caller. Passing in non-empty ocean results in ignoring of other input arguments for that index
  */
 int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& output_blinding_factors, std::vector<uint256 >& output_asset_blinding_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& vBlindIssuanceAsset, const std::vector<CKey>& vBlindIssuanceToken, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators = NULL);
 

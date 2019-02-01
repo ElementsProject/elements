@@ -538,8 +538,8 @@ std::string HelpMessage(HelpMessageMode mode)
 
 std::string LicenseInfo()
 {
-    const std::string URL_SOURCE_CODE = "<https://github.com/ElementsProject/elements>";
-    const std::string URL_WEBSITE = "<https://www.elementsproject.org>";
+    const std::string URL_SOURCE_CODE = "<https://github.com/OceanProject/ocean>";
+    const std::string URL_WEBSITE = "<https://www.oceanproject.org>";
 
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2015, COPYRIGHT_YEAR) + " ") + "\n" +
            "\n" +
@@ -1703,7 +1703,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
 
     if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
-        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
+        return InitError(_("ERROR: oceand is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
     }
 
     uiInterface.InitMessage(_("Done loading"));
