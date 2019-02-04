@@ -564,6 +564,7 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     CRecipient recipient = {scriptRegisterAddress, CAmount(0), feeAsset, CPubKey(), false};
     vecSend.push_back(recipient);
 
+/*
     std::vector<COutput> availableCoins;
     pwalletMain->AvailableCoins(availableCoins);
     std::vector<COutput>::const_iterator fromCoin = availableCoins.begin(); 
@@ -608,8 +609,8 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     coinControl.fAllowOtherInputs=false;
     COutPoint outPoint((*fromCoin).tx->GetHash(), (*fromCoin).i);
     coinControl.Select(outPoint);
-       
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
+  */     
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
         //TODO
         if (nFeeRequired > fromAddressBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
