@@ -12,6 +12,7 @@
 
 #include <string>
 #include <vector>
+#include <boost/thread/thread.hpp> // boost::thread::interrupt
 
 class CCoinsViewCache;
 class CCoinsView;
@@ -92,11 +93,14 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
      * @return True if all outputs (scriptPubKeys) use only standard transaction forms
      */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
-
     /**
      * Check if all a transactions outputs are OP_RETURN
      */
 bool IsBurn(const CTransaction& tx);
+    /**
+     * Check if a transaction has outputs what are of a policy asset type
+     */
+bool IsPolicy(const CTransaction& tx);
 
     /**
      * Check if a transaction has outputs what are of a policy asset type
@@ -105,17 +109,23 @@ bool IsPolicy(const CTransaction& tx);
 
     /**
      * Check all type and whitelist status of outputs of tx
-     * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database 
+     * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database
      */
 bool IsWhitelisted(const CTransaction& tx);
-
     /**
-    * Check all inputs and determine if public keys are on the burnlist and all non-fee outputs are OP_RETURN
-    * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are on the burn list
-    */
+     *
+     */
+bool IsRedemption(CTransaction const &tx);
+    /**
+     *
+     */
+bool IsValidBurn(CTransaction const &tx, CCoinsViewCache const &mapInputs);
+    /**
+     * Check all inputs and determine if public keys are on the burnlist and all non-fee outputs are OP_RETURN
+     * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are on the burn list
+     */
 bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
-    /**                                                                
+    /**
     * Check all inputs and determine if public keys are on the freezelist
     * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are present in the freezelist
     */
@@ -126,6 +136,23 @@ bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     * if the tx has an encoded address in its outputs, these are added to the freezelist
     * if the tx has encoded addresses in its inputs, these are removed from the freezelist
     */
+bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**                                                                
+    * Update the burnlist with the input tx encoding
+    * if the tx has an encoded address in its outputs, these are added to the burnlist
+    * if the tx has encoded addresses in its inputs, these are removed from the burnlist
+    */
+bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    //function to scan the UTXO set for freezelist addresses
+bool LoadFreezeList(CCoinsView *view);
+
+    //function to scane the UTXO set for burnlist addresses
+bool LoadBurnList(CCoinsView *view);
+
+    /**
+    */
 
     //function to scan the UTXO set for freezelist addresses
 bool LoadFreezeList(CCoinsView *view);
@@ -135,7 +162,7 @@ bool LoadBurnList(CCoinsView *view);
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     /**
      * Check if the transaction is over standard P2WSH resources limit:
-     * 3600bytes witnessScript size, 80bytes per witness stack element, 100 witness stack elements
+     * 3600bytes witnessScript size, 80bytes per witness stack element, 100 witness stack ocean
      * These limits are adequate for multi-signature up to n-of-100 using OP_CHECKSIG, OP_ADD, and OP_EQUAL,
      */
 bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);

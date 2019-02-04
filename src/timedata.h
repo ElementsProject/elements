@@ -50,10 +50,10 @@ public:
     {
         int size = vSorted.size();
         assert(size > 0);
-        if (size & 1) // Odd number of elements
+        if (size & 1) // Odd number of ocean
         {
             return vSorted[size / 2];
-        } else // Even number of elements
+        } else // Even number of ocean
         {
             return (vSorted[size / 2 - 1] + vSorted[size / 2]) / 2;
         }

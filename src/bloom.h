@@ -54,20 +54,20 @@ private:
     unsigned int Hash(unsigned int nHashNum, const std::vector<unsigned char>& vDataToHash) const;
 
     // Private constructor for CRollingBloomFilter, no restrictions on size
-    CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweak);
+    CBloomFilter(unsigned int nOcean, double nFPRate, unsigned int nTweak);
     friend class CRollingBloomFilter;
 
 public:
     /**
-     * Creates a new bloom filter which will provide the given fp rate when filled with the given number of elements
+     * Creates a new bloom filter which will provide the given fp rate when filled with the given number of ocean
      * Note that if the given parameters will result in a filter outside the bounds of the protocol limits,
      * the filter created will be as close to the given parameters as possible within the protocol limits.
-     * This will apply if nFPRate is very low or nElements is unreasonably high.
+     * This will apply if nFPRate is very low or nOcean is unreasonably high.
      * nTweak is a constant which is added to the seed value passed to the hash function
      * It should generally always be a random value (and is largely only exposed for unit testing)
      * nFlags should be one of the BLOOM_UPDATE_* enums (not _MASK)
      */
-    CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweak, unsigned char nFlagsIn);
+    CBloomFilter(unsigned int nOcean, double nFPRate, unsigned int nTweak, unsigned char nFlagsIn);
     CBloomFilter() : isFull(true), isEmpty(false), nHashFuncs(0), nTweak(0), nFlags(0) {}
 
     ADD_SERIALIZE_METHODS;
@@ -114,7 +114,7 @@ public:
  * insert()'ed ... but may also return true for items that were not inserted.
  *
  * It needs around 1.8 bytes per element per factor 0.1 of false positive rate.
- * (More accurately: 3/(log(256)*log(2)) * log(1/fpRate) * nElements bytes)
+ * (More accurately: 3/(log(256)*log(2)) * log(1/fpRate) * nOcean bytes)
  */
 class CRollingBloomFilter
 {
@@ -122,7 +122,7 @@ public:
     // A random bloom filter calls GetRand() at creation time.
     // Don't create global CRollingBloomFilter objects, as they may be
     // constructed before the randomizer is properly initialized.
-    CRollingBloomFilter(unsigned int nElements, double nFPRate);
+    CRollingBloomFilter(unsigned int nOcean, double nFPRate);
 
     void insert(const std::vector<unsigned char>& vKey);
     void insert(const uint256& hash);

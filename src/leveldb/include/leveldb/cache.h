@@ -88,7 +88,7 @@ class Cache {
   // leveldb may change Prune() to a pure abstract method.
   virtual void Prune() {}
 
-  // Return an estimate of the combined charges of all elements stored in the
+  // Return an estimate of the combined charges of all ocean stored in the
   // cache.
   virtual size_t TotalCharge() const = 0;
 

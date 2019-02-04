@@ -41,7 +41,7 @@ class WalletHDTest(BitcoinTestFramework):
         self.nodes[1].importprivkey(self.nodes[0].dumpprivkey(non_hd_add))
         #self.nodes[1].importblindingkey(non_hd_add, self.nodes[0].dumpblindingkey(non_hd_add))
 
-        # This should be enough to keep the master key and the non-HD key 
+        # This should be enough to keep the master key and the non-HD key
         self.nodes[1].backupwallet(tmpdir + "/hd.bak")
         #self.nodes[1].dumpwallet(tmpdir + "/hd.dump")
 

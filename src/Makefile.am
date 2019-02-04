@@ -19,7 +19,7 @@ LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
 BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
-BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS) 
+BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
@@ -37,7 +37,7 @@ if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
 endif
 if BUILD_BITCOIN_LIBS
-LIBBITCOINCONSENSUS=libelementsconsensus.la
+LIBBITCOINCONSENSUS=liboceanconsensus.la
 endif
 if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
@@ -66,11 +66,11 @@ TESTS =
 BENCHMARKS =
 
 if BUILD_BITCOIND
-  bin_PROGRAMS += elementsd
+  bin_PROGRAMS += oceand
 endif
 
 if BUILD_BITCOIN_UTILS
-  bin_PROGRAMS += elements-cli elements-tx
+  bin_PROGRAMS += ocean-cli ocean-tx
 endif
 
 .PHONY: FORCE check-symbols check-security
@@ -122,6 +122,8 @@ BITCOIN_CORE_H = \
   policy/fees.h \
   policy/policy.h \
   policy/rbf.h \
+  policy/policylist.h \
+  policy/whitelist.h \
   pow.h \
   protocol.h \
   random.h \
@@ -177,8 +179,8 @@ obj/build.h: FORCE
 libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 
 # server: shared between bitcoind and bitcoin-qt
-libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS) 
-libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
+libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
+libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   addrdb.cpp \
@@ -197,8 +199,8 @@ libbitcoin_server_a_SOURCES = \
   noui.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
-  policy/policyList.cpp \
-  policy/whiteList.cpp \
+  policy/policylist.cpp \
+  policy/whitelist.cpp \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
@@ -320,8 +322,8 @@ libbitcoin_consensus_a_SOURCES = \
   version.h
 
 # common: shared between bitcoind, and bitcoin-qt and non-server tools
-libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) 
-libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
+libbitcoin_common_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   amount.cpp \
   assetsdir.cpp \
@@ -389,17 +391,16 @@ libbitcoin_cli_a_SOURCES = \
 nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
-# bitcoind binary #
-elementsd_SOURCES = bitcoind.cpp
-elementsd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elementsd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
-elementsd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) 
+oceand_SOURCES = bitcoind.cpp
+oceand_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+oceand_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+oceand_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-elementsd_SOURCES += bitcoind-res.rc
+oceand_SOURCES += bitcoind-res.rc
 endif
 
-elementsd_LDADD = \
+oceand_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
   $(LIBUNIVALUE) \
@@ -412,38 +413,38 @@ elementsd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-elementsd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS) 
+oceand_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
 # bitcoin-cli binary #
-elements_cli_SOURCES = bitcoin-cli.cpp
-elements_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elements_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
-elements_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) 
+ocean_cli_SOURCES = bitcoin-cli.cpp
+ocean_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+ocean_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+ocean_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-elements_cli_SOURCES += bitcoin-cli-res.rc
+ocean_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-elements_cli_LDADD = \
+ocean_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CRYPTO)
 
-elements_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS) 
+ocean_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
 
 # bitcoin-tx binary #
-elements_tx_SOURCES = bitcoin-tx.cpp
-elements_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elements_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) 
-elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  
+ocean_tx_SOURCES = bitcoin-tx.cpp
+ocean_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+ocean_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+ocean_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-elements_tx_SOURCES += bitcoin-tx-res.rc
+ocean_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
-elements_tx_LDADD = \
+ocean_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBBITCOIN_COMMON) \
   $(LIBBITCOIN_UTIL) \
@@ -451,22 +452,22 @@ elements_tx_LDADD = \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBSECP256K1)
 
-elements_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
+ocean_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
 
 # bitcoinconsensus library #
 if BUILD_BITCOIN_LIBS
 include_HEADERS = script/bitcoinconsensus.h
-libelementsconsensus_la_SOURCES = $(crypto_libbitcoin_crypto_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
+liboceanconsensus_la_SOURCES = $(crypto_libbitcoin_crypto_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
 
 if GLIBC_BACK_COMPAT
-  libelementsconsensus_la_SOURCES += compat/glibc_compat.cpp
+  liboceanconsensus_la_SOURCES += compat/glibc_compat.cpp
 endif
 
-libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS) 
-libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
-libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
-libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+liboceanconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 1:0:0 $(RELDFLAGS)
+liboceanconsensus_la_LIBADD = $(LIBSECP256K1)
+liboceanconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
+liboceanconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
 #
@@ -505,7 +506,7 @@ clean-local:
 	-rm -rf test/__pycache__
 
 bitcoind bitcoin-cli bitcoin-tx:
-	@echo "Remember to 'make elements*' rather than 'make bitcoin*' in this repository."
+	@echo "Remember to 'make ocean*' rather than 'make bitcoin*' in this repository."
 
 .rc.o:
 	@test -f $(WINDRES)

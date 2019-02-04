@@ -1,5 +1,5 @@
 ---
-name: "elements-dmg-signer"
+name: "ocean-dmg-signer"
 suites:
 - "trusty"
 architectures:
@@ -8,10 +8,10 @@ packages:
 - "faketime"
 reference_datetime: "2016-01-01 00:00:00"
 remotes:
-- "url": "https://github.com/ElementsProject/gitian.sigs.ep.git"
+- "url": "https://github.com/OceanProject/gitian.sigs.ep.git"
   "dir": "signature"
 files:
-- "elements-osx-unsigned.tar.gz"
+- "ocean-osx-unsigned.tar.gz"
 script: |
   WRAP_DIR=$HOME/wrapped
   mkdir -p ${WRAP_DIR}
@@ -28,11 +28,11 @@ script: |
     chmod +x ${WRAP_DIR}/${prog}
   done
 
-  UNSIGNED=elements-osx-unsigned.tar.gz
-  SIGNED=elements-osx-signed.dmg
+  UNSIGNED=ocean-osx-unsigned.tar.gz
+  SIGNED=ocean-osx-signed.dmg
 
   tar -xf ${UNSIGNED}
   OSX_VOLNAME="$(cat osx_volname)"
   ./detached-sig-apply.sh ${UNSIGNED} signature/osx
-  ${WRAP_DIR}/genisoimage -no-cache-inodes -D -l -probe -V "Elements-Sidechain" -no-pad -r -apple -o uncompressed.dmg signed-app
+  ${WRAP_DIR}/genisoimage -no-cache-inodes -D -l -probe -V "Ocean-Sidechain" -no-pad -r -apple -o uncompressed.dmg signed-app
   ${WRAP_DIR}/dmg dmg uncompressed.dmg ${OUTDIR}/${SIGNED}

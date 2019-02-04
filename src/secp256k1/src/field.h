@@ -9,11 +9,11 @@
 
 /** Field element module.
  *
- *  Field elements can be represented in several ways, but code accessing
+ *  Field ocean can be represented in several ways, but code accessing
  *  it (and implementations) need to take certain properties into account:
  *  - Each field element can be normalized or not.
  *  - Each field element has a magnitude, which represents how far away
- *    its representation is away from normalization. Normalized elements
+ *    its representation is away from normalization. Normalized ocean
  *    always have a magnitude of 1, but a magnitude of 1 doesn't imply
  *    normality.
  */
@@ -61,13 +61,13 @@ static int secp256k1_fe_is_zero(const secp256k1_fe *a);
 /** Check the "oddness" of a field element. Requires the input to be normalized. */
 static int secp256k1_fe_is_odd(const secp256k1_fe *a);
 
-/** Compare two field elements. Requires magnitude-1 inputs. */
+/** Compare two field ocean. Requires magnitude-1 inputs. */
 static int secp256k1_fe_equal(const secp256k1_fe *a, const secp256k1_fe *b);
 
 /** Same as secp256k1_fe_equal, but may be variable time. */
 static int secp256k1_fe_equal_var(const secp256k1_fe *a, const secp256k1_fe *b);
 
-/** Compare two field elements. Requires both inputs to be normalized */
+/** Compare two field ocean. Requires both inputs to be normalized */
 static int secp256k1_fe_cmp_var(const secp256k1_fe *a, const secp256k1_fe *b);
 
 /** Set a field element equal to 32-byte big endian value. If successful, the resulting field element is normalized. */
@@ -112,7 +112,7 @@ static void secp256k1_fe_inv(secp256k1_fe *r, const secp256k1_fe *a);
 /** Potentially faster version of secp256k1_fe_inv, without constant-time guarantee. */
 static void secp256k1_fe_inv_var(secp256k1_fe *r, const secp256k1_fe *a);
 
-/** Calculate the (modular) inverses of a batch of field elements. Requires the inputs' magnitudes to be
+/** Calculate the (modular) inverses of a batch of field ocean. Requires the inputs' magnitudes to be
  *  at most 8. The output magnitudes are 1 (but not guaranteed to be normalized). The inputs and
  *  outputs must not overlap in memory. */
 static void secp256k1_fe_inv_all_var(secp256k1_fe *r, const secp256k1_fe *a, size_t len);

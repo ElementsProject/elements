@@ -76,7 +76,7 @@ for arg in sys.argv[1:]:
 
 #Set env vars
 if "BITCOIND" not in os.environ:
-    os.environ["ELEMENTSD"] = BUILDDIR+ '/src/elementsd' + EXEEXT
+    os.environ["OCEAND"] = BUILDDIR+ '/src/oceand' + EXEEXT
 
 if EXEEXT == ".exe" and "-win" not in opts:
     # https://github.com/bitcoin/bitcoin/commit/d52802551752140cf41f0d9a225a43e84404d3e9
@@ -111,6 +111,7 @@ testScripts = [
     # vv Tests less than 2m vv
     'wallet.py',
     'whitelisting.py',
+    'policytransactions.py',
     # Accounts not supported
     #'wallet-accounts.py',
     # TODO fix mininode

@@ -141,7 +141,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_verify_tally(
  *         generator_blind: array of asset blinding factors, `r` in the above paragraph
  *                          May not be NULL unless `n_total` is 0.
  *                 n_total: Total size of the above arrays
- *                n_inputs: How many of the initial array elements represent commitments that
+ *                n_inputs: How many of the initial array ocean represent commitments that
  *                          will be negated in the final sum
  * In/Out: blinding_factor: array of commitment blinding factors, `r'` in the above paragraph
  *                          May not be NULL unless `n_total` is 0.

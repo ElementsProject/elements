@@ -20,7 +20,7 @@ typedef struct {
      *   where U is a point with no known corresponding scalar. Note that sum(U_i, i=0..63) = 0.
      * For each i, and each of the 16 possible values of n_i, (n_i * 16^i * G + U_i) is
      * precomputed (call it prec(i, n_i)). The formula now becomes sum(prec(i, n_i), i=0..63).
-     * None of the resulting prec group elements have a known scalar, and neither do any of
+     * None of the resulting prec group ocean have a known scalar, and neither do any of
      * the intermediate sums while computing a*G.
      */
     secp256k1_ge_storage (*prec)[64][16]; /* prec[j][i] = 16^j * i * G + U_i */

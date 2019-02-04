@@ -19,32 +19,32 @@
 #define LN2SQUARED 0.4804530139182014246671025263266649717305529515945455
 #define LN2 0.6931471805599453094172321214581765680755001343602552
 
-CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweakIn, unsigned char nFlagsIn) :
+CBloomFilter::CBloomFilter(unsigned int nOcean, double nFPRate, unsigned int nTweakIn, unsigned char nFlagsIn) :
     /**
-     * The ideal size for a bloom filter with a given number of elements and false positive rate is:
-     * - nElements * log(fp rate) / ln(2)^2
+     * The ideal size for a bloom filter with a given number of ocean and false positive rate is:
+     * - nOcean * log(fp rate) / ln(2)^2
      * We ignore filter parameters which will create a bloom filter larger than the protocol limits
      */
-    vData(std::min((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)), MAX_BLOOM_FILTER_SIZE * 8) / 8),
+    vData(std::min((unsigned int)(-1  / LN2SQUARED * nOcean * log(nFPRate)), MAX_BLOOM_FILTER_SIZE * 8) / 8),
     /**
-     * The ideal number of hash functions is filter size * ln(2) / number of elements
+     * The ideal number of hash functions is filter size * ln(2) / number of ocean
      * Again, we ignore filter parameters which will create a bloom filter with more hash functions than the protocol limits
      * See https://en.wikipedia.org/wiki/Bloom_filter for an explanation of these formulas
      */
     isFull(false),
     isEmpty(true),
-    nHashFuncs(std::min((unsigned int)(vData.size() * 8 / nElements * LN2), MAX_HASH_FUNCS)),
+    nHashFuncs(std::min((unsigned int)(vData.size() * 8 / nOcean * LN2), MAX_HASH_FUNCS)),
     nTweak(nTweakIn),
     nFlags(nFlagsIn)
 {
 }
 
 // Private constructor used by CRollingBloomFilter
-CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweakIn) :
-    vData((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)) / 8),
+CBloomFilter::CBloomFilter(unsigned int nOcean, double nFPRate, unsigned int nTweakIn) :
+    vData((unsigned int)(-1  / LN2SQUARED * nOcean * log(nFPRate)) / 8),
     isFull(false),
     isEmpty(true),
-    nHashFuncs((unsigned int)(vData.size() * 8 / nElements * LN2)),
+    nHashFuncs((unsigned int)(vData.size() * 8 / nOcean * LN2)),
     nTweak(nTweakIn),
     nFlags(BLOOM_UPDATE_NONE)
 {
@@ -214,23 +214,23 @@ void CBloomFilter::UpdateEmptyFull()
     isEmpty = empty;
 }
 
-CRollingBloomFilter::CRollingBloomFilter(unsigned int nElements, double fpRate)
+CRollingBloomFilter::CRollingBloomFilter(unsigned int nOcean, double fpRate)
 {
     double logFpRate = log(fpRate);
     /* The optimal number of hash functions is log(fpRate) / log(0.5), but
      * restrict it to the range 1-50. */
     nHashFuncs = std::max(1, std::min((int)round(logFpRate / log(0.5)), 50));
-    /* In this rolling bloom filter, we'll store between 2 and 3 generations of nElements / 2 entries. */
-    nEntriesPerGeneration = (nElements + 1) / 2;
-    uint32_t nMaxElements = nEntriesPerGeneration * 3;
-    /* The maximum fpRate = pow(1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits), nHashFuncs)
-     * =>          pow(fpRate, 1.0 / nHashFuncs) = 1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits)
-     * =>          1.0 - pow(fpRate, 1.0 / nHashFuncs) = exp(-nHashFuncs * nMaxElements / nFilterBits)
-     * =>          log(1.0 - pow(fpRate, 1.0 / nHashFuncs)) = -nHashFuncs * nMaxElements / nFilterBits
-     * =>          nFilterBits = -nHashFuncs * nMaxElements / log(1.0 - pow(fpRate, 1.0 / nHashFuncs))
-     * =>          nFilterBits = -nHashFuncs * nMaxElements / log(1.0 - exp(logFpRate / nHashFuncs))
+    /* In this rolling bloom filter, we'll store between 2 and 3 generations of nOcean / 2 entries. */
+    nEntriesPerGeneration = (nOcean + 1) / 2;
+    uint32_t nMaxOcean = nEntriesPerGeneration * 3;
+    /* The maximum fpRate = pow(1.0 - exp(-nHashFuncs * nMaxOcean / nFilterBits), nHashFuncs)
+     * =>          pow(fpRate, 1.0 / nHashFuncs) = 1.0 - exp(-nHashFuncs * nMaxOcean / nFilterBits)
+     * =>          1.0 - pow(fpRate, 1.0 / nHashFuncs) = exp(-nHashFuncs * nMaxOcean / nFilterBits)
+     * =>          log(1.0 - pow(fpRate, 1.0 / nHashFuncs)) = -nHashFuncs * nMaxOcean / nFilterBits
+     * =>          nFilterBits = -nHashFuncs * nMaxOcean / log(1.0 - pow(fpRate, 1.0 / nHashFuncs))
+     * =>          nFilterBits = -nHashFuncs * nMaxOcean / log(1.0 - exp(logFpRate / nHashFuncs))
      */
-    uint32_t nFilterBits = (uint32_t)ceil(-1.0 * nHashFuncs * nMaxElements / log(1.0 - exp(logFpRate / nHashFuncs)));
+    uint32_t nFilterBits = (uint32_t)ceil(-1.0 * nHashFuncs * nMaxOcean / log(1.0 - exp(logFpRate / nHashFuncs)));
     data.clear();
     /* For each data element we need to store 2 bits. If both bits are 0, the
      * bit is treated as unset. If the bits are (01), (10), or (11), the bit is

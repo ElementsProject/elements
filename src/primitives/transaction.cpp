@@ -109,8 +109,8 @@ CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERS
 CMutableTransaction::CMutableTransaction(const CTransaction& tx) : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), wit(tx.wit), nLockTime(tx.nLockTime) {}
 
 /**
- * The input witness consists of four elements, three of which are
- * optional. The optional elements have to do with asset issuance
+ * The input witness consists of four ocean, three of which are
+ * optional. The optional ocean have to do with asset issuance
  * and peg-in transactions, nor present most of the time.
  *
   */
@@ -125,7 +125,7 @@ uint256 CTxInWitness::GetHash() const
 }
 
 /**
- * The output witness consists of two elements: the surjection proof and
+ * The output witness consists of two ocean: the surjection proof and
  * the range proof.
  *
  *     S : asset surjection proof

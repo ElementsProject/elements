@@ -1,4 +1,4 @@
-Sidechain Elements 0.14.1
+Sidechain Ocean 0.14.1
 =====================
 
 Setup
@@ -15,16 +15,16 @@ The following are some helpful notes on how to run Bitcoin on your native platfo
 
 Unpack the files into a directory and run:
 
-- `bin/elements-qt` (GUI) or
-- `bin/elementsd` (headless)
+- `bin/ocean-qt` (GUI) or
+- `bin/oceand` (headless)
 
 ### Windows
 
-Unpack the files into a directory, and then run elements-qt.exe.
+Unpack the files into a directory, and then run ocean-qt.exe.
 
 ### OS X
 
-Drag Elements to your applications folder, and then run Elements.
+Drag Ocean to your applications folder, and then run Ocean.
 
 ### Need Help?
 

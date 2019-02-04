@@ -26,6 +26,7 @@
 #include "netbase.h"
 #include "net.h"
 #include "net_processing.h"
+#include "policy/policy.h"
 #include "rpc/server.h"
 #include "rpc/register.h"
 #include "script/standard.h"
@@ -41,7 +42,6 @@
 #include "validationinterface.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
-#include "policy/policy.h"
 #endif
 #include "warnings.h"
 #include <stdint.h>
@@ -542,8 +542,8 @@ std::string HelpMessage(HelpMessageMode mode)
 
 std::string LicenseInfo()
 {
-    const std::string URL_SOURCE_CODE = "<https://github.com/ElementsProject/elements>";
-    const std::string URL_WEBSITE = "<https://www.elementsproject.org>";
+    const std::string URL_SOURCE_CODE = "<https://github.com/OceanProject/ocean>";
+    const std::string URL_WEBSITE = "<https://www.oceanproject.org>";
 
     return CopyrightHolders(strprintf(_("Copyright (C) %i-%i"), 2015, COPYRIGHT_YEAR) + " ") + "\n" +
            "\n" +
@@ -1681,6 +1681,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
         if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
     }
 
+    if(chainActive.Height() > 1) {
+        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
+        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
+    }
+
     // ********************************************************* Step 11: start node
 
     //// debug print
@@ -1723,7 +1728,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
 
     if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
-        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
+        return InitError(_("ERROR: oceand is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
     }
 
     uiInterface.InitMessage(_("Done loading"));
