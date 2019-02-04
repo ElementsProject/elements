@@ -64,6 +64,9 @@ class CTTest (BitcoinTestFramework):
         node0 = node0 - value1
         node2 = node2 + value1
 
+        print(node0)
+        print(node2)
+
         assert_equal(self.nodes[0].getbalance()["CBT"], node0)
         assert_equal(self.nodes[1].getbalance("", 1, False, "CBT"), node1)
         assert_equal(self.nodes[2].getbalance()["CBT"], node2)

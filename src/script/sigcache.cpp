@@ -100,10 +100,10 @@ static CSignatureCache surjectionProofCache;
 void InitSignatureCache()
 {
     // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
+    // setup_bytes creates the minimum possible cache (2 ocean).
     size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
     size_t nElems = signatureCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu requested for signature cache, able to store %zu elements\n",
+    LogPrintf("Using %zu MiB out of %zu requested for signature cache, able to store %zu ocean\n",
             (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }
 
@@ -111,10 +111,10 @@ void InitSignatureCache()
 void InitRangeproofCache()
 {
     // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
+    // setup_bytes creates the minimum possible cache (2 ocean).
     size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
     size_t nElems = rangeProofCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu requested for rangeproof cache, able to store %zu elements\n",
+    LogPrintf("Using %zu MiB out of %zu requested for rangeproof cache, able to store %zu ocean\n",
             (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }
 
@@ -122,10 +122,10 @@ void InitRangeproofCache()
 void InitSurjectionproofCache()
 {
     // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
-    // setup_bytes creates the minimum possible cache (2 elements).
+    // setup_bytes creates the minimum possible cache (2 ocean).
     size_t nMaxCacheSize = std::min(std::max((int64_t)0, GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE)), MAX_MAX_SIG_CACHE_SIZE) * ((size_t) 1 << 20);
     size_t nElems = surjectionProofCache.setup_bytes(nMaxCacheSize);
-    LogPrintf("Using %zu MiB out of %zu requested for surjectionproof cache, able to store %zu elements\n",
+    LogPrintf("Using %zu MiB out of %zu requested for surjectionproof cache, able to store %zu ocean\n",
             (nElems*sizeof(uint256)) >>20, nMaxCacheSize>>20, nElems);
 }
 

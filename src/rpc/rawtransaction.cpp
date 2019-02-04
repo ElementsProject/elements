@@ -297,7 +297,7 @@ UniValue getrawtransaction(const JSONRPCRequest& request)
             "         \"reqSigs\" : n,            (numeric) The required sigs\n"
             "         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n"
             "         \"addresses\" : [           (json array of string)\n"
-            "           \"address\"        (string) elements address\n"
+            "           \"address\"        (string) ocean address\n"
             "           ,...\n"
             "         ]\n"
             "         \"pegout_chain\" : \"hex\", (string) (only pegout) Hash of genesis block of parent chain'\n"

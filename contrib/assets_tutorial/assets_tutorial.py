@@ -9,22 +9,22 @@ import subprocess
 import shutil
 from decimal import *
 from pdb import set_trace
-ELEMENTSPATH=""
+OCEANPATH=""
 BITCOINPATH=""
 
 if len(sys.argv) == 2:
-    ELEMENTSPATH=sys.argv[0]
+    OCEANPATH=sys.argv[0]
     BITCOINPATH=sys.argv[1]
 else:
-    ELEMENTSPATH="./src"
+    OCEANPATH="./src"
     BITCOINPATH="./../bitcoin/src"
 
 def startbitcoind(datadir, conf, args=""):
     subprocess.Popen((BITCOINPATH+"/bitcoind -datadir="+datadir+" "+args).split(), stdout=subprocess.PIPE)
     return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@127.0.0.1:"+conf["rpcport"])
 
-def startelementsd(datadir, conf, args=""):
-    subprocess.Popen((ELEMENTSPATH+"/elementsd  -datadir="+datadir+" "+args).split(), stdout=subprocess.PIPE)
+def startoceand(datadir, conf, args=""):
+    subprocess.Popen((OCEANPATH+"/oceand  -datadir="+datadir+" "+args).split(), stdout=subprocess.PIPE)
     return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@127.0.0.1:"+conf["rpcport"])
 
 def loadConfig(filename):
@@ -60,19 +60,19 @@ os.makedirs(e2_datadir)
 # Also configure the nodes by copying the configuration files from
 # this directory (and read them back for arguments):
 shutil.copyfile("contrib/assets_tutorial/bitcoin.conf", b_datadir+"/bitcoin.conf")
-shutil.copyfile("contrib/assets_tutorial/elements1.conf", e1_datadir+"/elements.conf")
-shutil.copyfile("contrib/assets_tutorial/elements2.conf", e2_datadir+"/elements.conf")
+shutil.copyfile("contrib/assets_tutorial/ocean1.conf", e1_datadir+"/ocean.conf")
+shutil.copyfile("contrib/assets_tutorial/ocean2.conf", e2_datadir+"/ocean.conf")
 
 bconf = loadConfig("contrib/assets_tutorial/bitcoin.conf")
-e1conf = loadConfig("contrib/assets_tutorial/elements1.conf")
-e2conf = loadConfig("contrib/assets_tutorial/elements2.conf")
+e1conf = loadConfig("contrib/assets_tutorial/ocean1.conf")
+e2conf = loadConfig("contrib/assets_tutorial/ocean2.conf")
 
 ## Startup
 
 # Can not start since bitcoind isn't running and validatepegin is set
-# elementsd attempts to connect to bitcoind to check if peg-in transactions
+# oceand attempts to connect to bitcoind to check if peg-in transactions
 # are confirmed in the Bitcoin chain.
-e1 = startelementsd(e1_datadir, e1conf)
+e1 = startoceand(e1_datadir, e1conf)
 time.sleep(2)
 try:
     e1.getinfo()
@@ -80,10 +80,10 @@ try:
 except:
     pass
 
-# Start bitcoind, then elementsd. As long as bitcoind is in RPC warmup, elementsd will connect
+# Start bitcoind, then oceand. As long as bitcoind is in RPC warmup, oceand will connect
 bitcoin = startbitcoind(b_datadir, bconf)
-e1 = startelementsd(e1_datadir, e1conf)
-e2 = startelementsd(e2_datadir, e2conf)
+e1 = startoceand(e1_datadir, e1conf)
+e2 = startoceand(e2_datadir, e2conf)
 
 time.sleep(3)
 
@@ -94,7 +94,7 @@ time.sleep(3)
 # understands. This is useful for testing basic functionality and for
 # blockchains that have no pegging functionality. A fee currency is required
 # for anti-DoS purposes as well as asset issuance, which consumes inputs for entropy.
-# In Elements there is no block subsidy. In a production sidechain it can
+# In Ocean there is no block subsidy. In a production sidechain it can
 # be configured to start with no outputs, necessitating peg-in functionality
 # for asset issuance.
 e1.getwalletinfo()
@@ -118,7 +118,7 @@ sync_all(e1, e2)
 e1.getwalletinfo()
 e2.getwalletinfo()
 
-# Have e2 send coins to themself using a blinded Elements address
+# Have e2 send coins to themself using a blinded Ocean address
 # Blinded addresses start with `CTE`, unblinded `2`
 addr = e2.getnewaddress()
 
@@ -228,7 +228,7 @@ e1.issueasset(0, 1, False)
 # Then two issuances for that particular asset will show
 e1.listissuances(asset)
 
-# To label any asset add a new argument like this to your elements.conf file
+# To label any asset add a new argument like this to your ocean.conf file
 # then restart your daemon:
 assetentry = "-assetdir="+asset+":namedasset"
 # Wallet labels have no consensus meaning, only local node/wallet meaning
@@ -238,7 +238,7 @@ e1.stop()
 time.sleep(5)
 
 # Restart with a new asset label
-e1 = startelementsd(e1_datadir, e1conf, assetentry)
+e1 = startoceand(e1_datadir, e1conf, assetentry)
 time.sleep(5)
 
 e1.getwalletinfo()
@@ -320,11 +320,11 @@ os.makedirs(e1_datadir)
 os.makedirs(e2_datadir)
 
 # Copy back config files
-shutil.copyfile("contrib/assets_tutorial/elements1.conf", e1_datadir+"/elements.conf")
-shutil.copyfile("contrib/assets_tutorial/elements2.conf", e2_datadir+"/elements.conf")
+shutil.copyfile("contrib/assets_tutorial/ocean1.conf", e1_datadir+"/ocean.conf")
+shutil.copyfile("contrib/assets_tutorial/ocean2.conf", e2_datadir+"/ocean.conf")
 
-e1 = startelementsd(e1_datadir, e1conf, signblockarg)
-e2 = startelementsd(e2_datadir, e2conf, signblockarg)
+e1 = startoceand(e1_datadir, e1conf, signblockarg)
+e2 = startoceand(e2_datadir, e2conf, signblockarg)
 time.sleep(5)
 sync_all(e1, e2)
 
@@ -389,7 +389,7 @@ time.sleep(5)
 
 ######## Pegging #######
 
-# Everything pegging related can be done inside the Elements daemon directly, except for
+# Everything pegging related can be done inside the Ocean daemon directly, except for
 # pegging out. This is due to the multisig pool aka Watchmen that controls the bitcoin
 # on the Bitcoin blockchain. That is the easiest part to get wrong, and by far the most
 # important as there is no going back if you lose the funds.
@@ -401,15 +401,15 @@ os.makedirs(e1_datadir)
 os.makedirs(e2_datadir)
 
 # Copy back config files
-shutil.copyfile("contrib/assets_tutorial/elements1.conf", e1_datadir+"/elements.conf")
-shutil.copyfile("contrib/assets_tutorial/elements2.conf", e2_datadir+"/elements.conf")
+shutil.copyfile("contrib/assets_tutorial/ocean1.conf", e1_datadir+"/ocean.conf")
+shutil.copyfile("contrib/assets_tutorial/ocean2.conf", e2_datadir+"/ocean.conf")
 
 fedpegarg="-fedpegscript=5221"+pubkey1+"21"+pubkey2+"52ae"
 
 # Back to OP_TRUE blocks, re-using pubkeys for pegin pool instead
 # Keys can be the same or different, doesn't matter
-e1 = startelementsd(e1_datadir, e1conf, fedpegarg)
-e2 = startelementsd(e2_datadir, e2conf, fedpegarg)
+e1 = startoceand(e1_datadir, e1conf, fedpegarg)
+e2 = startoceand(e2_datadir, e2conf, fedpegarg)
 time.sleep(5)
 
 # Mature some outputs on each side
@@ -453,7 +453,7 @@ sync_all(e1, e2)
 #### Pegging Out ####
 
 # This command would trigger watchmen to send payment to Bitcoin address on mainchain
-# The Bitcoin-side functionality is not supported directly in Elements.
+# The Bitcoin-side functionality is not supported directly in Ocean.
 # The watchmen will notice this transaction and send the funds from their collective
 # wallet.
 e1.sendtomainchain(bitcoin.getnewaddress(), 10)

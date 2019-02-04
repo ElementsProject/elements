@@ -163,7 +163,7 @@ bool static IsValidSignatureEncoding(const std::vector<unsigned char> &sig) {
     unsigned int lenS = sig[5 + lenR];
 
     // Verify that the length of the signature matches the sum of the length
-    // of the elements.
+    // of the ocean.
     if ((size_t)(lenR + lenS + 7) != sig.size()) return false;
  
     // Check whether the R element is an integer.

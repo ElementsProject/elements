@@ -27,12 +27,12 @@ NOTE: Building with Qt4 is still supported, however, could result in a broken UI
 Build `Element`
 ------------------------
 
-1. Clone the elements source code and cd into `elements`
+1. Clone the ocean source code and cd into `ocean`
 
-        git clone https://github.com/ElementsProject/elements.git
-        cd elements
+        git clone https://github.com/commerceblock/ocean.git
+        cd ocean
 
-2.  Build sidechain elements:
+2.  Build sidechain ocean:
 
     Configure and build the headless bitcoin binaries as well as the GUI (if Qt is found).
 
@@ -53,26 +53,26 @@ Build `Element`
 Running
 -------
 
-Element is now available at `./src/elements`
+Element is now available at `./src/ocean`
 
 Before running, it's recommended you create an RPC configuration file.
 
-    echo -e "rpcuser=bitcoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/Bitcoin/elements.conf"
+    echo -e "rpcuser=bitcoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/Bitcoin/ocean.conf"
 
-    chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/elements.conf"
+    chmod 600 "/Users/${USER}/Library/Application Support/Bitcoin/ocean.conf"
 
-The first time you run elementsd, it will start downloading the blockchain. This process could take several hours.
+The first time you run oceand, it will start downloading the blockchain. This process could take several hours.
 
 You can monitor the download process by looking at the debug.log file:
 
-    tail -f $HOME/Library/Application\ Support/elements/debug.log
+    tail -f $HOME/Library/Application\ Support/ocean/debug.log
 
 Other commands:
 -------
 
-    ./src/elementsd -daemon # Starts the bitcoin daemon.
-    ./src/elements-cli --help # Outputs a list of command-line options.
-    ./src/elements-cli help # Outputs a list of RPC commands when the daemon is running.
+    ./src/oceand -daemon # Starts the bitcoin daemon.
+    ./src/ocean-cli --help # Outputs a list of command-line options.
+    ./src/ocean-cli help # Outputs a list of RPC commands when the daemon is running.
 
 Using Qt Creator as IDE
 ------------------------

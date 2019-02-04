@@ -39,7 +39,7 @@ private:
     //! Master thread blocks on this when out of work
     boost::condition_variable condMaster;
 
-    //! The queue of elements to be processed.
+    //! The queue of ocean to be processed.
     //! As the order of booleans doesn't matter, it is used as a LIFO (stack)
     //! This should really be a vector of unique_ptr's, but that's C++11.
     std::vector<T*> queue;
@@ -55,7 +55,7 @@ private:
 
     /**
      * Number of verifications that haven't completed yet.
-     * This includes elements that are no longer queued, but still in the
+     * This includes ocean that are no longer queued, but still in the
      * worker's own batches.
      */
     unsigned int nTodo;
@@ -63,7 +63,7 @@ private:
     //! Whether we're shutting down.
     bool fQuit;
 
-    //! The maximum number of elements to be processed in one batch
+    //! The maximum number of ocean to be processed in one batch
     unsigned int nBatchSize;
 
     /** Internal function that does bulk of the verification work. */

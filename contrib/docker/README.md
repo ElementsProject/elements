@@ -37,13 +37,13 @@ Hit ctrl+c to stop following
 
 ## Check if connected to CommerceBlock testnet
 
-`docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getpeerinfo`
+`docker-compose -p ocean exec node ocean-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getpeerinfo`
 
 Should see: "testnet.commerceblock.com:7043"
 
 ## Check block count
 
-`docker-compose -p ocean exec node elements-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getblockcount`
+`docker-compose -p ocean exec node ocean-cli -rpcport=18332 -rpcuser=ocean -rpcpassword=oceanpass getblockcount`
 
 Once synched, block count should be the same as in: https://cbtexplorer.com
 
@@ -64,7 +64,7 @@ As root
 `docker-compose -p ocean exec node bash`
 As bitcoin
 `docker-compose -p ocean exec -u bitcoin node bash`
-Then: elements-cli / elements-tx available from within inside of container.
+Then: ocean-cli / ocean-tx available from within inside of container.
 
 Note: if running as root, need to specify: -datadir=/home/bitcoin/.bitcoin
 

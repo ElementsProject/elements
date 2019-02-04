@@ -1,13 +1,13 @@
 *.tar.gz
 
 *.exe
-src/elements
-src/elementsd
-src/elements-cli
-src/elements-tx
-src/test/test_elements
-src/qt/test/test_elements-qt
-src/test/test_elements_fuzzy
+src/ocean
+src/oceand
+src/ocean-cli
+src/ocean-tx
+src/test/test_ocean
+src/qt/test/test_ocean-qt
+src/test/test_ocean_fuzzy
 
 # autoreconf
 Makefile.in
@@ -74,12 +74,12 @@ src/qt/test/moc*.cpp
 # Compilation and Qt preprocessor part
 *.qm
 Makefile
-elements-qt
-Elements-Qt.app
+ocean-qt
+Ocean-Qt.app
 
 # Unit-tests
 Makefile.test
-elements-qt_test
+ocean-qt_test
 src/test/buildenv.py
 
 # Resources cpp

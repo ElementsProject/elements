@@ -7,7 +7,7 @@ services:
       - "18332"
       - "7042"
     command: >-
-      elementsd
+      oceand
         -printtoconsole
         -rpcuser=${BITCOIN_RPC_USER:-ocean}
         -rpcpassword=${BITCOIN_RPC_PASSWORD:-oceanpass}

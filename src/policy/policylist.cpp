@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "policyList.h"
+#include "policylist.h"
 
 
 CPolicyList::CPolicyList(){;}
@@ -22,7 +22,7 @@ void CPolicyList::clear(){
   return base::clear();
 }
 
-//Erase elements, and return the next valid iterator.
+//Erase ocean, and return the next valid iterator.
 CPolicyList::baseIter CPolicyList::remove(CKeyID* id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return base::erase(base::find(*id));

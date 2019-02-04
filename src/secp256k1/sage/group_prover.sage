@@ -139,10 +139,10 @@ class constraints:
   nonzero could be multiplied into a single key. This is often much less
   efficient to work with though, so we keep them separate inside the
   constraints. This allows higher-level code to do fast checks on the individual
-  nonzero elements, or combine them if needed for stronger checks.
+  nonzero ocean, or combine them if needed for stronger checks.
 
-  We can't multiply the different zero elements, as it would suffice for one of
-  the factors to be zero, instead of all of them. Instead, the zero elements are
+  We can't multiply the different zero ocean, as it would suffice for one of
+  the factors to be zero, instead of all of them. Instead, the zero ocean are
   typically combined into an ideal first.
   """
 

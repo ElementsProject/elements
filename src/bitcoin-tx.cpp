@@ -60,10 +60,10 @@ static int AppInitRawTx(int argc, char* argv[])
     if (argc<2 || IsArgSet("-?") || IsArgSet("-h") || IsArgSet("-help"))
     {
         // First part of help message is specific to this utility
-        std::string strUsage = strprintf(_("%s elements-tx utility version"), _(PACKAGE_NAME)) + " " + FormatFullVersion() + "\n\n" +
+        std::string strUsage = strprintf(_("%s ocean-tx utility version"), _(PACKAGE_NAME)) + " " + FormatFullVersion() + "\n\n" +
             _("Usage:") + "\n" +
-              "  elements-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded bitcoin transaction") + "\n" +
-              "  elements-tx [options] -create [commands]   " + _("Create hex-encoded bitcoin transaction") + "\n" +
+              "  ocean-tx [options] <hex-tx> [commands]  " + _("Update hex-encoded bitcoin transaction") + "\n" +
+              "  ocean-tx [options] -create [commands]   " + _("Create hex-encoded bitcoin transaction") + "\n" +
               "\n";
 
         fprintf(stdout, "%s", strUsage.c_str());

@@ -77,7 +77,7 @@ ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& c
 
     // Calculate map of txids -> positions and check mempool to see what we have (or don't)
     // Because well-formed cmpctblock messages will have a (relatively) uniform distribution
-    // of short IDs, any highly-uneven distribution of elements can be safely treated as a
+    // of short IDs, any highly-uneven distribution of ocean can be safely treated as a
     // READ_STATUS_FAILED.
     std::unordered_map<uint64_t, uint16_t> shorttxids(cmpctblock.shorttxids.size());
     uint16_t index_offset = 0;
@@ -86,14 +86,14 @@ ReadStatus PartiallyDownloadedBlock::InitData(const CBlockHeaderAndShortTxIDs& c
             index_offset++;
         shorttxids[cmpctblock.shorttxids[i]] = i + index_offset;
         // To determine the chance that the number of entries in a bucket exceeds N,
-        // we use the fact that the number of elements in a single bucket is
+        // we use the fact that the number of ocean in a single bucket is
         // binomially distributed (with n = the number of shorttxids S, and p =
         // 1 / the number of buckets), that in the worst case the number of buckets is
         // equal to S (due to std::unordered_map having a default load factor of 1.0),
-        // and that the chance for any bucket to exceed N elements is at most
-        // buckets * (the chance that any given bucket is above N elements).
-        // Thus: P(max_elements_per_bucket > N) <= S * (1 - cdf(binomial(n=S,p=1/S), N)).
-        // If we assume blocks of up to 16000, allowing 12 elements per bucket should
+        // and that the chance for any bucket to exceed N ocean is at most
+        // buckets * (the chance that any given bucket is above N ocean).
+        // Thus: P(max_ocean_per_bucket > N) <= S * (1 - cdf(binomial(n=S,p=1/S), N)).
+        // If we assume blocks of up to 16000, allowing 12 ocean per bucket should
         // only fail once per ~1 million block transfers (per peer and connection).
         if (shorttxids.bucket_size(shorttxids.bucket(cmpctblock.shorttxids[i])) > 12)
             return READ_STATUS_FAILED;

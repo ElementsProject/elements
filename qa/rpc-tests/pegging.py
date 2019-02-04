@@ -99,7 +99,7 @@ def write_bitcoin_conf(datadir, rpcport, rpcpass=None, p2p_port=None, connect_po
 write_bitcoin_conf(bitcoin_datadir, bitcoin_port, bitcoin_pass, p2p_port=bitcoin_p2p_port, connect_port=bitcoin2_p2p_port)
 write_bitcoin_conf(bitcoin2_datadir, bitcoin2_port, rpcpass=None, p2p_port=bitcoin2_p2p_port, connect_port=bitcoin_p2p_port)
 
-with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
+with open(os.path.join(sidechain_datadir, "ocean.conf"), 'w') as f:
         f.write("regtest=1\n")
         f.write("rpcuser=sidechainrpc\n")
         f.write("rpcpassword="+sidechain_pass+"\n")
@@ -120,7 +120,7 @@ with open(os.path.join(sidechain_datadir, "elements.conf"), 'w') as f:
         f.write("fallbackfee=0.0001\n")
         f.write("initialfreecoins=2100000000000000\n")
 
-with open(os.path.join(sidechain2_datadir, "elements.conf"), 'w') as f:
+with open(os.path.join(sidechain2_datadir, "ocean.conf"), 'w') as f:
         f.write("regtest=1\n")
         f.write("rpcuser=sidechainrpc2\n")
         f.write("rpcpassword="+sidechain2_pass+"\n")
@@ -171,10 +171,10 @@ try:
     bitcoind2start = bitcoin_bin_path+"/bitcoind -datadir="+bitcoin2_datadir
     subprocess.Popen(bitcoind2start.split(), stdout=subprocess.PIPE)
 
-    sidechainstart = sidechain_bin_path+"/elementsd -datadir="+sidechain_datadir + sidechain_args
+    sidechainstart = sidechain_bin_path+"/oceand -datadir="+sidechain_datadir + sidechain_args
     subprocess.Popen(sidechainstart.split(), stdout=subprocess.PIPE)
 
-    sidechain2start = sidechain_bin_path+"/elementsd -datadir="+sidechain2_datadir + sidechain_args
+    sidechain2start = sidechain_bin_path+"/oceand -datadir="+sidechain2_datadir + sidechain_args
     subprocess.Popen(sidechain2start.split(), stdout=subprocess.PIPE)
 
     print("Daemons started")

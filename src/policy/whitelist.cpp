@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "whiteList.h"
+#include "whitelist.h"
 #include "validation.h"
 #include "wallet/wallet.h"
 #include "ecies.h"
@@ -32,7 +32,7 @@ void CWhiteList::add_derived(CBitcoinAddress address, CPubKey pubKey, CBitcoinAd
   if(kycAddress){
     if (!kycAddress->GetKeyID(kycKeyId))
       throw std::system_error(
-            std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
             std::string(__func__) + ": invalid key id (kyc address)");
   }
 
@@ -41,7 +41,7 @@ void CWhiteList::add_derived(CBitcoinAddress address, CPubKey pubKey, CBitcoinAd
   } catch (std::system_error e) {
     throw e;
   } 
-  //insert new address into sorted CWhiteList vector 
+  //insert new address into sorted CWhiteList vector
   add_sorted(&keyId);
 
   //Add to the ID map

@@ -16,14 +16,14 @@ BEGIN
     BEGIN
         BLOCK "040904E4" // U.S. English - multilingual (hex)
         BEGIN
-            VALUE "CompanyName",        "Elements project"
+            VALUE "CompanyName",        "Ocean project"
             VALUE "FileDescription",    "bitcoin-cli (JSON-RPC client for " PACKAGE_NAME ")"
             VALUE "FileVersion",        VER_FILEVERSION_STR
-            VALUE "InternalName",       "elements-cli"
+            VALUE "InternalName",       "ocean-cli"
             VALUE "LegalCopyright",     COPYRIGHT_STR
             VALUE "LegalTrademarks1",   "Distributed under the MIT software license, see the accompanying file COPYING or http://www.opensource.org/licenses/mit-license.php."
-            VALUE "OriginalFilename",   "elements-cli.exe"
-            VALUE "ProductName",        "elements-cli"
+            VALUE "OriginalFilename",   "ocean-cli.exe"
+            VALUE "ProductName",        "ocean-cli"
             VALUE "ProductVersion",     VER_PRODUCTVERSION_STR
         END
     END

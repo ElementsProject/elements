@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE(limitedmap_test)
     // check that the size is unaffected
     BOOST_CHECK(map.size() == 5);
 
-    // erase the remaining elements
+    // erase the remaining ocean
     for (int i = 5; i < 10; i++) {
         map.erase(i);
     }

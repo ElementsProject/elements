@@ -113,7 +113,7 @@ BOOST_AUTO_TEST_CASE(bloom_create_insert_key)
 // classes is the following bloom filter tests. These tests, inhereted from
 // upstream, do bloom filter matching on bitcoin blocks. However the bitcoin
 // serialization classes are not compatible with the native bloom filter
-// functionality, so these must be disabled until such time as elements
+// functionality, so these must be disabled until such time as ocean
 // versions of these tests can be constructed.
 
 #if 0
