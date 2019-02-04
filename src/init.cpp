@@ -26,6 +26,7 @@
 #include "netbase.h"
 #include "net.h"
 #include "net_processing.h"
+#include "policy/policy.h"
 #include "rpc/server.h"
 #include "rpc/register.h"
 #include "script/standard.h"
@@ -41,7 +42,6 @@
 #include "validationinterface.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
-#include "policy/policy.h"
 #endif
 #include "warnings.h"
 #include <stdint.h>

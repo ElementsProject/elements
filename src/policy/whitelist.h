@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "policyList.h"
+#include "policylist.h"
 
 class CWhiteList : public CPolicyList{
 public:
@@ -16,7 +16,7 @@ public:
 	void synchronise(CWhiteList* wl_new);
 
 private:
-	//Make add_sorted private because we only want verified derived keys 
+	//Make add_sorted private because we only want verified derived keys
 	//to be added to the CWhiteList.
 	using CPolicyList::add_sorted;
 };
