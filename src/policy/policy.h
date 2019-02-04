@@ -12,11 +12,20 @@
 
 #include <string>
 #include <vector>
+#include <boost/thread/thread.hpp> // boost::thread::interrupt
 
 class CCoinsViewCache;
+class CCoinsView;
 
 /** The sha256 of Bitcoin genesis block, for easy reference **/
 extern CAsset policyAsset;
+
+/** the asset for freezelist policy **/
+extern CAsset freezelistAsset;
+/** the asset for burnlist policy **/
+extern CAsset burnlistAsset;
+/** the asset for burnlist policy **/
+extern CAsset whitelistAsset;
 
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;
@@ -89,6 +98,11 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason);
      */
 bool IsBurn(const CTransaction& tx);
     /**
+     * Check if a transaction has outputs what are of a policy asset type
+     */
+bool IsPolicy(const CTransaction& tx);
+
+    /**
      * Check all type and whitelist status of outputs of tx
      * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database
      */
@@ -111,6 +125,27 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are present in the freezelist
     */
 bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**                                                                
+    * Update the freezelist with the input tx encoding
+    * if the tx has an encoded address in its outputs, these are added to the freezelist
+    * if the tx has encoded addresses in its inputs, these are removed from the freezelist
+    */
+bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    /**                                                                
+    * Update the burnlist with the input tx encoding
+    * if the tx has an encoded address in its outputs, these are added to the burnlist
+    * if the tx has encoded addresses in its inputs, these are removed from the burnlist
+    */
+bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+    //function to scan the UTXO set for freezelist addresses
+bool LoadFreezeList(CCoinsView *view);
+
+    //function to scane the UTXO set for burnlist addresses
+bool LoadBurnList(CCoinsView *view);
+
     /**
      * Check for standard transaction types
      * @param[in] mapInputs    Map of previous transactions that have outputs we're spending

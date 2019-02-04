@@ -68,6 +68,10 @@ struct Params {
     // The redeemscript that the peg uses. Uses p2sh-p2wsh
     CScript fedpegScript;
     CAsset pegged_asset;
+    CAsset freezelist_asset;
+    CAsset burnlist_asset;
+    CAsset whitelist_asset;
+
     uint256 defaultAssumeValid;
     uint32_t pegin_min_depth;
     CScript mandatory_coinbase_destination;

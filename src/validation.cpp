@@ -1092,7 +1092,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
     // Accept only transactions that have P2PKH outputs with addresses in the whitelist
     if (fRequireWhitelistCheck){
-      if(!IsWhitelisted(tx))
+      if(!IsBurn(tx) && !IsPolicy(tx) && !IsWhitelisted(tx))
       return state.DoS(0, false, REJECT_NONSTANDARD, "non-whitelisted-address");
     }
 
@@ -1275,12 +1275,12 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
                 strprintf("%d", nSigOpsCost));
 
         CAmount mempoolRejectFee = pool.GetMinFee(GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000).GetFee(nSize);
-        if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee && tx.vin[0].assetIssuance.IsNull() && !IsBurn(tx)) {
+        if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee && tx.vin[0].assetIssuance.IsNull() && !IsBurn(tx) && !IsPolicy(tx)) {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met", false, strprintf("%d < %d for asset %s", nFees, mempoolRejectFee, feeAsset.GetHex()));
         }
 
         // No transactions are allowed below minRelayTxFee except from disconnected blocks
-        if (fLimitFree && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && tx.vin[0].assetIssuance.IsNull() && !IsBurn(tx))
+        if (fLimitFree && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && tx.vin[0].assetIssuance.IsNull() && !IsBurn(tx) && !IsPolicy(tx))
         {
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met");
         }
@@ -2776,6 +2776,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
+        if(fRequireFreezelistCheck) {
+            if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) UpdateFreezeList(tx,view);
+        }
+        if(fEnableBurnlistCheck) {
+            if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) UpdateBurnList(tx,view);
+        }
+
         // GetTransactionSigOpCost counts 3 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
@@ -2800,6 +2807,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
+
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
@@ -2810,7 +2818,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         mapFees += tx.GetFee();
         if (!MoneyRange(mapFees))
             return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
+
     }
+
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
 

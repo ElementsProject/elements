@@ -524,6 +524,9 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
         strUsage += HelpMessageOpt("-initialfreecoins", strprintf(_("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-initialfreecoinsdestination", strprintf(_("The destination of the OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-freezelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the freezelist (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-burnlistcoinsdestination", strprintf(_("The destination of the tokens for controlling the burnlist. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-whitelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the whitelist. (default: %d)"), 0));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
@@ -1029,6 +1032,13 @@ bool AppInitParameterInteraction()
         nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
 
     policyAsset = CAsset(uint256S(GetArg("-feeasset", chainparams.GetConsensus().pegged_asset.GetHex())));
+
+    if(GetArg("-freezelistcoinsdestination", "").size() > 0) {
+        freezelistAsset = CAsset(uint256S(chainparams.GetConsensus().freezelist_asset.GetHex()));
+    }
+    if(GetArg("-burnlistcoinsdestination", "").size() > 0) {
+        burnlistAsset = CAsset(uint256S(chainparams.GetConsensus().burnlist_asset.GetHex()));
+    }
 
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:
@@ -1659,6 +1669,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     const CBlock &genesisBlock = Params().GenesisBlock();
     for (unsigned int i = 0; i<genesis->nTx ; i++) {
         GetMainSignals().SyncTransaction(*(genesisBlock.vtx[i]), genesis, (int)i);
+    }
+
+    if(chainActive.Height() > 1) {
+        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
+        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
     }
 
     // ********************************************************* Step 11: start node

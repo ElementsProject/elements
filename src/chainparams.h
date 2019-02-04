@@ -116,6 +116,9 @@ protected:
     uint256 attestationHash;
     CAmount initialFreeCoins;
     CScript initialFreeCoinsDestination;
+    CScript freezeListCoinsDestination;
+    CScript burnListCoinsDestination;
+    CScript whiteListCoinsDestination;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;
