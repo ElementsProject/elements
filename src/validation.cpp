@@ -1226,10 +1226,6 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
             return true;
         }
 
-                //check if a freeselist transaction and update the freezelist
-//        if(tx.vout[0].nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) UpdateFreezeList(tx,view);
-//        if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) UpdateBurnList(tx,view);
-
         // Check for non-standard witness in P2WSH
         if (tx.HasWitness() && fRequireStandard && !IsWitnessStandard(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "bad-witness-nonstandard", true);
@@ -2795,6 +2791,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
+        //check if a freeselist/burnlist/whitelist transaction and update the list
+        if(tx.vout[0].nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
+        if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
+        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) addressWhitelist.Update(tx,view);
+        txnouttype type;
+        std::vector<std::vector<unsigned char> > solutions;
+        if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
+            if(type == TX_REGISTERADDRESS){
+                addressWhitelist.RegisterAddress(tx, view);
+            }
+        }
+
         // GetTransactionSigOpCost counts 3 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
@@ -2820,18 +2828,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             blockundo.vtxundo.push_back(CTxUndo());
         }
 
-        //check if a freeselist/burnlist/whitelist transaction and update the list
-        if(tx.vout[0].nAsset.GetAsset() == freezelistAsset && fRequireFreezelistCheck) addressFreezelist.Update(tx,view);
-        if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) addressBurnlist.Update(tx,view);
-        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) addressWhitelist.Update(tx,view);
-        txnouttype type;
-        std::vector<std::vector<unsigned char> > solutions;
-        if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
-            if(type == TX_REGISTERADDRESS){
-                addressWhitelist.RegisterAddress(tx);
-            }
-        }
-
+        
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);

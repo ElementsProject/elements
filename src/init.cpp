@@ -1676,6 +1676,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
         GetMainSignals().SyncTransaction(*(genesisBlock.vtx[i]), genesis, (int)i);
     }
 
+    if(chainActive.Height() > 1) {
+        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
+        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
+    }
+
     // ********************************************************* Step 11: start node
 
     //// debug print

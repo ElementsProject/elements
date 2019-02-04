@@ -23,6 +23,7 @@
 #include "primitives/bitcoin/transaction.h"
 #include "rpc/server.h"
 #include "script/sign.h"
+#include "script/standard.h"
 #include "random.h"
 #include "timedata.h"
 #include "util.h"
@@ -31,6 +32,7 @@
 #include "walletdb.h"
 #include "merkleblock.h"
 #include "chainparams.h"
+#include "coincontrol.h"
 #include <secp256k1.h>
 
 #include <stdint.h>
@@ -501,30 +503,32 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
 static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress, 
-    const CAsset& feeAsset, const int nToRegister, CWalletTx& wtxNew){
-    CAmount curBalance = pwalletMain->GetBalance()[feeAsset];
+    const CAsset& feeAsset, const int nToRegister, const CPubKey& pubKey,
+     CWalletTx& wtxNew){
 
+    CAmount curBalance = pwalletMain->GetBalance()[feeAsset];
+    
     // Check the balance of the "from" address
     map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
     CKeyID keyID;
     fromAddress.GetKeyID(keyID);
-    UniValue fromAddressBalance = ValueFromAmount(balances[keyID]);
-    //TODO
-    //if(fromAddressBalance <=0)
-    //throw JSONRPCError(RPC_WALLET_ERROR, "Error: insufficient funds");
+    CAmount fromAddressBalance = balances[keyID];
+    
+    if(fromAddressBalance <=0)
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: insufficient funds");
 
     // Check amount
     if (nToRegister <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid ntoregister");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid naddresses");
 
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
+
     //Get the addresses to be registered
-    std::vector<std::pair<CKeyID, CPubKey> > addresses;
-    while(addresses.size()<nToRegister){
+    std::vector<CPubKey> keysToReg;
+    while(keysToReg.size()<nToRegister){
         CBitcoinAddress addr;
-        CPubKey pubKey;
         // get the next registered base58check encoded tweaked public key and add it to the whitelist
         std::set<CKeyID> setKeyPool;
         pwalletMain->GetAllReserveKeys(setKeyPool);
@@ -534,12 +538,8 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
             addr.Set(keyid);
             CKey key;
             if (pwalletMain->GetKey(keyid, key)) { // verify exists
-                if(!addressWhitelist.find(&keyid)){ // if not in the whitelist...
-                    pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
-                    std::pair<CKeyID, CPubKey> address(keyid, pubKey);
-                    addresses.push_back(address);
-                    if(addresses.size()>nToRegister) break;
-                }
+                keysToReg.push_back(key.GetPubKey());
+                if(keysToReg.size()>=nToRegister) break;
             }
         }
     }
@@ -548,8 +548,8 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     CKey key;
     pwalletMain->CCryptoKeyStore::GetKey(keyID, key);
     CScript scriptRegisterAddress = GetScriptForAddToWhitelist(key, 
-                                                                addresses, 
-                                                                pwalletMain->GetIDPubKey());
+                                                                keysToReg, 
+                                                                pubKey);
 
     // Create and send the transaction
     std::vector<CReserveKey> vChangeKey;
@@ -563,56 +563,115 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptRegisterAddress, CAmount(0), feeAsset, CPubKey(), false};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
+
+    std::vector<COutput> availableCoins;
+    pwalletMain->AvailableCoins(availableCoins);
+    std::vector<COutput>::const_iterator fromCoin = availableCoins.begin(); 
+    const CCoinsViewCache& view(*pcoinsTip);
+    //Find the output from the desired address
+    for(bool bFound=false;
+        fromCoin != availableCoins.end() &! bFound; ++fromCoin){
+            if(!(*fromCoin).fSpendable && (*fromCoin).fSolvable) continue;
+            const CWalletTx* tx = (*fromCoin).tx;
+            CTransactionRef tRef;
+            uint256 hash = tx->GetHash();
+            uint256 hashBlock;
+                        
+            if(GetTransaction(hash, tRef, Params().GetConsensus(), hashBlock, true)){
+                for(int i=0; i<tRef->vin.size(); ++i){
+                    const CTxOut prev = view.GetOutputFor(tRef->vin[i]);
+                    std::vector<std::vector<unsigned char> > vSolutions;
+                    txnouttype whichType;
+
+                    const CScript prevScript = prev.scriptPubKey;
+                    if (!Solver(prevScript, whichType, vSolutions))
+                        return;
+
+                    if (whichType == TX_PUBKEYHASH){
+                        CKeyID keyIdTmp;
+                        for(int j=0; j<vSolutions.size(); j++){
+                            keyIdTmp = CKeyID(uint160(vSolutions[j]));
+                            // Have found the correct transaction output.
+                            if(keyIdTmp == keyID){
+                            bFound=true;
+                            break;
+                            }
+                        }
+                    }
+                if(bFound) break;
+            }
+        }
+    }   
+
+    //Set the input (fromAddress)
+    CCoinControl coinControl;
+    coinControl.fAllowOtherInputs=false;
+    COutPoint outPoint((*fromCoin).tx->GetHash(), (*fromCoin).i);
+    coinControl.Select(outPoint);
+       
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
         //TODO
-        //if (nFeeRequired > fromAddressBalance)
-//            strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
-  //      throw JSONRPCError(RPC_WALLET_ERROR, strError);
+        if (nFeeRequired > fromAddressBalance)
+            strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
     if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
-    }
+    }  
 }
 
-UniValue sendaddtowhitelist(const JSONRPCRequest& request){
+UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-        if (request.fHelp || request.params.size() != 3) {
+        if (request.fHelp || request.params.size() != 4) {
         throw runtime_error(
-            "addnewaddresstowhitelist \n"
+            "sendaddtowhitelisttx \n"
             "\nRegister the next unwhitelisted address in the keypool via a \"add to whitelist\" transaction.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
             "1. \"fromaddress\"      (string, required) A whitelisted bitcoin address already owned by this wallet.\n"
-            "2. \"feeasset\"            (string, required) The asset type to use to pay the transaction fee."
-            "3. \"ntoregister\"         (numeric or string, required) The number of new addresses to register.\n"
+            "2. \"feeasset\"            (string, required) The asset type to use to pay the transaction fee.\n"
+            "3. \"naddresses\"         (numeric or string, required) The number of new addresses to register.\n"
+            "4. \"kycpubkey\"      (string, required) The hex endoded KYC pubkey to which to register the new address.\n"
              "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\"[addresses]\"           (string[]) The addresses that were registered.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendaddtowhitelist", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" ,\"2\"")
+            + HelpExampleCli("sendaddtowhitelisttx", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", \"CBT\", \"2\"")
         );
     }
 
+
     LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
 
     CBitcoinAddress fromaddress(request.params[0].get_str());
     if (!fromaddress.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
-    int ntoregister = 10;
+    CAsset feeasset = GetAssetFromString(request.params[1].get_str());  
+    UniValue naddresses = request.params[2];
 
-    EnsureWalletIsUnlocked();
-    CAsset feeasset = GetAssetFromString(request.params[1].get_str());
+    //get the KYC pubkey from the RPC
+    const UniValue& pkey = request.params[3];
+    std::string sPubKey=pkey.getValStr();
+    if (!IsHex(sPubKey))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey must be a hex string");
+    std::vector<unsigned char> datapubkey(ParseHex(sPubKey));
+    CPubKey kycPubKey(datapubkey.begin(), datapubkey.end());
+    //we check that this pubkey is a real curve point
+    if (!kycPubKey.IsFullyValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey is not a valid public key");
 
     CWalletTx wtx;
-    SendAddNextToWhitelistTx(fromaddress, feeasset, ntoregister, wtx);
 
-    AuditLogPrintf("%s : registertowhitelist %s %s %s txid:%s\n", getUser(), request.params[0].get_str(), 
-        request.params[1].get_str(), request.params[2].get_str(), wtx.GetHash().GetHex());
+    SendAddNextToWhitelistTx(fromaddress, feeasset, naddresses.get_int(), kycPubKey, wtx);
+
+//    AuditLogPrintf("%s : registertowhitelist %s %s %s txid:%s\n", getUser(), request.params[0].get_str(), 
+  //      request.params[1].get_str(), request.params[2].get_str(), wtx.GetHash().GetHex());
 
     return wtx.GetHash().GetHex();
 }
@@ -4575,7 +4634,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "listunspent",              &listunspent,              false,  {"minconf","maxconf","addresses","include_unsafe"} },
     { "wallet",             "lockunspent",              &lockunspent,              true,   {"unlock","transactions"} },
     { "wallet",             "sendmany",                 &sendmany,                 false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
-    { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
+    { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"fromaddress","feeasset","naddresses"} },
+    { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,     false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {} },

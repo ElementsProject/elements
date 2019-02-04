@@ -10,6 +10,8 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "ecies.h"
+#include "crypto/common.h"
+#include "validation.h"
 
 #include <boost/foreach.hpp>
 
@@ -108,9 +110,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     //Register address transaction 
     //Firt byte OP_REGISTERADDRESS, remainder is push only (unspendable)
     //Decode the metadata
-    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS  &&  scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS){
+        if(scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)){
         typeRet = TX_REGISTERADDRESS;
         return true;
+        }
     }
 
     if (scriptPubKey == CScript() << OP_TRUE) {
@@ -310,31 +314,54 @@ CScript GetScriptForDestination(const CTxDestination& dest)
 }
 
 CScript GetScriptForAddToWhitelist(const CKey& key, 
-                                   const std::vector<std::pair<CKeyID, CPubKey> >& addresses, 
-                                   const CPubKey idPubKey){
+                                   const std::vector<CPubKey>& keysToReg, 
+                                   const CPubKey& idPubKey){
    
     //OP_REGISTERADDRESS||nbytestofollow||E_k(address||pubkey)  
     std::vector<unsigned char> message;
 
-    //Append the addresses (with raw pub keys)
-    for(auto address : addresses){
-        std::vector<unsigned char> vKeyIDNew = CastToByteVector(address.first);
+    //Append the addresses and pub keys
+    for(CPubKey pubKey : keysToReg){
+        CKeyID keyID=pubKey.GetID();
+        std::string hexaddress=HexStr(keyID.begin(), keyID.end());
+        std::vector<unsigned char> vKeyIDNew(ParseHex(hexaddress));
         message.insert(message.end(), 
                     vKeyIDNew.begin(), 
                     vKeyIDNew.end());
+
+        std::string hexpubkey=HexStr(pubKey.begin(), pubKey.end());
+        std::vector<unsigned char> vPubKeyNew(ParseHex(hexpubkey));
         message.insert(message.end(), 
-                    address.second.begin(), 
-                    address.second.end());
+                    vPubKeyNew.begin(), 
+                    vPubKeyNew.end());
     }
 
-    //Add the ID pubic key
-    message.insert(message.end(), idPubKey.begin(), idPubKey.end()); 
+    //Add the contract hashed pubic key ID - 20 bytes
+    CPubKey tweakedPubKey(idPubKey);
+    //uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+//    if (!contract.IsNull())
+  //      tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+    CKeyID kycKeyID = tweakedPubKey.GetID();
+    std::vector<unsigned char> vKeyID=ToByteVector(kycKeyID);
+    message.insert(message.end(), vKeyID.begin(), vKeyID.end());
+    //std::string hexaddress=HexStr(kycKeyID.begin(), kycKeyID.end());
+
 
     
-    //Encrypt the above with the address private key and the ID public key
+
+
+//    message.insert(message.end(), vKeyID.begin(), vKeyID.end()); 
+
+
+
+    
+    //Encrypt the above with the address private key and the kyc key ID
     CECIES encryptor(key,idPubKey);
-    std::vector<unsigned char> enc_mess;
-    encryptor.Encrypt(enc_mess, message);
+    std::vector<unsigned char> enc_mess_2;
+    encryptor.Encrypt(enc_mess_2, message);
+    //Skip encryption for now
+    std::vector<unsigned char> enc_mess(message.begin(), message.end());
+   
 
     //Prepend the initialization vector used in the encryption
     std::vector<unsigned char> sendData = encryptor.get_iv();
@@ -342,8 +369,8 @@ CScript GetScriptForAddToWhitelist(const CKey& key,
 
     //Assemble the script and return
     CScript script;
-    script << OP_REGISTERADDRESS << OP_PUSHDATA4 <<
-    CastToByteVectorLE4(sendData.size()) << sendData;
+    script  << OP_REGISTERADDRESS << sendData; 
+                        
     return script;
 }
 

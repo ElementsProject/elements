@@ -14,6 +14,7 @@
 #include <vector>
 
 class CCoinsViewCache;
+class CCoinsView;
 
 /** The sha256 of Bitcoin genesis block, for easy reference **/
 extern CAsset policyAsset;
@@ -125,6 +126,12 @@ bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     * if the tx has an encoded address in its outputs, these are added to the freezelist
     * if the tx has encoded addresses in its inputs, these are removed from the freezelist
     */
+
+    //function to scan the UTXO set for freezelist addresses
+bool LoadFreezeList(CCoinsView *view);
+
+    //function to scane the UTXO set for burnlist addresses
+bool LoadBurnList(CCoinsView *view);
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     /**
      * Check if the transaction is over standard P2WSH resources limit:

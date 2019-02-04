@@ -75,43 +75,55 @@ void CWhiteList::add_derived(std::string sAddress, std::string sPubKey, std::str
   delete kycAddress;
 }
 
-bool CWhiteList::RegisterAddress(const CTransaction& tx){
+bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
+  //Add some dummy addresses
+
+  //add_derived("15Etfnx6Di55RYMdfgVY1DJrZVQdpDSNm4", 
+  //  "0267aabaa581496ed04da47291662f047577b286c6c7fd8a646b286ea6aba89c05",
+  //  "1JwZL6rZ5zAVDjtRpTvrmZS5sUZJmP9HSP");
+
+
   //Check if this is a ID registration (whitetoken) transaction
-    unsigned int pubKeySize=33;
-    unsigned int initVecSize=32;
-
-
   // Get input addresses an lookup associated idpubkeys
   if (tx.IsCoinBase())
     return false; // Coinbases don't use vin normally
 
-  //Get input addresses
-  std::vector<CPubKey> inputPubKeys;
-
-  for (unsigned int i = 0; i < tx.vin.size(); i++) {
-    CScript scriptSig = tx.vin[i].scriptSig;
-    inputPubKeys.push_back(CPubKey(scriptSig.end()-pubKeySize, scriptSig.end()));
-  }
-
-  if(inputPubKeys.size()==0) return false;
-  
-  //Lookup the ID public keys of the input addresses
+  //Get input keyids
+  //Lookup the ID public keys of the input addresses.
+  //The set is used to ensure that there is only one kycKey involved.
   std::set<CKeyID> kycKeys;
-  CKeyID kycKey;
-  CPubKey inputPubKey;
+  std::vector<CPubKey> inputPubKeys;
+  CKeyID kycKey, keyId;
+  
+  for (unsigned int i = 0; i < tx.vin.size(); i++) {
+    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
 
-  for(std::vector<CPubKey>::const_iterator it = inputPubKeys.begin();
-      it != inputPubKeys.end();
-      ++it){
-    //All input addresses must be owned by someone whitelisted
-    CKeyID keyID = CKeyID(uint160(Hash160((*it).begin(), (*it).end())));
-    if(!LookupKYCKey(keyID, kycKey)) return false;
-    kycKeys.insert(kycKey);
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+
+    const CScript& prevScript = prev.scriptPubKey;
+    if (!Solver(prevScript, whichType, vSolutions))
+      return false;
+
+    if (whichType == TX_PUBKEYHASH) {
+      keyId = CKeyID(uint160(vSolutions[0]));
+      // For debugging - translate into bitcoin address
+      CBitcoinAddress addr(keyId);
+      std::string sAddr = addr.ToString();
+      // search in whitelist for the presence of keyid
+      // add the associated kycKey to the set of kyc keys
+      if(LookupKYCKey(keyId, kycKey)){
+       kycKeys.insert(kycKey);
+       CPubKey pubKey;
+       pwalletMain->GetPubKey(keyId, pubKey);
+       inputPubKeys.push_back(pubKey);
+      }
+    }
   }
 
-  //There must be exactly 1 kyc key (all input addresses owned by 1 person)
-  if(kycKeys.size() != 1) return false;
-  
+  //Inputs need to all be owned by the same entity
+  if(kycKeys.size()!=1) return false;
+
   //Get the message bytes
   opcodetype opcode;
   std::vector<unsigned char> bytes;
@@ -131,10 +143,13 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx){
     }
   }
 
-  //The first 32 bytes of the message are the initialization vector
+  //The first AES_BLOCKSIZE bytes of the message are the initialization vector
   //used to decrypt the rest of the message
-  std::vector<unsigned char> initVec(bytes.begin(), bytes.begin()+initVecSize);
-  std::vector<unsigned char> encryptedData(bytes.begin()+initVecSize, bytes.end());
+  unsigned int pubKeySize=33;
+  std::vector<unsigned char>::const_iterator it=bytes.begin();
+  std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
+  std::vector<unsigned char> initVec(it, it+=AES_BLOCKSIZE);
+  std::vector<unsigned char> encryptedData(it, bytes.end());
 
   //Get the private key that is paired with kycKey
   CKey kycPrivKey;
@@ -153,8 +168,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx){
     bool bEnd=false;
 
     CECIES decryptor(kycPrivKey, *it, initVec);
-    std::vector<unsigned char> data;
-    decryptor.Decrypt(data, encryptedData);
+    //Don't decrypt
+    std::vector<unsigned char> data(encryptedData.begin(), encryptedData.end());
+   // decryptor.Decrypt(data, encryptedData);
     
     //Interpret the data
     //First 20 bytes: keyID 
@@ -173,7 +189,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx){
     if(bEnd) break;
 
     CBitcoinAddress addrNew;
-    addrNew.Set(CKeyID(uint160(std::vector<unsigned char>(itData1,itData2))));
+    std::vector<unsigned char> addrChars(itData1,itData2);
+    addrNew.Set(CKeyID(uint160(addrChars)));
 
     itData1=itData2;
     for(unsigned int i=0; i<pubKeySize; i++){
@@ -185,16 +202,17 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx){
       
     if(bEnd) break;
 
-    CPubKey pubKeyNew = CPubKey(itData1,itData2);
-      try{
+    std::vector<unsigned char> pubKeyData(ParseHex(std::string(itData1, itData2)));
+    CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+//      try{
         //This will succeeed if the decrypted addresses are valid.
         CBitcoinAddress* addr = new CBitcoinAddress(kycKey);
        add_derived(addrNew, pubKeyNew, addr);
        delete addr;
        bSuccess=true;
-      } catch (std::invalid_argument e){
-       bSuccess=false; // Do nothing
-      }
+     // } //catch (std::invalid_argument e){
+//       bSuccess=false; // Do nothing
+  //    }
   }
 
   return bSuccess;

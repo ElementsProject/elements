@@ -21,7 +21,7 @@ public:
 
 	void synchronise(CWhiteList* wl_new);
 
-  	bool RegisterAddress(const CTransaction& tx);
+  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 
   	//Lookup owner (idpubkey) of address
