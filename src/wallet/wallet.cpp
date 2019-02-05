@@ -2584,8 +2584,11 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
                 std::vector<std::vector<unsigned char> > vSolutions;
                 txnouttype whichType;
                 if (!Solver(script, whichType, vSolutions)) continue;
-                CKeyID keyId = CKeyID(uint160(vSolutions[0]));
+                //TODO - apply check for other transaction types
+                if(whichType == TX_SCRIPTHASH){
+                CKeyID keyId = CKeyID(uint160(vSolutions[0]));     
                 if(!addressWhitelist.find(&keyId)) continue;
+                }
             }
 
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
