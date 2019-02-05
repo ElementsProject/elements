@@ -2579,7 +2579,8 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
                 return false;
 
             //Reject non-whitelisted 
-            if(fRequireWhitelistCheck){
+            //TODO diable for the moment
+            if(false){
                 const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
                 std::vector<std::vector<unsigned char> > vSolutions;
                 txnouttype whichType;
