@@ -150,15 +150,6 @@ bool LoadFreezeList(CCoinsView *view);
 
     //function to scane the UTXO set for burnlist addresses
 bool LoadBurnList(CCoinsView *view);
-
-    /**
-    */
-
-    //function to scan the UTXO set for freezelist addresses
-bool LoadFreezeList(CCoinsView *view);
-
-    //function to scane the UTXO set for burnlist addresses
-bool LoadBurnList(CCoinsView *view);
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     /**
      * Check if the transaction is over standard P2WSH resources limit:

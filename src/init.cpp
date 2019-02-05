@@ -1099,8 +1099,8 @@ bool AppInitParameterInteraction()
     fAcceptDatacarrier = GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
     //Acceptance of OP_REGISTERADDRESS 
-    fAcceptDatacarrier = GetBoolArg("-registeraddress", DEFAULT_ACCEPT_REGISTERADDRESS);
-    nMaxDatacarrierBytes = GetArg("-registeraddresssize", nMaxRegisteraddressBytes);
+    fAcceptRegisteraddress = GetBoolArg("-registeraddress", DEFAULT_ACCEPT_REGISTERADDRESS);
+    nMaxRegisteraddressBytes = GetArg("-registeraddresssize", nMaxRegisteraddressBytes);
 
     // Option to startup with mocktime set (used for regression testing):
     SetMockTime(GetArg("-mocktime", 0)); // SetMockTime(0) is a no-op
@@ -1674,11 +1674,6 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     const CBlock &genesisBlock = Params().GenesisBlock();
     for (unsigned int i = 0; i<genesis->nTx ; i++) {
         GetMainSignals().SyncTransaction(*(genesisBlock.vtx[i]), genesis, (int)i);
-    }
-
-    if(chainActive.Height() > 1) {
-        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
-        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
     }
 
     if(chainActive.Height() > 1) {

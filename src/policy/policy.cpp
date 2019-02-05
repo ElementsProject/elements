@@ -149,7 +149,7 @@ bool IsWhitelisted(const CTransaction& tx)
     //skip whitelist check if output is OP_RETURN
     if(whichType == TX_NULL_DATA) continue;
     //skip whitelist check if output is OP_REGISTERADDRESS
-    if(whichType == TX_NULL_DATA) continue;    
+    if(whichType == TX_REGISTERADDRESS) continue;    
     //return false if not P2PKH
     if(!(whichType == TX_PUBKEYHASH)) return false;
 
@@ -279,129 +279,6 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
   return true;
 }
 
-  //  LogPrintf("POLICY: freeze-list update transaction executed");
-
-
-    //        LogPrintf("POLICY: removed address from freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
-      //      LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
-//    LogPrintf("POLICY: burn-list update transaction executed");
-
-//            LogPrintf("POLICY: removed address from burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
-
-bool LoadFreezeList(CCoinsView *view)
-{
-    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
-    CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
-    uint256 hashBlock = pcursor->GetBestBlock();
-    {
-        LOCK(cs_main);
-    }
-    ss << hashBlock;
-    //main loop over coins (transactions with > 0 unspent outputs
-    while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
-        uint256 key;
-        CCoins coins;
-        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
-            ss << key;
-            //loop over all vouts within a single transaction
-            for (unsigned int i=0; i<coins.vout.size(); i++) {
-                const CTxOut &out = coins.vout[i];
-                //null vouts are spent
-                if (!out.IsNull()) {
-                    ss << VARINT(i+1);
-                    ss << out;
-
-                if(out.nAsset.GetAsset() == freezelistAsset) {
-                    std::vector<std::vector<unsigned char> > vSolutions;
-                    txnouttype whichType;
-
-                    if (!Solver(out.scriptPubKey, whichType, vSolutions)) continue;
-
-                    // extract address from second multisig public key and add to the freezelist
-                    // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
-                    if (whichType == TX_MULTISIG && vSolutions.size() == 4)
-                    {
-                        CKeyID keyId;
-                        std::vector<unsigned char> ex_addr;
-                        std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
-                        std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
-                        std::vector<unsigned char> extracted_addr(first,last);
-
-                        keyId = CKeyID(uint160(extracted_addr));
-
-                        addressFreezelist.add_sorted(&keyId);
-                        LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
-                    }
-                }
-            }
-            }
-        ss << VARINT(0);
-    } else {
-      return error("%s: unable to read value", __func__);
-    }
-    pcursor->Next();
-    }
-    return true;
-}
-
-bool LoadBurnList(CCoinsView *view)
-{
-    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
-
-    CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
-    uint256 hashBlock = pcursor->GetBestBlock();
-    {
-        LOCK(cs_main);
-    }
-    ss << hashBlock;
-
-    //main loop over coins (transactions with > 0 unspent outputs
-    while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
-        uint256 key;
-        CCoins coins;
-        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
-            ss << key;
-      
-            //loop over all vouts within a single transaction
-            for (unsigned int i=0; i<coins.vout.size(); i++) {
-                const CTxOut &out = coins.vout[i];
-    
-                //null vouts are spent
-                if (!out.IsNull()) {
-                    ss << VARINT(i+1);
-                    ss << out;
-
-                    if(out.nAsset.GetAsset() == burnlistAsset) {
-                        std::vector<std::vector<unsigned char> > vSolutions;
-                        txnouttype whichType;
-
-                        if (!Solver(out.scriptPubKey, whichType, vSolutions)) continue;
-                        // extract address from second multisig public key and add to the freezelist
-                        // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
-                        if (whichType == TX_MULTISIG && vSolutions.size() == 4)
-                        {
-                            CKeyID keyId;
-                            std::vector<unsigned char> ex_addr;
-                            std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
-                            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
-                            std::vector<unsigned char> extracted_addr(first,last);
-                            keyId = CKeyID(uint160(extracted_addr));
-                            addressBurnlist.add_sorted(&keyId);
-                            LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
-                        }
-                    }
-                }
-            }
-        ss << VARINT(0);
-    } else {
-      return error("%s: unable to read value", __func__);
-    }
-    pcursor->Next();
-    }
-    return true;
-}
 
 bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
@@ -516,6 +393,121 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 
             LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
+    }
+    return true;
+}
+
+bool LoadFreezeList(CCoinsView *view)
+{
+    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
+    CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
+    uint256 hashBlock = pcursor->GetBestBlock();
+    {
+        LOCK(cs_main);
+    }
+    ss << hashBlock;
+    //main loop over coins (transactions with > 0 unspent outputs
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        uint256 key;
+        CCoins coins;
+        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
+            ss << key;
+            //loop over all vouts within a single transaction
+            for (unsigned int i=0; i<coins.vout.size(); i++) {
+                const CTxOut &out = coins.vout[i];
+                //null vouts are spent
+                if (!out.IsNull()) {
+                    ss << VARINT(i+1);
+                    ss << out;
+
+                if(out.nAsset.GetAsset() == freezelistAsset) {
+                    std::vector<std::vector<unsigned char> > vSolutions;
+                    txnouttype whichType;
+
+                    if (!Solver(out.scriptPubKey, whichType, vSolutions)) continue;
+
+                    // extract address from second multisig public key and add to the freezelist
+                    // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
+                    if (whichType == TX_MULTISIG && vSolutions.size() == 4)
+                    {
+                        CKeyID keyId;
+                        std::vector<unsigned char> ex_addr;
+                        std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
+                        std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
+                        std::vector<unsigned char> extracted_addr(first,last);
+
+                        keyId = CKeyID(uint160(extracted_addr));
+
+                        addressFreezelist.add_sorted(&keyId);
+                        LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
+                    }
+                }
+            }
+            }
+        ss << VARINT(0);
+    } else {
+      return error("%s: unable to read value", __func__);
+    }
+    pcursor->Next();
+    }
+    return true;
+}
+
+bool LoadBurnList(CCoinsView *view)
+{
+    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
+
+    CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
+    uint256 hashBlock = pcursor->GetBestBlock();
+    {
+        LOCK(cs_main);
+    }
+    ss << hashBlock;
+
+    //main loop over coins (transactions with > 0 unspent outputs
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        uint256 key;
+        CCoins coins;
+        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
+            ss << key;
+      
+            //loop over all vouts within a single transaction
+            for (unsigned int i=0; i<coins.vout.size(); i++) {
+                const CTxOut &out = coins.vout[i];
+    
+                //null vouts are spent
+                if (!out.IsNull()) {
+                    ss << VARINT(i+1);
+                    ss << out;
+
+                    if(out.nAsset.GetAsset() == burnlistAsset) {
+                        std::vector<std::vector<unsigned char> > vSolutions;
+                        txnouttype whichType;
+
+                        if (!Solver(out.scriptPubKey, whichType, vSolutions)) continue;
+                        // extract address from second multisig public key and add to the freezelist
+                        // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
+                        if (whichType == TX_MULTISIG && vSolutions.size() == 4)
+                        {
+                            CKeyID keyId;
+                            std::vector<unsigned char> ex_addr;
+                            std::vector<unsigned char>::const_iterator first = vSolutions[2].begin() + 13;
+                            std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
+                            std::vector<unsigned char> extracted_addr(first,last);
+                            keyId = CKeyID(uint160(extracted_addr));
+                            addressBurnlist.add_sorted(&keyId);
+                            LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
+                        }
+                    }
+                }
+            }
+        ss << VARINT(0);
+    } else {
+      return error("%s: unable to read value", __func__);
+    }
+    pcursor->Next();
     }
     return true;
 }
