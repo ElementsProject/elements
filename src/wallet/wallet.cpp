@@ -2577,8 +2577,21 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
+
+            //Reject non-whitelisted 
+            if(fRequireWhitelistCheck){
+                const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
+                std::vector<std::vector<unsigned char> > vSolutions;
+                txnouttype whichType;
+                if (!Solver(script, whichType, vSolutions)) continue;
+                CKeyID keyId = CKeyID(uint160(vSolutions[0]));
+                if(!addressWhitelist.find(&keyId)) continue;
+            }
+
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
+        
+
         } else
             return false; // TODO: Allow non-wallet inputs
     }

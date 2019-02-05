@@ -2797,13 +2797,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if(fEnableBurnlistCheck) {
             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
         }
-
-        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset && fRequireWhitelistCheck) addressWhitelist.Update(tx,view);
-        txnouttype type;
-        std::vector<std::vector<unsigned char> > solutions;
-        if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
-            if(type == TX_REGISTERADDRESS){
-                addressWhitelist.RegisterAddress(tx, view);
+        if(fRequireWhitelistCheck){
+        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) addressWhitelist.Update(tx,view);
+           txnouttype type;
+             std::vector<std::vector<unsigned char> > solutions;
+            if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
+                if(type == TX_REGISTERADDRESS){
+                    addressWhitelist.RegisterAddress(tx, view);
+                }
             }
         }
 
