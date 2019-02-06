@@ -2798,9 +2798,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
         }
         if(fRequireWhitelistCheck){
-        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) addressWhitelist.Update(tx,view);
-           txnouttype type;
-             std::vector<std::vector<unsigned char> > solutions;
+            if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) addressWhitelist.Update(tx,view);
+            txnouttype type;
+            std::vector<std::vector<unsigned char> > solutions;
             if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
                 if(type == TX_REGISTERADDRESS){
                     addressWhitelist.RegisterAddress(tx, view);

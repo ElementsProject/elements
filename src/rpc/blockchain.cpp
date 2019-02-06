@@ -1502,10 +1502,10 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
             "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
-            "3. \"kycpubkey\"     (string, optional) Hex encoded of the compressed KYC public key ID\n"
+            "3. \"kycaddress\"     (string, optional) Base58 KYC address\n"
             "\nExamples:\n"
-            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02fe47cdfbcdd814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
-            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02fe47cdfbcdd814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
+            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
                         );
 if(nparams == 2){
     addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
@@ -1519,23 +1519,28 @@ if(nparams == 2){
 
 UniValue readwhitelist(const JSONRPCRequest& request)
 {
-  if (request.fHelp || request.params.size() != 1)
+  if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
     throw runtime_error(
             "readwhitelist \"filename\"\n"
             "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The key file\n"
+            "2. \"kycaddress\"  (string, optional) The KYC address of the key file owner\n"
             "\nExamples:\n"
             "\nDump the keys\n"
-            + HelpExampleCli("readwhitelist", "\"test\"")
-            + HelpExampleRpc("readwhitelist", "\"test\"")
+            + HelpExampleCli("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
 			);
+
+    std::string sKYCAddress="";
+    if(request.params.size()==2){
+        sKYCAddress=request.params[1].get_str();
+    }
 
     std::ifstream file;
     file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
     if (!file.is_open())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
-
     file.seekg(0, file.beg);
 
     // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
@@ -1551,7 +1556,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	addressWhitelist.add_derived(vstr[0], vstr[1]);
+	addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
     }
 
     file.close();
@@ -2323,8 +2328,8 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "preciousblock",          &preciousblock,          true,  {"blockhash"} },
 
-    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"address","basepubkey"} },
-    { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename"} },
+    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"address","basepubkey", "kycpubkey"} },
+    { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename", "kycaddress"} },
     { "blockchain",         "querywhitelist",         &querywhitelist,         true,  {"address"} },
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },

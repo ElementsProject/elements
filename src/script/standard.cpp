@@ -322,15 +322,18 @@ CScript GetScriptForAddToWhitelist(const CKey& key,
 
     //Append the addresses and pub keys
     for(CPubKey pubKey : keysToReg){
-        CKeyID keyID=pubKey.GetID();
-        std::string hexaddress=HexStr(keyID.begin(), keyID.end());
-        std::vector<unsigned char> vKeyIDNew(ParseHex(hexaddress));
+        CPubKey tweakedPubKey(pubKey);
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if (!contract.IsNull())
+            tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+        CKeyID keyID=tweakedPubKey.GetID();
+        assert(Consensus::CheckValidTweakedAddress(keyID, pubKey));
+        std::vector<unsigned char> vKeyIDNew = ToByteVector(keyID);
         message.insert(message.end(), 
                     vKeyIDNew.begin(), 
                     vKeyIDNew.end());
 
-        std::string hexpubkey=HexStr(pubKey.begin(), pubKey.end());
-        std::vector<unsigned char> vPubKeyNew(ParseHex(hexpubkey));
+        std::vector<unsigned char> vPubKeyNew = ToByteVector(pubKey);
         message.insert(message.end(), 
                     vPubKeyNew.begin(), 
                     vPubKeyNew.end());
@@ -339,21 +342,11 @@ CScript GetScriptForAddToWhitelist(const CKey& key,
     //Add the contract hashed pubic key ID - 20 bytes
     CPubKey tweakedPubKey(idPubKey);
     //uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-//    if (!contract.IsNull())
-  //      tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+    //    if (!contract.IsNull())
+    //      tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     CKeyID kycKeyID = tweakedPubKey.GetID();
     std::vector<unsigned char> vKeyID=ToByteVector(kycKeyID);
     message.insert(message.end(), vKeyID.begin(), vKeyID.end());
-    //std::string hexaddress=HexStr(kycKeyID.begin(), kycKeyID.end());
-
-
-    
-
-
-//    message.insert(message.end(), vKeyID.begin(), vKeyID.end()); 
-
-
-
     
     //Encrypt the above with the address private key and the kyc key ID
     CECIES encryptor(key,idPubKey);

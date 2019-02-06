@@ -13,11 +13,15 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
-	void add_derived(CBitcoinAddress address, CPubKey pubKey, CBitcoinAddress* kycAddress);
-	void add_derived(CBitcoinAddress address, CPubKey pubKey);
+	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
+		const CBitcoinAddress* kycAddress);
+	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
 
-	void add_derived(std::string sAddress, std::string sPubKey, std::string sKYCAddress);
-	void add_derived(std::string sAddress, std::string sKey);
+	void add_derived(const std::string& sAddress, const std::string& sPubKey, 
+		const std::string& sKYCAddress);
+	void add_derived(const std::string& sAddress, const std::string& sKey);
+
+
 
 	void synchronise(CWhiteList* wl_new);
 
@@ -26,6 +30,7 @@ public:
 
   	//Lookup owner (idpubkey) of address
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
+  	bool LookupPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
 
 private:
 	//Make add_sorted private because we only want verified derived keys 
@@ -34,4 +39,5 @@ private:
 
 	//A map of address to idPubKey
 	std::map<CKeyID, CKeyID> _kycMap;
+	std::map<CKeyID, CPubKey> _pubKeyMap;
 };
