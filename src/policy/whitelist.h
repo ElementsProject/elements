@@ -30,7 +30,7 @@ public:
 
   	//Lookup owner (idpubkey) of address
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
-  	bool LookupPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
+  	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
 
 private:
 	//Make add_sorted private because we only want verified derived keys 
@@ -39,5 +39,5 @@ private:
 
 	//A map of address to idPubKey
 	std::map<CKeyID, CKeyID> _kycMap;
-	std::map<CKeyID, CPubKey> _pubKeyMap;
+	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 };

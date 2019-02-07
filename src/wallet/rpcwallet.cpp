@@ -547,7 +547,7 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     // Build the script
     CKey key;
     pwalletMain->CCryptoKeyStore::GetKey(keyID, key);
-    CScript scriptRegisterAddress = GetScriptForAddToWhitelist(key, 
+    CScript* scriptRegisterAddress = GetScriptForAddToWhitelist(key, 
                                                                 keysToReg, 
                                                                 pubKey);
 
@@ -561,7 +561,7 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     std::string strError;
     vector<CRecipient> vecSend;
     int nChangePosRet = -1;
-    CRecipient recipient = {scriptRegisterAddress, CAmount(0), feeAsset, CPubKey(), false};
+    CRecipient recipient = {*scriptRegisterAddress, CAmount(0), feeAsset, CPubKey(), false};
     vecSend.push_back(recipient);
 
 /*
@@ -610,12 +610,28 @@ static void SendAddNextToWhitelistTx(const CBitcoinAddress& fromAddress,
     COutPoint outPoint((*fromCoin).tx->GetHash(), (*fromCoin).i);
     coinControl.Select(outPoint);
   */     
+
     if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
         //TODO
         if (nFeeRequired > fromAddressBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
+
+    CKeyID inputKeyID;
+    BOOST_FOREACH(const CTxIn& txin, wtxNew.tx->vin){
+        CWalletTx &coin = pwalletMain->mapWallet[txin.prevout.hash];
+        const CScript script = coin->tx->vout[txin.outpoint.n].scriptPubKey;
+        std::vector<std::vector<unsigned char> > vSolutions;
+        txnouttype whichType;
+        if (!Solver(script, whichType, vSolutions)) continue;
+        //TODO - apply check for other transaction types
+        if(whichType == TX_SCRIPTHASH){
+            CKeyID inputKeyID = CKeyID(uint160(vSolutions[0])); 
+            break;
+        }    
+    }
+
     CValidationState state;
     if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());

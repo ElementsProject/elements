@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "script/standard.h"
+#include "script/registeraddressscript.h"
 
 #include "pubkey.h"
 #include "script/script.h"
@@ -12,6 +13,7 @@
 #include "ecies.h"
 #include "crypto/common.h"
 #include "validation.h"
+
 
 #include <boost/foreach.hpp>
 
@@ -313,57 +315,16 @@ CScript GetScriptForDestination(const CTxDestination& dest)
     return script;
 }
 
-CScript GetScriptForAddToWhitelist(const CKey& key, 
+CScript* GetScriptForAddToWhitelist(const CKey& key, 
                                    const std::vector<CPubKey>& keysToReg, 
                                    const CPubKey& idPubKey){
    
-    //OP_REGISTERADDRESS||nbytestofollow||E_k(address||pubkey)  
-    std::vector<unsigned char> message;
+    CRegisterAddressScript* script = new CRegisterAddressScript();
 
-    //Append the addresses and pub keys
-    for(CPubKey pubKey : keysToReg){
-        CPubKey tweakedPubKey(pubKey);
-        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-        if (!contract.IsNull())
-            tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-        CKeyID keyID=tweakedPubKey.GetID();
-        assert(Consensus::CheckValidTweakedAddress(keyID, pubKey));
-        std::vector<unsigned char> vKeyIDNew = ToByteVector(keyID);
-        message.insert(message.end(), 
-                    vKeyIDNew.begin(), 
-                    vKeyIDNew.end());
+    script->Append(keysToReg);
+    script->SetKeys(&key, &idPubKey);
+    script->Finalize();
 
-        std::vector<unsigned char> vPubKeyNew = ToByteVector(pubKey);
-        message.insert(message.end(), 
-                    vPubKeyNew.begin(), 
-                    vPubKeyNew.end());
-    }
-
-    //Add the contract hashed pubic key ID - 20 bytes
-    CPubKey tweakedPubKey(idPubKey);
-    //uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-    //    if (!contract.IsNull())
-    //      tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-    CKeyID kycKeyID = tweakedPubKey.GetID();
-    std::vector<unsigned char> vKeyID=ToByteVector(kycKeyID);
-    message.insert(message.end(), vKeyID.begin(), vKeyID.end());
-    
-    //Encrypt the above with the address private key and the kyc key ID
-    CECIES encryptor(key,idPubKey);
-    std::vector<unsigned char> enc_mess_2;
-    encryptor.Encrypt(enc_mess_2, message);
-    //Skip encryption for now
-    std::vector<unsigned char> enc_mess(message.begin(), message.end());
-   
-
-    //Prepend the initialization vector used in the encryption
-    std::vector<unsigned char> sendData = encryptor.get_iv();
-    sendData.insert(sendData.end(), enc_mess.begin(), enc_mess.end()); 
-
-    //Assemble the script and return
-    CScript script;
-    script  << OP_REGISTERADDRESS << sendData; 
-                        
     return script;
 }
 
