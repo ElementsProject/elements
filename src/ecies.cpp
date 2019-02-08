@@ -1,3 +1,9 @@
+// Copyright (c) 2018 The CommerceBlock Developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+//A wrapper class for AES256CBCEncryption
+
 #include "ecies.h"
 #include "crypto/aes.h"
 #include "random.h"
