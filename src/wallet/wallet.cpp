@@ -2577,8 +2577,25 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
+
+            //Reject non-whitelisted 
+            //TODO diable for the moment
+            if(false){
+                const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
+                std::vector<std::vector<unsigned char> > vSolutions;
+                txnouttype whichType;
+                if (!Solver(script, whichType, vSolutions)) continue;
+                //TODO - apply check for other transaction types
+                if(whichType == TX_SCRIPTHASH){
+                CKeyID keyId = CKeyID(uint160(vSolutions[0]));     
+                if(!addressWhitelist.find(&keyId)) continue;
+                }
+            }
+
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
+        
+
         } else
             return false; // TODO: Allow non-wallet inputs
     }
@@ -2733,8 +2750,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             continue;
         }
 
+        // TODO - should also do this for the case where bytes are appended to OP_RETURN?
         // Just like issuance/re-issuance, when destroying assets pay policyAsset fees
-        if (recipient.scriptPubKey == CScript(OP_RETURN))
+        if (recipient.scriptPubKey == CScript(OP_RETURN) || 
+            recipient.scriptPubKey == CScript(OP_REGISTERADDRESS))
             feeAsset =  policyAsset;
 
         if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset.IsNull())

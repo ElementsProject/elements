@@ -137,6 +137,7 @@ BITCOIN_CORE_H = \
   script/sigcache.h \
   script/sign.h \
   script/standard.h \
+  script/registeraddressscript.h \
   script/ismine.h \
   streams.h \
   support/allocators/secure.h \
@@ -348,6 +349,7 @@ libbitcoin_common_a_SOURCES = \
   scheduler.cpp \
   script/sign.cpp \
   script/standard.cpp \
+  script/registeraddressscript.cpp \
   warnings.cpp \
   $(BITCOIN_CORE_H)
 

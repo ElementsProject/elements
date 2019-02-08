@@ -1,6 +1,8 @@
 //This class is a wrapper for the Crypto++ ECIES class for
 //ECIES encryption/decryption
 
+#pragma once
+
 #include "key.h"
 #include "crypto/aes.h"
 

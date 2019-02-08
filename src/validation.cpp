@@ -2791,22 +2791,22 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
-        //check if a freeselist/burnlist/whitelist transaction and update the list
-        if(fRequireFreezelistCheck){
-       	   if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) addressFreezelist.Update(tx,view);
+        if(fRequireFreezelistCheck) {
+            if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) UpdateFreezeList(tx,view);
         }
-        if(fRequireBurnlistCheck){
-           if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) addressBurnlist.Update(tx,view);
+        if(fEnableBurnlistCheck) {
+            if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
         }
         if(fRequireWhitelistCheck){
+            if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) addressWhitelist.Update(tx,view);
            if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) addressWhitelist.Update(tx,view);
-           txnouttype type;
-           std::vector<std::vector<unsigned char> > solutions;
-           if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
-              if(type == TX_REGISTERADDRESS){
-                  addressWhitelist.RegisterAddress(tx, view);
-              }
-           }
+            txnouttype type;
+            std::vector<std::vector<unsigned char> > solutions;
+            if( Solver(tx.vout[0].scriptPubKey,type, solutions) ){
+                if(type == TX_REGISTERADDRESS){
+                    addressWhitelist.RegisterAddress(tx, view);
+                }
+            }
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:
