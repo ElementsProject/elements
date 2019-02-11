@@ -160,9 +160,15 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   // Get the KYC private key from the wallet.
   // This ultimately checks that the kyc key associated with the transaction input address 
   // is already associated with a valid kyc key.
-  CKey kycPrivKey;
-  if(!pwalletMain->GetKey(kycKey, kycPrivKey)) return false; 
+  bool bWLNode=false;
+  CKey decryptPrivKey;
+  if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
+    bWLNode=false;
+  } else{
+    bWLNode=true;
+  }
   
+
   //Decrypt the data
   //One of the input public keys together with the KYC private key 
   //will compute the shared secret used to encrypt the data
@@ -175,9 +181,21 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   {
     bool bEnd=false;
     if((*it).size() != pubKeySize) continue;
-    CECIES decryptor(kycPrivKey, *it, initVec);
+
+    //Get the decryption keys
+    CPubKey decryptPubKey;
+    if(bWLNode){
+      decryptPubKey=(*it);
+    } else {
+      if(!pwalletMain->GetKey((*it).GetID(), decryptPrivKey)) continue;  
+      decryptPubKey=pwalletMain->GetIDPubKey();
+    }
+
+
+    CECIES decryptor(decryptPrivKey, decryptPubKey, initVec);
     //Don't decrypt
     std::vector<unsigned char> data;
+    //(encryptedData.begin(), encryptedData.end());
     data.resize(encryptedData.size());
     decryptor.Decrypt(data, encryptedData);
     

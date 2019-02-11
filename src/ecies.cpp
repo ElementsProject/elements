@@ -27,7 +27,12 @@ CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey, const uCharVec iv){
 	uint256 k = privKey.ECDH(pubKey);
 	memcpy(_k, &k, 32);
 	set_iv(iv);
-//	memcpy(_iv, iv, AES_BLOCKSIZE);
+	unsigned char tmp[AES_BLOCKSIZE];
+	GetStrongRandBytes(tmp, AES_BLOCKSIZE);
+	std::stringstream ss;
+	ss << 
+	" Shared secret: " << _k << 
+	" iv: " << _iv << std::endl;
 	Initialize();
 }
 
@@ -35,8 +40,14 @@ CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey){
 	//Generate the ECDH exchange shared secret from the private key and the public key
 	uint256 k = privKey.ECDH(pubKey);
 	memcpy(_k, &k, 32);
-//Randomly generate a initialization vector.
+	//Randomly generate a initialization vector.
     GetStrongRandBytes(_iv, AES_BLOCKSIZE);
+	std::stringstream ss;
+	ss << 
+//	"Priv key: " << privKey.GetPrivKey().ToString() <<
+//	" Pub key: " << pubKey << 
+	" Shared secret: " << _k << 
+	" iv: " << _iv << std::endl;
     Initialize();
 }
 
@@ -59,14 +70,24 @@ bool CECIES::Initialize(){
 
 bool CECIES::Encrypt(uCharVec& em, 
  	uCharVec& m) const{
-	em.resize(m.size());
+	//Add padding if needed.
+	//unsigned int size = m.size();
+//	if (size % AES_BLOCKSIZE) {
+//		m.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
+//	}
+	em.resize(m.size(), _padChar);
 	_encryptor->Encrypt(m.data(), m.size(), em.data());
     return true;
 }
 
 bool CECIES::Decrypt(uCharVec& m, 
  	uCharVec& em) const{
-	m.resize(em.size());
+		//Add padding if needed.
+	unsigned int size = em.size();
+	if (size % AES_BLOCKSIZE) {
+		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
+	}
+	m.resize(em.size(), _padChar);
 	_decryptor->Decrypt(em.data(), em.size(), m.data());
     return true;
 }

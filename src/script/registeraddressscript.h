@@ -10,24 +10,24 @@
 
 using ucvec=std::vector<unsigned char>;
 
-class CRegisterAddressScript : public CScript{
+class CRegisterAddressScript {
 public:
 	CRegisterAddressScript();
+	CRegisterAddressScript(const CRegisterAddressScript* script);
 	virtual ~CRegisterAddressScript();
 
 	//Encrypt the payload using the public, private key and build the script.
 	bool SetKeys(const CKey* privKey, const CPubKey* pubKey);
-	bool Finalize();
+	bool Finalize(CScript& script);
+	bool FinalizeUnencrypted(CScript& script);
 	bool Append(const CPubKey& key);
 	bool Append(const std::vector<CPubKey>& keys);
 	//Get the initialization vector (randomly generated) used in the encryption
 	ucvec GetInitVec();
-	void Clear(){_payload.clear(); _encrypted.clear();}
+	virtual void clear(){_payload.clear(); _encrypted.clear(); ((CScript*)this)->clear();}
 
 private:
 	CECIES* _encryptor = nullptr;
-	CKey* _privKey;
-	CPubKey* _pubKey;
 	ucvec _payload;
 	ucvec _encrypted;
 };

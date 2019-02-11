@@ -616,9 +616,7 @@ private:
  */
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
-private:
-    static std::atomic<bool> fFlushThreadRunning;
-
+public:
     /**
      * Select a set of coins such that nValueRet >= nTargetValue and at least
      * all coins from coinControl are selected; Never select unconfirmed coins
@@ -626,6 +624,9 @@ private:
      */
     bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& nValueRet, const CCoinControl* coinControl, const CAsset& feeAsset) const;
 
+private:
+    static std::atomic<bool> fFlushThreadRunning;
+    
     CWalletDB *pwalletdbEncryption;
 
     //! the current wallet version: clients below this version are not able to load the wallet

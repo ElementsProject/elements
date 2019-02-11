@@ -41,6 +41,8 @@ private:
 	unsigned char _iv[AES_BLOCKSIZE];
 	unsigned char _k[AES256_KEYSIZE];
 
+	unsigned char _padChar=0;
+
 	AES256CBCEncrypt* _encryptor;
 	AES256CBCDecrypt* _decryptor;
 

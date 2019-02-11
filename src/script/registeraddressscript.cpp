@@ -11,6 +11,11 @@
 CRegisterAddressScript::CRegisterAddressScript(){
 }
 
+CRegisterAddressScript::CRegisterAddressScript(const CRegisterAddressScript* script){
+    _payload = script->_payload;
+    _encrypted = script->_encrypted;
+}
+
 CRegisterAddressScript::~CRegisterAddressScript(){
 	delete _encryptor;
 }
@@ -19,17 +24,29 @@ CRegisterAddressScript::~CRegisterAddressScript(){
 bool CRegisterAddressScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
 	delete _encryptor;
     _encryptor = new CECIES(*privKey, *pubKey);
+    return true;
 }
 
 //Encrypt the payload, buid the script and return it.
-bool CRegisterAddressScript::Finalize(){
+bool CRegisterAddressScript::Finalize(CScript& script){
+    _encrypted.clear();
     _encryptor->Encrypt(_encrypted, _payload);
+//    _encrypted.insert(_encrypted.begin(),_payload.begin(), _payload.end());
     //Prepend the initialization vector used in the encryption
     ucvec sendData = _encryptor->get_iv();
     sendData.insert(sendData.end(), _encrypted.begin(), _encrypted.end()); 
-    CScript script;
     //Assemble the script and return
-    (*this)  << OP_REGISTERADDRESS << sendData; 
+    script.clear();
+    script << OP_REGISTERADDRESS << sendData; 
+    return true;
+}
+
+bool CRegisterAddressScript::FinalizeUnencrypted(CScript& script){
+    ucvec sendData;
+    sendData.resize(AES_BLOCKSIZE);
+    sendData.insert(sendData.end(), _payload.begin(), _payload.end()); 
+    script.clear();
+    script << OP_REGISTERADDRESS << sendData; 
     return true;
 }
 
