@@ -179,7 +179,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     it != inputPubKeys.end();
     ++it)
   {
-    bool bEnd=false;
     if((*it).size() != pubKeySize) continue;
 
     //Get the decryption keys
@@ -201,37 +200,47 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     
     //Interpret the data
     //First 20 bytes: keyID 
-    std::vector<unsigned char>::const_iterator itData1 = data.begin();
     std::vector<unsigned char>::const_iterator itData2 = data.begin();
+    std::vector<unsigned char>::const_iterator itData1 = itData2;
+
     std::vector<unsigned char>::const_iterator pend = data.end();
     std::vector<unsigned char> vKeyID, vPubKey;
 
-    for(unsigned int i=0; i<addrSize; ++i){
-      if(itData2++ == pend) {
-        bEnd=true;
-        break;
-      }
-    }
-    if(!bEnd){
-      CBitcoinAddress addrNew;
-      std::vector<unsigned char> addrChars(itData1,itData2);
-      addrNew.Set(CKeyID(uint160(addrChars)));  
-      itData1=itData2;
-      for(unsigned int i=0; i<pubKeySize; ++i){
-        if(itData2++ == pend){
+    bool bEnd=false;
+    while(!bEnd){
+      for(unsigned int i=0; i<addrSize; ++i){
+        if(itData2++ == pend) {
           bEnd=true;
           break;
         }
       }
       if(!bEnd){
-        std::vector<unsigned char> pubKeyData(itData1, itData2);
-        CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
-        CBitcoinAddress* addr = new CBitcoinAddress(kycKey);
-        //Convert to string for debugging
-
-        add_derived(addrNew, pubKeyNew, addr);
-        delete addr;
-        bSuccess=true;
+        CBitcoinAddress addrNew;
+        std::vector<unsigned char> addrChars(itData1,itData2);
+        addrNew.Set(CKeyID(uint160(addrChars)));  
+        itData1=itData2;
+        for(unsigned int i=0; i<pubKeySize; ++i){
+          if(itData2++ == pend){
+            bEnd=true;
+            break;
+          }
+        }
+        if(!bEnd){
+          std::vector<unsigned char> pubKeyData(itData1, itData2);
+          itData1=itData2;
+          CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+          CBitcoinAddress* addr = new CBitcoinAddress(kycKey);
+          //Convert to string for debugging
+          std::string sAddr=addr->ToString();
+          std::string sAddrNew=addrNew.ToString();
+          try{
+            add_derived(addrNew, pubKeyNew, addr);
+          } catch (std::system_error e){
+            if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) throw e;
+          }
+          delete addr;
+          bSuccess=true;
+        }
       }
     }
   }
