@@ -95,7 +95,7 @@ bool UnblindConfidentialPair(const CKey &key, const CConfidentialValue& confValu
     }
 
     // Value sidechannel must be a transaction-valid amount (should be belt-and-suspenders check)
-    if (!MoneyRange((CAmount)amount)) {
+    if (amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
         return false;
     }
 
