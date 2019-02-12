@@ -84,12 +84,31 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
-  //Add some dummy addresses
-
   //Check if this is a ID registration (whitetoken) transaction
   // Get input addresses an lookup associated idpubkeys
   if (tx.IsCoinBase())
     return false; // Coinbases don't use vin normally
+
+  //Check if this is a TX_REGISTERADDRESS. If so, read the data into a byte vector.
+  opcodetype opcode;
+  std::vector<unsigned char> bytes;
+
+  BOOST_FOREACH (const CTxOut& txout, tx.vout) {
+    std::vector<std::vector<unsigned char> > vSolutions;
+    txnouttype whichType;
+    //Is the output solvable?
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) return false;
+    //Is it a TX_REGISTERADDRESS?
+    if(whichType == TX_REGISTERADDRESS) {
+      CScript::const_iterator pc = txout.scriptPubKey.begin();
+      //Can the bytes be read?
+      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return false;
+      break;
+    }
+  }
+
+  //Confirm data read from the TX_REGISTERADDRESS
+  if(bytes.size()==0) return false;
 
   //Get input keyids
   //Lookup the ID public keys of the input addresses.
@@ -97,52 +116,27 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::vector<CPubKey> inputPubKeys;
   CKeyID kycKey, keyId;
   
-  for (unsigned int i = 0; i < tx.vin.size(); i++) {
-    const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
-
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
-
-    const CScript& prevScript = prev.scriptPubKey;
-    if (!Solver(prevScript, whichType, vSolutions))
-      return false;
-
-    if (whichType == TX_PUBKEYHASH) {
-      keyId = CKeyID(uint160(vSolutions[0]));
-      // For debugging - translate into bitcoin address
-      CBitcoinAddress addr(keyId);
-      std::string sAddr = addr.ToString();
-      // search in whitelist for the presence of keyid
-      // add the associated kycKey to the set of kyc keys
-      if(LookupKYCKey(keyId, kycKey)){
-       CPubKey pubKey;
-       if(LookupTweakedPubKey(keyId, pubKey))
-        inputPubKeys.push_back(pubKey);
-      }
+  BOOST_FOREACH(const CTxIn& prevIn, tx.vin) {
+    const CTxOut& prev = mapInputs.GetOutputFor(prevIn);
+    CTxDestination dest;
+    if(!ExtractDestination(prev.scriptPubKey, dest))
+      continue;
+    
+    // For debugging - translate into bitcoin address
+    CBitcoinAddress addr(dest);
+    addr.GetKeyID(keyId);
+    std::string sAddr = addr.ToString();
+    // search in whitelist for the presence of keyid
+    // add the associated kycKey to the set of kyc keys
+    if(LookupKYCKey(keyId, kycKey)){
+      CPubKey pubKey;
+      if(LookupTweakedPubKey(keyId, pubKey))
+      inputPubKeys.push_back(pubKey);
     }
   }
 
   //Inputs need to all be owned by the same entity
   if(inputPubKeys.size()!=1) return false;
-
-  //Get the message bytes
-  opcodetype opcode;
-  std::vector<unsigned char> bytes;
-
-  //Get the data from the registeraddress script
-  for (unsigned int i = 0; i < tx.vout.size(); i++) {
-    const CTxOut& txout = tx.vout[i];
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
-
-    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
-
-    if(whichType == TX_REGISTERADDRESS){
-      CScript::const_iterator pc = txout.scriptPubKey.begin();
-      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return true;
-      break;
-    }
-  }
 
   //The first AES_BLOCKSIZE bytes of the message are the initialization vector
   //used to decrypt the rest of the message

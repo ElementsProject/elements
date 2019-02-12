@@ -112,6 +112,11 @@ bool IsPolicy(const CTransaction& tx);
      * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database
      */
 bool IsWhitelisted(const CTransaction& tx);
+
+    /**
+     * Check that a transaction has one or more TX_REGISTERADDRESS outputs
+     */
+bool IsRegisterAddress(const CTransaction& tx);
     /**
      *
      */

@@ -624,7 +624,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         }
     }
     
-    if(inputAddrs.size() <= 0)
+    if(inputAddrs.size() == 0)
     {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: could not retrieve private key for \"fromaddress\" from wallet.");
     }
@@ -692,6 +692,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     if (!kycPubKey.IsFullyValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey is not a valid public key");
 
+    pwalletMain->SetIDPubKey(kycPubKey);
     CWalletTx wtx;
 
     SendAddNextToWhitelistTx(feeasset, naddresses.get_int(), kycPubKey, wtx);
