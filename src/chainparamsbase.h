@@ -11,7 +11,7 @@
 
 #define CHAINPARAMS_OLD_MAIN "___old_main"
 #define CHAINPARAMS_OCEAN_MAIN "elements_main"
-#define CHAINPARAMS_REGTEST "elementsregtest"
+#define CHAINPARAMS_REGTEST "oceanregtest"
 
 /**
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
