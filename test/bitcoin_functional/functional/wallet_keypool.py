@@ -13,6 +13,9 @@ class KeyPoolTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         nodes = self.nodes
         addr_before_encrypting = nodes[0].getnewaddress()
@@ -22,9 +25,7 @@ class KeyPoolTest(BitcoinTestFramework):
         assert(addr_before_encrypting_data['hdseedid'] == wallet_info_old['hdseedid'])
 
         # Encrypt wallet and wait to terminate
-        nodes[0].node_encrypt_wallet('test')
-        # Restart node 0
-        self.start_node(0)
+        nodes[0].encryptwallet('test')
         # Keep creating keys
         addr = nodes[0].getnewaddress()
         addr_data = nodes[0].getaddressinfo(addr)

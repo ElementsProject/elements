@@ -4,9 +4,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <consensus/merkle.h>
 
 #include <chainparamsseeds.h>
+#include <consensus/merkle.h>
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -17,7 +17,6 @@
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-
 static CScript StrHexToScriptWithDefault(std::string strScript, const CScript defaultScript)
 {
     CScript returnScript;
@@ -105,14 +104,6 @@ static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevou
 /**
  * Main network
  */
-/**
- * What makes a good checkpoint block?
- * + Is surrounded by blocks with reasonable timestamps
- *   (no blocks before with a timestamp after, none after with
- *    timestamp before)
- * + Contains no strange transactions
- */
-
 class CMainParams : public CChainParams {
 public:
     CMainParams() {
@@ -155,6 +146,8 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        consensus.has_parent_chain = false;
+        g_signed_blocks = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -275,6 +268,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        consensus.has_parent_chain = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -370,6 +364,7 @@ public:
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
+        consensus.has_parent_chain = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;

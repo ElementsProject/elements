@@ -159,7 +159,8 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        if (tx.vin[i].m_is_pegin && !IsValidPeginWitness(tx.vin[i].m_pegin_witness, tx.vin[i].prevout)) {
+        std::string err;
+        if (tx.vin[i].m_is_pegin && !IsValidPeginWitness(tx.vin[i].m_pegin_witness, tx.vin[i].prevout, err, true)) {
             continue;
         }
 
@@ -184,7 +185,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     if (tx.vout.empty())
         return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
     // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
+    if (::GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
         return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values
@@ -239,7 +240,8 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         const COutPoint &prevout = tx.vin[i].prevout;
         if (tx.vin[i].m_is_pegin) {
             // Check existence and validity of pegin witness
-            if (!IsValidPeginWitness(tx.vin[i].m_pegin_witness, prevout)) {
+            std::string err;
+            if (!IsValidPeginWitness(tx.vin[i].m_pegin_witness, prevout, err, true)) {
                 return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness");
             }
             std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.vin[i].m_pegin_witness.stack[2]), prevout);

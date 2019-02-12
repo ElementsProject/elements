@@ -288,9 +288,6 @@ def rpc_url(datadir, i, chain, rpchost=None):
 # Node functions
 ################
 
-def get_datadir_path(dirname, n):
-    return os.path.join(dirname, "node" + str(n))
-
 def initialize_datadir(dirname, n, chain):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
@@ -320,6 +317,9 @@ def initialize_datadir(dirname, n, chain):
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
+
+def get_datadir_path(dirname, n):
+    return os.path.join(dirname, "node" + str(n))
 
 def append_config(datadir, options):
     with open(os.path.join(datadir, "bitcoin.conf"), 'a', encoding='utf8') as f:

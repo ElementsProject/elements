@@ -16,20 +16,23 @@ class BlocksdirTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 1
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         self.stop_node(0)
         shutil.rmtree(self.nodes[0].datadir)
         initialize_datadir(self.options.tmpdir, 0, self.chain)
-        self.log.info("Starting with non exiting blocksdir ...")
+        self.log.info("Starting with nonexistent blocksdir ...")
         blocksdir_path = os.path.join(self.options.tmpdir, 'blocksdir')
         self.nodes[0].assert_start_raises_init_error(["-blocksdir=" + blocksdir_path], 'Error: Specified blocks directory "{}" does not exist.'.format(blocksdir_path))
         os.mkdir(blocksdir_path)
-        self.log.info("Starting with exiting blocksdir ...")
+        self.log.info("Starting with existing blocksdir ...")
         self.start_node(0, ["-blocksdir=" + blocksdir_path])
         self.log.info("mining blocks..")
         self.nodes[0].generate(10)
-        assert os.path.isfile(os.path.join(blocksdir_path, self.chain, "blocks", "blk00000.dat"))
-        assert os.path.isdir(os.path.join(self.nodes[0].datadir, self.chain, "blocks", "index"))
+        assert os.path.isfile(os.path.join(blocksdir_path, "regtest2", "blocks", "blk00000.dat"))
+        assert os.path.isdir(os.path.join(self.nodes[0].datadir, "regtest2", "blocks", "index"))
 
 
 if __name__ == '__main__':

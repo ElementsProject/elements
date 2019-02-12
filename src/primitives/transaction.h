@@ -33,7 +33,7 @@ public:
      * is a peg-in input. */
     static const uint32_t OUTPOINT_PEGIN_FLAG = (1 << 30);
 
-    /* The inverse of the combination of the preceeding flags. Used to
+    /* The inverse of the combination of the preceding flags. Used to
      * extract the original meaning of `n` as the index into the
      * transaction's output array. */
     static const uint32_t OUTPOINT_INDEX_MASK = 0x3fffffff;

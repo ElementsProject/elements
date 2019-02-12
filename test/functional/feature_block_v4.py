@@ -6,11 +6,11 @@
 
 from test_framework.blocktools import create_coinbase, create_block, create_transaction
 from test_framework.messages import msg_block
-from test_framework.mininode import mininode_lock, P2PInterface
+from test_framework.mininode import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, wait_until
+from test_framework.util import assert_equal
 
-from feature_cltv import cltv_validate, REJECT_OBSOLETE
+from feature_cltv import cltv_validate
 
 class BlockV4Test(BitcoinTestFramework):
     def set_test_params(self):
@@ -32,19 +32,13 @@ class BlockV4Test(BitcoinTestFramework):
         block.nVersion = 3
         block.solve()
 
-        # Send it to the node
-        self.nodes[0].p2p.send_and_ping(msg_block(block))
-
         # The best block should not have changed, because...
         assert_equal(self.nodes[0].getbestblockhash(), tip)
 
         # ... we rejected it because it is v3
-        wait_until(lambda: "reject" in self.nodes[0].p2p.last_message.keys(), lock=mininode_lock)
-        with mininode_lock:
-            assert_equal(self.nodes[0].p2p.last_message["reject"].code, REJECT_OBSOLETE)
-            assert_equal(self.nodes[0].p2p.last_message["reject"].reason, b'bad-version(0x00000003)')
-            assert_equal(self.nodes[0].p2p.last_message["reject"].data, block.sha256)
-            del self.nodes[0].p2p.last_message["reject"]
+        with self.nodes[0].assert_debug_log(expected_msgs=['{}, bad-version(0x00000003)'.format(block.hash)]):
+            # Send it to the node
+            self.nodes[0].p2p.send_and_ping(msg_block(block))
 
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
 

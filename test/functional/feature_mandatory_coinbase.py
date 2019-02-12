@@ -64,10 +64,11 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         block.proof = CProof(bytearray.fromhex('51'))
         block.vtx = [coinbase_tx]
         block.block_height = int(tmpl["height"])
+        block.hashMerkleRoot = block.calc_merkle_root()
 
         self.log.info("getblocktemplate: Test block on both nodes")
-        assert_equal(node0.submitblock(b2x(block.serialize())), 'invalid')
         assert_template(node1, block, None)
+        assert_template(node0, block, 'bad-coinbase-txos')
 
         self.log.info("getblocktemplate: Test non-subsidy block on both nodes")
         # Without block reward anything goes, this allows commitment outputs like segwit

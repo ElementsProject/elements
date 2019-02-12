@@ -9,15 +9,17 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
-#include <validation.h>
 #include <miner.h>
 #include <net_processing.h>
 #include <pow.h>
-#include <ui_interface.h>
-#include <streams.h>
-#include <rpc/server.h>
 #include <rpc/register.h>
+#include <rpc/server.h>
 #include <script/sigcache.h>
+#include <streams.h>
+#include <ui_interface.h>
+#include <validation.h>
+
+const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
 void CConnmanTest::AddNode(CNode& node)
 {
@@ -28,7 +30,7 @@ void CConnmanTest::AddNode(CNode& node)
 void CConnmanTest::ClearNodes()
 {
     LOCK(g_connman->cs_vNodes);
-    for (CNode* node : g_connman->vNodes) {
+    for (const CNode* node : g_connman->vNodes) {
         delete node;
     }
     g_connman->vNodes.clear();
@@ -60,6 +62,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     // Hack to allow testing of fedpeg args
     if (!fedpegscript.empty()) {
         gArgs.SoftSetArg("-fedpegscript", fedpegscript);
+        gArgs.SoftSetBoolArg("-con_has_parent_chain", true);
     }
     // CreateAndProcessBlock() does not support building SegWit blocks, so don't activate in these tests.
     // TODO: fix the code to support SegWit blocks.

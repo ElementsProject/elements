@@ -64,7 +64,7 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
     //    return false;
     //}
     //amount = txBTC.vout[nOut].nValue.GetAmount();
-    //TODO(rebase) reenable above for CA/CT
+    //TODO(rebase) re-enable above for CA/CT
     amount = txBTC.vout[nOut].nValue;
     return true;
 }
@@ -228,9 +228,10 @@ bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::P
     return true;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
     // 0) Return false if !consensus.has_parent_chain
     if (!Params().GetConsensus().has_parent_chain) {
+        err_msg = "Parent chain is not enabled on this network.";
         return false;
     }
 
@@ -249,6 +250,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     const std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
     // Must include all elements
     if (stack.size() != 6) {
+        err_msg = "Not enough stack items.";
         return false;
     }
 
@@ -257,15 +259,18 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     try {
         stream >> value;
     } catch (...) {
+        err_msg = "Could not deserialize value.";
         return false;
     }
 
     if (!MoneyRange(value)) {
+        err_msg = "Value was not in valid value range.";
         return false;
     }
 
     // Get asset type
     if (stack[1].size() != 32) {
+        err_msg = "Asset type was not 32 bytes.";
         return false;
     }
     //TODO(rebase) CA
@@ -273,6 +278,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     // Get genesis blockhash
     if (stack[2].size() != 32) {
+        err_msg = "Parent genesis blockchaash was not 32 bytes.";
         return false;
     }
     uint256 gen_hash(stack[2]);
@@ -280,6 +286,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     // Get claim_script, sanity check size
     CScript claim_script(stack[3].begin(), stack[3].end());
     if (claim_script.size() > 100) {
+        err_msg = "Claim script is too large.";
         return false;
     }
 
@@ -290,14 +297,17 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     if (Params().GetConsensus().ParentChainHasPow()) {
         Sidechain::Bitcoin::CMerkleBlock merkle_block_pow;
         if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block_pow, stack[5])) {
+            err_msg = "Could not extract block and tx from merkleblock.";
             return false;
         }
         if (!CheckParentProofOfWork(block_hash, merkle_block_pow.header.nBits, Params().GetConsensus())) {
+            err_msg = "Parent proof of work is invalid or insufficient.";
             return false;
         }
 
         Sidechain::Bitcoin::CTransactionRef pegtx;
         if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+            err_msg = "Peg-in tx is invalid.";
             return false;
         }
 
@@ -305,15 +315,18 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     } else {
         CMerkleBlock merkle_block;
         if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
+            err_msg = "Could not extract block and tx from merkleblock.";
             return false;
         }
 
         if (!CheckProofSignedParent(merkle_block.header, Params().GetConsensus())) {
+            err_msg = "Parent signed block is invalid.";
             return false;
         }
 
         CTransactionRef pegtx;
         if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+            err_msg = "Peg-in tx is invalid.";
             return false;
         }
 
@@ -322,11 +335,13 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     // Check that the merkle proof corresponds to the txid
     if (prevout.hash != tx_hash) {
+        err_msg = "Merkle proof and txid mismatch.";
         return false;
     }
 
     // Check the genesis block corresponds to a valid peg (only one for now)
     if (gen_hash != Params().ParentGenesisBlockHash()) {
+        err_msg = "Parent genesis block mismatch.";
         return false;
     }
 
@@ -339,6 +354,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     // Finally, validate peg-in via rpc call
     if (check_depth && gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         if (!IsConfirmedBitcoinBlock(block_hash, Params().GetConsensus().pegin_min_depth, num_txs)) {
+            err_msg = "Needs more confirmations.";
             return false;
         }
     }

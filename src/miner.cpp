@@ -125,7 +125,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // Pad block weight to account for OP_RETURN commitments with two compressed pubkeys
     for (const auto& commitment : commitments) {
         CTxOut output(0, commitment);
-        nBlockWeight += ::GetSerializeSize(output, SER_NETWORK, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
+        nBlockWeight += ::GetSerializeSize(output, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
     }
     // END PAK
 
