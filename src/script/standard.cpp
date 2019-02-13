@@ -101,8 +101,7 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
 
     // Fee outputs are for elements-style transactions only
     if (g_con_elementswitness && scriptPubKey == CScript()) {
-        typeRet = TX_FEE;
-        return true;
+        return TX_FEE;
     }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:

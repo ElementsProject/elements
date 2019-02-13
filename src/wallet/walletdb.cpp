@@ -174,6 +174,14 @@ bool WalletBatch::WriteOfflineCounter(int counter)
     return WriteIC(std::string("offlinecounter"), counter);
 }
 
+bool WalletBatch::WriteBlindingDerivationKey(const uint256& key) {
+     return WriteIC(std::string("blindingderivationkey"), key);
+}
+
+bool WalletBatch::WriteSpecificBlindingKey(const uint160& scriptid, const uint256& key) {
+    return WriteIC(std::make_pair(std::string("specificblindingkey"), scriptid), key);
+}
+
 class CWalletScanState {
 public:
     unsigned int nKeys;
