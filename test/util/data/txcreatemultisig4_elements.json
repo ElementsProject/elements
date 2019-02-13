@@ -1,0 +1,30 @@
+{
+    "txid": "95b2c6399f5624a7171d20ba4c7227874128e0addd9bf36a4aa9576dd8098226",
+    "hash": "95b2c6399f5624a7171d20ba4c7227874128e0addd9bf36a4aa9576dd8098226",
+    "wtxid": "95b2c6399f5624a7171d20ba4c7227874128e0addd9bf36a4aa9576dd8098226",
+    "withash": "d0d3b17552f63780c06e5558483412d8384702cd777404f52a8a9680304fe582",
+    "version": 1,
+    "size": 78,
+    "vsize": 78,
+    "weight": 312,
+    "locktime": 0,
+    "vin": [
+    ],
+    "vout": [
+        {
+            "value": 1.00000000,
+            "assetcommitment": "010000000000000000000000000000000000000000000000000000000000000000",
+            "n": 0,
+            "scriptPubKey": {
+                "asm": "OP_HASH160 6edf12858999f0dae74f9c692e6694ee3621b2ac OP_EQUAL",
+                "hex": "a9146edf12858999f0dae74f9c692e6694ee3621b2ac87",
+                "reqSigs": 1,
+                "type": "scripthash",
+                "addresses": [
+                    "3BoFUz1StqcNcgUTZE5cC1eFhuYFzj3fGH"
+                ]
+            }
+        }
+    ],
+    "hex": "01000000000001010000000000000000000000000000000000000000000000000000000000000000010000000005f5e1000017a9146edf12858999f0dae74f9c692e6694ee3621b2ac8700000000"
+}
