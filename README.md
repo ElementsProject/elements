@@ -62,7 +62,7 @@ Once synched, block count should be the same as in: https://cbtexplorer.com
 
 edit: docker-compose.yml, adding:
 ```
-    image: commerceblock/ocean:087f1aab8
+    image: commerceblock/ocean:latest
     volumes:
       - /home/your_username/ocean_full_node:/home/bitcoin/.bitcoin
 ```
