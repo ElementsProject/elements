@@ -6,13 +6,12 @@
 
 import io
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.messages import CTransaction
+from test_framework.messages import CTransaction, COIN
 from test_framework.util import (
     assert_equal,
     connect_nodes,
     disconnect_nodes,
     sync_blocks,
-    hex_str_to_bytes,
 )
 
 class TxnMallTest(BitcoinTestFramework):
@@ -76,13 +75,13 @@ class TxnMallTest(BitcoinTestFramework):
 
         # createrawtransaction randomizes the order of its outputs, so swap them if necessary.
         clone_tx = CTransaction()
-        clone_tx.deserialize(io.BytesIO(hex_str_to_bytes(clone_raw)))
-        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40 or rawtx1["vout"][0]["value"] != 40 and clone_tx.vout[0].nValue == 40):
+        clone_tx.deserialize(io.BytesIO(bytes.fromhex(clone_raw)))
+        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40*COIN or rawtx1["vout"][0]["value"] != 40 and clone_tx.vout[0].nValue == 40*COIN):
             (clone_tx.vout[0], clone_tx.vout[1]) = (clone_tx.vout[1], clone_tx.vout[0])
 
         # Use a different signature hash type to sign.  This creates an equivalent but malleated clone.
         # Don't send the clone anywhere yet
-        tx1_clone = self.nodes[0].signrawtransactionwithwallet(clone_raw, None, "ALL|ANYONECANPAY")
+        tx1_clone = self.nodes[0].signrawtransactionwithwallet(clone_tx.serialize().hex(), None, "ALL|ANYONECANPAY")
         assert_equal(tx1_clone["complete"], True)
 
         # Have node0 mine a block, if requested:
