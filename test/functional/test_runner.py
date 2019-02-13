@@ -65,6 +65,8 @@ BASE_SCRIPTS = [
     'feature_block_v4.py',
     'feature_pak.py',
     'feature_blocksign.py',
+    'rpc_calcfastmerkleroot.py',
+    'feature_txwitness.py',
     # Longest test should go first, to favor running tests in parallel
     'feature_fee_estimation.py',
     'wallet_hd.py',
@@ -115,7 +117,8 @@ BASE_SCRIPTS = [
     'wallet_disableprivatekeys.py',
     'wallet_disableprivatekeys.py --usecli',
     'interface_http.py',
-    'rpc_psbt.py',
+    # ELEMENTS: hard-coded test vectors don't work with different tx serialization
+    #'rpc_psbt.py',
     'rpc_users.py',
     'feature_proxy.py',
     'rpc_signrawtransaction.py',

@@ -18,6 +18,7 @@ from test_framework.messages import CTransaction
 from test_framework.script import CScript
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str
+from test_framework import util
 
 import time
 
@@ -48,6 +49,7 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def run_test(self):
+        util.node_fastmerkle = self.nodes[0]
         self.address = self.nodes[0].getnewaddress()
         self.ms_address = self.nodes[0].addmultisigaddress(1, [self.address])['address']
         self.wit_address = self.nodes[0].addwitnessaddress(self.address)

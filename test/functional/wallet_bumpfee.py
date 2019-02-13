@@ -20,6 +20,7 @@ from test_framework.blocktools import add_witness_commitment, create_block, crea
 from test_framework.messages import BIP125_SEQUENCE_NUMBER, CTransaction
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes, sync_mempools
+from test_framework import util
 
 import io
 
@@ -41,6 +42,7 @@ class BumpFeeTest(BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def run_test(self):
+        util.node_fastmerkle = self.nodes[0]
         # Encrypt wallet for test_locked_wallet_fails test
         self.nodes[1].encryptwallet(WALLET_PASSPHRASE)
         self.nodes[1].walletpassphrase(WALLET_PASSPHRASE, WALLET_PASSPHRASE_TIMEOUT)

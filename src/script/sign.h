@@ -628,11 +628,14 @@ struct PartiallySignedTransaction
                     OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
                     UnserializeFromVector(os, mtx);
                     tx = std::move(mtx);
-                    // Make sure that all scriptSigs and scriptWitnesses are empty
+                    // Make sure that all scriptSigs and witnesses are empty
                     for (const CTxIn& txin : tx->vin) {
-                        if (!txin.scriptSig.empty() || !txin.scriptWitness.IsNull()) {
-                            throw std::ios_base::failure("Unsigned tx does not have empty scriptSigs and scriptWitnesses.");
+                        if (!txin.scriptSig.empty()) {
+                            throw std::ios_base::failure("Unsigned tx does not have empty scriptSigs.");
                         }
+                    }
+                    if (!tx->witness.IsNull())  {
+                        throw std::ios_base::failure("Unsigned tx does not have empty witnesses.");
                     }
                     break;
                 }
@@ -708,7 +711,7 @@ bool SignPSBTInput(const SigningProvider& provider, const CMutableTransaction& t
 
 /** Extract signature data from a transaction input, and insert it. */
 SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nIn, const CTxOut& txout);
-void UpdateInput(CTxIn& input, const SignatureData& data);
+void UpdateTransaction(CMutableTransaction& input, const size_t nIn, const SignatureData& data);
 
 /* Check whether we know how to sign for an output like this, assuming we
  * have all private keys. While this function does not need private keys, the passed

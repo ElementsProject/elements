@@ -200,6 +200,10 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
+    if (g_con_elementswitness) {
+        entry.pushKV("wtxid", tx.GetWitnessHash().GetHex());
+        entry.pushKV("withash", tx.GetWitnessOnlyHash().GetHex());
+    }
     entry.pushKV("version", tx.nVersion);
     entry.pushKV("size", (int)::GetSerializeSize(tx, PROTOCOL_VERSION));
     entry.pushKV("vsize", (GetTransactionWeight(tx) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR);
@@ -220,19 +224,22 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             in.pushKV("scriptSig", o);
 
-            if (!tx.vin[i].scriptWitness.IsNull()) {
-                UniValue txinwitness(UniValue::VARR);
-                for (const auto& item : tx.vin[i].scriptWitness.stack) {
-                    txinwitness.push_back(HexStr(item.begin(), item.end()));
+            if (tx.witness.vtxinwit.size() > i) {
+                const CScriptWitness &scriptWitness = tx.witness.vtxinwit[i].scriptWitness;
+                if (!scriptWitness.IsNull()) {
+                    UniValue txinwitness(UniValue::VARR);
+                    for (const auto &item : scriptWitness.stack) {
+                        txinwitness.push_back(HexStr(item.begin(), item.end()));
+                    }
+                    in.pushKV("txinwitness", txinwitness);
                 }
-                in.pushKV("txinwitness", txinwitness);
             }
 
             // ELEMENTS:
             in.pushKV("is_pegin", txin.m_is_pegin);
-            if (!tx.vin[i].m_pegin_witness.IsNull()) {
+            if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
                 UniValue pegin_witness(UniValue::VARR);
-                for (const auto& item : tx.vin[i].m_pegin_witness.stack) {
+                for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
                     pegin_witness.push_back(HexStr(item.begin(), item.end()));
                 }
                 in.pushKV("pegin_witness", pegin_witness);

@@ -11,6 +11,8 @@
 #include <serialize.h>
 #include <uint256.h>
 
+// ELEMENTS:
+// Globals to avoid circular dependencies.
 extern bool g_con_blockheightinheader;
 extern bool g_signed_blocks;
 

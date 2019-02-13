@@ -7,6 +7,7 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
+#include <primitives/transaction.h>
 #include <tinyformat.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -523,9 +524,10 @@ class CCustomParams : public CRegTestParams {
         consensus.max_block_signature_size = gArgs.GetArg("-con_max_block_sig_size", 74);
         g_signed_blocks = gArgs.GetBoolArg("-con_signed_blocks", true);
 
-        // Note: This global is needed to avoid circular dependency
-        // Defaults to true for custom chains.
+        // Note: These globals are needed to avoid circular dependencies.
+        // Default to true for custom chains.
         g_con_blockheightinheader = args.GetBoolArg("-con_blockheightinheader", true);
+        g_con_elementswitness = args.GetBoolArg("-con_elementswitness", true);
 
         // No subsidy for custom chains by default
         consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", 0);

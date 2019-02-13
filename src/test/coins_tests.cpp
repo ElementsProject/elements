@@ -407,7 +407,7 @@ BOOST_AUTO_TEST_CASE(updatecoins_simulation_test)
             if (!tx.IsCoinBase()) {
                 const COutPoint &out = tx.vin[0].prevout;
                 Coin coin = undo.vprevout[0];
-                ApplyTxInUndo(std::move(coin), *(stack.back()), out, tx.vin[0], tx.vin[0].m_pegin_witness);
+                ApplyTxInUndo(std::move(coin), *(stack.back()), out, tx.vin[0], CScriptWitness());
             }
             // Store as a candidate for reconnection
             disconnected_coins.insert(utxod->first);

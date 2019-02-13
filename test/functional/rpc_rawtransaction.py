@@ -361,18 +361,15 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # decoderawtransaction tests
         # witness transaction
-        encrawtx = "010000000001010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0100e1f50500000000000102616100000000"
+        # new in core:
+        #encrawtx = "010000000001010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0100e1f50500000000000102616100000000"
+        encrawtx = "0100000000010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0100e1f505000000000000000000"
         decrawtx = self.nodes[0].decoderawtransaction(encrawtx, True) # decode as witness transaction
-        assert_equal(decrawtx['vout'][0]['value'], Decimal('1.00000000'))
-        assert_raises_rpc_error(-22, 'TX decode failed', self.nodes[0].decoderawtransaction, encrawtx, False) # force decode as non-witness transaction
-        # non-witness transaction
-        encrawtx = "01000000010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0100e1f505000000000000000000"
-        decrawtx = self.nodes[0].decoderawtransaction(encrawtx, False) # decode as non-witness transaction
         assert_equal(decrawtx['vout'][0]['value'], Decimal('1.00000000'))
 
         # getrawtransaction tests
         # 1. valid parameters - only supply txid
-        txHash = rawTx["hash"]
+        txHash = rawTx["txid"]
         assert_equal(self.nodes[0].getrawtransaction(txHash), rawTxSigned['hex'])
 
         # 2. valid parameters - supply txid and 0 for non-verbose
