@@ -567,7 +567,12 @@ class CCustomParams : public CRegTestParams {
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
 
         // END ELEMENTS fields
-        //
+
+        // CSV always active by default, unlike regtest
+        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].bit = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = args.GetArg("-con_csv_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+
     }
 
     void SetGenesisBlock() {

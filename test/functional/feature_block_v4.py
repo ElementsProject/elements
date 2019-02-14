@@ -2,23 +2,28 @@
 # Copyright (c) 2015-2018 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Test BIP 34, 65, 66 activation at block 0"""
+"""Test BIP 34, 65, 66, CSV activation at block 0"""
 
 from test_framework.blocktools import create_coinbase, create_block, create_transaction
 from test_framework.messages import msg_block
 from test_framework.mininode import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, get_bip9_status
 
 from feature_cltv import cltv_validate
 
 class BlockV4Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', '-con_bip34height=0', '-con_bip65height=0', '-con_bip66height=0']]
+        self.extra_args = [['-whitelist=127.0.0.1', '-con_bip34height=0', '-con_bip65height=0', '-con_bip66height=0', '-con_csv_deploy_start=-1']]
         self.setup_clean_chain = True
 
     def run_test(self):
+
+        # First, quick check that CSV is ACTIVE at genesis
+        assert_equal(self.nodes[0].getblockcount(), 0)
+        assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], 'active')
+
         self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.nodeaddress = self.nodes[0].getnewaddress()
