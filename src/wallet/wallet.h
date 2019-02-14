@@ -675,8 +675,13 @@ private:
      */
     bool AddWatchOnly(const CScript& dest) override;
 
-    //The KYC ID public key associated with this wallet.
-    CPubKey _idPubKey;
+    //The KYC public key for the user. For registering additional addresses
+    //to the whitelist.
+    CPubKey _kycPubKey;
+    //The public key for user onboarding, to be read from the blockchain.
+    CPubKey _onboardPubKey;
+
+    CPubKey _onboardUserPubKey;
 
 public:
     /*
@@ -841,9 +846,17 @@ public:
 
     void GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const;
 
+    //The KYC public key used for address whitelist registration by the user.
+    CPubKey GetKYCPubKey(){return _kycPubKey;}
+    void SetKYCPubKey(CPubKey val){_kycPubKey=val;}
 
-    CPubKey GetIDPubKey(){return _idPubKey;}
-    void SetIDPubKey(CPubKey val){_idPubKey=val;}
+    //The onboarding public key, to be read from the blockchain.
+    CPubKey GetOnboardPubKey(){return _onboardPubKey;}
+    void SetOnboardPubKey(CPubKey val){_onboardPubKey=val;}
+
+    //The onboarding private key, either randomly selected or set by the user.
+    CPubKey GetOnboardUserPubKey(){return _onboardUserPubKey;}
+    void SetOnboardUserPubKey(CPubKey val){_onboardUserPubKey.Set(val.begin(), val.end());}
 
     /**
      * Increment the next transaction order id

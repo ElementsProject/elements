@@ -181,7 +181,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       decryptPubKey=(*it);
     } else {
       if(!pwalletMain->GetKey((*it).GetID(), decryptPrivKey)) continue;  
-      decryptPubKey=pwalletMain->GetIDPubKey();
+      decryptPubKey=pwalletMain->GetKYCPubKey();
     }
 
 

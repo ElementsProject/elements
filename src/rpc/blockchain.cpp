@@ -21,6 +21,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
+#include "ecies.h"
 
 #include <fstream>
 
@@ -1564,6 +1565,142 @@ UniValue readwhitelist(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+UniValue readkycfile(const JSONRPCRequest& request)
+{
+  if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+    throw runtime_error(
+            "readkycfile \"filename\"\n"
+            "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The kyc file name\n"
+            "2. \"outfilename\" (string, required) The output file name\n"
+            "3. \"onboardpubkey\"  (string, optional) The public key issued by the server for onboarding encryption\n"
+            "\nExamples:\n"
+            "\nDump the keys\n"
+            + HelpExampleCli("readkycfile", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("readkycfile", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            );
+
+    CPubKey onboardPubKey;    
+    if(request.params.size()==3){
+      std::string sOnboardPubKey=request.params[2].get_str();
+      std::vector<unsigned char> pubKeyData(ParseHex(sOnboardPubKey));
+      onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+      pwalletMain->SetOnboardPubKey(onboardPubKey);
+    }
+
+    onboardPubKey = pwalletMain->GetOnboardPubKey(); 
+
+    if(!onboardPubKey.IsFullyValid())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid onboard pub key in KYC file");
+
+    CKey onboardPrivKey;
+    if(!pwalletMain->GetKey(onboardPubKey.GetID(), onboardPrivKey))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot get onboard private key");
+
+    std::ifstream file;
+    file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
+    if (!file.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open kyc file");
+    file.seekg(0, file.beg);
+
+    CECIES* decryptor = nullptr;
+    CPubKey* onboardUserPubKey = nullptr;
+    std::vector<unsigned char>* initVec = nullptr;
+    // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
+
+    std::ofstream outfile;
+    outfile.open(request.params[1].get_str().c_str());
+    if (!outfile.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open output file");
+
+    std::stringstream ss;
+    ss.str("");
+    std::stringstream ssEnd;
+    unsigned long nBytesToRead=0;
+    std::string encryptedData("");
+    std::string data("");
+
+    while (file.good()){
+        //Skip the header, footer
+        std::string line;
+        std::getline(file, line);
+        if(ss.str().size() >= nBytesToRead){
+           if (line.empty() || line[0] == '#'){
+                outfile << line << "\n";
+                continue;
+            }
+        }
+
+        //Read the metadata and initialize th decryptor
+        if(!onboardUserPubKey){
+            outfile << line << "\n";
+            std::vector<std::string> vstr;
+            boost::split(vstr, line, boost::is_any_of(" "));
+            if (vstr.size() != 3)
+               continue;
+            std::vector<unsigned char> pubKeyData(ParseHex(vstr[0]));
+            onboardUserPubKey = new CPubKey(pubKeyData.begin(), pubKeyData.end());
+            if(!onboardUserPubKey->IsFullyValid())
+                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid onboard user pub key in KYC file");
+            initVec = new std::vector<unsigned char>(ParseHex(vstr[1]));
+            if(initVec->size() != AES_BLOCKSIZE)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid initialization vector in KYC file");
+            decryptor = new CECIES(onboardPrivKey, *onboardUserPubKey, *initVec);
+            std::stringstream ssNBytes;
+            ssNBytes << vstr[2];
+            ssNBytes >> nBytesToRead;
+            continue;
+        }
+
+        //Read in encrypted data, decrypt and output to file
+        ss << line;        
+        unsigned long size = ss.str().size();
+        if(size > nBytesToRead){
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid KYC file: encrypted data stream too long.");
+        }
+        if(size == nBytesToRead){
+            if(data.size()==0){
+                std::vector<unsigned char> vch = ParseHex(ss.str());
+                std::vector<unsigned char> vdata;
+                if(!decryptor->Decrypt(vdata, vch))
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC file decryption failed.");
+                data=std::string(vdata.begin(), vdata.end());
+                std::stringstream ss_data;
+                ss_data << data;
+                //Get the addresses
+                for(std::string line; std::getline(ss_data, line);){
+                    std::vector<std::string> vstr;
+                    if (line.empty() || line[0] == '#')
+                        continue;
+                    boost::split(vstr, line, boost::is_any_of(" "));
+                    if (vstr.size() != 2)
+                        continue;
+
+                    CBitcoinAddress address;
+                    if (!address.SetString(vstr[0]))
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid Bitcoin address in KYC file ");
+                    std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
+                    CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+                    if(!pubKey.IsFullyValid()){
+                        outfile << line << "\n";
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid pub key in KYC file");
+                    }
+
+                    //Addresses valid, output line to file
+                    outfile << line << "\n";
+                }
+            }
+        }
+    }
+
+    if(ss.str().size() < nBytesToRead){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid KYC file: encrypted data stream too short.");
+    }
+
+    return NullUniValue;
+}
+
 UniValue querywhitelist(const JSONRPCRequest& request)
 {
 
@@ -2334,6 +2471,8 @@ static const CRPCCommand commands[] =
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
+
+    { "blockchain",         "readkycfile",            &readkycfile,            true,  {"filename", "outfilename", "onboardpubkey"} },
 
     { "blockchain",         "addtofreezelist",        &addtofreezelist,        true,  {"address"} },
     { "blockchain",         "removefromfreezelist",   &removefromfreezelist,   true,  {"address"} },

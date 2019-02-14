@@ -84,22 +84,34 @@ bool CECIES::Decrypt(uCharVec& m,
  	uCharVec& em) const{
 		//Add padding if needed.
 	unsigned int size = em.size();
+	unsigned int nPad=0;
 	if (size % AES_BLOCKSIZE) {
 		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
+		nPad=em.size()-size;
 	}
 	m.resize(em.size(), _padChar);
 	_decryptor->Decrypt(em.data(), em.size(), m.data());
+	//Remove the padding.
+	m.resize(size);
     return true;
 }
 
 bool CECIES::Encrypt(std::string& em, 
  	std::string& m) const{
-    return true;
+	uCharVec vm(m.begin(), m.end());
+	uCharVec vem;
+	bool bResult=Encrypt(vem, vm);
+	if(bResult) em=std::string(vem.begin(), vem.end());
+    return bResult;
 }
 
 bool CECIES::Decrypt(std::string& m, 
  	std::string& em) const{
-    return true;
+	uCharVec vem(em.begin(), em.end());
+	uCharVec vm;
+	bool bResult=Decrypt(vm, vem);
+	if (bResult) m=std::string(vm.begin(), vm.end());
+    return bResult;
 }
 
 uCharVec CECIES::get_iv(){

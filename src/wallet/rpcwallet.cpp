@@ -692,7 +692,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     if (!kycPubKey.IsFullyValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey is not a valid public key");
 
-    pwalletMain->SetIDPubKey(kycPubKey);
+    pwalletMain->SetKYCPubKey(kycPubKey);
     CWalletTx wtx;
 
     SendAddNextToWhitelistTx(feeasset, naddresses.get_int(), kycPubKey, wtx);
@@ -4594,6 +4594,7 @@ extern UniValue importaddress(const JSONRPCRequest& request);
 extern UniValue importpubkey(const JSONRPCRequest& request);
 extern UniValue dumpwallet(const JSONRPCRequest& request);
 extern UniValue dumpderivedkeys(const JSONRPCRequest& request);
+extern UniValue dumpkycfile(const JSONRPCRequest& request);
 extern UniValue getderivedkeys(const JSONRPCRequest& request);
 extern UniValue validatederivedkeys(const JSONRPCRequest& request);
 extern UniValue importwallet(const JSONRPCRequest& request);
@@ -4620,6 +4621,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,  true,   {"txid", "vin"} },
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
+    { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },

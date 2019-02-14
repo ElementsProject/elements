@@ -15,6 +15,7 @@
 #include "wallet.h"
 #include "merkleblock.h"
 #include "core_io.h"
+#include "ecies.h"
 
 #include <fstream>
 #include <stdint.h>
@@ -673,6 +674,98 @@ UniValue getderivedkeys(const JSONRPCRequest& request)
     AuditLogPrintf("%s : getderivedkeys\n", getUser());
 
     return ret;
+}
+
+UniValue dumpkycfile(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw runtime_error(
+            "dumpkycfile \"filename\"\n"
+            "\nDumps all wallet tweaked public keys in an encrypted format.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The filename\n"
+            "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dumpkycfile", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("dumpkycfile", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+
+    if (request.params.size() == 2){
+        std::string sOnboardPubKey = request.params[1].get_str();
+        std::vector<unsigned char> pubKeyData(ParseHex(sOnboardPubKey));
+        CPubKey onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+        pwalletMain->SetOnboardPubKey(onboardPubKey);
+    }
+
+
+    std::ofstream file;
+    file.open(request.params[0].get_str().c_str());
+    if (!file.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+
+    std::set<CKeyID> setKeyPool;
+    pwalletMain->GetAllReserveKeys(setKeyPool);
+
+    // produce output
+    file << strprintf("# Derived key dump created by Bitcoin %s\n", CLIENT_BUILD);
+    file << strprintf("# * Created on %s\n", EncodeDumpTime(GetTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", EncodeDumpTime(chainActive.Tip()->GetBlockTime()));
+    file << "\n";
+
+    // add the onboarding public key 
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
+    CKey onboardUserKey; 
+    pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
+    std::stringstream ss;
+
+    // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
+    for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
+        const CKeyID &keyid = *it;
+        std::string strAddr = CBitcoinAddress(keyid).ToString();
+        CKey key;
+        if (pwalletMain->GetKey(keyid, key)) { // verify exists
+            CPubKey pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
+            ss << strprintf("%s %s\n",
+                strAddr,
+                HexStr(pubKey.begin(), pubKey.end()));
+        }
+    }
+
+    //Encrypt the above string
+    CPubKey onboardPubKey = pwalletMain->GetOnboardPubKey();
+    CECIES encryptor(onboardUserKey, onboardPubKey);
+    std::string encrypted;
+    std::string bare=ss.str();
+    encryptor.Encrypt(encrypted, bare);
+    std::vector<unsigned char> vEnc(encrypted.begin(), encrypted.end());
+
+    //Append the initialization vector to the file
+    std::vector<unsigned char> vInitVec = encryptor.get_iv();
+    std::string sInitVec(HexStr(vInitVec.begin(), vInitVec.end()));
+
+    std::string sEnc = HexStr(vEnc);
+
+    //Append the initialization vector and encrypted keys
+
+    file << strprintf("%s %s %d\n", HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEnc.size());
+
+    file << sEnc << "\n";
+    file << "# End of dump\n";
+    file.close();
+
+    AuditLogPrintf("%s : dumpkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[1].get_str());
+
+    return NullUniValue;
 }
 
 UniValue dumpderivedkeys(const JSONRPCRequest& request)

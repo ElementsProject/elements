@@ -11,6 +11,9 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "crypto/sha256.h"
+#include "validation.h"
+#include "rpc/server.h"
+#include "wallet/wallet.h"
 
 #include <assert.h>
 
@@ -55,6 +58,12 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
     if (issuecontrolscript != "")
     {
         txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN << ParseHex(issuecontrolscript)));
+    }
+
+    std::string onboardpubkey = GetArg("-onboardpubkey", "");
+    if (onboardpubkey != "")
+    {
+        txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN << ParseHex(onboardpubkey)));
     }
 
     CBlock genesis;
