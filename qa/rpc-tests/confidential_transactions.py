@@ -113,7 +113,17 @@ class CTTest (BitcoinTestFramework):
         self.nodes[1].importblindingkey(address, blindingkey)
         # Check the auditor's gettransaction and listreceivedbyaddress
         # Needs rescan to update wallet txns
-        assert_equal(self.nodes[1].gettransaction(confidential_tx_id, True)['amount']["bitcoin"], value1)
+        conf_tx = self.nodes[1].gettransaction(confidential_tx_id, True)
+        assert_equal(conf_tx['amount']["bitcoin"], value1)
+
+        # Make sure wallet can now deblind part of transaction
+        deblinded_tx = self.nodes[1].unblindrawtransaction(conf_tx['hex'])['hex']
+        for output in self.nodes[1].decoderawtransaction(deblinded_tx)["vout"]:
+            if "value" in output and output["scriptPubKey"]["type"] != "fee":
+                assert_equal(output["scriptPubKey"]["addresses"][0], self.nodes[1].validateaddress(address)['unconfidential'])
+                found_unblinded = True
+        assert(found_unblinded)
+
         assert_equal(self.nodes[1].gettransaction(raw_tx_id, True)['amount']["bitcoin"], value3)
         list_unspent = self.nodes[1].listunspent(1, 9999999, [], True, "bitcoin")
         assert_equal(list_unspent[0]['amount']+list_unspent[1]['amount'], value1+value3)

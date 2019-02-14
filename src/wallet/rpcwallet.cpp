@@ -2865,6 +2865,46 @@ UniValue listunspent(const JSONRPCRequest& request)
     return results;
 }
 
+extern void FillBlinds(CMutableTransaction& tx, bool fUseWallet, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys, std::vector<CKey>& asset_keys, std::vector<CKey>& token_keys);
+
+UniValue unblindrawtransaction(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+                            "unblindrawtransaction \"hex\"\n"
+                            "\nRecovers unblinded transaction outputs from blinded outputs and issuance inputs when possible using wallet's known blinding keys, and strips related witness data.\n"
+                            "\nArguments:\n"
+                            "1. \"hex\"           (string, required) The hex string of the raw transaction\n"
+                            "\nResult:\n"
+							"{\n"
+                            "  \"hex\":       \"value\", (string)  The resulting unblinded raw transaction (hex-encoded string)\n"
+							"}\n"
+                            "\nExamples:\n"
+                            + HelpExampleCli("unblindrawtransaction", "\"blindedtransactionhex\"")
+                            );
+
+    RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VSTR));
+
+    CMutableTransaction tx;
+    if (!DecodeHexTx(tx, request.params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+
+    std::vector<uint256> output_value_blinds;
+    std::vector<uint256> output_asset_blinds;
+    std::vector<CPubKey> output_pubkeys;
+    std::vector<CKey> asset_keys;
+    std::vector<CKey> token_keys;
+    FillBlinds(tx, true, output_value_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys);
+
+    UniValue result(UniValue::VOBJ);
+    result.push_back(Pair("hex", EncodeHexTx(tx)));
+
+	return result;
+}
+
 UniValue fundrawtransaction(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -4163,6 +4203,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "destroyamount",            &destroyamount,            false,  {"asset", "amount", "comment"} },
     { "wallet",             "settxfee",                 &settxfee,                 true,   {"amount"} },
     { "wallet",             "signmessage",              &signmessage,              true,   {"address","message"} },
+    { "wallet",             "unblindrawtransaction",    &unblindrawtransaction,    true,   {"hex"} },
     { "wallet",             "walletlock",               &walletlock,               true,   {} },
     { "wallet",             "walletpassphrasechange",   &walletpassphrasechange,   true,   {"oldpassphrase","newpassphrase"} },
     { "wallet",             "walletpassphrase",         &walletpassphrase,         true,   {"passphrase","timeout"} },
