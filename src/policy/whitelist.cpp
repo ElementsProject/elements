@@ -184,11 +184,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       decryptPubKey=pwalletMain->GetKYCPubKey();
     }
 
-
+    //Decrypt
     CECIES decryptor(decryptPrivKey, decryptPubKey, initVec);
-    //Don't decrypt
     std::vector<unsigned char> data;
-    //(encryptedData.begin(), encryptedData.end());
     data.resize(encryptedData.size());
     decryptor.Decrypt(data, encryptedData);
     
