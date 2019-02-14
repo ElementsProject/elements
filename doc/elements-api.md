@@ -237,7 +237,7 @@ elements-cli blindrawtransaction $raw_tx
 
 The `claimpegin` RPC claims bitcoins that you deposited to a pegin
 address on the main chain.  The mainchain deposit transaction must have
-at least 10 confirmations before the claim is valid. On some
+at least 102 confirmations before the claim is valid. On some
 sidechains you may need to use a special method not described here to
 submit the claim to a functionary in order for it to be mined.
 
