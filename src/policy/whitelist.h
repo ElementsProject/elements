@@ -21,7 +21,15 @@ public:
 		const std::string& sKYCAddress);
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
+	void add_kyc(const CBitcoinAddress& address);
 
+	void remove_kyc(const CBitcoinAddress& address);
+
+	void add_kyc(const CKeyID& keyId);
+
+	void remove_kyc(const CKeyID& keyId);
+
+	bool find_kyc(const CKeyID& keyId);
 
 	void synchronise(CWhiteList* wl_new);
 
@@ -32,6 +40,10 @@ public:
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
 
+  	
+  //Update from transaction
+  virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
 private:
 	//Make add_sorted private because we only want verified derived keys 
 	//to be added to the CWhiteList.
@@ -39,5 +51,8 @@ private:
 
 	//A map of address to idPubKey
 	std::map<CKeyID, CKeyID> _kycMap;
+	//A map of address to tweaked public key
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
+	//The set of whitelisted KYC keys
+	std::set<CKeyID> _kycSet;
 };

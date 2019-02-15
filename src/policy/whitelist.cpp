@@ -19,8 +19,8 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if (!pubKey.IsFullyValid())
     throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category())
-          ,std::string(std::string(__func__) +  ": invalid public key"));
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+          std::string(std::string(__func__) +  ": invalid public key"));
 
     //Will throw an error if address is not a valid derived address.
   CKeyID keyId;
@@ -37,11 +37,16 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
             std::string(__func__) + ": invalid key id (kyc address)");
   }
 
-  try{
-    if(!Consensus::CheckValidTweakedAddress(keyId, pubKey)) return;
-  } catch (std::system_error e) {
-    throw e;
-  } 
+  if(!Consensus::CheckValidTweakedAddress(keyId, pubKey)) return;
+
+  //Check the KYC key is whitelisted
+  if(!find_kyc(kycKeyId)){
+    throw std::system_error(
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
+            std::string(__func__) + ": the KYC key is not currently whitelisted.");
+    return;
+  }
+
   //insert new address into sorted CWhiteList vector
   add_sorted(&keyId);
 
@@ -53,6 +58,10 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
   if (!contract.IsNull())
     tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     _tweakedPubKeyMap[keyId]=tweakedPubKey;
+}
+
+bool CWhiteList::find_kyc(const CKeyID& keyId){
+   return(_kycSet.find(keyId) != _kycSet.end());
 }
 
 void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
@@ -81,6 +90,26 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   }
   add_derived(address, pubKey, kycAddress);
   delete kycAddress;
+}
+
+void CWhiteList::add_kyc(const CBitcoinAddress& address){
+  CKeyID id;
+  address.GetKeyID(id);
+  add_kyc(id);
+}
+
+void CWhiteList::remove_kyc(const CBitcoinAddress& address){
+  CKeyID id;
+  address.GetKeyID(id);
+  remove_kyc(id);
+}
+
+void CWhiteList::add_kyc(const CKeyID& keyId){
+  _kycSet.insert(keyId);
+}
+
+void CWhiteList::remove_kyc(const CKeyID& keyId){
+  _kycSet.erase(keyId);
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
@@ -257,4 +286,74 @@ bool CWhiteList::LookupTweakedPubKey(const CKeyID& address, CPubKey& pubKeyFound
   }
   return false;
 }
+
+//Update from transaction
+bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+{
+    if (tx.IsCoinBase())
+      return false; // Coinbases don't use vin normally
+
+    // check inputs for encoded address data
+    // The first dummy key in the multisig is the (scrambled) kyc public key.
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
+
+        std::vector<std::vector<unsigned char> > vSolutions;
+        txnouttype whichType;
+
+        const CScript& prevScript = prev.scriptPubKey;
+        if (!Solver(prevScript, whichType, vSolutions)) continue;
+
+        // extract address from second multisig public key and remove from whitelist
+        // bytes 0-32: KYC public key assigned by the server, bytes reversed
+        
+        if (whichType == TX_MULTISIG && vSolutions.size() == 4)
+        {
+            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 32);
+            //The KYC public key is encoded in reverse to prevent spending, 
+            //so we need to reverse the bytes.
+            std::reverse(vKycPub.begin(), vKycPub.end());
+            CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
+            if (!kycPubKey.IsFullyValid())
+                throw std::system_error(
+                  std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+                  std::string(std::string(__func__) +  ": invalid public key"));
+
+            remove_kyc(kycPubKey.GetID());
+        }
+    }
+
+    //check outputs for encoded address data
+    for (unsigned int i = 0; i < tx.vout.size(); i++) {
+        const CTxOut& txout = tx.vout[i];
+
+        std::vector<std::vector<unsigned char> > vSolutions;
+        txnouttype whichType;
+
+        if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
+
+        // extract address from second multisig public key and add it to the whitelist
+        // bytes 0-32: KYC public key assigned by the server, bytes reversed
+        if (whichType == TX_MULTISIG && vSolutions.size() == 4)
+        {
+            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 32);
+            //The KYC public key is encoded in reverse to prevent spending, 
+            //so we need to reverse the bytes.
+            std::reverse(vKycPub.begin(), vKycPub.end());
+            CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
+            if (!kycPubKey.IsFullyValid())
+                throw std::system_error(
+                  std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+                  std::string(std::string(__func__) +  ": invalid public key"));
+
+            add_kyc(kycPubKey.GetID());
+
+        }
+    }
+    return true;
+}
+
+
+
+
 
