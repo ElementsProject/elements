@@ -665,10 +665,8 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
             "    {\n"
             "      \"pubkey\": \"pubKey\",    (string, required) The key is \"pubkey\" and the value is the admin public key\n"
             "      \"value\": \"value\"      (numeric or string, required) The key is \"value\", the value is the permission token amount\n"
-            "      \"address1\": \"address\"      (string, optional) The key is \"address1\", the value is hex encoded 20 byte address to be added to the policy list\n"
-            "      \"userkey1\": \"userkey\"      (string, optional) The key is \"userkey1\", the value is hex encoded 33 byte key to be added to the policy list\n"
-            "      \"address2\": \"address\"      (string, optional) The key is \"address2\", the value is hex encoded 20 byte address to be added to the policy list\n"
-            "      \"userkey2\": \"userkey\"      (string, optional) The key is \"userkey2\", the value is hex encoded 33 byte key to be added to the policy list\n"
+            "      \"address\": \"address\"      (string, optional) The key is \"address\", the value is hex encoded 20 byte address to be added to the policy list\n"
+            "      \"userkey\": \"userkey\"      (string, optional) The key is \"userkey\", the value is hex encoded 32 byte key to be added to the policy list\n"
             "    }\n"
             "       ,...\n"
             "     ]\n"
@@ -679,10 +677,10 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
 
             "\nExamples:\n"
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"pubkey\\\":2.41}\"")
-            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"pubkey1\\\":2.41}\" 0 \"{\\\"address1\\\":\\\"myasset\\\"}\"")
+            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"pubkey\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myasset\\\"}\"")
             + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":2.41}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"pubkey1\\\":2.41}\", 0, \"{\\\"address1\\\":\\\"myasset\\\"}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"pubkey\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myasset\\\"}\"")
             + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
         );
 
@@ -751,58 +749,46 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
 
 
         std::string data;
-        std::vector<CPubKey> vListData;
-        std::vector<std::vector<std::string> > labels{
-            std::vector<std::string>{"address1", "userkey1"},
-            std::vector<std::string>{"address2", "userkey2"}
-        };
+        //get the address from the RPC
+        const UniValue& address = find_value(o, "address");
 
-
-        for(auto label : labels){
-            //get the addresses from the RPC
-            const UniValue& address = find_value(o, label[0]);
-
-            CBitcoinAddress bcaddress;
-            if (!bcaddress.SetString(address.getValStr()))
+        CBitcoinAddress bcaddress;
+        if (!bcaddress.SetString(address.getValStr()))
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
 
-            CKeyID keyId;
-            if (!bcaddress.GetKeyID(keyId))
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+        CKeyID keyId;
+        if (!bcaddress.GetKeyID(keyId))
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-            std::string hexaddress = HexStr(keyId.begin(), keyId.end());
-            //concatenate with padding bytes
-            data = "02000000000000000000000000" + hexaddress;
+        std::string hexaddress = HexStr(keyId.begin(), keyId.end());
+        //concatenate with padding bytes
+        data = "02000000000000000000000000" + hexaddress;
+        //we do not check that this pubkey is a real curve point
+
+        const UniValue& userkey = find_value(o, "userkey");
+
+        if (userkey.isStr()) {
+            if(data.length() > 0)
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Cannot have both address and userkey");
+            if (!IsHex(userkey.getValStr()))
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Userkey must be a hex string");
+            if(userkey.getValStr().length() != 66)
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Userkey must be 33 bytes in length");
+
+            data = userkey.getValStr();
             //we do not check that this pubkey is a real curve point
-
-            const UniValue& userkey = find_value(o, label[1]);
-
-            if (userkey.isStr()) {
-                if(data.length() > 0)
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Cannot have both address and userkey");
-                if (!IsHex(userkey.getValStr()))
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Userkey must be a hex string");
-                if(userkey.getValStr().length() != 66)
-                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Userkey must be 33 bytes in length");
-
-                data = userkey.getValStr();
-                //we do not check that this pubkey is a real curve point
-            }
-    
-        
-            std::vector<unsigned char> datavec(ParseHex(data));
-            vListData.push_back(CPubKey(datavec.begin(), datavec.end()));
         }
+
+        std::vector<unsigned char> datavec(ParseHex(data));
+        CPubKey listData(datavec.begin(), datavec.end());
 
         //get the address from the RPC
 
         std::vector<CPubKey> pubkeys;
-        pubkeys.resize(1 + vListData.size());
+        pubkeys.resize(2);
         int nRequired = 1;
-        pubkeys.push_back(adminPubKey);
-        for (auto key : vListData){
-            pubkeys.push_back(key);
-        }
+        pubkeys[0] = adminPubKey;
+        pubkeys[1] = listData;
 
         CScript result = GetScriptForMultisig(nRequired, pubkeys);
 
