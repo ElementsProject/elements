@@ -31,6 +31,8 @@ public:
 
 	bool find_kyc(const CKeyID& keyId);
 
+	bool find_kyc(const CPubKey& pubKey);
+
 	void synchronise(CWhiteList* wl_new);
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
@@ -40,7 +42,7 @@ public:
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
 
-  	
+
   //Update from transaction
   virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 

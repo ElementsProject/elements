@@ -64,6 +64,10 @@ bool CWhiteList::find_kyc(const CKeyID& keyId){
    return(_kycSet.find(keyId) != _kycSet.end());
 }
 
+bool CWhiteList::find_kyc(const CPubKey& pubKey){
+   return find_kyc(pubKey.GetID());
+}
+
 void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
   add_derived(addressIn, key, std::string(""));
 }
@@ -139,40 +143,69 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   //Confirm data read from the TX_REGISTERADDRESS
   if(bytes.size()==0) return false;
 
-  //Get input keyids
-  //Lookup the ID public keys of the input addresses.
-  //The set is used to ensure that there is only one kycKey involved.
-  std::vector<CPubKey> inputPubKeys;
-  CKeyID kycKey, keyId;
-  
-  BOOST_FOREACH(const CTxIn& prevIn, tx.vin) {
-    const CTxOut& prev = mapInputs.GetOutputFor(prevIn);
-    CTxDestination dest;
-    if(!ExtractDestination(prev.scriptPubKey, dest))
-      continue;
-    
-    // For debugging - translate into bitcoin address
-    CBitcoinAddress addr(dest);
-    addr.GetKeyID(keyId);
-    std::string sAddr = addr.ToString();
-    // search in whitelist for the presence of keyid
-    // add the associated kycKey to the set of kyc keys
-    if(LookupKYCKey(keyId, kycKey)){
-      CPubKey pubKey;
-      if(LookupTweakedPubKey(keyId, pubKey))
-      inputPubKeys.push_back(pubKey);
+  unsigned int pubKeySize=33;
+  unsigned int addrSize=20;
+
+  //Are the first 33 bytes a currently whitelisted KYC public key? 
+  //If so, this is an initial onboarding transaction, and those 33 bytes are the server KYC public key.
+  //And the following 33 bytes are the client onboarding public key.
+  std::vector<unsigned char>::const_iterator it=bytes.begin();
+  CPubKey kycPubKey = CPubKey(it, it=it+pubKeySize);
+  CPubKey userOnboardPubKey = CPubKey(it, it=it+pubKeySize);
+  CKeyID kycKey, keyId, onboardKeyID;
+  CKey userOnboardPrivKey;
+  CPubKey inputPubKey;
+  std::set<CPubKey> inputPubKeys;
+  bool bOnboard=false;
+
+  if(kycPubKey.IsFullyValid()){
+    kycKey=kycPubKey.GetID();
+    bOnboard = find_kyc(kycKey);
+    // Check if reading from the client node
+    if(!bOnboard){
+      if(userOnboardPubKey.IsFullyValid()){
+        if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
+          bOnboard=true;
+        }
+      }
     }
   }
 
-  //Inputs need to all be owned by the same entity
+  if(bOnboard){
+    inputPubKeys.insert(userOnboardPubKey);
+    inputPubKey = userOnboardPubKey;
+  } else {
+    kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
+    //Get input keyids
+    //Lookup the ID public keys of the input addresses.
+    //The set is used to ensure that there is only one kycKey involved.
+    BOOST_FOREACH(const CTxIn& prevIn, tx.vin) {
+      const CTxOut& prev = mapInputs.GetOutputFor(prevIn);
+      CTxDestination dest;
+      if(!ExtractDestination(prev.scriptPubKey, dest))
+       continue;
+    
+      // For debugging - translate into bitcoin address
+      CBitcoinAddress addr(dest);
+      addr.GetKeyID(keyId);
+      std::string sAddr = addr.ToString();
+      // search in whitelist for the presence of keyid
+      // add the associated kycKey to the set of kyc keys
+      if(LookupKYCKey(keyId, kycKey)){
+        if(find_kyc(kycKey)){ //Is user whitelisted?
+          if(LookupTweakedPubKey(keyId, inputPubKey))
+            inputPubKeys.insert(inputPubKey);
+        }
+      }
+    }
+  }
+
   if(inputPubKeys.size()!=1) return false;
 
-  //The first AES_BLOCKSIZE bytes of the message are the initialization vector
+  //The next AES_BLOCKSIZE bytes of the message are the initialization vector
   //used to decrypt the rest of the message
-  unsigned int pubKeySize=33;
-  unsigned int addrSize=20;
-  std::vector<unsigned char>::const_iterator it=bytes.begin();
-//  std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
+  it=bytes.begin();
+  //std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
   std::vector<unsigned char> initVec(it, it+=AES_BLOCKSIZE);
   std::vector<unsigned char> encryptedData(it, bytes.end());
 
@@ -183,85 +216,71 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   // Get the KYC private key from the wallet.
   // This ultimately checks that the kyc key associated with the transaction input address 
   // is already associated with a valid kyc key.
-  bool bWLNode=false;
+  CPubKey* decryptPubKey;
   CKey decryptPrivKey;
   if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
-    bWLNode=false;
+    //Non-whitelisting node
+    if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)) return false;  
+    decryptPubKey=&kycPubKey;
   } else{
-    bWLNode=true;
+    //Whitelisting node
+    decryptPubKey=&inputPubKey;
   }
   
-
   //Decrypt the data
   //One of the input public keys together with the KYC private key 
   //will compute the shared secret used to encrypt the data
 
   bool bSuccess=false;
 
-  for(std::vector<CPubKey>::const_iterator it = inputPubKeys.begin();
-    it != inputPubKeys.end();
-    ++it)
-  {
-    if((*it).size() != pubKeySize) continue;
-
-    //Get the decryption keys
-    CPubKey decryptPubKey;
-    if(bWLNode){
-      decryptPubKey=(*it);
-    } else {
-      if(!pwalletMain->GetKey((*it).GetID(), decryptPrivKey)) continue;  
-      decryptPubKey=pwalletMain->GetKYCPubKey();
-    }
-
-    //Decrypt
-    CECIES decryptor(decryptPrivKey, decryptPubKey, initVec);
-    std::vector<unsigned char> data;
-    data.resize(encryptedData.size());
-    decryptor.Decrypt(data, encryptedData);
+  //Decrypt
+  CECIES decryptor(decryptPrivKey, *decryptPubKey, initVec);
+  std::vector<unsigned char> data;
+  data.resize(encryptedData.size());
+  decryptor.Decrypt(data, encryptedData);
     
-    //Interpret the data
-    //First 20 bytes: keyID 
-    std::vector<unsigned char>::const_iterator itData2 = data.begin();
-    std::vector<unsigned char>::const_iterator itData1 = itData2;
+  //Interpret the data
+  //First 20 bytes: keyID 
+  std::vector<unsigned char>::const_iterator itData2 = data.begin();
+  std::vector<unsigned char>::const_iterator itData1 = itData2;
 
-    std::vector<unsigned char>::const_iterator pend = data.end();
-    std::vector<unsigned char> vKeyID, vPubKey;
+  std::vector<unsigned char>::const_iterator pend = data.end();
+  std::vector<unsigned char> vKeyID, vPubKey;
 
-    bool bEnd=false;
-    while(!bEnd){
-      for(unsigned int i=0; i<addrSize; ++i){
-        if(itData2++ == pend) {
+  bool bEnd=false;
+  while(!bEnd){
+    for(unsigned int i=0; i<addrSize; ++i){
+      if(itData2++ == pend) {
+        bEnd=true;
+        break;
+      }
+    }
+    if(!bEnd){
+      CBitcoinAddress addrNew;
+      std::vector<unsigned char> addrChars(itData1,itData2);
+      addrNew.Set(CKeyID(uint160(addrChars)));  
+      itData1=itData2;
+      for(unsigned int i=0; i<pubKeySize; ++i){
+        if(itData2++ == pend){
           bEnd=true;
           break;
         }
       }
       if(!bEnd){
-        CBitcoinAddress addrNew;
-        std::vector<unsigned char> addrChars(itData1,itData2);
-        addrNew.Set(CKeyID(uint160(addrChars)));  
+        std::vector<unsigned char> pubKeyData(itData1, itData2);
         itData1=itData2;
-        for(unsigned int i=0; i<pubKeySize; ++i){
-          if(itData2++ == pend){
-            bEnd=true;
-            break;
-          }
+        CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+        CBitcoinAddress* addr = new CBitcoinAddress(kycKey);
+        //Convert to string for debugging
+        std::string sAddr=addr->ToString();
+        std::string sAddrNew=addrNew.ToString();
+        try{
+          add_derived(addrNew, pubKeyNew, addr);
+        } catch (std::system_error e){
+          if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) throw e;
         }
-        if(!bEnd){
-          std::vector<unsigned char> pubKeyData(itData1, itData2);
-          itData1=itData2;
-          CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
-          CBitcoinAddress* addr = new CBitcoinAddress(kycKey);
-          //Convert to string for debugging
-          std::string sAddr=addr->ToString();
-          std::string sAddrNew=addrNew.ToString();
-          try{
-            add_derived(addrNew, pubKeyNew, addr);
-          } catch (std::system_error e){
-            if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) throw e;
-          }
-          delete addr;
-          bSuccess=true;
-        }
+        delete addr;
+        bSuccess=true;
       }
     }
   }
