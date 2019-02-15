@@ -40,6 +40,8 @@ class TxWitnessTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(raw)))
         assert_equal(tx.vin[0].prevout.hash, int("0x"+utxo["txid"], 0))
+        assert_equal(len(tx.vin), len(unsigned_decoded["vin"]))
+        assert_equal(len(tx.vout), len(unsigned_decoded["vout"]))
         # assert re-encoding
         serialized = bytes_to_hex_str(tx.serialize())
         assert_equal(serialized, raw)
