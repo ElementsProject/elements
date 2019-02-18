@@ -10,6 +10,13 @@
 CWhiteList::CWhiteList(){;}
 CWhiteList::~CWhiteList(){;}
 
+// Onboards a new user with addresses and kyc public key
+void CWhiteList::onboard_new(const std::map<CBitcoinAddress, CPubKey>& addressMap, const CPubKey& kycPubKey){
+  CKeyID kycId = kycPubKey.GetID();
+  add_kyc(kycId);
+
+}
+
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
   CWhiteList::add_derived(address, pubKey, nullptr);
 }
@@ -175,6 +182,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
   } else {
+    it=bytes.begin(); //Reset iterator
     kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
     //Get input keyids
     //Lookup the ID public keys of the input addresses.
@@ -204,7 +212,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   //The next AES_BLOCKSIZE bytes of the message are the initialization vector
   //used to decrypt the rest of the message
-  it=bytes.begin();
   //std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
   std::vector<unsigned char> initVec(it, it+=AES_BLOCKSIZE);
   std::vector<unsigned char> encryptedData(it, bytes.end());
@@ -214,8 +221,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::string sKYCAddr = kycAddr.ToString();
 
   // Get the KYC private key from the wallet.
-  // This ultimately checks that the kyc key associated with the transaction input address 
-  // is already associated with a valid kyc key.
   CPubKey* decryptPubKey;
   CKey decryptPrivKey;
   if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  

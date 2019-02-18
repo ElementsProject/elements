@@ -13,6 +13,9 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
+	// Onboards a new user with addresses and kyc public key
+	void onboard_new(const std::map<CBitcoinAddress, CPubKey>& addressMap, const CPubKey& kycPubKey);
+
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
 		const CBitcoinAddress* kycAddress);
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
@@ -57,4 +60,6 @@ private:
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//The set of whitelisted KYC keys
 	std::set<CKeyID> _kycSet;
+
+	std::stringstream _datastream;
 };

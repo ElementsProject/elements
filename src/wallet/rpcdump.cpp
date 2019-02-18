@@ -740,12 +740,13 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
                 HexStr(pubKey.begin(), pubKey.end()));
         }
     }
-
+    
     //Encrypt the above string
     CPubKey onboardPubKey = pwalletMain->GetOnboardPubKey();
     CECIES encryptor(onboardUserKey, onboardPubKey);
     std::string encrypted;
     std::string bare=ss.str();
+    
     encryptor.Encrypt(encrypted, bare);
     std::vector<unsigned char> vEnc(encrypted.begin(), encrypted.end());
 
@@ -757,7 +758,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
 
     //Append the initialization vector and encrypted keys
 
-    file << strprintf("%s %s %d\n", HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEnc.size());
+    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEnc.size());
 
     file << sEnc << "\n";
     file << "# End of dump\n";

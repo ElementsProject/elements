@@ -71,10 +71,10 @@ bool CECIES::Initialize(){
 bool CECIES::Encrypt(uCharVec& em, 
  	uCharVec& m) const{
 	//Add padding if needed.
-	//unsigned int size = m.size();
-//	if (size % AES_BLOCKSIZE) {
-//		m.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
-//	}
+	unsigned int size = m.size();
+	if (size % AES_BLOCKSIZE) {
+		m.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
+	}
 	em.resize(m.size(), _padChar);
 	_encryptor->Encrypt(m.data(), m.size(), em.data());
     return true;
@@ -84,10 +84,8 @@ bool CECIES::Decrypt(uCharVec& m,
  	uCharVec& em) const{
 		//Add padding if needed.
 	unsigned int size = em.size();
-	unsigned int nPad=0;
 	if (size % AES_BLOCKSIZE) {
 		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
-		nPad=em.size()-size;
 	}
 	m.resize(em.size(), _padChar);
 	_decryptor->Decrypt(em.data(), em.size(), m.data());

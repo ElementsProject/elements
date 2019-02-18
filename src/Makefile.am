@@ -124,6 +124,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   policy/policylist.h \
   policy/whitelist.h \
+  policy/kycfile.h \
   pow.h \
   protocol.h \
   random.h \
@@ -138,6 +139,7 @@ BITCOIN_CORE_H = \
   script/sign.h \
   script/standard.h \
   script/registeraddressscript.h \
+  script/onboardingscript.h \
   script/ismine.h \
   streams.h \
   support/allocators/secure.h \
@@ -202,6 +204,7 @@ libbitcoin_server_a_SOURCES = \
   policy/policy.cpp \
   policy/policylist.cpp \
   policy/whitelist.cpp \
+  policy/kycfile.cpp \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
@@ -350,6 +353,7 @@ libbitcoin_common_a_SOURCES = \
   script/sign.cpp \
   script/standard.cpp \
   script/registeraddressscript.cpp \
+  script/onboardingscript.cpp \
   warnings.cpp \
   $(BITCOIN_CORE_H)
 
