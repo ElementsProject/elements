@@ -10,7 +10,7 @@ CKYCFile::~CKYCFile(){
 }
 
 void CKYCFile::clear(){
-    _userAddressMap.clear();
+    _addressKeys.clear();
     _decryptedStream.clear();
     delete _encryptor;
     delete _onboardPubKey;
@@ -80,7 +80,7 @@ bool CKYCFile::read(){
             if(!_onboardPubKey->IsFullyValid())
                         throw std::system_error(
                         std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                        std::string(std::string(__func__) +  ": invalid onboard pub key in KYC file"));
+                        std::string(std::string(__func__) +  ": invalid kyc pub key in KYC file"));
 
             CKey onboardPrivKey;
             if(!pwalletMain->GetKey(_onboardPubKey->GetID(), onboardPrivKey))
@@ -154,7 +154,7 @@ bool CKYCFile::read(){
                     }
 
                     //Addresses valid, write to map
-                    _userAddressMap[address]=pubKey;
+                    _addressKeys.push_back(pubKey);
                     _decryptedStream << line << "\n";
                 }
             }
@@ -175,4 +175,33 @@ bool CKYCFile::initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec){
     if(_initVec)
         return _encryptor = new CECIES(*privKey, *_onboardUserPubKey, *_initVec);
     return _encryptor = new CECIES(*privKey, *_onboardUserPubKey);
+}
+
+ bool CKYCFile::getOnboardingScript(CScript& script){
+    COnboardingScript obScript;
+
+    // Lookup the KYC public key assigned to the user from the whitelist
+    //addressWhiteList.
+
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    // Get an unassigned KYC key from the addressWhitelist
+    CKeyID kycKeyID;
+    if(!addressWhitelist.get_unassigned_kyc(kycKeyID))
+        throw std::system_error(
+        std::error_code(CKYCFile::Errc::WHITELIST_KEY_ACCESS_ERROR, std::system_category()),
+        std::string(std::string(__func__) +  ": no unassigned whitelist KYC keys available. Please call generatenewkyckey first"));
+
+    // Look up the public key
+    CKey kycKey;
+    if(!pwalletMain->GetKey(kycKeyID, kycKey))
+        throw std::system_error(
+        std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
+        std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
+
+    if(!obScript.SetKeys(&kycKey, _onboardUserPubKey)) return false;
+    if(!obScript.Append(_addressKeys)) return false;
+    if(!obScript.Finalize(script)) return false;
+    return true;
 }

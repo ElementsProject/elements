@@ -17,7 +17,7 @@ public:
 	virtual ~CRegisterAddressScript();
 
 	//Encrypt the payload using the public, private key and build the script.
-	bool SetKeys(const CKey* privKey, const CPubKey* pubKey);
+	virtual bool SetKeys(const CKey* privKey, const CPubKey* pubKey);
 	virtual bool Finalize(CScript& script);
 	virtual bool FinalizeUnencrypted(CScript& script);
 	bool Append(const CPubKey& key);

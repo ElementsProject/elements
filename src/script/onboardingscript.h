@@ -9,6 +9,7 @@
 
 #include "registeraddressscript.h"
 
+
 class COnboardingScript : public CRegisterAddressScript{
 public:
 	COnboardingScript();
@@ -16,6 +17,7 @@ public:
  
 	virtual ~COnboardingScript();
 
+	virtual bool SetKeys(const CKey* privKey, const CPubKey* pubKey);
 	virtual bool Finalize(CScript& script);
 	virtual bool FinalizeUnencrypted(CScript& script);
 

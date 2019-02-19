@@ -676,12 +676,12 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
             "\"transaction\"              (string) hex string of the transaction\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"pubkey\\\":2.41}\"")
-            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"pubkey\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myasset\\\"}\"")
-            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":2.41}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"pubkey\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myasset\\\"}\"")
-            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
+            + HelpExampleCli("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"pubkey\\\":2.41}\"")
+            + HelpExampleCli("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"pubkey\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myasset\\\"}\"")
+            + HelpExampleCli("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
+            + HelpExampleRpc("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":2.41}\"")
+            + HelpExampleRpc("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"pubkey\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myasset\\\"}\"")
+            + HelpExampleRpc("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
         );
 
     RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VARR)(UniValue::VARR)(UniValue::VNUM)(UniValue::VSTR), true);

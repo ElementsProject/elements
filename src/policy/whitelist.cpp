@@ -10,12 +10,6 @@
 CWhiteList::CWhiteList(){;}
 CWhiteList::~CWhiteList(){;}
 
-// Onboards a new user with addresses and kyc public key
-void CWhiteList::onboard_new(const std::map<CBitcoinAddress, CPubKey>& addressMap, const CPubKey& kycPubKey){
-  CKeyID kycId = kycPubKey.GetID();
-  add_kyc(kycId);
-
-}
 
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
   CWhiteList::add_derived(address, pubKey, nullptr);
@@ -67,14 +61,6 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
     _tweakedPubKeyMap[keyId]=tweakedPubKey;
 }
 
-bool CWhiteList::find_kyc(const CKeyID& keyId){
-   return(_kycSet.find(keyId) != _kycSet.end());
-}
-
-bool CWhiteList::find_kyc(const CPubKey& pubKey){
-   return find_kyc(pubKey.GetID());
-}
-
 void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
   add_derived(addressIn, key, std::string(""));
 }
@@ -101,26 +87,6 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   }
   add_derived(address, pubKey, kycAddress);
   delete kycAddress;
-}
-
-void CWhiteList::add_kyc(const CBitcoinAddress& address){
-  CKeyID id;
-  address.GetKeyID(id);
-  add_kyc(id);
-}
-
-void CWhiteList::remove_kyc(const CBitcoinAddress& address){
-  CKeyID id;
-  address.GetKeyID(id);
-  remove_kyc(id);
-}
-
-void CWhiteList::add_kyc(const CKeyID& keyId){
-  _kycSet.insert(keyId);
-}
-
-void CWhiteList::remove_kyc(const CKeyID& keyId){
-  _kycSet.erase(keyId);
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
@@ -153,9 +119,11 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   unsigned int pubKeySize=33;
   unsigned int addrSize=20;
 
-  //Are the first 33 bytes a currently whitelisted KYC public key? 
-  //If so, this is an initial onboarding transaction, and those 33 bytes are the server KYC public key.
-  //And the following 33 bytes are the client onboarding public key.
+  // Are the first 33 bytes a currently whitelisted KYC public key? 
+  // If so, this is an initial onboarding transaction, and those 33 bytes are the server KYC public key.
+  // And the following bytes are:
+  // 33 bytes: client onboarding public key.
+
   std::vector<unsigned char>::const_iterator it=bytes.begin();
   CPubKey kycPubKey = CPubKey(it, it=it+pubKeySize);
   CPubKey userOnboardPubKey = CPubKey(it, it=it+pubKeySize);
@@ -343,7 +311,8 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
                   std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
                   std::string(std::string(__func__) +  ": invalid public key"));
 
-            remove_kyc(kycPubKey.GetID());
+            CKeyID id=kycPubKey.GetID();
+            blacklist_kyc(id);
         }
     }
 
@@ -370,14 +339,59 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
                   std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
                   std::string(std::string(__func__) +  ": invalid public key"));
 
-            add_kyc(kycPubKey.GetID());
+            CKeyID id=kycPubKey.GetID();
 
+            if(find_kyc_blacklisted(id)){
+              whitelist_kyc(id);
+            } else if(find_kyc_whitelisted(id)){
+              // Already whitelisted
+              return false;
+            } else {
+              add_unassigned_kyc(id);
+            }
         }
     }
     return true;
 }
 
+void CWhiteList::blacklist_kyc(const CKeyID& keyId){
+  set_kyc_status(keyId, CWhiteList::status::black);
+}
 
+void CWhiteList::whitelist_kyc(const CKeyID& keyId){
+  set_kyc_status(keyId, CWhiteList::status::white);
+}
 
+bool CWhiteList::set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){
+  _kycStatusMap[keyId]=status;
+}
 
+bool CWhiteList::find_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){
+  auto it = _kycStatusMap.find(keyId);
+  if (it == _kycStatusMap.end()) return false;
+  return (it->second == status);
+}
+
+bool CWhiteList::find_kyc(const CKeyID& keyId){
+  return _kycStatusMap.find(keyId) != _kycStatusMap.end();
+}
+
+bool CWhiteList::find_kyc_whitelisted(const CKeyID& keyId){
+  return find_kyc_status(keyId, CWhiteList::status::white);
+}
+
+bool CWhiteList::find_kyc_blacklisted(const CKeyID& keyId){
+  return find_kyc_status(keyId, CWhiteList::status::black);
+}
+
+bool CWhiteList::get_unassigned_kyc(CKeyID& id){
+  if (_kycUnassignedQueue.empty()) return false;
+  id = _kycUnassignedQueue.front();
+  _kycUnassignedQueue.pop();
+  return true;
+}
+
+void CWhiteList::add_unassigned_kyc(const CKeyID& id){
+  _kycUnassignedQueue.push(id);
+}
 

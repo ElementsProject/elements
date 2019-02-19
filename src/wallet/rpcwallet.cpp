@@ -19,6 +19,7 @@
 #include "net.h"
 #include "policy/policy.h"
 #include "policy/rbf.h"
+#include "policy/kycfile.h"
 #include "primitives/bitcoin/merkleblock.h"
 #include "primitives/bitcoin/transaction.h"
 #include "rpc/server.h"
@@ -500,12 +501,23 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
+static void SendOnboardTx(const CAsset& feeAsset, const CScript& script,  CWalletTx& wtxNew){
+    if (pwalletMain->GetBroadcastTransactions() && !g_connman)
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
+    int nAmount=0;
+    bool fSubtractFeeFromAmount=false, fIgnoreBlindFail=true;
+    CPubKey confidentiality_pubkey;
+
+    SendMoney(script, nAmount, feeAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail);
+}
+
 //Register an unwhitelisted address from the keypool to the 
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
 static void SendAddNextToWhitelistTx(const CAsset& feeAsset, 
     const int nToRegister, const CPubKey& pubKey,
-     CWalletTx& wtxNew){
+    CWalletTx& wtxNew){
 
     CAmount curBalance = pwalletMain->GetBalance()[feeAsset];
     
@@ -520,7 +532,8 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
 
-    //Get the addresses to be registered
+    //Get the addresses to be registered, or use the predefined script
+ 
     CRegisterAddressScript* raScript = new CRegisterAddressScript();
 
     int nReg=0;
@@ -544,9 +557,10 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
             }
         }
     }
-
+        
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
+        
 
     // Create a dummy transaction in order to calculate the required fee
     std::vector<CReserveKey> vChangeKey;
@@ -703,8 +717,37 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     return wtx.GetHash().GetHex();
 }
 
+UniValue onboarduser(const JSONRPCRequest& request){
+  if (request.fHelp || request.params.size() != 2)
+    throw runtime_error(
+            "onboarduser \"filename\" \"feeasset\"\n"
+            "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
+            "\nArguments:\n"
+            "1. \"feeasset\"    (string, required) The asset type to use to pay the transaction fee\n"
+            "2. \"filename\"    (string, required) The kyc file name\n"
 
+            "\nExamples:\n"
+            + HelpExampleCli("onboarduser", "\"my asset\", \"my filename\"")
+            + HelpExampleRpc("onboarduser", "\"my asset\", \"my filename\"")
+            );
 
+    CAsset feeasset = GetAssetFromString(request.params[0].get_str());  
+    
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CKYCFile file;
+    file.read(request.params[1].get_str().c_str());
+
+    CScript script;
+    if(!file.getOnboardingScript(script))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot generate onboarding script");
+
+    CWalletTx wtx;
+    SendOnboardTx(feeasset, script, wtx);
+    return wtx.GetHash().GetHex();
+}  
 
 UniValue sendtoaddress(const JSONRPCRequest& request)
 {

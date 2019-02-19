@@ -24,7 +24,11 @@ COnboardingScript::~COnboardingScript(){
 
 }
 
-
+bool COnboardingScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
+    CRegisterAddressScript::SetKeys(privKey, pubKey);
+    _kycPubKey=privKey->GetPubKey();
+    _userPubKey=*pubKey;
+}
 
 bool COnboardingScript::Finalize(CScript& script){
    	_encrypted.clear();
@@ -86,11 +90,6 @@ bool COnboardingScript::FinalizeUnencrypted(CScript& script){
     return true;
 }
 
-bool COnboardingScript::SetOnboardingKeyKYC(const CPubKey& key){
-	_kycPubKey=key;
-}
 	
-bool COnboardingScript::SetOnboardingKeyUser(const CPubKey& key){
-	_userPubKey=key;
-}
+
 

@@ -7,8 +7,10 @@
 #pragma once
 
 #include "policy/whitelist.h"
+#include "validation.h"
 #include "ecies.h"
 #include <fstream>
+#include "script/onboardingscript.h"
 
 using uc_vec=std::vector<unsigned char>;
 
@@ -29,7 +31,7 @@ class CKYCFile{
 
 		bool initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec=nullptr);
 
-		std::map<CBitcoinAddress, CPubKey> getUserAddressMap() const {return _userAddressMap;}
+		std::vector<CPubKey> getAddressKeys() const {return _addressKeys;}
 		const CPubKey* getOnboardPubKey() const {return _onboardPubKey;}
 		const CPubKey* getOnboardUserPubKey() const {return _onboardUserPubKey;}
 		const uc_vec* getInitVec() const {return _initVec;}
@@ -40,10 +42,12 @@ class CKYCFile{
    		 	FILE_IO_ERROR,
    		 	INVALID_ADDRESS_OR_KEY,
    		 	WALLET_KEY_ACCESS_ERROR,
+   		 	WHITELIST_KEY_ACCESS_ERROR,
    		 	INVALID_PARAMETER,
    		 	ENCRYPTION_ERROR
   		};
 
+	 	bool getOnboardingScript(CScript& script);
 
 	private:
 		std::ifstream _file;
@@ -54,13 +58,10 @@ class CKYCFile{
 
     	CWhiteList* _whitelist=nullptr;
 
-    	// Map to store the user address data read in from the file.
-    	// Tweaked address ID -> public key
-    	std::map<CBitcoinAddress, CPubKey> _userAddressMap; 
+    	// The user address keys to be whitelisted
+    	std::vector<CPubKey> _addressKeys; 
 
     	std::stringstream _decryptedStream;
-
-
 };
 
 std::ostream& operator<<(std::ostream& os, const CKYCFile& fl) {
