@@ -451,7 +451,6 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 datascript << data;
             }
 
-            //TODO(rebase) CA asset
             CTxOut out(asset, CConfidentialValue(0), datascript);
             rawTx.vout.push_back(out);
         } else {
@@ -1085,6 +1084,10 @@ UniValue sendrawtransaction(const JSONRPCRequest& request)
     CTransactionRef tx(MakeTransactionRef(std::move(mtx)));
     const uint256& hashTx = tx->GetHash();
 
+    UniValue txjson(UniValue::VOBJ);
+    TxToUniv(*tx, uint256(), txjson, false);
+    LogPrintf("tx: %s\n", txjson.write(2,2));
+
     CAmount nMaxRawTxFee = maxTxFee;
     if (!request.params[1].isNull() && request.params[1].get_bool())
         nMaxRawTxFee = 0;
@@ -1094,8 +1097,13 @@ UniValue sendrawtransaction(const JSONRPCRequest& request)
     CCoinsViewCache &view = *pcoinsTip;
     bool fHaveChain = false;
     for (size_t o = 0; !fHaveChain && o < tx->vout.size(); o++) {
+        //fHaveChain = view.HaveCoin(COutPoint(hashTx, o));
         const Coin& existingCoin = view.AccessCoin(COutPoint(hashTx, o));
         fHaveChain = !existingCoin.IsSpent();
+
+        if (fHaveChain) {
+            LogPrintf("fHaveChain: idx %d: %b, %b, %b, %b\n", o, existingCoin.out.nAsset.IsNull(), existingCoin.out.nValue.IsNull(), existingCoin.out.nNonce.IsNull(), existingCoin.out.scriptPubKey.empty());
+        }
     }
     bool fHaveMempool = mempool.exists(hashTx);
     if (!fHaveMempool && !fHaveChain) {

@@ -5,6 +5,8 @@
 #include <script/sigcache.h>
 #include <blind.h>
 
+#include <logging.h>
+
 namespace {
 static secp256k1_context *secp256k1_ctx_verify_amounts;
 
@@ -154,19 +156,23 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
     std::vector<secp256k1_generator> target_generators;
     target_generators.reserve(tx.vin.size() + GetNumIssuances(tx));
 
+    LogPrintf("VerifyAmounts:\n");
     // Tally up value commitments, check balance
     for (size_t i = 0; i < tx.vin.size(); ++i) {
         const CConfidentialValue& val = inputs[i].nValue;
         const CConfidentialAsset& asset = inputs[i].nAsset;
 
+        LogPrintf("Input #%d\n", i);
         if (val.IsNull() || asset.IsNull())
             return false;
 
         if (asset.IsExplicit()) {
+            LogPrintf("Asset exp: %s\n", asset.GetAsset().GetHex());
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
             assert(ret != 0);
         }
         else if (asset.IsCommitment()) {
+            LogPrintf("Asset com: %s\n", asset.GetHex());
             if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
         }
@@ -177,6 +183,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         target_generators.push_back(gen);
 
         if (val.IsExplicit()) {
+            LogPrintf("Value exp: %s\n", val.GetAmount());
             if (!MoneyRange(val.GetAmount()))
                 return false;
 
@@ -184,6 +191,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             if (secp256k1_pedersen_commit(secp256k1_ctx_verify_amounts, &commit, explicit_blinds, val.GetAmount(), &gen) != 1)
                 return false;
         } else if (val.IsCommitment()) {
+            LogPrintf("Value com: %s\n", val.GetHex());
             if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                 return false;
         } else {
@@ -205,6 +213,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             continue;
         }
 
+        LogPrintf("Issuance...\n");
         CAsset assetID;
         CAsset assetTokenID;
 
@@ -288,12 +297,14 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             vpCommitsIn.push_back(p);
             p++;
         }
+        LogPrintf("Issuance done\n");
     }
 
     for (size_t i = 0; i < tx.vout.size(); ++i)
     {
         const CConfidentialValue& val = tx.vout[i].nValue;
         const CConfidentialAsset& asset = tx.vout[i].nAsset;
+        LogPrintf("Output #%d\n", i);
         if (!asset.IsValid())
             return false;
         if (!val.IsValid())
@@ -302,10 +313,12 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             return false;
 
         if (asset.IsExplicit()) {
+            LogPrintf("Asset exp: %s\n", asset.GetAsset().GetHex());
             ret = secp256k1_generator_generate(secp256k1_ctx_verify_amounts, &gen, asset.GetAsset().begin());
             assert(ret != 0);
         }
         else if (asset.IsCommitment()) {
+            LogPrintf("Asset com: %s\n", asset.GetHex());
             if (secp256k1_generator_parse(secp256k1_ctx_verify_amounts, &gen, &asset.vchCommitment[0]) != 1)
                 return false;
         }
@@ -314,6 +327,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         }
 
         if (val.IsExplicit()) {
+            LogPrintf("Value exp: %s\n", val.GetAmount());
             if (!MoneyRange(val.GetAmount()))
                 return false;
 
@@ -332,6 +346,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             assert(ret == 1);
         }
         else if (val.IsCommitment()) {
+            LogPrintf("Value com: %s\n", val.GetHex());
             if (secp256k1_pedersen_commitment_parse(secp256k1_ctx_verify_amounts, &commit, &val.vchCommitment[0]) != 1)
                 return false;
         } else {
@@ -343,11 +358,14 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         p++;
     }
 
+    LogPrintf("Balance check\n");
     // Check balance
     if (QueueCheck(checks, new CBalanceCheck(vData, vpCommitsIn, vpCommitsOut)) != SCRIPT_ERR_OK) {
+        LogPrintf("FAILED\n");
         return false;
     }
 
+    LogPrintf("Range proofs...\n");
     // Range proofs
     for (size_t i = 0; i < tx.vout.size(); i++) {
         const CConfidentialValue& val = tx.vout[i].nValue;
@@ -373,6 +391,7 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         }
     }
 
+    LogPrintf("Surjection proofs...\n");
     // Surjection proofs
     for (size_t i = 0; i < tx.vout.size(); i++)
     {
