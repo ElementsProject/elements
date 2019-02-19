@@ -18,6 +18,7 @@ from .messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
+    CTxOutValue,
     FromHex,
     ToHex,
     bytes_to_hex_str,
@@ -115,9 +116,10 @@ def create_coinbase(height, pubkey=None):
     coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
                         ser_string(serialize_script_num(height)), 0xffffffff))
     coinbaseoutput = CTxOut()
-    coinbaseoutput.nValue = 50 * COIN
+    value = 50 * COIN
     halvings = int(height / 150)  # regtest
-    coinbaseoutput.nValue >>= halvings
+    value >>= halvings
+    coinbaseoutput.nValue = CTxOutValue(value)
     if (pubkey is not None):
         coinbaseoutput.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
     else:

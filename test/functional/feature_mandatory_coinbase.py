@@ -7,7 +7,8 @@
 from binascii import b2a_hex
 
 from test_framework.blocktools import create_coinbase
-from test_framework.messages import CBlock, CProof
+from test_framework.messages import CBlock, CProof, CTxOutValue
+from test_framework.script import CScript, OP_RETURN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
@@ -72,7 +73,8 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
 
         self.log.info("getblocktemplate: Test non-subsidy block on both nodes")
         # Without block reward anything goes, this allows commitment outputs like segwit
-        coinbase_tx.vout[0].nValue = 0
+        coinbase_tx.vout[0].nValue = CTxOutValue(0)
+        coinbase_tx.vout[0].scriptPubKey = CScript([OP_RETURN, b'\xff'])
         coinbase_tx.rehash()
         block.vtx = [coinbase_tx]
         assert_template(node0, block, None)
