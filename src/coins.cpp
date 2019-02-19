@@ -124,7 +124,16 @@ bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin* moveout) {
     return true;
 }
 
-static const Coin coinEmpty;
+// ELEMENTS:
+// Because g_con_elementswitness is only set after the moment coinEmpty is initialized,
+// we have to force set it to an empty coin without the default asset commitment.
+Coin generateEmptyCoin() {
+    Coin coin;
+    coin.out.nValue.vchCommitment.clear();
+    coin.out.nAsset.vchCommitment.clear();
+    return coin;
+}
+static const Coin coinEmpty = generateEmptyCoin();
 
 const Coin& CCoinsViewCache::AccessCoin(const COutPoint &outpoint) const {
     CCoinsMap::const_iterator it = FetchCoin(outpoint);

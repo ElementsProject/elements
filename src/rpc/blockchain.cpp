@@ -1104,6 +1104,17 @@ UniValue gettxout(const JSONRPCRequest& request)
     }
     if (coin.out.nValue.IsExplicit()) {
         ret.pushKV("value", ValueFromAmount(coin.out.nValue.GetAmount()));
+    } else {
+        ret.pushKV("valuecommitment", coin.out.nValue.GetHex());
+    }
+    if (g_con_elementswitness) {
+        if (coin.out.nAsset.IsExplicit()) {
+            ret.pushKV("asset", coin.out.nAsset.GetAsset().GetHex());
+        } else {
+            ret.pushKV("assetcommitment", coin.out.nAsset.GetHex());
+        }
+
+        ret.pushKV("commitmentnonce", coin.out.nNonce.GetHex());
     }
     UniValue o(UniValue::VOBJ);
     ScriptPubKeyToUniv(coin.out.scriptPubKey, o, true);

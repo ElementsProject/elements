@@ -261,8 +261,16 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         } else {
             out.pushKV("valuecommitment", txout.nValue.GetHex());
         }
-        if (g_con_elementswitness){
-            out.pushKV("assetcommitment", txout.nAsset.GetHex());
+        if (g_con_elementswitness) {
+            if (txout.nAsset.IsExplicit()) {
+                out.pushKV("asset", txout.nAsset.GetAsset().GetHex());
+            } else {
+                out.pushKV("assetcommitment", txout.nAsset.GetHex());
+            }
+
+            if (!txout.nValue.IsExplicit() || !txout.nAsset.IsExplicit()) {
+                out.pushKV("commitmentnonce", txout.nNonce.GetHex());
+            }
         }
         out.pushKV("n", (int64_t)i);
 
