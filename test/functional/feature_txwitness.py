@@ -29,7 +29,7 @@ class TxWitnessTest(BitcoinTestFramework):
     def assert_tx_format_also_signed(self, utxo, segwit):
         raw = self.nodes[0].createrawtransaction(
             [{"txid": utxo["txid"], "vout": utxo["vout"]}],
-            [{self.unknown_addr: "49.9"}]
+            [{self.unknown_addr: "49.9"}, {"fee": "0.1"}]
         )
 
         unsigned_decoded = self.nodes[0].decoderawtransaction(raw)

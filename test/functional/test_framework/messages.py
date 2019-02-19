@@ -471,6 +471,8 @@ class CTxInWitness(object):
 
     def calc_witness_hash(self):
         leaves = [
+            encode(hash256(ser_string(self.vchIssuanceAmountRangeproof))[::-1], 'hex_codec').decode('ascii'),
+            encode(hash256(ser_string(self.vchInflationKeysRangeproof))[::-1], 'hex_codec').decode('ascii'),
             encode(hash256(ser_string_vector(self.scriptWitness.stack))[::-1], 'hex_codec').decode('ascii'),
             encode(hash256(ser_string_vector(self.peginWitness.stack))[::-1], 'hex_codec').decode('ascii')
         ]

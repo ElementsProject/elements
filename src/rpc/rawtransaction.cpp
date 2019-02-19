@@ -453,6 +453,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
             CTxOut out(asset, CConfidentialValue(0), datascript);
             rawTx.vout.push_back(out);
+        } else if (name_ == "fee") {
+            // ELEMENTS: explicit fee outputs
+            CAmount nAmount = AmountFromValue(outputs[name_]);
+            CTxOut out(asset, nAmount, CScript());
+            rawTx.vout.push_back(out);
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
@@ -508,6 +513,9 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
             "    {\n"
             "      \"data\": \"hex\" ,    (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
             "      \"vdata\": [\"hex\"]   (string, optional) The key is \"vdata\", the value is an array of hex encoded data\n"
+            "    },\n"
+            "    {\n"
+            "      \"fee\": x.xxx         (numeric or string, optional) The key is \"fee\", the value the fee output you want to add.\n"
             "    }\n"
             "    ,...                     More key-value pairs of the above form. For compatibility reasons, a dictionary, which holds the key-value pairs directly, is also\n"
             "                             accepted as second parameter.\n"
