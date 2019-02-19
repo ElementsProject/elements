@@ -29,7 +29,7 @@ private:
 public:
     explicit DestinationEncoder(const CChainParams& params, const bool for_parent) : m_params(params), for_parent(for_parent) {}
 
-    std::string operator()(const CKeyID& id) const
+    std::string operator()(const PKHash& id) const
     {
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_PUBKEY_ADDRESS : CChainParams::PUBKEY_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
@@ -37,7 +37,7 @@ public:
         return EncodeBase58Check(data);
     }
 
-    std::string operator()(const CScriptID& id) const
+    std::string operator()(const SHash& id) const
     {
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_SCRIPT_ADDRESS : CChainParams::SCRIPT_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
@@ -91,7 +91,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& pubkey_prefix = params.Base58Prefix(type_pkh);
         if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
-            return CKeyID(hash);
+            return PKHash(hash);
         }
         // Script-hash-addresses have version 5 (or 196 testnet).
         // The data vector contains RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
@@ -99,7 +99,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& script_prefix = params.Base58Prefix(type_sh);
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
-            return CScriptID(hash);
+            return SHash(hash);
         }
     }
     data.clear();

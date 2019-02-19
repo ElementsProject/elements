@@ -137,13 +137,15 @@ public:
         }
     }
 
-    void operator()(const CKeyID &keyId) {
+    void operator()(const PKHash &pkhash) {
+        CKeyID keyId(pkhash);
         if (keystore.HaveKey(keyId))
             vKeys.push_back(keyId);
     }
 
-    void operator()(const CScriptID &scriptId) {
+    void operator()(const SHash &scripthash) {
         CScript script;
+        CScriptID scriptId(scripthash);
         if (keystore.GetCScript(scriptId, script))
             Process(script);
     }
@@ -280,7 +282,7 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch &batch, const CKey& secret, const C
 
     // check if we need to remove from watch-only
     CScript script;
-    script = GetScriptForDestination(pubkey.GetID());
+    script = GetScriptForDestination(PKHash(pubkey));
     if (HaveWatchOnly(script)) {
         RemoveWatchOnly(script);
     }
@@ -370,7 +372,7 @@ bool CWallet::LoadCScript(const CScript& redeemScript)
      * these. Do not add them to the wallet and warn. */
     if (redeemScript.size() > MAX_SCRIPT_ELEMENT_SIZE)
     {
-        std::string strAddr = EncodeDestination(CScriptID(redeemScript));
+        std::string strAddr = EncodeDestination(SHash(redeemScript));
         WalletLogPrintf("%s: Warning: This wallet contains a redeemScript of size %i which exceeds maximum size %i thus can never be redeemed. Do not use address %s.\n", __func__, redeemScript.size(), MAX_SCRIPT_ELEMENT_SIZE, strAddr);
         return true;
     }
@@ -3657,7 +3659,7 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
     // get birth times for keys with metadata
     for (const auto& entry : mapKeyMetadata) {
         if (entry.second.nCreateTime) {
-            mapKeyBirth[entry.first] = entry.second.nCreateTime;
+            mapKeyBirth[PKHash(entry.first)] = entry.second.nCreateTime;
         }
     }
 
@@ -3665,7 +3667,7 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
     CBlockIndex *pindexMax = chainActive[std::max(0, chainActive.Height() - 144)]; // the tip can be reorganized; use a 144-block safety margin
     std::map<CKeyID, CBlockIndex*> mapKeyFirstBlock;
     for (const CKeyID &keyid : GetKeys()) {
-        if (mapKeyBirth.count(keyid) == 0)
+        if (mapKeyBirth.count(PKHash(keyid)) == 0)
             mapKeyFirstBlock[keyid] = pindexMax;
     }
 
@@ -3698,7 +3700,7 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
 
     // Extract block timestamps for those keys
     for (const auto& entry : mapKeyFirstBlock)
-        mapKeyBirth[entry.first] = entry.second->GetBlockTime() - TIMESTAMP_WINDOW; // block times can be 2h off
+        mapKeyBirth[PKHash(entry.first)] = entry.second->GetBlockTime() - TIMESTAMP_WINDOW; // block times can be 2h off
 }
 
 /**

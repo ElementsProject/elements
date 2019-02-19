@@ -310,9 +310,9 @@ SetupDummyInputs(CBasicKeyStore& keystoreRet, CCoinsViewCache& coinsRet)
 
     dummyTransactions[1].vout.resize(2);
     dummyTransactions[1].vout[0].nValue = 21*CENT;
-    dummyTransactions[1].vout[0].scriptPubKey = GetScriptForDestination(key[2].GetPubKey().GetID());
+    dummyTransactions[1].vout[0].scriptPubKey = GetScriptForDestination(PKHash(key[2].GetPubKey()));
     dummyTransactions[1].vout[1].nValue = 22*CENT;
-    dummyTransactions[1].vout[1].scriptPubKey = GetScriptForDestination(key[3].GetPubKey().GetID());
+    dummyTransactions[1].vout[1].scriptPubKey = GetScriptForDestination(PKHash(key[3].GetPubKey()));
     AddCoins(coinsRet, dummyTransactions[1], 0);
 
     return dummyTransactions;
@@ -572,8 +572,8 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input2, STANDARD_SCRIPT_VERIFY_FLAGS, false);
 
     // P2SH pay-to-compressed-pubkey.
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(scriptPubkey1)), output1, input1);
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(scriptPubkey2)), output2, input2);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(scriptPubkey1)), output1, input1);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(scriptPubkey2)), output2, input2);
     ReplaceRedeemScript(input2.vin[0].scriptSig, scriptPubkey1);
     CheckWithFlag(output1, input1, 0, true);
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH, true);
@@ -597,8 +597,8 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input2, STANDARD_SCRIPT_VERIFY_FLAGS, false);
 
     // P2SH witness pay-to-compressed-pubkey (v0).
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(GetScriptForWitness(scriptPubkey1))), output1, input1);
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(GetScriptForWitness(scriptPubkey2))), output2, input2);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(GetScriptForWitness(scriptPubkey1))), output1, input1);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(GetScriptForWitness(scriptPubkey2))), output2, input2);
     ReplaceRedeemScript(input2.vin[0].scriptSig, GetScriptForWitness(scriptPubkey1));
     CheckWithFlag(output1, input1, 0, true);
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH, true);
@@ -622,8 +622,8 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input2, STANDARD_SCRIPT_VERIFY_FLAGS, false);
 
     // P2SH pay-to-uncompressed-pubkey.
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(scriptPubkey1L)), output1, input1);
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(scriptPubkey2L)), output2, input2);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(scriptPubkey1L)), output1, input1);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(scriptPubkey2L)), output2, input2);
     ReplaceRedeemScript(input2.vin[0].scriptSig, scriptPubkey1L);
     CheckWithFlag(output1, input1, 0, true);
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH, true);
@@ -639,8 +639,8 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CreateCreditAndSpend(keystore, GetScriptForWitness(scriptPubkey2L), output2, input2, false);
 
     // Signing disabled for P2SH witness pay-to-uncompressed-pubkey (v1).
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(GetScriptForWitness(scriptPubkey1L))), output1, input1, false);
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(GetScriptForWitness(scriptPubkey2L))), output2, input2, false);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(GetScriptForWitness(scriptPubkey1L))), output1, input1, false);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(GetScriptForWitness(scriptPubkey2L))), output2, input2, false);
 
     // Normal 2-of-2 multisig
     CreateCreditAndSpend(keystore, scriptMulti, output1, input1, false);
@@ -653,10 +653,10 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
 
     // P2SH 2-of-2 multisig
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(scriptMulti)), output1, input1, false);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(scriptMulti)), output1, input1, false);
     CheckWithFlag(output1, input1, 0, true);
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH, false);
-    CreateCreditAndSpend(keystore2, GetScriptForDestination(CScriptID(scriptMulti)), output2, input2, false);
+    CreateCreditAndSpend(keystore2, GetScriptForDestination(SHash(scriptMulti)), output2, input2, false);
     CheckWithFlag(output2, input2, 0, true);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH, false);
     BOOST_CHECK(*output1 == *output2);
@@ -677,10 +677,10 @@ BOOST_AUTO_TEST_CASE(test_witness)
     CheckWithFlag(output1, input1, STANDARD_SCRIPT_VERIFY_FLAGS, true);
 
     // P2SH witness 2-of-2 multisig
-    CreateCreditAndSpend(keystore, GetScriptForDestination(CScriptID(GetScriptForWitness(scriptMulti))), output1, input1, false);
+    CreateCreditAndSpend(keystore, GetScriptForDestination(SHash(GetScriptForWitness(scriptMulti))), output1, input1, false);
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH, true);
     CheckWithFlag(output1, input1, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false);
-    CreateCreditAndSpend(keystore2, GetScriptForDestination(CScriptID(GetScriptForWitness(scriptMulti))), output2, input2, false);
+    CreateCreditAndSpend(keystore2, GetScriptForDestination(SHash(GetScriptForWitness(scriptMulti))), output2, input2, false);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH, true);
     CheckWithFlag(output2, input2, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, false);
     BOOST_CHECK(*output1 == *output2);
@@ -706,7 +706,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vout[0].nValue = 90*CENT;
     CKey key;
     key.MakeNewKey(true);
-    t.vout[0].scriptPubKey = GetScriptForDestination(key.GetPubKey().GetID());
+    t.vout[0].scriptPubKey = GetScriptForDestination(PKHash(key.GetPubKey()));
 
     std::string reason;
     BOOST_CHECK(IsStandardTx(t, reason));

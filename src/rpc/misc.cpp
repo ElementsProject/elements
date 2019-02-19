@@ -177,8 +177,8 @@ static UniValue verifymessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }
 
-    const CKeyID *keyID = boost::get<CKeyID>(&destination);
-    if (!keyID) {
+    const PKHash *pkhash = boost::get<PKHash>(&destination);
+    if (!pkhash) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
 
@@ -196,7 +196,7 @@ static UniValue verifymessage(const JSONRPCRequest& request)
     if (!pubkey.RecoverCompact(ss.GetHash(), vchSig))
         return false;
 
-    return (pubkey.GetID() == *keyID);
+    return (pubkey.GetID() == *pkhash);
 }
 
 static UniValue signmessagewithprivkey(const JSONRPCRequest& request)
@@ -470,7 +470,7 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
     std::vector<unsigned char> scriptData = ParseHex(request.params[0].get_str());
     CScript claim_script = CScript(scriptData.begin(), scriptData.end());
     CScript tweaked_script = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
-    CTxDestination parent_addr(CScriptID(GetScriptForWitness(tweaked_script)));
+    CTxDestination parent_addr(SHash(GetScriptForWitness(tweaked_script)));
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("script", HexStr(tweaked_script));
