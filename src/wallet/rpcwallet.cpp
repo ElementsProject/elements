@@ -533,13 +533,14 @@ static UniValue signmessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
     }
 
-    const CKeyID *keyID = boost::get<CKeyID>(&dest);
-    if (!keyID) {
+    const PKHash *pkhash = boost::get<PKHash>(&dest);
+    if (!pkhash) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
 
     CKey key;
-    if (!pwallet->GetKey(*keyID, key)) {
+    CKeyID keyID(*pkhash);
+    if (!pwallet->GetKey(keyID, key)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
     }
 
@@ -1004,7 +1005,7 @@ public:
 
     explicit Witnessifier(CWallet *_pwallet) : pwallet(_pwallet), already_witness(false) {}
 
-    bool operator()(const CKeyID &keyID) {
+    bool operator()(const PKHash &keyID) {
         if (pwallet) {
             CScript basescript = GetScriptForDestination(keyID);
             CScript witscript = GetScriptForWitness(basescript);
@@ -1016,9 +1017,9 @@ public:
         return false;
     }
 
-    bool operator()(const CScriptID &scriptID) {
+    bool operator()(const ScriptHash &scripthash) {
         CScript subscript;
-        if (pwallet && pwallet->GetCScript(scriptID, subscript)) {
+        if (pwallet && pwallet->GetCScript(CScriptID(scripthash), subscript)) {
             int witnessversion;
             std::vector<unsigned char> witprog;
             if (subscript.IsWitnessProgram(witnessversion, witprog)) {
@@ -1105,7 +1106,7 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
     CScript witprogram = GetScriptForDestination(w.result);
 
     if (p2sh) {
-        w.result = CScriptID(witprogram);
+        w.result = ScriptHash(witprogram);
     }
 
     if (w.already_witness) {
@@ -2836,7 +2837,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             }
 
             if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID& hash = boost::get<CScriptID>(address);
+                const CScriptID hash(GetScriptForDestination(address));
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
@@ -3525,7 +3526,7 @@ public:
             UniValue pubkeys(UniValue::VARR);
             for (size_t i = 1; i < solutions_data.size() - 1; ++i) {
                 CPubKey key(solutions_data[i].begin(), solutions_data[i].end());
-                if (include_addresses) a.push_back(EncodeDestination(key.GetID()));
+                if (include_addresses) a.push_back(EncodeDestination(PKHash(key)));
                 pubkeys.push_back(HexStr(key.begin(), key.end()));
             }
             obj.pushKV("pubkeys", std::move(pubkeys));
@@ -3542,8 +3543,9 @@ public:
 
     UniValue operator()(const CNoDestination& dest) const { return UniValue(UniValue::VOBJ); }
 
-    UniValue operator()(const CKeyID& keyID) const
+    UniValue operator()(const PKHash& pkhash) const
     {
+        CKeyID keyID(pkhash);
         UniValue obj(UniValue::VOBJ);
         CPubKey vchPubKey;
         if (pwallet && pwallet->GetPubKey(keyID, vchPubKey)) {
@@ -3553,8 +3555,9 @@ public:
         return obj;
     }
 
-    UniValue operator()(const CScriptID& scriptID) const
+    UniValue operator()(const ScriptHash& scripthash) const
     {
+        CScriptID scriptID(scripthash);
         UniValue obj(UniValue::VOBJ);
         CScript subscript;
         if (pwallet && pwallet->GetCScript(scriptID, subscript)) {
@@ -4199,7 +4202,7 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     pwallet->AddCScript(destScript);
 
     //Call contracthashtool, get deposit address on mainchain.
-    CTxDestination destAddr(CScriptID(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
+    CTxDestination destAddr(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
 
     UniValue fundinginfo(UniValue::VOBJ);
 
@@ -4292,8 +4295,6 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_WALLET_ERROR, "Error: liquid_pak could not be found in wallet");
         }
     }
-
-    CKeyID online_key_id = online_pubkey.GetID();
 
     // Parse offline counter
     int counter = 0;
@@ -4389,7 +4390,7 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     UniValue pak(UniValue::VOBJ);
     pak.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey));
     pak.pushKV("liquid_pak", HexStr(online_pubkey));
-    pak.pushKV("liquid_pak_address", EncodeDestination(online_key_id));
+    pak.pushKV("liquid_pak_address", EncodeDestination(PKHash(online_pubkey)));
     pak.pushKV("address_lookahead", address_list);
     return pak;
 }
@@ -4728,7 +4729,7 @@ unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgr
 {
     unsigned int nOut = 0;
     //Call contracthashtool
-    CScript mainchain_script = GetScriptForDestination(CScriptID(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram))));
+    CScript mainchain_script = GetScriptForDestination(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram))));
     for (; nOut < txn.vout.size(); nOut++)
         if (txn.vout[nOut].scriptPubKey == mainchain_script)
             break;
@@ -4871,19 +4872,17 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CPubKey newKey;
     if (!pwallet->GetKeyFromPool(newKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    CKeyID keyID = newKey.GetID();
+    PKHash pkhash(newKey);
 
-    pwallet->SetAddressBook(keyID, "", "receive");
+    pwallet->SetAddressBook(pkhash, "", "receive");
 
     // One peg-in input, one wallet output and one fee output
     CMutableTransaction mtx;
     mtx.vin.push_back(CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0));
     // mark as peg-in input
     mtx.vin[0].m_is_pegin = true;
-    //TODO(rebase) CA
-    //mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(CTxDestination(keyID))));
-    //mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
-    mtx.vout.push_back(CTxOut(value, GetScriptForDestination(CTxDestination(keyID))));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(pkhash)));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
     // Construct pegin proof
     CScriptWitness pegin_witness;
