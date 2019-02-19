@@ -427,16 +427,21 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees) {
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& out = tx.vout[i];
         if (!out.nValue.IsExplicit() || !out.nAsset.IsExplicit()) {
+            LogPrintf("not explicit\n");
             return false;
         }
         if (!MoneyRange(out.nValue.GetAmount())) {
+            LogPrintf("moneyrange\n");
             return false;
         }
         if (g_con_elementswitness &&
                 out.nValue.GetAmount() == 0 && !out.scriptPubKey.IsUnspendable()) {
+            LogPrintf("unspendables\n");
             return false;
         }
         remaining[out.nAsset.GetAsset()] -= out.nValue.GetAmount();
     }
+    LogPrintf("Remaining:\n");
+    PrintAmountMap(remaining);
     return MoneyRange(remaining);
 }

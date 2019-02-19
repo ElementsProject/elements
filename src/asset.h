@@ -105,4 +105,6 @@ inline bool MoneyRange(const CAmountMap& mapValue) {
    return true;
 }
 
+void PrintAmountMap(const CAmountMap& amount);
+
 #endif //  BITCOIN_AMOUNT_H

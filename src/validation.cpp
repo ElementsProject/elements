@@ -2145,10 +2145,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs (%.2fms/blk)]\n", (unsigned)block.vtx.size(), MILLI * (nTime3 - nTime2), MILLI * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : MILLI * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * MICRO, nTimeConnect * MILLI / nBlocksTotal);
 
+    LogPrintf("fee_map:\n");
+    PrintAmountMap(fee_map);
     CAmountMap block_reward = fee_map;
     block_reward[consensusParams.subsidy_asset] += GetBlockSubsidy(pindex->nHeight, consensusParams);
     if (!MoneyRange(block_reward))
         return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
+    LogPrintf("block_reward:\n");
+    PrintAmountMap(block_reward);
     if (!VerifyCoinbaseAmount(*(block.vtx[0]), block_reward)) {
         return state.DoS(100, error("ConnectBlock(): coinbase pays too much (limit=%d)",
                 block_reward[consensusParams.subsidy_asset]), REJECT_INVALID, "bad-cb-amount");
