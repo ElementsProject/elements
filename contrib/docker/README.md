@@ -13,6 +13,12 @@ cd ~
 curl -O https://raw.githubusercontent.com/commerceblock/ocean/master/contrib/docker/docker-compose.yml
 ```
 
+## Download and read terms and conditions
+
+```
+curl -O https://raw.githubusercontent.com/commerceblock/ocean/master/doc/terms-and-conditions/ocean_main/latest.txt
+```
+
 ## Download image and start
 
 `docker-compose -p ocean up -d`
@@ -50,6 +56,8 @@ Once synched, block count should be the same as in: https://cbtexplorer.com
 ## Data persistence
 
 `mkdir ~/ocean_full_node`
+`mkdir -p ~/ocean_full_node/terms-and-conditions/ocean_main`
+`cp latest.txt ~/ocean_full_node/terms-and-conditions/ocean_main/`
 
 edit: docker-compose.yml, adding:
 ```

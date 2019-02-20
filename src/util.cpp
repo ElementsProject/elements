@@ -105,8 +105,8 @@ using namespace std;
 
 const char * const BITCOIN_CONF_FILENAME = "ocean.conf";
 const char * const BITCOIN_PID_FILENAME = "ocean-daemon.pid";
-const char * const CONTRACT_FILE_PATH = "/terms-and-conditions/latest.txt";
-const char * const MAPPING_FILE_PATH = "/asset-mapping/latest.json";
+const char * const CONTRACT_FILE_PATH = "/terms-and-conditions/";
+const char * const MAPPING_FILE_PATH = "/asset-mapping/";
 
 CCriticalSection cs_args;
 map<string, string> mapArgs;
@@ -866,12 +866,14 @@ std::string GetFileFromDataDir(const char* fileName)
 
 std::string GetContract()
 {
-    return GetFileFromDataDir(CONTRACT_FILE_PATH);
+    const auto contractPath = CONTRACT_FILE_PATH + BaseParams().DataDir() + "/latest.txt";
+    return GetFileFromDataDir(contractPath.c_str());
 }
 
 uint256 GetContractHash()
 {
-    const std::string contract = GetFileFromDataDir(CONTRACT_FILE_PATH);
+    const auto contractPath = CONTRACT_FILE_PATH + BaseParams().DataDir() + "/latest.txt";
+    const std::string contract = GetFileFromDataDir(contractPath.c_str());
     if (contract == "")
     {
         return uint256S("");
@@ -882,7 +884,8 @@ uint256 GetContractHash()
 
 uint256 GetMappingHash()
 {
-    const std::string mapping = GetFileFromDataDir(MAPPING_FILE_PATH);
+    const auto mappingPath = MAPPING_FILE_PATH + BaseParams().DataDir() + "/latest.json";
+    const std::string mapping = GetFileFromDataDir(mappingPath.c_str());
     if (mapping == "")
     {
         return uint256S("");
