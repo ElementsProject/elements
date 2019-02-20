@@ -752,19 +752,21 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
         //get the address from the RPC
         const UniValue& address = find_value(o, "address");
 
-        CBitcoinAddress bcaddress;
-        if (!bcaddress.SetString(address.getValStr()))
+        if(address.isStr()){
+            CBitcoinAddress bcaddress;
+            if (!bcaddress.SetString(address.getValStr()))
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
 
-        CKeyID keyId;
-        if (!bcaddress.GetKeyID(keyId))
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+            CKeyID keyId;
+            if (!bcaddress.GetKeyID(keyId))
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-        std::string hexaddress = HexStr(keyId.begin(), keyId.end());
-        //concatenate with padding bytes
-        data = "02000000000000000000000000" + hexaddress;
-        //we do not check that this pubkey is a real curve point
-
+            std::string hexaddress = HexStr(keyId.begin(), keyId.end());
+            //concatenate with padding bytes
+            data = "02000000000000000000000000" + hexaddress;
+            //we do not check that this pubkey is a real curve point
+        }
+        
         const UniValue& userkey = find_value(o, "userkey");
 
         if (userkey.isStr()) {

@@ -41,12 +41,12 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
   if(!Consensus::CheckValidTweakedAddress(keyId, pubKey)) return;
 
   //Check the KYC key is whitelisted
-  if(!find_kyc(kycKeyId)){
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
-            std::string(__func__) + ": the KYC key is not currently whitelisted.");
-    return;
-  }
+  //if(!find_kyc(kycKeyId)){
+  //  throw std::system_error(
+  //        std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
+  //          std::string(__func__) + ": the KYC key is not currently whitelisted.");
+  //  return;
+ // }
 
   //insert new address into sorted CWhiteList vector
   add_sorted(&keyId);
