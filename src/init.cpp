@@ -1040,6 +1040,9 @@ bool AppInitParameterInteraction()
     if(GetArg("-burnlistcoinsdestination", "").size() > 0) {
         burnlistAsset = CAsset(uint256S(chainparams.GetConsensus().burnlist_asset.GetHex()));
     }
+     if(GetArg("-whitelistcoinsdestination", "").size() > 0) {
+        whitelistAsset = CAsset(uint256S(chainparams.GetConsensus().whitelist_asset.GetHex()));
+    }
 
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:
