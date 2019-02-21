@@ -355,8 +355,8 @@ public:
         num_blocks = ::chainActive.Height();
         return true;
     }
-    CAmount getBalance() override { return m_wallet.GetBalance(); }
-    CAmount getAvailableBalance(const CCoinControl& coin_control) override
+    CAmountMap getBalance() override { return m_wallet.GetBalance(); }
+    CAmountMap getAvailableBalance(const CCoinControl& coin_control) override
     {
         return m_wallet.GetAvailableBalance(&coin_control);
     }
@@ -370,12 +370,12 @@ public:
         LOCK2(::cs_main, m_wallet.cs_wallet);
         return m_wallet.IsMine(txout);
     }
-    CAmount getDebit(const CTxIn& txin, isminefilter filter) override
+    CAmountMap getDebit(const CTxIn& txin, isminefilter filter) override
     {
         LOCK2(::cs_main, m_wallet.cs_wallet);
         return m_wallet.GetDebit(txin, filter);
     }
-    CAmount getCredit(const CTxOut& txout, isminefilter filter) override
+    CAmountMap getCredit(const CTxOut& txout, isminefilter filter) override
     {
         LOCK2(::cs_main, m_wallet.cs_wallet);
         return m_wallet.GetCredit(txout, filter);

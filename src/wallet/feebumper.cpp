@@ -116,7 +116,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     }
 
     // calculate the old fee and fee-rate
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE) - wtx.tx->GetValueOutMap()[::policyAsset];
+    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
     if (g_con_elementswitness) old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
     CFeeRate nOldFeeRate(old_fee, txSize);
     CFeeRate nNewFeeRate;

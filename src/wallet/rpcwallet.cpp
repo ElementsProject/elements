@@ -106,6 +106,46 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
     }
 }
 
+// Attaches labeled balance reports to UniValue obj with asset filter
+// "" displays *all* assets as VOBJ pairs, while named assets must have
+// been entered via -assetdir configuration argument and are returned as VNUM.
+UniValue AmountMapToUniv(const CAmountMap& balance, std::string strasset)
+{
+    // If we don't do assets or a specific asset is given, we filter out once asset.
+    if (!g_con_elementswitness || strasset != "") {
+        CAsset asset;
+        if (g_con_elementswitness) {
+            asset = GetAssetFromString(strasset);
+        } else {
+            asset = policyAsset;
+        }
+
+        // The code below circumvents the const constraint that prevents the line below.
+        //return ValueFromAmount(balance[asset]);
+        for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
+            if (it->first == asset) {
+                return ValueFromAmount(it->second);
+            }
+        }
+        return ValueFromAmount(0);
+    }
+
+    UniValue obj(UniValue::VOBJ);
+    for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
+        // Unknown assets
+        if (it->first.IsNull())
+            continue;
+        UniValue pair(UniValue::VOBJ);
+        const std::string label = gAssetsDir.GetLabel(it->first);
+        if (label != "") {
+            obj.pushKV(label, ValueFromAmount(it->second));
+        } else {
+            obj.pushKV(it->first.GetHex(), ValueFromAmount(it->second));
+        }
+    }
+    return obj;
+}
+
 static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     int confirms = wtx.GetDepthInMainChain();
@@ -313,13 +353,13 @@ static UniValue setlabel(const JSONRPCRequest& request)
 
 static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, const CAsset& asset, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, bool ignore_blind_fail)
 {
-    CAmount curBalance = pwallet->GetBalance();
+    CAmountMap curBalance = pwallet->GetBalance();
 
     // Check amount
     if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > curBalance)
+    if (nValue > curBalance[asset])
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
     if (pwallet->GetBroadcastTransactions() && !g_connman) {
@@ -340,7 +380,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     vecSend.push_back(recipient);
     CTransactionRef tx;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control)) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
+        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -597,6 +637,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"address\"         (string, required) The bitcoin address for transactions.\n"
             "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
             "\nExamples:\n"
@@ -650,7 +691,12 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
         }
     }
 
-    return  ValueFromAmount(amounts[CAsset()]);
+    std::string asset = "";
+    if (request.params.size() > 2 && request.params[2].isStr()) {
+        asset = request.params[2].get_str();
+    }
+
+    return AmountMapToUniv(amounts, asset);
 }
 
 
@@ -670,6 +716,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"label\"        (string, required) The selected label, may be the default label using \"\".\n"
             "2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this label.\n"
             "\nExamples:\n"
@@ -718,7 +765,12 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         }
     }
 
-    return ValueFromAmount(amounts[CAsset()]);
+    std::string asset = "";
+    if (request.params.size() > 2 && request.params[2].isStr()) {
+        asset = request.params[2].get_str();
+    }
+
+    return AmountMapToUniv(amounts, asset);
 }
 
 
@@ -741,6 +793,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
             "1. (dummy)           (string, optional) Remains for backward compatibility. Must be excluded or set to \"*\".\n"
             "2. minconf           (numeric, optional, default=0) Only include transactions confirmed at least this many times.\n"
             "3. include_watchonly (bool, optional, default=false) Also include balance in watch-only addresses (see 'importaddress')\n"
+            "4. \"assetlabel\"   (string, optional) Hex asset id or asset label for balance. IF THIS IS USED ALL OTHER ARGUMENTS ARE IGNORED\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this wallet.\n"
             "\nExamples:\n"
@@ -773,7 +826,12 @@ static UniValue getbalance(const JSONRPCRequest& request)
         filter = filter | ISMINE_WATCH_ONLY;
     }
 
-    return ValueFromAmount(pwallet->GetBalance(filter, min_depth));
+    std::string asset = "";
+    if (request.params.size() > 3 && request.params[3].isStr()) {
+        asset = request.params[3].get_str();
+    }
+
+    return AmountMapToUniv(pwallet->GetBalance(filter, min_depth), asset);
 }
 
 static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
@@ -796,7 +854,7 @@ static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
-    return ValueFromAmount(pwallet->GetUnconfirmedBalance());
+    return AmountMapToUniv(pwallet->GetUnconfirmedBalance(), "");
 }
 
 
@@ -915,7 +973,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::set<CTxDestination> destinations;
     std::vector<CRecipient> vecSend;
 
-    CAmount totalAmount = 0;
+    CAmountMap totalAmount;
     std::vector<std::string> keys = sendTo.getKeys();
     for (const std::string& name_ : keys) {
         std::string strasset = Params().GetConsensus().pegged_asset.GetHex(); 
@@ -942,7 +1000,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         CAmount nAmount = AmountFromValue(sendTo[name_]);
         if (nAmount <= 0)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
-        totalAmount += nAmount;
+        totalAmount[asset] += nAmount;
 
         bool fSubtractFeeFromAmount = false;
         for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {
@@ -951,7 +1009,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
                 fSubtractFeeFromAmount = true;
         }
 
-        CRecipient recipient = {scriptPubKey, nAmount, CAsset(), CPubKey(), fSubtractFeeFromAmount};
+        CRecipient recipient = {scriptPubKey, nAmount, asset, CPubKey(), fSubtractFeeFromAmount};
         vecSend.push_back(recipient);
     }
 
@@ -1875,14 +1933,14 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    CAmount nCredit = wtx.GetCredit(filter);
-    CAmount nDebit = wtx.GetDebit(filter);
-    CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOutMap()[CAsset()] - nDebit : 0);
+    CAmountMap nCredit = wtx.GetCredit(filter);
+    CAmountMap nDebit = wtx.GetDebit(filter);
+    CAmountMap nNet = nCredit - nDebit;
+    CAmountMap nFee = wtx.IsFromMe(filter) ? wtx.tx->GetValueOutMap() - nDebit : CAmountMap();
 
-    entry.pushKV("amount", ValueFromAmount(nNet - nFee));
+    entry.pushKV("amount", AmountMapToUniv(nNet - nFee, ""));
     if (wtx.IsFromMe(filter))
-        entry.pushKV("fee", ValueFromAmount(nFee));
+        entry.pushKV("fee", AmountMapToUniv(nFee, ""));
 
     WalletTxToJSON(wtx, entry);
 
@@ -2520,9 +2578,9 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
-    obj.pushKV("balance",       ValueFromAmount(pwallet->GetBalance()));
-    obj.pushKV("unconfirmed_balance", ValueFromAmount(pwallet->GetUnconfirmedBalance()));
-    obj.pushKV("immature_balance",    ValueFromAmount(pwallet->GetImmatureBalance()));
+    obj.pushKV("balance",       AmountMapToUniv(pwallet->GetBalance(), ""));
+    obj.pushKV("unconfirmed_balance", AmountMapToUniv(pwallet->GetUnconfirmedBalance(), ""));
+    obj.pushKV("immature_balance",    AmountMapToUniv(pwallet->GetImmatureBalance(), ""));
     obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
     obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());
     obj.pushKV("keypoolsize", (int64_t)kpExternalSize);
@@ -4678,9 +4736,10 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     int whitelistindex=-1;
     std::vector<secp256k1_pubkey> pak_online = paklist.OnlineKeys();
     for (unsigned int i=0; i<pak_online.size(); i++) {
-        if (memcmp((void *)&pak_online[i], (void *)&onlinepubkey_secp, sizeof(secp256k1_pubkey)) == 0)
+        if (memcmp((void *)&pak_online[i], (void *)&onlinepubkey_secp, sizeof(secp256k1_pubkey)) == 0) {
             whitelistindex = i;
             break;
+        }
     }
     if (whitelistindex == -1)
         throw JSONRPCError(RPC_WALLET_ERROR, "Given online key is not in Pegout Authorization Key List");
