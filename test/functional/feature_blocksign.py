@@ -95,8 +95,14 @@ class BlockSignTest(BitcoinTestFramework):
 
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
+            print(mineridx)
             for i in range(5):
-                miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()/10), "", "", True)
+                print(miner.getbalance())
+                print(int(miner.getbalance()/10))
+                txid = miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()/10), "", "", True)
+                print(txid)
+                print(miner.getrawtransaction(txid))
+                print(miner.getbalance())
         # miner makes a block
         block = miner.getnewblockhex()
 

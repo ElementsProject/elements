@@ -336,7 +336,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     std::string strError;
     std::vector<CRecipient> vecSend;
     int nChangePosRet = -1;
-    CRecipient recipient = {scriptPubKey, nValue, CAsset(), CPubKey(), fSubtractFeeFromAmount};
+    CRecipient recipient = {scriptPubKey, nValue, asset, CPubKey(), fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
     CTransactionRef tx;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control)) {
@@ -437,9 +437,11 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
+    LogPrintf("xxasset: %s\n", strasset);
     if (request.params.size() > 8 && request.params[8].isStr()) {
         strasset = request.params[8].get_str();
     }
+    LogPrintf("xxasset: %s\n", strasset);
     CAsset asset = GetAssetFromString(strasset);
     if (asset.IsNull() && g_con_elementswitness) {
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));

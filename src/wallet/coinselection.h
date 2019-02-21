@@ -27,6 +27,7 @@ public:
         txout = tx->vout[i];
         //TODO(rebase) wallet
         effective_value = txout.nValue.GetAmount();
+        effective_asset = txout.nAsset.GetAsset();
     }
 
     CInputCoin(const CTransactionRef& tx, unsigned int i, int input_bytes) : CInputCoin(tx, i)
@@ -37,6 +38,7 @@ public:
     COutPoint outpoint;
     CTxOut txout;
     CAmount effective_value;
+    CAsset effective_asset;
 
     /** Pre-computed estimated size of this output as a fully-signed input in a transaction. Can be -1 if it could not be calculated */
     int m_input_bytes{-1};
@@ -98,5 +100,9 @@ bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& target_v
 
 // Original coin selection algorithm as a fallback
 bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet);
+
+// ELEMENTS:
+// Knapsack that delegates for every asset individually.
+bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet);
 
 #endif // BITCOIN_WALLET_COINSELECTION_H

@@ -7,6 +7,7 @@
 #define BITCOIN_WALLET_WALLET_H
 
 #include <amount.h>
+#include <asset.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <streams.h>
@@ -513,7 +514,7 @@ private:
     * @param[out]   asset_out - Pointer to the recovered underlying asset type
     * @param[out]   asset_factor_out - Pointer to the recovered asset blinding factor of the output
     */
-    void GetBlindingData(const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out);
+    void GetBlindingData(const unsigned int map_index, const std::vector<unsigned char>& vchRangeproof, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce nonce, const CScript& scriptPubKey, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
     void WipeUnknownBlindingData();
 
 public:
@@ -522,19 +523,19 @@ public:
     void SetBlindingData(const unsigned int output_index, const CPubKey& blinding_pubkey, const CAmount value, const uint256& value_factor, const CAsset& asset, const uint256& asset_factor);
 
     //! Returns either the value out (if it is known) or -1
-    CAmount GetOutputValueOut(unsigned int ouput_index);
+    CAmount GetOutputValueOut(unsigned int ouput_index) const;
 
     //! Returns either the blinding factor (if it is to us) or 0
-    uint256 GetOutputBlindingFactor(unsigned int output_index);
-    uint256 GetOutputAssetBlindingFactor(unsigned int output_index);
+    uint256 GetOutputBlindingFactor(unsigned int output_index) const;
+    uint256 GetOutputAssetBlindingFactor(unsigned int output_index) const;
     //! Returns the underlying asset type, or 0 if unknown
-    CAsset GetOutputAsset(unsigned int output_index);
+    CAsset GetOutputAsset(unsigned int output_index) const;
     // ! Returns receiver's blinding pubkey
-    CPubKey GetOutputBlindingPubKey(unsigned int output_index);
+    CPubKey GetOutputBlindingPubKey(unsigned int output_index) const;
     //! Get the issuance blinder for either the asset itself or the issuing tokens
-    uint256 GetIssuanceBlindingFactor(unsigned int input_index, bool reissuance_token);
+    uint256 GetIssuanceBlindingFactor(unsigned int input_index, bool reissuance_token) const;
     //! Get the issuance amount for either the asset itself or the issuing tokens
-    CAmount GetIssuanceAmount(unsigned int input_index, bool reissuance_token);
+    CAmount GetIssuanceAmount(unsigned int input_index, bool reissuance_token) const;
 
     //! Get the mapValue offset for a specific vin index and type of issuance pseudo-input
     unsigned int GetPseudoInputOffset(unsigned int input_index, bool reissuance_token) const;
@@ -753,7 +754,7 @@ public:
      * all coins from coinControl are selected; Never select unconfirmed coins
      * if they are not ours
      */
-    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmount& nTargetValue, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet,
+    bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet,
                     const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
 
     /** Get a name for this wallet for logging/debugging purposes.
@@ -843,8 +844,8 @@ public:
      * completion the coin set and corresponding actual target value is
      * assembled
      */
-    bool SelectCoinsMinConf(const CAmount& nTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
-        std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
+    bool SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEligibilityFilter& eligibility_filter, std::vector<OutputGroup> groups,
+        std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet, const CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     std::vector<OutputGroup> GroupOutputs(const std::vector<COutput>& outputs, bool single_coin) const;

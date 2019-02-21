@@ -8,7 +8,7 @@ from binascii import b2a_hex
 from decimal import Decimal
 
 from test_framework.blocktools import create_coinbase
-from test_framework.messages import CBlock, CProof
+from test_framework.messages import CBlock, CProof, CTxOutValue
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
 
@@ -27,7 +27,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         # 10 satoshi block subsidy at start for one node, none for other
-        self.extra_args = [["-con_blocksubsidy=10"], ["-con_blocksubsidy=0"]]
+        self.extra_args = [["-con_blocksubsidy=10"], ["-con_blocksubsidy=0", "-txindex=1"]]
 
     def run_test(self):
 
@@ -74,24 +74,24 @@ class BlockSubsidyTest(BitcoinTestFramework):
         assert_template(self.nodes[0], block, "bad-cb-amount")
 
         # Set to proper value, resubmit
-        block.vtx[0].vout[0].nValue = 10
+        block.vtx[0].vout[0].nValue = CTxOutValue(10)
         block.vtx[0].sha256 = None
         assert_template(self.nodes[0], block, None)
 
         # No subsidy also allowed
-        block.vtx[0].vout[0].nValue = 0
+        block.vtx[0].vout[0].nValue = CTxOutValue(0)
         block.vtx[0].sha256 = None
-        assert_template(self.nodes[0], block, None)
+        #assert_template(self.nodes[0], block, None) # ELEMENTS: 0-value outputs not allowed
 
         # Change previous blockhash to other nodes' genesis block and reward to 1, test again
         block.hashPrevBlock = int(self.nodes[1].getblockhash(self.nodes[1].getblockcount()), 16)
-        block.vtx[0].vout[0].nValue = 1
+        block.vtx[0].vout[0].nValue = CTxOutValue(1)
         block.vtx[0].sha256 = None
         assert_template(self.nodes[1], block, "bad-cb-amount")
 
-        block.vtx[0].vout[0].nValue = 0
+        block.vtx[0].vout[0].nValue = CTxOutValue(0)
         block.vtx[0].sha256 = None
-        assert_template(self.nodes[1], block, None)
+        #assert_template(self.nodes[1], block, None) # ELEMENTS: 0-value outputs not allowed
 
 if __name__ == '__main__':
     BlockSubsidyTest().main()

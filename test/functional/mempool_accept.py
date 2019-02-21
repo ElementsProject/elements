@@ -12,6 +12,7 @@ from test_framework.messages import (
     COutPoint,
     CTransaction,
     CTxOut,
+    CTxOutValue,
     MAX_BLOCK_BASE_SIZE,
 )
 from test_framework.script import (
@@ -197,7 +198,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('A transaction with too large output value')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
-        tx.vout[0].nValue = 21000000 * COIN + 1
+        tx.vout[0].nValue = CTxOutValue(21000000 * COIN + 1)
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '16: bad-txns-vout-toolarge'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],
@@ -206,7 +207,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.log.info('A transaction with too large sum of output values')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
         tx.vout = [tx.vout[0]] * 2
-        tx.vout[0].nValue = 21000000 * COIN
+        tx.vout[0].nValue = CTxOutValue(21000000 * COIN)
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '16: bad-txns-txouttotal-toolarge'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],

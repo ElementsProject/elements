@@ -213,6 +213,55 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
     }
 }
 
+bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet) {
+    setCoinsRet.clear();
+    mapValueRet.clear();
+    
+    std::vector<OutputGroup> asset_groups;
+    std::set<CInputCoin> asset_coinsret;
+    // Perform the standard Knapsack solver for every asset individually.
+    for(std::map<CAsset, CAmount>::const_iterator it = mapTargetValue.begin(); it != mapTargetValue.end(); ++it) {
+        asset_groups.clear();
+        asset_coinsret.clear();
+
+        if (it->second == 0) {
+            continue;
+        }
+
+        // Get output groups that only contain this asset.
+        for (OutputGroup g : groups) {
+            bool add = true;
+            for (CInputCoin c : g.m_outputs) {
+                if (c.effective_asset != it->first) {
+                    add = false;
+                    break;
+                }
+            }
+
+            if (add) {
+                asset_groups.push_back(g);
+            }
+        }
+
+        if (asset_groups.size() == 0) {
+            // No output groups for this asset.
+            return false;
+        }
+
+        CAmount outValue;
+        bool ret = KnapsackSolver(it->second, asset_groups, asset_coinsret, outValue);
+        if (!ret) {
+            return false;
+        }
+        mapValueRet[it->first] = outValue;
+        for (CInputCoin ic : asset_coinsret) {
+            setCoinsRet.insert(ic);
+        }
+    }
+
+    return true;
+}
+
 bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmount& nValueRet)
 {
     setCoinsRet.clear();
