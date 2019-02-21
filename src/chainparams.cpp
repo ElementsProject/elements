@@ -60,11 +60,11 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
         txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN << ParseHex(issuecontrolscript)));
     }
 
-    std::string onboardpubkey = GetArg("-onboardpubkey", "");
-    if (onboardpubkey != "")
-    {
-        txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN << ParseHex(onboardpubkey)));
-    }
+    //std::string onboardpubkey = GetArg("-onboardpubkey", "");
+//    if (onboardpubkey != "")
+  //  {
+    //    txNew.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_RETURN << ParseHex(onboardpubkey)));
+//    }
 
     CBlock genesis;
     genesis.nTime    = nTime;
@@ -117,7 +117,6 @@ static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevou
         txNew.vout.push_back(CTxOut(reissuance, reissuance_values, issuance_destination));
     }
 
-    genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
 
     if(!freezetoken_destination.IsUnspendable()) {
         uint256 entropy_freeze;
@@ -184,6 +183,8 @@ static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevou
         }
         genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew_white)));
     }
+
+    genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
 
     genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
