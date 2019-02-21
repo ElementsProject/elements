@@ -923,6 +923,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
             strasset = assets[name_].get_str();
         }
         CAsset asset = GetAssetFromString(strasset);
+        LogPrintf("asset: %s (%b)\n", asset.GetHex(), asset.IsNull());
         if (asset.IsNull() && g_con_elementswitness) {
             throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
         }
@@ -969,7 +970,9 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     std::set<CAsset> setAssets;
     setAssets.insert(policyAsset);
+    LogPrintf("vecSend assets: \n");
     for (auto recipient : vecSend) {
+        LogPrintf("- %s (%b) (subtract: %b)\n", recipient.asset.GetHex(), recipient.asset.IsNull(), recipient.fSubtractFeeFromAmount);
         setAssets.insert(recipient.asset);
     }
     change_keys.reserve(setAssets.size()); // Shouldn't be needed anymore with unique_ptr

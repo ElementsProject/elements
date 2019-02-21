@@ -2326,9 +2326,11 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
 
     std::vector<OutputGroup> utxo_pool;
     if (coin_selection_params.use_bnb && mapTargetValue.size() == 1) {
+        LogPrintf("xxx bnb\n");
         // ELEMENTS:
         CAsset asset = mapTargetValue.begin()->first;
         CAmount nTargetValue = mapTargetValue.begin()->second;
+        LogPrintf("nTargetValue: %s\n", nTargetValue);
         // Get output groups that only contain this asset.
         std::vector<OutputGroup> asset_groups;
         for (OutputGroup g : groups) {
@@ -2356,6 +2358,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
         CAmount cost_of_change = GetDiscardRate(*this, ::feeEstimator).GetFee(coin_selection_params.change_spend_size) + coin_selection_params.effective_fee.GetFee(coin_selection_params.change_output_size);
 
         // Filter by the min conf specs and add to utxo_pool and calculate effective value
+        LogPrintf("group selection...\n");
         for (OutputGroup& group : asset_groups) {
             if (!group.EligibleForSpending(eligibility_filter)) continue;
 
@@ -2367,6 +2370,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
                 CAmount effective_value = coin.txout.nValue.GetAmount() - (coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes));
                 // Only include outputs that are positive effective value (i.e. not dust)
                 if (effective_value > 0) {
+                    LogPrintf("effective value: %s\n", effective_value);
                     group.fee += coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
                     group.long_term_fee += coin.m_input_bytes < 0 ? 0 : long_term_feerate.GetFee(coin.m_input_bytes);
                     group.effective_value += effective_value;
@@ -2383,6 +2387,8 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
         CAmount nValueRet;
         bool ret = SelectCoinsBnB(utxo_pool, nTargetValue, cost_of_change, setCoinsRet, nValueRet, not_input_fees);
         mapValueRet[asset] = nValueRet;
+        LogPrintf("mapValueRet:\n");
+        PrintAmountMap(mapValueRet);
         return ret;
     } else {
         // Filter by the min conf specs and add to utxo_pool
