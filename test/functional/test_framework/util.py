@@ -23,6 +23,11 @@ from io import BytesIO
 
 logger = logging.getLogger("TestFramework.utils")
 
+BITCOIN_ASSET = "e08fa5a62d79b9e3f5f476743a5535512f0f44444533275a2adc5fe8476a2eac"
+BITCOIN_ASSET_BYTES = bytearray.fromhex(BITCOIN_ASSET)
+BITCOIN_ASSET_BYTES.reverse()
+BITCOIN_ASSET_OUT = b"\x01"+BITCOIN_ASSET_BYTES
+
 # This variable should be set to the node being used for CalcFastMerkleRoot calls
 node_fastmerkle = None
 

@@ -5,7 +5,7 @@ import hashlib
 import random
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi)
+from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi, BITCOIN_ASSET)
 from test_framework import (
     address,
     key,
@@ -96,7 +96,7 @@ class BlockSignTest(BitcoinTestFramework):
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
             for i in range(5):
-                miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()/10), "", "", True)
+                miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()['bitcoin']/10), "", "", True)
         # miner makes a block
         block = miner.getnewblockhex()
 

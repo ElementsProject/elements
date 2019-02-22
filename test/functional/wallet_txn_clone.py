@@ -12,6 +12,7 @@ from test_framework.util import (
     connect_nodes,
     disconnect_nodes,
     sync_blocks,
+    BITCOIN_ASSET,
 )
 
 class TxnMallTest(BitcoinTestFramework):
@@ -42,7 +43,7 @@ class TxnMallTest(BitcoinTestFramework):
         # All nodes should start with 1,250 BTC:
         starting_balance = 1250
         for i in range(4):
-            assert_equal(self.nodes[i].getbalance(), starting_balance)
+            assert_equal(self.nodes[i].getbalance()['bitcoin'], starting_balance)
             self.nodes[i].getnewaddress()  # bug workaround, coins generated assigned to first getnewaddress!
 
         self.nodes[0].settxfee(.001)
@@ -55,8 +56,8 @@ class TxnMallTest(BitcoinTestFramework):
         node0_txid2 = self.nodes[0].sendtoaddress(node0_address2, 29)
         node0_tx2 = self.nodes[0].gettransaction(node0_txid2)
 
-        assert_equal(self.nodes[0].getbalance(),
-                     starting_balance + node0_tx1["fee"] + node0_tx2["fee"])
+        assert_equal(self.nodes[0].getbalance()['bitcoin'],
+                     starting_balance + node0_tx1["fee"]['bitcoin'] + node0_tx2["fee"]['bitcoin'])
 
         # Coins are sent to node1_address
         node1_address = self.nodes[1].getnewaddress()
@@ -94,12 +95,12 @@ class TxnMallTest(BitcoinTestFramework):
 
         # Node0's balance should be starting balance, plus 50BTC for another
         # matured block, minus tx1 and tx2 amounts, and minus transaction fees:
-        expected = starting_balance + node0_tx1["fee"] + node0_tx2["fee"]
+        expected = starting_balance + node0_tx1["fee"]['bitcoin'] + node0_tx2["fee"]['bitcoin']
         if self.options.mine_block:
             expected += 50
-        expected += tx1["amount"] + tx1["fee"]
-        expected += tx2["amount"] + tx2["fee"]
-        assert_equal(self.nodes[0].getbalance(), expected)
+        expected += tx1["amount"]['bitcoin'] + tx1["fee"]['bitcoin']
+        expected += tx2["amount"]['bitcoin'] + tx2["fee"]['bitcoin']
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], expected)
 
         if self.options.mine_block:
             assert_equal(tx1["confirmations"], 1)
@@ -140,7 +141,7 @@ class TxnMallTest(BitcoinTestFramework):
         expected += 100
         if (self.options.mine_block):
             expected -= 50
-        assert_equal(self.nodes[0].getbalance(), expected)
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], expected)
 
 if __name__ == '__main__':
     TxnMallTest().main()
