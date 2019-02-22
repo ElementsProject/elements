@@ -2397,9 +2397,11 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
         PrintAmountMap(mapValueRet);
         return ret;
     } else {
+        LogPrintf("preparing knapsack...\n");
         // Filter by the min conf specs and add to utxo_pool
         for (const OutputGroup& group : groups) {
             if (!group.EligibleForSpending(eligibility_filter)) continue;
+            LogPrintf("group: %d\n", group.m_outputs.size());
             utxo_pool.push_back(group);
         }
         bnb_used = false;
@@ -2610,8 +2612,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     unsigned int nSubtractFeeFromAmount = 0;
     for (const auto& recipient : vecSend)
     {
+        LogPrintf("passing recipient...\n");
         // Skip over issuance outputs, no need to select those coins
         if (recipient.asset == CAsset(uint256S("1")) || recipient.asset == CAsset(uint256S("2"))) {
+            LogPrintf("issuance!\n");
             continue;
         }
 
@@ -2713,6 +2717,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 LearnRelatedScripts(vchPubKey, change_type);
                 scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
+                LogPrintf("change script: %s\n", HexStr(scriptChange.begin(), scriptChange.end()));
             }
             CTxOut change_prototype_txout(CAsset(), 0, scriptChange);
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
@@ -2732,6 +2737,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             // Start with no fee and loop until there is enough fee
             while (true)
             {
+                LogPrintf("attempt to form ok-fee tx...\n");
                 nChangePosInOut = nChangePosRequest;
                 txNew.vin.clear();
                 txNew.vout.clear();
@@ -2745,6 +2751,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
                 for (const auto& recipient : vecSend)
                 {
+                    LogPrintf("recipient...\n");
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
 
                     if (recipient.fSubtractFeeFromAmount)
@@ -2768,6 +2775,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                     if (recipient.asset == policyAsset && IsDust(txout, ::dustRelayFee))
                     {
+                        LogPrintf("dust..\n");
                         if (recipient.fSubtractFeeFromAmount && nFeeRet > 0)
                         {
                             if (txout.nValue.GetAmount() < 0)
@@ -2804,6 +2812,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 const CAmountMap mapChange = mapValueIn - mapValueToSelect;
+                LogPrintf("mapChange:\n");
+                PrintAmountMap(mapChange);
                 for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
                     if (it->second > 0)
                     {

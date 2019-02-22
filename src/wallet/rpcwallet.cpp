@@ -1009,6 +1009,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
                 fSubtractFeeFromAmount = true;
         }
 
+        LogPrintf("Recipient: pk: %s; amount: %s; asset: %s; sffa: %b\n", HexStr(scriptPubKey.begin(), scriptPubKey.end()), nAmount, asset.GetHex(), fSubtractFeeFromAmount);
         CRecipient recipient = {scriptPubKey, nAmount, asset, CPubKey(), fSubtractFeeFromAmount};
         vecSend.push_back(recipient);
     }
@@ -1028,9 +1029,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     std::set<CAsset> setAssets;
     setAssets.insert(policyAsset);
-    LogPrintf("vecSend assets: \n");
     for (auto recipient : vecSend) {
-        LogPrintf("- %s (%b) (subtract: %b)\n", recipient.asset.GetHex(), recipient.asset.IsNull(), recipient.fSubtractFeeFromAmount);
         setAssets.insert(recipient.asset);
     }
     change_keys.reserve(setAssets.size()); // Shouldn't be needed anymore with unique_ptr
