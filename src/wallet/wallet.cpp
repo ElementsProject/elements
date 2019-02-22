@@ -2449,7 +2449,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
             // Just to calculate the marginal byte size
-            mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->tx->vout[outpoint.n].nValue.GetAmount();
+            mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
             setPresetCoins.insert(CInputCoin(pcoin->tx, outpoint.n));
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -2478,8 +2478,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     size_t max_descendants = (size_t)std::max<int64_t>(1, gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT));
     bool fRejectLongChains = gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS);
 
-    CAmountMap mapTargetMinusPreset = mapTargetValue;
-    mapTargetMinusPreset -= mapValueFromPresetInputs;
+    CAmountMap mapTargetMinusPreset = mapTargetValue - mapValueFromPresetInputs;
 
     bool res = mapTargetValue <= mapValueFromPresetInputs ||
         SelectCoinsMinConf(mapTargetMinusPreset, CoinEligibilityFilter(1, 6, 0), groups, setCoinsRet, mapValueRet, coin_selection_params, bnb_used) ||
@@ -2814,39 +2813,43 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 const CAmountMap mapChange = mapValueIn - mapValueToSelect;
                 LogPrintf("mapChange:\n");
                 PrintAmountMap(mapChange);
+                unsigned int changeCounter = 0;
                 for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
-                    if (it->second > 0)
-                    {
-                        // Fill a vout to ourself
-                        CTxOut newTxOut(it->first, it->second, scriptChange);
-
-                        // Never create dust outputs; if we would, just
-                        // add the dust to the fee.
-                        // The nChange when BnB is used is always going to go to fees.
-                        if (it->first == policyAsset && (IsDust(newTxOut, discard_rate) || bnb_used))
-                        {
-                            nChangePosInOut = -1;
-                            nFeeRet += it->second;
-                        }
-                        else
-                        {
-                            if (nChangePosInOut == -1)
-                            {
-                                // Insert change txn at random position:
-                                nChangePosInOut = GetRandInt(txNew.vout.size()+1);
-                            }
-                            else if ((unsigned int)nChangePosInOut > txNew.vout.size())
-                            {
-                                strFailReason = _("Change index out of range");
-                                return false;
-                            }
-
-                            std::vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
-                            txNew.vout.insert(position, newTxOut);
-                        }
-                    } else {
-                        nChangePosInOut = -1;
+                    if (it->second == 0) {
+                        continue;
                     }
+
+                    // Fill a vout to ourself
+                    CTxOut newTxOut(it->first, it->second, scriptChange);
+
+                    // Never create dust outputs; if we would, just
+                    // add the dust to the fee.
+                    // The nChange when BnB is used is always going to go to fees.
+                    if (it->first == policyAsset && (IsDust(newTxOut, discard_rate) || bnb_used))
+                    {
+                        nFeeRet += it->second;
+                    }
+                    else
+                    {
+                        if (nChangePosInOut == -1)
+                        {
+                            // Insert change txn at random position:
+                            nChangePosInOut = GetRandInt(txNew.vout.size()+1);
+                        }
+                        else if ((unsigned int)nChangePosInOut > txNew.vout.size())
+                        {
+                            strFailReason = _("Change index out of range");
+                            return false;
+                        }
+
+                        std::vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
+                        txNew.vout.insert(position, newTxOut);
+                        changeCounter++;
+                    }
+                }
+                if (changeCounter == 0) {
+                    // no change inserted
+                    nChangePosInOut = -1;
                 }
 
                 // Dummy fill vin for maximum size estimation

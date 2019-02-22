@@ -120,12 +120,9 @@ UniValue AmountMapToUniv(const CAmountMap& balance, std::string strasset)
             asset = policyAsset;
         }
 
-        // The code below circumvents the const constraint that prevents the line below.
-        //return ValueFromAmount(balance[asset]);
-        for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
-            if (it->first == asset) {
-                return ValueFromAmount(it->second);
-            }
+        std::map<CAsset, CAmount>::const_iterator it = balance.find(asset);
+        if (it != balance.end()) {
+            return ValueFromAmount(it->second);
         }
         return ValueFromAmount(0);
     }
@@ -783,7 +780,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || (request.params.size() > 3 ))
+    if (request.fHelp || (request.params.size() > 4 ))
         throw std::runtime_error(
             "getbalance ( \"(dummy)\" minconf include_watchonly )\n"
             "\nReturns the total available balance.\n"

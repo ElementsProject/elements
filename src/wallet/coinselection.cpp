@@ -213,6 +213,7 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
     }
 }
 
+// ELEMENTS:
 bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet) {
     setCoinsRet.clear();
     mapValueRet.clear();
@@ -232,6 +233,7 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
         }
 
         // Get output groups that only contain this asset.
+        // We consider that groups will almost always be of one asset entirely.
         for (OutputGroup g : groups) {
             bool add = true;
             for (CInputCoin c : g.m_outputs) {
@@ -254,8 +256,7 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
         }
 
         CAmount outValue;
-        bool ret = KnapsackSolver(it->second, asset_groups, asset_coinsret, outValue);
-        if (!ret) {
+        if (!KnapsackSolver(it->second, asset_groups, asset_coinsret, outValue)) {
             return false;
         }
         mapValueRet[it->first] = outValue;
