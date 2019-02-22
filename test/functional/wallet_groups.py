@@ -8,6 +8,7 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.messages import CTransaction, FromHex, ToHex
 from test_framework.util import (
     assert_equal,
+    BITCOIN_ASSET,
 )
 
 def assert_approx(v, vexp, vspan=0.00001):
@@ -69,7 +70,7 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_approx(v[1], 1.3, 0.0001)
 
         # Empty out node2's wallet
-        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance(), subtractfeefromamount=True)
+        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance()[BITCOIN_ASSET], subtractfeefromamount=True)
         self.sync_all()
         self.nodes[0].generate(1)
 

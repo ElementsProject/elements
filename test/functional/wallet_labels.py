@@ -12,7 +12,7 @@ RPCs tested are:
 from collections import defaultdict
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import assert_equal, assert_raises_rpc_error, BITCOIN_ASSET
 
 class WalletLabelsTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -31,7 +31,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         # the same address, so we call twice to get two addresses w/50 each
         node.generate(1)
         node.generate(101)
-        assert_equal(node.getbalance(), 100)
+        assert_equal(node.getbalance()[BITCOIN_ASSET], 100)
 
         # there should be 2 address groups
         # each with 1 address with a balance of 50 Bitcoins

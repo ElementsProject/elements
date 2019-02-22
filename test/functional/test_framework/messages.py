@@ -24,7 +24,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot, BITCOIN_ASSET_OUT
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -49,10 +49,6 @@ MSG_TX = 1
 MSG_BLOCK = 2
 MSG_WITNESS_FLAG = 1 << 30
 MSG_TYPE_MASK = 0xffffffff >> 2
-
-BITCOIN_ASSET = bytearray.fromhex("e08fa5a62d79b9e3f5f476743a5535512f0f44444533275a2adc5fe8476a2eac")
-BITCOIN_ASSET.reverse()
-BITCOIN_ASSET_OUT = b"\x01"+BITCOIN_ASSET
 
 # Serialization/deserialization tools
 def sha256(s):

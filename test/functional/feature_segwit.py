@@ -19,7 +19,7 @@ from test_framework.blocktools import witness_script, send_to_witness
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, sha256, ToHex
 from test_framework.script import CScript, OP_HASH160, OP_CHECKSIG, OP_0, hash160, OP_EQUAL, OP_DUP, OP_EQUALVERIFY, OP_1, OP_2, OP_CHECKMULTISIG, OP_TRUE, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes, hex_str_to_bytes, sync_blocks, try_rpc
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes, hex_str_to_bytes, sync_blocks, try_rpc, BITCOIN_ASSET
 
 from io import BytesIO
 
@@ -111,7 +111,7 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['transactions'][0]['sigops'] == 2)
         self.nodes[0].generate(1) #block 162
 
-        balance_presetup = self.nodes[0].getbalance()
+        balance_presetup = self.nodes[0].getbalance()[BITCOIN_ASSET]
         self.pubkey = []
         p2sh_ids = [] # p2sh_ids[NODE][VER] is an array of txids that spend to a witness version VER pkscript to an address for NODE embedded in p2sh
         wit_ids = [] # wit_ids[NODE][VER] is an array of txids that spend to a witness version VER pkscript to an address for NODE via bare witness
@@ -143,9 +143,9 @@ class SegWitTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         # Make sure all nodes recognize the transactions as theirs
-        assert_equal(self.nodes[0].getbalance(), balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
-        assert_equal(self.nodes[1].getbalance(), 20*Decimal("49.999"))
-        assert_equal(self.nodes[2].getbalance(), 20*Decimal("49.999"))
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 20*Decimal("49.999"))
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 20*Decimal("49.999"))
 
         self.nodes[0].generate(260) #block 423
         sync_blocks(self.nodes)

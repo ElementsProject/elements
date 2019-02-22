@@ -16,6 +16,7 @@ from test_framework.util import (
     sync_blocks,
     sync_mempools,
     wait_until,
+    BITCOIN_ASSET,
 )
 
 class WalletTest(BitcoinTestFramework):
@@ -56,22 +57,22 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
 
         walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['immature_balance'], 50)
-        assert_equal(walletinfo['balance'], 0)
+        assert_equal(walletinfo['immature_balance'][BITCOIN_ASSET], 50)
+        assert_equal(walletinfo['balance'][BITCOIN_ASSET], 0)
 
         self.sync_all([self.nodes[0:3]])
         self.nodes[1].generate(101)
         self.sync_all([self.nodes[0:3]])
 
-        assert_equal(self.nodes[0].getbalance(), 50)
-        assert_equal(self.nodes[1].getbalance(), 50)
-        assert_equal(self.nodes[2].getbalance(), 0)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 0)
 
         # Check getbalance with different arguments
-        assert_equal(self.nodes[0].getbalance("*"), 50)
-        assert_equal(self.nodes[0].getbalance("*", 1), 50)
-        assert_equal(self.nodes[0].getbalance("*", 1, True), 50)
-        assert_equal(self.nodes[0].getbalance(minconf=1), 50)
+        assert_equal(self.nodes[0].getbalance("*")[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[0].getbalance("*", 1)[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[0].getbalance("*", 1, True)[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[0].getbalance(minconf=1)[BITCOIN_ASSET], 50)
 
         # first argument of getbalance must be excluded or set to "*"
         assert_raises_rpc_error(-32, "dummy first argument must be excluded or set to \"*\"", self.nodes[0].getbalance, "")
@@ -115,7 +116,7 @@ class WalletTest(BitcoinTestFramework):
         txout2 = self.nodes[0].gettxout(mempool_txid, 1, True)
         # note the mempool tx will have randomly assigned indices
         # but 10 will go to node2 and the rest will go to node0
-        balance = self.nodes[0].getbalance()
+        balance = self.nodes[0].getbalance()[BITCOIN_ASSET]
         assert_equal(set([txout1['value'], txout2['value']]), set([10, balance]))
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['immature_balance'], 0)
@@ -156,8 +157,8 @@ class WalletTest(BitcoinTestFramework):
 
         # node0 should end up with 100 btc in block rewards plus fees, but
         # minus the 21 plus fees sent to node2
-        assert_equal(self.nodes[0].getbalance(), 100 - 21)
-        assert_equal(self.nodes[2].getbalance(), 21)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], 100 - 21)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 21)
 
         # Node0 should have two unspent outputs.
         # Create a couple of transactions to send them to node2, submit them through
@@ -183,8 +184,8 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all([self.nodes[0:3]])
 
-        assert_equal(self.nodes[0].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 94)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], 0)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 94)
 
         # Verify that a spent output cannot be locked anymore
         spent_0 = {"txid": node0utxos[0]["txid"], "vout": node0utxos[0]["vout"]}
@@ -197,32 +198,32 @@ class WalletTest(BitcoinTestFramework):
         txid = self.nodes[2].sendtoaddress(address, 10, "", "", False)
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0:3]])
-        node_2_bal = self.check_fee_amount(self.nodes[2].getbalance(), Decimal('84'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
-        assert_equal(self.nodes[0].getbalance(), Decimal('10'))
+        node_2_bal = self.check_fee_amount(self.nodes[2].getbalance()[BITCOIN_ASSET], Decimal('84'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], Decimal('10'))
 
         # Send 10 BTC with subtract fee from amount
         txid = self.nodes[2].sendtoaddress(address, 10, "", "", True)
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0:3]])
         node_2_bal -= Decimal('10')
-        assert_equal(self.nodes[2].getbalance(), node_2_bal)
-        node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), Decimal('20'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], node_2_bal)
+        node_0_bal = self.check_fee_amount(self.nodes[0].getbalance()[BITCOIN_ASSET], Decimal('20'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
 
         # Sendmany 10 BTC
         txid = self.nodes[2].sendmany('', {address: 10}, 0, "", [])
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0:3]])
         node_0_bal += Decimal('10')
-        node_2_bal = self.check_fee_amount(self.nodes[2].getbalance(), node_2_bal - Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
-        assert_equal(self.nodes[0].getbalance(), node_0_bal)
+        node_2_bal = self.check_fee_amount(self.nodes[2].getbalance()[BITCOIN_ASSET], node_2_bal - Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], node_0_bal)
 
         # Sendmany 10 BTC with subtract fee from amount
         txid = self.nodes[2].sendmany('', {address: 10}, 0, "", [address])
         self.nodes[2].generate(1)
         self.sync_all([self.nodes[0:3]])
         node_2_bal -= Decimal('10')
-        assert_equal(self.nodes[2].getbalance(), node_2_bal)
-        node_0_bal = self.check_fee_amount(self.nodes[0].getbalance(), node_0_bal + Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], node_2_bal)
+        node_0_bal = self.check_fee_amount(self.nodes[0].getbalance()[BITCOIN_ASSET], node_0_bal + Decimal('10'), fee_per_byte, self.get_vsize(self.nodes[2].getrawtransaction(txid)))
 
         # Test ResendWalletTransactions:
         # Create a couple of transactions, then start up a fourth
@@ -287,7 +288,7 @@ class WalletTest(BitcoinTestFramework):
         tx_obj_not_broadcast = self.nodes[0].gettransaction(txid_not_broadcast)
         self.nodes[1].generate(1)  # mine a block, tx should not be in there
         self.sync_all([self.nodes[0:3]])
-        assert_equal(self.nodes[2].getbalance(), node_2_bal)  # should not be changed because tx was not broadcasted
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], node_2_bal)  # should not be changed because tx was not broadcasted
 
         # now broadcast from another node, mine a block, sync, and check the balance
         self.nodes[1].sendrawtransaction(tx_obj_not_broadcast['hex'])
@@ -295,7 +296,7 @@ class WalletTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         node_2_bal += 2
         tx_obj_not_broadcast = self.nodes[0].gettransaction(txid_not_broadcast)
-        assert_equal(self.nodes[2].getbalance(), node_2_bal)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], node_2_bal)
 
         # create another tx
         self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 2)
@@ -315,7 +316,7 @@ class WalletTest(BitcoinTestFramework):
         node_2_bal += 2
 
         # tx should be added to balance because after restarting the nodes tx should be broadcast
-        assert_equal(self.nodes[2].getbalance(), node_2_bal)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], node_2_bal)
 
         # send a tx with value in a string (PR#6380 +)
         txid = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), "2")
@@ -377,7 +378,7 @@ class WalletTest(BitcoinTestFramework):
         self.sync_all([self.nodes[0:3]])
         blocks = self.nodes[0].generate(2)
         self.sync_all([self.nodes[0:3]])
-        balance_nodes = [self.nodes[i].getbalance() for i in range(3)]
+        balance_nodes = [self.nodes[i].getbalance()[BITCOIN_ASSET] for i in range(3)]
         block_count = self.nodes[0].getblockcount()
 
         # Check modes:
@@ -413,7 +414,7 @@ class WalletTest(BitcoinTestFramework):
             if m == '-reindex':
                 # reindex will leave rpc warm up "early"; Wait for it to finish
                 wait_until(lambda: [block_count] * 3 == [self.nodes[i].getblockcount() for i in range(3)])
-            assert_equal(balance_nodes, [self.nodes[i].getbalance() for i in range(3)])
+            assert_equal(balance_nodes, [self.nodes[i].getbalance()[BITCOIN_ASSET] for i in range(3)])
 
         # Exercise listsinceblock with the last two blocks
         coinbase_tx_1 = self.nodes[0].listsinceblock(blocks[0])
@@ -426,9 +427,9 @@ class WalletTest(BitcoinTestFramework):
 
         # Get all non-zero utxos together
         chain_addrs = [self.nodes[0].getnewaddress(), self.nodes[0].getnewaddress()]
-        singletxid = self.nodes[0].sendtoaddress(chain_addrs[0], self.nodes[0].getbalance(), "", "", True)
+        singletxid = self.nodes[0].sendtoaddress(chain_addrs[0], self.nodes[0].getbalance()[BITCOIN_ASSET], "", "", True)
         self.nodes[0].generate(1)
-        node0_balance = self.nodes[0].getbalance()
+        node0_balance = self.nodes[0].getbalance()[BITCOIN_ASSET]
         # Split into two chains
         rawtx = self.nodes[0].createrawtransaction([{"txid": singletxid, "vout": 0}], {chain_addrs[0]: node0_balance / 2 - Decimal('0.01'), chain_addrs[1]: node0_balance / 2 - Decimal('0.01')})
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
@@ -466,7 +467,7 @@ class WalletTest(BitcoinTestFramework):
             timeout -= 0.5
         assert_equal(len(self.nodes[0].getrawmempool()), chainlimit * 2)
 
-        node0_balance = self.nodes[0].getbalance()
+        node0_balance = self.nodes[0].getbalance()[BITCOIN_ASSET]
         # With walletrejectlongchains we will not create the tx and store it in our wallet.
         assert_raises_rpc_error(-4, "Transaction has too long of a mempool chain", self.nodes[0].sendtoaddress, sending_addr, node0_balance - Decimal('0.01'))
 

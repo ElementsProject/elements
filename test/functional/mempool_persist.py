@@ -40,7 +40,7 @@ import os
 import time
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, wait_until
+from test_framework.util import assert_equal, assert_raises_rpc_error, wait_until, BITCOIN_ASSET
 
 class MempoolPersistTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -61,7 +61,7 @@ class MempoolPersistTest(BitcoinTestFramework):
         self.log.debug("Send 5 transactions from node2 (to its own address)")
         for i in range(5):
             self.nodes[2].sendtoaddress(self.nodes[2].getnewaddress(), Decimal("10"))
-        node2_balance = self.nodes[2].getbalance()
+        node2_balance = self.nodes[2].getbalance()[BITCOIN_ASSET]
         self.sync_all()
 
         self.log.debug("Verify that node0 and node1 have 5 transactions in their mempools")
@@ -83,7 +83,7 @@ class MempoolPersistTest(BitcoinTestFramework):
 
         # Verify accounting of mempool transactions after restart is correct
         self.nodes[2].syncwithvalidationinterfacequeue()  # Flush mempool to wallet
-        assert_equal(node2_balance, self.nodes[2].getbalance())
+        assert_equal(node2_balance, self.nodes[2].getbalance()[BITCOIN_ASSET])
 
         self.log.debug("Stop-start node0 with -persistmempool=0. Verify that it doesn't load its mempool.dat file.")
         self.stop_nodes()

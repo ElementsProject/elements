@@ -15,6 +15,7 @@ from test_framework.util import (
     connect_nodes_bi,
     count_bytes,
     find_vout_for_address,
+    BITCOIN_ASSET,
 )
 
 
@@ -461,7 +462,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[1].generate(1)
         self.sync_all()
 
-        oldBalance = self.nodes[1].getbalance()
+        oldBalance = self.nodes[1].getbalance()[BITCOIN_ASSET]
         inputs = []
         outputs = {self.nodes[1].getnewaddress():1.1}
         rawtx = self.nodes[2].createrawtransaction(inputs, outputs)
@@ -474,7 +475,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         # make sure funds are received at node1
-        assert_equal(oldBalance+Decimal('1.10000000'), self.nodes[1].getbalance())
+        assert_equal(oldBalance+Decimal('1.10000000'), self.nodes[1].getbalance()[BITCOIN_ASSET])
 
         ############################################################
         # locked wallet test
@@ -513,7 +514,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         assert_raises_rpc_error(-13, "walletpassphrase", self.nodes[1].sendtoaddress, self.nodes[0].getnewaddress(), 1.2)
 
-        oldBalance = self.nodes[0].getbalance()
+        oldBalance = self.nodes[0].getbalance()[BITCOIN_ASSET]
 
         inputs = []
         outputs = {self.nodes[0].getnewaddress():1.1}
@@ -528,7 +529,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         # make sure funds are received at node1
-        assert_equal(oldBalance+Decimal('51.10000000'), self.nodes[0].getbalance())
+        assert_equal(oldBalance+Decimal('51.10000000'), self.nodes[0].getbalance()[BITCOIN_ASSET])
 
 
         ###############################################
@@ -536,7 +537,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         ###############################################
 
         #empty node1, send some small coins from node0 to node1
-        self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance(), "", "", True)
+        self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()[BITCOIN_ASSET], "", "", True)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
@@ -566,7 +567,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         #############################################
 
         #again, empty node1, send some small coins from node0 to node1
-        self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance(), "", "", True)
+        self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[1].getbalance()[BITCOIN_ASSET], "", "", True)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
@@ -577,7 +578,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
 
         #fund a tx with ~20 small inputs
-        oldBalance = self.nodes[0].getbalance()
+        oldBalance = self.nodes[0].getbalance()[BITCOIN_ASSET]
 
         inputs = []
         outputs = {self.nodes[0].getnewaddress():0.15,self.nodes[0].getnewaddress():0.04}
@@ -588,7 +589,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(oldBalance+Decimal('50.19000000'), self.nodes[0].getbalance()) #0.19+block reward
+        assert_equal(oldBalance+Decimal('50.19000000'), self.nodes[0].getbalance()[BITCOIN_ASSET]) #0.19+block reward
 
         #####################################################
         # test fundrawtransaction with OP_RETURN and no vin #

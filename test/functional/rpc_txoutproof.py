@@ -6,7 +6,7 @@
 
 from test_framework.messages import CMerkleBlock, FromHex, ToHex
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, BITCOIN_ASSET
 
 class MerkleBlockTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -33,8 +33,8 @@ class MerkleBlockTest(BitcoinTestFramework):
 
         chain_height = self.nodes[1].getblockcount()
         assert_equal(chain_height, 105)
-        assert_equal(self.nodes[1].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 0)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 0)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 0)
 
         node0utxos = self.nodes[0].listunspent(1)
         tx1 = self.nodes[0].createrawtransaction([node0utxos.pop()], {self.nodes[1].getnewaddress(): 49.99})

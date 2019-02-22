@@ -5,6 +5,7 @@
 """Test transaction signing using the signrawtransaction* RPCs."""
 
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.util import BITCOIN_ASSET
 import decimal
 
 class RpcCreateMultiSigTest(BitcoinTestFramework):
@@ -43,9 +44,9 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         node0.generate(100)
         self.sync_all()
 
-        bal0 = node0.getbalance()
-        bal1 = node1.getbalance()
-        bal2 = node2.getbalance()
+        bal0 = node0.getbalance()[BITCOIN_ASSET]
+        bal1 = node1.getbalance()[BITCOIN_ASSET]
+        bal2 = node2.getbalance()[BITCOIN_ASSET]
 
         height = node0.getblockchaininfo()["blocks"]
         assert 150 < height < 350

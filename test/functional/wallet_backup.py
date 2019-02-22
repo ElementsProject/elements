@@ -36,7 +36,7 @@ from random import randint
 import shutil
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, sync_blocks, sync_mempools
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, sync_blocks, sync_mempools, BITCOIN_ASSET
 
 class WalletBackupTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -110,10 +110,10 @@ class WalletBackupTest(BitcoinTestFramework):
         self.nodes[3].generate(100)
         sync_blocks(self.nodes)
 
-        assert_equal(self.nodes[0].getbalance(), 50)
-        assert_equal(self.nodes[1].getbalance(), 50)
-        assert_equal(self.nodes[2].getbalance(), 50)
-        assert_equal(self.nodes[3].getbalance(), 0)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[3].getbalance()[BITCOIN_ASSET], 0)
 
         self.log.info("Creating transactions")
         # Five rounds of sending each other transactions.
@@ -137,10 +137,10 @@ class WalletBackupTest(BitcoinTestFramework):
         self.nodes[3].generate(101)
         self.sync_all()
 
-        balance0 = self.nodes[0].getbalance()
-        balance1 = self.nodes[1].getbalance()
-        balance2 = self.nodes[2].getbalance()
-        balance3 = self.nodes[3].getbalance()
+        balance0 = self.nodes[0].getbalance()[BITCOIN_ASSET]
+        balance1 = self.nodes[1].getbalance()[BITCOIN_ASSET]
+        balance2 = self.nodes[2].getbalance()[BITCOIN_ASSET]
+        balance3 = self.nodes[3].getbalance()[BITCOIN_ASSET]
         total = balance0 + balance1 + balance2 + balance3
 
         # At this point, there are 214 blocks (103 for setup, then 10 rounds, then 101.)
@@ -167,9 +167,9 @@ class WalletBackupTest(BitcoinTestFramework):
         self.start_three()
         sync_blocks(self.nodes)
 
-        assert_equal(self.nodes[0].getbalance(), balance0)
-        assert_equal(self.nodes[1].getbalance(), balance1)
-        assert_equal(self.nodes[2].getbalance(), balance2)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], balance0)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], balance1)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], balance2)
 
         self.log.info("Restoring using dumped wallet")
         self.stop_three()
@@ -181,9 +181,9 @@ class WalletBackupTest(BitcoinTestFramework):
 
         self.start_three()
 
-        assert_equal(self.nodes[0].getbalance(), 0)
-        assert_equal(self.nodes[1].getbalance(), 0)
-        assert_equal(self.nodes[2].getbalance(), 0)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], 0)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 0)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 0)
 
         self.nodes[0].importwallet(os.path.join(self.nodes[0].datadir, 'wallet.dump'))
         self.nodes[1].importwallet(os.path.join(self.nodes[1].datadir, 'wallet.dump'))
@@ -191,9 +191,9 @@ class WalletBackupTest(BitcoinTestFramework):
 
         sync_blocks(self.nodes)
 
-        assert_equal(self.nodes[0].getbalance(), balance0)
-        assert_equal(self.nodes[1].getbalance(), balance1)
-        assert_equal(self.nodes[2].getbalance(), balance2)
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], balance0)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], balance1)
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], balance2)
 
         # Backup to source wallet file must fail
         sourcePaths = [

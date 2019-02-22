@@ -18,6 +18,7 @@ from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
     sync_blocks,
+    BITCOIN_ASSET,
 )
 
 
@@ -62,7 +63,7 @@ class KeypoolRestoreTest(BitcoinTestFramework):
         self.sync_all()
 
         self.log.info("Verify keypool is restored and balance is correct")
-        assert_equal(self.nodes[1].getbalance(), 15)
+        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 15)
         assert_equal(self.nodes[1].listtransactions()[0]['category'], "receive")
         # Check that we have marked all keys up to the used keypool key as used
         assert_equal(self.nodes[1].getaddressinfo(self.nodes[1].getnewaddress())['hdkeypath'], "m/0'/0'/110'")

@@ -19,7 +19,7 @@ from decimal import Decimal
 from test_framework.blocktools import add_witness_commitment, create_block, create_coinbase, send_to_witness
 from test_framework.messages import BIP125_SEQUENCE_NUMBER, CTransaction
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes, sync_mempools
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes, sync_mempools, BITCOIN_ASSET
 from test_framework import util
 
 import io
@@ -62,7 +62,7 @@ class BumpFeeTest(BitcoinTestFramework):
         self.sync_all()
         peer_node.generate(1)
         self.sync_all()
-        assert_equal(rbf_node.getbalance(), Decimal("0.025"))
+        assert_equal(rbf_node.getbalance()[BITCOIN_ASSET], Decimal("0.025"))
 
         self.log.info("Running tests")
         dest_address = peer_node.getnewaddress()

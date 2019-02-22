@@ -3,7 +3,7 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes_bi, sync_blocks, Decimal
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes_bi, sync_blocks, Decimal, BITCOIN_ASSET
 import copy
 import time
 
@@ -264,7 +264,7 @@ class PAKTest (BitcoinTestFramework):
         pak1_pegout_txid = self.nodes[i_pak1].sendtomainchain("", 1)["txid"]
         assert_equal(self.nodes[i_pak1].getwalletpakinfo()["bip32_counter"], "1")
         # Also spend the change to make chained payment that will be rejected as well
-        pak1_child_txid = self.nodes[i_pak1].sendtoaddress(self.nodes[i_pak1].getnewaddress(), self.nodes[i_pak1].getbalance(), "", "", True)
+        pak1_child_txid = self.nodes[i_pak1].sendtoaddress(self.nodes[i_pak1].getnewaddress(), self.nodes[i_pak1].getbalance()[BITCOIN_ASSET], "", "", True)
 
 
         # Wait for node("follow the leader" conf-undefined) to get transaction in

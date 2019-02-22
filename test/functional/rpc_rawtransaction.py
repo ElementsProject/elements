@@ -17,7 +17,7 @@ from decimal import Decimal
 from io import BytesIO
 from test_framework.messages import CTransaction, ToHex
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes, BITCOIN_ASSET
 
 class multidict(dict):
     """Dictionary that allows duplicate keys.
@@ -253,18 +253,18 @@ class RawTransactionsTest(BitcoinTestFramework):
         mSigObj = self.nodes[2].addmultisigaddress(2, [addr1Obj['pubkey'], addr1])['address']
 
         #use balance deltas instead of absolute values
-        bal = self.nodes[2].getbalance()
+        bal = self.nodes[2].getbalance()[BITCOIN_ASSET]
 
         # send 1.2 BTC to msig adr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[2].getbalance(), bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
 
 
         # 2of3 test from different nodes
-        bal = self.nodes[2].getbalance()
+        bal = self.nodes[2].getbalance()[BITCOIN_ASSET]
         addr1 = self.nodes[1].getnewaddress()
         addr2 = self.nodes[2].getnewaddress()
         addr3 = self.nodes[2].getnewaddress()
@@ -284,7 +284,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #THIS IS AN INCOMPLETE FEATURE
         #NODE2 HAS TWO OF THREE KEY AND THE FUNDS SHOULD BE SPENDABLE AND COUNT AT BALANCE CALCULATION
-        assert_equal(self.nodes[2].getbalance(), bal) #for now, assume the funds of a 2of3 multisig tx are not marked as spendable
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], bal) #for now, assume the funds of a 2of3 multisig tx are not marked as spendable
 
         txDetails = self.nodes[0].gettransaction(txId, True)
         rawTx = self.nodes[0].decoderawtransaction(txDetails['hex'])
@@ -294,7 +294,7 @@ class RawTransactionsTest(BitcoinTestFramework):
                 vout = outpoint
                 break
 
-        bal = self.nodes[0].getbalance()
+        bal = self.nodes[0].getbalance()[BITCOIN_ASSET]
         inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "amount" : vout['value']}]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
@@ -308,10 +308,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
 
         # 2of2 test for combining transactions
-        bal = self.nodes[2].getbalance()
+        bal = self.nodes[2].getbalance()[BITCOIN_ASSET]
         addr1 = self.nodes[1].getnewaddress()
         addr2 = self.nodes[2].getnewaddress()
 
@@ -329,7 +329,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        assert_equal(self.nodes[2].getbalance(), bal) # the funds of a 2of2 multisig tx should not be marked as spendable
+        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], bal) # the funds of a 2of2 multisig tx should not be marked as spendable
 
         txDetails = self.nodes[0].gettransaction(txId, True)
         rawTx2 = self.nodes[0].decoderawtransaction(txDetails['hex'])
@@ -339,7 +339,7 @@ class RawTransactionsTest(BitcoinTestFramework):
                 vout = outpoint
                 break
 
-        bal = self.nodes[0].getbalance()
+        bal = self.nodes[0].getbalance()[BITCOIN_ASSET]
         inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "redeemScript" : mSigObjValid['hex'], "amount" : vout['value']}]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
         rawTx2 = self.nodes[2].createrawtransaction(inputs, outputs)
@@ -357,7 +357,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
+        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
 
         # decoderawtransaction tests
         # witness transaction
