@@ -133,9 +133,7 @@ public:
         if (!was_pegged) {
             // Leave the text as-is, if it's valid
             value(&valid);
-            if (valid) {
-                Q_EMIT valueChanged();
-            } else {
+            if (!valid) {
                 clear();
             }
         } else
@@ -143,6 +141,7 @@ public:
             setValue(val);
         else
             clear();
+        Q_EMIT valueChanged();
     }
 
     void setSingleStep(const CAmount& step)
