@@ -781,7 +781,13 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
             //we do not check that this pubkey is a real curve point
         }
 
-        std::vector<unsigned char> datavec(ParseHex(data));
+       std::vector<unsigned char> datavec(ParseHex(data));
+            
+        if (userkey.isStr()) {
+            //for userkey: reverse the last 30 bytes so that this key cannot be used to spend the tx        
+            std::reverse(datavec.begin()+3, datavec.end());
+        }
+
         CPubKey listData(datavec.begin(), datavec.end());
 
         //get the address from the RPC

@@ -301,18 +301,16 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
         
         if (whichType == TX_MULTISIG && vSolutions.size() == 4)
         {
-            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 32);
-            //The KYC public key is encoded in reverse to prevent spending, 
-            //so we need to reverse the bytes.
-            std::reverse(vKycPub.begin(), vKycPub.end());
+            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 33);
+            //The last bytes of the KYC public key are
+            //in reverse to prevent spending, 
+            std::reverse(vKycPub.begin()+3, vKycPub.end());
             CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
-            if (!kycPubKey.IsFullyValid())
-                throw std::system_error(
-                  std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                  std::string(std::string(__func__) +  ": invalid public key"));
-
+            
             CKeyID id=kycPubKey.GetID();
             blacklist_kyc(id);
+            LogPrintf("POLICY: moved KYC pubkey from whitelist to blacklist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+            return true;
         }
     }
 
@@ -329,29 +327,31 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
         // bytes 0-32: KYC public key assigned by the server, bytes reversed
         if (whichType == TX_MULTISIG && vSolutions.size() == 4)
         {
-            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 32);
-            //The KYC public key is encoded in reverse to prevent spending, 
-            //so we need to reverse the bytes.
-            std::reverse(vKycPub.begin(), vKycPub.end());
+            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 33);
+            //The last bytes of the KYC public key are
+            //in reverse to prevent spending, 
+            std::reverse(vKycPub.begin() + 3, vKycPub.end());
             CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
-            if (!kycPubKey.IsFullyValid())
-                throw std::system_error(
-                  std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                  std::string(std::string(__func__) +  ": invalid public key"));
+            if (!kycPubKey.IsFullyValid()) {
+              LogPrintf("POLICY: not adding invalid KYC pub key to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+              return false;
+            }
 
             CKeyID id=kycPubKey.GetID();
-
             if(find_kyc_blacklisted(id)){
+              LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
               whitelist_kyc(id);
             } else if(find_kyc_whitelisted(id)){
-              // Already whitelisted
               return false;
             } else {
+              LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+              whitelist_kyc(id);
               add_unassigned_kyc(id);
             }
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 void CWhiteList::blacklist_kyc(const CKeyID& keyId){
@@ -395,3 +395,10 @@ void CWhiteList::add_unassigned_kyc(const CKeyID& id){
   _kycUnassignedQueue.push(id);
 }
 
+void CWhiteList::clear(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  _kycMap.clear();
+  _tweakedPubKeyMap.clear();
+  _kycStatusMap.clear();
+  CPolicyList::clear();
+}

@@ -57,8 +57,10 @@ public:
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
 
-  //Update from transaction
-  virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+  	//Update from transaction
+  	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+  	virtual void clear();
 
   
 private:

@@ -28,6 +28,7 @@ bool COnboardingScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
     CRegisterAddressScript::SetKeys(privKey, pubKey);
     _kycPubKey=privKey->GetPubKey();
     _userPubKey=*pubKey;
+    return true;
 }
 
 bool COnboardingScript::Finalize(CScript& script){

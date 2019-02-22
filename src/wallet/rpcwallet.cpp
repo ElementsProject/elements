@@ -414,7 +414,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
     // Check amount
-    if (nValue <= 0)
+    if (nValue < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
     if (nValue > curBalance)
@@ -511,6 +511,43 @@ static void SendOnboardTx(const CAsset& feeAsset, const CScript& script,  CWalle
 
     SendMoney(script, nAmount, feeAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail);
 }
+
+UniValue onboarduser(const JSONRPCRequest& request){
+  if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    throw runtime_error(
+            "onboarduser \"filename\" \"feeasset\"\n"
+            "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
+            "\nArguments:\n"
+
+            "1. \"filename\"    (string, required) The kyc file name\n"
+            "2. \"feeasset\"    (string, optional) The asset type to use to pay the transaction fee\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("onboarduser", "\"my asset\", \"my filename\"")
+            + HelpExampleRpc("onboarduser", "\"my asset\", \"my filename\"")
+            );
+
+    std::string assetStr="CBT";
+    if(request.params.size() >= 2){
+        assetStr=request.params[1].get_str();
+    }
+    CAsset feeasset = GetAssetFromString(assetStr);  
+    
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CKYCFile file;
+    file.read(request.params[0].get_str().c_str());
+
+    CScript script;
+    if(!file.getOnboardingScript(script))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot generate onboarding script");
+
+    CWalletTx wtx;
+    SendOnboardTx(feeasset, script, wtx);
+    return wtx.GetHash().GetHex();
+}  
 
 //Register an unwhitelisted address from the keypool to the 
 //whitelist via a OP_REGISTERADDRESS transaction.
@@ -716,38 +753,6 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
 
     return wtx.GetHash().GetHex();
 }
-
-UniValue onboarduser(const JSONRPCRequest& request){
-  if (request.fHelp || request.params.size() != 2)
-    throw runtime_error(
-            "onboarduser \"filename\" \"feeasset\"\n"
-            "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
-            "\nArguments:\n"
-            "1. \"feeasset\"    (string, required) The asset type to use to pay the transaction fee\n"
-            "2. \"filename\"    (string, required) The kyc file name\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("onboarduser", "\"my asset\", \"my filename\"")
-            + HelpExampleRpc("onboarduser", "\"my asset\", \"my filename\"")
-            );
-
-    CAsset feeasset = GetAssetFromString(request.params[0].get_str());  
-    
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    EnsureWalletIsUnlocked();
-
-    CKYCFile file;
-    file.read(request.params[1].get_str().c_str());
-
-    CScript script;
-    if(!file.getOnboardingScript(script))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot generate onboarding script");
-
-    CWalletTx wtx;
-    SendOnboardTx(feeasset, script, wtx);
-    return wtx.GetHash().GetHex();
-}  
 
 UniValue sendtoaddress(const JSONRPCRequest& request)
 {
@@ -4665,6 +4670,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
     { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
+    { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename", "feeasset"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },

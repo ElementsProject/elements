@@ -1566,22 +1566,6 @@ UniValue readwhitelist(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
-UniValue onboarduser(const JSONRPCRequest& request){
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
-    throw runtime_error(
-            "onboarduser \"filename\"\n"
-            "Onboard a user with the credentials from a KYC file generated with the dumpkycfile command.\n"
-            "\nArguments:\n"
-            "1. \"filename\"    (string, required) The kyc file name\n"
-
-            "\nExamples:\n"
-            + HelpExampleCli("onboarduser", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
-            + HelpExampleRpc("onboarduser", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
-            );
-
-    
-}
-
 UniValue readkycfile(const JSONRPCRequest& request)
 {
   if (request.fHelp || request.params.size() != 2)
@@ -1607,7 +1591,7 @@ UniValue readkycfile(const JSONRPCRequest& request)
 
 
     CECIES* decryptor = nullptr;
-    CPubKey* onboardUserPubKey = nullptr;
+    CPubKey* CPubKey = nullptr;
     std::vector<unsigned char>* initVec = nullptr;
     // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
 
@@ -2394,7 +2378,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
 
     { "blockchain",         "readkycfile",            &readkycfile,            true,  {"filename", "outfilename", "onboardpubkey"} },
-
+   
     { "blockchain",         "addtofreezelist",        &addtofreezelist,        true,  {"address"} },
     { "blockchain",         "removefromfreezelist",   &removefromfreezelist,   true,  {"address"} },
     { "blockchain",         "queryfreezelist",        &queryfreezelist,        true,  {"address"} },
