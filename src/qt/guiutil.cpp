@@ -788,9 +788,13 @@ QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int 
         }
     }
 
-    qlonglong whole = amount / 100000000;
-    qlonglong fraction = amount % 100000000;
+    qlonglong abs = qAbs(amount);
+    qlonglong whole = abs / 100000000;
+    qlonglong fraction = abs % 100000000;
     QString str = QString("%1").arg(whole);
+    if (amount < 0) {
+        str.insert(0, '-');
+    }
     if (fraction) {
         str += QString(".%1").arg(fraction, 8, 10, QLatin1Char('0'));
     }
