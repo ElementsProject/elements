@@ -109,22 +109,19 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
 // Attaches labeled balance reports to UniValue obj with asset filter
 // "" displays *all* assets as VOBJ pairs, while named assets must have
 // been entered via -assetdir configuration argument and are returned as VNUM.
-UniValue AmountMapToUniv(const CAmountMap& balance, std::string strasset)
+UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
 {
+    // Make sure the policyAsset is always present in the balance map.
+    CAmountMap balance = balanceOrig;
+    balance[policyAsset] += 0;
+
     // If we don't do assets or a specific asset is given, we filter out once asset.
     if (!g_con_elementswitness || strasset != "") {
-        CAsset asset;
         if (g_con_elementswitness) {
-            asset = GetAssetFromString(strasset);
+            return ValueFromAmount(balance[GetAssetFromString(strasset)]);
         } else {
-            asset = policyAsset;
+            return ValueFromAmount(balance[policyAsset]);
         }
-
-        std::map<CAsset, CAmount>::const_iterator it = balance.find(asset);
-        if (it != balance.end()) {
-            return ValueFromAmount(it->second);
-        }
-        return ValueFromAmount(0);
     }
 
     UniValue obj(UniValue::VOBJ);
