@@ -824,7 +824,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
     }
 
     std::string asset = "";
-    if (request.params.size() > 3 && request.params[3].isStr()) {
+    if (!request.params[3].isNull() && request.params[3].isStr()) {
         asset = request.params[3].get_str();
     }
 

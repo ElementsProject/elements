@@ -2756,7 +2756,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             // Get the fee rate to use effective values in coin selection
             CFeeRate nFeeRateNeeded = GetMinimumFeeRate(*this, coin_control, ::mempool, ::feeEstimator, &feeCalc);
 
-            nFeeRet = 0;
+            // ELEMENTS:
+            // Start with tiny non-zero fee for issuance entropy and loop until there is enough fee
+            nFeeRet = 1;
             bool pick_new_inputs = true;
             CAmountMap mapValueIn;
 
@@ -2885,6 +2887,15 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     nChangePosInOut = -1;
                 }
 
+                // Add fee output.
+                if (nFeeRet > 0) {
+                    CTxOut fee(policyAsset, nFeeRet, CScript());
+                    assert(fee.IsFee());
+                    txNew.vout.push_back(fee);
+                    //TODO(rebase) 
+                    //output_pubkeys.push_back(CPubKey());
+                }
+
                 // Dummy fill vin for maximum size estimation
                 //
                 for (const auto& coin : setCoins) {
@@ -2954,7 +2965,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Try to reduce change to include necessary fee
-                if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                if (!g_con_elementswitness && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
                     std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                     // Only reduce change if remaining amount is still a large enough output.
