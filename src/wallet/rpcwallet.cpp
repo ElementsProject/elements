@@ -353,8 +353,11 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > curBalance[asset])
+    if (nValue > curBalance[asset]) {
+        LogPrintf("xxxfunds: %s, %s\n", nValue, curBalance[asset]);
+        PrintAmountMap(curBalance);
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+    }
 
     if (pwallet->GetBroadcastTransactions() && !g_connman) {
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
@@ -1012,6 +1015,9 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     // Check funds
     if (totalAmount > pwallet->GetLegacyBalance(ISMINE_SPENDABLE, nMinDepth)) {
+        LogPrintf("xxxfunds 2:\n");
+        PrintAmountMap(totalAmount);
+        PrintAmountMap(pwallet->GetLegacyBalance(ISMINE_SPENDABLE, nMinDepth));
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Wallet has insufficient funds");
     }
 
@@ -1036,8 +1042,10 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::string strFailReason;
     CTransactionRef tx;
     bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control);
-    if (!fCreated)
+    if (!fCreated) {
+        LogPrintf("xxxfunds 3: \n");
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
+    }
     CValidationState state;
     if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, g_connman.get(), state)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));

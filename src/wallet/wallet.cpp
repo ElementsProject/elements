@@ -2804,6 +2804,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             continue;
                         }
                         else {
+                            LogPrintf("xxxfunds random\n");
                             strFailReason = _("Insufficient funds");
                             return false;
                         }
