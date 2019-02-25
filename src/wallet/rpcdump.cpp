@@ -727,7 +727,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
     std::stringstream ss;
-
+    //Add some padding.
+    ss << "00000000000000000000000000000000\n";
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
         const CKeyID &keyid = *it;
