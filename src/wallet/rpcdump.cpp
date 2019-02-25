@@ -744,6 +744,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     //Encrypt the above string
     CPubKey onboardPubKey = pwalletMain->GetOnboardPubKey();
     CECIES encryptor(onboardUserKey, onboardPubKey);
+    if(!encryptor.OK())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot set encryption keys");
     std::string encrypted;
     std::string bare=ss.str();
     

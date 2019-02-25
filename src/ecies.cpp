@@ -11,44 +11,32 @@
 #include <iostream>
 
 
-CECIES::CECIES(){
-	//Generate a random initialization vector.
-    GetStrongRandBytes(_iv, AES_BLOCKSIZE);
-    //Generate a random key.
-    GetStrongRandBytes(_k, AES256_KEYSIZE);
-    Initialize();
-}
-
 //This sets up an encryption scheme based on a private key from one key pair
 //and public key from another key pair. A shared secret _k is generated which is
 //used to enrypt/decrypt messages.
-CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey, const uCharVec iv){
+CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey, const uCharVec& iv){
 	//Generate the ECDH exchange shared secret from the private key and the public key
+	_bOK=true;
+	if(!privKey.GetPubKey().IsFullyValid()) _bOK=false;
+	if(!pubKey.IsFullyValid()) _bOK=false;
+	if(!_bOK) return;
+
 	uint256 k = privKey.ECDH(pubKey);
-	memcpy(_k, &k, 32);
-	set_iv(iv);
-	unsigned char tmp[AES_BLOCKSIZE];
-	GetStrongRandBytes(tmp, AES_BLOCKSIZE);
-	std::stringstream ss;
-	ss << 
-	" Shared secret: " << _k << 
-	" iv: " << _iv << std::endl;
-	Initialize();
+	unsigned char kArr[AES256_KEYSIZE];
+	memcpy(kArr, &k, AES256_KEYSIZE);
+	_k=uCharVec(kArr, std::end(kArr));
+	_iv=uCharVec(iv.begin(), iv.end());
+	_decryptor = new AES256CBCDecrypt(&_k[0], &_iv[0], true);
+	_encryptor = new AES256CBCEncrypt(&_k[0], &_iv[0], true);
 }
 
 CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey){
-	//Generate the ECDH exchange shared secret from the private key and the public key
-	uint256 k = privKey.ECDH(pubKey);
-	memcpy(_k, &k, 32);
+	_bOK=true;
 	//Randomly generate a initialization vector.
-    GetStrongRandBytes(_iv, AES_BLOCKSIZE);
-	std::stringstream ss;
-	ss << 
-//	"Priv key: " << privKey.GetPrivKey().ToString() <<
-//	" Pub key: " << pubKey << 
-	" Shared secret: " << _k << 
-	" iv: " << _iv << std::endl;
-    Initialize();
+	unsigned char iv[AES_BLOCKSIZE];
+    GetStrongRandBytes(iv, AES_BLOCKSIZE);
+    uCharVec viv(iv, iv + AES_BLOCKSIZE);
+	CECIES(privKey, pubKey, viv);
 }
 
 CECIES::~CECIES(){
@@ -56,16 +44,8 @@ CECIES::~CECIES(){
 	delete _decryptor;
 }
 
-bool CECIES::set_iv(uCharVec iv){
-	std::copy(iv.begin(), iv.begin() + AES_BLOCKSIZE, _iv);
-	return true;
-}
-
-//Initialize from serialized private key 
-bool CECIES::Initialize(){
-	_decryptor=new AES256CBCDecrypt(_k, _iv, true);
-	_encryptor=new AES256CBCEncrypt(_k, _iv, true);
-	return true;
+bool CECIES::OK() const{
+	return _bOK;
 }
 
 bool CECIES::Encrypt(uCharVec& em, 
@@ -112,13 +92,8 @@ bool CECIES::Decrypt(std::string& m,
     return bResult;
 }
 
-uCharVec CECIES::get_iv(){
-	uCharVec retval(_iv, _iv+AES_BLOCKSIZE);
-	return retval;
-}
 
 bool CECIES::Test1(){
-	Initialize();
 	std::string spm = "Test message for ECIES.";
 	std::vector<unsigned char> pm(spm.begin(), spm.end());
 	std::vector<unsigned char> em;

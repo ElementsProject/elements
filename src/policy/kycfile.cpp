@@ -172,9 +172,10 @@ bool CKYCFile::initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec){
     _onboardUserPubKey=pubKey;
     _initVec=initVec;
     delete _encryptor;
-    if(_initVec)
-        return _encryptor = new CECIES(*privKey, *_onboardUserPubKey, *_initVec);
-    return _encryptor = new CECIES(*privKey, *_onboardUserPubKey);
+     if(_initVec)
+        _encryptor = new CECIES(*privKey, *_onboardUserPubKey, *_initVec);
+    _encryptor = new CECIES(*privKey, *_onboardUserPubKey);
+    return _encryptor->OK();
 }
 
  bool CKYCFile::getOnboardingScript(CScript& script){

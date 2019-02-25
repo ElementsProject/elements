@@ -848,11 +848,11 @@ public:
 
     //The KYC public key used for address whitelist registration by the user.
     CPubKey GetKYCPubKey(){return _kycPubKey;}
-    void SetKYCPubKey(CPubKey val){_kycPubKey=val;}
+    void SetKYCPubKey(CPubKey val){_kycPubKey.Set(val.begin(), val.end());}
 
     //The onboarding public key, to be read from the blockchain.
     CPubKey GetOnboardPubKey(){return _onboardPubKey;}
-    void SetOnboardPubKey(CPubKey val){_onboardPubKey=val;}
+    void SetOnboardPubKey(CPubKey val){_onboardPubKey.Set(val.begin(), val.end());}
 
     //The onboarding private key, either randomly selected or set by the user.
     CPubKey GetOnboardUserPubKey(){return _onboardUserPubKey;}

@@ -191,12 +191,15 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   // Get the KYC private key from the wallet.
   CPubKey* decryptPubKey;
   CKey decryptPrivKey;
+  bool bWhitelistingNode=false;
   if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
     //Non-whitelisting node
+    bWhitelistingNode=false;
     if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)) return false;  
     decryptPubKey=&kycPubKey;
   } else{
     //Whitelisting node
+    bWhitelistingNode=true;
     decryptPubKey=&inputPubKey;
   }
   
@@ -208,6 +211,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   //Decrypt
   CECIES decryptor(decryptPrivKey, *decryptPubKey, initVec);
+  if(!decryptor.OK()) return false;
   std::vector<unsigned char> data;
   data.resize(encryptedData.size());
   decryptor.Decrypt(data, encryptedData);
@@ -243,21 +247,22 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         std::vector<unsigned char> pubKeyData(itData1, itData2);
         itData1=itData2;
         CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
-        CBitcoinAddress* addr = new CBitcoinAddress(kycKey);
-        //Convert to string for debugging
-        std::string sAddr=addr->ToString();
-        std::string sAddrNew=addrNew.ToString();
+        CBitcoinAddress addr(kycKey);
         try{
-          add_derived(addrNew, pubKeyNew, addr);
+          add_derived(addrNew, pubKeyNew, &addr);
         } catch (std::system_error e){
-          if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) throw e;
-        }
-        delete addr;
+          if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) return false;
+        } 
         bSuccess=true;
       }
     }
   }
-  
+
+  //This transaction onboarded my addresses, so this is my KYC public key 
+  //(to be used for future register address transactions)
+  if(bOnboard &! bWhitelistingNode){
+    pwalletMain->SetKYCPubKey(kycPubKey);
+  }
   return bSuccess;
 }
 

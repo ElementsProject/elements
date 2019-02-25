@@ -13,11 +13,10 @@ typedef std::vector<unsigned char> uCharVec;
 
 class CECIES{
 public:
-	CECIES();
-	CECIES(const CKey& privKey, const CPubKey& pubKey,  const uCharVec iv);
-	CECIES(const CKey& privKey, const CPubKey& pubKey);
-
 	~CECIES();
+
+	CECIES(const CKey& privKey, const CPubKey& pubKey, const uCharVec& iv);
+	CECIES(const CKey& privKey, const CPubKey& pubKey);
 	
 	/**
     * Encrypt/decrypt a message string.
@@ -34,18 +33,20 @@ public:
 
     bool Test1();
 
-	uCharVec get_iv();
-	bool set_iv(uCharVec iv);
+	uCharVec get_iv() const {return _iv;};
+
+	bool OK() const;
 
 private:
-	unsigned char _iv[AES_BLOCKSIZE];
-	unsigned char _k[AES256_KEYSIZE];
+	CECIES();
+	uCharVec _iv;
+	uCharVec _k;
 
 	unsigned char _padChar=0;
 
 	AES256CBCEncrypt* _encryptor;
 	AES256CBCDecrypt* _decryptor;
 
-	bool Initialize();
+	bool _bOK;
 
 };

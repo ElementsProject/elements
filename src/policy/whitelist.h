@@ -19,9 +19,6 @@ public:
   		black
   	};
 
-	// Onboards a new user with addresses and kyc public key
-	void onboard_new(const std::map<CBitcoinAddress, CPubKey>& addressMap, const CPubKey& kycPubKey);
-
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
 		const CBitcoinAddress* kycAddress);
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);

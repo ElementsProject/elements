@@ -556,6 +556,9 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     const int nToRegister, const CPubKey& pubKey,
     CWalletTx& wtxNew){
 
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+
     CAmount curBalance = pwalletMain->GetBalance()[feeAsset];
     
     // Check the balance of the "from" address
@@ -626,7 +629,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     //Now select coins based on the fee required
     assert(pwalletMain != NULL);
-    LOCK2(cs_main, pwalletMain->cs_wallet);
     std::vector<COutput> vAvailableCoins;
     pwalletMain->AvailableCoins(vAvailableCoins, true, NULL, true);
     CAmountMap mapValueToSelect, mapValueRet;
@@ -688,11 +690,15 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
 
     vector<CRecipient> vecSend;
-    CRecipient recipient = {script, CAmount(0), feeAsset, CPubKey(), false};
+    CAmount amount(0);
+    CPubKey dummyPubKey;
+    CRecipient recipient = {script, amount, feeAsset, dummyPubKey, false};
     vecSend.push_back(recipient);
 
+    CAsset asset;
+
     //Create the transacrtion again. This time, the script is encrypted.
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, asset, true)) {
         strError = strprintf("Error: failed to create transaction.");      
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -708,48 +714,39 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-        if (request.fHelp || request.params.size() != 3) {
+        if (request.fHelp || request.params.size() <1 || request.params.size() >2 ) {
         throw runtime_error(
             "sendaddtowhitelisttx \n"
             "\nRegister the next unwhitelisted address in the keypool via a \"add to whitelist\" transaction.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
-            "1. \"feeasset\"            (string, required) The asset type to use to pay the transaction fee.\n"
-            "2. \"naddresses\"         (numeric or string, required) The number of new addresses to register.\n"
-            "3. \"kycpubkey\"          (string, required) The hex endoded KYC pubkey to which to register the new address.\n"
-             "\nResult:\n"
+            "1. \"naddresses\"         (numeric or string, required) The number of new addresses to register.\n"
+            "2. \"feeasset\"           (string, optional) The asset type to use to pay the transaction fee.\n"
+            "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
-            "\"[addresses]\"           (string[]) The addresses that were registered.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendaddtowhitelisttx", "\"CBT\", \"2\"")
+            + HelpExampleCli("sendaddtowhitelisttx", "10, \"CBT\"")
         );
     }
-
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
 
-    CAsset feeasset = GetAssetFromString(request.params[0].get_str());  
-    UniValue naddresses = request.params[1];
+    UniValue naddresses = request.params[0];
 
-    //get the KYC pubkey from the RPC
-    const UniValue& pkey = request.params[2];
-    std::string sPubKey=pkey.getValStr();
-    if (!IsHex(sPubKey))
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey must be a hex string");
-    std::vector<unsigned char> datapubkey(ParseHex(sPubKey));
-    CPubKey kycPubKey(datapubkey.begin(), datapubkey.end());
-    //we check that this pubkey is a real curve point
-    if (!kycPubKey.IsFullyValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey is not a valid public key");
+    std::string sFeeAsset="CBT";
+    if(request.params.size() == 2)
+        sFeeAsset=request.params[1].get_str();
+    CAsset feeasset = GetAssetFromString(sFeeAsset);  
 
-    pwalletMain->SetKYCPubKey(kycPubKey);
     CWalletTx wtx;
+    CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
+    int naddr=naddresses.get_int();
+    SendAddNextToWhitelistTx(feeasset, naddr, kycPubKey, wtx);
 
-    SendAddNextToWhitelistTx(feeasset, naddresses.get_int(), kycPubKey, wtx);
 
-//    AuditLogPrintf("%s : registertowhitelist %s %s %s txid:%s\n", getUser(), request.params[0].get_str(), 
-  //      request.params[1].get_str(), request.params[2].get_str(), wtx.GetHash().GetHex());
+    //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(), 
+    //    request.params[1].get_str(), wtx.GetHash().GetHex());
 
     return wtx.GetHash().GetHex();
 }
@@ -4713,7 +4710,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "lockunspent",              &lockunspent,              true,   {"unlock","transactions"} },
     { "wallet",             "sendmany",                 &sendmany,                 false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
-    { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,     false,  {"feeasset","naddresses"} },
+    { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,     false,  {"naddresses", "feeasset"} },
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {} },
