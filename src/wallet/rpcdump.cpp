@@ -769,10 +769,17 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
 
     //Append the initialization vector and encrypted keys
 
-    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEncHex.size());
-
-    file << sEncHex << "\n";
-    file << "# End of dump\n";
+    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, vEnc.size());
+    file.close();
+    //Append the encrypted part as binary.
+    unsigned long size=vEnc.size();
+    unsigned char arrEnc[size];
+    std::copy(vEnc.begin(), vEnc.end(), arrEnc);
+    file.open(request.params[0].get_str().c_str(), std::ofstream::app | std::ofstream::binary);
+    file.write((char*)arrEnc, size);
+    file.close();
+    file.open(request.params[0].get_str().c_str(), std::ofstream::app);
+    file << "\n# End of dump\n";
     file.close();
 
     AuditLogPrintf("%s : dumpkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[1].get_str());

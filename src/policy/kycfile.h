@@ -62,6 +62,8 @@ class CKYCFile{
     	std::vector<CPubKey> _addressKeys; 
 
     	std::stringstream _decryptedStream;
+
+    	std::string _filename;
 };
 
 std::ostream& operator<<(std::ostream& os, const CKYCFile& fl) {
