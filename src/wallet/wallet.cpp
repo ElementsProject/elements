@@ -2552,10 +2552,29 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
 bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl coinControl)
 {
     std::vector<CRecipient> vecSend;
+    std::set<CAsset> setAssets;
+    std::vector<CReserveKey> vChangeKey;
+    // Avoid copying CReserveKeys which causes badness
+    vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
 
     // Turn the txout set into a CRecipient vector.
     for (size_t idx = 0; idx < tx.vout.size(); idx++) {
         const CTxOut& txOut = tx.vout[idx];
+
+        // ELEMENTS:
+        if (!txOut.nValue.IsExplicit() || !txOut.nAsset.IsExplicit()) {
+            strFailReason = _("Pre-funded amounts must be non-blinded");
+            return false;
+        }
+        // Fee outputs should not be added to avoid overpayment of fees
+        if (txOut.IsFee()) {
+            continue;
+        }
+        if (setAssets.count(txOut.nAsset.GetAsset()) == 0) {
+            vChangeKey.push_back(CReserveKey(this));
+            setAssets.insert(txOut.nAsset.GetAsset());
+        }
+
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(), setSubtractFeeFromOutputs.count(idx) == 1};
         vecSend.push_back(recipient);
     }
@@ -2564,6 +2583,11 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 
     for (const CTxIn& txin : tx.vin) {
         coinControl.Select(txin.prevout);
+    }
+
+    // Always add policyAsset, as fees via policyAsset may create change
+    if (setAssets.count(policyAsset) == 0) {
+        vChangeKey.push_back(CReserveKey(this));
     }
 
     // Acquire the locks to prevent races to the new locked unspents between the
@@ -2578,17 +2602,18 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     }
     LogPrintf("returned nFeeRet: %s\n", nFeeRet);
 
-    if (nChangePosInOut != -1) {
-        tx.vout.insert(tx.vout.begin() + nChangePosInOut, tx_new->vout[nChangePosInOut]);
-        // We don't have the normal Create/Commit cycle, and don't want to risk
-        // reusing change, so just remove the key from the keypool here.
-        reservekeys[0]->KeepKey();
-    }
-
-    // Copy output sizes from new transaction; they may have had the fee
-    // subtracted from them.
-    for (unsigned int idx = 0; idx < tx.vout.size(); idx++) {
-        tx.vout[idx].nValue = tx_new->vout[idx].nValue.GetAmount();
+    // Wipe outputs and output witness and re-add one by one
+    tx.vout.clear();
+    tx.witness.vtxoutwit.clear();
+    for (unsigned int i = 0; i < tx_new->vout.size(); i++) {
+        const CTxOut& out = tx_new->vout[i];
+        tx.vout.push_back(out);
+        if (tx_new->witness.vtxoutwit.size() > i) {
+            // We want to re-add previously existing outwitnesses
+            // even though we don't create any new ones
+            const CTxOutWitness& outwit = tx_new->witness.vtxoutwit[i];
+            tx.witness.vtxoutwit.push_back(outwit);
+        }
     }
 
     // Add new txins while keeping original txin scriptSig/order.

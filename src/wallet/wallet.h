@@ -1233,6 +1233,18 @@ public:
     CReserveKey() = default;
     CReserveKey(const CReserveKey&) = delete;
     CReserveKey& operator=(const CReserveKey&) = delete;
+    // ELEMENTS:
+    CReserveKey& operator=(CReserveKey&&) = delete;
+    CReserveKey(CReserveKey&& in) {
+        // Copy fields over
+        pwallet = in.pwallet;
+        nIndex = in.nIndex;
+        vchPubKey = in.vchPubKey;
+        fInternal = in.fInternal;
+        // Invalidate the object being moved from
+        in.nIndex = -1;
+        in.vchPubKey = CPubKey();
+    }
 
     ~CReserveKey()
     {
