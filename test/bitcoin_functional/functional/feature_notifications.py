@@ -64,26 +64,7 @@ class NotificationsTest(BitcoinTestFramework):
         with open(self.tx_filename, 'r', encoding="ascii") as f:
             assert_equal(sorted(txids_rpc), sorted(l.strip() for l in f.read().splitlines()))
 
-        # Mine another 41 up-version blocks. -alertnotify should trigger on the 51st.
-        self.log.info("test -alertnotify")
-        self.nodes[1].generate(41)
-        self.sync_all()
-
-        # Give bitcoind 10 seconds to write the alert notification
-        wait_until(lambda: os.path.isfile(self.alert_filename) and os.path.getsize(self.alert_filename), timeout=10)
-
-        with open(self.alert_filename, 'r', encoding='utf8') as f:
-            alert_text = f.read()
-
-        # Mine more up-version blocks, should not get more alerts:
-        self.nodes[1].generate(2)
-        self.sync_all()
-
-        with open(self.alert_filename, 'r', encoding='utf8') as f:
-            alert_text2 = f.read()
-
-        self.log.info("-alertnotify should not continue notifying for more unknown version blocks")
-        assert_equal(alert_text, alert_text2)
+        # TODO: add test for `-alertnotify` large fork notifications
 
 if __name__ == '__main__':
     NotificationsTest().main()
