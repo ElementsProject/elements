@@ -1934,6 +1934,7 @@ bool CWalletTx::InMempool() const
 
 bool CWalletTx::IsTrusted() const
 {
+    LogPrintf("IsTrusted called\n");
     // Quick answer in most cases
     if (!CheckFinalTx(*tx))
         return false;
@@ -1942,23 +1943,31 @@ bool CWalletTx::IsTrusted() const
         return true;
     if (nDepth < 0)
         return false;
-    if (!pwallet->m_spend_zero_conf_change || !IsFromMe(ISMINE_ALL)) // using wtx's cached debit
+    if (!pwallet->m_spend_zero_conf_change || !IsFromMe(ISMINE_ALL)) { // using wtx's cached debit
+        LogPrintf("xxx no zero conf!!\n");
         return false;
+    }
 
     // Don't trust unconfirmed transactions from us unless they are in the mempool.
-    if (!InMempool())
+    if (!InMempool()) {
+        LogPrintf("xxx not mempool!\n");
         return false;
+    }
 
     // Trusted if all inputs are from us and are in the mempool:
     for (const CTxIn& txin : tx->vin)
     {
         // Transactions not sent by us: not trusted
         const CWalletTx* parent = pwallet->GetWalletTx(txin.prevout.hash);
-        if (parent == nullptr)
+        if (parent == nullptr) {
+            LogPrintf("xxx no parent!");
             return false;
+        }
         const CTxOut& parentOut = parent->tx->vout[txin.prevout.n];
-        if (pwallet->IsMine(parentOut) != ISMINE_SPENDABLE)
+        if (pwallet->IsMine(parentOut) != ISMINE_SPENDABLE) {
+            LogPrintf("xxx parent not mine!\n");
             return false;
+        }
     }
     return true;
 }
@@ -2036,14 +2045,33 @@ CAmountMap CWallet::GetBalance(const isminefilter& filter, const int min_depth) 
     CAmountMap nTotal;
     {
         LOCK2(cs_main, cs_wallet);
+        LogPrintf("tallying GetBalance mindepth=%d...\n", min_depth);
         for (const auto& entry : mapWallet)
         {
             const CWalletTx* pcoin = &entry.second;
+            LogPrintf("\n");
+            LogPrintf("entry: \n");
+            LogPrintf("credit: \n");
+            PrintAmountMap(pcoin->GetCredit(filter));
+            LogPrintf("debit: \n");
+            PrintAmountMap(pcoin->GetDebit(filter));
+            LogPrintf("immature credit: \n");
+            PrintAmountMap(pcoin->GetImmatureCredit(filter));
+            LogPrintf("available credit cached:\n");
+            PrintAmountMap(pcoin->GetAvailableCredit(true, filter));
+            LogPrintf("available credit uncached:\n");
+            PrintAmountMap(pcoin->GetAvailableCredit(false, filter));
+            LogPrintf("trusted: %b\n", pcoin->IsTrusted());
+            LogPrintf("depth: %d\n", pcoin->GetDepthInMainChain());
             if (pcoin->IsTrusted() && pcoin->GetDepthInMainChain() >= min_depth) {
+                LogPrintf("adding to total\n");
                 nTotal += pcoin->GetAvailableCredit(true, filter);
             }
         }
     }
+    LogPrintf("\n");
+    LogPrintf("total:\n");
+    PrintAmountMap(nTotal);
 
     return nTotal;
 }
@@ -2548,6 +2576,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     if (!CreateTransaction(vecSend, tx_new, reservekeys, nFeeRet, nChangePosInOut, strFailReason, coinControl, false)) {
         return false;
     }
+    LogPrintf("returned nFeeRet: %s\n", nFeeRet);
 
     if (nChangePosInOut != -1) {
         tx.vout.insert(tx.vout.begin() + nChangePosInOut, tx_new->vout[nChangePosInOut]);
@@ -2632,6 +2661,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         if (recipient.fSubtractFeeFromAmount)
             nSubtractFeeFromAmount++;
     }
+    LogPrintf("nSubtractFeeFromAmount: %d\n", nSubtractFeeFromAmount);
     if (vecSend.empty())
     {
         strFailReason = _("Transaction must have at least one recipient");
@@ -2761,7 +2791,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         }
 
                         assert(nSubtractFeeFromAmount != 0);
+                        CAmount oldValue = txout.nValue.GetAmount();
                         txout.nValue = txout.nValue.GetAmount() - nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
+                        LogPrintf("subtracted fee from recipient amount: %s - %s = %s\n", oldValue, nFeeRet / nSubtractFeeFromAmount, txout.nValue.GetAmount());
 
                         if (fFirst) // first receiver pays the remainder not divisible by output count
                         {
@@ -2866,6 +2898,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 nFeeNeeded = GetMinimumFee(*this, nBytes, coin_control, ::mempool, ::feeEstimator, &feeCalc);
+                LogPrintf("nFeeNeeded: %s\n", nFeeNeeded);
                 if (feeCalc.reason == FeeReason::FALLBACK && !m_allow_fallback_fee) {
                     // eventually allow a fallback fee
                     strFailReason = _("Fee estimation failed. Fallbackfee is disabled. Wait a few blocks or enable -fallbackfee.");
