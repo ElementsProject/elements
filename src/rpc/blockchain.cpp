@@ -1558,7 +1558,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
+	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
     }
 
     file.close();
@@ -1685,7 +1685,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
      CKeyID kycKey;
      addressWhitelist.LookupKYCKey(CKeyID(*it), kycKey);
      std::string strKYCKey = CBitcoinAddress(kycKey).ToString();
-    file << strprintf("%s %s\n",
+     file << strprintf("%s %s\n",
               strAddr, strKYCKey);
   }
 

@@ -732,6 +732,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
         const CKeyID &keyid = *it;
         std::string strAddr = CBitcoinAddress(keyid).ToString();
+        CBitcoinAddress addrCheck;
+        if(!addrCheck.SetString(strAddr)) continue;
         CKey key;
         if (pwalletMain->GetKey(keyid, key)) { // verify exists
             CPubKey pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
@@ -741,28 +743,35 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
         }
     }
     
+
     //Encrypt the above string
     CPubKey onboardPubKey = pwalletMain->GetOnboardPubKey();
     CECIES encryptor(onboardUserKey, onboardPubKey);
     if(!encryptor.OK())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot set encryption keys");
     std::string encrypted;
-    std::string bare=ss.str();
-    
-    encryptor.Encrypt(encrypted, bare);
-    std::vector<unsigned char> vEnc(encrypted.begin(), encrypted.end());
+    //Remove new line character from end of string
+
+//    std::string bareHex=HexStr(bare);
+
+    std::vector<unsigned char> vRaw(ss.str().begin(), ss.str().end());
+    std::vector<unsigned char> vEnc;
+
+
+    encryptor.Encrypt(vEnc, vRaw);
 
     //Append the initialization vector to the file
     std::vector<unsigned char> vInitVec = encryptor.get_iv();
     std::string sInitVec(HexStr(vInitVec.begin(), vInitVec.end()));
 
-    std::string sEnc = HexStr(vEnc);
+
+    std::string sEncHex(HexStr(vEnc.begin(), vEnc.end()));
 
     //Append the initialization vector and encrypted keys
 
-    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEnc.size());
+    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEncHex.size());
 
-    file << sEnc << "\n";
+    file << sEncHex << "\n";
     file << "# End of dump\n";
     file.close();
 

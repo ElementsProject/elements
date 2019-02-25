@@ -118,36 +118,44 @@ bool CKYCFile::read(){
         }
         if(size == nBytesToRead){
             if(data.size()==0){
-                std::vector<unsigned char> vch = ParseHex(ss.str());
+                std::vector<unsigned char> vch(ParseHex(ss.str()));
                 std::vector<unsigned char> vdata;
                 if(!_encryptor->Decrypt(vdata, vch))
                     throw std::system_error(
                         std::error_code(CKYCFile::Errc::ENCRYPTION_ERROR, std::system_category()),
                         std::string(std::string(__func__) +  ": KYC file decryption failed"));
         
-                data=std::string(vdata.begin(), vdata.end());
+                std::string data(vdata.begin(), vdata.end());
                 std::stringstream ss_data;
                 ss_data << data;
                 //Get the addresses
                 for(std::string line; std::getline(ss_data, line);){
                     std::vector<std::string> vstr;
-                    if (line.empty() || line[0] == '#')
+                    if (line.empty() || line[0] == '#'){
+                        _decryptedStream << line << "\n";
                         continue;
+                    }
                     boost::split(vstr, line, boost::is_any_of(" "));
-                    if (vstr.size() != 2)
+                    if (vstr.size() != 2){
+                        _decryptedStream << line << "\n";
                         continue;
+                    }
 
                     CBitcoinAddress address;
-                    if (!address.SetString(vstr[0]))
-                        throw std::system_error(
-                        std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                        std::string(std::string(__func__) +  ": invalid Bitcoin address in KYC file"));
+                    if (!address.SetString(vstr[0])) {
+                        _decryptedStream << line << "\n";
+                        continue;
+                    }
+//                       throw std::system_error(
+//                        std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+//                        std::string(std::string(__func__) +  ": invalid Bitcoin address in KYC file"));
 
                     std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
                     CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
                     if(!pubKey.IsFullyValid()){
                         _decryptedStream << line << ": invalid public key\n";
-                        throw std::system_error(
+                        throw
+                         std::system_error(
                         std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
                         std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
                         continue;

@@ -96,11 +96,11 @@ bool CECIES::Encrypt(uCharVec& em,
 
 bool CECIES::Decrypt(uCharVec& m, 
  	uCharVec& em) const{
-		//Add padding if needed.
+	//Add padding if needed.
 	unsigned int size = em.size();
-	if (size % AES_BLOCKSIZE) {
-		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
-	}
+//	if (size % AES_BLOCKSIZE) {
+//		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
+//	}
 	m.resize(em.size(), _padChar);
 	_decryptor->Decrypt(em.data(), em.size(), m.data());
 	//Remove the padding.
