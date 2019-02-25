@@ -2794,7 +2794,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             while (true)
             {
                 LogPrintf("attempt to form ok-fee tx...\n");
-                nChangePosInOut = nChangePosRequest;
+                // We need to output the position of the policyAsset change output.
+                // So we keep track of the change position of all assets
+                // individually and set the export variable in the end.
+                std::map<CAsset, int> vChangePosInOut;
+                if (nChangePosRequest >= 0) {
+                    vChangePosInOut[policyAsset] = nChangePosRequest;
+                }
+
                 txNew.vin.clear();
                 txNew.vout.clear();
                 bool fFirst = true;
@@ -2873,7 +2880,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 const CAmountMap mapChange = mapValueIn - mapValueToSelect;
                 LogPrintf("mapChange:\n");
                 PrintAmountMap(mapChange);
-                unsigned int changeCounter = 0;
                 for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
                     if (it->second == 0) {
                         continue;
@@ -2891,23 +2897,27 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                     else
                     {
-                        if (nChangePosInOut == -1)
+                        std::map<CAsset, int>::const_iterator itPos = vChangePosInOut.find(it->first);
+                        if (itPos == vChangePosInOut.end())
                         {
                             // Insert change txn at random position:
-                            nChangePosInOut = GetRandInt(txNew.vout.size()+1);
+                            vChangePosInOut[it->first] = GetRandInt(txNew.vout.size()+1);
                         }
-                        else if ((unsigned int)nChangePosInOut > txNew.vout.size())
+                        else if ((unsigned int)itPos->second > txNew.vout.size())
                         {
                             strFailReason = _("Change index out of range");
                             return false;
                         }
 
-                        std::vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
+                        std::vector<CTxOut>::iterator position = txNew.vout.begin()+vChangePosInOut[it->first];
                         txNew.vout.insert(position, newTxOut);
-                        changeCounter++;
                     }
                 }
-                if (changeCounter == 0) {
+                // Set the correct nChangePosInOut for output.  Should be policyAsset's position.
+                std::map<CAsset, int>::const_iterator itPos = vChangePosInOut.find(policyAsset);
+                if (itPos != vChangePosInOut.end()) {
+                    nChangePosInOut = itPos->second;
+                } else {
                     // no change inserted
                     nChangePosInOut = -1;
                 }
