@@ -585,6 +585,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         bool bFound=false;
         for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
             const CKeyID &keyid = *it;
+            if (addressWhitelist.is_whitelisted(keyid)) continue;
             addr.Set(keyid);
             CKey key;
             if (pwalletMain->GetKey(keyid, key)) { // verify exists

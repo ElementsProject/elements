@@ -1628,7 +1628,7 @@ UniValue querywhitelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  return addressWhitelist.find(&keyId);
+  return addressWhitelist.is_whitelisted(keyId);
 }
 
 UniValue removefromwhitelist(const JSONRPCRequest& request)
@@ -1681,6 +1681,8 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
   file << "\n";
 
   for(auto it=addressWhitelist.begin(); it!=addressWhitelist.end(); ++it){
+    //Check KYC status (owner may be in blacklist)
+    if(!addressWhitelist.is_whitelisted(*it)) continue;
      std::string strAddr = CBitcoinAddress(*it).ToString();
      CKeyID kycKey;
      addressWhitelist.LookupKYCKey(CKeyID(*it), kycKey);

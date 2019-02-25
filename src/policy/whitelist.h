@@ -27,6 +27,40 @@ public:
 		const std::string& sKYCAddress);
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
+
+  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+  	//Update from transaction
+  	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+  	virtual void clear();
+
+  	bool is_whitelisted(const CKeyID& keyId);
+
+  	//Get a kyc key from the _kycUnassignedQueue. Removes the element from the queue.
+  	bool get_unassigned_kyc(CKeyID& keyId);
+  	void add_unassigned_kyc(const CKeyID& keyId);
+
+  	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
+
+  
+private:
+	//Make add_sorted private because we only want verified derived keys 
+	//to be added to the CWhiteList.
+	using CPolicyList::add_sorted;
+
+	using CPolicyList::find;
+	//A map of address to idPubKey
+	std::map<CKeyID, CKeyID> _kycMap;
+	//A map of address to tweaked public key
+	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
+	//Whitelisted KYC keys
+	std::map<CKeyID, CWhiteList::status> _kycStatusMap;
+	//KYC pub keys not yet assigned to any user
+	std::queue<CKeyID> _kycUnassignedQueue;
+
+	std::stringstream _datastream;
+
 	void blacklist_kyc(const CKeyID& keyId);
 
 	void whitelist_kyc(const CKeyID& keyId);
@@ -44,35 +78,8 @@ public:
 
 	void synchronise(CWhiteList* wl_new);
 
-  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-  	//Get a kyc key from the _kycUnassignedQueue. Removes the element from the queue.
-  	bool get_unassigned_kyc(CKeyID& keyId);
-  	void add_unassigned_kyc(const CKeyID& keyId);
 
   	//Lookup owner (idpubkey) of address
-  	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
-
-  	//Update from transaction
-  	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
-  	virtual void clear();
-
-  
-private:
-	//Make add_sorted private because we only want verified derived keys 
-	//to be added to the CWhiteList.
-	using CPolicyList::add_sorted;
-
-	//A map of address to idPubKey
-	std::map<CKeyID, CKeyID> _kycMap;
-	//A map of address to tweaked public key
-	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
-	//Whitelisted KYC keys
-	std::map<CKeyID, CWhiteList::status> _kycStatusMap;
-	//KYC pub keys not yet assigned to any user
-	std::queue<CKeyID> _kycUnassignedQueue;
-
-	std::stringstream _datastream;
 };

@@ -407,3 +407,9 @@ void CWhiteList::clear(){
   _kycStatusMap.clear();
   CPolicyList::clear();
 }
+
+bool CWhiteList::is_whitelisted(const CKeyID& keyId){
+  if(!find(&keyId)) return false;
+  if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
+  return true;
+}

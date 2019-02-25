@@ -168,7 +168,7 @@ bool IsWhitelisted(const CTransaction& tx)
 
     //Search in whitelist for the presence of each output address.
     //If one is not found, return false.
-    if(!addressWhitelist.find(&keyId)) return false;
+    if(!addressWhitelist.is_whitelisted(keyId)) return false;
   }
   return true;
 }
