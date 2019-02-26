@@ -1937,7 +1937,8 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
     CAmountMap nNet = nCredit - nDebit;
-    CAmountMap nFee = wtx.IsFromMe(filter) ? wtx.tx->GetValueOutMap() - nDebit : CAmountMap();
+    assert(HasValidFee(*wtx.tx));
+    CAmountMap nFee = wtx.IsFromMe(filter) ? CAmountMap() - GetFeeMap(*wtx.tx) : CAmountMap();
 
     entry.pushKV("amount", AmountMapToUniv(nNet - nFee, ""));
     if (wtx.IsFromMe(filter))

@@ -118,6 +118,7 @@ public:
                     READWRITE(txout.nValue);
                 }
             }
+            READWRITE(txout.nAsset);
         } else {
             if (!ser_action.ForRead()) {
                 assert(txout.nValue.IsExplicit());
