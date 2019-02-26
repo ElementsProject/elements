@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include <pubkey.h> // blinding_pubkey
+
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
 class CKeyID;
@@ -82,6 +84,7 @@ struct PKHash : public uint160
     explicit PKHash(const uint160& hash) : uint160(hash) {}
     explicit PKHash(const CPubKey& pubkey);
     using uint160::uint160;
+    CPubKey blinding_pubkey;
 };
 
 struct ScriptHash : public uint160
@@ -90,6 +93,7 @@ struct ScriptHash : public uint160
     explicit ScriptHash(const uint160& hash) : uint160(hash) {}
     explicit ScriptHash(const CScript& script);
     using uint160::uint160;
+    CPubKey blinding_pubkey;
 };
 
 struct WitnessV0ScriptHash : public uint256
@@ -98,6 +102,7 @@ struct WitnessV0ScriptHash : public uint256
     explicit WitnessV0ScriptHash(const uint256& hash) : uint256(hash) {}
     explicit WitnessV0ScriptHash(const CScript& script);
     using uint256::uint256;
+    CPubKey blinding_pubkey;
 };
 
 struct WitnessV0KeyHash : public uint160
@@ -105,6 +110,7 @@ struct WitnessV0KeyHash : public uint160
     WitnessV0KeyHash() : uint160() {}
     explicit WitnessV0KeyHash(const uint160& hash) : uint160(hash) {}
     using uint160::uint160;
+    CPubKey blinding_pubkey;
 };
 
 //! CTxDestination subtype to encode any future Witness version
@@ -113,6 +119,7 @@ struct WitnessUnknown
     unsigned int version;
     unsigned int length;
     unsigned char program[40];
+    CPubKey blinding_pubkey;
 
     friend bool operator==(const WitnessUnknown& w1, const WitnessUnknown& w2) {
         if (w1.version != w2.version) return false;
