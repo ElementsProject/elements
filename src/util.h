@@ -130,7 +130,7 @@ void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 std::string GetFileFromDataDir(const char* fileName);
 std::string GetContract();
-uint256 GetContractHash();
+uint256 GetContractHash(const std::string& network = "");
 uint256 GetMappingHash();
 
 inline bool IsSwitchChar(char c)
