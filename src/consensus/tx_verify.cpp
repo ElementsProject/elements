@@ -220,6 +220,10 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
+
+        for (unsigned int i = 0; i < tx.vout.size(); i++)
+            if (tx.vout[i].IsFee())
+                return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
     }
     else
     {
