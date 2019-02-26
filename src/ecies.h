@@ -24,13 +24,13 @@ public:
     */
 
     bool Encrypt(uCharVec& em, 
-    	uCharVec& m) const;
+    	const uCharVec& m) const;
     bool Decrypt(uCharVec& m, 
-    	uCharVec& em) const;
+    	const uCharVec& em) const;
     bool Encrypt(std::string& em, 
-    	std::string& m) const;
+    	const std::string& m) const;
     bool Decrypt(std::string& m, 
-    	std::string& em) const;
+    	const std::string& em) const;
 
     bool Test1();
 

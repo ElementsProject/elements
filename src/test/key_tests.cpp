@@ -110,9 +110,9 @@ BOOST_AUTO_TEST_CASE(key_test1)
 
     
     CECIES  ecies1(key1, key2.GetPubKey());
-    //BOOST_CHECK(ecies1.OK());
+    BOOST_CHECK(ecies1.OK());
     CECIES  ecies2(key2, key1.GetPubKey(), ecies1.get_iv());
-    //BOOST_CHECK(ecies2.OK());
+    BOOST_CHECK(ecies2.OK());
     unsigned char m[AES_BLOCKSIZE];
     GetStrongRandBytes(m, AES_BLOCKSIZE);
     std::vector<unsigned char> vm(m, m+AES_BLOCKSIZE);
@@ -124,14 +124,22 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(vdm1 == vm);
 
     CECIES  ecies4(key2, key1.GetPubKey());
-    //    BOOST_CHECK(ecies4.OK());
+    BOOST_CHECK(ecies4.OK());
     CECIES  ecies3(key1, key2.GetPubKey(), ecies4.get_iv());
-    //    BOOST_CHECK(ecies3.OK());
+    BOOST_CHECK(ecies3.OK());
     ecies3.Encrypt(vem3, vm);
     ecies4.Decrypt(vdm3, vem3);
     BOOST_CHECK(vem3 != vm);
     BOOST_CHECK(vdm3 == vm);
-    
+
+    std::string sm=HexStr(vm.begin(), vm.end());
+    std::string sdm;
+    std::string sem;
+    ecies3.Encrypt(sem, sm);
+    ecies4.Decrypt(sdm, sem);
+    BOOST_CHECK(sem != sm);
+    BOOST_CHECK(sdm == sm);
+
     for (int n=0; n<16; n++)
     {
         std::string strMsg = strprintf("Very secret message %i: 11", n);

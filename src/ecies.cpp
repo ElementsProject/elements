@@ -61,8 +61,11 @@ void CECIES::check(const CKey& privKey, const CPubKey& pubKey){
 }
 
 void CECIES::check(const CKey& privKey, const CPubKey& pubKey, const uCharVec iv){
-  check(privKey, pubKey);
-  _bOK = (iv.size()==AES_BLOCKSIZE);
+ check(privKey, pubKey);
+ if(_bOK){
+ 	_bOK=false;
+	 if(iv.size()==AES_BLOCKSIZE) _bOK=true;
+	}
 }
 
 CECIES::~CECIES(){
@@ -83,33 +86,38 @@ bool CECIES::Initialize(){
 }
 
 bool CECIES::Encrypt(uCharVec& em, 
- 	uCharVec& m) const{
+ 	const uCharVec& m) const{
 	//Add padding if needed.
-	unsigned int size = m.size();
-	if (size % AES_BLOCKSIZE) {
-		m.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
-	}
-	em.resize(m.size(), _padChar);
-	_encryptor->Encrypt(m.data(), m.size(), em.data());
+	//unsigned int size = m.size();
+	//if (size % AES_BLOCKSIZE) {
+	//	m.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
+//	}
+//	em.resize(m.size(), _padChar);
+	int size=m.size();
+	em.resize(size+AES_BLOCKSIZE);
+	int paddedSize=_encryptor->Encrypt(m.data(), size, em.data());
+	em.resize(paddedSize);
     return true;
 }
 
 bool CECIES::Decrypt(uCharVec& m, 
- 	uCharVec& em) const{
+ 	const uCharVec& em) const{
 	//Add padding if needed.
-	unsigned int size = em.size();
+//	unsigned int size = em.size();
 //	if (size % AES_BLOCKSIZE) {
 //		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
 //	}
-	m.resize(em.size(), _padChar);
-	_decryptor->Decrypt(em.data(), em.size(), m.data());
+//	m.resize(em.size(), _padChar);
+	int paddedSize = em.size();
+	m.resize(paddedSize);
+	int size=_decryptor->Decrypt(em.data(), paddedSize, m.data());
 	//Remove the padding.
 	m.resize(size);
     return true;
 }
 
 bool CECIES::Encrypt(std::string& em, 
- 	std::string& m) const{
+ 	const std::string& m) const{
 	uCharVec vm(m.begin(), m.end());
 	uCharVec vem;
 	bool bResult=Encrypt(vem, vm);
@@ -118,7 +126,7 @@ bool CECIES::Encrypt(std::string& em,
 }
 
 bool CECIES::Decrypt(std::string& m, 
- 	std::string& em) const{
+ 	const std::string& em) const{
 	uCharVec vem(em.begin(), em.end());
 	uCharVec vm;
 	bool bResult=Decrypt(vm, vem);

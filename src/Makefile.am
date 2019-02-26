@@ -353,6 +353,8 @@ libbitcoin_common_a_SOURCES = \
   protocol.cpp \
   scheduler.cpp \
   script/sign.cpp \
+  script/registeraddressscript.cpp \
+  script/onboardingscript.cpp \
   script/standard.cpp \
   warnings.cpp \
   $(BITCOIN_CORE_H)

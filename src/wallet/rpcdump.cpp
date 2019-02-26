@@ -727,8 +727,9 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
     std::stringstream ss;
-    //Add some padding.
+    //Padding
     ss << "00000000000000000000000000000000\n";
+
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
         const CKeyID &keyid = *it;
@@ -769,16 +770,11 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     std::string sEncHex(HexStr(vEnc.begin(), vEnc.end()));
 
     //Append the initialization vector and encrypted keys
+    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), 
+        HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, sEncHex.size());
 
-    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end()), sInitVec, vEnc.size());
-    file.close();
-    //Append the encrypted part as binary.
-    unsigned long size=vEnc.size();
-    file.open(request.params[0].get_str().c_str(), std::ofstream::app | std::ofstream::binary);
-    file.write((char*)&vEnc[0], size);
-    file.close();
-    file.open(request.params[0].get_str().c_str(), std::ofstream::app);
-    file << "\n# End of dump\n";
+    file << sEncHex << "\n";
+    file << "# End of dump\n";
     file.close();
 
     AuditLogPrintf("%s : dumpkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[1].get_str());

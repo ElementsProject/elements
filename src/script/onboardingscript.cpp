@@ -5,8 +5,6 @@
 // An ecrypted user onboarding transaction script.
 // For registering initial addresses to the user.
 
-#pragma once
-
 #include "onboardingscript.h"
 
 
