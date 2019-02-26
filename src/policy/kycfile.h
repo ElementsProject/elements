@@ -66,7 +66,4 @@ class CKYCFile{
     	std::string _filename;
 };
 
-std::ostream& operator<<(std::ostream& os, const CKYCFile& fl) {
-	os << fl.getStream().str();
-    return os; 
-}
+std::ostream& operator<<(std::ostream& os, const CKYCFile& fl); 

@@ -1,5 +1,10 @@
+// Copyright (c) 2018 The CommerceBlock Developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "kycfile.h"
 #include <boost/algorithm/string.hpp>
+#include<array>
 
 CKYCFile::CKYCFile(){
 
@@ -118,12 +123,10 @@ bool CKYCFile::read(){
     _file.seekg(nCursor);
 
     //Read the encrypted data and close the file 
-    unsigned char arrCh[nBytesToRead];
-    _file.read((char*) &arrCh[0], nBytesToRead);
+    std::vector<unsigned char> vch;
+    _file.read((char*) &vch[0], nBytesToRead);
     nCursor=_file.tellg();
     _file.close();
-
-    std::vector<unsigned char> vch(arrCh, arrCh+nBytesToRead);
 
     std::vector<unsigned char> vdata;
     if(!_encryptor->Decrypt(vdata, vch))
@@ -217,4 +220,9 @@ bool CKYCFile::initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec){
     if(!obScript.Append(_addressKeys)) return false;
     if(!obScript.Finalize(script)) return false;
     return true;
+}
+
+std::ostream& operator<<(std::ostream& os, const CKYCFile& fl){
+    os << fl.getStream().str();
+    return os; 
 }

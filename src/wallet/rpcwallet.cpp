@@ -556,11 +556,12 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     const int nToRegister, const CPubKey& pubKey,
     CWalletTx& wtxNew){
 
+    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
 
-    CAmount curBalance = pwalletMain->GetBalance()[feeAsset];
-    
     // Check the balance of the "from" address
     map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
    
@@ -582,7 +583,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         // get the next registered base58check encoded tweaked public key and add it to the whitelist
         std::set<CKeyID> setKeyPool;
         pwalletMain->GetAllReserveKeys(setKeyPool);
-        bool bFound=false;
         for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
             const CKeyID &keyid = *it;
             if (addressWhitelist.is_whitelisted(keyid)) continue;
@@ -618,9 +618,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
 
 
-    int nMinDepth=1;
-    int nMaxDepth=99999999;
-
     CWalletTx wtxDummy;
 
     if (!pwalletMain->CreateTransaction(vecSendDummy, wtxDummy, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
@@ -643,7 +640,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     }
 
     //Get the bitcoin addresses of the set coins and add the selected coins to a coincontrol list
-    bool bFound=false;
     std::set<CTxDestination> inputAddrs;
     CTxDestination inputAddr;
     CCoinControl coinControl;
@@ -687,8 +683,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     CScript script;
     raScript->SetKeys(&key, &pubKey);
     raScript->Finalize(script);
-    int nfound = script.Find(OP_REGISTERADDRESS);
-
 
     vector<CRecipient> vecSend;
     CAmount amount(0);

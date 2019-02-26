@@ -17,6 +17,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 // Maximum number of bytes pushable to the stack
 static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 520;
@@ -47,46 +48,6 @@ template <typename T>
 std::vector<unsigned char> ToByteVector(const T& in)
 {
     return std::vector<unsigned char>(in.begin(), in.end());
-}
-
-template <typename T>
-std::vector<unsigned char> CastToByteVector(const T& in)
-{
-    unsigned char bytes[sizeof in];
-    std::copy(static_cast<const char*>(static_cast<const void*>(&in)),
-          static_cast<const char*>(static_cast<const void*>(&in)) + sizeof in,
-          bytes);
-    return std::vector<unsigned char>(bytes, bytes + sizeof(bytes));
-}
-
-template <typename T>
-std::vector<unsigned char> CastToByteVectorLE(const T& in)
-{
-  std::vector<unsigned char> res=CastToByteVector(in);
-  std::reverse(res.begin(), res.end());
-  return res;
-}
-
-//Little endian, length = 4 bytes
-template <typename T>
-std::vector<unsigned char> CastToByteVectorLE4(const T& in)
-{
-  std::vector<unsigned char> res=CastToByteVector(in);
-  std::reverse(res.begin(), res.end());
-  while(res.size() > 4){
-    res.pop_back();
-  }
-  while(res.size()<4){
-    res.push_back(0);
-  }
-  return res;
-}
-
-unsigned int ByteVectorLE4ToInt(const std::vector<unsigned char> vec){
-    std::vector<unsigned char> tmp = vec;
-    std::reverse(tmp.begin(), tmp.end());
-    int i = *reinterpret_cast<const uint16_t*>(&tmp[0]);
-    return i;
 }
 
 /** Script opcodes */

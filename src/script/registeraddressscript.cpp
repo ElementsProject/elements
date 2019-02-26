@@ -6,7 +6,6 @@
 
 #include "registeraddressscript.h"
 #include "util.h"
-#include "validation.h"
 
 CRegisterAddressScript::CRegisterAddressScript(){
 }

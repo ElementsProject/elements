@@ -124,9 +124,13 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   // And the following bytes are:
   // 33 bytes: client onboarding public key.
 
-  std::vector<unsigned char>::const_iterator it=bytes.begin();
-  CPubKey kycPubKey = CPubKey(it, it=it+pubKeySize);
-  CPubKey userOnboardPubKey = CPubKey(it, it=it+pubKeySize);
+  std::vector<unsigned char>::const_iterator it1=bytes.begin();
+  std::vector<unsigned char>::const_iterator it2=it1+pubKeySize;
+
+  CPubKey kycPubKey = CPubKey(it1, it2);
+  it1=it2;
+  it2+=pubKeySize;
+  CPubKey userOnboardPubKey = CPubKey(it1, it2);
   CKeyID kycKey, keyId, onboardKeyID;
   CKey userOnboardPrivKey;
   CPubKey inputPubKey;
@@ -150,7 +154,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
   } else {
-    it=bytes.begin(); //Reset iterator
+    it1=bytes.begin(); //Reset iterator
     kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
     //Get input keyids
     //Lookup the ID public keys of the input addresses.
@@ -181,8 +185,11 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   //The next AES_BLOCKSIZE bytes of the message are the initialization vector
   //used to decrypt the rest of the message
   //std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
-  std::vector<unsigned char> initVec(it, it+=AES_BLOCKSIZE);
-  std::vector<unsigned char> encryptedData(it, bytes.end());
+  it2=it1+AES_BLOCKSIZE;
+  std::vector<unsigned char> initVec(it1, it2);
+  it1=it2;
+  it2=bytes.end();
+  std::vector<unsigned char> encryptedData(it1, it2);
 
   //Get the private key that is paired with kycKey
   CBitcoinAddress kycAddr(kycKey);
@@ -369,6 +376,7 @@ void CWhiteList::whitelist_kyc(const CKeyID& keyId){
 
 bool CWhiteList::set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){
   _kycStatusMap[keyId]=status;
+  return true;
 }
 
 bool CWhiteList::find_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){

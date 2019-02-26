@@ -1589,12 +1589,7 @@ UniValue readkycfile(const JSONRPCRequest& request)
     CKYCFile file;
     file.read(request.params[0].get_str().c_str());
 
-
-    CECIES* decryptor = nullptr;
-    CPubKey* CPubKey = nullptr;
-    std::vector<unsigned char>* initVec = nullptr;
     // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
-
     std::ofstream outfile;
     outfile.open(request.params[1].get_str().c_str());
     if (!outfile.is_open())

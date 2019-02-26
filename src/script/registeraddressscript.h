@@ -7,6 +7,7 @@
 #pragma once
 #include "script.h"
 #include "ecies.h"
+#include "validation.h"
 
 using ucvec=std::vector<unsigned char>;
 

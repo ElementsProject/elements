@@ -215,6 +215,8 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   script/sigcache.cpp \
   script/ismine.cpp \
+  script/registeraddressscript.cpp \
+  script/onboardingscript.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
@@ -352,8 +354,6 @@ libbitcoin_common_a_SOURCES = \
   scheduler.cpp \
   script/sign.cpp \
   script/standard.cpp \
-  script/registeraddressscript.cpp \
-  script/onboardingscript.cpp \
   warnings.cpp \
   $(BITCOIN_CORE_H)
 

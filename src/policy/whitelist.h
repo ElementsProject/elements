@@ -43,6 +43,7 @@ public:
 
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
 
+	bool find_kyc_whitelisted(const CKeyID& keyId);
   
 private:
 	//Make add_sorted private because we only want verified derived keys 
@@ -71,8 +72,6 @@ private:
 
 	// Returns true if if is whitelisted OR blackliosted
 	bool find_kyc(const CKeyID& keyId);
-
-	bool find_kyc_whitelisted(const CKeyID& keyId);
 
 	bool find_kyc_blacklisted(const CKeyID& keyId);
 

@@ -774,10 +774,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     file.close();
     //Append the encrypted part as binary.
     unsigned long size=vEnc.size();
-    unsigned char arrEnc[size];
-    std::copy(vEnc.begin(), vEnc.end(), arrEnc);
     file.open(request.params[0].get_str().c_str(), std::ofstream::app | std::ofstream::binary);
-    file.write((char*)arrEnc, size);
+    file.write((char*)&vEnc[0], size);
     file.close();
     file.open(request.params[0].get_str().c_str(), std::ofstream::app);
     file << "\n# End of dump\n";
