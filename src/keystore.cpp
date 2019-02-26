@@ -184,7 +184,7 @@ CKeyID GetKeyForDestination(const CKeyStore& store, const CTxDestination& dest)
     if (auto witness_id = boost::get<WitnessV0KeyHash>(&dest)) {
         return CKeyID(*witness_id);
     }
-    if (auto script_hash = boost::get<SHash>(&dest)) {
+    if (auto script_hash = boost::get<ScriptHash>(&dest)) {
         CScript script;
         CScriptID script_id(*script_hash);
         CTxDestination inner_dest;

@@ -143,7 +143,7 @@ public:
             vKeys.push_back(keyId);
     }
 
-    void operator()(const SHash &scripthash) {
+    void operator()(const ScriptHash &scripthash) {
         CScript script;
         CScriptID scriptId(scripthash);
         if (keystore.GetCScript(scriptId, script))
@@ -372,7 +372,7 @@ bool CWallet::LoadCScript(const CScript& redeemScript)
      * these. Do not add them to the wallet and warn. */
     if (redeemScript.size() > MAX_SCRIPT_ELEMENT_SIZE)
     {
-        std::string strAddr = EncodeDestination(SHash(redeemScript));
+        std::string strAddr = EncodeDestination(ScriptHash(redeemScript));
         WalletLogPrintf("%s: Warning: This wallet contains a redeemScript of size %i which exceeds maximum size %i thus can never be redeemed. Do not use address %s.\n", __func__, redeemScript.size(), MAX_SCRIPT_ELEMENT_SIZE, strAddr);
         return true;
     }

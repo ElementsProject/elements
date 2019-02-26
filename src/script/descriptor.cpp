@@ -320,7 +320,7 @@ public:
     }
 };
 
-CScript ConvertP2SH(const CScript& script) { return GetScriptForDestination(SHash(script)); }
+CScript ConvertP2SH(const CScript& script) { return GetScriptForDestination(ScriptHash(script)); }
 CScript ConvertP2WSH(const CScript& script) { return GetScriptForDestination(WitnessV0ScriptHash(script)); }
 
 /** A parsed combo(P) descriptor. */
@@ -354,7 +354,7 @@ public:
         if (key.IsCompressed()) {
             CScript p2wpkh = GetScriptForDestination(WitnessV0KeyHash(keyid));
             CScriptID p2wpkh_id(p2wpkh);
-            CScript p2sh_p2wpkh = GetScriptForDestination(SHash(p2wpkh_id));
+            CScript p2sh_p2wpkh = GetScriptForDestination(ScriptHash(p2wpkh_id));
             out.scripts.emplace(p2wpkh_id, p2wpkh);
             output_scripts.push_back(std::move(p2wpkh));
             output_scripts.push_back(std::move(p2sh_p2wpkh));

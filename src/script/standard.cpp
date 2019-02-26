@@ -21,7 +21,7 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
-SHash::SHash(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
+ScriptHash::ScriptHash(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
 PKHash::PKHash(const CPubKey& pubkey) : uint160(pubkey.GetID()) {}
 
@@ -194,7 +194,7 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
     }
     else if (whichType == TX_SCRIPTHASH)
     {
-        addressRet = SHash(uint160(vSolutions[0]));
+        addressRet = ScriptHash(uint160(vSolutions[0]));
         return true;
     } else if (whichType == TX_WITNESS_V0_KEYHASH) {
         WitnessV0KeyHash hash;
@@ -278,7 +278,7 @@ public:
         return true;
     }
 
-    bool operator()(const SHash &scriptID) const {
+    bool operator()(const ScriptHash &scriptID) const {
         script->clear();
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;

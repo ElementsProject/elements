@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(sign)
     for (int i = 0; i < 4; i++)
     {
         keystore.AddCScript(standardScripts[i]);
-        evalScripts[i] = GetScriptForDestination(SHash(standardScripts[i]));
+        evalScripts[i] = GetScriptForDestination(ScriptHash(standardScripts[i]));
     }
 
     CMutableTransaction txFrom;  // Funding transaction:
@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE(norecurse)
     CScript invalidAsScript;
     invalidAsScript << OP_INVALIDOPCODE << OP_INVALIDOPCODE;
 
-    CScript p2sh = GetScriptForDestination(SHash(invalidAsScript));
+    CScript p2sh = GetScriptForDestination(ScriptHash(invalidAsScript));
 
     CScript scriptSig;
     scriptSig << Serialize(invalidAsScript);
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(norecurse)
 
     // Try to recur, and verification should succeed because
     // the inner HASH160 <> EQUAL should only check the hash:
-    CScript p2sh2 = GetScriptForDestination(SHash(p2sh));
+    CScript p2sh2 = GetScriptForDestination(ScriptHash(p2sh));
     CScript scriptSig2;
     scriptSig2 << Serialize(invalidAsScript) << Serialize(p2sh);
 
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(set)
     CScript outer[4];
     for (int i = 0; i < 4; i++)
     {
-        outer[i] = GetScriptForDestination(SHash(inner[i]));
+        outer[i] = GetScriptForDestination(ScriptHash(inner[i]));
         keystore.AddCScript(inner[i]);
     }
 
@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(switchover)
     CScript scriptSig;
     scriptSig << Serialize(notValid);
 
-    CScript fund = GetScriptForDestination(SHash(notValid));
+    CScript fund = GetScriptForDestination(ScriptHash(notValid));
 
 
     // Validation should succeed under old rules (hash is correct):
@@ -279,7 +279,7 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     keystore.AddCScript(pay1);
     CScript pay1of3 = GetScriptForMultisig(1, keys);
 
-    txFrom.vout[0].scriptPubKey = GetScriptForDestination(SHash(pay1)); // P2SH (OP_CHECKSIG)
+    txFrom.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(pay1)); // P2SH (OP_CHECKSIG)
     txFrom.vout[0].nValue = 1000;
     txFrom.vout[1].scriptPubKey = pay1; // ordinary OP_CHECKSIG
     txFrom.vout[1].nValue = 2000;
@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
     oneAndTwo << OP_2 << ToByteVector(key[3].GetPubKey()) << ToByteVector(key[4].GetPubKey()) << ToByteVector(key[5].GetPubKey());
     oneAndTwo << OP_3 << OP_CHECKMULTISIG;
     keystore.AddCScript(oneAndTwo);
-    txFrom.vout[3].scriptPubKey = GetScriptForDestination(SHash(oneAndTwo));
+    txFrom.vout[3].scriptPubKey = GetScriptForDestination(ScriptHash(oneAndTwo));
     txFrom.vout[3].nValue = 4000;
 
     // vout[4] is max sigops:
@@ -303,17 +303,17 @@ BOOST_AUTO_TEST_CASE(AreInputsStandard)
         fifteenSigops << ToByteVector(key[i%3].GetPubKey());
     fifteenSigops << OP_15 << OP_CHECKMULTISIG;
     keystore.AddCScript(fifteenSigops);
-    txFrom.vout[4].scriptPubKey = GetScriptForDestination(SHash(fifteenSigops));
+    txFrom.vout[4].scriptPubKey = GetScriptForDestination(ScriptHash(fifteenSigops));
     txFrom.vout[4].nValue = 5000;
 
     // vout[5/6] are non-standard because they exceed MAX_P2SH_SIGOPS
     CScript sixteenSigops; sixteenSigops << OP_16 << OP_CHECKMULTISIG;
     keystore.AddCScript(sixteenSigops);
-    txFrom.vout[5].scriptPubKey = GetScriptForDestination(SHash(sixteenSigops));
+    txFrom.vout[5].scriptPubKey = GetScriptForDestination(ScriptHash(sixteenSigops));
     txFrom.vout[5].nValue = 5000;
     CScript twentySigops; twentySigops << OP_CHECKMULTISIG;
     keystore.AddCScript(twentySigops);
-    txFrom.vout[6].scriptPubKey = GetScriptForDestination(SHash(twentySigops));
+    txFrom.vout[6].scriptPubKey = GetScriptForDestination(ScriptHash(twentySigops));
     txFrom.vout[6].nValue = 6000;
 
     AddCoins(coins, txFrom, 0);

@@ -37,7 +37,7 @@ public:
         return EncodeBase58Check(data);
     }
 
-    std::string operator()(const SHash& id) const
+    std::string operator()(const ScriptHash& id) const
     {
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_SCRIPT_ADDRESS : CChainParams::SCRIPT_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
@@ -99,7 +99,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& script_prefix = params.Base58Prefix(type_sh);
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
-            return SHash(hash);
+            return ScriptHash(hash);
         }
     }
     data.clear();

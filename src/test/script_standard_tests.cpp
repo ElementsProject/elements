@@ -194,8 +194,8 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestination)
     s.clear();
     s << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
     BOOST_CHECK(ExtractDestination(s, address));
-    BOOST_CHECK(boost::get<SHash>(&address) &&
-                *boost::get<SHash>(&address) == SHash(redeemScript));
+    BOOST_CHECK(boost::get<ScriptHash>(&address) &&
+                *boost::get<ScriptHash>(&address) == ScriptHash(redeemScript));
 
     // TX_MULTISIG
     s.clear();
@@ -276,8 +276,8 @@ BOOST_AUTO_TEST_CASE(script_standard_ExtractDestinations)
     BOOST_CHECK_EQUAL(whichType, TX_SCRIPTHASH);
     BOOST_CHECK_EQUAL(addresses.size(), 1U);
     BOOST_CHECK_EQUAL(nRequired, 1);
-    BOOST_CHECK(boost::get<SHash>(&addresses[0]) &&
-                *boost::get<SHash>(&addresses[0]) == SHash(redeemScript));
+    BOOST_CHECK(boost::get<ScriptHash>(&addresses[0]) &&
+                *boost::get<ScriptHash>(&addresses[0]) == ScriptHash(redeemScript));
 
     // TX_MULTISIG
     s.clear();
@@ -321,7 +321,7 @@ BOOST_AUTO_TEST_CASE(script_standard_GetScriptFor_)
     CScript redeemScript(result);
     expected.clear();
     expected << OP_HASH160 << ToByteVector(CScriptID(redeemScript)) << OP_EQUAL;
-    result = GetScriptForDestination(SHash(redeemScript));
+    result = GetScriptForDestination(ScriptHash(redeemScript));
     BOOST_CHECK(result == expected);
 
     // CNoDestination
@@ -453,7 +453,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         CBasicKeyStore keystore;
 
         CScript redeemScript = GetScriptForDestination(PKHash(pubkeys[0]));
-        scriptPubKey = GetScriptForDestination(SHash(redeemScript));
+        scriptPubKey = GetScriptForDestination(ScriptHash(redeemScript));
 
         // Keystore does not have redeemScript or key
         result = IsMine(keystore, scriptPubKey);
@@ -475,8 +475,8 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         CBasicKeyStore keystore;
 
         CScript redeemscript_inner = GetScriptForDestination(PKHash(pubkeys[0]));
-        CScript redeemscript = GetScriptForDestination(SHash(redeemscript_inner));
-        scriptPubKey = GetScriptForDestination(SHash(redeemscript));
+        CScript redeemscript = GetScriptForDestination(ScriptHash(redeemscript_inner));
+        scriptPubKey = GetScriptForDestination(ScriptHash(redeemscript));
 
         keystore.AddCScript(redeemscript);
         keystore.AddCScript(redeemscript_inner);
@@ -490,8 +490,8 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
     {
         CBasicKeyStore keystore;
 
-        CScript redeemscript = GetScriptForDestination(SHash(PKHash(pubkeys[0])));
-        CScript witnessscript = GetScriptForDestination(SHash(redeemscript));
+        CScript redeemscript = GetScriptForDestination(ScriptHash(PKHash(pubkeys[0])));
+        CScript witnessscript = GetScriptForDestination(ScriptHash(redeemscript));
         scriptPubKey = GetScriptForDestination(WitnessV0ScriptHash(witnessscript));
 
         keystore.AddCScript(witnessscript);
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         keystore.AddKey(keys[1]);
 
         CScript redeemScript = GetScriptForMultisig(2, {uncompressedPubkey, pubkeys[1]});
-        scriptPubKey = GetScriptForDestination(SHash(CScriptID(redeemScript)));
+        scriptPubKey = GetScriptForDestination(ScriptHash(CScriptID(redeemScript)));
 
         // Keystore has no redeemScript
         result = IsMine(keystore, scriptPubKey);
@@ -664,7 +664,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
 
         CScript witnessScript = GetScriptForMultisig(2, {pubkeys[0], pubkeys[1]});
         CScript redeemScript = GetScriptForDestination(WitnessV0ScriptHash(witnessScript));
-        scriptPubKey = GetScriptForDestination(SHash(redeemScript));
+        scriptPubKey = GetScriptForDestination(ScriptHash(redeemScript));
 
         // Keystore has no witnessScript, P2SH redeemScript, or keys
         result = IsMine(keystore, scriptPubKey);

@@ -1219,7 +1219,7 @@ BOOST_AUTO_TEST_CASE(script_combineSigs)
     // P2SH, single-signature case:
     CScript pkSingle; pkSingle << ToByteVector(keys[0].GetPubKey()) << OP_CHECKSIG;
     keystore.AddCScript(pkSingle);
-    scriptPubKey = GetScriptForDestination(SHash(pkSingle));
+    scriptPubKey = GetScriptForDestination(ScriptHash(pkSingle));
     SignSignature(keystore, txFrom, txTo, 0, SIGHASH_ALL);
     scriptSig = DataFromTransaction(txTo, 0, txFrom.vout[0]);
     combined = CombineSignatures(txFrom.vout[0], txTo, scriptSig, empty);

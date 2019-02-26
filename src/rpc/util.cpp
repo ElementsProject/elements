@@ -84,7 +84,7 @@ public:
         return obj;
     }
 
-    UniValue operator()(const SHash& scriptID) const
+    UniValue operator()(const ScriptHash& scriptID) const
     {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("isscript", true);

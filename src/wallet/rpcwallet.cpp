@@ -1154,7 +1154,7 @@ public:
         return false;
     }
 
-    bool operator()(const SHash &scripthash) {
+    bool operator()(const ScriptHash &scripthash) {
         CScript subscript;
         if (pwallet && pwallet->GetCScript(CScriptID(scripthash), subscript)) {
             int witnessversion;
@@ -1243,7 +1243,7 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
     CScript witprogram = GetScriptForDestination(w.result);
 
     if (p2sh) {
-        w.result = SHash(witprogram);
+        w.result = ScriptHash(witprogram);
     }
 
     if (w.already_witness) {
@@ -3693,7 +3693,7 @@ public:
         return obj;
     }
 
-    UniValue operator()(const SHash& scripthash) const
+    UniValue operator()(const ScriptHash& scripthash) const
     {
         CScriptID scriptID(scripthash);
         UniValue obj(UniValue::VOBJ);
@@ -4340,7 +4340,7 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     pwallet->AddCScript(destScript);
 
     //Call contracthashtool, get deposit address on mainchain.
-    CTxDestination destAddr(SHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
+    CTxDestination destAddr(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
 
     UniValue fundinginfo(UniValue::VOBJ);
 
@@ -4864,7 +4864,7 @@ unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgr
 {
     unsigned int nOut = 0;
     //Call contracthashtool
-    CScript mainchain_script = GetScriptForDestination(SHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram))));
+    CScript mainchain_script = GetScriptForDestination(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram))));
     for (; nOut < txn.vout.size(); nOut++)
         if (txn.vout[nOut].scriptPubKey == mainchain_script)
             break;
