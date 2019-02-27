@@ -1550,14 +1550,16 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     CAmountMap mapDebit = GetDebit(filter);
     if (mapDebit > CAmountMap()) // debit>0 means we signed/sent this transaction
     {
-        nFee = GetFeeMap(*tx)[policyAsset];
+        nFee = GetFeeMap(*tx)[::policyAsset];
     }
 
     // Sent/received.
     for (unsigned int i = 0; i < tx->vout.size(); ++i)
     {
         const CTxOut& txout = tx->vout[i];
-        isminetype fIsMine = pwallet->IsMine(txout);
+        CAmount output_value = GetOutputValueOut(i);
+        // Don't list unknown assets
+        isminetype fIsMine = output_value != -1 ?  pwallet->IsMine(txout) : ISMINE_NO;
         // Only need to handle txouts if AT LEAST one of these is true:
         //   1) they debit from us (sent)
         //   2) the output is to us (received)
@@ -1580,10 +1582,10 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
             address = CNoDestination();
         }
 
-        COutputEntry output = {address, txout.nValue.GetAmount(), (int)i};
+        COutputEntry output = {address, output_value, (int)i, GetOutputAsset(i), GetOutputAmountBlindingFactor(i), GetOutputAssetBlindingFactor(i)};
 
         // If we are debited by the transaction, add the output as a "sent" entry
-        if (mapDebit > CAmountMap())
+        if (mapDebit > CAmountMap() && !txout.IsFee())
             listSent.push_back(output);
 
         // If we are receiving the output, add it as a "received" entry

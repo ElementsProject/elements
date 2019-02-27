@@ -205,6 +205,9 @@ struct COutputEntry
     CTxDestination destination;
     CAmount amount;
     int vout;
+    CAsset asset;
+    uint256 amount_blinding_factor;
+    uint256 asset_blinding_factor;
 };
 
 /** A transaction with a merkle branch linking it to the block chain. */
