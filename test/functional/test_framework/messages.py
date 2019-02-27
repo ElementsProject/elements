@@ -316,6 +316,9 @@ class CTxOut():
         self.nValue = nValue
         self.scriptPubKey = scriptPubKey
 
+    def is_fee(self):
+        return len(self.scriptPubKey) == 0
+
     def deserialize(self, f):
         self.nValue = struct.unpack("<q", f.read(8))[0]
         self.scriptPubKey = deser_string(f)
