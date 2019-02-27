@@ -43,8 +43,6 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: true)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-pak", "Entries in the PAK list. Order of entries matter.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-defaultpeggedassetname", "Default name of the pegged asset. (default: bitcoin)", false, OptionsCategory::ELEMENTS);
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

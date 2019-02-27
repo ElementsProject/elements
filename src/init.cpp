@@ -509,6 +509,8 @@ void SetupServerArgs()
     gArgs.AddArg("-extpubkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended public key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_PUBLIC_KEY))), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-extprvkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended private key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_SECRET_KEY))), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bech32_hrp", strprintf("The human-readable part of the chain's bech32 encoding. (default: %s)", defaultChainParams->Bech32HRP()), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-defaultpeggedassetname", "Default name of the pegged asset. (default: bitcoin)", false, OptionsCategory::ELEMENTS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
