@@ -526,7 +526,7 @@ public:
     CAmount GetOutputValueOut(unsigned int ouput_index) const;
 
     //! Returns either the blinding factor (if it is to us) or 0
-    uint256 GetOutputBlindingFactor(unsigned int output_index) const;
+    uint256 GetOutputAmountBlindingFactor(unsigned int output_index) const;
     uint256 GetOutputAssetBlindingFactor(unsigned int output_index) const;
     //! Returns the underlying asset type, or 0 if unknown
     CAsset GetOutputAsset(unsigned int output_index) const;

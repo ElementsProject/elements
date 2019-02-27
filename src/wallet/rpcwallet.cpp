@@ -2862,6 +2862,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "      \"maximumAmount\"    (numeric or string, default=unlimited) Maximum value of each UTXO in " + CURRENCY_UNIT + "\n"
             "      \"maximumCount\"     (numeric or string, default=unlimited) Maximum number of UTXOs\n"
             "      \"minimumSumAmount\" (numeric or string, default=unlimited) Minimum sum value of all UTXOs in " + CURRENCY_UNIT + "\n"
+            "      \"asset\"            (string, default="") Asset to filter outputs for.\n"
             "    }\n"
             "\nResult\n"
             "[                   (array of json object)\n"
@@ -2929,6 +2930,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     CAmount nMaximumAmount = MAX_MONEY;
     CAmount nMinimumSumAmount = MAX_MONEY;
     uint64_t nMaximumCount = 0;
+    std::string asset_str;
 
     if (!request.params[4].isNull()) {
         const UniValue& options = request.params[4].get_obj();
@@ -2944,6 +2946,14 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
         if (options.exists("maximumCount"))
             nMaximumCount = options["maximumCount"].get_int64();
+
+        if (options.exists("asset"))
+            asset_str = options["asset"].get_str();
+    }
+
+    CAsset asset_filter;
+    if (!asset_str.empty()) {
+        asset_filter = GetAssetFromString(asset_str);
     }
 
     // Make sure the results are valid at least up to the most recent block
@@ -2961,11 +2971,25 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
     for (const COutput& out : vecOutputs) {
         CTxDestination address;
+        const CTxOut& tx_out = out.tx->tx->vout[out.i];
         const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
         bool fValidAddress = ExtractDestination(scriptPubKey, address);
 
         if (destinations.size() && (!fValidAddress || !destinations.count(address)))
             continue;
+
+        // Elements
+        CAmount amount = out.tx->GetOutputValueOut(out.i);
+        CAsset assetid = out.tx->GetOutputAsset(out.i);
+        // Only list known outputs that match optional filter
+        if (amount == -1 || assetid.IsNull()) {
+            LogPrintf("wallet", "Unable to unblind output: %s:%d\n", out.tx->tx->GetHash().GetHex(), out.i);
+            continue;
+        }
+        if (!asset_str.empty() && asset_filter != assetid) {
+            continue;
+        }
+        //////////
 
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", out.tx->GetHash().GetHex());
@@ -2989,7 +3013,19 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
 
         entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
-        entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue.GetAmount()));
+        entry.pushKV("amount", ValueFromAmount(amount));
+        if (g_con_elementswitness) {
+            if (tx_out.nAsset.IsCommitment()) {
+                entry.pushKV("assetcommitment", HexStr(tx_out.nAsset.vchCommitment));
+            } else {
+                entry.pushKV("asset", assetid.GetHex());
+            }
+            if (tx_out.nValue.IsCommitment()) {
+                entry.pushKV("amountcommitment", HexStr(tx_out.nValue.vchCommitment));
+            }
+            entry.pushKV("amountblinder", out.tx->GetOutputAmountBlindingFactor(out.i).ToString());
+            entry.pushKV("assetblinder", out.tx->GetOutputAssetBlindingFactor(out.i).ToString());
+        }
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);
         entry.pushKV("solvable", out.fSolvable);
@@ -5433,7 +5469,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         if (tx.vin[nIn].prevout.n >= it->second.tx->vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter: transaction spends non-existing output");
         }
-        input_blinds.push_back(it->second.GetOutputBlindingFactor(tx.vin[nIn].prevout.n));
+        input_blinds.push_back(it->second.GetOutputAmountBlindingFactor(tx.vin[nIn].prevout.n));
         input_asset_blinds.push_back(it->second.GetOutputAssetBlindingFactor(tx.vin[nIn].prevout.n));
         // These cases unneeded? If value is explicit we can still get via GetOutputX calls.
         if (it->second.tx->vout[tx.vin[nIn].prevout.n].nAsset.IsExplicit()) {

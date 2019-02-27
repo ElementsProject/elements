@@ -4661,7 +4661,7 @@ CAmount CWalletTx::GetOutputValueOut(unsigned int output_index) const {
     return ret;
 }
 
-uint256 CWalletTx::GetOutputBlindingFactor(unsigned int output_index) const {
+uint256 CWalletTx::GetOutputAmountBlindingFactor(unsigned int output_index) const {
     assert(output_index < tx->vout.size());
     const CTxOut& out = tx->vout[output_index];
     const CTxWitness& wit = tx->witness;
