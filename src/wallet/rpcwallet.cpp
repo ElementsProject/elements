@@ -1017,7 +1017,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         }
 
         LogPrintf("Recipient: pk: %s; amount: %s; asset: %s; sffa: %b\n", HexStr(scriptPubKey.begin(), scriptPubKey.end()), nAmount, asset.GetHex(), fSubtractFeeFromAmount);
-        CRecipient recipient = {scriptPubKey, nAmount, asset, CPubKey(), fSubtractFeeFromAmount};
+        CRecipient recipient = {scriptPubKey, nAmount, asset, GetDestinationBlindingKey(dest), fSubtractFeeFromAmount};
         vecSend.push_back(recipient);
     }
 
