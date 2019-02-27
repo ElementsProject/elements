@@ -134,3 +134,141 @@ UniValue DescribeAddress(const CTxDestination& dest)
 {
     return boost::apply_visitor(DescribeAddressVisitor(), dest);
 }
+
+// ELEMENTS
+
+class BlindingPubkeyVisitor : public boost::static_visitor<CPubKey>
+{
+public:
+    explicit BlindingPubkeyVisitor() {}
+
+    CPubKey operator()(const CNoDestination& dest) const
+    {
+        return CPubKey();
+    }
+
+    CPubKey operator()(const PKHash& keyID) const
+    {
+        return keyID.blinding_pubkey;
+    }
+
+    CPubKey operator()(const ScriptHash& scriptID) const
+    {
+        return scriptID.blinding_pubkey;
+    }
+
+    CPubKey operator()(const WitnessV0KeyHash& id) const
+    {
+        return id.blinding_pubkey;
+    }
+
+    CPubKey operator()(const WitnessV0ScriptHash& id) const
+    {
+        return id.blinding_pubkey;
+    }
+
+    CPubKey operator()(const WitnessUnknown& id) const
+    {
+        return id.blinding_pubkey;
+    }
+
+    CPubKey operator()(const NullData& id) const
+    {
+        return CPubKey();
+    }
+};
+
+CPubKey GetDestinationBlindingKey(const CTxDestination& dest)
+{
+    return boost::apply_visitor(BlindingPubkeyVisitor(), dest);
+}
+
+bool IsBlindDestination(const CTxDestination& dest)
+{
+    return GetDestinationBlindingKey(dest).IsFullyValid();
+}
+
+class DescribeBlindAddressVisitor : public boost::static_visitor<UniValue>
+{
+public:
+
+    explicit DescribeBlindAddressVisitor() {}
+
+    UniValue operator()(const CNoDestination& dest) const { return UniValue(UniValue::VOBJ); }
+
+    UniValue operator()(const PKHash& pkhash) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = pkhash.blinding_pubkey;
+        if (IsBlindDestination(pkhash)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            PKHash unblinded(pkhash);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(pkhash));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const ScriptHash& scripthash) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = scripthash.blinding_pubkey;
+        if (IsBlindDestination(scripthash)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            ScriptHash unblinded(scripthash);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(scripthash));
+        }
+
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV0KeyHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = id.blinding_pubkey;
+        if (IsBlindDestination(id)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            WitnessV0KeyHash unblinded(id);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(id));
+        }
+
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV0ScriptHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = id.blinding_pubkey;
+        if (IsBlindDestination(id)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            WitnessV0ScriptHash unblinded(id);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(id));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
+    UniValue operator()(const NullData& id) const { return NullUniValue; }
+};
+
+UniValue DescribeBlindAddress(const CTxDestination& dest)
+{
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKVs(boost::apply_visitor(DescribeBlindAddressVisitor(), dest));
+    return ret;
+}
