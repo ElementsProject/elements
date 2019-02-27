@@ -80,7 +80,7 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
 
 const NetworkStyle* NetworkStyle::instantiate(const std::string& networkId)
 {
-    std::string titleAddText = networkId == CBaseChainParams::MAIN ? "" : strprintf("[%s]", networkId);
+    std::string titleAddText = networkId == CBaseChainParams::LIQUIDV1 ? "" : strprintf("[%s]", networkId);
     for (unsigned x=0; x<network_styles_count; ++x)
     {
         if (networkId == network_styles[x].networkId)
