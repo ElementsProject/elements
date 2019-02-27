@@ -5628,6 +5628,8 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
 
 UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue importissuanceblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue importprivkey(const JSONRPCRequest& request);
 UniValue importaddress(const JSONRPCRequest& request);
 UniValue importpubkey(const JSONRPCRequest& request);
@@ -5707,6 +5709,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_descriptor", "bip32_counter", "liquid_pak"} },
     { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
+    { "wallet",             "importblindingkey",                &importblindingkey, {"address", "hexkey"}},
+    { "wallet",             "importissuanceblindingkey",        &importissuanceblindingkey, {"txid", "vin", "blindingkey"}},
 
     { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
 };
