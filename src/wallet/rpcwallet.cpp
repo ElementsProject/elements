@@ -566,7 +566,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
    
     // Check amount
-    if (nToRegister <= 0)
+    if (nToRegister <= 0 || nToRegister > 100)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid naddresses");
 
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
@@ -578,27 +578,33 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     CRegisterAddressScript* raScript = new CRegisterAddressScript();
 
     int nReg=0;
-    while(nReg<nToRegister){
-        CBitcoinAddress addr;
+    
+    CBitcoinAddress addr;
         // get the next registered base58check encoded tweaked public key and add it to the whitelist
-        std::set<CKeyID> setKeyPool;
+    std::set<CKeyID> setKeyPool;
+
+    //Get new addresses to register, topping up the key pool if necessary
+    while(nReg < nToRegister){
         pwalletMain->GetAllReserveKeys(setKeyPool);
         for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
             const CKeyID &keyid = *it;
-            if (addressWhitelist.is_whitelisted(keyid)) continue;
+            if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
+                continue;
             addr.Set(keyid);
             CKey key;
             if (pwalletMain->GetKey(keyid, key)) { // verify exists
                 //keysToReg.push_back(key.GetPubKey());
                 if(raScript->Append(key.GetPubKey())){
                     //if(keysToReg.size()>=nToRegister) break;
+                    addressWhitelist.add_my_pending(keyid);
                     nReg++;
                     if(nReg>=nToRegister) break;
                 }
             }
         }
+        pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg);
     }
-        
+
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
         

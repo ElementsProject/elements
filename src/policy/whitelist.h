@@ -44,6 +44,19 @@ public:
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
 
 	bool find_kyc_whitelisted(const CKeyID& keyId);
+
+	void blacklist_kyc(const CKeyID& keyId);
+
+	void whitelist_kyc(const CKeyID& keyId);
+
+	// My ending addresses - added to whitelist by me in a add to whitelist transaction waiting to be included in a block
+	void add_my_pending(const CKeyID& keyId);
+
+	void remove_my_pending(const CKeyID& keyId);
+
+	bool is_my_pending(const CKeyID& keyId);
+
+	unsigned int n_my_pending() const;
   
 private:
 	//Make add_sorted private because we only want verified derived keys 
@@ -62,9 +75,7 @@ private:
 
 	std::stringstream _datastream;
 
-	void blacklist_kyc(const CKeyID& keyId);
-
-	void whitelist_kyc(const CKeyID& keyId);
+	std::set<CKeyID> _myPending;
 
 	bool set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status);
 

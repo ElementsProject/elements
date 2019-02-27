@@ -139,27 +139,22 @@ bool CKYCFile::read(){
                     }
                     boost::split(vstr, line, boost::is_any_of(" "));
                     if (vstr.size() != 2){
-                        _decryptedStream << line << "\n";
                         continue;
                     }
 
                     CBitcoinAddress address;
                     if (!address.SetString(vstr[0])) {
-                        _decryptedStream << line << "\n";
                         continue;
                     }
-//                       throw std::system_error(
-//                        std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-//                        std::string(std::string(__func__) +  ": invalid Bitcoin address in KYC file"));
 
                     std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
                     CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
                     if(!pubKey.IsFullyValid()){
                         _decryptedStream << line << ": invalid public key\n";
-                        throw
-                         std::system_error(
-                        std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                        std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
+                        //throw
+                        // std::system_error(
+                        //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+                        //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
                         continue;
                     }
 

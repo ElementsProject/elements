@@ -131,31 +131,33 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   it1=it2;
   it2+=pubKeySize;
   CPubKey userOnboardPubKey = CPubKey(it1, it2);
+  it1=it2;
   CKeyID kycKey, keyId, onboardKeyID;
   CKey userOnboardPrivKey;
   CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
   bool bOnboard=false;
+  bool bWhitelistingNode=false;
 
   if(kycPubKey.IsFullyValid()){
     kycKey=kycPubKey.GetID();
     bOnboard = find_kyc(kycKey);
-    // Check if reading from the client node
-    if(!bOnboard){
-      if(userOnboardPubKey.IsFullyValid()){
-        if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
-          bOnboard=true;
-        }
-      }
-    }
   }
 
   if(bOnboard){
+    // Check if reading from the client node
+    if(userOnboardPubKey.IsFullyValid()){
+      if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
+        // kycPubKey assigned to me by the whitelisting node
+        pwalletMain->SetKYCPubKey(kycPubKey);
+      }
+    }
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
   } else {
     it1=bytes.begin(); //Reset iterator
     kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
+    kycKey=kycPubKey.GetID();
     //Get input keyids
     //Lookup the ID public keys of the input addresses.
     //The set is used to ensure that there is only one kycKey involved.
@@ -198,7 +200,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   // Get the KYC private key from the wallet.
   CPubKey* decryptPubKey;
   CKey decryptPrivKey;
-  bool bWhitelistingNode=false;
   if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
     //Non-whitelisting node
     bWhitelistingNode=false;
@@ -263,12 +264,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         bSuccess=true;
       }
     }
-  }
-
-  //This transaction onboarded my addresses, so this is my KYC public key 
-  //(to be used for future register address transactions)
-  if(bOnboard &! bWhitelistingNode){
-    pwalletMain->SetKYCPubKey(kycPubKey);
   }
   return bSuccess;
 }
@@ -418,6 +413,22 @@ void CWhiteList::clear(){
 
 bool CWhiteList::is_whitelisted(const CKeyID& keyId){
   if(!find(&keyId)) return false;
-  if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
+  //if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
   return true;
+}
+
+void CWhiteList::add_my_pending(const CKeyID& id){
+  _myPending.insert(id);
+}
+
+void CWhiteList::remove_my_pending(const CKeyID& id){
+  _myPending.erase(id);
+}
+
+bool CWhiteList::is_my_pending(const CKeyID& id){
+  return (_myPending.find(id) != _myPending.end());
+} 
+
+unsigned int CWhiteList::n_my_pending() const{
+  return _myPending.size();
 }

@@ -1537,6 +1537,12 @@ UniValue readwhitelist(const JSONRPCRequest& request)
     std::string sKYCAddress="";
     if(request.params.size()==2){
         sKYCAddress=request.params[1].get_str();
+        CBitcoinAddress addr;
+        if(addr.SetString(sKYCAddress)){
+            CKeyID id;
+            addr.GetKeyID(id);
+            addressWhitelist.whitelist_kyc(id);
+        }
     }
 
     std::ifstream file;
