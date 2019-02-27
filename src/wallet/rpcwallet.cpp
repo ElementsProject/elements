@@ -4468,8 +4468,6 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
 
     //Creates new address for receiving unlocked utxos
     JSONRPCRequest req;
-    //TODO(rebase) replace with CT/CA
-    //CTxDestination dest(DecodeDestination(getnewaddress(req).get_str()).GetUnblinded());
     CTxDestination address = DecodeDestination(getnewaddress(req).get_str());
 
     Witnessifier w(pwallet);
