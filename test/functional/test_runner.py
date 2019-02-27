@@ -72,12 +72,14 @@ BASE_SCRIPTS = [
     'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
-    'mining_getblocktemplate_longpoll.py',
+    # ELEMENTS: no longpolling
+    #'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
     'feature_block.py',
     'rpc_fundrawtransaction.py',
     'p2p_compactblocks.py',
-    'feature_segwit.py',
+    # ELEMENTS: no transitions in Elements
+    #'feature_segwit.py',
     # vv Tests less than 2m vv
     'wallet_basic.py',
     'wallet_labels.py',
@@ -93,7 +95,8 @@ BASE_SCRIPTS = [
     'rpc_txoutproof.py',
     'wallet_listreceivedby.py',
     'wallet_abandonconflict.py',
-    'feature_csv_activation.py',
+    # ELEMENTS: no transitions in Elements
+    #'feature_csv_activation.py',
     'rpc_rawtransaction.py',
     'wallet_address_types.py',
     'feature_bip68_sequence.py',
@@ -144,7 +147,8 @@ BASE_SCRIPTS = [
     'feature_rbf.py',
     'mempool_packages.py',
     'rpc_createmultisig.py',
-    'feature_versionbits_warning.py',
+    # ELEMENTS: no versionbits in use
+    #'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',
