@@ -64,6 +64,7 @@
 #include <openssl/crypto.h>
 
 #include <primitives/pak.h> // CPAKList
+#include <assetsdir.h> // InitGlobalAssetDir
 
 #if ENABLE_ZMQ
 #include <zmq/zmqnotificationinterface.h>
@@ -1165,6 +1166,13 @@ bool AppInitParameterInteraction()
         } else {
             fReplacementHonourOptOut = true;
         }
+    }
+
+    try {
+        const std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "bitcoin");
+        InitGlobalAssetDir(gArgs.GetArgs("-assetdir"), default_asset_name);
+    } catch (const std::exception& e) {
+        return InitError(strprintf("Error in -assetdir: %s\n", e.what()));
     }
 
     return true;
