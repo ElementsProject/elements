@@ -290,7 +290,8 @@ public:
     }
 
     bool IsFee() const {
-        return scriptPubKey == CScript() && nValue.IsExplicit() && nAsset.IsExplicit();
+        return g_con_elementswitness && scriptPubKey == CScript()
+            && nValue.IsExplicit() && nAsset.IsExplicit();
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
