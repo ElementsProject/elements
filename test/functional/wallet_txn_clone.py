@@ -97,11 +97,11 @@ class TxnMallTest(BitcoinTestFramework):
 
         # Node0's balance should be starting balance, plus 50BTC for another
         # matured block, minus tx1 and tx2 amounts, and minus transaction fees:
-        expected = starting_balance + node0_tx1["fee"] + node0_tx2["fee"]
+        expected = starting_balance + node0_tx1["fee"][BITCOIN_ASSET] + node0_tx2["fee"][BITCOIN_ASSET]
         if self.options.mine_block:
             expected += 50
-        expected += tx1["amount"] + tx1["fee"]
-        expected += tx2["amount"] + tx2["fee"]
+        expected += tx1["amount"][BITCOIN_ASSET] + tx1["fee"][BITCOIN_ASSET]
+        expected += tx2["amount"][BITCOIN_ASSET] + tx2["fee"][BITCOIN_ASSET]
         assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], expected)
 
         if self.options.mine_block:
