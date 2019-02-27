@@ -39,6 +39,8 @@ public:
 
   	//Get a kyc key from the _kycUnassignedQueue. Removes the element from the queue.
   	bool get_unassigned_kyc(CPubKey& pubKey);
+  	//Get the next key without removing it
+  	bool peek_unassigned_kyc(CPubKey& pubKey);
   	void add_unassigned_kyc(const CPubKey& pubKey);
 
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
@@ -56,7 +58,7 @@ public:
 
 	bool is_my_pending(const CKeyID& keyId);
 
-	unsigned int n_my_pending() const;
+	unsigned int n_my_pending();
   
 private:
 	//Make add_sorted private because we only want verified derived keys 

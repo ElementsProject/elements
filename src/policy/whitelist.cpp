@@ -356,7 +356,7 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             } else {
               LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
               whitelist_kyc(id);
-              add_unassigned_kyc(id);
+              add_unassigned_kyc(kycPubKey);
             }
             return true;
         }
@@ -453,7 +453,7 @@ bool CWhiteList::is_my_pending(const CKeyID& id){
   return (_myPending.find(id) != _myPending.end());
 } 
 
-unsigned int CWhiteList::n_my_pending() const{
+unsigned int CWhiteList::n_my_pending(){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return _myPending.size();
 }

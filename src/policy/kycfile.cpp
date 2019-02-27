@@ -193,16 +193,17 @@ bool CKYCFile::initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec){
         pwalletMain->TopUpKeyPool();
 
     // Get an unassigned KYC key from the addressWhitelist
-    CKeyID kycKeyID;
-    if(!addressWhitelist.get_unassigned_kyc(kycKeyID))
+    CPubKey kycPubKey;
+    if(!addressWhitelist.get_unassigned_kyc(kycPubKey))
         throw std::system_error(
         std::error_code(CKYCFile::Errc::WHITELIST_KEY_ACCESS_ERROR, std::system_category()),
         std::string(std::string(__func__) +  ": no unassigned whitelist KYC keys available"));
 
+    CKeyID kycKeyID(kycPubKey.GetID());
     // Look up the public key
     CKey kycKey;
     if(!pwalletMain->GetKey(kycKeyID, kycKey)){
-        addressWhitelist.add_unassigned_kyc(kycKeyID);
+        addressWhitelist.add_unassigned_kyc(kycPubKey);
         throw std::system_error(
         std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
         std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
