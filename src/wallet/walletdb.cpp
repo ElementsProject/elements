@@ -581,6 +581,17 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
     if (fNoncriticalErrors && result == DBErrors::LOAD_OK)
         result = DBErrors::NONCRITICAL_ERROR;
 
+    if (pwallet->blinding_derivation_key.IsNull()) {
+        CKey key;
+        key.MakeNewKey(true);
+        uint256 keybin;
+        memcpy(keybin.begin(), key.begin(), key.size());
+        pwallet->blinding_derivation_key = keybin;
+        if (!WriteBlindingDerivationKey(pwallet->blinding_derivation_key)) {
+            result = DBErrors::LOAD_FAIL;
+        }
+    }
+
     // Any wallet corruption at all: skip any rewriting or
     // upgrading, we don't want to make it worse.
     if (result != DBErrors::LOAD_OK)
