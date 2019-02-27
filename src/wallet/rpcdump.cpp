@@ -1331,6 +1331,7 @@ UniValue importblindingkey(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"address\"          (string, required) The CT address\n"
             "2. \"hexkey\"           (string, required) The blinding key in hex\n"
+            // TODO: Support a derivation key import flag to allow master key import
             "\nExample:\n"
             + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
         );
