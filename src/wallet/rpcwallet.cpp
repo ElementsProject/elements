@@ -1270,7 +1270,8 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
 
 struct tallyitem
 {
-    CAmount nAmount;
+    CAmount nAmount; // Unused?
+    CAmountMap mapAmount;
     int nConf;
     std::vector<uint256> txids;
     bool fIsWatchonly;
@@ -1309,6 +1310,15 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         has_filtered_address = true;
     }
 
+    std::string strasset = "";
+    if (params.size() > 4 && params[4].isStr()) {
+        strasset = params[4].get_str();
+    }
+    CAsset asset;
+    if (!strasset.empty()) {
+        asset = GetAssetFromString(strasset);
+    }
+
     // Tally
     std::map<CTxDestination, tallyitem> mapTally;
     for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
@@ -1321,6 +1331,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (nDepth < nMinDepth)
             continue;
 
+        size_t index = 0;
         for (const CTxOut& txout : wtx.tx->vout)
         {
             CTxDestination address;
@@ -1335,12 +1346,23 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(!(mine & filter))
                 continue;
 
+            if (wtx.GetOutputValueOut(index) < 0) {
+                continue;
+            }
+
+            if (strasset != "" && wtx.GetOutputAsset(index) != asset) {
+                continue;
+            }
+
             tallyitem& item = mapTally[address];
-            item.nAmount += txout.nValue.GetAmount();
+            item.nAmount += wtx.GetOutputValueOut(index);
+            item.mapAmount[wtx.GetOutputAsset(index)] += wtx.GetOutputValueOut(index);
             item.nConf = std::min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
                 item.fIsWatchonly = true;
+
+            index++;
         }
     }
 
@@ -1368,12 +1390,12 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (it == mapTally.end() && !fIncludeEmpty)
             continue;
 
-        CAmount nAmount = 0;
+        CAmountMap mapAmount;
         int nConf = std::numeric_limits<int>::max();
         bool fIsWatchonly = false;
         if (it != mapTally.end())
         {
-            nAmount = (*it).second.nAmount;
+            mapAmount = (*it).second.mapAmount;
             nConf = (*it).second.nConf;
             fIsWatchonly = (*it).second.fIsWatchonly;
         }
@@ -1381,7 +1403,8 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (by_label)
         {
             tallyitem& _item = label_tally[label];
-            _item.nAmount += nAmount;
+            _item.nAmount += mapAmount[::policyAsset];
+            _item.mapAmount += mapAmount;
             _item.nConf = std::min(_item.nConf, nConf);
             _item.fIsWatchonly = fIsWatchonly;
         }
@@ -1391,7 +1414,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("address",       EncodeDestination(address));
-            obj.pushKV("amount",        ValueFromAmount(nAmount));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
             UniValue transactions(UniValue::VARR);
@@ -1411,12 +1434,12 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
     {
         for (const auto& entry : label_tally)
         {
-            CAmount nAmount = entry.second.nAmount;
+            CAmountMap mapAmount = entry.second.mapAmount;
             int nConf = entry.second.nConf;
             UniValue obj(UniValue::VOBJ);
             if (entry.second.fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
-            obj.pushKV("amount",        ValueFromAmount(nAmount));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label",         entry.first);
             ret.push_back(obj);
