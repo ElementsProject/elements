@@ -245,8 +245,8 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    // Get blinded destination
-    if (g_con_elementswitness) {
+    // Get blinded destination TODO re-enable bech32 once bikeshedding is done
+    if (g_con_elementswitness && output_type != OutputType::BECH32) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
     }
