@@ -2923,13 +2923,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Add fee output.
-                if (nFeeRet > 0) {
-                    CTxOut fee(policyAsset, nFeeRet, CScript());
-                    assert(fee.IsFee());
-                    txNew.vout.push_back(fee);
-                    //TODO(rebase) 
-                    //output_pubkeys.push_back(CPubKey());
-                }
+                CTxOut fee(policyAsset, nFeeRet, CScript());
+                assert(fee.IsFee());
+                txNew.vout.push_back(fee);
+                //TODO(rebase) 
+                //output_pubkeys.push_back(CPubKey());
 
                 // Dummy fill vin for maximum size estimation
                 //
@@ -2987,6 +2985,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                         change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
                         nFeeRet -= extraFeePaid;
+                        txNew.vout.back().nValue = nFeeRet; // update fee output
                     }
                     break; // Done, enough fee included.
                 }
@@ -3007,6 +3006,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
                         nFeeRet += additionalFeeNeeded;
+                        txNew.vout.back().nValue = nFeeRet; // update fee output
                         break; // Done, able to increase fee from change
                     }
                 }
