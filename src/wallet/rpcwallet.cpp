@@ -113,14 +113,14 @@ UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
 {
     // Make sure the policyAsset is always present in the balance map.
     CAmountMap balance = balanceOrig;
-    balance[policyAsset] += 0;
+    balance[::policyAsset] += 0;
 
     // If we don't do assets or a specific asset is given, we filter out once asset.
     if (!g_con_elementswitness || strasset != "") {
         if (g_con_elementswitness) {
             return ValueFromAmount(balance[GetAssetFromString(strasset)]);
         } else {
-            return ValueFromAmount(balance[policyAsset]);
+            return ValueFromAmount(balance[::policyAsset]);
         }
     }
 
@@ -1977,6 +1977,14 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     CAmountMap nNet = nCredit - nDebit;
     assert(HasValidFee(*wtx.tx));
     CAmountMap nFee = wtx.IsFromMe(filter) ? CAmountMap() - GetFeeMap(*wtx.tx) : CAmountMap();
+    if (!g_con_elementswitness) {
+        CAmount total_out = 0;
+        for (const auto& output : wtx.tx->vout) {
+            total_out += output.nValue.GetAmount();
+        }
+        nFee = CAmountMap();
+        nFee[::policyAsset] = wtx.IsFromMe(filter) ? total_out - nDebit[::policyAsset] : 0;
+    }
 
     entry.pushKV("amount", AmountMapToUniv(nNet - nFee, ""));
     if (wtx.IsFromMe(filter))
