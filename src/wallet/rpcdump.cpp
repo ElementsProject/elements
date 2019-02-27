@@ -687,7 +687,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
             "\nDumps all wallet tweaked public keys in an encrypted format.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The filename\n"
-            "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption\n"
+            "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption.\n"
             "\nExamples:\n"
             + HelpExampleCli("dumpkycfile", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
             + HelpExampleRpc("dumpkycfile", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
@@ -697,13 +697,17 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked();
 
-
+    CPubKey onboardPubKey;
     if (request.params.size() == 2){
         std::string sOnboardPubKey = request.params[1].get_str();
         std::vector<unsigned char> pubKeyData(ParseHex(sOnboardPubKey));
-        CPubKey onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-        pwalletMain->SetOnboardPubKey(onboardPubKey);
+        onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    } else {
+        // Use one of the unassigned KYC public keys
+        if(!addressWhitelist.peek_unassigned_kyc(onboardPubKey))
+             throw JSONRPCError(RPC_INVALID_PARAMETER, "No unassigned KYC public keys available.");
     }
+    pwalletMain->SetOnboardPubKey(onboardPubKey);
 
 
     std::ofstream file;

@@ -38,8 +38,8 @@ public:
   	bool is_whitelisted(const CKeyID& keyId);
 
   	//Get a kyc key from the _kycUnassignedQueue. Removes the element from the queue.
-  	bool get_unassigned_kyc(CKeyID& keyId);
-  	void add_unassigned_kyc(const CKeyID& keyId);
+  	bool get_unassigned_kyc(CPubKey& pubKey);
+  	void add_unassigned_kyc(const CPubKey& pubKey);
 
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
 
@@ -71,7 +71,7 @@ private:
 	//Whitelisted KYC keys
 	std::map<CKeyID, CWhiteList::status> _kycStatusMap;
 	//KYC pub keys not yet assigned to any user
-	std::queue<CKeyID> _kycUnassignedQueue;
+	std::queue<CPubKey> _kycUnassignedQueue;
 
 	std::stringstream _datastream;
 

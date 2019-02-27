@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "script/standard.h"
-#include "script/registeraddressscript.h"
 
 #include "pubkey.h"
 #include "script/script.h"
@@ -304,20 +303,6 @@ CScript GetScriptForDestination(const CTxDestination& dest)
     CScript script;
 
     boost::apply_visitor(CScriptVisitor(&script), dest);
-    return script;
-}
-
-CScript GetScriptForAddToWhitelist(const CKey& key, 
-                                   const std::vector<CPubKey>& keysToReg, 
-                                   const CPubKey& idPubKey){
-   
-    CRegisterAddressScript* raScript = new CRegisterAddressScript();
-
-    raScript->Append(keysToReg);
-    raScript->SetKeys(&key, &idPubKey);
-    CScript script;
-    raScript->Finalize(script);
-
     return script;
 }
 

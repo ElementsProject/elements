@@ -12,6 +12,7 @@ CWhiteList::~CWhiteList(){;}
 
 
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CWhiteList::add_derived(address, pubKey, nullptr);
 }
 
@@ -62,6 +63,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
 }
 
 void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   add_derived(addressIn, key, std::string(""));
 }
 
@@ -90,6 +92,7 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   //Check if this is a ID registration (whitetoken) transaction
   // Get input addresses an lookup associated idpubkeys
   if (tx.IsCoinBase())
@@ -137,7 +140,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
   bool bOnboard=false;
-  bool bWhitelistingNode=false;
 
   if(kycPubKey.IsFullyValid()){
     kycKey=kycPubKey.GetID();
@@ -202,12 +204,10 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CKey decryptPrivKey;
   if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
     //Non-whitelisting node
-    bWhitelistingNode=false;
     if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)) return false;  
     decryptPubKey=&kycPubKey;
   } else{
     //Whitelisting node
-    bWhitelistingNode=true;
     decryptPubKey=&inputPubKey;
   }
   
@@ -269,6 +269,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 }
 
 bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   auto search = _kycMap.find(address);
   if(search != _kycMap.end()){
     kycKeyFound = search->second;
@@ -278,6 +279,7 @@ bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
 }
 
 bool CWhiteList::LookupTweakedPubKey(const CKeyID& address, CPubKey& pubKeyFound){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   auto search = _tweakedPubKeyMap.find(address);
   if(search != _tweakedPubKeyMap.end()){
     pubKeyFound = search->second;
@@ -289,6 +291,7 @@ bool CWhiteList::LookupTweakedPubKey(const CKeyID& address, CPubKey& pubKeyFound
 //Update from transaction
 bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs)
 {
+    boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
     if (tx.IsCoinBase())
       return false; // Coinbases don't use vin normally
 
@@ -362,44 +365,61 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
 }
 
 void CWhiteList::blacklist_kyc(const CKeyID& keyId){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::black);
 }
 
 void CWhiteList::whitelist_kyc(const CKeyID& keyId){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::white);
 }
 
 bool CWhiteList::set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _kycStatusMap[keyId]=status;
   return true;
 }
 
 bool CWhiteList::find_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   auto it = _kycStatusMap.find(keyId);
   if (it == _kycStatusMap.end()) return false;
   return (it->second == status);
 }
 
 bool CWhiteList::find_kyc(const CKeyID& keyId){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return _kycStatusMap.find(keyId) != _kycStatusMap.end();
 }
 
 bool CWhiteList::find_kyc_whitelisted(const CKeyID& keyId){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return find_kyc_status(keyId, CWhiteList::status::white);
 }
 
 bool CWhiteList::find_kyc_blacklisted(const CKeyID& keyId){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return find_kyc_status(keyId, CWhiteList::status::black);
 }
 
-bool CWhiteList::get_unassigned_kyc(CKeyID& id){
+bool CWhiteList::get_unassigned_kyc(CPubKey& pubKey){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  if(peek_unassigned_kyc(pubKey)){
+    _kycUnassignedQueue.pop();
+    return true;
+  }
+  return false;
+}
+
+bool CWhiteList::peek_unassigned_kyc(CPubKey& pubKey){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if (_kycUnassignedQueue.empty()) return false;
-  id = _kycUnassignedQueue.front();
-  _kycUnassignedQueue.pop();
+  pubKey = _kycUnassignedQueue.front();
   return true;
 }
 
-void CWhiteList::add_unassigned_kyc(const CKeyID& id){
+void CWhiteList::add_unassigned_kyc(const CPubKey& id){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _kycUnassignedQueue.push(id);
 }
 
@@ -412,23 +432,28 @@ void CWhiteList::clear(){
 }
 
 bool CWhiteList::is_whitelisted(const CKeyID& keyId){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(!find(&keyId)) return false;
   //if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
   return true;
 }
 
 void CWhiteList::add_my_pending(const CKeyID& id){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _myPending.insert(id);
 }
 
 void CWhiteList::remove_my_pending(const CKeyID& id){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _myPending.erase(id);
 }
 
 bool CWhiteList::is_my_pending(const CKeyID& id){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return (_myPending.find(id) != _myPending.end());
 } 
 
 unsigned int CWhiteList::n_my_pending() const{
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return _myPending.size();
 }
