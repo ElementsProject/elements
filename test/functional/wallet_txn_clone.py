@@ -57,7 +57,7 @@ class TxnMallTest(BitcoinTestFramework):
         node0_tx2 = self.nodes[0].gettransaction(node0_txid2)
 
         assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET],
-                     starting_balance + node0_tx1["fee"] + node0_tx2["fee"])
+                     starting_balance + node0_tx1["fee"][BITCOIN_ASSET] + node0_tx2["fee"][BITCOIN_ASSET])
 
         # Coins are sent to node1_address
         node1_address = self.nodes[1].getnewaddress()
@@ -71,6 +71,8 @@ class TxnMallTest(BitcoinTestFramework):
         clone_inputs = [{"txid": rawtx1["vin"][0]["txid"], "vout": rawtx1["vin"][0]["vout"]}]
         clone_outputs = {rawtx1["vout"][0]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][0]["value"],
                          rawtx1["vout"][1]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][1]["value"]}
+        clone_valuein = self.nodes[0].getrawtransaction(rawtx1["vin"][0]["txid"], 1)["vout"][rawtx1["vin"][0]["vout"]]["value"]
+        clone_outputs["fee"] =  clone_valuein - rawtx1["vout"][0]["value"] - rawtx1["vout"][1]["value"]
         clone_locktime = rawtx1["locktime"]
         clone_raw = self.nodes[0].createrawtransaction(clone_inputs, clone_outputs, clone_locktime)
 

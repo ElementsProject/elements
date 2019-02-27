@@ -407,6 +407,9 @@ class CTxOut():
         self.nNonce = nNonce
         self.scriptPubKey = scriptPubKey
 
+    def is_fee(self):
+        return len(self.scriptPubKey) == 0
+
     def deserialize(self, f):
         self.nAsset = CTxOutAsset()
         self.nAsset.deserialize(f)

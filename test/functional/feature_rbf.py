@@ -6,10 +6,12 @@
 
 from decimal import Decimal
 
-from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut
+from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, CTxOutValue
 from test_framework.script import CScript, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, satoshi_round, BITCOIN_ASSET
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes, satoshi_round, BITCOIN_ASSET
+
+from io import BytesIO
 
 MAX_REPLACEMENT_LIMIT = 100
 
@@ -29,9 +31,9 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
         node.generate(100)
 
     new_addr = node.getnewaddress()
-    txid = node.sendtoaddress(new_addr, satoshi_round((amount+fee)/COIN))
-    tx1 = node.getrawtransaction(txid, 1)
-    txid = int(txid, 16)
+    txidstr = node.sendtoaddress(new_addr, satoshi_round((amount+fee)/COIN))
+    tx1 = node.getrawtransaction(txidstr, 1)
+    txid = int(txidstr, 16)
     i = None
 
     for i, txout in enumerate(tx1['vout']):
@@ -41,7 +43,10 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
 
     tx2 = CTransaction()
     tx2.vin = [CTxIn(COutPoint(txid, i))]
-    tx2.vout = [CTxOut(amount, scriptPubKey)]
+    tx1raw = CTransaction()
+    tx1raw.deserialize(BytesIO(hex_str_to_bytes(node.getrawtransaction(txidstr))))
+    feeout = CTxOut(CTxOutValue(tx1raw.vout[i].nValue.getAmount() - amount))
+    tx2.vout = [CTxOut(amount, scriptPubKey), feeout]
     tx2.rehash()
 
     signed_tx = node.signrawtransactionwithwallet(txToHex(tx2))
@@ -132,9 +137,10 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # transactions might not be accepted by our peers.
         self.sync_all()
 
+        feeout = CTxOut(int(0.1*COIN), CScript())
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), feeout]
         tx1a_hex = txToHex(tx1a)
         tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
 
@@ -143,7 +149,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Should fail because we haven't changed the fee
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(1 * COIN, CScript([b'b' * 35]))]
+        tx1b.vout = [CTxOut(1 * COIN, CScript([b'b' * 35])), feeout]
         tx1b_hex = txToHex(tx1b)
 
         # This will raise an exception due to insufficient fee
@@ -154,7 +160,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Extra 0.1 BTC fee
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.9 * COIN), CScript([b'b' * 35]))]
+        tx1b.vout = [CTxOut(int(0.9 * COIN), CScript([b'b' * 35])), feeout, feeout]
         tx1b_hex = txToHex(tx1b)
         # Replacement still disabled even with "enough fee"
         assert_raises_rpc_error(-26, "txn-mempool-conflict", self.nodes[1].sendrawtransaction, tx1b_hex, True)
@@ -186,7 +192,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
             remaining_value -= 1*COIN
             tx = CTransaction()
             tx.vin = [CTxIn(prevout, nSequence=0)]
-            tx.vout = [CTxOut(remaining_value, CScript([1, OP_DROP] * 15 + [1]))]
+            feeout = CTxOut(1*COIN)
+            tx.vout = [CTxOut(remaining_value, CScript([1, OP_DROP] * 15 + [1])), feeout]
             tx_hex = txToHex(tx)
             txid = self.nodes[0].sendrawtransaction(tx_hex, True)
             chain_txids.append(txid)
@@ -196,7 +203,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # child fees - 40 BTC - so this attempt is rejected.
         dbl_tx = CTransaction()
         dbl_tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        dbl_tx.vout = [CTxOut(initial_nValue - 30 * COIN, CScript([1] * 35))]
+        dbl_tx.vout = [CTxOut(initial_nValue - 30 * COIN, CScript([1] * 35)), CTxOut(30*COIN)]
         dbl_tx_hex = txToHex(dbl_tx)
 
         # This will raise an exception due to insufficient fee
@@ -205,7 +212,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Accepted with sufficient fee
         dbl_tx = CTransaction()
         dbl_tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        dbl_tx.vout = [CTxOut(1 * COIN, CScript([1] * 35))]
+        dbl_tx.vout = [CTxOut(1 * COIN, CScript([1] * 35)), CTxOut(49*COIN)]
         dbl_tx_hex = txToHex(dbl_tx)
         self.nodes[0].sendrawtransaction(dbl_tx_hex, True)
 
@@ -231,6 +238,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
             vout = [CTxOut(txout_value, CScript([i+1]))
                     for i in range(tree_width)]
+            vout.append(CTxOut(int(initial_value - tree_width*txout_value)))
             tx = CTransaction()
             tx.vin = [CTxIn(prevout, nSequence=0)]
             tx.vout = vout
@@ -244,6 +252,8 @@ class ReplaceByFeeTest(BitcoinTestFramework):
             txid = int(txid, 16)
 
             for i, txout in enumerate(tx.vout):
+                if txout.is_fee():
+                    continue
                 for x in branch(COutPoint(txid, i), txout_value,
                                   max_txs,
                                   tree_width=tree_width, fee=fee,
@@ -258,7 +268,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Attempt double-spend, will fail because too little fee paid
         dbl_tx = CTransaction()
         dbl_tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        dbl_tx.vout = [CTxOut(initial_nValue - fee * n, CScript([1] * 35))]
+        dbl_tx.vout = [CTxOut(initial_nValue - fee * n, CScript([1] * 35)), CTxOut(fee*n)]
         dbl_tx_hex = txToHex(dbl_tx)
         # This will raise an exception due to insufficient fee
         assert_raises_rpc_error(-26, "insufficient fee", self.nodes[0].sendrawtransaction, dbl_tx_hex, True)
@@ -266,7 +276,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # 1 BTC fee is enough
         dbl_tx = CTransaction()
         dbl_tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        dbl_tx.vout = [CTxOut(initial_nValue - fee * n - 1 * COIN, CScript([1] * 35))]
+        dbl_tx.vout = [CTxOut(initial_nValue - fee * n - 1 * COIN, CScript([1] * 35)), CTxOut(fee*n+1*COIN)]
         dbl_tx_hex = txToHex(dbl_tx)
         self.nodes[0].sendrawtransaction(dbl_tx_hex, True)
 
@@ -286,7 +296,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
             dbl_tx = CTransaction()
             dbl_tx.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-            dbl_tx.vout = [CTxOut(initial_nValue - 2 * fee * n, CScript([1] * 35))]
+            dbl_tx.vout = [CTxOut(initial_nValue - 2 * fee * n, CScript([1] * 35)), CTxOut(2*fee*n)]
             dbl_tx_hex = txToHex(dbl_tx)
             # This will raise an exception
             assert_raises_rpc_error(-26, "too many potential replacements", self.nodes[0].sendrawtransaction, dbl_tx_hex, True)
@@ -301,7 +311,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx1a_hex = txToHex(tx1a)
         self.nodes[0].sendrawtransaction(tx1a_hex, True)
 
@@ -309,7 +319,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # rejected.
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*999000]))]
+        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*999000])), CTxOut(int(1.1*COIN-0.001*COIN))]
         tx1b_hex = txToHex(tx1b)
 
         # This will raise an exception due to insufficient fee
@@ -322,7 +332,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(utxo1, nSequence=0)]
-        tx1a.vout = [CTxOut(int(1.1 * COIN), CScript([b'a' * 35]))]
+        tx1a.vout = [CTxOut(int(1.1 * COIN), CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx1a_hex = txToHex(tx1a)
         tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
 
@@ -332,7 +342,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.vin = [CTxIn(utxo1, nSequence=0), CTxIn(utxo2, nSequence=0)]
         tx2.vin.append(CTxIn(COutPoint(tx1a_txid, 0), nSequence=0))
-        tx2.vout = tx1a.vout
+        tx2.vout = tx1a.vout + [CTxOut(3*COIN + int(1.1*COIN))]
         tx2_hex = txToHex(tx2)
 
         # This will raise an exception
@@ -341,7 +351,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Spend tx1a's output to test the indirect case.
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0)]
-        tx1b.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx1b.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx1b_hex = txToHex(tx1b)
         tx1b_txid = self.nodes[0].sendrawtransaction(tx1b_hex, True)
         tx1b_txid = int(tx1b_txid, 16)
@@ -349,7 +359,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.vin = [CTxIn(utxo1, nSequence=0), CTxIn(utxo2, nSequence=0),
                    CTxIn(COutPoint(tx1b_txid, 0))]
-        tx2.vout = tx1a.vout
+        tx2.vout = tx1a.vout + [CTxOut(3*COIN + int(1.0*COIN))]
         tx2_hex = txToHex(tx2)
 
         # This will raise an exception
@@ -362,13 +372,13 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         tx1 = CTransaction()
         tx1.vin = [CTxIn(confirmed_utxo)]
-        tx1.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx1.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx1_hex = txToHex(tx1)
         self.nodes[0].sendrawtransaction(tx1_hex, True)
 
         tx2 = CTransaction()
         tx2.vin = [CTxIn(confirmed_utxo), CTxIn(unconfirmed_utxo)]
-        tx2.vout = tx1.vout
+        tx2.vout = tx1.vout + [CTxOut(int(0.1*COIN))]
         tx2_hex = txToHex(tx2)
 
         # This will raise an exception
@@ -391,7 +401,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         splitting_tx = CTransaction()
         splitting_tx.vin = [CTxIn(utxo, nSequence=0)]
-        splitting_tx.vout = outputs
+        splitting_tx.vout = outputs + [CTxOut(int(initial_nValue - (MAX_REPLACEMENT_LIMIT+1) * split_value))]
         splitting_tx_hex = txToHex(splitting_tx)
 
         txid = self.nodes[0].sendrawtransaction(splitting_tx_hex, True)
@@ -401,7 +411,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         for i in range(MAX_REPLACEMENT_LIMIT+1):
             tx_i = CTransaction()
             tx_i.vin = [CTxIn(COutPoint(txid, i), nSequence=0)]
-            tx_i.vout = [CTxOut(split_value - fee, CScript([b'a' * 35]))]
+            tx_i.vout = [CTxOut(split_value - fee, CScript([b'a' * 35])), CTxOut(fee)]
             tx_i_hex = txToHex(tx_i)
             self.nodes[0].sendrawtransaction(tx_i_hex, True)
 
@@ -414,7 +424,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
             inputs.append(CTxIn(COutPoint(txid, i), nSequence=0))
         double_tx = CTransaction()
         double_tx.vin = inputs
-        double_tx.vout = [CTxOut(double_spend_value, CScript([b'a']))]
+        double_tx.vout = [CTxOut(double_spend_value, CScript([b'a'])), CTxOut(int(split_value*(MAX_REPLACEMENT_LIMIT+1)-double_spend_value))]
         double_tx_hex = txToHex(double_tx)
 
         # This will raise an exception
@@ -423,7 +433,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # If we remove an input, it should pass
         double_tx = CTransaction()
         double_tx.vin = inputs[0:-1]
-        double_tx.vout = [CTxOut(double_spend_value, CScript([b'a']))]
+        double_tx.vout = [CTxOut(double_spend_value, CScript([b'a'])), CTxOut(int(split_value*(MAX_REPLACEMENT_LIMIT)-double_spend_value))]
         double_tx_hex = txToHex(double_tx)
         self.nodes[0].sendrawtransaction(double_tx_hex, True)
 
@@ -434,7 +444,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Create a non-opting in transaction
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0xffffffff)]
-        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx1a_hex = txToHex(tx1a)
         tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
 
@@ -455,7 +465,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         # Create a different non-opting in transaction
         tx2a = CTransaction()
         tx2a.vin = [CTxIn(tx1_outpoint, nSequence=0xfffffffe)]
-        tx2a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx2a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx2a_hex = txToHex(tx2a)
         tx2a_txid = self.nodes[0].sendrawtransaction(tx2a_hex, True)
 
@@ -479,6 +489,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         tx3a.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0xffffffff),
                     CTxIn(COutPoint(tx2a_txid, 0), nSequence=0xfffffffd)]
         tx3a.vout = [CTxOut(int(0.9*COIN), CScript([b'c'])), CTxOut(int(0.9*COIN), CScript([b'd']))]
+        tx3a.vout.append(CTxOut(int(0.2*COIN)))
         tx3a_hex = txToHex(tx3a)
 
         tx3a_txid = self.nodes[0].sendrawtransaction(tx3a_hex, True)
@@ -488,12 +499,12 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         tx3b = CTransaction()
         tx3b.vin = [CTxIn(COutPoint(tx1a_txid, 0), nSequence=0)]
-        tx3b.vout = [CTxOut(int(0.5 * COIN), CScript([b'e' * 35]))]
+        tx3b.vout = [CTxOut(int(0.5 * COIN), CScript([b'e' * 35])), CTxOut(int(0.5*COIN))]
         tx3b_hex = txToHex(tx3b)
 
         tx3c = CTransaction()
         tx3c.vin = [CTxIn(COutPoint(tx2a_txid, 0), nSequence=0)]
-        tx3c.vout = [CTxOut(int(0.5 * COIN), CScript([b'f' * 35]))]
+        tx3c.vout = [CTxOut(int(0.5 * COIN), CScript([b'f' * 35])), CTxOut(int(0.5*COIN))]
         tx3c_hex = txToHex(tx3c)
 
         self.nodes[0].sendrawtransaction(tx3b_hex, True)
@@ -510,14 +521,14 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         tx1a = CTransaction()
         tx1a.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx1a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx1a_hex = txToHex(tx1a)
         tx1a_txid = self.nodes[0].sendrawtransaction(tx1a_hex, True)
 
         # Higher fee, but the actual fee per KB is much lower.
         tx1b = CTransaction()
         tx1b.vin = [CTxIn(tx0_outpoint, nSequence=0)]
-        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*740000]))]
+        tx1b.vout = [CTxOut(int(0.001*COIN), CScript([b'a'*740000])), CTxOut(int(1.1*COIN-0.001*COIN))]
         tx1b_hex = txToHex(tx1b)
 
         # Verify tx1b cannot replace tx1a.
@@ -536,14 +547,14 @@ class ReplaceByFeeTest(BitcoinTestFramework):
 
         tx2a = CTransaction()
         tx2a.vin = [CTxIn(tx1_outpoint, nSequence=0)]
-        tx2a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35]))]
+        tx2a.vout = [CTxOut(1 * COIN, CScript([b'a' * 35])), CTxOut(int(0.1*COIN))]
         tx2a_hex = txToHex(tx2a)
         self.nodes[0].sendrawtransaction(tx2a_hex, True)
 
         # Lower fee, but we'll prioritise it
         tx2b = CTransaction()
         tx2b.vin = [CTxIn(tx1_outpoint, nSequence=0)]
-        tx2b.vout = [CTxOut(int(1.01 * COIN), CScript([b'a' * 35]))]
+        tx2b.vout = [CTxOut(int(1.01 * COIN), CScript([b'a' * 35])), CTxOut(int(1.1*COIN-1.01*COIN))]
         tx2b.rehash()
         tx2b_hex = txToHex(tx2b)
 
@@ -562,6 +573,7 @@ class ReplaceByFeeTest(BitcoinTestFramework):
         us0 = self.nodes[0].listunspent()[0]
         ins = [us0]
         outs = {self.nodes[0].getnewaddress() : Decimal(1.0000000)}
+        outs["fee"] = us0["amount"] - Decimal(1.0000000)
         rawtx0 = self.nodes[0].createrawtransaction(ins, outs, 0, True)
         rawtx1 = self.nodes[0].createrawtransaction(ins, outs, 0, False)
         json0  = self.nodes[0].decoderawtransaction(rawtx0)

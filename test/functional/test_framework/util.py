@@ -517,6 +517,7 @@ def create_confirmed_utxos(fee, node, count):
         send_value = t['amount'] - fee
         outputs[addr1] = satoshi_round(send_value / 2)
         outputs[addr2] = satoshi_round(send_value / 2)
+        outputs["fee"] = fee
         raw_tx = node.createrawtransaction(inputs, outputs)
         signed_tx = node.signrawtransactionwithwallet(raw_tx)["hex"]
         node.sendrawtransaction(signed_tx)
@@ -539,7 +540,7 @@ def gen_return_txouts():
         script_pubkey = script_pubkey + "01"
     # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
     txouts = []
-    from .messages import CTxOut
+    from .messages import CTxOut, CTxOutValue
     for k in range(128):
         txout = CTxOut()
         txout.nValue = CTxOutValue(0)
@@ -559,6 +560,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
         outputs = {}
         change = t['amount'] - fee
         outputs[addr] = satoshi_round(change)
+        outputs["fee"] = fee
         rawtx = node.createrawtransaction(inputs, outputs)
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(rawtx)))
