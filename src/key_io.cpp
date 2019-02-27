@@ -34,6 +34,9 @@ public:
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_PUBKEY_ADDRESS : CChainParams::PUBKEY_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
         data.insert(data.end(), id.begin(), id.end());
+        if (id.blinding_pubkey.IsFullyValid()) {
+            data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+        }
         return EncodeBase58Check(data);
     }
 
@@ -42,6 +45,10 @@ public:
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_SCRIPT_ADDRESS : CChainParams::SCRIPT_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
         data.insert(data.end(), id.begin(), id.end());
+        if (id.blinding_pubkey.IsFullyValid()) {
+            data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+        }
+
         return EncodeBase58Check(data);
     }
 
@@ -50,6 +57,10 @@ public:
         std::vector<unsigned char> data = {0};
         data.reserve(33);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
+        if (id.blinding_pubkey.IsFullyValid()) {
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+        }
+
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
         return bech32::Encode(hrp, data);
     }
@@ -59,6 +70,10 @@ public:
         std::vector<unsigned char> data = {0};
         data.reserve(53);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
+        if (id.blinding_pubkey.IsFullyValid()) {
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+        }
+
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
         return bech32::Encode(hrp, data);
     }
@@ -71,6 +86,10 @@ public:
         std::vector<unsigned char> data = {(unsigned char)id.version};
         data.reserve(1 + (id.length * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
+        if (id.blinding_pubkey.IsFullyValid()) {
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+        }
+
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
         return bech32::Encode(hrp, data);
     }
@@ -82,6 +101,7 @@ public:
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, const bool for_parent)
 {
     std::vector<unsigned char> data;
+    size_t pk_size = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
     uint160 hash;
     if (DecodeBase58Check(str, data)) {
         // base58-encoded Bitcoin addresses.
@@ -92,6 +112,11 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
             return PKHash(hash);
+        } else if (data.size() == hash.size() + pubkey_prefix.size() + pk_size && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
+            std::copy(data.begin() + pubkey_prefix.size(), data.end()-pk_size, hash.begin());
+            CPubKey pubkey;
+            pubkey.Set(data.end()-pk_size, data.end());
+            return PKHash(hash, pubkey);
         }
         // Script-hash-addresses have version 5 (or 196 testnet).
         // The data vector contains RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
@@ -100,6 +125,11 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return ScriptHash(hash);
+        } else if (data.size() == hash.size() + script_prefix.size() + pk_size && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
+            std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
+            CPubKey pubkey;
+            pubkey.Set(data.end()-pk_size, data.end());
+            return ScriptHash(hash, pubkey);
         }
     }
     data.clear();

@@ -245,6 +245,11 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
+    // Get blinded destination
+    if (g_con_elementswitness) {
+        CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
+        dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
+    }
 
     pwallet->SetAddressBook(dest, label, "receive");
 

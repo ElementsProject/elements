@@ -83,6 +83,8 @@ struct PKHash : public uint160
     PKHash() : uint160() {}
     explicit PKHash(const uint160& hash) : uint160(hash) {}
     explicit PKHash(const CPubKey& pubkey);
+    explicit PKHash(const CPubKey& pubkey, const CPubKey& blinding_pubkey);
+    explicit PKHash(const uint160& hash, const CPubKey& blinding_pubkey);
     using uint160::uint160;
     CPubKey blinding_pubkey;
 };
@@ -92,6 +94,8 @@ struct ScriptHash : public uint160
     ScriptHash() : uint160() {}
     explicit ScriptHash(const uint160& hash) : uint160(hash) {}
     explicit ScriptHash(const CScript& script);
+    explicit ScriptHash(const CScript& script, const CPubKey& blinding_pubkey);
+    explicit ScriptHash(const uint160& hash, const CPubKey& blinding_pubkey);
     using uint160::uint160;
     CPubKey blinding_pubkey;
 };
@@ -101,6 +105,7 @@ struct WitnessV0ScriptHash : public uint256
     WitnessV0ScriptHash() : uint256() {}
     explicit WitnessV0ScriptHash(const uint256& hash) : uint256(hash) {}
     explicit WitnessV0ScriptHash(const CScript& script);
+    explicit WitnessV0ScriptHash(const CScript& script, const CPubKey& blinding_pubkey);
     using uint256::uint256;
     CPubKey blinding_pubkey;
 };
@@ -109,6 +114,7 @@ struct WitnessV0KeyHash : public uint160
 {
     WitnessV0KeyHash() : uint160() {}
     explicit WitnessV0KeyHash(const uint160& hash) : uint160(hash) {}
+    explicit WitnessV0KeyHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
     using uint160::uint160;
     CPubKey blinding_pubkey;
 };

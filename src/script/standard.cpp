@@ -22,13 +22,24 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
 ScriptHash::ScriptHash(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
+ScriptHash::ScriptHash(const CScript& in, const CPubKey& blinding_pubkey_in) : uint160(Hash160(in.begin(), in.end())), blinding_pubkey(blinding_pubkey_in) {}
+ScriptHash::ScriptHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
 
 PKHash::PKHash(const CPubKey& pubkey) : uint160(pubkey.GetID()) {}
+PKHash::PKHash(const CPubKey& pubkey, const CPubKey& blinding_pubkey_in) : uint160(pubkey.GetID()), blinding_pubkey(blinding_pubkey_in) {}
+PKHash::PKHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
 
 WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
 {
     CSHA256().Write(in.data(), in.size()).Finalize(begin());
 }
+
+WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in, const CPubKey& blinding_pubkey_in)
+{
+    CSHA256().Write(in.data(), in.size()).Finalize(begin());
+    blinding_pubkey = blinding_pubkey_in;
+}
+
 
 const char* GetTxnOutputType(txnouttype t)
 {
