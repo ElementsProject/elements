@@ -78,8 +78,7 @@ BASE_SCRIPTS = [
     'feature_block.py',
     'rpc_fundrawtransaction.py',
     'p2p_compactblocks.py',
-    # ELEMENTS: no transitions in Elements
-    #'feature_segwit.py',
+    'feature_segwit.py',
     # vv Tests less than 2m vv
     'wallet_basic.py',
     'wallet_labels.py',
