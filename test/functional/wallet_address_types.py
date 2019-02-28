@@ -94,7 +94,7 @@ class AddressTypeTest(BitcoinTestFramework):
         if confirmed:
             return [self.nodes[i].getbalance()['bitcoin'] for i in range(4)]
         else:
-            return [self.nodes[i].getunconfirmedbalance() for i in range(4)]
+            return [self.nodes[i].getunconfirmedbalance()['bitcoin'] for i in range(4)]
 
     def test_address(self, node, address, multisig, typ):
         """Run sanity checks on an address."""
