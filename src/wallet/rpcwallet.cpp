@@ -5630,6 +5630,8 @@ UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue importblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue importissuanceblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue dumpblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
+UniValue dumpissuanceblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
 UniValue importprivkey(const JSONRPCRequest& request);
 UniValue importaddress(const JSONRPCRequest& request);
 UniValue importpubkey(const JSONRPCRequest& request);
@@ -5711,7 +5713,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
     { "wallet",             "importblindingkey",                &importblindingkey, {"address", "hexkey"}},
     { "wallet",             "importissuanceblindingkey",        &importissuanceblindingkey, {"txid", "vin", "blindingkey"}},
-
+    { "wallet",             "dumpblindingkey",                  &dumpblindingkey, {"address"}},
+    { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey, {"txid", "vin"}},
     { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
 };
 // clang-format on
