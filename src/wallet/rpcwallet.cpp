@@ -5629,6 +5629,333 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
     return result;
 }
 
+static void SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, bool blind_issuancess, uint256& entropy, CAsset& reissue_asset, CAsset& reissue_token, CMutableTransaction& mtx, CWallet* pwallet)
+{
+
+    CAmount curBalance = pwallet->GetBalance()[reissue_token];
+
+    if (!reissue_token.IsNull() && curBalance <= 0) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "No available reissuance tokens in wallet.");
+    }
+
+    // Might need up to 3 change keys: policyAsset, asset, and reissuance token
+    std::vector<std::unique_ptr<CReserveKey>> change_keys;
+    for (unsigned int i = 0; i < 3; i++) {
+        change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+    }
+
+    CAmount nFeeRequired;
+    std::string strError;
+    std::vector<CRecipient> vecSend;
+    int nChangePosRet = -1;
+    // Signal outputs to skip "funding" with fixed asset numbers 1, 2, ...
+    // We don't know the asset during initial issuance until inputs are chosen
+    CRecipient recipient = {asset_script, asset_amount, CAsset(uint256S("1")), asset_pubkey, false};
+    if (asset_script.size() > 0) {
+        vecSend.push_back(recipient);
+    }
+    if (token_script.size() > 0) {
+        recipient = {token_script, token_amount, CAsset(uint256S("2")), token_pubkey, false};
+        // We need to select the issuance token(s) to spend
+        if (!reissue_token.IsNull()) {
+            recipient.asset = reissue_token;
+            recipient.nAmount = curBalance; // Or 1?
+            // If the issuance token *is* the fee asset, subtract fee from this output
+            if (reissue_token == ::policyAsset) {
+                recipient.fSubtractFeeFromAmount = true;
+            }
+        }
+        vecSend.push_back(recipient);
+    }
+    CCoinControl dummy_control; // TODO: Smuggle in issuance information using this?
+    CTransactionRef tx_ref(MakeTransactionRef(mtx));
+    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true)) { // TODO: Add issuance details here once CreateTransaction scaffolding in place
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+    CValidationState state;
+    mapValue_t map_value;
+    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
+}
+
+UniValue issueasset(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "issueasset assetamount tokenamount ( blind )\n"
+            "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
+            "\nArguments:\n"
+            "1. \"assetamount\"           (numeric or string, required) Amount of asset to generate.\n"
+            "2. \"tokenamount\"           (numeric or string, required) Amount of reissuance tokens to generate. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance.\n"
+            "3. \"blind\"                 (bool, optional, default=true) Whether to blind the issuances.\n"
+            "\nResult:\n"
+            "{                        (json object)\n"
+            "  \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "  \"vin\":\"n\",         (numeric) The input position of the issuance in the transaction.\n"
+            "  \"entropy\":\"<entropy>\", (string) Entropy of the asset type.\n"
+            "  \"asset\":\"<asset>\", (string) Asset type for issuance.\n"
+            "  \"token\":\"<token>\", (string) Token type for issuance.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("issueasset", "10 0")
+            + HelpExampleRpc("issueasset", "10, 0")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    CAmount nAmount = AmountFromValue(request.params[0]);
+    CAmount nTokens = AmountFromValue(request.params[1]);
+    if (nAmount == 0 && nTokens == 0) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
+    }
+
+    bool blind_issuances = request.params.size() < 3 || request.params[2].get_bool();
+
+    if (!pwallet->IsLocked())
+        pwallet->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    CTxDestination asset_dest;
+    CTxDestination token_dest;
+    CPubKey asset_dest_blindpub;
+    CPubKey token_dest_blindpub;
+
+    if (nAmount > 0) {
+        if (!pwallet->GetKeyFromPool(newKey)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        }
+        asset_dest = PKHash(newKey.GetID());
+        pwallet->SetAddressBook(asset_dest, "", "receive");
+        asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+    }
+    if (nTokens > 0) {
+        if (!pwallet->GetKeyFromPool(newKey)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        }
+        token_dest = PKHash(newKey.GetID());
+        pwallet->SetAddressBook(token_dest, "", "receive");
+        token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+    }
+
+    CMutableTransaction mtx;
+    uint256 dummyentropy;
+    CAsset dummyasset;
+    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, blind_issuances, dummyentropy, dummyasset, dummyasset, mtx, pwallet);
+
+    // Calculate asset type, assumes first vin is used for issuance
+    uint256 entropy;
+    CAsset asset;
+    CAsset token;
+    GenerateAssetEntropy(entropy, mtx.vin[0].prevout, uint256());
+    CalculateAsset(asset, entropy);
+    CalculateReissuanceToken(token, entropy, blind_issuances);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("txid", mtx.GetHash().GetHex());
+    ret.pushKV("vin", 0);
+    ret.pushKV("entropy", entropy.GetHex());
+    ret.pushKV("asset", asset.GetHex());
+    ret.pushKV("token", token.GetHex());
+    return ret;
+}
+
+UniValue reissueasset(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "reissueasset asset assetamount\n"
+            "\nCreate more of an already issued asset. Must have reissuance token in wallet to do so. Reissuing does not affect your reissuance token balance, only asset.\n"
+            "\nArguments:\n"
+            "1. \"asset\"                 (string, required) The asset you want to re-issue. The corresponding token must be in your wallet.\n"
+            "2. \"assetamount\"           (numeric or string, required) Amount of additional asset to generate.\n"
+            "\nResult:\n"
+            "{                        (json object)\n"
+            "  \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "  \"vin\":\"n\",         (numeric) The input position of the issuance in the transaction.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("reissueasset", "<asset> 0")
+            + HelpExampleRpc("reissueasset", "<asset>, 0")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    std::string assetstr = request.params[0].get_str();
+
+    CAsset asset = GetAssetFromString(assetstr);
+
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Reissuance must create a non-zero amount.");
+
+    if (!pwallet->IsLocked())
+        pwallet->TopUpKeyPool();
+
+    // Find the entropy and reissuance token in wallet
+    std::map<uint256, std::pair<CAsset, CAsset> > tokenMap = pwallet->GetReissuanceTokenTypes();
+    CAsset reissuanceToken;
+    uint256 entropy;
+    for (const auto& it : tokenMap) {
+        if (it.second.second == asset) {
+            reissuanceToken = it.second.first;
+            entropy = it.first;
+        }
+        if (it.second.first == asset) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Asset given is a reissuance token type and can not be reissued.");
+        }
+    }
+    if (reissuanceToken.IsNull()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Asset reissuance token definition could not be found in wallet.");
+    }
+
+    CPubKey newKey;
+    CKeyID keyID;
+    CTxDestination asset_dest;
+    CPubKey asset_dest_blindpub;
+    CTxDestination token_dest;
+    CPubKey token_dest_blindpub;
+
+    // Add destination for the to-be-created asset
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+    asset_dest = PKHash(newKey.GetID());
+    pwallet->SetAddressBook(asset_dest, "", "receive");
+    asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+
+    // Add destination for tokens we are moving
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+    token_dest = PKHash(newKey.GetID());
+    pwallet->SetAddressBook(token_dest, "", "receive");
+    token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+
+    // Attempt a send.
+    CMutableTransaction mtx;
+    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, true, entropy, asset, reissuanceToken, mtx, pwallet);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("txid", mtx.GetHash().GetHex());
+    for (uint64_t i = 0; i < mtx.vin.size(); i++) {
+        if (!mtx.vin[i].assetIssuance.IsNull()) {
+            obj.pushKV("vin", i);
+            break;
+        }
+    }
+
+    return obj;
+}
+
+UniValue listissuances(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() > 1)
+        throw std::runtime_error(
+            "listissuances ( asset ) \n"
+            "\nList all issuances known to the wallet for the given asset, or for all issued assets if none provided.\n"
+            "\nArguments:\n"
+            "1. \"asset\"                 (string, optional) The asset whose issaunces you wish to list. Accepts either the asset hex or the locally assigned asset label.\n"
+            "\nResult:\n"
+            "[                     (json array of objects)\n"
+            "  {\n"
+            "    \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
+            "    \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
+            "    \"asset\":\"<asset>\", (string) Asset type for issuance if known.\n"
+            "    \"assetlabel\":\"<assetlabel>\", (string) Asset label for issuance if set.\n"
+            "    \"token\":\"<token>\", (string) Token type for issuance.\n"
+            "    \"vin\":\"n\",         (numeric) The input position of the issuance in the transaction.\n"
+            "    \"assetamount\":\"X.XX\",     (numeric) The amount of asset issued. Is -1 if blinded and unknown to wallet.\n"
+            "    \"tokenamount\":\"X.XX\",     (numeric) The reissuance token amount issued. Is -1 if blinded and unknown to wallet.\n"
+            "    \"isreissuance\":\"<bool>\",  (bool) True if this is a reissuance.\n"
+            "    \"assetblinds\":\"<blinder>\" (string) Hex blinding factor for asset amounts.\n"
+            "    \"tokenblinds\":\"<blinder>\" (string) Hex blinding factor for token amounts.\n"
+            "  }\n"
+            "  ,...\n"
+            "]\n"
+            "\"\"                 (array) List of transaction issuances and information in wallet\n"
+            + HelpExampleCli("listissuances", "<asset>")
+            + HelpExampleRpc("listissuances", "<asset>")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    std::string assetstr;
+    CAsset asset_filter;
+    if (request.params.size() > 0) {
+        assetstr = request.params[0].get_str();
+        asset_filter = GetAssetFromString(assetstr);
+    }
+
+    UniValue issuancelist(UniValue::VARR);
+    for (const auto& it : pwallet->mapWallet) {
+        const CWalletTx* pcoin = &it.second;
+        CAsset asset;
+        CAsset token;
+        uint256 entropy;
+        for (uint64_t vinIndex = 0; vinIndex < pcoin->tx->vin.size(); vinIndex++) {
+            UniValue item(UniValue::VOBJ);
+            const CAssetIssuance& issuance = pcoin->tx->vin[vinIndex].assetIssuance;
+            if (issuance.IsNull()) {
+                continue;
+            }
+            if (issuance.assetBlindingNonce.IsNull()) {
+                GenerateAssetEntropy(entropy, pcoin->tx->vin[vinIndex].prevout, issuance.assetEntropy);
+                CalculateAsset(asset, entropy);
+                // Null is considered explicit
+                CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
+                item.pushKV("isreissuance", false);
+                item.pushKV("token", token.GetHex());
+                CAmount itamount = pcoin->GetIssuanceAmount(vinIndex, true);
+                item.pushKV("tokenamount", (itamount == -1 ) ? -1 : ValueFromAmount(itamount));
+                item.pushKV("tokenblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, true).GetHex());
+                item.pushKV("entropy", entropy.GetHex());
+            } else {
+                CalculateAsset(asset, issuance.assetEntropy);
+                item.pushKV("isreissuance", true);
+                item.pushKV("entropy", issuance.assetEntropy.GetHex());
+            }
+            item.pushKV("txid", pcoin->tx->GetHash().GetHex());
+            item.pushKV("vin", vinIndex);
+            item.pushKV("asset", asset.GetHex());
+            const std::string label = gAssetsDir.GetLabel(asset);
+            if (label != "") {
+                item.pushKV("assetlabel", label);
+            }
+            CAmount iaamount = pcoin->GetIssuanceAmount(vinIndex, false);
+            item.pushKV("assetamount", (iaamount == -1 ) ? -1 : ValueFromAmount(iaamount));
+            item.pushKV("assetblinds", pcoin->GetIssuanceBlindingFactor(vinIndex, false).GetHex());
+            if (!asset_filter.IsNull() && asset_filter != asset) {
+                continue;
+            }
+            issuancelist.push_back(item);
+        }
+    }
+    return issuancelist;
+
+}
+
 
 // END ELEMENTS commands
 //
@@ -5723,6 +6050,9 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpblindingkey",                  &dumpblindingkey, {"address"}},
     { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey, {"txid", "vin"}},
     { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
+    { "wallet",             "listissuances",                    &listissuances, {"asset"}},
+    { "wallet",             "issueasset",                       &issueasset, {"assetamount", "tokenamount", "blind"}},
+    { "wallet",             "reissueasset",                     &reissueasset, {"asset, assetamount"}},
 };
 // clang-format on
 
