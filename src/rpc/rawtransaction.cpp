@@ -782,6 +782,7 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
         }
 
        std::vector<unsigned char> datavec(ParseHex(data));
+       datavec.resize(33, 0);
             
         if (userkey.isStr()) {
             //for userkey: reverse the last 30 bytes so that this key cannot be used to spend the tx        

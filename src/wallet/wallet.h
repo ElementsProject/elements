@@ -856,7 +856,9 @@ public:
 
     //The onboarding private key, either randomly selected or set by the user.
     CPubKey GetOnboardUserPubKey(){return _onboardUserPubKey;}
+    //The onboard public key is set on wallet initialization.
     void SetOnboardUserPubKey(CPubKey val){_onboardUserPubKey = val;}
+
 
     /**
      * Increment the next transaction order id

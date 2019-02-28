@@ -780,8 +780,11 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     file << "# End of dump\n";
     file.close();
 
-    AuditLogPrintf("%s : dumpkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[1].get_str());
-
+    if(request.params.size() == 2){
+        AuditLogPrintf("%s : dumpkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[1].get_str());
+    } else {
+        AuditLogPrintf("%s : dumpkycfile %s\n", getUser(), request.params[0].get_str());
+    }
     return NullUniValue;
 }
 

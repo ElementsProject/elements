@@ -434,7 +434,8 @@ void CWhiteList::clear(){
 bool CWhiteList::is_whitelisted(const CKeyID& keyId){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(!find(&keyId)) return false;
-  //if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
+  if(_kycMap[keyId] == CKeyID()) return true;
+  if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
   return true;
 }
 
