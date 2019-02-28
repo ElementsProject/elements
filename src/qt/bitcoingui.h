@@ -221,7 +221,7 @@ public Q_SLOTS:
     bool handlePaymentRequest(const SendCoinsRecipient& recipient);
 
     /** Show incoming transaction notification for new transactions. */
-    void incomingTransaction(const QString& date, int unit, const CAmount& amount, const QString& type, const QString& address, const QString& label, const QString& walletName);
+    void incomingTransaction(const QString& date, const QString& assetamount_str, const QString& type, const QString& address, const QString& label, const QString& walletName);
 #endif // ENABLE_WALLET
 
 private:

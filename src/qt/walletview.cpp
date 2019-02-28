@@ -165,13 +165,13 @@ void WalletView::processNewTransaction(const QModelIndex& parent, int start, int
         return;
 
     QString date = ttm->index(start, TransactionTableModel::Date, parent).data().toString();
-    qint64 amount = ttm->index(start, TransactionTableModel::Amount, parent).data(Qt::EditRole).toULongLong();
+    QString assetamount_str = ttm->index(start, TransactionTableModel::Amount, parent).data().toString();
     QString type = ttm->index(start, TransactionTableModel::Type, parent).data().toString();
     QModelIndex index = ttm->index(start, 0, parent);
     QString address = ttm->data(index, TransactionTableModel::AddressRole).toString();
     QString label = ttm->data(index, TransactionTableModel::LabelRole).toString();
 
-    Q_EMIT incomingTransaction(date, walletModel->getOptionsModel()->getDisplayUnit(), amount, type, address, label, walletModel->getWalletName());
+    Q_EMIT incomingTransaction(date, walletModel->getOptionsModel()->getDisplayUnit(), assetamount_str, address, label, walletModel->getWalletName());
 }
 
 void WalletView::gotoOverviewPage()
