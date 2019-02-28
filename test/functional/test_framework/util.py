@@ -592,9 +592,10 @@ def find_vout_for_address(node, txid, addr):
     given address. Raises runtime error exception if not found.
     """
     tx = node.getrawtransaction(txid, True)
+    unblind_addr = node.validateaddress(addr)["unconfidential"]
     for i in range(len(tx["vout"])):
         if tx["vout"][i]["scriptPubKey"]["type"] == "fee":
             continue
-        if any([addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
+        if any([unblind_addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))
