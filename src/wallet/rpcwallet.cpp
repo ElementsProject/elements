@@ -1627,6 +1627,11 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("category", "receive");
             }
             entry.pushKV("amount", ValueFromAmount(r.amount));
+            if (g_con_elementswitness) {
+                entry.pushKV("amountblinder", r.amount_blinding_factor.GetHex());
+                entry.pushKV("asset", r.asset.GetHex());
+                entry.pushKV("assetblinder", r.asset_blinding_factor.GetHex());
+            }
             if (pwallet->mapAddressBook.count(r.destination)) {
                 entry.pushKV("label", label);
             }

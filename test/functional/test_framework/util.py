@@ -319,6 +319,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
         # Elements:
+        f.write("con_parent_pegged_asset=" + BITCOIN_ASSET + "\n")
         f.write("con_blocksubsidy=5000000000\n")
         f.write("con_connect_coinbase=0\n")
         f.write("anyonecanspendaremine=0\n")

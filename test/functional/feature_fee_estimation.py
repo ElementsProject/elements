@@ -61,6 +61,7 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
             raise RuntimeError("Insufficient funds: need %d, have %d" % (amount + fee, total_in))
     tx.vout.append(CTxOut(int((total_in - amount - fee) * COIN), P2SH_1))
     tx.vout.append(CTxOut(int(amount * COIN), P2SH_2))
+    tx.vout.append(CTxOut(int(fee*COIN))) # fee
     # These transactions don't need to be signed, but we still have to insert
     # the ScriptSig that will satisfy the ScriptPubKey.
     for inp in tx.vin:
@@ -87,6 +88,7 @@ def split_inputs(from_node, txins, txouts, initial_split=False):
     rem_change = prevtxout["amount"] - half_change - Decimal("0.00001000")
     tx.vout.append(CTxOut(int(half_change * COIN), P2SH_1))
     tx.vout.append(CTxOut(int(rem_change * COIN), P2SH_2))
+    tx.vout.append(CTxOut(int(0.00001*COIN))) # fee
 
     # If this is the initial split we actually need to sign the transaction
     # Otherwise we just need to insert the proper ScriptSig

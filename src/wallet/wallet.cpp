@@ -1550,7 +1550,7 @@ void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
     CAmountMap mapDebit = GetDebit(filter);
     if (mapDebit > CAmountMap()) // debit>0 means we signed/sent this transaction
     {
-        nFee = GetFeeMap(*tx)[::policyAsset];
+        nFee = -GetFeeMap(*tx)[::policyAsset];
     }
 
     // Sent/received.
