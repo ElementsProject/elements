@@ -564,6 +564,88 @@ UniValue dumpassetlabels(const JSONRPCRequest& request)
     return obj;
 }
 
+class BlindingPubkeyAdderVisitor : public boost::static_visitor<>
+{
+public:
+    CPubKey blind_key;
+    explicit BlindingPubkeyAdderVisitor(const CPubKey& blind_key_in) : blind_key(blind_key_in) {}
+
+    void operator()(const CNoDestination& dest) const {}
+
+    void operator()(PKHash& keyID) const
+    {
+        keyID.blinding_pubkey = blind_key;
+    }
+
+    void operator()(ScriptHash& scriptID) const
+    {
+        scriptID.blinding_pubkey = blind_key;
+    }
+
+    void operator()(WitnessV0KeyHash& id) const
+    {
+        id.blinding_pubkey = blind_key;
+    }
+
+    void operator()(WitnessV0ScriptHash& id) const
+    {
+        id.blinding_pubkey = blind_key;
+    }
+
+    void operator()(WitnessUnknown& id) const
+    {
+        id.blinding_pubkey = blind_key;
+    }
+
+    void operator()(const NullData& id) const {}
+};
+
+
+UniValue createblindedaddress(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+    {
+        throw std::runtime_error(
+            "createblindedaddress address blinding_key\n"
+            "\nCreates a blinded address using the provided blinding key.\n"
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The unblinded address to be blinded.\n"
+            "2. \"blinding_key\"            (string, required) The blinding public key. This can be obtained for a given address using `validateaddress`.\n"
+            "\nResult:\n"
+            "\"blinded_address\"   (string) The blinded address.\n"
+            "\nExamples:\n"
+            "\nCreate a multisig address from 2 addresses\n"
+            + HelpExampleCli("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16 ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d") +
+            "\nAs a json rpc call\n"
+            + HelpExampleRpc("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16, ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d")
+            );
+    }
+
+    CTxDestination address = DecodeDestination(request.params[0].get_str());
+    if (!IsValidDestination(address)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address or script");
+    }
+    if (IsBlindDestination(address)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not an unblinded address");
+    }
+
+    if (!IsHex(request.params[1].get_str())) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
+    }
+    std::vector<unsigned char> keydata = ParseHex(request.params[1].get_str());
+    if (keydata.size() != 33) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length, must be length 66.");
+    }
+
+    CPubKey key;
+    key.Set(keydata.begin(), keydata.end());
+
+    // Append blinding key and return
+    boost::apply_visitor(BlindingPubkeyAdderVisitor(key), address);
+    return EncodeDestination(address);
+}
+
+
 // END ELEMENTS CALLS
 //
 
@@ -582,6 +664,7 @@ static const CRPCCommand commands[] =
     { "util",               "getpakinfo",             &getpakinfo,             {}},
     { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script"} },
     { "util",               "dumpassetlabels",        &dumpassetlabels,        {}},
+    { "util",               "createblindedaddress",   &createblindedaddress,   {"address", "blinding_key"}},
     { "hidden",             "calcfastmerkleroot",     &calcfastmerkleroot,     {"leaves"} },
 
     /* Not shown in help */
