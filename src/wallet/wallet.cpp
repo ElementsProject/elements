@@ -2880,6 +2880,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 const CAmountMap mapChange = mapValueIn - mapValueToSelect;
+                LogPrintf("mapValueIn:\n");
+                PrintAmountMap(mapValueIn);
                 LogPrintf("mapChange:\n");
                 PrintAmountMap(mapChange);
                 for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
@@ -2984,6 +2986,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     // If we have change output already, just increase it
                     if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
+                        LogPrintf("extraFeePaid: %s\n", extraFeePaid);
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                         change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
                         nFeeRet -= extraFeePaid;
@@ -3003,6 +3006,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // Try to reduce change to include necessary fee
                 if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
+                    LogPrintf("Adding additional fee: %s\n", additionalFeeNeeded);
                     std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                     // Only reduce change if remaining amount is still a large enough output.
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {

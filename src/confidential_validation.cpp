@@ -353,6 +353,10 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             return false;
         }
 
+        if (tx.vout[i].IsFee()) {
+            LogPrintf("FEE\n");
+        }
+
         vData.push_back(commit);
         vpCommitsOut.push_back(p);
         p++;

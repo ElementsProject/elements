@@ -114,6 +114,8 @@ UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
     // Make sure the policyAsset is always present in the balance map.
     CAmountMap balance = balanceOrig;
     balance[::policyAsset] += 0;
+    LogPrintf("AmountMapToUniv:\n");
+    PrintAmountMap(balance);
 
     // If we don't do assets or a specific asset is given, we filter out once asset.
     if (!g_con_elementswitness || strasset != "") {
