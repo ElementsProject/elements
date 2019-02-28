@@ -352,6 +352,9 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[1].importaddress(address_to_import)
 
         # 3. Validate that the imported address is watch-only on node1
+        # ELEMENTS: not watching without blinding key, watchonly with blinding key
+        assert(not self.nodes[1].getaddressinfo(address_to_import)["iswatchonly"])
+        self.nodes[1].importblindingkey(address_to_import, self.nodes[2].dumpblindingkey(address_to_import))
         assert(self.nodes[1].getaddressinfo(address_to_import)["iswatchonly"])
 
         # 4. Check that the unspents after import are not spendable

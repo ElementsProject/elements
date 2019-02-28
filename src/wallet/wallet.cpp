@@ -2801,7 +2801,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // individually and set the export variable in the end.
                 std::map<CAsset, int> vChangePosInOut;
                 if (nChangePosRequest >= 0) {
-                    vChangePosInOut[policyAsset] = nChangePosRequest;
+                    vChangePosInOut[::policyAsset] = nChangePosRequest;
                 }
 
                 txNew.vin.clear();
@@ -2810,7 +2810,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 CAmountMap mapValueToSelect = mapValue;
                 if (nSubtractFeeFromAmount == 0)
-                    mapValueToSelect[policyAsset] += nFeeRet;
+                    mapValueToSelect[::policyAsset] += nFeeRet;
 
                 // vouts to the payees
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
@@ -2886,6 +2886,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 PrintAmountMap(mapChange);
                 for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
                     if (it->second == 0) {
+                        vChangePosInOut.erase(it->first);
                         continue;
                     }
 
@@ -2897,6 +2898,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     // The nChange when BnB is used is always going to go to fees.
                     if (it->first == policyAsset && (IsDust(newTxOut, discard_rate) || bnb_used))
                     {
+                        vChangePosInOut.erase(it->first);
                         nFeeRet += it->second;
                     }
                     else
@@ -2918,7 +2920,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                 }
                 // Set the correct nChangePosInOut for output.  Should be policyAsset's position.
-                std::map<CAsset, int>::const_iterator itPos = vChangePosInOut.find(policyAsset);
+                std::map<CAsset, int>::const_iterator itPos = vChangePosInOut.find(::policyAsset);
                 if (itPos != vChangePosInOut.end()) {
                     nChangePosInOut = itPos->second;
                 } else {
@@ -2927,7 +2929,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Add fee output.
-                CTxOut fee(policyAsset, nFeeRet, CScript());
+                CTxOut fee(::policyAsset, nFeeRet, CScript());
                 assert(fee.IsFee());
                 txNew.vout.push_back(fee);
                 //TODO(rebase) 
