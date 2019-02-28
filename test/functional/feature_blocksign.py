@@ -97,12 +97,12 @@ class BlockSignTest(BitcoinTestFramework):
         if make_transactions:
             print(mineridx)
             for i in range(5):
-                print(miner.getbalance()[BITCOIN_ASSET])
-                print(int(miner.getbalance()[BITCOIN_ASSET]/10))
-                txid = miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()[BITCOIN_ASSET]/10), "", "", True)
+                print(miner.getbalance()['bitcoin'])
+                print(int(miner.getbalance()['bitcoin']/10))
+                txid = miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()['bitcoin']/10), "", "", True)
                 print(txid)
                 print(miner.getrawtransaction(txid))
-                print(miner.getbalance()[BITCOIN_ASSET])
+                print(miner.getbalance()['bitcoin'])
         # miner makes a block
         block = miner.getnewblockhex()
 

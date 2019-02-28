@@ -85,7 +85,7 @@ class RESTTest (BitcoinTestFramework):
         self.nodes[1].generatetoaddress(100, not_related_address)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], 50)
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], 50)
 
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
         self.sync_all()
@@ -93,7 +93,7 @@ class RESTTest (BitcoinTestFramework):
         self.sync_all()
         bb_hash = self.nodes[0].getbestblockhash()
 
-        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], Decimal("0.1"))
+        assert_equal(self.nodes[1].getbalance()['bitcoin'], Decimal("0.1"))
 
         self.log.info("Load the transaction using the /tx URI")
 

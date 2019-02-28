@@ -264,7 +264,7 @@ class PAKTest (BitcoinTestFramework):
         pak1_pegout_txid = self.nodes[i_pak1].sendtomainchain("", 1)["txid"]
         assert_equal(self.nodes[i_pak1].getwalletpakinfo()["bip32_counter"], "1")
         # Also spend the change to make chained payment that will be rejected as well
-        pak1_child_txid = self.nodes[i_pak1].sendtoaddress(self.nodes[i_pak1].getnewaddress(), self.nodes[i_pak1].getbalance()[BITCOIN_ASSET], "", "", True)
+        pak1_child_txid = self.nodes[i_pak1].sendtoaddress(self.nodes[i_pak1].getnewaddress(), self.nodes[i_pak1].getbalance()['bitcoin'], "", "", True)
 
 
         # Wait for node("follow the leader" conf-undefined) to get transaction in

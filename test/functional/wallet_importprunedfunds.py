@@ -77,7 +77,7 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
         # Import with no affiliated address
         assert_raises_rpc_error(-5, "No addresses", self.nodes[1].importprunedfunds, rawtxn1, proof1)
 
-        balance1 = self.nodes[1].getbalance()[BITCOIN_ASSET]
+        balance1 = self.nodes[1].getbalance()['bitcoin']
         assert_equal(balance1, Decimal(0))
 
         # Import with affiliated address with no rescan
@@ -89,7 +89,7 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
         self.nodes[1].importprivkey(privkey=address3_privkey, rescan=False)
         self.nodes[1].importprunedfunds(rawtxn3, proof3)
         assert [tx for tx in self.nodes[1].listtransactions() if tx['txid'] == txnid3]
-        balance3 = self.nodes[1].getbalance()[BITCOIN_ASSET]
+        balance3 = self.nodes[1].getbalance()['bitcoin']
         assert_equal(balance3, Decimal('0.025'))
 
         # Addresses Test - after import

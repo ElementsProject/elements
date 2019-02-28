@@ -111,7 +111,7 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['transactions'][0]['sigops'] == 2)
         self.nodes[0].generate(1) #block 162
 
-        balance_presetup = self.nodes[0].getbalance()[BITCOIN_ASSET]
+        balance_presetup = self.nodes[0].getbalance()['bitcoin']
         self.pubkey = []
         p2sh_ids = [] # p2sh_ids[NODE][VER] is an array of txids that spend to a witness version VER pkscript to an address for NODE embedded in p2sh
         wit_ids = [] # wit_ids[NODE][VER] is an array of txids that spend to a witness version VER pkscript to an address for NODE via bare witness
@@ -143,9 +143,9 @@ class SegWitTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         # Make sure all nodes recognize the transactions as theirs
-        assert_equal(self.nodes[0].getbalance()[BITCOIN_ASSET], balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
-        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 20*Decimal("49.999"))
-        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 20*Decimal("49.999"))
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
+        assert_equal(self.nodes[1].getbalance()['bitcoin'], 20*Decimal("49.999"))
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], 20*Decimal("49.999"))
 
         self.nodes[0].generate(260) #block 423
         sync_blocks(self.nodes)

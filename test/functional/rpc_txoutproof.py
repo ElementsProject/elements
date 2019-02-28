@@ -33,8 +33,8 @@ class MerkleBlockTest(BitcoinTestFramework):
 
         chain_height = self.nodes[1].getblockcount()
         assert_equal(chain_height, 105)
-        assert_equal(self.nodes[1].getbalance()[BITCOIN_ASSET], 0)
-        assert_equal(self.nodes[2].getbalance()[BITCOIN_ASSET], 0)
+        assert_equal(self.nodes[1].getbalance()['bitcoin'], 0)
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], 0)
 
         node0utxos = self.nodes[0].listunspent(1)
         tx1 = self.nodes[0].createrawtransaction([node0utxos.pop()], {self.nodes[1].getnewaddress(): 49.99, "fee": 0.01})

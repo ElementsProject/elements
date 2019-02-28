@@ -158,18 +158,18 @@ class MultiWalletTest(BitcoinTestFramework):
 
         w1, w2, w3, w4, *_ = wallets
         w1.generate(101)
-        assert_equal(w1.getbalance()[BITCOIN_ASSET], 100)
-        assert_equal(w2.getbalance()[BITCOIN_ASSET], 0)
-        assert_equal(w3.getbalance()[BITCOIN_ASSET], 0)
-        assert_equal(w4.getbalance()[BITCOIN_ASSET], 0)
+        assert_equal(w1.getbalance()['bitcoin'], 100)
+        assert_equal(w2.getbalance()['bitcoin'], 0)
+        assert_equal(w3.getbalance()['bitcoin'], 0)
+        assert_equal(w4.getbalance()['bitcoin'], 0)
 
         w1.sendtoaddress(w2.getnewaddress(), 1)
         w1.sendtoaddress(w3.getnewaddress(), 2)
         w1.sendtoaddress(w4.getnewaddress(), 3)
         w1.generate(1)
-        assert_equal(w2.getbalance()[BITCOIN_ASSET], 1)
-        assert_equal(w3.getbalance()[BITCOIN_ASSET], 2)
-        assert_equal(w4.getbalance()[BITCOIN_ASSET], 3)
+        assert_equal(w2.getbalance()['bitcoin'], 1)
+        assert_equal(w3.getbalance()['bitcoin'], 2)
+        assert_equal(w4.getbalance()['bitcoin'], 3)
 
         batch = w1.batch([w1.getblockchaininfo.get_request(), w1.getwalletinfo.get_request()])
         assert_equal(batch[0]["result"]["chain"], self.chain)

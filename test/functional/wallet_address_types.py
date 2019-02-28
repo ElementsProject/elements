@@ -92,7 +92,7 @@ class AddressTypeTest(BitcoinTestFramework):
     def get_balances(self, confirmed=True):
         """Return a list of confirmed or unconfirmed balances."""
         if confirmed:
-            return [self.nodes[i].getbalance()[BITCOIN_ASSET] for i in range(4)]
+            return [self.nodes[i].getbalance()['bitcoin'] for i in range(4)]
         else:
             return [self.nodes[i].getunconfirmedbalance() for i in range(4)]
 
@@ -263,7 +263,7 @@ class AddressTypeTest(BitcoinTestFramework):
         self.nodes[5].sendtoaddress(self.nodes[4].getnewaddress(), Decimal("1"))
         self.nodes[5].generate(1)
         sync_blocks(self.nodes)
-        assert_equal(self.nodes[4].getbalance()[BITCOIN_ASSET], 1)
+        assert_equal(self.nodes[4].getbalance()['bitcoin'], 1)
 
         self.log.info("Nodes with addresstype=legacy never use a P2WPKH change output")
         self.test_change_output_type(0, [to_address_bech32_1], 'legacy')

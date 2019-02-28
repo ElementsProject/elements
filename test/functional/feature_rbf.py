@@ -27,7 +27,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
                 unconfirmed otherwise.
     """
     fee = 1*COIN
-    while node.getbalance()[BITCOIN_ASSET] < satoshi_round((amount + fee)/COIN):
+    while node.getbalance()['bitcoin'] < satoshi_round((amount + fee)/COIN):
         node.generate(100)
 
     new_addr = node.getnewaddress()

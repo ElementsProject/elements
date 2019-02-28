@@ -70,7 +70,7 @@ class WalletGroupTest(BitcoinTestFramework):
         assert_approx(v[1], 1.3, 0.0001)
 
         # Empty out node2's wallet
-        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance()[BITCOIN_ASSET], subtractfeefromamount=True)
+        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance()['bitcoin'], subtractfeefromamount=True)
         self.sync_all()
         self.nodes[0].generate(1)
 

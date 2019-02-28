@@ -44,9 +44,9 @@ class RpcCreateMultiSigTest(BitcoinTestFramework):
         node0.generate(100)
         self.sync_all()
 
-        bal0 = node0.getbalance()[BITCOIN_ASSET]
-        bal1 = node1.getbalance()[BITCOIN_ASSET]
-        bal2 = node2.getbalance()[BITCOIN_ASSET]
+        bal0 = node0.getbalance()['bitcoin']
+        bal1 = node1.getbalance()['bitcoin']
+        bal2 = node2.getbalance()['bitcoin']
 
         height = node0.getblockchaininfo()["blocks"]
         assert 150 < height < 350

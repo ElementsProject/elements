@@ -31,7 +31,7 @@ class WalletLabelsTest(BitcoinTestFramework):
         # the same address, so we call twice to get two addresses w/50 each
         node.generate(1)
         node.generate(101)
-        assert_equal(node.getbalance()[BITCOIN_ASSET], 100)
+        assert_equal(node.getbalance()['bitcoin'], 100)
 
         # there should be 2 address groups
         # each with 1 address with a balance of 50 Bitcoins

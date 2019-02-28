@@ -62,7 +62,7 @@ class BumpFeeTest(BitcoinTestFramework):
         self.sync_all()
         peer_node.generate(1)
         self.sync_all()
-        assert_equal(rbf_node.getbalance()[BITCOIN_ASSET], Decimal("0.025"))
+        assert_equal(rbf_node.getbalance()['bitcoin'], Decimal("0.025"))
 
         self.log.info("Running tests")
         dest_address = peer_node.getnewaddress()
