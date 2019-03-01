@@ -92,6 +92,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         tx_orphan_1 = CTransaction()
         tx_orphan_1.vin.append(CTxIn(outpoint=COutPoint(tx_withhold.sha256, 0)))
         tx_orphan_1.vout = [CTxOut(nValue=10 * COIN, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE)] * 3
+        tx_orphan_1.vout.append(CTxOut(20 * COIN - 12000)) # fee
         tx_orphan_1.calc_sha256()
 
         # A valid transaction with low fee
@@ -103,6 +104,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         tx_orphan_2_valid = CTransaction()
         tx_orphan_2_valid.vin.append(CTxIn(outpoint=COutPoint(tx_orphan_1.sha256, 1)))
         tx_orphan_2_valid.vout.append(CTxOut(nValue=10 * COIN - 12000, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE))
+        tx_orphan_2_valid.vout.append(CTxOut(12000)) # fee
         tx_orphan_2_valid.calc_sha256()
 
         # An invalid transaction with negative fee
