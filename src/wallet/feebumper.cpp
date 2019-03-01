@@ -94,6 +94,10 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // if there was no change output or multiple change outputs, fail
     int nOutput = -1;
     for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
+        if (wtx.GetOutputAsset(i) != ::policyAsset) {
+            continue;
+        }
+
         if (wallet->IsChange(wtx.tx->vout[i])) {
             if (nOutput != -1) {
                 errors.push_back("Transaction has multiple change outputs");
@@ -107,8 +111,22 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         return Result::WALLET_ERROR;
     }
 
+    // Find the fee output.  Add one if none found.
+    int nFeeOutput = -1;
+    for (int i = (int)wtx.tx->vout.size()-1; i >= 0; --i) {
+        if (wtx.GetOutputAsset(i) == ::policyAsset && wtx.tx->vout[i].IsFee()) {
+            nFeeOutput = i;
+            break;
+        }
+    }
+
     // Calculate the expected size of the new transaction.
     int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
+    if (nFeeOutput == -1) {
+        CMutableTransaction with_fee_output = CMutableTransaction{*wtx.tx};
+        with_fee_output.vout.push_back(CTxOut(::policyAsset, 0, CScript()));
+        txSize = GetVirtualTransactionSize(with_fee_output);
+    }
     const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(*wtx.tx, wallet);
     if (maxNewTxSize < 0) {
         errors.push_back("Transaction contains inputs that cannot be signed");
@@ -117,7 +135,9 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
 
     // calculate the old fee and fee-rate
     old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
-    if (g_con_elementswitness) old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
+    if (g_con_elementswitness) {
+        old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
+    }
     CFeeRate nOldFeeRate(old_fee, txSize);
     CFeeRate nNewFeeRate;
     // The wallet uses a conservative WALLET_INCREMENTAL_RELAY_FEE value to
@@ -203,6 +223,16 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         if (mtx.witness.vtxoutwit.size() > (size_t) nOutput) {
             mtx.witness.vtxoutwit.erase(mtx.witness.vtxoutwit.begin() + nOutput);
         }
+        if (nFeeOutput > nOutput) {
+            --nFeeOutput;
+        }
+    }
+
+    // Update fee output or add one.
+    if (nFeeOutput >= 0) {
+        mtx.vout[nFeeOutput].nValue.SetToAmount(new_fee);
+    } else {
+        mtx.vout.push_back(CTxOut(::policyAsset, new_fee, CScript()));
     }
 
     // Mark new tx not replaceable, if requested.

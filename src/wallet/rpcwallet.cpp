@@ -1296,9 +1296,10 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (nDepth < nMinDepth)
             continue;
 
-        size_t index = 0;
-        for (const CTxOut& txout : wtx.tx->vout)
+        for (size_t index = 0; index < wtx.tx->vout.size(); ++index)
         {
+            const CTxOut& txout = wtx.tx->vout[index];
+
             CTxDestination address;
             if (!ExtractDestination(txout.scriptPubKey, address))
                 continue;
@@ -1325,8 +1326,6 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
                 item.fIsWatchonly = true;
-
-            index++;
         }
     }
 
