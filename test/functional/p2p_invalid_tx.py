@@ -70,7 +70,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         # Transaction will be rejected with code 16 (REJECT_INVALID)
         # and we get disconnected immediately
         self.log.info('Test a transaction that is rejected')
-        tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x64' * 35, amount=50 * COIN - 12000)
+        tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x64' * 35, amount=50 * COIN - 12000, fee=12000)
         node.p2p.send_txs_and_test([tx1], node, success=False, expect_disconnect=True)
 
         # Make two p2p connections to provide the node with orphans
@@ -85,6 +85,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         tx_withhold = CTransaction()
         tx_withhold.vin.append(CTxIn(outpoint=COutPoint(block1.vtx[0].sha256, 0)))
         tx_withhold.vout.append(CTxOut(nValue=50 * COIN - 12000, scriptPubKey=SCRIPT_PUB_KEY_OP_TRUE))
+        tx_withhold.vout.append(CTxOut(12000)) # fee
         tx_withhold.calc_sha256()
 
         # Our first orphan tx with some outputs to create further orphan txs
@@ -119,7 +120,7 @@ class InvalidTxRequestTest(BitcoinTestFramework):
         assert_equal(2, len(node.getpeerinfo()))  # p2ps[1] is still connected
 
         self.log.info('Send the withhold tx ... ')
-        with node.assert_debug_log(expected_msgs=["bad-txns-in-belowout"]):
+        with node.assert_debug_log(expected_msgs=["bad-txns-in-ne-out"]):
             node.p2p.send_txs_and_test([tx_withhold], node, success=True)
 
         # Transactions that should end up in the mempool

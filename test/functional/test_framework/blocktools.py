@@ -128,7 +128,7 @@ def create_coinbase(height, pubkey=None):
     coinbase.calc_sha256()
     return coinbase
 
-def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=CScript()):
+def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, fee=0, script_pub_key=CScript()):
     """Return one-input, one-output transaction object
        spending the prevtx's n-th output with the given amount.
 
@@ -138,6 +138,8 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=C
     assert(n < len(prevtx.vout))
     tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), script_sig, 0xffffffff))
     tx.vout.append(CTxOut(amount, script_pub_key))
+    if fee > 0:
+        tx.vout.append(CTxOut(fee))
     tx.calc_sha256()
     return tx
 
@@ -172,7 +174,7 @@ def get_legacy_sigopcount_block(block, accurate=True):
 def get_legacy_sigopcount_tx(tx, accurate=True):
     count = 0
     for i in tx.vout:
-        count += i.scriptPubKey.GetSigOpCount(accurate)
+        count += CScript(i.scriptPubKey).GetSigOpCount(accurate)
     for j in tx.vin:
         # scriptSig might be of type bytes, so convert to CScript for the moment
         count += CScript(j.scriptSig).GetSigOpCount(accurate)

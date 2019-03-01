@@ -78,12 +78,12 @@ class ReceivedByTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
         # Same test as above should still pass
-        expected = {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 11, "txids": [txid, ]}
+        expected = {"address": addr, "label": "", "amount": {"bitcoin": Decimal("0.1")}, "confirmations": 11, "txids": [txid, ]}
         res = self.nodes[1].listreceivedbyaddress(0, True, True, addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
         # Same test as above but with other_addr should still pass
-        expected = {"address": other_addr, "label": "", "amount": Decimal("0.1"), "confirmations": 1, "txids": [txid2, ]}
+        expected = {"address": other_addr, "label": "", "amount": {"bitcoin": Decimal("0.1")}, "confirmations": 1, "txids": [txid2, ]}
         res = self.nodes[1].listreceivedbyaddress(0, True, True, other_addr)
         assert_array_result(res, {"address": other_addr}, expected)
         assert_equal(len(res), 1)
@@ -105,17 +105,17 @@ class ReceivedByTest(BitcoinTestFramework):
 
         # Check balance is 0 because of 0 confirmations
         balance = self.nodes[1].getreceivedbyaddress(addr)
-        assert_equal(balance, Decimal("0.0"))
+        assert_equal(balance, {"bitcoin": Decimal("0.0")})
 
         # Check balance is 0.1
         balance = self.nodes[1].getreceivedbyaddress(addr, 0)
-        assert_equal(balance, Decimal("0.1"))
+        assert_equal(balance, {"bitcoin": Decimal("0.1")})
 
         # Bury Tx under 10 block so it will be returned by the default getreceivedbyaddress
         self.nodes[1].generate(10)
         self.sync_all()
         balance = self.nodes[1].getreceivedbyaddress(addr)
-        assert_equal(balance, Decimal("0.1"))
+        assert_equal(balance, {"bitcoin": Decimal("0.1")})
 
         # Trying to getreceivedby for an address the wallet doesn't own should return an error
         assert_raises_rpc_error(-4, "Address not found in wallet", self.nodes[0].getreceivedbyaddress, addr)
@@ -146,11 +146,11 @@ class ReceivedByTest(BitcoinTestFramework):
         # listreceivedbylabel should return updated received list
         assert_array_result(self.nodes[1].listreceivedbylabel(),
                             {"label": label},
-                            {"label": received_by_label_json["label"], "amount": (received_by_label_json["amount"] + Decimal("0.1"))})
+                            {"label": received_by_label_json["label"], "amount": {"bitcoin": (received_by_label_json["amount"]['bitcoin'] + Decimal("0.1"))}})
 
         # getreceivedbylabel should return updated receive total
         balance = self.nodes[1].getreceivedbylabel(label)
-        assert_equal(balance, balance_by_label + Decimal("0.1"))
+        assert_equal(balance, {"bitcoin": balance_by_label['bitcoin'] + Decimal("0.1")})
 
         # Create a new label named "mynewlabel" that has a 0 balance
         address = self.nodes[1].getnewaddress()
@@ -158,11 +158,11 @@ class ReceivedByTest(BitcoinTestFramework):
         received_by_label_json = [r for r in self.nodes[1].listreceivedbylabel(0, True) if r["label"] == "mynewlabel"][0]
 
         # Test includeempty of listreceivedbylabel
-        assert_equal(received_by_label_json["amount"], Decimal("0.0"))
+        assert_equal(received_by_label_json["amount"], {"bitcoin": Decimal("0.0")})
 
         # Test getreceivedbylabel for 0 amount labels
         balance = self.nodes[1].getreceivedbylabel("mynewlabel")
-        assert_equal(balance, Decimal("0.0"))
+        assert_equal(balance, {"bitcoin": Decimal("0.0")})
 
 if __name__ == '__main__':
     ReceivedByTest().main()
