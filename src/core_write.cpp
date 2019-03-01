@@ -288,12 +288,3 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         entry.pushKV("hex", EncodeHexTx(tx, serialize_flags)); // The hex-encoded transaction. Used the name "hex" to be consistent with the verbose output of "getrawtransaction".
     }
 }
-
-// ELEMENTS:
-UniValue AmountMapToUniv(const CAmountMap& mapValue) {
-    UniValue ret(UniValue::VOBJ);
-    for(std::map<CAsset, CAmount>::const_iterator it = mapValue.begin(); it != mapValue.end(); ++it) {
-        ret.pushKV(it->first.GetHex(), it->second);
-    }
-    return ret;
-}

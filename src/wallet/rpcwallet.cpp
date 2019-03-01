@@ -106,42 +106,6 @@ void EnsureWalletIsUnlocked(CWallet * const pwallet)
     }
 }
 
-// Attaches labeled balance reports to UniValue obj with asset filter
-// "" displays *all* assets as VOBJ pairs, while named assets must have
-// been entered via -assetdir configuration argument and are returned as VNUM.
-UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
-{
-    // Make sure the policyAsset is always present in the balance map.
-    CAmountMap balance = balanceOrig;
-    balance[::policyAsset] += 0;
-    LogPrintf("AmountMapToUniv:\n");
-    PrintAmountMap(balance);
-
-    // If we don't do assets or a specific asset is given, we filter out once asset.
-    if (!g_con_elementswitness || strasset != "") {
-        if (g_con_elementswitness) {
-            return ValueFromAmount(balance[GetAssetFromString(strasset)]);
-        } else {
-            return ValueFromAmount(balance[::policyAsset]);
-        }
-    }
-
-    UniValue obj(UniValue::VOBJ);
-    for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
-        // Unknown assets
-        if (it->first.IsNull())
-            continue;
-        UniValue pair(UniValue::VOBJ);
-        const std::string label = gAssetsDir.GetLabel(it->first);
-        if (label != "") {
-            obj.pushKV(label, ValueFromAmount(it->second));
-        } else {
-            obj.pushKV(it->first.GetHex(), ValueFromAmount(it->second));
-        }
-    }
-    return obj;
-}
-
 static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
 {
     int confirms = wtx.GetDepthInMainChain();
@@ -1272,14 +1236,13 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
 
 struct tallyitem
 {
-    CAmount nAmount; // Unused?
     CAmountMap mapAmount;
     int nConf;
     std::vector<uint256> txids;
     bool fIsWatchonly;
     tallyitem()
     {
-        nAmount = 0;
+        mapAmount = CAmountMap();
         nConf = std::numeric_limits<int>::max();
         fIsWatchonly = false;
     }
@@ -1357,7 +1320,6 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             }
 
             tallyitem& item = mapTally[address];
-            item.nAmount += wtx.GetOutputValueOut(index);
             item.mapAmount[wtx.GetOutputAsset(index)] += wtx.GetOutputValueOut(index);
             item.nConf = std::min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
@@ -1405,7 +1367,6 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (by_label)
         {
             tallyitem& _item = label_tally[label];
-            _item.nAmount += mapAmount[::policyAsset];
             _item.mapAmount += mapAmount;
             _item.nConf = std::min(_item.nConf, nConf);
             _item.fIsWatchonly = fIsWatchonly;
@@ -1416,7 +1377,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("address",       EncodeDestination(address));
-            obj.pushKV("amount",        AmountMapToUniv(mapAmount));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount, ""));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
             UniValue transactions(UniValue::VARR);
@@ -1441,7 +1402,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             UniValue obj(UniValue::VOBJ);
             if (entry.second.fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
-            obj.pushKV("amount",        AmountMapToUniv(mapAmount));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount, ""));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label",         entry.first);
             ret.push_back(obj);

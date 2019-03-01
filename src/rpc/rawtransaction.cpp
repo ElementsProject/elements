@@ -1379,7 +1379,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     UniValue tx_univ(UniValue::VOBJ);
     TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
     result.pushKV("tx", tx_univ);
-    result.pushKV("fees", AmountMapToUniv(GetFeeMap(CTransaction(*psbtx.tx))));
+    result.pushKV("fees", AmountMapToUniv(GetFeeMap(CTransaction(*psbtx.tx)), ""));
 
     // Unknown data
     UniValue unknowns(UniValue::VOBJ);

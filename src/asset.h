@@ -8,6 +8,7 @@
 
 #include <amount.h>
 #include <serialize.h>
+#include <univalue.h>
 
 /**
  *  Native Asset Issuance
@@ -104,6 +105,8 @@ inline bool MoneyRange(const CAmountMap& mapValue) {
     }
    return true;
 }
+
+UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset);
 
 void PrintAmountMap(const CAmountMap& amount);
 
