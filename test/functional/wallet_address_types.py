@@ -153,11 +153,12 @@ class AddressTypeTest(BitcoinTestFramework):
         tx = self.nodes[node_sender].decoderawtransaction(raw_tx)
 
         # Make sure the transaction has change:
-        assert_equal(len(tx["vout"]), len(destinations) + 1)
+        assert_equal(len(tx["vout"]), len(destinations) + 2)
 
         # Make sure the destinations are included, and remove them:
-        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"]]
-        change_addresses = [d for d in output_addresses if d not in destinations]
+        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"] if vout["scriptPubKey"]["type"] != "fee"]
+        unconfidential_destinations = [self.nodes[node_sender].getaddressinfo(addr)["unconfidential"] for addr in destinations]
+        change_addresses = [d for d in output_addresses if d not in unconfidential_destinations]
         assert_equal(len(change_addresses), 1)
 
         self.log.debug("Check if change address " + change_addresses[0] + " is " + expected_type)

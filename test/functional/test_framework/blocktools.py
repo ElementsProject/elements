@@ -152,13 +152,13 @@ def create_transaction(node, txid, to_address, *, amount):
     tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx)))
     return tx
 
-def create_raw_transaction(node, txid, to_address, *, amount):
+def create_raw_transaction(node, txid, to_address, *, amount, fee):
     """ Return raw signed transaction spending the first output of the
         input txid. Note that the node must be able to sign for the
         output that is being spent, and the node must not be running
         multiple wallets.
     """
-    rawtx = node.createrawtransaction(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount})
+    rawtx = node.createrawtransaction(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee})
     signresult = node.signrawtransactionwithwallet(rawtx)
     assert_equal(signresult["complete"], True)
     return signresult['hex']

@@ -68,8 +68,10 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         watchonly_address = self.nodes[0].getnewaddress()
         watchonly_pubkey = self.nodes[0].getaddressinfo(watchonly_address)["pubkey"]
+        watchonly_blindingkey = self.nodes[0].dumpblindingkey(watchonly_address)
         watchonly_amount = Decimal(200)
         self.nodes[3].importpubkey(watchonly_pubkey, "", True)
+        self.nodes[3].importblindingkey(watchonly_address, watchonly_blindingkey)
         watchonly_txid = self.nodes[0].sendtoaddress(watchonly_address, watchonly_amount)
 
         # Lock UTXO so nodes[0] doesn't accidentally spend it
@@ -160,6 +162,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         dec_tx  = self.nodes[2].decoderawtransaction(rawtxfund['hex'])
         totalOut = 0
         for out in dec_tx['vout']:
+            if out["scriptPubKey"]["type"] == "fee":
+                continue
             totalOut += out['value']
 
         assert_equal(fee + totalOut, utx['amount']) #compare vin total and totalout+fee
@@ -181,6 +185,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         dec_tx  = self.nodes[2].decoderawtransaction(rawtxfund['hex'])
         totalOut = 0
         for out in dec_tx['vout']:
+            if out["scriptPubKey"]["type"] == "fee":
+                continue
             totalOut += out['value']
 
         assert_equal(rawtxfund['changepos'], -1)
@@ -228,6 +234,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal(utx['txid'], dec_tx['vin'][0]['txid'])
 
         change = self.nodes[2].getnewaddress()
+        change = self.nodes[2].getaddressinfo(change)["unconfidential"]
         assert_raises_rpc_error(-8, "changePosition out of bounds", self.nodes[2].fundrawtransaction, rawtx, {'changeAddress':change, 'changePosition':2})
         rawtxfund = self.nodes[2].fundrawtransaction(rawtx, {'changeAddress': change, 'changePosition': 0})
         dec_tx  = self.nodes[2].decoderawtransaction(rawtxfund['hex'])
@@ -255,6 +262,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']}]
         outputs = { self.nodes[0].getnewaddress() : 1.0 }
+        output_addrs = [ self.nodes[0].getaddressinfo(addr)["unconfidential"] for addr in outputs.keys() ]
         rawtx   = self.nodes[2].createrawtransaction(inputs, outputs)
 
         # 4-byte version + 1-byte vin count + 36-byte prevout then script_len
@@ -270,8 +278,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         totalOut = 0
         matchingOuts = 0
         for i, out in enumerate(dec_tx['vout']):
+            if out["scriptPubKey"]["type"] == "fee":
+                continue
             totalOut += out['value']
-            if out['scriptPubKey']['addresses'][0] in outputs:
+            if out['scriptPubKey']['addresses'][0] in output_addrs:
                 matchingOuts+=1
             else:
                 assert_equal(i, rawtxfund['changepos'])
@@ -280,7 +290,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_equal("00", dec_tx['vin'][0]['scriptSig']['hex'])
 
         assert_equal(matchingOuts, 1)
-        assert_equal(len(dec_tx['vout']), 2)
+        assert_equal(len(dec_tx['vout']), 3)
 
 
         ###########################################
@@ -291,6 +301,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']},{'txid' : utx2['txid'], 'vout' : utx2['vout']} ]
         outputs = { self.nodes[0].getnewaddress() : 6.0 }
+        output_addrs = [ self.nodes[0].getaddressinfo(addr)["unconfidential"] for addr in outputs.keys() ]
         rawtx   = self.nodes[2].createrawtransaction(inputs, outputs)
         dec_tx  = self.nodes[2].decoderawtransaction(rawtx)
         assert_equal(utx['txid'], dec_tx['vin'][0]['txid'])
@@ -301,12 +312,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         totalOut = 0
         matchingOuts = 0
         for out in dec_tx['vout']:
+            if out["scriptPubKey"]["type"] == "fee":
+                continue
             totalOut += out['value']
-            if out['scriptPubKey']['addresses'][0] in outputs:
+            if out['scriptPubKey']['addresses'][0] in output_addrs:
                 matchingOuts+=1
 
         assert_equal(matchingOuts, 1)
-        assert_equal(len(dec_tx['vout']), 2)
+        assert_equal(len(dec_tx['vout']), 3)
 
         matchingIns = 0
         for vinOut in dec_tx['vin']:
@@ -324,6 +337,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         inputs  = [ {'txid' : utx['txid'], 'vout' : utx['vout']},{'txid' : utx2['txid'], 'vout' : utx2['vout']} ]
         outputs = { self.nodes[0].getnewaddress() : 6.0, self.nodes[0].getnewaddress() : 1.0 }
+        output_addrs = [ self.nodes[0].getaddressinfo(addr)["unconfidential"] for addr in outputs.keys() ]
         rawtx   = self.nodes[2].createrawtransaction(inputs, outputs)
         dec_tx  = self.nodes[2].decoderawtransaction(rawtx)
         assert_equal(utx['txid'], dec_tx['vin'][0]['txid'])
@@ -334,12 +348,14 @@ class RawTransactionsTest(BitcoinTestFramework):
         totalOut = 0
         matchingOuts = 0
         for out in dec_tx['vout']:
+            if out["scriptPubKey"]["type"] == "fee":
+                continue
             totalOut += out['value']
-            if out['scriptPubKey']['addresses'][0] in outputs:
+            if out['scriptPubKey']['addresses'][0] in output_addrs:
                 matchingOuts+=1
 
         assert_equal(matchingOuts, 2)
-        assert_equal(len(dec_tx['vout']), 3)
+        assert_equal(len(dec_tx['vout']), 4)
 
         ##############################################
         # test a fundrawtransaction with invalid vin #
@@ -597,7 +613,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # pre-segwit
         #rawtx   = "0100000000010000000000000000066a047465737400000000"
-        rawtx   = "010000000000010000000000000000066a047465737400000000"
+        rawtx   = "0100000000000101ac2e6a47e85fdc2a5a27334544440f2f5135553a7476f4f5e3b9792da6a58fe001000000000000000000066a047465737400000000"
         dec_tx  = self.nodes[2].decoderawtransaction(rawtx)
 
         assert_equal(len(dec_tx['vin']), 0)
@@ -607,7 +623,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         dec_tx  = self.nodes[2].decoderawtransaction(rawtxfund['hex'])
 
         assert_greater_than(len(dec_tx['vin']), 0) # at least one vin
-        assert_equal(len(dec_tx['vout']), 2) # one change output added
+        assert_equal(len(dec_tx['vout']), 3) # one change output added
 
 
         ##################################################

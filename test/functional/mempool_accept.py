@@ -5,6 +5,7 @@
 """Test mempool acceptance of raw transactions."""
 
 from io import BytesIO
+from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.messages import (
     BIP125_SEQUENCE_NUMBER,
@@ -67,7 +68,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         coin = node.listunspent()[0]  # Pick a random coin(base) to spend
         raw_tx_in_block = node.signrawtransactionwithwallet(node.createrawtransaction(
             inputs=[{'txid': coin['txid'], 'vout': coin['vout']}],
-            outputs=[{node.getnewaddress(): 0.3}, {node.getnewaddress(): 49}],
+            outputs=[{node.getnewaddress(): 0.3}, {node.getnewaddress(): 49}, {"fee": coin["amount"] - Decimal('49.3')}],
         ))['hex']
         txid_in_block = node.sendrawtransaction(hexstring=raw_tx_in_block, allowhighfees=True)
         node.generate(1)
@@ -80,7 +81,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         fee = 0.00000700
         raw_tx_0 = node.signrawtransactionwithwallet(node.createrawtransaction(
             inputs=[{"txid": txid_in_block, "vout": 0, "sequence": BIP125_SEQUENCE_NUMBER}],  # RBF is used later
-            outputs=[{node.getnewaddress(): 0.3 - fee}],
+            outputs=[{node.getnewaddress(): 0.3 - fee}, {"fee": fee}],
         ))['hex']
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
@@ -100,7 +101,9 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('A transaction that replaces a mempool transaction')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
-        tx.vout[0].nValue -= int(fee * COIN)  # Double the fee
+        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - int(fee * COIN))  # Double the fee
+        txid_0_out = tx.vout[0].nValue.getAmount()
+        tx.vout[1].nValue.setToAmount(tx.vout[1].nValue.getAmount() + int(fee * COIN))
         tx.vin[0].nSequence = BIP125_SEQUENCE_NUMBER + 1  # Now, opt out of RBF
         raw_tx_0 = node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()))['hex']
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
@@ -115,7 +118,8 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         node.sendrawtransaction(hexstring=bytes_to_hex_str(tx.serialize()), allowhighfees=True)
         # take original raw_tx_0
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
-        tx.vout[0].nValue -= int(4 * fee * COIN)  # Set more fee
+        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - int(4 * fee * COIN))  # Set more fee
+        tx.vout[1].nValue.setToAmount(tx.vout[1].nValue.getAmount() + int(4 * fee * COIN))
         # skip re-signing the tx
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '18: txn-mempool-conflict'}],
@@ -135,6 +139,8 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.log.info('A transaction with missing inputs, that existed once in the past')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
         tx.vin[0].prevout.n = 1  # Set vout to 1, to spend the other outpoint (49 coins) of the in-chain-tx we want to double spend
+        tx.vout[1].nValue.setToAmount(49*COIN - tx.vout[0].nValue.getAmount()) # fee
+        txid_1_out = tx.vout[0].nValue.getAmount()
         raw_tx_1 = node.signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize()))['hex']
         txid_1 = node.sendrawtransaction(hexstring=raw_tx_1, allowhighfees=True)
         # Now spend both to "clearly hide" the outputs, ie. remove the coins from the utxo set by spending them
@@ -143,7 +149,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
                 {'txid': txid_0, 'vout': 0},
                 {'txid': txid_1, 'vout': 0},
             ],
-            outputs=[{node.getnewaddress(): 0.1}]
+            outputs=[{node.getnewaddress(): 0.1}, {"fee": Decimal(txid_0_out + txid_1_out)/Decimal(COIN) - Decimal('0.1')}]
         ))['hex']
         txid_spend_both = node.sendrawtransaction(hexstring=raw_tx_spend_both, allowhighfees=True)
         node.generate(1)
@@ -161,7 +167,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.log.info('Create a signed "reference" tx for later use')
         raw_tx_reference = node.signrawtransactionwithwallet(node.createrawtransaction(
             inputs=[{'txid': txid_spend_both, 'vout': 0}],
-            outputs=[{node.getnewaddress(): 0.05}],
+            outputs=[{node.getnewaddress(): 0.05}, {"fee": Decimal('0.1') - Decimal('0.05')}],
         ))['hex']
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
         # Reference tx should be valid on itself
@@ -190,7 +196,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
 
         self.log.info('A transaction with negative output value')
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
-        tx.vout[0].nValue *= -1
+        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() * -1)
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '16: bad-txns-vout-negative'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],
@@ -259,7 +265,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         )
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
         tx.vout[0] = output_p2sh_burn
-        tx.vout[0].nValue -= 1  # Make output smaller, such that it is dust for our policy
+        tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - 1)  # Make output smaller, such that it is dust for our policy
         self.check_mempool_result(
             result_expected=[{'txid': tx.rehash(), 'allowed': False, 'reject-reason': '64: dust'}],
             rawtxs=[bytes_to_hex_str(tx.serialize())],

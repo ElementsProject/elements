@@ -359,7 +359,7 @@ class WalletTest(BitcoinTestFramework):
 
         # 4. Check that the unspents after import are not spendable
         assert_array_result(self.nodes[1].listunspent(),
-                            {"address": address_to_import},
+                            {"address": self.nodes[1].getaddressinfo(address_to_import)["unconfidential"]},
                             {"spendable": False})
 
         # 5. Import private key of the previously imported address on node1
@@ -368,7 +368,7 @@ class WalletTest(BitcoinTestFramework):
 
         # 6. Check that the unspents are now spendable on node1
         assert_array_result(self.nodes[1].listunspent(),
-                            {"address": address_to_import},
+                            {"address": self.nodes[1].getaddressinfo(address_to_import)["unconfidential"]},
                             {"spendable": True})
 
         # Mine a block from node0 to an address from node1

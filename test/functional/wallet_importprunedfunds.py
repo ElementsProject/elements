@@ -30,8 +30,10 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
         address1 = self.nodes[0].getnewaddress()
         # pubkey
         address2 = self.nodes[0].getnewaddress()
+        address2_blindingkey = self.nodes[0].dumpblindingkey(address2)
         # privkey
         address3 = self.nodes[0].getnewaddress()
+        address3_blindingkey = self.nodes[0].dumpblindingkey(address3)
         address3_privkey = self.nodes[0].dumpprivkey(address3)  # Using privkey
 
         # Check only one address
@@ -82,11 +84,13 @@ class ImportPrunedFundsTest(BitcoinTestFramework):
 
         # Import with affiliated address with no rescan
         self.nodes[1].importaddress(address=address2, rescan=False)
+        self.nodes[1].importblindingkey(address2, address2_blindingkey)
         self.nodes[1].importprunedfunds(rawtxn2, proof2)
         assert [tx for tx in self.nodes[1].listtransactions(include_watchonly=True) if tx['txid'] == txnid2]
 
         # Import with private key with no rescan
         self.nodes[1].importprivkey(privkey=address3_privkey, rescan=False)
+        self.nodes[1].importblindingkey(address3, address3_blindingkey)
         self.nodes[1].importprunedfunds(rawtxn3, proof3)
         assert [tx for tx in self.nodes[1].listtransactions() if tx['txid'] == txnid3]
         balance3 = self.nodes[1].getbalance()['bitcoin']

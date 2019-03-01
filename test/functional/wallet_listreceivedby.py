@@ -48,11 +48,11 @@ class ReceivedByTest(BitcoinTestFramework):
         self.sync_all()
         assert_array_result(self.nodes[1].listreceivedbyaddress(),
                             {"address": addr},
-                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
+                            {"address": addr, "label": "", "amount": {"bitcoin": Decimal("0.1")}, "confirmations": 10, "txids": [txid, ]})
         # With min confidence < 10
         assert_array_result(self.nodes[1].listreceivedbyaddress(5),
                             {"address": addr},
-                            {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]})
+                            {"address": addr, "label": "", "amount": {"bitcoin": Decimal("0.1")}, "confirmations": 10, "txids": [txid, ]})
         # With min confidence > 10, should not find Tx
         assert_array_result(self.nodes[1].listreceivedbyaddress(11), {"address": addr}, {}, True)
 
@@ -60,11 +60,11 @@ class ReceivedByTest(BitcoinTestFramework):
         empty_addr = self.nodes[1].getnewaddress()
         assert_array_result(self.nodes[1].listreceivedbyaddress(0, True),
                             {"address": empty_addr},
-                            {"address": empty_addr, "label": "", "amount": 0, "confirmations": 0, "txids": []})
+                            {"address": empty_addr, "label": "", "amount": {"bitcoin": 0}, "confirmations": 0, "txids": []})
 
         # Test Address filtering
         # Only on addr
-        expected = {"address": addr, "label": "", "amount": Decimal("0.1"), "confirmations": 10, "txids": [txid, ]}
+        expected = {"address": addr, "label": "", "amount": {"bitcoin": Decimal("0.1")}, "confirmations": 10, "txids": [txid, ]}
         res = self.nodes[1].listreceivedbyaddress(minconf=0, include_empty=True, include_watchonly=True, address_filter=addr)
         assert_array_result(res, {"address": addr}, expected)
         assert_equal(len(res), 1)
