@@ -25,7 +25,9 @@ void CPolicyList::clear(){
 //Erase ocean, and return the next valid iterator.
 CPolicyList::baseIter CPolicyList::remove(CKeyID* id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  return base::erase(base::find(*id));
+  baseIter it = base::find(*id);
+  if(it == this->end()) return it;
+  return base::erase(it);
 }
 
 //CKeyID CPolicyList::at(base::size_type pos) {
