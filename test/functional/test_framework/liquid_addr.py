@@ -49,7 +49,7 @@ def blech32_decode(bech):
         return (None, None)
     bech = bech.lower()
     pos = bech.rfind('1')
-    if pos < 1 or pos + 13 > len(bech) or len(bech) > 1000: # diff 7->13 90->1000
+    if pos < 1 or pos + 13 > len(bech) or len(bech) > 1000: # 7->13 90->1000
         return (None, None)
     if not all(x in CHARSET for x in bech[pos+1:]):
         return (None, None)
@@ -57,7 +57,7 @@ def blech32_decode(bech):
     data = [CHARSET.find(x) for x in bech[pos+1:]]
     if not blech32_verify_checksum(hrp, data):
         return (None, None)
-    return (hrp, data[:-6])
+    return (hrp, data[:-12]) # 6->12
 
 
 def convertbits(data, frombits, tobits, pad=True):

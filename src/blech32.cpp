@@ -193,7 +193,7 @@ std::pair<std::string, data> Decode(const std::string& str) {
     if (!VerifyChecksum(hrp, values)) {
         return {};
     }
-    return {hrp, data(values.begin(), values.end() - 6)};
+    return {hrp, data(values.begin(), values.end() - 12)};
 }
 
 } // namespace blech32
