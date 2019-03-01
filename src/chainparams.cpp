@@ -174,6 +174,7 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
 
         bech32_hrp = "bc";
+        blech32_hrp = blech32_hrp;
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
@@ -289,6 +290,7 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
         bech32_hrp = "tb";
+        blech32_hrp = blech32_hrp;
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
@@ -402,6 +404,7 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
         bech32_hrp = "bcrt";
+        blech32_hrp = blech32_hrp;
 
         /* enable fallback fee on regtest */
         m_fallback_fee_enabled = true;
@@ -481,6 +484,7 @@ class CCustomParams : public CRegTestParams {
         m_fallback_fee_enabled = args.GetBoolArg("-fallback_fee_enabled", m_fallback_fee_enabled);
 
         bech32_hrp = args.GetArg("-bech32_hrp", bech32_hrp);
+        blech32_hrp = args.GetArg("-blech32_hrp", "el");
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", 111));
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", 196));
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, args.GetArg("-secretprefix", 239));
@@ -560,6 +564,7 @@ class CCustomParams : public CRegTestParams {
         base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentpubkeyprefix", 111));
         base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
+        parent_blech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
 
         // Calculate pegged Bitcoin asset
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);

@@ -6,6 +6,7 @@
 
 #include <base58.h>
 #include <bech32.h>
+#include <blech32.h>
 #include <chainparams.h>
 #include <script/script.h>
 #include <utilstrencodings.h>
@@ -59,6 +60,8 @@ public:
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
         if (id.blinding_pubkey.IsFullyValid()) {
             ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
+            return blech32::Encode(hrp, data);
         }
 
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
@@ -72,6 +75,8 @@ public:
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
         if (id.blinding_pubkey.IsFullyValid()) {
             ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
+            return blech32::Encode(hrp, data);
         }
 
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
@@ -88,6 +93,8 @@ public:
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
         if (id.blinding_pubkey.IsFullyValid()) {
             ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
+            return blech32::Encode(hrp, data);
         }
 
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();

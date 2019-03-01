@@ -509,6 +509,7 @@ void SetupServerArgs()
     gArgs.AddArg("-extpubkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended public key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_PUBLIC_KEY))), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-extprvkeyprefix", strprintf("The 4-byte prefix, in hex, of the chain's base58 extended private key encoding. (default: %s)", HexStr(defaultChainParams->Base58Prefix(CChainParams::EXT_SECRET_KEY))), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-bech32_hrp", strprintf("The human-readable part of the chain's bech32 encoding. (default: %s)", defaultChainParams->Bech32HRP()), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-blech32_hrp", strprintf("The human-readable part of the chain's blech32 encoding. Used in confidential addresses.(default: %s)", defaultChainParams->Blech32HRP()), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-defaultpeggedassetname", "Default name of the pegged asset. (default: bitcoin)", false, OptionsCategory::ELEMENTS);
 
@@ -537,6 +538,7 @@ void SetupServerArgs()
     gArgs.AddArg("-parentpubkeyprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)", 111), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parentscriptprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)", 196), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parent_bech32_hrp", strprintf("The human-readable part of the parent chain's bech32 encoding. (default: %s)", "bc"), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-parent_blech32_hrp", strprintf("The human-readable part of the parent chain's blech32 encoding. (default: %s)", "bc"), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_parent_pegged_asset=<hex>", "Asset ID (hex) for pegged asset for when parent chain has CA. (default: 0x00)", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-feeasset=<hex>", strprintf("Asset ID (hex) for mempool/relay fees (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-subsidyasset=<hex>", strprintf("Asset ID (hex) for the block subsidy (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), false, OptionsCategory::CHAINPARAMS);
