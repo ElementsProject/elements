@@ -34,10 +34,10 @@ public:
     {
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_PUBKEY_ADDRESS : CChainParams::PUBKEY_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
-        data.insert(data.end(), id.begin(), id.end());
         if (id.blinding_pubkey.IsFullyValid()) {
             data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
         }
+        data.insert(data.end(), id.begin(), id.end());
         return EncodeBase58Check(data);
     }
 
@@ -45,11 +45,10 @@ public:
     {
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_SCRIPT_ADDRESS : CChainParams::SCRIPT_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
-        data.insert(data.end(), id.begin(), id.end());
         if (id.blinding_pubkey.IsFullyValid()) {
             data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
         }
-
+        data.insert(data.end(), id.begin(), id.end());
         return EncodeBase58Check(data);
     }
 
