@@ -8,6 +8,10 @@
 #include <rpc/util.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <logging.h>
+#include <policy/policy.h>
+#include <assetsdir.h>
+#include <core_io.h>
 
 // Converts a hex string to a public key if possible
 CPubKey HexToPubKey(const std::string& hex_in)
@@ -306,10 +310,4 @@ UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
         obj.pushKV(label, ValueFromAmount(it->second));
     }
     return obj;
-}
-
-void PrintAmountMap(const CAmountMap& amount) {
-    for(std::map<CAsset, CAmount>::const_iterator it = amount.begin(); it != amount.end(); ++it) {
-        LogPrintf("- %s: %s\n", it->first.GetHex(), it->second);
-    }
 }

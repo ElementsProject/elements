@@ -143,3 +143,9 @@ bool hasNonPostiveValue(const CAmountMap& amount)
     }
     return false;
 }
+
+void PrintAmountMap(const CAmountMap& amount) {
+    for(std::map<CAsset, CAmount>::const_iterator it = amount.begin(); it != amount.end(); ++it) {
+        LogPrintf("- %s: %s\n", it->first.GetHex(), it->second);
+    }
+}
