@@ -27,4 +27,8 @@ UniValue DescribeBlindAddress(const CTxDestination& dest);
 CPubKey GetDestinationBlindingKey(const CTxDestination& dest);
 bool IsBlindDestination(const CTxDestination& dest);
 
+UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset);
+
+void PrintAmountMap(const CAmountMap& amount);
+
 #endif // BITCOIN_RPC_UTIL_H
