@@ -96,6 +96,7 @@ BITCOIN_CORE_H = \
   assetsdir.h \
   base58.h \
   bech32.h \
+  blech32.h \
   blind.h \
   bloom.h \
   blockencodings.h \
@@ -413,6 +414,7 @@ libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
+  blech32.cpp \
   blind.cpp \
   chainparams.cpp \
   coins.cpp \
