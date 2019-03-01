@@ -55,14 +55,16 @@ public:
     std::string operator()(const WitnessV0KeyHash& id) const
     {
         std::vector<unsigned char> data = {0};
-        data.reserve(33);
-        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
+        data.reserve(53);
         if (id.blinding_pubkey.IsFullyValid()) {
-            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            std::vector<unsigned char> bytes(id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            bytes.insert(bytes.end(), id.begin(), id.end());
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
             const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
             return blech32::Encode(hrp, data);
         }
 
+        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
         return bech32::Encode(hrp, data);
     }
@@ -71,13 +73,15 @@ public:
     {
         std::vector<unsigned char> data = {0};
         data.reserve(53);
-        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
         if (id.blinding_pubkey.IsFullyValid()) {
-            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            std::vector<unsigned char> bytes(id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            bytes.insert(bytes.end(), id.begin(), id.end());
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
             const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
             return blech32::Encode(hrp, data);
         }
 
+        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
         return bech32::Encode(hrp, data);
     }
@@ -89,13 +93,15 @@ public:
         }
         std::vector<unsigned char> data = {(unsigned char)id.version};
         data.reserve(1 + (id.length * 8 + 4) / 5);
-        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
         if (id.blinding_pubkey.IsFullyValid()) {
-            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            std::vector<unsigned char> bytes(id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            bytes.insert(bytes.end(), id.program, id.program + id.length);
+            ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bytes.begin(), bytes.end());
             const std::string& hrp = for_parent ? m_params.ParentBlech32HRP() : m_params.Blech32HRP();
             return blech32::Encode(hrp, data);
         }
 
+        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
         const std::string& hrp = for_parent ? m_params.ParentBech32HRP() : m_params.Bech32HRP();
         return bech32::Encode(hrp, data);
     }
@@ -119,9 +125,9 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
             return PKHash(hash);
         } else if (data.size() == hash.size() + pubkey_prefix.size() + pk_size && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
-            std::copy(data.begin() + pubkey_prefix.size(), data.end()-pk_size, hash.begin());
             CPubKey pubkey;
-            pubkey.Set(data.end()-pk_size, data.end());
+            pubkey.Set(data.begin() + pubkey_prefix.size(), data.begin() + pubkey_prefix.size() + pk_size);
+            std::copy(data.begin() + pubkey_prefix.size() + pk_size, data.end(), hash.begin());
             return PKHash(hash, pubkey);
         }
         // Script-hash-addresses have version 5 (or 196 testnet).
@@ -132,9 +138,9 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return ScriptHash(hash);
         } else if (data.size() == hash.size() + script_prefix.size() + pk_size && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
-            std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             CPubKey pubkey;
-            pubkey.Set(data.end()-pk_size, data.end());
+            pubkey.Set(data.begin() + pubkey_prefix.size(), data.begin() + pubkey_prefix.size() + pk_size);
+            std::copy(data.begin() + pubkey_prefix.size() + pk_size, data.end(), hash.begin());
             return ScriptHash(hash, pubkey);
         }
     }
@@ -174,6 +180,56 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             return unk;
         }
     }
+    // ELEMENTS confidential addresses: version + 8to5(ecdhkey || witness program)
+    data.clear();
+    auto blech = blech32::Decode(str);
+    const std::string& bl_hrp = for_parent ? params.ParentBlech32HRP() : params.Blech32HRP();
+    if (blech.second.size() > 0 && blech.first == bl_hrp) {
+        // Blech32 decoding
+        int version = blech.second[0]; // The first 5 bit symbol is the witness version (0-16)
+
+        data.reserve(((blech.second.size() - 1) * 5) / 8);
+
+        // The rest of the symbols are converted blinding pubkey and witness program bytes.
+        if (ConvertBits<5, 8, false>([&](unsigned char c) { data.push_back(c); }, blech.second.begin() + 1, blech.second.end())) {
+            // Must be long enough for blinding key and other data taken below
+            if (data.size() < 34) {
+                return CNoDestination();
+            }
+            std::vector<unsigned char> pubkey_bytes(data.begin(), data.begin()+33);
+            data = std::vector<unsigned char>(data.begin()+33, data.end());
+            CPubKey blinding_pubkey(data);
+            if (version == 0) {
+                {
+                    WitnessV0KeyHash keyid;
+                    if (data.size() == keyid.size()) {
+                        std::copy(data.begin(), data.end(), keyid.begin());
+                        keyid.blinding_pubkey = blinding_pubkey;
+                        return keyid;
+                    }
+                }
+                {
+                    WitnessV0ScriptHash scriptid;
+                    if (data.size() == scriptid.size()) {
+                        std::copy(data.begin(), data.end(), scriptid.begin());
+                        scriptid.blinding_pubkey = blinding_pubkey;
+                        return scriptid;
+                    }
+                }
+                return CNoDestination();
+            }
+            if (version > 16 || data.size() < 2 || data.size() > 40) {
+                return CNoDestination();
+            }
+            WitnessUnknown unk;
+            unk.version = version;
+            std::copy(data.begin(), data.end(), unk.program);
+            unk.blinding_pubkey = blinding_pubkey;
+            unk.length = data.size();
+            return unk;
+        }
+    }
+
     return CNoDestination();
 }
 } // namespace
