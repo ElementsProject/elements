@@ -203,6 +203,10 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
+    if (g_con_elementswitness) {
+        CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
+        dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
+    }
 
     pwallet->SetAddressBook(dest, label, "receive");
 
@@ -258,6 +262,10 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     pwallet->LearnRelatedScripts(vchPubKey, output_type);
     CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
+    if (g_con_elementswitness) {
+        CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
+        dest = GetDestinationForKey(vchPubKey, output_type, blinding_pubkey);
+    }
 
     return EncodeDestination(dest);
 }
