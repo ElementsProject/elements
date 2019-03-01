@@ -198,7 +198,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             }
             std::vector<unsigned char> pubkey_bytes(data.begin(), data.begin()+33);
             data = std::vector<unsigned char>(data.begin()+33, data.end());
-            CPubKey blinding_pubkey(data);
+            CPubKey blinding_pubkey(pubkey_bytes);
             if (version == 0) {
                 {
                     WitnessV0KeyHash keyid;
