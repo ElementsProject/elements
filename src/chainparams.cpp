@@ -78,9 +78,8 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const std::str
 /** Add an issuance transaction to the genesis block. Typically used to pre-issue
  * the policyAsset of a blockchain. The genesis block is not actually validated,
  * so this transaction simply has to match issuance structure. */
-static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs, 
-    const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination, 
-    const CScript& freezetoken_destination, const CScript& burntoken_destination, const CScript& whitetoken_destination) {
+static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs,
+    const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination) {
 
     uint256 entropy;
     GenerateAssetEntropy(entropy, prevout, contract);
@@ -109,73 +108,6 @@ static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevou
     }
 
     genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
-
-    if(!freezetoken_destination.IsUnspendable()) {
-        uint256 entropy_freeze;
-        uint256 contract_freeze = uint256S("0000000000000000000000000000000000000000000000000000000000000010");
-        GenerateAssetEntropy(entropy_freeze, prevout, contract_freeze);
-        CAsset asset_freeze;
-        CalculateAsset(asset_freeze, entropy_freeze);
-
-        // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
-        CMutableTransaction txNew_freeze;
-        txNew_freeze.nVersion = 1;
-        txNew_freeze.vin.resize(1);
-        txNew_freeze.vin[0].prevout = prevout;
-        txNew_freeze.vin[0].assetIssuance.assetEntropy = contract_freeze;
-        txNew_freeze.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
-        txNew_freeze.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
-
-        for (unsigned int i = 0; i < asset_outputs; i++) {
-            txNew_freeze.vout.push_back(CTxOut(asset_freeze, asset_values, freezetoken_destination));
-        }
-        genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew_freeze)));
-    }
-
-    if(!burntoken_destination.IsUnspendable()) {
-        uint256 entropy_burn;
-        uint256 contract_burn = uint256S("0000000000000000000000000000000000000000000000000000000000000020");
-        GenerateAssetEntropy(entropy_burn, prevout, contract_burn);
-        CAsset asset_burn;
-        CalculateAsset(asset_burn, entropy_burn);
-
-        // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
-        CMutableTransaction txNew_burn;
-        txNew_burn.nVersion = 1;
-        txNew_burn.vin.resize(1);
-        txNew_burn.vin[0].prevout = prevout;
-        txNew_burn.vin[0].assetIssuance.assetEntropy = contract_burn;
-        txNew_burn.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
-        txNew_burn.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
-
-        for (unsigned int i = 0; i < asset_outputs; i++) {
-            txNew_burn.vout.push_back(CTxOut(asset_burn, asset_values, burntoken_destination));
-        }
-        genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew_burn)));
-    }
-
-    if(!whitetoken_destination.IsUnspendable()) {
-        uint256 entropy_white;
-        uint256 contract_white = uint256S("0000000000000000000000000000000000000000000000000000000000000030");
-        GenerateAssetEntropy(entropy_white, prevout, contract_white);
-        CAsset asset_white;
-        CalculateAsset(asset_white, entropy_white);
-
-        // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
-        CMutableTransaction txNew_white;
-        txNew_white.nVersion = 1;
-        txNew_white.vin.resize(1);
-        txNew_white.vin[0].prevout = prevout;
-        txNew_white.vin[0].assetIssuance.assetEntropy = contract_white;
-        txNew_white.vin[0].assetIssuance.nAmount = asset_values*asset_outputs;
-        txNew_white.vin[0].assetIssuance.nInflationKeys = reissuance_values*reissuance_outputs;
-
-        for (unsigned int i = 0; i < asset_outputs; i++) {
-            txNew_white.vout.push_back(CTxOut(asset_white, asset_values, whitetoken_destination));
-        }
-        genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew_white)));
-    }
-
     genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
 
@@ -269,25 +201,39 @@ public:
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
-        if(!freezeListCoinsDestination.IsUnspendable()) {
-            GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), uint256S("0000000000000000000000000000000000000000000000000000000000000010"));
-            CalculateAsset(consensus.freezelist_asset, entropy);
-        }
-
-        if(!burnListCoinsDestination.IsUnspendable()) {
-            GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), uint256S("0000000000000000000000000000000000000000000000000000000000000020"));
-            CalculateAsset(consensus.burnlist_asset, entropy);
-        }
-
-        if(!whiteListCoinsDestination.IsUnspendable()) {
-            GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), uint256S("0000000000000000000000000000000000000000000000000000000000000030"));
-            CalculateAsset(consensus.whitelist_asset, entropy);
-        }
-
         genesis = CreateGenesisBlock(consensus, strNetworkID, 1514764800, genesisChallengeScript, 1);
         if (initialFreeCoins != 0) {
-            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination,
-                freezeListCoinsDestination, burnListCoinsDestination, whiteListCoinsDestination);
+            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);
+
+            if(!freezeListCoinsDestination.IsUnspendable()) {
+                uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000010");
+                const COutPoint prevout = COutPoint(uint256(commit), 1);
+
+                GenerateAssetEntropy(entropy,  prevout, contract);
+                CalculateAsset(consensus.freezelist_asset, entropy);
+
+                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, freezeListCoinsDestination);
+            }
+
+            if(!burnListCoinsDestination.IsUnspendable()) {
+                uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000020");
+                const COutPoint prevout = COutPoint(uint256(commit), 2);
+
+                GenerateAssetEntropy(entropy,  prevout, contract);
+                CalculateAsset(consensus.burnlist_asset, entropy);
+
+                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, burnListCoinsDestination);
+            }
+
+            if(!whiteListCoinsDestination.IsUnspendable()) {
+                uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000030");
+                const COutPoint prevout = COutPoint(uint256(commit), 3);
+
+                GenerateAssetEntropy(entropy,  prevout, contract);
+                CalculateAsset(consensus.whitelist_asset, entropy);
+
+                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, whiteListCoinsDestination);
+            }
         }
         consensus.hashGenesisBlock = genesis.GetHash();
 

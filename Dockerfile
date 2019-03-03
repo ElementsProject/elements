@@ -16,7 +16,10 @@ RUN set -ex \
     && make install \
     && make clean \
     && cd /usr/src \
-    && rm -rf /usr/src/package
+    && mkdir -p /home/bitcoin/.bitcoin \
+    && cp -R package/doc/terms-and-conditions /home/bitcoin/.bitcoin \
+    && chown -R bitcoin:bitcoin /home/bitcoin \
+    && rm -rf package
 
 COPY contrib/docker/docker-entrypoint.sh /docker-entrypoint.sh
 

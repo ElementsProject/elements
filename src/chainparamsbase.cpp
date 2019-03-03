@@ -11,6 +11,7 @@
 #include <assert.h>
 
 const std::string CBaseChainParams::MAIN = CHAINPARAMS_OCEAN_MAIN;
+const std::string CBaseChainParams::TEST = CHAINPARAMS_OCEAN_TEST;
 const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
@@ -48,5 +49,5 @@ std::string ChainNameFromCommandLine()
         throw std::runtime_error(strprintf("%s: Invalid option -testnet: try -chain=%s instead.", __func__, CHAINPARAMS_REGTEST));
     if (GetBoolArg("-regtest", false))
         return CBaseChainParams::REGTEST;
-    return GetArg("-chain", CHAINPARAMS_OCEAN_MAIN);
+    return GetArg("-chain", CHAINPARAMS_OCEAN_TEST);
 }
