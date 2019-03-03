@@ -458,3 +458,7 @@ unsigned int CWhiteList::n_my_pending(){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return _myPending.size();
 }
+
+bool CWhiteList::kycFromUserOnboard(const CPubKey& userOnboard, CPubKey& kyc){
+  kyc=_onboardMap[userOnboard.GetID()];
+}

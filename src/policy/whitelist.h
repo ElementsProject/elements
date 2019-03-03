@@ -59,6 +59,8 @@ public:
 	bool is_my_pending(const CKeyID& keyId);
 
 	unsigned int n_my_pending();
+
+	bool kycFromUserOnboard(const CPubKey& userOnboard, CPubKey& kyc);
   
 private:
 	//Make add_sorted private because we only want verified derived keys 
@@ -72,6 +74,9 @@ private:
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//Whitelisted KYC keys
 	std::map<CKeyID, CWhiteList::status> _kycStatusMap;
+	//Map user onboard key to KYC pub key
+	std::map<CKeyID, CPubKey> _onboardMap;
+
 	//KYC pub keys not yet assigned to any user
 	std::queue<CPubKey> _kycUnassignedQueue;
 
