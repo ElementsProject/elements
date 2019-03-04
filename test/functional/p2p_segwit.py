@@ -1814,7 +1814,8 @@ class SegWitTest(BitcoinTestFramework):
         index = 0
         # Just spend to our usual anyone-can-spend output
         tx.vout = [CTxOut(output_value, CScript([OP_TRUE]))] * 2
-        total_in = 0
+        total_in = sum(i.nValue for i in temp_utxos)
+        if total_in - 2*output_value > 0: tx.vout.append(CTxOut(total_in - 2*output_value)) # fee
         for i in temp_utxos:
             # Use SIGHASH_ALL|SIGHASH_ANYONECANPAY so we can build up
             # the signatures as we go.
@@ -1822,14 +1823,13 @@ class SegWitTest(BitcoinTestFramework):
             tx.wit.vtxinwit.append(CTxInWitness())
             sign_p2pk_witness_input(witness_program, tx, index, SIGHASH_ALL | SIGHASH_ANYONECANPAY, i.nValue, key)
             index += 1
-            total_in += i.nValue
-        if total_in - 2*output_value > 0: tx.vout.append(CTxOut(total_in - 2*output_value)) # fee
-        tx.calc_sha256()
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx])
         test_witness_block(self.nodes[0], self.test_node, block, accepted=True)
 
         for i in range(len(tx.vout)):
+            if tx.vout[i].is_fee():
+                continue
             self.utxo.append(UTXO(tx.sha256, i, tx.vout[i].nValue.getAmount()))
 
     @subtest
