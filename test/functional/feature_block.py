@@ -865,7 +865,8 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(64)
         b65 = self.next_block(65)
         tx1 = self.create_and_sign_transaction(out[19], out[19].vout[0].nValue.getAmount())
-        tx2 = self.create_and_sign_transaction(tx1, 0)
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx2 = self.create_and_sign_transaction(tx1, 1)
         b65 = self.update_block(65, [tx1, tx2])
         self.sync_blocks([b65], True)
         self.save_spendable_output()
@@ -1118,8 +1119,8 @@ class FullBlockTest(BitcoinTestFramework):
         op_codes = [OP_IF, OP_INVALIDOPCODE, OP_ELSE, OP_TRUE, OP_ENDIF]
         script = CScript(op_codes)
         tx1 = self.create_and_sign_transaction(out[28], out[28].vout[0].nValue.getAmount(), script)
-
-        tx2 = self.create_and_sign_transaction(tx1, 0, CScript([OP_TRUE]))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx2 = self.create_and_sign_transaction(tx1, 1, CScript([OP_TRUE]))
         tx2.vin[0].scriptSig = CScript([OP_FALSE])
         tx2.rehash()
 
@@ -1134,11 +1135,12 @@ class FullBlockTest(BitcoinTestFramework):
         #
         self.log.info("Test re-orging blocks with OP_RETURN in them")
         b84 = self.next_block(84)
-        tx1 = self.create_tx(out[29], 0, 0, CScript([OP_RETURN]))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx1 = self.create_tx(out[29], 0, 1, CScript([OP_RETURN]))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
         self.update_fee(tx1, out[29], 0)
         tx1.calc_sha256()
         self.sign_tx(tx1, out[29])
@@ -1147,9 +1149,11 @@ class FullBlockTest(BitcoinTestFramework):
         tx2.vout.append(CTxOut(0, CScript([OP_RETURN])))
         self.update_fee(tx2, tx1, 1)
         tx3 = self.create_tx(tx1, 2, 0, CScript([OP_RETURN]))
-        tx3.vout.append(CTxOut(0, CScript([OP_TRUE])))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx3.vout.append(CTxOut(1, CScript([OP_TRUE])))
         self.update_fee(tx3, tx1, 2)
-        tx4 = self.create_tx(tx1, 3, 0, CScript([OP_TRUE]))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx4 = self.create_tx(tx1, 3, 1, CScript([OP_TRUE]))
         tx4.vout.append(CTxOut(0, CScript([OP_RETURN])))
         self.update_fee(tx4, tx1, 3)
         tx5 = self.create_tx(tx1, 4, 0, CScript([OP_RETURN]))
@@ -1176,7 +1180,8 @@ class FullBlockTest(BitcoinTestFramework):
 
         # trying to spend the OP_RETURN output is rejected
         b89a = self.next_block("89a", spend=out[32])
-        tx = self.create_tx(tx1, 0, 0, CScript([OP_TRUE]))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx = self.create_tx(tx1, 0, 1, CScript([OP_TRUE]))
         b89a = self.update_block("89a", [tx])
         self.sync_blocks([b89a], success=False, reject_reason='bad-txns-inputs-missingorspent', reconnect=True)
 
@@ -1191,9 +1196,11 @@ class FullBlockTest(BitcoinTestFramework):
             tx = CTransaction()
             #script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
             script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 149
-            script_output = CScript([b'\x00' * script_length])
+            # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+            script_output = CScript([OP_RETURN, b'\x00' * (script_length-1)])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].sha256, 0)))
+            self.update_fee(tx, b.vtx[1], 0)
             b = self.update_block(i, [tx])
             assert_equal(len(b.serialize()), MAX_BLOCK_BASE_SIZE)
             blocks.append(b)
