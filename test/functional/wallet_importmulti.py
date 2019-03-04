@@ -56,6 +56,8 @@ class ImportMultiTest(BitcoinTestFramework):
                 "address": address['address']
             },
             "timestamp": "now",
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], True)
         address_assert = self.nodes[1].getaddressinfo(address['address'])
@@ -82,7 +84,9 @@ class ImportMultiTest(BitcoinTestFramework):
         result = self.nodes[1].importmulti([{
             "scriptPubKey": address['scriptPubKey'],
             "timestamp": "now",
-            "internal": True
+            "internal": True,
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], True)
         address_assert = self.nodes[1].getaddressinfo(address['address'])
@@ -97,6 +101,8 @@ class ImportMultiTest(BitcoinTestFramework):
         result = self.nodes[1].importmulti([{
             "scriptPubKey": nonstandardScriptPubKey,
             "timestamp": "now",
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], False)
         assert_equal(result[0]['error']['code'], -8)
@@ -115,7 +121,9 @@ class ImportMultiTest(BitcoinTestFramework):
                 "address": address['address']
             },
             "timestamp": "now",
-            "pubkeys": [ address['pubkey'] ]
+            "pubkeys": [ address['pubkey'] ],
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], True)
         address_assert = self.nodes[1].getaddressinfo(address['address'])
@@ -131,7 +139,9 @@ class ImportMultiTest(BitcoinTestFramework):
             "scriptPubKey": address['scriptPubKey'],
             "timestamp": "now",
             "pubkeys": [ address['pubkey'] ],
-            "internal": True
+            "internal": True,
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }]
         result = self.nodes[1].importmulti(request)
         assert_equal(result[0]['success'], True)
@@ -165,7 +175,9 @@ class ImportMultiTest(BitcoinTestFramework):
                 "address": address['address']
             },
             "timestamp": "now",
-            "keys": [ self.nodes[0].dumpprivkey(address['address']) ]
+            "keys": [ self.nodes[0].dumpprivkey(address['address']) ],
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], True)
         address_assert = self.nodes[1].getaddressinfo(address['address'])
@@ -179,7 +191,9 @@ class ImportMultiTest(BitcoinTestFramework):
                 "address": address['address']
             },
             "timestamp": "now",
-            "keys": [ self.nodes[0].dumpprivkey(address['address']) ]
+            "keys": [ self.nodes[0].dumpprivkey(address['address']) ],
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], False)
         assert_equal(result[0]['error']['code'], -4)
@@ -194,7 +208,9 @@ class ImportMultiTest(BitcoinTestFramework):
             },
             "timestamp": "now",
             "keys": [ self.nodes[0].dumpprivkey(address['address']) ],
-            "watchonly": True
+            "watchonly": True,
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], False)
         assert_equal(result[0]['error']['code'], -8)
@@ -211,7 +227,9 @@ class ImportMultiTest(BitcoinTestFramework):
             "scriptPubKey": address['scriptPubKey'],
             "timestamp": "now",
             "keys": [ self.nodes[0].dumpprivkey(address['address']) ],
-            "internal": True
+            "internal": True,
+            # ELEMENTS: Also import blinding key
+            "blinding_privkey": self.nodes[0].dumpblindingkey(address["confidential"]),
         }])
         assert_equal(result[0]['success'], True)
         address_assert = self.nodes[1].getaddressinfo(address['address'])

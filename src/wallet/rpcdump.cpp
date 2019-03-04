@@ -830,6 +830,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         // Optional fields.
         const std::string& strRedeemScript = data.exists("redeemscript") ? data["redeemscript"].get_str() : "";
         const UniValue& pubKeys = data.exists("pubkeys") ? data["pubkeys"].get_array() : UniValue();
+        const std::string& str_blinding_key = data.exists("blinding_privkey") ? data["blinding_privkey"].get_str() : "";
         const UniValue& keys = data.exists("keys") ? data["keys"].get_array() : UniValue();
         const bool internal = data.exists("internal") ? data["internal"].get_bool() : false;
         const bool watchOnly = data.exists("watchonly") ? data["watchonly"].get_bool() : false;
@@ -882,6 +883,18 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         }
 
         // Process. //
+
+        // Get blinding privkey
+        if (!str_blinding_key.empty() &&
+                (!IsHex(str_blinding_key) || str_blinding_key.size() != 64)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid blinding privkey");
+        }
+
+        uint256 blinding_privkey;
+        if (!str_blinding_key.empty()) {
+            std::vector<unsigned char> blind_bytes = ParseHex(str_blinding_key);
+            memcpy(blinding_privkey.begin(), blind_bytes.data(), 32);
+        }
 
         // P2SH
         if (isP2SH) {
@@ -1072,6 +1085,11 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
             }
         }
 
+        // Lastly, if dest import is valid, import blinding key
+        if (!str_blinding_key.empty() && !pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), blinding_privkey)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error adding blinding key to wallet");
+        }
+
         UniValue result = UniValue(UniValue::VOBJ);
         result.pushKV("success", UniValue(success));
         return result;
@@ -1128,6 +1146,7 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
             "                                                              creation time of all keys being imported by the importmulti call will be scanned.\n"
             "      \"redeemscript\": \"<script>\"                            , (string, optional) Allowed only if the scriptPubKey is a P2SH address or a P2SH scriptPubKey\n"
             "      \"pubkeys\": [\"<pubKey>\", ... ]                         , (array, optional) Array of strings giving pubkeys that must occur in the output or redeemscript\n"
+            "      \"blinding_privkey\": \"<privkey>\"                       , (array, optional) Array of strings giving blinding keys in hex that are used to unblind outputs going to `scriptPubKey`\n"
             "      \"keys\": [\"<key>\", ... ]                               , (array, optional) Array of strings giving private keys whose corresponding public keys must occur in the output or redeemscript\n"
             "      \"internal\": <true>                                    , (boolean, optional, default: false) Stating whether matching outputs should be treated as not incoming payments\n"
             "      \"watchonly\": <true>                                   , (boolean, optional, default: false) Stating whether matching outputs should be considered watched even when they're not spendable, only allowed if keys are empty\n"
