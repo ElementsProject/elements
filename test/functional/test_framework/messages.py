@@ -617,6 +617,7 @@ class CTransaction(object):
                 for i in range(len(self.wit.vtxinwit), len(self.vin)):
                     self.wit.vtxinwit.append(CTxInWitness())
             if len(self.wit.vtxoutwit) != len(self.vout):
+                # vtxoutwit must have the same length as vout
                 self.wit.vtxoutwit = self.wit.vtxoutwit[:len(self.vout)]
                 for i in range(len(self.wit.vtxoutwit), len(self.vout)):
                     self.wit.vtxoutwit.append(CTxOutWitness())
