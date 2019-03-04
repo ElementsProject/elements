@@ -12,6 +12,8 @@
 
 #include <boost/test/unit_test.hpp>
 
+#include <secp256k1.h>
+
 // For elements serialization rules
 struct ElementsSetup : public TestingSetup {
         ElementsSetup() : TestingSetup("custom") {}
@@ -260,8 +262,21 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
 
         tx4.vout[3].nValue = CConfidentialValue(tx4.vout[3].nValue.GetAmount() - 1);
         BOOST_CHECK(!VerifyAmounts(inputs, tx4, nullptr, false));
-    }
 
+        // Check wallet borromean-based rangeproof results against expected args
+        size_t proof_size = DEFAULT_RANGEPROOF_SIZE;
+        BOOST_CHECK(tx4.witness.vtxoutwit[2].vchRangeproof.size() == proof_size);
+        secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        int exp = 0;
+        int mantissa = 0;
+        uint64_t min_value = 0;
+        uint64_t max_value = 0;
+        BOOST_CHECK(secp256k1_rangeproof_info(ctx, &exp, &mantissa, &min_value, &max_value, tx4.witness.vtxoutwit[2].vchRangeproof.data(), proof_size) == 1);
+        BOOST_CHECK(exp == 0);
+        BOOST_CHECK(mantissa == 36); // 36 bit default
+        BOOST_CHECK(min_value == 1);
+        BOOST_CHECK(max_value == 68719476736);
+    }
     {
         inputs.clear();
         inputs.push_back(blind_ozz);

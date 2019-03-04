@@ -14,6 +14,9 @@
 #include <secp256k1_rangeproof.h>
 #include <secp256k1_surjectionproof.h>
 
+//! ELEMENTS: 36-bit rangeproof size
+static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
+
 /*
  * blinding_key is used to create the nonce to rewind the rangeproof in conjunction with the nNonce commitment. In the case of a 0-length nNonce, the blinding key is directly used as the nonce.
  * Currently there is only a sidechannel message in the rangeproof so a valid rangeproof must
