@@ -111,7 +111,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         return Result::WALLET_ERROR;
     }
 
-    // Find the fee output.  Add one if none found.
+    // Find the fee output.
     int nFeeOutput = -1;
     for (int i = (int)wtx.tx->vout.size()-1; i >= 0; --i) {
         if (wtx.GetOutputAsset(i) == ::policyAsset && wtx.tx->vout[i].IsFee()) {
@@ -122,7 +122,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
 
     // Calculate the expected size of the new transaction.
     int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
-    if (nFeeOutput == -1) {
+    if (g_con_elementswitness && nFeeOutput == -1) {
         CMutableTransaction with_fee_output = CMutableTransaction{*wtx.tx};
         with_fee_output.vout.push_back(CTxOut(::policyAsset, 0, CScript()));
         txSize = GetVirtualTransactionSize(with_fee_output);
@@ -229,10 +229,12 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     }
 
     // Update fee output or add one.
-    if (nFeeOutput >= 0) {
-        mtx.vout[nFeeOutput].nValue.SetToAmount(new_fee);
-    } else {
-        mtx.vout.push_back(CTxOut(::policyAsset, new_fee, CScript()));
+    if (g_con_elementswitness) {
+        if (nFeeOutput >= 0) {
+            mtx.vout[nFeeOutput].nValue.SetToAmount(new_fee);
+        } else {
+            mtx.vout.push_back(CTxOut(::policyAsset, new_fee, CScript()));
+        }
     }
 
     // Mark new tx not replaceable, if requested.

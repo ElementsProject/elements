@@ -2884,6 +2884,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 PrintAmountMap(mapValueIn);
                 LogPrintf("mapChange:\n");
                 PrintAmountMap(mapChange);
+                LogPrintf("mapValueToSelect:\n");
+                PrintAmountMap(mapValueToSelect);
+
                 for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
                     if (it->second == 0) {
                         vChangePosInOut.erase(it->first);
@@ -2929,9 +2932,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 }
 
                 // Add fee output.
-                CTxOut fee(::policyAsset, nFeeRet, CScript());
-                assert(fee.IsFee());
-                txNew.vout.push_back(fee);
+                if (g_con_elementswitness) {
+                    CTxOut fee(::policyAsset, nFeeRet, CScript());
+                    assert(fee.IsFee());
+                    txNew.vout.push_back(fee);
+                }
                 //TODO(rebase) 
                 //output_pubkeys.push_back(CPubKey());
 
@@ -2992,7 +2997,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                         change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
                         nFeeRet -= extraFeePaid;
-                        txNew.vout.back().nValue = nFeeRet; // update fee output
+                        if (g_con_elementswitness) {
+                            txNew.vout.back().nValue = nFeeRet; // update fee output
+                        }
                     }
                     break; // Done, enough fee included.
                 }
@@ -3014,7 +3021,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
                         nFeeRet += additionalFeeNeeded;
-                        txNew.vout.back().nValue = nFeeRet; // update fee output
+                        if (g_con_elementswitness) {
+                            txNew.vout.back().nValue = nFeeRet; // update fee output
+                        }
                         break; // Done, able to increase fee from change
                     }
                 }

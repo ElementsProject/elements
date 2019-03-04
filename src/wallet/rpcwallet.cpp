@@ -2988,7 +2988,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         CAmount amount = out.tx->GetOutputValueOut(out.i);
         CAsset assetid = out.tx->GetOutputAsset(out.i);
         // Only list known outputs that match optional filter
-        if (amount == -1 || assetid.IsNull()) {
+        if (g_con_elementswitness && (amount == -1 || assetid.IsNull())) {
             LogPrintf("wallet", "Unable to unblind output: %s:%d\n", out.tx->tx->GetHash().GetHex(), out.i);
             continue;
         }
