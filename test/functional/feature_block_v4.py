@@ -50,6 +50,7 @@ class BlockV4Test(BitcoinTestFramework):
         # Generate 100 blocks so that first coinbase matures
         generated_blocks = self.nodes[0].generate(100)
         spendable_coinbase_txid = self.nodes[0].getblock(generated_blocks[0])['tx'][0]
+        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(spendable_coinbase_txid)["hex"])["vout"][0]["value"]
         tip = generated_blocks[-1]
 
         # Construct a v4 block
@@ -59,7 +60,7 @@ class BlockV4Test(BitcoinTestFramework):
 
         # Create a CLTV transaction
         spendtx = create_transaction(self.nodes[0], spendable_coinbase_txid,
-                self.nodeaddress, amount=1.0)
+                self.nodeaddress, amount=1.0, fee=coinbase_value-1)
         spendtx = cltv_validate(self.nodes[0], spendtx, 1)
         spendtx.rehash()
 
