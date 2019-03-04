@@ -5157,8 +5157,6 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CScriptWitness pegin_witness;
     std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
     stack.push_back(value_bytes);
-    std::vector<unsigned char> empty(32);
-    stack.push_back(empty);
     stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
     stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
     stack.push_back(std::vector<unsigned char>(witnessProgScript.begin(), witnessProgScript.end()));

@@ -11,6 +11,7 @@ from test_framework.util import (
     rpc_port,
     p2p_port,
 )
+from decimal import Decimal
 
 def get_new_unconfidential_address(node):
     addr = node.getnewaddress()
@@ -64,9 +65,8 @@ class FedPegTest(BitcoinTestFramework):
         connect_nodes_bi(self.nodes, 0, 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
         print('parentgenesisblockhash', self.parentgenesisblockhash)
-        #TODO(rebase) CA
-        #if not self.options.parent_bitcoin:
-        #    parent_pegged_asset = self.nodes[0].getsidechaininfo()['pegged_asset']
+        if not self.options.parent_bitcoin:
+            parent_pegged_asset = self.nodes[0].getsidechaininfo()['pegged_asset']
 
         # Setup sidechain nodes
         self.fedpeg_script = "512103dff4923d778550cc13ce0d887d737553b4b58f4e8e886507fc39f5e447b2186451ae"
@@ -95,8 +95,7 @@ class FedPegTest(BitcoinTestFramework):
                     '-parentpubkeyprefix=111',
                     '-parentscriptprefix=196',
                     '-con_parent_chain_signblockscript=51',
-                    #TODO(rebase) CA
-                    #'-con_parent_pegged_asset=%s' % parent_pegged_asset,
+                    '-con_parent_pegged_asset=%s' % parent_pegged_asset,
                 ])
 
             # Use rpcuser auth only for first parent.
@@ -222,14 +221,13 @@ class FedPegTest(BitcoinTestFramework):
         decoded = sidechain.decoderawtransaction(tx1["hex"])
         assert decoded["vin"][0]["is_pegin"] == True
         assert len(decoded["vin"][0]["pegin_witness"]) > 0
-        #TODO(rebase) CT assert fee here too
         # Check that there's sufficient fee for the peg-in
-        #vsize = decoded["vsize"]
-        #fee_output = decoded["vout"][1]
-        #fallbackfee_pervbyte = Decimal("0.00001")/Decimal("1000")
-        #print("fee_output", fee_output)
-        #assert fee_output["scriptPubKey"]["type"] == "fee"
-        #assert fee_output["value"] >= fallbackfee_pervbyte*vsize
+        vsize = decoded["vsize"]
+        fee_output = decoded["vout"][1]
+        fallbackfee_pervbyte = Decimal("0.00001")/Decimal("1000")
+        print("fee_output", fee_output)
+        assert fee_output["scriptPubKey"]["type"] == "fee"
+        assert fee_output["value"] >= fallbackfee_pervbyte*vsize
 
         # Quick reorg checks of pegs
         sidechain.invalidateblock(blockhash[0])
@@ -331,7 +329,7 @@ class FedPegTest(BitcoinTestFramework):
                 break
         assert pegout_tested
 
-        print ("Now test failure to validate peg-ins based on intermittent bitcoind rpc failure")
+        print("Now test failure to validate peg-ins based on intermittent bitcoind rpc failure")
         self.stop_node(1)
         txid = parent.sendtoaddress(addr, 1)
         parent.generate(12)
@@ -357,57 +355,47 @@ class FedPegTest(BitcoinTestFramework):
         print("Completed!\n")
         print("Now send funds out in two stages, partial, and full")
         some_btc_addr = get_new_unconfidential_address(parent)
-        #TODO(rebase) CA bitcoin balances
-        #bal_1 = sidechain.getwalletinfo()["balance"]["bitcoin"]
-        bal_1 = sidechain.getwalletinfo()["balance"]
+        bal_1 = sidechain.getwalletinfo()["balance"]['bitcoin']
         try:
             sidechain.sendtomainchain(some_btc_addr, bal_1 + 1)
             raise Exception("Sending out too much; should have failed")
         except JSONRPCException as e:
             assert("Insufficient funds" in e.error["message"])
 
-        #assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
-        assert(sidechain.getwalletinfo()["balance"] == bal_1)
+        assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
         try:
             sidechain.sendtomainchain(some_btc_addr+"b", bal_1 - 1)
             raise Exception("Sending to invalid address; should have failed")
         except JSONRPCException as e:
             assert("Invalid Bitcoin address" in e.error["message"])
 
-        #assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
-        assert(sidechain.getwalletinfo()["balance"] == bal_1)
+        assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
         try:
             sidechain.sendtomainchain("1Nro9WkpaKm9axmcfPVp79dAJU1Gx7VmMZ", bal_1 - 1)
             raise Exception("Sending to mainchain address when should have been testnet; should have failed")
         except JSONRPCException as e:
             assert("Invalid Bitcoin address" in e.error["message"])
 
-        #assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
-        assert(sidechain.getwalletinfo()["balance"] == bal_1)
+        assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
 
         peg_out_txid = sidechain.sendtomainchain(some_btc_addr, 1)
 
         peg_out_details = sidechain.decoderawtransaction(sidechain.getrawtransaction(peg_out_txid))
-        # peg-out, change
-        #TODO(rebase) CA/CT fee output
-        #assert(len(peg_out_details["vout"]) == 3)
-        assert(len(peg_out_details["vout"]) == 2)
+        # peg-out, change, fee
+        assert(len(peg_out_details["vout"]) == 3)
         found_pegout_value = False
         for output in peg_out_details["vout"]:
             if "value" in output and output["value"] == 1:
                 found_pegout_value = True
         assert(found_pegout_value)
 
-        #bal_2 = sidechain.getwalletinfo()["balance"]["bitcoin"]
-        bal_2 = sidechain.getwalletinfo()["balance"]
+        bal_2 = sidechain.getwalletinfo()["balance"]["bitcoin"]
         # Make sure balance went down
         assert(bal_2 + 1 < bal_1)
 
         sidechain.sendtomainchain(some_btc_addr, bal_2, True)
 
-        #TODO(rebase) CA bitcoin balance
-        #assert("bitcoin" not in sidechain.getwalletinfo()["balance"])
-        assert(sidechain.getwalletinfo()["balance"] == 0)
+        assert(sidechain.getwalletinfo()["balance"]['bitcoin'] == 0)
 
         print('Success!')
 
