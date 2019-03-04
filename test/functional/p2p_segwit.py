@@ -481,7 +481,7 @@ class SegWitTest(BitcoinTestFramework):
         p2sh_pubkey = hash160(script_pubkey)
         p2sh_script_pubkey = CScript([OP_HASH160, p2sh_pubkey, OP_EQUAL])
 
-        value = self.utxo[0].nValue.getAmount() // 3
+        value = self.utxo[0].nValue // 3
 
         tx = CTransaction()
         tx.vin = [CTxIn(COutPoint(self.utxo[0].sha256, self.utxo[0].n), b'')]
@@ -1824,6 +1824,7 @@ class SegWitTest(BitcoinTestFramework):
             index += 1
             total_in += i.nValue
         if total_in - 2*output_value > 0: tx.vout.append(CTxOut(total_in - 2*output_value)) # fee
+        tx.calc_sha256()
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx])
         test_witness_block(self.nodes[0], self.test_node, block, accepted=True)

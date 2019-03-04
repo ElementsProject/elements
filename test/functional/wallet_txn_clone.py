@@ -71,15 +71,15 @@ class TxnMallTest(BitcoinTestFramework):
         clone_inputs = [{"txid": rawtx1["vin"][0]["txid"], "vout": rawtx1["vin"][0]["vout"]}]
         clone_outputs = {rawtx1["vout"][0]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][0]["value"],
                          rawtx1["vout"][1]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][1]["value"]}
-        clone_valuein = self.nodes[0].getrawtransaction(rawtx1["vin"][0]["txid"], 1)["vout"][rawtx1["vin"][0]["vout"]]["value"]
-        clone_outputs["fee"] =  clone_valuein - rawtx1["vout"][0]["value"] - rawtx1["vout"][1]["value"]
+        assert_equal(rawtx1["vout"][2]["scriptPubKey"]["type"], "fee")
+        clone_outputs["fee"] = rawtx1["vout"][2]["value"]
         clone_locktime = rawtx1["locktime"]
         clone_raw = self.nodes[0].createrawtransaction(clone_inputs, clone_outputs, clone_locktime)
 
         # createrawtransaction randomizes the order of its outputs, so swap them if necessary.
         clone_tx = CTransaction()
         clone_tx.deserialize(io.BytesIO(bytes.fromhex(clone_raw)))
-        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40*COIN or rawtx1["vout"][0]["value"] != 40 and clone_tx.vout[0].nValue == 40*COIN):
+        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue.getAmount() != 40*COIN or rawtx1["vout"][0]["value"] != 40 and clone_tx.vout[0].nValue.getAmount() == 40*COIN):
             (clone_tx.vout[0], clone_tx.vout[1]) = (clone_tx.vout[1], clone_tx.vout[0])
 
         # Use a different signature hash type to sign.  This creates an equivalent but malleated clone.
