@@ -512,6 +512,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blech32_hrp", strprintf("The human-readable part of the chain's blech32 encoding. Used in confidential addresses.(default: %s)", defaultChainParams->Blech32HRP()), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-defaultpeggedassetname", "Default name of the pegged asset. (default: bitcoin)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-blindedaddresses", "Give blind addresses by default via getnewaddress and getrawchangeaddress. (default: -con_elementswitness value)", false, OptionsCategory::ELEMENTS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);

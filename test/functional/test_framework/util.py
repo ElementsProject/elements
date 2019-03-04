@@ -328,6 +328,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
         f.write("con_csv_deploy_start=0\n") # Enhance tests if removing this line
+        #f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir

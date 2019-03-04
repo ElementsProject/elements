@@ -172,6 +172,8 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
             "\nReturns a new Bitcoin address for receiving payments.\n"
             "If 'label' is specified, it is added to the address book \n"
             "so payments received with the address will be associated with 'label'.\n"
+            "Blinded addresses are returned by default, and can be set with\n"
+            "startup argument `-blindedaddresses`.\n"
             "\nArguments:\n"
             "1. \"label\"          (string, optional) The label name for the address to be linked to. If not provided, the default label \"\" is used. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name.\n"
             "2. \"address_type\"   (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype.\n"
@@ -211,7 +213,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    if (g_con_elementswitness) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementswitness)) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
     }
@@ -235,6 +237,8 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
             "getrawchangeaddress ( \"address_type\" )\n"
             "\nReturns a new Bitcoin address, for receiving change.\n"
             "This is for use with raw transactions, NOT normal use.\n"
+            "Blinded addresses are returned by default, and can be set with\n"
+            "startup argument `-blindedaddresses`.\n"
             "\nArguments:\n"
             "1. \"address_type\"           (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
             "\nResult:\n"
@@ -270,7 +274,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     pwallet->LearnRelatedScripts(vchPubKey, output_type);
     CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
-    if (g_con_elementswitness) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementswitness)) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(vchPubKey, output_type, blinding_pubkey);
     }
@@ -350,13 +354,14 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     CRecipient recipient = {scriptPubKey, nValue, asset, GetDestinationBlindingKey(address), fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
     CTransactionRef tx;
-    if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control)) {
+    BlindDetails blind_details;
+    if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control, true, nullptr /* issuance_details  */, &blind_details)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekeys, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekeys, g_connman.get(), state, &blind_details)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -1015,13 +1020,14 @@ static UniValue sendmany(const JSONRPCRequest& request)
     int nChangePosRet = -1;
     std::string strFailReason;
     CTransactionRef tx;
-    bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control);
+    BlindDetails blind_details;
+    bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, nullptr /* issuance_details*/, &blind_details);
     if (!fCreated) {
         LogPrintf("xxxfunds 3: \n");
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, g_connman.get(), state, &blind_details)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
