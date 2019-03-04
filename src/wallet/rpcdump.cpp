@@ -777,8 +777,9 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
     std::stringstream ss;
+
     //Padding
-    ss << "00000000000000000000000000000000" << std::endl;
+    ss.str("00000000000000000000000000000000");
 
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
@@ -804,8 +805,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     //Remove new line character from end of string
 
 //    std::string bareHex=HexStr(bare);
-
-    std::vector<unsigned char> vRaw(ss.str().begin(), ss.str().end());
+    std::string sRaw=ss.str();
+    std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
     std::vector<unsigned char> vEnc;
 
 

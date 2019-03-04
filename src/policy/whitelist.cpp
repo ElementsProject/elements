@@ -153,6 +153,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         // kycPubKey assigned to me by the whitelisting node
         pwalletMain->SetKYCPubKey(kycPubKey);
       }
+      _onboardMap[userOnboardPubKey.GetID()]=kycPubKey;
     }
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
