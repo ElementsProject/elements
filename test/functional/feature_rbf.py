@@ -31,15 +31,16 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=CScript([1])):
         node.generate(100)
 
     new_addr = node.getnewaddress()
-    unblind_addr = node.validateaddress(new_addr)["unconfidential"]
+    unblinded_addr = node.validateaddress(new_addr)["unconfidential"]
     txidstr = node.sendtoaddress(new_addr, satoshi_round((amount+fee)/COIN))
     tx1 = node.getrawtransaction(txidstr, 1)
     txid = int(txidstr, 16)
     i = None
 
     for i, txout in enumerate(tx1['vout']):
-        if "addresses" in txout['scriptPubKey'] and \
-                txout['scriptPubKey']['addresses'] == [unblind_addr]:
+        if txout['scriptPubKey']['type'] == "fee":
+            continue # skip fee outputs
+        if txout['scriptPubKey']['addresses'] == [unblinded_addr]:
             break
     assert i is not None
 
