@@ -627,6 +627,14 @@ struct CoinSelectionParams
     CoinSelectionParams() {}
 };
 
+struct IssuanceDetails
+{
+    bool blind_issuance = true;
+    boost::optional<CAsset> reissuance_asset;
+    boost::optional<CAsset> reissaunce_token;
+    uint256 entropy;
+};
+
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
 /**
  * A CWallet is an extension of a keystore, which also maintains a set of transactions and balances,
@@ -960,7 +968,7 @@ public:
      * @note passing nChangePosInOut as -1 will result in setting a random position
      */
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
-                           std::string& strFailReason, const CCoinControl& coin_control, bool sign = true);
+                           std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, const IssuanceDetails* issuance_details = nullptr);
     bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CConnman* connman, CValidationState& state);
 
     bool DummySignTx(CMutableTransaction &txNew, const std::set<CTxOut> &txouts, bool use_max_sig = false) const

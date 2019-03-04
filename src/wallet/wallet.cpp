@@ -2660,7 +2660,7 @@ OutputType CWallet::TransactionChangeType(OutputType change_type, const std::vec
     return m_default_address_type;
 }
 
-bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign)
+bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, const IssuanceDetails* issuance_details)
 {
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;

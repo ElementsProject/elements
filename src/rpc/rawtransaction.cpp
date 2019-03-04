@@ -1921,7 +1921,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(tx);
 }
 
-struct IssuanceDetails
+struct RawIssuanceDetails
 {
     int input_index;
     uint256 entropy;
@@ -1931,7 +1931,7 @@ struct IssuanceDetails
 
 // Appends a single issuance to the first input that doesn't have one, and includes
 // a single output per asset type in shuffled positions.
-void issueasset_base(CMutableTransaction& mtx, IssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const std::string& asset_address_str, const std::string& token_address_str, const bool blind_issuance, const uint256& contract_hash)
+void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const std::string& asset_address_str, const std::string& token_address_str, const bool blind_issuance, const uint256& contract_hash)
 {
 
     CTxDestination asset_address(DecodeDestination(asset_address_str));
@@ -2131,7 +2131,7 @@ UniValue rawissueasset(const JSONRPCRequest& request)
             contract_hash = ParseHashV(issuance_o["contract_hash"], "contract_hash");
         }
 
-        IssuanceDetails details;
+        RawIssuanceDetails details;
 
         issueasset_base(mtx, details, asset_amount, token_amount, asset_address_str, token_address_str, blind_issuance, contract_hash);
         if (details.input_index == -1) {
