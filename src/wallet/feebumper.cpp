@@ -276,6 +276,9 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
     CTransactionRef tx = MakeTransactionRef(std::move(mtx));
     mapValue_t mapValue = oldWtx.mapValue;
     mapValue["replaces_txid"] = oldWtx.GetHash().ToString();
+    // wipe blinding details to not store old information
+    mapValue["blindingdata"] = "";
+    // TODO CA: store new blinding data to remember otherwise unblindable outputs
 
     std::vector<std::unique_ptr<CReserveKey>> reservekeys;
     reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(wallet)));
