@@ -5,6 +5,8 @@
 #include <bench/bench.h>
 #include <wallet/wallet.h>
 #include <wallet/coinselection.h>
+#include <asset.h>
+#include <policy/policy.h>
 
 #include <set>
 
@@ -47,11 +49,13 @@ static void CoinSelection(benchmark::State& state)
     const CoinSelectionParams coin_selection_params(true, 34, 148, CFeeRate(0), 0);
     while (state.KeepRunning()) {
         std::set<CInputCoin> setCoinsRet;
-        CAmount nValueRet;
+        CAmountMap mapValueRet;
         bool bnb_used;
-        bool success = wallet.SelectCoinsMinConf(1003 * COIN, filter_standard, groups, setCoinsRet, nValueRet, coin_selection_params, bnb_used);
+        CAmountMap mapValue;
+        mapValue[::policyAsset] = 1003 * COIN;
+        bool success = wallet.SelectCoinsMinConf(mapValue, filter_standard, groups, setCoinsRet, mapValueRet, coin_selection_params, bnb_used);
         assert(success);
-        assert(nValueRet == 1003 * COIN);
+        assert(mapValueRet[::policyAsset] == 1003 * COIN);
         assert(setCoinsRet.size() == 2);
 
 /*        std::set<std::pair<const CWalletTx*, unsigned int> > setCoinsRet;

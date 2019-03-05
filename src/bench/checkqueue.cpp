@@ -49,8 +49,7 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::State& state)
         for (auto& vChecks : vBatches) {
             vChecks.reserve(BATCH_SIZE);
             for (size_t x = 0; x < BATCH_SIZE; ++x) {
-                PrevectorJob j(insecure_rand);
-                vChecks.emplace_back(&j);
+                vChecks.emplace_back(new PrevectorJob(insecure_rand));
             }
             control.Add(vChecks);
         }
