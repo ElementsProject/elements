@@ -154,6 +154,12 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   delete kycAddress;
 }
 
+bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
+  CCoinsViewCache mapInputs(pcoinsTip);
+  mapInputs.SetBestBlock(pindex->GetBlockHash());
+  RegisterAddress(tx, mapInputs);
+}
+
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   //Check if this is a ID registration (whitetoken) transaction

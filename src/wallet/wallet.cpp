@@ -1055,7 +1055,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlockIndex
 {
     {
         AssertLockHeld(cs_wallet);
-
+        
         if (posInBlock != -1) {
             BOOST_FOREACH(const CTxIn& txin, tx.vin) {
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
@@ -1629,6 +1629,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
                     AddToWalletIfInvolvingMe(*block.vtx[posInBlock], pindex, posInBlock, fUpdate);
+                    addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
                 }
                 if (!ret) {
                     ret = pindex;
@@ -4340,8 +4341,9 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
     RegisterValidationInterface(walletInstance);
 
     CBlockIndex *pindexRescan = chainActive.Tip();
-    if (GetBoolArg("-rescan", false))
+    if (GetBoolArg("-rescan", false)){
         pindexRescan = chainActive.Genesis();
+    }
     else
     {
         CWalletDB walletdb(walletFile);

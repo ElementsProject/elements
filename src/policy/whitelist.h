@@ -32,6 +32,8 @@ public:
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
+  	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
+
   	//Update from transaction
   	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
