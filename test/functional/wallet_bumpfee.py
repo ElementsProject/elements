@@ -167,7 +167,8 @@ def test_bumpfee_with_descendant_fails(rbf_node, rbf_node_address, dest_address)
     # cannot bump fee if the transaction has a descendant
     # parent is send-to-self, so we don't have to check which output is change when creating the child tx
     parent_id = spend_one_input(rbf_node, rbf_node_address)
-    tx = rbf_node.createrawtransaction([{"txid": parent_id, "vout": 0}], {dest_address: "0.0002", "fee": "0.0003"})
+    input_val = rbf_node.getrawtransaction(parent_id, 1)["vout"][0]["value"]
+    tx = rbf_node.createrawtransaction([{"txid": parent_id, "vout": 0}], {dest_address: "0.0002", "fee": input_val-Decimal("0.0002")})
     tx = rbf_node.signrawtransactionwithwallet(tx)
     rbf_node.sendrawtransaction(tx["hex"])
     assert_raises_rpc_error(-8, "Transaction has descendants in the wallet", rbf_node.bumpfee, parent_id)

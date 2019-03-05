@@ -429,6 +429,8 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
         outputs = std::move(outputs_dict);
     }
+    bool fee_given = false;
+    CTxOut fee_out;
     for (const std::string& name_ : outputs.getKeys()) {
         // ELEMENTS:
         // Asset defaults to policyAsset
@@ -457,9 +459,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             rawTx.vout.push_back(out);
         } else if (name_ == "fee") {
             // ELEMENTS: explicit fee outputs
+            fee_given = true;
             CAmount nAmount = AmountFromValue(outputs[name_]);
-            CTxOut out(asset, nAmount, CScript());
-            rawTx.vout.push_back(out);
+            fee_out = CTxOut(asset, nAmount, CScript());
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
@@ -476,6 +478,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CTxOut out(asset, CConfidentialValue(nAmount), scriptPubKey);
             rawTx.vout.push_back(out);
         }
+    }
+
+    if (fee_given) {
+        rawTx.vout.push_back(fee_out);
     }
 
     if (!rbf.isNull() && rawTx.vin.size() > 0 && rbfOptIn != SignalsOptInRBF(rawTx)) {
