@@ -429,7 +429,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
         outputs = std::move(outputs_dict);
     }
-    bool fee_given = false;
+    // Keep track of the fee output so we can add it in the very end of the transaction.
     CTxOut fee_out;
     for (const std::string& name_ : outputs.getKeys()) {
         // ELEMENTS:
@@ -444,7 +444,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         if (name_ == "data") {
             std::vector<unsigned char> data = ParseHexV(outputs[name_].getValStr(), "Data");
 
-            CTxOut out(asset, CConfidentialValue(0), CScript() << OP_RETURN << data);
+            CTxOut out(asset, 0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
         } else if (name_ == "vdata") {
             // ELEMENTS: support multi-push OP_RETURN
@@ -455,11 +455,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 datascript << data;
             }
 
-            CTxOut out(asset, CConfidentialValue(0), datascript);
+            CTxOut out(asset, 0, datascript);
             rawTx.vout.push_back(out);
         } else if (name_ == "fee") {
             // ELEMENTS: explicit fee outputs
-            fee_given = true;
             CAmount nAmount = AmountFromValue(outputs[name_]);
             fee_out = CTxOut(asset, nAmount, CScript());
         } else {
@@ -475,12 +474,13 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CScript scriptPubKey = GetScriptForDestination(destination);
             CAmount nAmount = AmountFromValue(outputs[name_]);
 
-            CTxOut out(asset, CConfidentialValue(nAmount), scriptPubKey);
+            CTxOut out(asset, nAmount, scriptPubKey);
             rawTx.vout.push_back(out);
         }
     }
 
-    if (fee_given) {
+    // Add fee output in the end.
+    if (!fee_out.nValue.IsNull() && fee_out.nValue.GetAmount() > 0) {
         rawTx.vout.push_back(fee_out);
     }
 
