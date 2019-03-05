@@ -51,4 +51,6 @@ class CPolicyList : private std::set<CKeyID>
 
  protected:
 	boost::recursive_mutex _mtx;
+  CAsset _asset;
+
 };

@@ -6,9 +6,72 @@
 #include "validation.h"
 #include "wallet/wallet.h"
 #include "ecies.h"
+#include "policy/policy.h"
 
-CWhiteList::CWhiteList(){;}
+CWhiteList::CWhiteList(){
+  _asset=whitelistAsset;
+}
 CWhiteList::~CWhiteList(){;}
+
+bool CWhiteList::Load(CCoinsView *view)
+{
+    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
+    LOCK(cs_main);
+
+    //main loop over coins (transactions with > 0 unspent outputs
+    while (pcursor->Valid()) {
+        boost::this_thread::interruption_point();
+        uint256 key;
+        CCoins coins;
+        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
+            //loop over all vouts within a single transaction
+            for (unsigned int i=0; i<coins.vout.size(); i++) {
+                const CTxOut &out = coins.vout[i];
+                //null vouts are spent
+                if (!out.IsNull()) {
+                   if(out.nAsset.GetAsset() == _asset) {
+                    std::vector<std::vector<unsigned char> > vSolutions;
+                    txnouttype whichType;
+
+                    if (!Solver(out.scriptPubKey, whichType, vSolutions)) continue;
+
+                    // extract address from second multisig public key and add to the freezelist
+                    // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
+                    if (whichType == TX_MULTISIG && vSolutions.size() == 4){
+                      std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 33);
+                      //The last bytes of the KYC public key are
+                      //in reverse to prevent spending, 
+                      std::reverse(vKycPub.begin() + 3, vKycPub.end());
+                      CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
+                      if (!kycPubKey.IsFullyValid()) {
+                        LogPrintf("POLICY: not adding invalid KYC pub key to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+                        return false;
+                      }
+
+                      CKeyID id=kycPubKey.GetID();
+                      if(find_kyc_blacklisted(id)){
+                        LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+                        whitelist_kyc(id);
+                      } else if(find_kyc_whitelisted(id)){
+                        return false;
+                      } else {
+                        LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+                        whitelist_kyc(id);
+                        add_unassigned_kyc(kycPubKey);
+                      }
+                      return true;
+                    }
+                }
+              }
+            }
+    } else {
+      return error("%s: unable to read value", __func__);
+    }
+    pcursor->Next();
+    }
+    return true;
+}
+
 
 
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
@@ -465,3 +528,4 @@ bool CWhiteList::kycFromUserOnboard(const CPubKey& userOnboard, CPubKey& kyc){
   kyc=_onboardMap[userOnboard.GetID()];
   return true;
 }
+

@@ -15,18 +15,22 @@ class PolicyTransactionTest (BitcoinTestFramework):
         self.extra_args = [['-txindex'] for i in range(3)]
         self.extra_args[0].append("-freezelist=1")
         self.extra_args[0].append("-burnlist=1")
+        self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[0].append("-initialfreecoins=50000000000000")
         self.extra_args[0].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[0].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
+        self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-initialfreecoins=50000000000000")
         self.extra_args[1].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[1].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[1].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
+        self.extra_args[1].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[2].append("-initialfreecoins=50000000000000")
         self.extra_args[2].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
+        self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
      
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
@@ -42,7 +46,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         self.nodes[0].importprivkey("cS29UJMQrpnee7UaUHo6NqJVpGr35TEqUDkKXStTnxSZCGUWavgE")
         self.nodes[0].importprivkey("cND4nfH6g2SopoLk5isQ8qGqqZ5LmbK6YwJ1QnyoyMVBTs8bVNNd")
         self.nodes[0].importprivkey("cTnxkovLhGbp7VRhMhGThYt8WDwviXgaVAD8DjaVa5G5DApwC6tF")
-
+        self.nodes[0].importprivkey("cNCQhCnpnzyeYh48NszsTJC2G4HPoFMZguUnUgBpJ5X9Vf2KaPYx")
 
         self.nodes[0].generate(101)
         self.sync_all()
@@ -51,6 +55,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         pascript = "76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac"
         flscript = "76a91474168445da07d331faabd943422653dbe19321cd88ac"
         blscript = "76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac"
+        wlscript = "76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac"
         genhash = self.nodes[0].getblockhash(0)
         genblock = self.nodes[0].getblock(genhash)
         
@@ -68,6 +73,10 @@ class PolicyTransactionTest (BitcoinTestFramework):
                 paasset = rawtx["vout"][0]["asset"]
                 patxid = txid
                 pavalue = rawtx["vout"][0]["value"]
+            if rawtx["vout"][0]["scriptPubKey"]["hex"] == wlscript:
+                wlasset = rawtx["vout"][0]["asset"]
+                wltxid = txid
+                wlvalue = rawtx["vout"][0]["value"]
 
         #Send some policyasset outputs to the second node
         fundaddr = self.nodes[1].getnewaddress()
@@ -94,6 +103,10 @@ class PolicyTransactionTest (BitcoinTestFramework):
         
         #get an address for the freezelist
         frzaddress1 = self.nodes[1].getnewaddress()
+
+        #add the address to the node 0 whitelist
+        self.nodes[0].addtowhitelist(frzaddress1)
+        asset_equal(self.nodes[0].querywhitelist(frzaddress1), True)
 
         #send some coins to that address
         rtxid = self.nodes[1].sendtoaddress(frzaddress1,100)
@@ -135,6 +148,8 @@ class PolicyTransactionTest (BitcoinTestFramework):
 
         #try and spend from the frozen output
         newaddr = self.nodes[1].getnewaddress()
+        self.nodes[0].addtowhitelist(newaddr)
+        assert_equal(self.nodes[0].querywhitelist(newaddr), True)
         inputs = []
         vin = {}
         vin["txid"] = rtxid

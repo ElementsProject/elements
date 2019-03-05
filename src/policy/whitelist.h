@@ -19,6 +19,8 @@ public:
   		black
   	};
 
+	bool Load(CCoinsView *view);
+
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
 		const CBitcoinAddress* kycAddress);
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
