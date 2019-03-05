@@ -9,6 +9,7 @@
 #include <qt/qvalidatedlineedit.h>
 #include <qt/walletmodel.h>
 
+#include <asset.h>
 #include <base58.h>
 #include <chainparams.h>
 #include <primitives/transaction.h>
@@ -211,7 +212,7 @@ bool isDust(interfaces::Node& node, const QString& address, const CAmount& amoun
 {
     CTxDestination dest = DecodeDestination(address.toStdString());
     CScript script = GetScriptForDestination(dest);
-    CTxOut txOut(amount, script);
+    CTxOut txOut(CAsset(), amount, script);
     return IsDust(txOut, node.getDustRelayFee());
 }
 

@@ -61,8 +61,8 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     strHTML += "<html><font face='verdana, arial, helvetica, sans-serif'>";
 
     int64_t nTime = wtx.time;
-    CAmount nCredit = wtx.credit;
-    CAmount nDebit = wtx.debit;
+    CAmount nCredit = valueFor(wtx.credit, ::policyAsset);
+    CAmount nDebit = valueFor(wtx.debit, ::policyAsset);
     CAmount nNet = nCredit - nDebit;
 
     strHTML += "<b>" + tr("Status") + ":</b> " + FormatTxStatus(wtx, status, inMempool, numBlocks, adjustedTime);
@@ -134,7 +134,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         //
         CAmount nUnmatured = 0;
         for (const CTxOut& txout : wtx.tx->vout)
-            nUnmatured += wallet.getCredit(txout, ISMINE_ALL);
+            nUnmatured += valueFor(wallet.getCredit(txout, ISMINE_ALL), ::policyAsset);
         strHTML += "<b>" + tr("Credit") + ":</b> ";
         if (status.is_in_main_chain)
             strHTML += BitcoinUnits::formatHtmlWithUnit(unit, nUnmatured)+ " (" + tr("matures in %n more block(s)", "", status.blocks_to_maturity) + ")";
@@ -199,21 +199,21 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                     }
                 }
 
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -txout.nValue) + "<br>";
+                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -txout.nValue.GetAmount()) + "<br>";
                 if(toSelf)
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, txout.nValue) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, txout.nValue.GetAmount()) + "<br>";
             }
 
             if (fAllToMe)
             {
                 // Payment to self
-                CAmount nChange = wtx.change;
+                CAmount nChange = valueFor(wtx.change, ::policyAsset);
                 CAmount nValue = nCredit - nChange;
                 strHTML += "<b>" + tr("Total debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nValue) + "<br>";
                 strHTML += "<b>" + tr("Total credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, nValue) + "<br>";
             }
 
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut();
+            CAmount nTxFee = nDebit - valueFor(wtx.tx->GetValueOutMap(), ::policyAsset);
             if (nTxFee > 0)
                 strHTML += "<b>" + tr("Transaction fee") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -nTxFee) + "<br>";
         }
@@ -225,13 +225,13 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
             auto mine = wtx.txin_is_mine.begin();
             for (const CTxIn& txin : wtx.tx->vin) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin, ISMINE_ALL)) + "<br>";
+                    strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -valueFor(wallet.getDebit(txin, ISMINE_ALL), ::policyAsset)) + "<br>";
                 }
             }
             mine = wtx.txout_is_mine.begin();
             for (const CTxOut& txout : wtx.tx->vout) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout, ISMINE_ALL)) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, valueFor(wallet.getCredit(txout, ISMINE_ALL), ::policyAsset)) + "<br>";
                 }
             }
         }
@@ -286,10 +286,10 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         strHTML += "<hr><br>" + tr("Debug information") + "<br><br>";
         for (const CTxIn& txin : wtx.tx->vin)
             if(wallet.txinIsMine(txin))
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet.getDebit(txin, ISMINE_ALL)) + "<br>";
+                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -valueFor(wallet.getDebit(txin, ISMINE_ALL), ::policyAsset)) + "<br>";
         for (const CTxOut& txout : wtx.tx->vout)
             if(wallet.txoutIsMine(txout))
-                strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet.getCredit(txout, ISMINE_ALL)) + "<br>";
+                strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, valueFor(wallet.getCredit(txout, ISMINE_ALL), ::policyAsset)) + "<br>";
 
         strHTML += "<br><b>" + tr("Transaction") + ":</b><br>";
         strHTML += GUIUtil::HtmlEscape(wtx.tx->ToString(), true);
@@ -315,7 +315,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                             strHTML += GUIUtil::HtmlEscape(name) + " ";
                         strHTML += QString::fromStdString(EncodeDestination(address));
                     }
-                    strHTML = strHTML + " " + tr("Amount") + "=" + BitcoinUnits::formatHtmlWithUnit(unit, vout.nValue);
+                    strHTML = strHTML + " " + tr("Amount") + "=" + BitcoinUnits::formatHtmlWithUnit(unit, vout.nValue.GetAmount());
                     strHTML = strHTML + " IsMine=" + (wallet.txoutIsMine(vout) & ISMINE_SPENDABLE ? tr("true") : tr("false")) + "</li>";
                     strHTML = strHTML + " IsWatchOnly=" + (wallet.txoutIsMine(vout) & ISMINE_WATCH_ONLY ? tr("true") : tr("false")) + "</li>";
                 }

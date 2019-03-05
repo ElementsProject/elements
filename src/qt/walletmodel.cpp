@@ -15,6 +15,7 @@
 #include <interfaces/handler.h>
 #include <interfaces/node.h>
 #include <key_io.h>
+#include <policy/policy.h>
 #include <ui_interface.h>
 #include <util.h> // for GetBoolArg
 #include <wallet/coincontrol.h>
@@ -154,7 +155,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
                 const unsigned char* scriptStr = (const unsigned char*)out.script().data();
                 CScript scriptPubKey(scriptStr, scriptStr+out.script().size());
                 CAmount nAmount = out.amount();
-                CRecipient recipient = {scriptPubKey, nAmount, rcp.fSubtractFeeFromAmount};
+                CRecipient recipient = {scriptPubKey, nAmount, ::policyAsset, CPubKey(), rcp.fSubtractFeeFromAmount};
                 vecSend.push_back(recipient);
             }
             if (subtotal <= 0)
@@ -177,7 +178,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             ++nAddresses;
 
             CScript scriptPubKey = GetScriptForDestination(DecodeDestination(rcp.address.toStdString()));
-            CRecipient recipient = {scriptPubKey, rcp.amount, rcp.fSubtractFeeFromAmount};
+            CRecipient recipient = {scriptPubKey, rcp.amount, ::policyAsset, CPubKey(), rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
             total += rcp.amount;
@@ -188,7 +189,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         return DuplicateAddress;
     }
 
-    CAmount nBalance = m_wallet->getAvailableBalance(coinControl);
+    CAmount nBalance = m_wallet->getAvailableBalance(coinControl)[::policyAsset];
 
     if(total > nBalance)
     {

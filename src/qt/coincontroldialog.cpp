@@ -419,7 +419,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
 
         if (amount > 0)
         {
-            CTxOut txout(amount, static_cast<CScript>(std::vector<unsigned char>(24, 0)));
+            CTxOut txout(::policyAsset, amount, static_cast<CScript>(std::vector<unsigned char>(24, 0)));
             txDummy.vout.push_back(txout);
             fDust |= IsDust(txout, model->node().getDustRelayFee());
         }
@@ -454,7 +454,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         nQuantity++;
 
         // Amount
-        nAmount += out.txout.nValue;
+        nAmount += out.txout.nValue.GetAmount();
 
         // Bytes
         CTxDestination address;
@@ -468,8 +468,8 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
         else if(ExtractDestination(out.txout.scriptPubKey, address))
         {
             CPubKey pubkey;
-            CKeyID *keyid = boost::get<CKeyID>(&address);
-            if (keyid && model->wallet().getPubKey(*keyid, pubkey))
+            PKHash *keyid = boost::get<PKHash>(&address);
+            if (keyid && model->wallet().getPubKey(CKeyID(*keyid), pubkey))
             {
                 nBytesInputs += (pubkey.IsCompressed() ? 148 : 180);
             }
@@ -510,7 +510,7 @@ void CoinControlDialog::updateLabels(WalletModel *model, QDialog* dialog)
             // Never create dust outputs; if we would, just add the dust to the fee.
             if (nChange > 0 && nChange < MIN_CHANGE)
             {
-                CTxOut txout(nChange, static_cast<CScript>(std::vector<unsigned char>(24, 0)));
+                CTxOut txout(::policyAsset, nChange, static_cast<CScript>(std::vector<unsigned char>(24, 0)));
                 if (IsDust(txout, model->node().getDustRelayFee()))
                 {
                     nPayFee += nChange;
@@ -639,7 +639,7 @@ void CoinControlDialog::updateView()
         for (const auto& outpair : coins.second) {
             const COutPoint& output = std::get<0>(outpair);
             const interfaces::WalletTxOut& out = std::get<1>(outpair);
-            nSum += out.txout.nValue;
+            nSum += out.txout.nValue.GetAmount();
             nChildren++;
 
             CCoinControlWidgetItem *itemOutput;
@@ -676,8 +676,8 @@ void CoinControlDialog::updateView()
             }
 
             // amount
-            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.txout.nValue));
-            itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.txout.nValue)); // padding so that sorting works correctly
+            itemOutput->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, out.txout.nValue.GetAmount()));
+            itemOutput->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant((qlonglong)out.txout.nValue.GetAmount())); // padding so that sorting works correctly
 
             // date
             itemOutput->setText(COLUMN_DATE, GUIUtil::dateTimeStr(out.time));

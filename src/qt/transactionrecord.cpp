@@ -7,6 +7,7 @@
 #include <consensus/consensus.h>
 #include <interfaces/wallet.h>
 #include <key_io.h>
+#include <policy/policy.h>
 #include <timedata.h>
 #include <validation.h>
 
@@ -29,8 +30,8 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
 {
     QList<TransactionRecord> parts;
     int64_t nTime = wtx.time;
-    CAmount nCredit = wtx.credit;
-    CAmount nDebit = wtx.debit;
+    CAmount nCredit = valueFor(wtx.credit, ::policyAsset);
+    CAmount nDebit = valueFor(wtx.debit, ::policyAsset);
     CAmount nNet = nCredit - nDebit;
     uint256 hash = wtx.tx->GetHash();
     std::map<std::string, std::string> mapValue = wtx.value_map;
@@ -49,7 +50,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 TransactionRecord sub(hash, nTime);
                 CTxDestination address;
                 sub.idx = i; // vout index
-                sub.credit = txout.nValue;
+                sub.credit = txout.nValue.GetAmount();
                 sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
                 if (wtx.txout_address_is_mine[i])
                 {
@@ -93,7 +94,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
         if (fAllFromMe && fAllToMe)
         {
             // Payment to self
-            CAmount nChange = wtx.change;
+            CAmount nChange = valueFor(wtx.change, ::policyAsset);
 
             parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
                             -(nDebit - nChange), nCredit - nChange));
@@ -104,7 +105,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             //
             // Debit
             //
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOut();
+            CAmount nTxFee = nDebit - wtx.tx->GetValueOutMap()[::policyAsset];
 
             for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
             {
@@ -133,7 +134,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     sub.address = mapValue["to"];
                 }
 
-                CAmount nValue = txout.nValue;
+                CAmount nValue = txout.nValue.GetAmount();
                 /* Add fee to first output */
                 if (nTxFee > 0)
                 {

@@ -21,6 +21,7 @@
 #include <ui_interface.h>
 #include <txmempool.h>
 #include <policy/fees.h>
+#include <policy/policy.h>
 #include <wallet/fees.h>
 
 #include <QFontMetrics>
@@ -526,7 +527,7 @@ void SendCoinsDialog::setBalance(const interfaces::WalletBalances& balances)
 {
     if(model && model->getOptionsModel())
     {
-        ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), balances.balance));
+        ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), valueFor(balances.balance, ::policyAsset)));
     }
 }
 
@@ -618,7 +619,7 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
     }
 
     // Calculate available amount to send.
-    CAmount amount = model->wallet().getAvailableBalance(coin_control);
+    CAmount amount = valueFor(model->wallet().getAvailableBalance(coin_control), ::policyAsset);
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
         if (e && !e->isHidden() && e != entry) {
