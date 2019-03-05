@@ -101,6 +101,10 @@ bool IsBurn(const CTransaction& tx);
      * Check if a transaction has outputs what are of a policy asset type
      */
 bool IsPolicy(const CTransaction& tx);
+    /**
+     * Check if an asset is of a policy asset type
+     */
+bool IsPolicy(const CAsset& asset);
 
     /**
      * Check if a transaction has outputs what are of a policy asset type

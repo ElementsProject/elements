@@ -2579,12 +2579,14 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
                 return false;
 
             //Reject non-whitelisted 
-            const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
-            CTxDestination dest;
+            if(fRequireWhitelistCheck){
+                const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
+                CTxDestination dest;
 
-            if(ExtractDestination(script, dest)){
-                CKeyID keyId = boost::get<CKeyID>(dest);
-                if(!addressWhitelist.is_whitelisted(keyId)) continue;
+                if(ExtractDestination(script, dest)){
+                    CKeyID keyId = boost::get<CKeyID>(dest);
+                    if(!addressWhitelist.is_whitelisted(keyId)) continue;
+                }
             }
             
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);

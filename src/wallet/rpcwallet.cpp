@@ -414,7 +414,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
     // Check amount
-    if (nValue < 0)
+    if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
     if (nValue > curBalance)
@@ -3117,6 +3117,9 @@ UniValue listunspent(const JSONRPCRequest& request)
     if (assetstr != "") {
         asset = GetAssetFromString(assetstr);
     }
+
+    bool bPolicy=false;
+    
 
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;

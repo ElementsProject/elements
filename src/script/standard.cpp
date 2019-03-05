@@ -98,15 +98,23 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         return false;
     }
 
-
+    // Provably prunable, data-carrying output
+    //
+    // So long as script passes the IsUnspendable() test and all but the first
+    // byte passes the IsPushOnly() test we don't care what exactly is in the
+    // script.
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
+        typeRet = TX_NULL_DATA;
+        return true;
+    }
 
     //Register address transaction 
     //Firt byte OP_REGISTERADDRESS, remainder is push only (unspendable)
     //Decode the metadata
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS){
         if(scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)){
-        typeRet = TX_REGISTERADDRESS;
-        return true;
+            typeRet = TX_REGISTERADDRESS;
+            return true;
         }
     }
 

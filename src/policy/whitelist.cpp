@@ -461,5 +461,7 @@ unsigned int CWhiteList::n_my_pending(){
 }
 
 bool CWhiteList::kycFromUserOnboard(const CPubKey& userOnboard, CPubKey& kyc){
+  if(_onboardMap.find(userOnboard.GetID()) == _onboardMap.end()) return false;
   kyc=_onboardMap[userOnboard.GetID()];
+  return true;
 }

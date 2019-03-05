@@ -123,9 +123,16 @@ bool IsPolicy(const CTransaction& tx)
 {
   //function that determines if any outputs of a transaction are policy assets
   BOOST_FOREACH(const CTxOut& txout, tx.vout) {
-    if(txout.nAsset.GetAsset() == freezelistAsset || 
-        txout.nAsset.GetAsset() == burnlistAsset || txout.nAsset.GetAsset() == whitelistAsset) return true;
+    if(IsPolicy(txout.nAsset.GetAsset())) return true;
   }
+  return false;
+}
+
+bool IsPolicy(const CAsset& asset){
+  if(asset == freezelistAsset || 
+     asset == burnlistAsset || 
+     asset == whitelistAsset) 
+    return true;
   return false;
 }
 

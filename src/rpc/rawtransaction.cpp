@@ -676,12 +676,12 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
             "\"transaction\"              (string) hex string of the transaction\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"pubkey\\\":2.41}\"")
-            + HelpExampleCli("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"pubkey\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myasset\\\"}\"")
-            + HelpExampleCli("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
-            + HelpExampleRpc("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":2.41}\"")
-            + HelpExampleRpc("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"pubkey\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myasset\\\"}\"")
-            + HelpExampleRpc("createrawpolicytx", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
+            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"pubkey\\\":2.41}\"")
+            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\" \"{\\\"pubkey\\\":2.41}\" 0 \"{\\\"address\\\":\\\"myasset\\\"}\"")
+            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"address\\\":2.41}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0\\\"asset\\\":\\\"myasset\\\"}]\", \"{\\\"pubkey\\\":2.41}\", 0, \"{\\\"address\\\":\\\"myasset\\\"}\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"{\\\"data\\\":\\\"47ef9c62a982cb8d91ba7291bae\\\"}\"")
         );
 
     RPCTypeCheck(request.params, boost::assign::list_of(UniValue::VARR)(UniValue::VARR)(UniValue::VNUM)(UniValue::VSTR), true);
@@ -752,21 +752,19 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
         //get the address from the RPC
         const UniValue& address = find_value(o, "address");
 
-        if(address.isStr()){
-            CBitcoinAddress bcaddress;
-            if (!bcaddress.SetString(address.getValStr()))
+        CBitcoinAddress bcaddress;
+        if (!bcaddress.SetString(address.getValStr()))
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid  address");
 
-            CKeyID keyId;
-            if (!bcaddress.GetKeyID(keyId))
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
+        CKeyID keyId;
+        if (!bcaddress.GetKeyID(keyId))
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-            std::string hexaddress = HexStr(keyId.begin(), keyId.end());
-            //concatenate with padding bytes
-            data = "02000000000000000000000000" + hexaddress;
-            //we do not check that this pubkey is a real curve point
-        }
-        
+        std::string hexaddress = HexStr(keyId.begin(), keyId.end());
+        //concatenate with padding bytes
+        data = "02000000000000000000000000" + hexaddress;
+        //we do not check that this pubkey is a real curve point
+
         const UniValue& userkey = find_value(o, "userkey");
 
         if (userkey.isStr()) {
@@ -781,14 +779,7 @@ UniValue createrawpolicytx(const JSONRPCRequest& request)
             //we do not check that this pubkey is a real curve point
         }
 
-       std::vector<unsigned char> datavec(ParseHex(data));
-       datavec.resize(33, 0);
-            
-        if (userkey.isStr()) {
-            //for userkey: reverse the last 30 bytes so that this key cannot be used to spend the tx        
-            std::reverse(datavec.begin()+3, datavec.end());
-        }
-
+        std::vector<unsigned char> datavec(ParseHex(data));
         CPubKey listData(datavec.begin(), datavec.end());
 
         //get the address from the RPC
