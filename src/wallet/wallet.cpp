@@ -2665,6 +2665,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
+    bool issuing = issuance_details != nullptr;
+    bool blinding_outputs = blind_details != nullptr;
     for (const auto& recipient : vecSend)
     {
         LogPrintf("passing recipient...\n");
@@ -2823,6 +2825,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 o_amount_blinds.clear();
                 o_assets.clear();
                 o_asset_blinds.clear();
+                int num_to_blind = 0;
+                int change_to_blind = 0;
+                int num_inputs_blinded = 0;
 
                 LogPrintf("attempt to form ok-fee tx...\n");
                 // We need to output the position of the policyAsset change output.
@@ -2974,6 +2979,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     o_pubkeys.push_back(CPubKey());
                 }
 
+                // Set token input if reissuing
+                int reissuance_index = -1;
+                uint256 token_blinding;
+
                 // Now that transaction is fully-formed minus witness/blind,
                 // generate blinding stuff for size estimation
 
@@ -2983,9 +2992,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 std::vector<CAsset> i_assets;
                 std::vector<CAmount> i_amounts;
 
-                // TODO CA: Blind here
                 o_asset_blinds.resize(txNew.vout.size());
-                o_amount_blinds.resize(txNew.vout.size());
                 for (const auto& out : txNew.vout) {
                     o_amounts.push_back(out.nValue.GetAmount());
                     o_assets.push_back(out.nAsset.GetAsset());
@@ -2999,7 +3006,170 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 //
                 for (const auto& coin : selected_coins) {
                     txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
+                    if (issuance_details &&
+                        coin.first->GetOutputAsset(coin.second) == *issuance_details->reissuance_token) {
+                        reissuance_index = txNew.vin.size()-1;
+                        token_blinding = coin.first->GetOutputAssetBlindingFactor(coin.second);
+                    }
+
                 }
+
+                if (issuance_details) {
+                    // Fill in issuances now that inputs are set
+                    std::vector<CKey> asset_keys;
+                    std::vector<CKey> token_keys;
+                    assert(txNew.vin.size() > 0);
+                    int asset_index = -1;
+                    int token_index = -1;
+                    for (unsigned int i = 0; i < txNew.vout.size(); i++) {
+                        if (txNew.vout[i].nAsset.IsExplicit() && txNew.vout[i].nAsset.GetAsset()  == CAsset(uint256S("1"))) {
+                            asset_index = i;
+                        } else if (txNew.vout[i].nAsset.IsExplicit() && txNew.vout[i].nAsset.GetAsset() == CAsset(uint256S("2"))) {
+                            token_index = i;
+                        }
+                    }
+                    // Initial issuance request
+                    if (issuance_details->reissuance_asset->IsNull() && reissuanceToken->IsNull() && (asset_index != -1 || token_index != -1)) {
+                        uint256 entropy;
+                        CAsset asset;
+                        CAsset token;
+                        // TODO take optional contract hash
+                        // Initial issuance always uses vin[0]
+                        GenerateAssetEntropy(entropy, txNew.vin[0].prevout, uint256());
+                        CalculateAsset(asset, entropy);
+                        CalculateReissuanceToken(token, entropy, issuance_details->blind_issuances);
+                        CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(txNew.vin[0].prevout.hash.begin(), txNew.vin[0].prevout.hash.end()) << txNew.vin[0].prevout.n);
+                        // We're making asset outputs, fill out asset type and issuance input
+                        if (asset_index != -1) {
+                            txNew.vin[0].assetIssuance.nAmount = txNew.vout[asset_index].nValue;
+
+                            txNew.vout[asset_index].nAsset = asset;
+                            if (issuance_details->blind_issuances) {
+                                asset_keys.push_back(GetBlindingKey(&blindingScript));
+                                num_to_blind++;
+                            }
+                        }
+                        // We're making reissuance token outputs
+                        if (token_index != -1) {
+                            txNew.vin[0].assetIssuance.nInflationKeys = txNew.vout[token_index].nValue;
+                            txNew.vout[token_index].nAsset = token;
+                            if (issuance_details->blind_issuances) {
+                                token_keys.push_back(GetBlindingKey(&blindingScript));
+                                num_to_blind++;
+
+                                // If we're blinding a token issuance and no assets, we must make
+                                // the asset issuance a blinded commitment to 0
+                                if (asset_index == -1) {
+                                    txNew.vin[0].assetIssuance.nAmount = 0;
+                                    asset_keys.push_back(GetBlindingKey(&blindingScript));
+                                    num_to_blind++;
+                                }
+                            }
+                        }
+                    // Asset being reissued with explicitly named asset/token
+                    } else if (asset_index != -1) {
+                        assert(reissuance_index != -1);
+                        // Fill in output with issuance
+                        txNew.vout[asset_index].nAsset = issuance_details->reissuance_asset;
+
+                        // Fill in issuance
+                        // Blinding revealing underlying asset
+                        txNew.vin[reissuance_index].assetIssuance.assetBlindingNonce = token_blinding;
+                        txNew.vin[reissuance_index].assetIssuance.assetEntropy = issuance_details->entropy;
+                        txNew.vin[reissuance_index].assetIssuance.nAmount = txNew.vout[asset_index].nValue;
+
+                        // If blinded token derivation, blind the issuance
+                        CAsset temp_token;
+                        CalculateReissuanceToken(temp_token, issuance_details->entropy, true);
+                        if (temp_token == issuance_details->reissuance_token) {
+                            CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(txNew.vin[reissuance_index].prevout.hash.begin(), txNew.vin[reissuance_index].prevout.hash.end()) << txNew.vin[reissuance_index].prevout.n);
+                            asset_keys.resize(reissuance_index);
+                            asset_keys.push_back(GetBlindingKey(&blindingScript));
+                            num_to_blind++;
+                        }
+                    }
+                }
+                // Fill in input blinding details
+                for (const auto& coin : selected_coins) {
+                    uint256 blind = coin.first->GetOutputBlindingFactor(coin.second);
+                    i_amount_blinds.push_back(blind);
+                    uint256 asset_blind = coin.first->GetOutputAssetBlindingFactor(coin.second);
+                    i_asset_blinds.push_back(asset_blind);
+                    CAsset asset = coin.first->GetOutputAsset(coin.second);
+                    i_assets.push_back(asset);
+                    CAmount amount = coin.first->GetOutputValueOut(coin.second);
+                    i_amounts.push_back(amount);
+                    if (coin.first->tx->vout[coin.second].nValue.IsCommitment() || coin.first->tx->vout[coin.second].nAsset.IsCommitment()) {
+                        num_inputs_blinded++;
+                    }
+                }
+                // Fill in output blinding details
+                for (size_t nOut = 0; nOut < txNew.vout.size(); nOut++) {
+                    o_amount_blinds.push_back(uint256());
+                    o_asset_blinds.push_back(uint256());
+                    output_assets.push_back(txNew.vout[nOut].nAsset.GetAsset());
+                }
+
+                // There are a few edge-cases of blinding we need to take care of
+                //
+                // First, if there are blinded inputs but not outputs to blind
+                // We need this to go through, even though no privacy is gained.
+                if (num_inputs_blinded > 0 &&  num_to_blind == 0) {
+                    // We need to make sure to dupe an asset that is in input set
+                    // TODO Have blinding do some extremely minimal rangeproof
+                    CTxOut newTxOut(output_assets.back(), 0, CScript() << OP_RETURN);
+                    txNew.vout.push_back(newTxOut);
+                    o_pubkeys.push_back(GetBlindingPubKey(newTxOut.scriptPubKey));
+                    o_amount_blinds.push_back(uint256());
+                    o_asset_blinds.push_back(uint256());
+                    output_assets.push_back(output_assets.back());
+                    vAmounts.push_back(0);
+                    num_to_blind++;
+
+                    // No blinded inputs, but 1 blinded output
+                } else if (num_inputs_blinded == 0 && num_to_blind == 1) {
+                    if (change_to_blind == 1) {
+                        // Only 1 blinded change, unblinded the change
+                        // TODO Split up change instead if possible
+                        if (blind_details->ignore_blind_failure) {
+                            num_to_blind--;
+                            change_to_blind--;
+                            txNew.vout[onlyChangePos].nNonce.SetNull();
+                            o_pubkeys[onlyChangePos] = CPubKey();
+                            o_amount_blinds[onlyChangePos] = uint256();
+                            o_asset_blinds[onlyChangePos] = uint256();
+                        } else {
+                            strFailReason = _("Change output could not be blinded as there are no blinded inputs and no other blinded outputs.");
+                            return false;
+                        }
+                    } else {
+                        // 1 blinded destination
+                        // TODO Attempt to get a blinded input, OR add unblinded coin to make blinded change
+                        assert(onlyRecipientBlindIndex != -1);
+                        if (blind_details->ignore_blind_failure) {
+                            num_to_blind--;
+                            txNew.vout[onlyRecipientBlindIndex].nNonce.SetNull();
+                            o_pubkeys[onlyRecipientBlindIndex] = CPubKey();
+                            o_amount_blinds[onlyRecipientBlindIndex] = uint256();
+                            o_asset_blinds[onlyRecipientBlindIndex] = uint256();
+                        } else {
+                            strFailReason = _("Transaction output could not be blinded as there are no blinded inputs and no other blinded outputs.");
+                            return false;
+                        }
+                    }
+                }
+                // All other combinations should work.
+
+                // Keep a backup of transaction in case re-blinding necessary
+                txUnblindedAndUnsigned = txNew;
+                int ret = BlindTransaction(i_amount_blinds, i_asset_blinds, i_assets, i_amounts, o_amount_blinds, o_asset_blinds,  o_pubkeys, asset_keys, token_keys, txNew);
+                assert(ret != -1);
+                if (ret != num_to_blind) {
+                    strFailReason = _("Unable to blind the transaction properly. This should not happen.");
+                    return false;
+                }
+
+
 
                 nBytes = CalculateMaximumSignedTxSize(txNew, this, coin_control.fAllowWatchOnly);
                 if (nBytes < 0) {

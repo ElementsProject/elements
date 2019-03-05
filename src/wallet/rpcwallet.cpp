@@ -5615,9 +5615,10 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
     return result;
 }
 
-static void SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, bool blind_issuancess, uint256& entropy, CAsset& reissue_asset, CAsset& reissue_token, CMutableTransaction& mtx, CWallet* pwallet)
+static void SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, CMutableTransaction& mtx, CWallet* pwallet)
 {
 
+    CAsset reissue_token = issuance_details->reissuance_token;
     CAmount curBalance = pwallet->GetBalance()[reissue_token];
 
     if (!reissue_token.IsNull() && curBalance <= 0) {
@@ -5653,9 +5654,9 @@ static void SendGenerationTransaction(const CScript& asset_script, const CPubKey
         }
         vecSend.push_back(recipient);
     }
-    CCoinControl dummy_control; // TODO: Smuggle in issuance information using this?
+    CCoinControl dummy_control;
     CTransactionRef tx_ref(MakeTransactionRef(mtx));
-    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true)) { // TODO: Add issuance details here once CreateTransaction scaffolding in place
+    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
@@ -5734,20 +5735,22 @@ UniValue issueasset(const JSONRPCRequest& request)
     CMutableTransaction mtx;
     uint256 dummyentropy;
     CAsset dummyasset;
-    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, blind_issuances, dummyentropy, dummyasset, dummyasset, mtx, pwallet);
+    IssuanceDetails issuance_details;
+    issuance_details.blind_issuance = blind_issuances;
+    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, mtx, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
     uint256 entropy;
     CAsset asset;
     CAsset token;
-    GenerateAssetEntropy(entropy, mtx.vin[0].prevout, uint256());
-    CalculateAsset(asset, entropy);
+    GenerateAssetEntropy(issuance_details.entropy, mtx.vin[0].prevout, uint256());
+    CalculateAsset(asset, issuance_details.entropy);
     CalculateReissuanceToken(token, entropy, blind_issuances);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("txid", mtx.GetHash().GetHex());
     ret.pushKV("vin", 0);
-    ret.pushKV("entropy", entropy.GetHex());
+    ret.pushKV("entropy", issuance_details.entropy.GetHex());
     ret.pushKV("asset", asset.GetHex());
     ret.pushKV("token", token.GetHex());
     return ret;
@@ -5794,18 +5797,18 @@ UniValue reissueasset(const JSONRPCRequest& request)
 
     // Find the entropy and reissuance token in wallet
     std::map<uint256, std::pair<CAsset, CAsset> > tokenMap = pwallet->GetReissuanceTokenTypes();
-    CAsset reissuanceToken;
+    CAsset reissuance_token;
     uint256 entropy;
     for (const auto& it : tokenMap) {
         if (it.second.second == asset) {
-            reissuanceToken = it.second.first;
+            reissuance_token = it.second.first;
             entropy = it.first;
         }
         if (it.second.first == asset) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Asset given is a reissuance token type and can not be reissued.");
         }
     }
-    if (reissuanceToken.IsNull()) {
+    if (reissuance_token.IsNull()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Asset reissuance token definition could not be found in wallet.");
     }
 
@@ -5834,7 +5837,10 @@ UniValue reissueasset(const JSONRPCRequest& request)
 
     // Attempt a send.
     CMutableTransaction mtx;
-    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, true, entropy, asset, reissuanceToken, mtx, pwallet);
+    IssuanceDetails issuance_details;
+    issuance_details.reissuance_asset = asset;
+    issuance_details.reissuance_token = reissuance_token;
+    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, mtx, pwallet);
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("txid", mtx.GetHash().GetHex());

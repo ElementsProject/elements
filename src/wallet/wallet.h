@@ -630,8 +630,8 @@ struct CoinSelectionParams
 struct IssuanceDetails
 {
     bool blind_issuance = true;
-    boost::optional<CAsset> reissuance_asset;
-    boost::optional<CAsset> reissaunce_token;
+    CAsset reissuance_asset;
+    CAsset reissuance_token;
     uint256 entropy;
 };
 
@@ -642,6 +642,7 @@ struct BlindDetails
     std::vector<uint256> o_amount_blinds;
     std::vector<CAsset> o_assets;
     std::vector<uint256> o_asset_blinds;
+    bool ignore_blind_failure = true; // Certain corner-cases are hard to avoid
 };
 
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
