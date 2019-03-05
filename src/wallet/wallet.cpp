@@ -3051,11 +3051,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         LogPrintf("extraFeePaid: %s\n", extraFeePaid);
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                         change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
+                        o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
                         nFeeRet -= extraFeePaid;
                         if (g_con_elementswitness) {
                             txNew.vout.back().nValue = nFeeRet; // update fee output
+                            o_amounts.back() = nFeeRet;
                         }
                     }
+                    // TODO CA: blind transaction again here
                     break; // Done, enough fee included.
                 }
                 else if (!pick_new_inputs) {
@@ -3075,10 +3078,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     // Only reduce change if remaining amount is still a large enough output.
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
+                        o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
                         nFeeRet += additionalFeeNeeded;
                         if (g_con_elementswitness) {
                             txNew.vout.back().nValue = nFeeRet; // update fee output
+                            o_amounts.back() = nFeeRet; // update change details
                         }
+                        // TODO CA: blind transaction again here
                         break; // Done, able to increase fee from change
                     }
                 }
@@ -4722,6 +4728,10 @@ void CWalletTx::GetBlindingData(const unsigned int map_index, const std::vector<
         memcpy(asset_factor.begin(), &*(it + 41), 32);
         memcpy(asset_tag.begin(), &*(it + 73), 32);
         pubkey.Set(it + 105, it + 138);
+
+        if (conf_value.IsExplicit()) {
+            assert(conf_value.GetAmount() == amount);
+        }
     } else {
         pwallet->ComputeBlindingData(conf_value, conf_asset, nonce, scriptPubKey, vchRangeproof, amount, pubkey, value_factor, asset_tag, asset_factor);
         *it = 1;
