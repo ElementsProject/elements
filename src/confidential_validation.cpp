@@ -259,6 +259,9 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             return false;
         }
         if (!issuance.nAmount.IsNull()) {
+            // Note: This check disallows issuances in transactions with *no* witness data.
+            // This can be relaxed in a future update as a HF by passing in an empty rangeproof
+            // to `VerifyIssuanceAmount` instead.
             if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
@@ -281,7 +284,9 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             if (!issuance.assetBlindingNonce.IsNull()) {
                 return false;
             }
-
+            // Note: This check disallows issuances in transactions with *no* witness data.
+            // This can be relaxed in a future update as a HF by passing in an empty rangeproof
+            // to `VerifyIssuanceAmount` instead.
             if (i >= tx.witness.vtxinwit.size()) {
                 return false;
             }
