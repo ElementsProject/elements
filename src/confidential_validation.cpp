@@ -271,10 +271,6 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
             p++;
         }
 
-        if (!issuance.nAmount.IsValid()) {
-            return false;
-        }
-
         // Process issuance of reissuance tokens
 
         if (!issuance.nInflationKeys.IsValid()) {
