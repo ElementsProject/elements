@@ -4,7 +4,9 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import *
+from test_framework.util import assert_equal, connect_nodes_bi
+from test_framework.authproxy import JSONRPCException
+from decimal import Decimal
 
 " Tests issued assets functionality including (re)issuance, and de-issuance "
 
@@ -86,19 +88,19 @@ def process_raw_issuance(node, issuance_list):
 
 class IssuanceTest (BitcoinTestFramework):
 
-    def __init__(self):
-        super().__init__()
+    def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir)
-        connect_nodes_bi(self.nodes,0,1)
-        connect_nodes_bi(self.nodes,1,2)
-        self.is_network_split=False
+        self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 1, 2)
+        self.is_network_split = False
         self.sync_all()
 
     def run_test(self):
+        self.nodes[0].generate(101)
 
         # Unblinded issuance of asset
         issued = self.nodes[0].issueasset(1, 1, False)

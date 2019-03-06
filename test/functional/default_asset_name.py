@@ -10,7 +10,7 @@
 from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import *
+from test_framework.util import assert_equal, connect_nodes_bi
 
 class NamedDefaultAssetTest(BitcoinTestFramework):
     """
@@ -18,17 +18,16 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
 
     """
 
-    def __init__(self):
-        super().__init__()
+    def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
 
         #Set default asset name
-        self.node_args = [["-defaultpeggedassetname=testasset"], ["-defaultpeggedassetname=testasset"]]
+        self.extra_args = [["-defaultpeggedassetname=testasset"], ["-defaultpeggedassetname=testasset"]]
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir, self.node_args)
-        connect_nodes_bi(self.nodes,0,1)
+        self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
         self.is_network_split = False
         self.sync_all()
 
@@ -55,7 +54,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
         assert_equal(walletinfo2["balance"]["testasset"], 1)
 
         #Check we send the default 'testasset' when calling 'sendmany' without needing to provide the relevant asset label
-        outputs = {self.nodes[1].getnewaddress():1.0,self.nodes[1].getnewaddress():3.0}
+        outputs = {self.nodes[1].getnewaddress(): 1.0, self.nodes[1].getnewaddress(): 3.0}
         self.nodes[0].sendmany("", outputs)
         self.nodes[0].generate(101)
         self.sync_all()
