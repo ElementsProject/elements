@@ -192,14 +192,16 @@ class OnboardTest (BitcoinTestFramework):
 
 
         self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
         time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
-        nwhitelisted+=nadd
+        nwhitelisted+=(3*nadd)
         wl1file_3="wl1_3.dat"
         self.nodes[1].dumpwhitelist(wl1file_3)
         nlines3=self.linecount(wl1file_3)
-        assert_equal(nlines3-nlines2, nadd)
+        assert_equal(nlines3-nlines2, 3*nadd)
 
 
         #Blacklist node 1
