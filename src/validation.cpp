@@ -883,10 +883,6 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             p++;
         }
 
-        if (!issuance.nAmount.IsValid()) {
-            return false;
-        }
-
         // Process issuance of reissuance tokens
 
         if (!issuance.nInflationKeys.IsValid()) {
