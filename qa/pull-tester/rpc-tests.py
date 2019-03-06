@@ -112,6 +112,7 @@ testScripts = [
     'wallet.py',
     'whitelisting.py',
     'policytransactions.py',
+    'onboard.py',
     # Accounts not supported
     #'wallet-accounts.py',
     # TODO fix mininode

@@ -2797,14 +2797,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if(fEnableBurnlistCheck) {
             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
         }
-        if(fRequireWhitelistCheck){
-            if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
-                addressWhitelist.Update(tx,view);
-            } else {
-                // This will do nothing except return false if tx is not a TX_REGISTERADDRESS
-                addressWhitelist.RegisterAddress(tx, view);
-            }
+        //Non-whitelisting nodes need the kyc pub key whitelist as well
+        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
+            addressWhitelist.Update(tx,view); 
+        } else {
+            // This will do nothing except return false if tx is not a TX_REGISTERADDRESS
+            addressWhitelist.RegisterAddress(tx, view);
         }
+        
 
         // GetTransactionSigOpCost counts 3 types of sigops:
         // * legacy (always)
