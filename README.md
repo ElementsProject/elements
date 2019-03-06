@@ -53,3 +53,7 @@ Elements is an open source, sidechain-capable blockchain platform. It also allow
 Learn more on the [Elements Project website](https://elementsproject.org)
 
 https://github.com/ElementsProject/elementsproject.github.io
+
+Secure Reporting
+------------------
+See [our vulnerability reporting guide](SECURITY.md)
