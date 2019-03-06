@@ -586,8 +586,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
         key.MakeNewKey(true);
         uint256 keybin;
         memcpy(keybin.begin(), key.begin(), key.size());
-        pwallet->blinding_derivation_key = keybin;
-        if (!WriteBlindingDerivationKey(pwallet->blinding_derivation_key)) {
+        if (!pwallet->SetMasterBlindingKey(keybin)) {
             result = DBErrors::LOAD_FAIL;
         }
     }

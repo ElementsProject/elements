@@ -1230,6 +1230,7 @@ public:
 
     bool LoadSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
     bool AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
+    bool SetMasterBlindingKey(const uint256& key);
 
     std::map<uint256, std::pair<CAsset, CAsset> > GetReissuanceTokenTypes() const;
 };

@@ -6031,7 +6031,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_descriptor", "bip32_counter", "liquid_pak"} },
     { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
-    { "wallet",             "importblindingkey",                &importblindingkey, {"address", "hexkey"}},
+    { "wallet",             "importblindingkey",                &importblindingkey, {"address", "hexkey", "key_is_master"}},
     { "wallet",             "importissuanceblindingkey",        &importissuanceblindingkey, {"txid", "vin", "blindingkey"}},
     { "wallet",             "dumpblindingkey",                  &dumpblindingkey, {"address"}},
     { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey, {"txid", "vin"}},

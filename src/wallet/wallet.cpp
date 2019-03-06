@@ -4993,5 +4993,15 @@ bool CWallet::AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& k
     return WalletBatch(*database).WriteSpecificBlindingKey(scriptid, key);
 }
 
+bool CWallet::SetMasterBlindingKey(const uint256& key)
+{
+    AssertLockHeld(cs_wallet);
+    if (!WalletBatch(*database).WriteBlindingDerivationKey(key)) {
+        return false;
+    }
+    blinding_derivation_key = key;
+    return true;
+}
+
 // END ELEMENTS
 //

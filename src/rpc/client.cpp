@@ -189,6 +189,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendmany", 7 , "output_assets" },
     { "sendmany", 8 , "ignoreblindfail" },
     { "sendtoaddress", 9 , "ignoreblindfail" },
+    { "importblindingkey", 2, "key_is_master"},
 
 };
 // clang-format on

@@ -1146,7 +1146,7 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
             "                                                              creation time of all keys being imported by the importmulti call will be scanned.\n"
             "      \"redeemscript\": \"<script>\"                            , (string, optional) Allowed only if the scriptPubKey is a P2SH address or a P2SH scriptPubKey\n"
             "      \"pubkeys\": [\"<pubKey>\", ... ]                         , (array, optional) Array of strings giving pubkeys that must occur in the output or redeemscript\n"
-            "      \"blinding_privkey\": \"<privkey>\"                       , (array, optional) Array of strings giving blinding keys in hex that are used to unblind outputs going to `scriptPubKey`\n"
+            "      \"blinding_privkey\": \"<privkey>\"                       , (string, optional) String giving blinding key in hex that is used to unblind outputs going to `scriptPubKey`\n"
             "      \"keys\": [\"<key>\", ... ]                               , (array, optional) Array of strings giving private keys whose corresponding public keys must occur in the output or redeemscript\n"
             "      \"internal\": <true>                                    , (boolean, optional, default: false) Stating whether matching outputs should be treated as not incoming payments\n"
             "      \"watchonly\": <true>                                   , (boolean, optional, default: false) Stating whether matching outputs should be considered watched even when they're not spendable, only allowed if keys are empty\n"
@@ -1343,14 +1343,14 @@ UniValue importblindingkey(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 2)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
             "importblindingkey \"address\" \"blindinghex\"\n"
             "\nImports a private blinding key in hex for a CT address."
             "\nArguments:\n"
             "1. \"address\"          (string, required) The CT address\n"
             "2. \"hexkey\"           (string, required) The blinding key in hex\n"
-            // TODO: Support a derivation key import flag to allow master key import
+            "3. \"key_is_master\"    (bool, optional, default=false) If the `hexkey` is a master blinding key. Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n"
             "\nExample:\n"
             + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
         );
@@ -1373,6 +1373,11 @@ UniValue importblindingkey(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length");
     }
 
+    bool key_is_master = false;
+    if (!request.params[2].isNull()) {
+        key_is_master = request.params[2].get_bool();
+    }
+
     CKey key;
     key.Set(keydata.begin(), keydata.end(), true);
     if (!key.IsValid() || key.GetPubKey() != GetDestinationBlindingKey(dest)) {
@@ -1381,8 +1386,14 @@ UniValue importblindingkey(const JSONRPCRequest& request)
 
     uint256 keyval;
     memcpy(keyval.begin(), &keydata[0], 32);
-    if (!pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), keyval)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import blinding key");
+    if (key_is_master) {
+        if (pwallet->SetMasterBlindingKey(keyval)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import master blinding key");
+        }
+    } else {
+        if (!pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), keyval)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import blinding key");
+        }
     }
     pwallet->MarkDirty();
 
