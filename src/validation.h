@@ -135,6 +135,7 @@ static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 3 * 60 * 60;
 
 static const bool DEFAULT_WHITELIST_CHECK = false;
+static const bool DEFAULT_SCAN_WHITELIST = false;
 static const bool DEFAULT_BLOCK_ISSUANCE = false;
 static const bool DEFAULT_BURNLIST_CHECK = false;
 static const bool DEFAULT_FREEZELIST_CHECK = false;
@@ -184,6 +185,7 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
 extern bool fRequireWhitelistCheck;
+extern bool fScanWhitelist;
 extern bool fRequireFreezelistCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;

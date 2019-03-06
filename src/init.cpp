@@ -386,6 +386,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-onlynet=<net>", _("Only connect to nodes in network <net> (ipv4, ipv6 or onion)"));
     strUsage += HelpMessageOpt("-permitbaremultisig", strprintf(_("Relay non-P2SH multisig (default: %u)"), DEFAULT_PERMIT_BAREMULTISIG));
     strUsage += HelpMessageOpt("-pkhwhitelist", strprintf(_("Enable node mempool address whitelisting (default: %u)"), DEFAULT_WHITELIST_CHECK));
+    strUsage += HelpMessageOpt("-pkhwhitelist-scan", strprintf(_("Keep local whitelist updated with own wallet's whitelisted addresses (default: %u)"), DEFAULT_SCAN_WHITELIST));
     strUsage += HelpMessageOpt("-freezelist", strprintf(_("Enable node mempool address freezelisting (default: %u)"), DEFAULT_FREEZELIST_CHECK));
     strUsage += HelpMessageOpt("-burnlist", strprintf(_("Enable node mempool address burnlisting (default: %u)"), DEFAULT_BURNLIST_CHECK));
     strUsage += HelpMessageOpt("-peerbloomfilters", strprintf(_("Support filtering of blocks and transaction with bloom filters (default: %u)"), DEFAULT_PEERBLOOMFILTERS));
@@ -1094,6 +1095,7 @@ bool AppInitParameterInteraction()
 
     //address whitelisting
     fRequireWhitelistCheck = GetBoolArg("-pkhwhitelist", DEFAULT_WHITELIST_CHECK);
+    fScanWhitelist      = GetBoolArg("-pkhwhitelist-scan", DEFAULT_SCAN_WHITELIST);
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
@@ -1682,7 +1684,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     if(chainActive.Height() > 1) {
         if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
         if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
-        if(fRequireWhitelistCheck) addressWhitelist.Load(pcoinsTip);
+        if(fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
     }
 
     // ********************************************************* Step 11: start node

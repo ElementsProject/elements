@@ -80,6 +80,7 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
+bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
@@ -2798,11 +2799,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
         }
         //Non-whitelisting nodes need the kyc pub key whitelist as well
-        if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
-            addressWhitelist.Update(tx,view); 
-        } else {
-            // This will do nothing except return false if tx is not a TX_REGISTERADDRESS
-            addressWhitelist.RegisterAddress(tx, view);
+        if(fRequireWhitelistCheck || fScanWhitelist){
+            if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
+                addressWhitelist.Update(tx,view); 
+            } else {
+                // This will do nothing except return false if tx is not a TX_REGISTERADDRESS
+                addressWhitelist.RegisterAddress(tx, view);
+            }
         }
         
 

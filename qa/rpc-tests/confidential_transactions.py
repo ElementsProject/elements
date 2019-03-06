@@ -39,6 +39,7 @@ class CTTest (BitcoinTestFramework):
 
         # Send 3 BTC from 0 to a new unconfidential address of 2 with
         # the sendtoaddress call
+        print("...sending tokens...")
         address = self.nodes[2].getnewaddress()
         unconfidential_address = self.nodes[2].validateaddress(address)["unconfidential"]
         value0 = 3
@@ -54,6 +55,7 @@ class CTTest (BitcoinTestFramework):
         assert_equal(self.nodes[2].getbalance()["CBT"], node2)
 
         # Send 5 BTC from 0 to a new address of 2 with the sendtoaddress call
+        print("...sending tokens...")
         address = self.nodes[2].getnewaddress()
         unconfidential_address2 = self.nodes[2].validateaddress(address)["unconfidential"]
         value1 = 5
@@ -67,12 +69,14 @@ class CTTest (BitcoinTestFramework):
         print(node0)
         print(node2)
 
+        print("...checking balances...")
         assert_equal(self.nodes[0].getbalance()["CBT"], node0)
         assert_equal(self.nodes[1].getbalance("", 1, False, "CBT"), node1)
         assert_equal(self.nodes[2].getbalance()["CBT"], node2)
 
         # Send 7 BTC from 0 to the unconfidential address of 2 and 11 BTC to the
         # confidential address using the raw transaction interface
+        print("...sending tokens to confidential address...")
         change_address = self.nodes[0].getnewaddress()
         value2 = 7
         value3 = 11
