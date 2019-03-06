@@ -871,6 +871,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
             return false;
         }
         if (!issuance.nAmount.IsNull()) {
+            // Note: This check disallows issuances in transactions with *no* witness data.
+            // This can be relaxed in a future update as a HF by passing in an empty rangeproof
+            // to `VerifyIssuanceAmount` instead.
             if (i >= tx.wit.vtxinwit.size()) {
                 return false;
             }
@@ -894,6 +897,9 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 return false;
             }
 
+            // Note: This check disallows issuances in transactions with *no* witness data.
+            // This can be relaxed in a future update as a HF by passing in an empty rangeproof
+            // to `VerifyIssuanceAmount` instead.
             if (i >= tx.wit.vtxinwit.size()) {
                 return false;
             }
