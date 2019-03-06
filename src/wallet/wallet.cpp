@@ -3004,20 +3004,19 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 // Dummy fill vin for maximum size estimation
                 //
-                for (const auto& coin : selected_coins) {
-                    txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
-                    if (issuance_details &&
-                        coin.first->GetOutputAsset(coin.second) == *issuance_details->reissuance_token) {
-                        reissuance_index = txNew.vin.size()-1;
-                        token_blinding = coin.first->GetOutputAssetBlindingFactor(coin.second);
-                    }
+                for (const CInputCoin& coin : selected_coins) {
+                    txNew.vin.push_back(CTxIn(coin.outpoint, CScript()));
 
+                    if (issuance_details && coin.effective_asset == issuance_details->reissuance_token) {
+                        reissuance_index = txNew.vin.size() - 1;
+                        token_blinding = coin.bf_asset;
+                    }
                 }
 
+                std::vector<CKey> issuance_asset_keys;
+                std::vector<CKey> issuance_token_keys;
                 if (issuance_details) {
                     // Fill in issuances now that inputs are set
-                    std::vector<CKey> asset_keys;
-                    std::vector<CKey> token_keys;
                     assert(txNew.vin.size() > 0);
                     int asset_index = -1;
                     int token_index = -1;
@@ -3045,7 +3044,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                             txNew.vout[asset_index].nAsset = asset;
                             if (issuance_details->blind_issuances) {
-                                asset_keys.push_back(GetBlindingKey(&blindingScript));
+                                issuance_asset_keys.push_back(GetBlindingKey(&blindingScript));
                                 num_to_blind++;
                             }
                         }
@@ -3054,14 +3053,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             txNew.vin[0].assetIssuance.nInflationKeys = txNew.vout[token_index].nValue;
                             txNew.vout[token_index].nAsset = token;
                             if (issuance_details->blind_issuances) {
-                                token_keys.push_back(GetBlindingKey(&blindingScript));
+                                issuance_token_keys.push_back(GetBlindingKey(&blindingScript));
                                 num_to_blind++;
 
                                 // If we're blinding a token issuance and no assets, we must make
                                 // the asset issuance a blinded commitment to 0
                                 if (asset_index == -1) {
                                     txNew.vin[0].assetIssuance.nAmount = 0;
-                                    asset_keys.push_back(GetBlindingKey(&blindingScript));
+                                    issuance_asset_keys.push_back(GetBlindingKey(&blindingScript));
                                     num_to_blind++;
                                 }
                             }
@@ -3083,8 +3082,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         CalculateReissuanceToken(temp_token, issuance_details->entropy, true);
                         if (temp_token == issuance_details->reissuance_token) {
                             CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(txNew.vin[reissuance_index].prevout.hash.begin(), txNew.vin[reissuance_index].prevout.hash.end()) << txNew.vin[reissuance_index].prevout.n);
-                            asset_keys.resize(reissuance_index);
-                            asset_keys.push_back(GetBlindingKey(&blindingScript));
+                            issuance_asset_keys.resize(reissuance_index);
+                            issuance_asset_keys.push_back(GetBlindingKey(&blindingScript));
                             num_to_blind++;
                         }
                     }
@@ -3162,7 +3161,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 // Keep a backup of transaction in case re-blinding necessary
                 txUnblindedAndUnsigned = txNew;
-                int ret = BlindTransaction(i_amount_blinds, i_asset_blinds, i_assets, i_amounts, o_amount_blinds, o_asset_blinds,  o_pubkeys, asset_keys, token_keys, txNew);
+                int ret = BlindTransaction(i_amount_blinds, i_asset_blinds, i_assets, i_amounts, o_amount_blinds, o_asset_blinds,  o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                 assert(ret != -1);
                 if (ret != num_to_blind) {
                     strFailReason = _("Unable to blind the transaction properly. This should not happen.");

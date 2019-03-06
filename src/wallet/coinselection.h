@@ -14,23 +14,28 @@ static const CAmount MIN_CHANGE = CENT;
 //! final minimum change amount after paying for fees
 static const CAmount MIN_FINAL_CHANGE = MIN_CHANGE/2;
 
+//TODO(stevenroose) 
+class CWalletTx;
+class uint256;
+
 class CInputCoin {
 public:
-    CInputCoin(const CTransactionRef& tx, unsigned int i)
+    CInputCoin(const CWalletTx* wtx, unsigned int i)
     {
-        if (!tx)
+        if (!wtx || !wtx->tx)
             throw std::invalid_argument("tx should not be null");
-        if (i >= tx->vout.size())
+        if (i >= wtx->tx->vout.size())
             throw std::out_of_range("The output index is out of range");
 
-        outpoint = COutPoint(tx->GetHash(), i);
-        txout = tx->vout[i];
-        //TODO(rebase) wallet
-        effective_value = txout.nValue.GetAmount();
-        effective_asset = txout.nAsset.GetAsset();
+        outpoint = COutPoint(wtx->tx->GetHash(), i);
+        txout = wtx->tx->vout[i];
+        effective_value = wtx->GetOutputValueOut(i);
+        effective_asset = wtx->GetOutputAsset(i);
+        bf_value = wtx->GetOutputAmountBlindingFactor(i);
+        bf_asset = wtx->GetOutputAmountBlindingFactor(i);
     }
 
-    CInputCoin(const CTransactionRef& tx, unsigned int i, int input_bytes) : CInputCoin(tx, i)
+    CInputCoin(const CWalletTx& wtx, unsigned int i, int input_bytes) : CInputCoin(wtx, i)
     {
         m_input_bytes = input_bytes;
     }
@@ -38,7 +43,10 @@ public:
     COutPoint outpoint;
     CTxOut txout;
     CAmount effective_value;
+    // ELEMENTS:
     CAsset effective_asset;
+    uint256 bf_value;
+    uint256 bf_asset;
 
     /** Pre-computed estimated size of this output as a fully-signed input in a transaction. Can be -1 if it could not be calculated */
     int m_input_bytes{-1};
