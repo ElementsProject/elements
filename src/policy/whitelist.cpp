@@ -159,7 +159,7 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
   CCoinsViewCache mapInputs(pcoinsTip);
   mapInputs.SetBestBlock(pindex->GetBlockHash());
-  RegisterAddress(tx, mapInputs);
+  return RegisterAddress(tx, mapInputs);
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
@@ -338,12 +338,11 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       }
     }
   }
+  return bSuccess;
   #else //#ifdef ENABLE_WALLET
     LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
       return false;
   #endif //#ifdef ENABLE_WALLET
-
-  return bSuccess;
 }
 
 bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
