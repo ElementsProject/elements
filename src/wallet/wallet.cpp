@@ -2696,6 +2696,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
         det->o_amount_blinds.push_back(uint256());
         det->o_asset_blinds.push_back(uint256());
         det->o_assets.push_back(txNew.vout[nOut].nAsset.GetAsset());
+        det->o_amounts.push_back(txNew.vout[nOut].nValue.GetAmount());
     }
 
     // There are a few edge-cases of blinding we need to take care of
@@ -3073,17 +3074,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // Set token input if reissuing
                 int reissuance_index = -1;
                 uint256 token_blinding;
-
-                // Now that transaction is fully-formed minus witness/blind,
-                // generate blinding stuff for size estimation
-
-                if (blind_details) {
-                    blind_details->o_asset_blinds.resize(txNew.vout.size());
-                    for (const CTxOut& out : txNew.vout) {
-                        blind_details->o_amounts.push_back(out.nValue.GetAmount());
-                        blind_details->o_assets.push_back(out.nAsset.GetAsset());
-                    }
-                }
 
                 // Elements: Shuffle here to preserve random ordering for surjection proofs
                 selected_coins = std::vector<CInputCoin>(setCoins.begin(), setCoins.end());
