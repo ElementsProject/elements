@@ -3344,16 +3344,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             }
         }
 
+        // Normalize the witness in case it is not serialized before mempool
+        if (!txNew.HasWitness()) {
+            txNew.witness.SetNull();
+        }
+
         // Return the constructed transaction data.
         tx = MakeTransactionRef(std::move(txNew));
-
-        // Store blinding data for commitment later
-        if (blind_details) {
-            assert(blind_details->o_amounts.size() == blind_details->o_pubkeys.size());
-            assert(blind_details->o_amounts.size() == blind_details->o_amount_blinds.size());
-            assert(blind_details->o_amounts.size() == blind_details->o_assets.size());
-            assert(blind_details->o_amounts.size() == blind_details->o_asset_blinds.size());
-        }
 
         // Limit size
         if (GetTransactionWeight(*tx) > MAX_STANDARD_TX_WEIGHT)
