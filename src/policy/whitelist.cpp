@@ -4,7 +4,9 @@
 
 #include "whitelist.h"
 #include "validation.h"
+#ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
+#endif
 #include "ecies.h"
 #include "policy/policy.h"
 
@@ -162,6 +164,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pind
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  #ifdef ENABLE_WALLET
   //Check if this is a ID registration (whitetoken) transaction
   // Get input addresses an lookup associated idpubkeys
   if (tx.IsCoinBase())
@@ -228,8 +231,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     inputPubKey = userOnboardPubKey;
   } else {
     it1=bytes.begin(); //Reset iterator
-    kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
-    kycKey=kycPubKey.GetID();
     //Get input keyids
     //Lookup the ID public keys of the input addresses.
     //The set is used to ensure that there is only one kycKey involved.
@@ -335,6 +336,11 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       }
     }
   }
+  #else //#ifdef ENABLE_WALLET
+    LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
+      return false;
+  #endif //#ifdef ENABLE_WALLET
+
   return bSuccess;
 }
 
