@@ -3233,7 +3233,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                     // TODO CA: Swap back in unblinded version and re-blind before break
                     // If we have change output already, just increase it
-                    if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                    if (false && nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
                         LogPrintf("extraFeePaid: %s\n", extraFeePaid);
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
@@ -3258,7 +3258,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 // TODO CA: Swap back in unblinded version and re-blind before break
                 // Try to reduce change to include necessary fee
-                if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                if (false && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
                     LogPrintf("Adding additional fee: %s\n", additionalFeeNeeded);
                     std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
