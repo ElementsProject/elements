@@ -5615,7 +5615,7 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
     return result;
 }
 
-static void SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, CMutableTransaction& mtx, CWallet* pwallet)
+static CTransactionRef SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, CWallet* pwallet)
 {
 
     CAsset reissue_token = issuance_details->reissuance_token;
@@ -5655,7 +5655,7 @@ static void SendGenerationTransaction(const CScript& asset_script, const CPubKey
         vecSend.push_back(recipient);
     }
     CCoinControl dummy_control;
-    CTransactionRef tx_ref(MakeTransactionRef(mtx));
+    CTransactionRef tx_ref(MakeTransactionRef());
     if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, nullptr, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -5663,6 +5663,7 @@ static void SendGenerationTransaction(const CScript& asset_script, const CPubKey
     mapValue_t map_value;
     if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state))
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
+    return tx_ref;
 }
 
 UniValue issueasset(const JSONRPCRequest& request)
@@ -5732,23 +5733,23 @@ UniValue issueasset(const JSONRPCRequest& request)
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
 
-    CMutableTransaction mtx;
     uint256 dummyentropy;
     CAsset dummyasset;
     IssuanceDetails issuance_details;
     issuance_details.blind_issuance = blind_issuances;
-    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, mtx, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
     uint256 entropy;
     CAsset asset;
     CAsset token;
-    GenerateAssetEntropy(issuance_details.entropy, mtx.vin[0].prevout, uint256());
+    assert(!tx_ref->vin.empty());
+    GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, uint256());
     CalculateAsset(asset, issuance_details.entropy);
     CalculateReissuanceToken(token, entropy, blind_issuances);
 
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("txid", mtx.GetHash().GetHex());
+    ret.pushKV("txid", tx_ref->GetHash().GetHex());
     ret.pushKV("vin", 0);
     ret.pushKV("entropy", issuance_details.entropy.GetHex());
     ret.pushKV("asset", asset.GetHex());
@@ -5836,16 +5837,16 @@ UniValue reissueasset(const JSONRPCRequest& request)
     token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 
     // Attempt a send.
-    CMutableTransaction mtx;
     IssuanceDetails issuance_details;
     issuance_details.reissuance_asset = asset;
     issuance_details.reissuance_token = reissuance_token;
-    SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, mtx, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
+    assert(!tx_ref->vin.empty());
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("txid", mtx.GetHash().GetHex());
-    for (uint64_t i = 0; i < mtx.vin.size(); i++) {
-        if (!mtx.vin[i].assetIssuance.IsNull()) {
+    obj.pushKV("txid", tx_ref->GetHash().GetHex());
+    for (uint64_t i = 0; i < tx_ref->vin.size(); i++) {
+        if (!tx_ref->vin[i].assetIssuance.IsNull()) {
             obj.pushKV("vin", i);
             break;
         }
