@@ -3304,9 +3304,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
         if (nChangePosInOut == -1 && reservekey[0]) reservekey[0]->ReturnKey(); // Return any reserved key if we don't have change
 
-        // Shuffle selected coins and fill in final vin ELEMENTS: shuffle moved
-        txNew.vin.clear();
-
         // Note how the sequence number is set to non-maxint so that
         // the nLockTime set above actually works.
         //
@@ -3316,8 +3313,15 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         // and in the spirit of "smallest possible change from prior
         // behavior."
         const uint32_t nSequence = coin_control.m_signal_bip125_rbf.get_value_or(m_signal_rbf) ? MAX_BIP125_RBF_SEQUENCE : (CTxIn::SEQUENCE_FINAL - 1);
-        for (const auto& coin : selected_coins) {
-            txNew.vin.push_back(CTxIn(coin.outpoint, CScript(), nSequence));
+        for (auto& input : txNew.vin) {
+            // Remove sigs and then set sequence
+            input.scriptSig = CScript();
+            input.nSequence = nSequence;
+        }
+
+        // Also remove witness data for scripts
+        for (auto& inwit : txNew.witness.vtxinwit) {
+            inwit.scriptWitness.SetNull();
         }
 
         if (sign)
