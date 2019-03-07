@@ -3231,12 +3231,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         }
                     }
 
+                    // TODO CA: Swap back in unblinded version and re-blind before break
                     // If we have change output already, just increase it
                     if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
                         LogPrintf("extraFeePaid: %s\n", extraFeePaid);
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
-                        // TODO CA: Fix this GetAmount when blinded
                         change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
                         blind_details->o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
                         nFeeRet -= extraFeePaid;
@@ -3245,7 +3245,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             blind_details->o_amounts.back() = nFeeRet;
                         }
                     }
-                    // TODO CA: blind transaction again here
                     break; // Done, enough fee included.
                 }
                 else if (!pick_new_inputs) {
@@ -3257,13 +3256,13 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     return false;
                 }
 
+                // TODO CA: Swap back in unblinded version and re-blind before break
                 // Try to reduce change to include necessary fee
                 if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
                     LogPrintf("Adding additional fee: %s\n", additionalFeeNeeded);
                     std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                     // Only reduce change if remaining amount is still a large enough output.
-                    // TODO CA: Fix these GetAmounts when blinded
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
                         if (blind_details) {
