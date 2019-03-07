@@ -3,11 +3,26 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/coinselection.h>
+#include <wallet/wallet.h>
 
 #include <util.h>
 #include <utilmoneystr.h>
 
 #include <boost/optional.hpp>
+
+CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
+    if (!wtx || !wtx->tx)
+        throw std::invalid_argument("tx should not be null");
+    if (i >= wtx->tx->vout.size())
+        throw std::out_of_range("The output index is out of range");
+
+    outpoint = COutPoint(wtx->tx->GetHash(), i);
+    txout = wtx->tx->vout[i];
+    effective_value = wtx->GetOutputValueOut(i);
+    effective_asset = wtx->GetOutputAsset(i);
+    bf_value = wtx->GetOutputAmountBlindingFactor(i);
+    bf_asset = wtx->GetOutputAmountBlindingFactor(i);
+}
 
 // Descending order comparator
 struct {

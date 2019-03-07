@@ -355,7 +355,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     vecSend.push_back(recipient);
     CTransactionRef tx;
     BlindDetails blind_details;
-    if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control, true, nullptr /* issuance_details  */, &blind_details)) {
+    if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control, true, &blind_details, nullptr /* issuance_details  */)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -1021,7 +1021,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::string strFailReason;
     CTransactionRef tx;
     BlindDetails blind_details;
-    bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, nullptr /* issuance_details*/, &blind_details);
+    bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, &blind_details, nullptr /* issuance_details*/);
     if (!fCreated) {
         LogPrintf("xxxfunds 3: \n");
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
@@ -5656,7 +5656,7 @@ static void SendGenerationTransaction(const CScript& asset_script, const CPubKey
     }
     CCoinControl dummy_control;
     CTransactionRef tx_ref(MakeTransactionRef(mtx));
-    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, issuance_details)) {
+    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, nullptr, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;

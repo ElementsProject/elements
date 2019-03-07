@@ -627,22 +627,38 @@ struct CoinSelectionParams
     CoinSelectionParams() {}
 };
 
-struct IssuanceDetails
-{
+struct IssuanceDetails {
+    bool issuing = false;
+
     bool blind_issuance = true;
     CAsset reissuance_asset;
     CAsset reissuance_token;
     uint256 entropy;
 };
 
-struct BlindDetails
-{
+struct BlindDetails {
+    bool ignore_blind_failure = true; // Certain corner-cases are hard to avoid
+
+    // Temporary tx-specific details.
+    std::vector<uint256> i_amount_blinds;
+    std::vector<uint256> i_asset_blinds;
+    std::vector<CAsset>  i_assets;
+    std::vector<CAmount> i_amounts;
     std::vector<CAmount> o_amounts;
     std::vector<CPubKey> o_pubkeys;
     std::vector<uint256> o_amount_blinds;
-    std::vector<CAsset> o_assets;
+    std::vector<CAsset>  o_assets;
     std::vector<uint256> o_asset_blinds;
-    bool ignore_blind_failure = true; // Certain corner-cases are hard to avoid
+    // We need to store an unblinded and unsigned version of the transaction
+    // in case of !sign
+    CMutableTransaction tx_unblinded_unsigned;
+
+    int num_to_blind;
+    int change_to_blind;
+    // Only used to strip blinding if its the only blind output in certain situations
+    int only_recipient_blind_index;
+    // Needed in case of one blinded output that is change and no blind inputs
+    int only_change_pos; //TODO(stevenroose) check if this is relevant
 };
 
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime
@@ -978,7 +994,7 @@ public:
      * @note passing nChangePosInOut as -1 will result in setting a random position
      */
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
-                           std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, const IssuanceDetails* issuance_details = nullptr, BlindDetails* blind_details = nullptr);
+                           std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, BlindDetails* blind_details = nullptr, const IssuanceDetails* issuance_details = nullptr);
     bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CConnman* connman, CValidationState& state, const BlindDetails* blind_details = nullptr);
 
     bool DummySignTx(CMutableTransaction &txNew, const std::set<CTxOut> &txouts, bool use_max_sig = false) const

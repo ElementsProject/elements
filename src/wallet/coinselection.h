@@ -20,22 +20,9 @@ class uint256;
 
 class CInputCoin {
 public:
-    CInputCoin(const CWalletTx* wtx, unsigned int i)
-    {
-        if (!wtx || !wtx->tx)
-            throw std::invalid_argument("tx should not be null");
-        if (i >= wtx->tx->vout.size())
-            throw std::out_of_range("The output index is out of range");
+    CInputCoin(const CWalletTx* wtx, unsigned int i);
 
-        outpoint = COutPoint(wtx->tx->GetHash(), i);
-        txout = wtx->tx->vout[i];
-        effective_value = wtx->GetOutputValueOut(i);
-        effective_asset = wtx->GetOutputAsset(i);
-        bf_value = wtx->GetOutputAmountBlindingFactor(i);
-        bf_asset = wtx->GetOutputAmountBlindingFactor(i);
-    }
-
-    CInputCoin(const CWalletTx& wtx, unsigned int i, int input_bytes) : CInputCoin(wtx, i)
+    CInputCoin(const CWalletTx* wtx, unsigned int i, int input_bytes) : CInputCoin(wtx, i)
     {
         m_input_bytes = input_bytes;
     }
