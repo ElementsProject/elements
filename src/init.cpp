@@ -485,6 +485,8 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-dustrelayfee=<amt>", strprintf("Fee rate (in %s/kB) used to defined dust, the value of an output such that it will cost about 1/3 of its value in fees at this fee rate to spend it. (default: %s)", CURRENCY_UNIT, FormatMoney(DUST_RELAY_TX_FEE)));
     }
     strUsage += HelpMessageOpt("-bytespersigop", strprintf(_("Equivalent bytes per sigop in transactions for relay and mining (default: %u)"), DEFAULT_BYTES_PER_SIGOP));
+    strUsage += HelpMessageOpt("-registeraddress", strprintf(_("Relay and mine registeraddress (whitelisting) transactions (default: %u)"), DEFAULT_ACCEPT_REGISTERADDRESS));
+    strUsage += HelpMessageOpt("-registeraddresssize", strprintf(_("Maximum size of data in reigsteraddress transactions we relay and mine (default: %u)"), MAX_OP_REGISTERADDRESS_RELAY));
     strUsage += HelpMessageOpt("-datacarrier", strprintf(_("Relay and mine data carrier transactions (default: %u)"), DEFAULT_ACCEPT_DATACARRIER));
     strUsage += HelpMessageOpt("-datacarriersize", strprintf(_("Maximum size of data in data carrier transactions we relay and mine (default: %u)"), MAX_OP_RETURN_RELAY));
 
@@ -528,8 +530,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-freezelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the freezelist (default: %d)"), 0));
         strUsage += HelpMessageOpt("-burnlistcoinsdestination", strprintf(_("The destination of the tokens for controlling the burnlist. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-whitelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the whitelist. (default: %d)"), 0));
-        strUsage += HelpMessageOpt("-kycmasterpubkey", strprintf(_("The master public key of the wallet controlling the KYC public keys. (default: %d)"), 0));
-    }
+            }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
     strUsage += HelpMessageOpt("-mainchainrpcport=<port>", strprintf("The port which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));

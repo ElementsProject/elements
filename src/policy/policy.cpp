@@ -136,16 +136,6 @@ bool IsPolicy(const CAsset& asset){
   return false;
 }
 
-bool IsRegisterAddress(const CTransaction& tx){
-  BOOST_FOREACH (const CTxOut& txout, tx.vout) {
-    std::vector<std::vector<unsigned char> > vSolutions;
-    txnouttype whichType;
-    if (!Solver(txout.scriptPubKey, whichType, vSolutions)) continue;
-    if(whichType == TX_REGISTERADDRESS) return true;
-  }
-  return false;
-}
-
 bool IsWhitelisted(const CTransaction& tx)
 {
   //function that determines that all outputs of a transaction are P2PKH

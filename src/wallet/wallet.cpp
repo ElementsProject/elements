@@ -1629,7 +1629,9 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
                     AddToWalletIfInvolvingMe(*block.vtx[posInBlock], pindex, posInBlock, fUpdate);
-                    addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
+                    if(fRequireWhitelistCheck || fScanWhitelist){
+                        addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
+                    }
                 }
                 if (!ret) {
                     ret = pindex;
