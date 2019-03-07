@@ -192,6 +192,7 @@ public:
     //! Tweak public key by adding a tweak to it
     bool AddTweakToPubKey(const unsigned char *tweak);
 
+
 };
 
 struct CExtPubKey {

@@ -21,6 +21,7 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
+#include "ecies.h"
 
 #include <fstream>
 
@@ -1493,45 +1494,60 @@ UniValue preciousblock(const JSONRPCRequest& request)
 
 UniValue addtowhitelist(const JSONRPCRequest& request)
 {
-
-  if (request.fHelp || request.params.size() != 2)
+    unsigned int nparams=request.params.size();
+  if (request.fHelp || nparams < 2 || nparams > 3)
     throw runtime_error(
-            "addtowhitelist \"tweakedaddress\" \"basepubkey\"\n"
+            "addtowhitelist \"tweakedaddress\" \"basepubkey\" \"kycpubkey\"\n"
             "\nAttempts to add an address (tweakedaddress) to the node mempool whitelist.\n"
             "The address is checked that it has been tweaked with the contract hash.\n"
             "\nArguments:\n"
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
             "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
+            "3. \"kycaddress\"     (string, optional) Base58 KYC address\n"
             "\nExamples:\n"
-            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\"")
-            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968\
-355\"")
+            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
                         );
-
-  addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
+if(nparams == 2){
+    addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
+} else {
+    addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str(),
+        request.params[2].get_str());
+}
 
   return NullUniValue;
 }
 
 UniValue readwhitelist(const JSONRPCRequest& request)
 {
-  if (request.fHelp || request.params.size() != 1)
+  if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
     throw runtime_error(
             "readwhitelist \"filename\"\n"
             "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The key file\n"
+            "2. \"kycaddress\"  (string, optional) The KYC address of the key file owner\n"
             "\nExamples:\n"
             "\nDump the keys\n"
-            + HelpExampleCli("readwhitelist", "\"test\"")
-            + HelpExampleRpc("readwhitelist", "\"test\"")
+            + HelpExampleCli("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
 			);
+
+    std::string sKYCAddress="";
+    if(request.params.size()==2){
+        sKYCAddress=request.params[1].get_str();
+        CBitcoinAddress addr;
+        if(addr.SetString(sKYCAddress)){
+            CKeyID id;
+            addr.GetKeyID(id);
+            addressWhitelist.whitelist_kyc(id);
+        }
+    }
 
     std::ifstream file;
     file.open(request.params[0].get_str().c_str(), std::ios::in | std::ios::ate);
     if (!file.is_open())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
-
     file.seekg(0, file.beg);
 
     // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
@@ -1547,7 +1563,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	addressWhitelist.add_derived(vstr[0], vstr[1]);
+	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
     }
 
     file.close();
@@ -1577,7 +1593,7 @@ UniValue querywhitelist(const JSONRPCRequest& request)
   if (!address.GetKeyID(keyId))
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid key id");
 
-  return addressWhitelist.find(&keyId);
+  return addressWhitelist.is_whitelisted(keyId);
 }
 
 UniValue removefromwhitelist(const JSONRPCRequest& request)
@@ -1626,13 +1642,18 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
     throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
 
   // produce output
-  file << strprintf("# Whitelisted address dump");
+  file << strprintf("# Whitelisted address dump - format: [address] [kyckey]");
   file << "\n";
 
-  for(unsigned long it = 0;it<addressWhitelist.size();it++) {
-    std::string strAddr = CBitcoinAddress(addressWhitelist.at(it)).ToString();
-    file << strprintf("%s\n",
-		      strAddr);
+  for(auto it=addressWhitelist.begin(); it!=addressWhitelist.end(); ++it){
+    //Check KYC status (owner may be in blacklist)
+    if(!addressWhitelist.is_whitelisted(*it)) continue;
+     std::string strAddr = CBitcoinAddress(*it).ToString();
+     CKeyID kycKey;
+     addressWhitelist.LookupKYCKey(CKeyID(*it), kycKey);
+     std::string strKYCKey = CBitcoinAddress(kycKey).ToString();
+     file << strprintf("%s %s\n",
+              strAddr, strKYCKey);
   }
 
   file << "\n";
@@ -1641,6 +1662,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
 
   return NullUniValue;
 }
+
 
 UniValue clearwhitelist(const JSONRPCRequest& request)
 {
@@ -2315,13 +2337,14 @@ static const CRPCCommand commands[] =
 
     { "blockchain",         "preciousblock",          &preciousblock,          true,  {"blockhash"} },
 
-    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"address","basepubkey"} },
-    { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename"} },
+    { "blockchain",         "addtowhitelist",         &addtowhitelist,         true,  {"address","basepubkey", "kycpubkey"} },
+    { "blockchain",         "readwhitelist",          &readwhitelist,          true,  {"filename", "kycaddress"} },
     { "blockchain",         "querywhitelist",         &querywhitelist,         true,  {"address"} },
     { "blockchain",         "removefromwhitelist",    &removefromwhitelist,    true,  {"address"} },
     { "blockchain",         "dumpwhitelist",          &dumpwhitelist,          true,  {} },
     { "blockchain",         "clearwhitelist",         &clearwhitelist,         true,  {} },
 
+   
     { "blockchain",         "addtofreezelist",        &addtofreezelist,        true,  {"address"} },
     { "blockchain",         "removefromfreezelist",   &removefromfreezelist,   true,  {"address"} },
     { "blockchain",         "queryfreezelist",        &queryfreezelist,        true,  {"address"} },

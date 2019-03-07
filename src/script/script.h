@@ -17,6 +17,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 // Maximum number of bytes pushable to the stack
 static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 520;
@@ -188,8 +189,8 @@ enum opcodetype
     OP_NOP6 = 0xb5,
     OP_NOP7 = 0xb6,
     OP_NOP8 = 0xb7,
-    OP_NOP9 = 0xb8,
-    OP_NOP10 = 0xb9,
+    OP_REGISTERADDRESS = 0xb8,
+    OP_NOP10  = 0xb9,
 
 
     // template matching params
@@ -660,7 +661,7 @@ public:
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
+        return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
     }
 
     void clear()

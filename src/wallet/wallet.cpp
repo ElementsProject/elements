@@ -39,6 +39,7 @@
 using namespace std;
 
 CWallet* pwalletMain = NULL;
+
 /** Transaction fee set by the user */
 CFeeRate payTxFee(DEFAULT_TRANSACTION_FEE);
 unsigned int nTxConfirmTarget = DEFAULT_TX_CONFIRM_TARGET;
@@ -1054,7 +1055,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlockIndex
 {
     {
         AssertLockHeld(cs_wallet);
-
+        
         if (posInBlock != -1) {
             BOOST_FOREACH(const CTxIn& txin, tx.vin) {
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
@@ -1628,6 +1629,9 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
                     AddToWalletIfInvolvingMe(*block.vtx[posInBlock], pindex, posInBlock, fUpdate);
+                    if(fRequireWhitelistCheck || fScanWhitelist){
+                        addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
+                    }
                 }
                 if (!ret) {
                     ret = pindex;
@@ -2576,8 +2580,22 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
+
+            //Reject non-whitelisted 
+            if(fRequireWhitelistCheck){
+                const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
+                CTxDestination dest;
+
+                if(ExtractDestination(script, dest)){
+                    CKeyID keyId = boost::get<CKeyID>(dest);
+                    if(!addressWhitelist.is_whitelisted(keyId)) continue;
+                }
+            }
+            
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
+        
+
         } else
             return false; // TODO: Allow non-wallet inputs
     }
@@ -2732,8 +2750,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             continue;
         }
 
+        // TODO - should also do this for the case where bytes are appended to OP_RETURN?
         // Just like issuance/re-issuance, when destroying assets pay policyAsset fees
-        if (recipient.scriptPubKey == CScript(OP_RETURN))
+        if (recipient.scriptPubKey == CScript(OP_RETURN) || 
+            recipient.scriptPubKey == CScript(OP_REGISTERADDRESS))
             feeAsset =  policyAsset;
 
         if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset.IsNull())
@@ -4294,6 +4314,7 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
             if (!walletInstance->SetHDMasterKey(masterPubKey))
                 throw std::runtime_error(std::string(__func__) + ": Storing master key failed");
         }
+
         CPubKey newDefaultKey;
         if (walletInstance->GetKeyFromPool(newDefaultKey)) {
             walletInstance->SetDefaultKey(newDefaultKey);
@@ -4322,8 +4343,9 @@ CWallet* CWallet::CreateWalletFromFile(const std::string walletFile)
     RegisterValidationInterface(walletInstance);
 
     CBlockIndex *pindexRescan = chainActive.Tip();
-    if (GetBoolArg("-rescan", false))
+    if (GetBoolArg("-rescan", false)){
         pindexRescan = chainActive.Genesis();
+    }
     else
     {
         CWalletDB walletdb(walletFile);

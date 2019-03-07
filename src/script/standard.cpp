@@ -9,6 +9,10 @@
 #include "script/script.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "ecies.h"
+#include "crypto/common.h"
+#include "validation.h"
+
 
 #include <boost/foreach.hpp>
 
@@ -18,6 +22,8 @@ typedef vector<unsigned char> valtype;
 
 bool fAcceptDatacarrier = DEFAULT_ACCEPT_DATACARRIER;
 unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
+bool fAcceptRegisteraddress = DEFAULT_ACCEPT_REGISTERADDRESS;
+unsigned nMaxRegisteraddressBytes = MAX_OP_REGISTERADDRESS_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
@@ -31,6 +37,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_SCRIPTHASH: return "scripthash";
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
+    case TX_REGISTERADDRESS: return "registeraddress";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_TRUE: return "true";
@@ -99,6 +106,16 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_NULL_DATA;
         return true;
+    }
+
+    //Register address transaction 
+    //Firt byte OP_REGISTERADDRESS, remainder is push only (unspendable)
+    //Decode the metadata
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_REGISTERADDRESS){
+        if(scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)){
+            typeRet = TX_REGISTERADDRESS;
+            return true;
+        }
     }
 
     if (scriptPubKey == CScript() << OP_TRUE) {

@@ -106,6 +106,7 @@ BITCOIN_CORE_H = \
   indirectmap.h \
   init.h \
   key.h \
+  ecies.h \
   keystore.h \
   dbwrapper.h \
   limitedmap.h \
@@ -123,6 +124,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   policy/policylist.h \
   policy/whitelist.h \
+  policy/kycfile.h \
   pow.h \
   protocol.h \
   random.h \
@@ -136,6 +138,8 @@ BITCOIN_CORE_H = \
   script/sigcache.h \
   script/sign.h \
   script/standard.h \
+  script/registeraddressscript.h \
+  script/onboardingscript.h \
   script/ismine.h \
   streams.h \
   support/allocators/secure.h \
@@ -237,6 +241,9 @@ libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   global/common.cpp \
+  policy/kycfile.cpp \
+  script/registeraddressscript.cpp \
+  script/onboardingscript.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/rpcdump.cpp \
@@ -336,6 +343,7 @@ libbitcoin_common_a_SOURCES = \
   core_write.cpp \
   global/common.cpp \
   key.cpp \
+  ecies.cpp \
   keystore.cpp \
   netaddress.cpp \
   issuance.cpp \

@@ -15,7 +15,8 @@
 #include "wallet.h"
 #include "merkleblock.h"
 #include "core_io.h"
-
+#include "ecies.h"
+#include "policy/kycfile.h"
 #include <fstream>
 #include <stdint.h>
 
@@ -602,7 +603,6 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
             "\"key\"                (string) The private key\n"
             "\nExamples:\n"
             + HelpExampleCli("dumpprivkey", "\"myaddress\"")
-            + HelpExampleCli("importprivkey", "\"mykey\"")
             + HelpExampleRpc("dumpprivkey", "\"myaddress\"")
         );
 
@@ -625,6 +625,51 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
 
     return CBitcoinSecret(vchSecret).ToString();
 }
+
+UniValue dumpkycpubkey(const JSONRPCRequest& request){
+  if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+    
+if (request.fHelp || request.params.size() > 1)
+    throw runtime_error(
+            "dumpkycpubkey \"kycuseronboardpubkey\"\n"
+            "\nReturn the KYC pub key corresponding to this wallet, or the supplied user onboarding pub key.\n"
+            "\nArguments:\n"
+            "1. \"address\"    (string, required) The bitcoin address for the kyc pub key.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dumpkycpubkey", "\"0388e5a973de7671654125c9cb7e3c42a3e5459a7d509ec374bbd0849f14caba8c\"")
+            + HelpExampleRpc("dumpkycpubkey", "\"0388e5a973de7671654125c9cb7e3c42a3e5459a7d509ec374bbd0849f14caba8c\"")
+        );
+
+
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    string strUserOnboardPubKey;
+    CPubKey userOnboardPubKey;
+    CPubKey kycPubKey;
+    UniValue result;
+    if(request.params.size()==1){
+        std::vector<unsigned char> pubKeyData(ParseHex(request.params[0].get_str()));
+        userOnboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+        if(!userOnboardPubKey.IsFullyValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+        if(!addressWhitelist.kycFromUserOnboard(userOnboardPubKey, kycPubKey))
+            throw JSONRPCError(RPC_TYPE_ERROR, "User onboarding key does not refer to a KYC key");
+    } else {
+        kycPubKey=pwalletMain->GetKYCPubKey();
+    }
+
+    result = HexStr(kycPubKey.begin(), kycPubKey.end());
+
+
+    AuditLogPrintf("%s : dumpkycpubkey %s\n", getUser(), request.params[0].get_str());
+    return result;
+}
+
+
 
 UniValue getderivedkeys(const JSONRPCRequest& request)
 {
@@ -673,6 +718,159 @@ UniValue getderivedkeys(const JSONRPCRequest& request)
     AuditLogPrintf("%s : getderivedkeys\n", getUser());
 
     return ret;
+}
+
+UniValue dumpkycfile(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw runtime_error(
+            "dumpkycfile \"filename\"\n"
+            "\nDumps all wallet tweaked public keys in an encrypted format.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The filename\n"
+            "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption.\n"
+            "return:\n"
+            "User onboard public key."
+            "\nExamples:\n"
+            + HelpExampleCli("dumpkycfile", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("dumpkycfile", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CPubKey onboardPubKey;
+    if (request.params.size() == 2){
+        std::string sOnboardPubKey = request.params[1].get_str();
+        std::vector<unsigned char> pubKeyData(ParseHex(sOnboardPubKey));
+        onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    } else {
+        // Use one of the unassigned KYC public keys
+        if(!addressWhitelist.peek_unassigned_kyc(onboardPubKey))
+             throw JSONRPCError(RPC_INVALID_PARAMETER, "No unassigned KYC public keys available.");
+    }
+    pwalletMain->SetOnboardPubKey(onboardPubKey);
+
+
+    std::ofstream file;
+    file.open(request.params[0].get_str().c_str());
+    if (!file.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+
+    std::set<CKeyID> setKeyPool;
+    pwalletMain->GetAllReserveKeys(setKeyPool);
+
+    // produce output
+    file << strprintf("# Derived key dump created by Bitcoin %s\n", CLIENT_BUILD);
+    file << strprintf("# * Created on %s\n", EncodeDumpTime(GetTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", EncodeDumpTime(chainActive.Tip()->GetBlockTime()));
+    file << "\n";
+
+    // add the onboarding public key 
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
+    CKey onboardUserKey; 
+    pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
+    std::stringstream ss;
+
+    //Padding
+    ss.str("00000000000000000000000000000000");
+
+    // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
+    for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
+        const CKeyID &keyid = *it;
+        std::string strAddr = CBitcoinAddress(keyid).ToString();
+        CBitcoinAddress addrCheck;
+        if(!addrCheck.SetString(strAddr)) continue;
+        CKey key;
+        if (pwalletMain->GetKey(keyid, key)) { // verify exists
+            CPubKey pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
+            ss << strprintf("%s %s\n",
+                strAddr,
+                HexStr(pubKey.begin(), pubKey.end()));
+        }
+    }
+    
+
+    //Encrypt the above string
+    CECIES encryptor(onboardUserKey, onboardPubKey);
+    if(!encryptor.OK())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot set encryption keys");
+    std::string encrypted;
+    //Remove new line character from end of string
+
+//    std::string bareHex=HexStr(bare);
+    std::string sRaw=ss.str();
+    std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
+    std::vector<unsigned char> vEnc;
+
+
+    encryptor.Encrypt(vEnc, vRaw);
+
+    //Append the initialization vector to the file
+    std::vector<unsigned char> vInitVec = encryptor.get_iv();
+    std::string sInitVec(HexStr(vInitVec.begin(), vInitVec.end()));
+
+
+    std::string sEncHex(HexStr(vEnc.begin(), vEnc.end()));
+
+    //Append the initialization vector and encrypted keys
+    std::string sOnboardUserPubKey = HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end());
+    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), 
+        sOnboardUserPubKey, sInitVec, sEncHex.size());
+
+    file << sEncHex << "\n";
+    file << "# End of dump\n";
+    file.close();
+
+    if(request.params.size() == 2){
+        AuditLogPrintf("%s : dumpkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[1].get_str());
+    } else {
+        AuditLogPrintf("%s : dumpkycfile %s\n", getUser(), request.params[0].get_str());
+    }
+
+    UniValue result = sOnboardUserPubKey;
+    return result;
+}
+
+UniValue readkycfile(const JSONRPCRequest& request)
+{
+  if (request.fHelp || request.params.size() != 2)
+    throw runtime_error(
+            "readkycfile \"filename\"\n"
+            "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The kyc file name\n"
+            "2. \"outfilename\" (string, required) The output file name\n"
+            "\nExamples:\n"
+            "\nDump the keys\n"
+            + HelpExampleCli("readkycfile", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("readkycfile", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            );
+
+    
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CKYCFile file;
+    file.read(request.params[0].get_str().c_str());
+
+    // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
+    std::ofstream outfile;
+    outfile.open(request.params[1].get_str().c_str());
+    if (!outfile.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open output file");
+
+    //Write out the decrypted file
+    outfile << file;
+
+    return NullUniValue;
 }
 
 UniValue dumpderivedkeys(const JSONRPCRequest& request)

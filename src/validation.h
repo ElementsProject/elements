@@ -135,6 +135,7 @@ static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 3 * 60 * 60;
 
 static const bool DEFAULT_WHITELIST_CHECK = false;
+static const bool DEFAULT_SCAN_WHITELIST = false;
 static const bool DEFAULT_BLOCK_ISSUANCE = false;
 static const bool DEFAULT_BURNLIST_CHECK = false;
 static const bool DEFAULT_FREEZELIST_CHECK = false;
@@ -184,6 +185,7 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
 extern bool fRequireWhitelistCheck;
+extern bool fScanWhitelist;
 extern bool fRequireFreezelistCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;
@@ -353,7 +355,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
 /** (try to) add transaction to memory pool with a specified acceptance time **/
 bool AcceptToMemoryPoolWithTime(CTxMemPool& pool, CValidationState &state, const CTransactionRef &tx, bool fLimitFree,
                         bool* pfMissingInputs, int64_t nAcceptTime, std::list<CTransactionRef>* plTxnReplaced = NULL,
-                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool test_accept=false);
+						bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool test_accept=false);
 
 /** Convert CValidationState to a human-readable message for logging */
 std::string FormatStateMessage(const CValidationState &state);
@@ -407,6 +409,12 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight);
 bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fCheckDuplicateInputs=true);
 
 namespace Consensus {
+
+/**
+* Check wether the bitcoin address is derived from the public key via key tweaking 
+* using the hash contract of the chain active tip.
+*/
+bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends and amounts)

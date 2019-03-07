@@ -80,6 +80,7 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
+bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
@@ -1895,6 +1896,21 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
+bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  
+  CPubKey tmpPubKey = pubKey;
+
+  if (!contract.IsNull())
+    tmpPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+  
+  if (tmpPubKey.GetID() != keyID)
+    throw std::system_error(
+          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()), 
+          std::string(__func__) + std::string(": invalid key derivation when tweaking key with contract hash"));
+return true;
+}
+
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
@@ -2780,8 +2796,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) UpdateFreezeList(tx,view);
         }
         if(fEnableBurnlistCheck) {
-            if(tx.vout[0].nAsset.GetAsset() == burnlistAsset && fEnableBurnlistCheck) UpdateBurnList(tx,view);
+            if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
+        } 
+        if(fRequireWhitelistCheck || fScanWhitelist){
+            if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
+                addressWhitelist.Update(tx,view); 
+            } else {
+                addressWhitelist.RegisterAddress(tx, view);
+            }
         }
+        
 
         // GetTransactionSigOpCost counts 3 types of sigops:
         // * legacy (always)
@@ -2808,8 +2832,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             blockundo.vtxundo.push_back(CTxUndo());
         }
 
-        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
 
+        UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
         vPos.push_back(std::make_pair(tx.GetHash(), pos));
         pos.nTxOffset += ::GetSerializeSize(tx, SER_DISK, CLIENT_VERSION);
 

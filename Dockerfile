@@ -8,7 +8,7 @@ RUN set -ex \
     && ./autogen.sh \
     && ./configure \
     && make clean \
-    && make  -j$(nproc)\
+    && make -j$(nproc) \
     && echo "Running tests" \
     && make check \
     && echo "Running Python QA tests" \

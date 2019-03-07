@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "key.h"
+#include "ecies.h"
 
 #include "base58.h"
 #include "script/script.h"
@@ -107,6 +108,38 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(addr1C.Get() == CTxDestination(pubkey1C.GetID()));
     BOOST_CHECK(addr2C.Get() == CTxDestination(pubkey2C.GetID()));
 
+    
+    CECIES  ecies1(key1, key2.GetPubKey());
+    BOOST_CHECK(ecies1.OK());
+    CECIES  ecies2(key2, key1.GetPubKey(), ecies1.get_iv());
+    BOOST_CHECK(ecies2.OK());
+    unsigned char m[AES_BLOCKSIZE];
+    GetStrongRandBytes(m, AES_BLOCKSIZE);
+    std::vector<unsigned char> vm(m, m+AES_BLOCKSIZE);
+    std::vector<unsigned char> vem1, vem3, vdm1, vdm3;
+
+    ecies1.Encrypt(vem1, vm);
+    ecies2.Decrypt(vdm1, vem1);
+    BOOST_CHECK(vem1 != vm);
+    BOOST_CHECK(vdm1 == vm);
+
+    CECIES  ecies4(key2, key1.GetPubKey());
+    BOOST_CHECK(ecies4.OK());
+    CECIES  ecies3(key1, key2.GetPubKey(), ecies4.get_iv());
+    BOOST_CHECK(ecies3.OK());
+    ecies3.Encrypt(vem3, vm);
+    ecies4.Decrypt(vdm3, vem3);
+    BOOST_CHECK(vem3 != vm);
+    BOOST_CHECK(vdm3 == vm);
+
+    std::string sm=HexStr(vm.begin(), vm.end());
+    std::string sdm;
+    std::string sem;
+    ecies3.Encrypt(sem, sm);
+    ecies4.Decrypt(sdm, sem);
+    BOOST_CHECK(sem != sm);
+    BOOST_CHECK(sdm == sm);
+
     for (int n=0; n<16; n++)
     {
         std::string strMsg = strprintf("Very secret message %i: 11", n);
@@ -184,6 +217,7 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(key2C.SignCompact(hashMsg, detsigc));
     BOOST_CHECK(detsig == ParseHex("1c52d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
     BOOST_CHECK(detsigc == ParseHex("2052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
+
 }
 
 BOOST_AUTO_TEST_SUITE_END()

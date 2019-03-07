@@ -616,9 +616,7 @@ private:
  */
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
-private:
-    static std::atomic<bool> fFlushThreadRunning;
-
+public:
     /**
      * Select a set of coins such that nValueRet >= nTargetValue and at least
      * all coins from coinControl are selected; Never select unconfirmed coins
@@ -626,6 +624,9 @@ private:
      */
     bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& nValueRet, const CCoinControl* coinControl, const CAsset& feeAsset) const;
 
+private:
+    static std::atomic<bool> fFlushThreadRunning;
+    
     CWalletDB *pwalletdbEncryption;
 
     //! the current wallet version: clients below this version are not able to load the wallet
@@ -673,6 +674,14 @@ private:
      * nTimeFirstKey more intelligently for more efficient rescans.
      */
     bool AddWatchOnly(const CScript& dest) override;
+
+    //The KYC public key for the user. For registering additional addresses
+    //to the whitelist.
+    CPubKey _kycPubKey;
+    //The public key for user onboarding, to be read from the blockchain.
+    CPubKey _onboardPubKey;
+
+    CPubKey _onboardUserPubKey;
 
 public:
     /*
@@ -836,6 +845,20 @@ public:
     bool EncryptWallet(const SecureString& strWalletPassphrase);
 
     void GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const;
+
+    //The KYC public key used for address whitelist registration by the user.
+    CPubKey GetKYCPubKey(){return _kycPubKey;}
+    void SetKYCPubKey(CPubKey val){_kycPubKey = val;}
+
+    //The onboarding public key, to be read from the blockchain.
+    CPubKey GetOnboardPubKey(){return _onboardPubKey;}
+    void SetOnboardPubKey(CPubKey val){_onboardPubKey = val;}
+
+    //The onboarding private key, either randomly selected or set by the user.
+    CPubKey GetOnboardUserPubKey(){return _onboardUserPubKey;}
+    //The onboard public key is set on wallet initialization.
+    void SetOnboardUserPubKey(CPubKey val){_onboardUserPubKey = val;}
+
 
     /**
      * Increment the next transaction order id
