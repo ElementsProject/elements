@@ -231,6 +231,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     inputPubKey = userOnboardPubKey;
   } else {
     it1=bytes.begin(); //Reset iterator
+    kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
+    kycKey=kycPubKey.GetID();
     //Get input keyids
     //Lookup the ID public keys of the input addresses.
     //The set is used to ensure that there is only one kycKey involved.
