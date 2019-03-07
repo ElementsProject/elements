@@ -214,8 +214,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   script/sigcache.cpp \
   script/ismine.cpp \
-  script/registeraddressscript.cpp \
-  script/onboardingscript.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \
@@ -244,6 +242,8 @@ libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   global/common.cpp \
   policy/kycfile.cpp \
+  script/registeraddressscript.cpp \
+  script/onboardingscript.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/rpcdump.cpp \
