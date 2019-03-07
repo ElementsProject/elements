@@ -5655,13 +5655,14 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
         vecSend.push_back(recipient);
     }
     CCoinControl dummy_control;
+    BlindDetails blind_details;
     CTransactionRef tx_ref(MakeTransactionRef());
-    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, nullptr, issuance_details)) {
+    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, &blind_details, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
     mapValue_t map_value;
-    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state))
+    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state, &blind_details))
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
     return tx_ref;
 }
