@@ -156,11 +156,13 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   delete kycAddress;
 }
 
+#ifdef ENABLE_WALLET
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
   CCoinsViewCache mapInputs(pcoinsTip);
   mapInputs.SetBestBlock(pindex->GetBlockHash());
   return RegisterAddress(tx, mapInputs);
 }
+#endif //#ifdef ENABLE_WALLET
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);

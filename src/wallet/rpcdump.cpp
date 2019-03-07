@@ -16,7 +16,7 @@
 #include "merkleblock.h"
 #include "core_io.h"
 #include "ecies.h"
-
+#include "policy/kycfile.h"
 #include <fstream>
 #include <stdint.h>
 
@@ -836,6 +836,41 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
 
     UniValue result = sOnboardUserPubKey;
     return result;
+}
+
+UniValue readkycfile(const JSONRPCRequest& request)
+{
+  if (request.fHelp || request.params.size() != 2)
+    throw runtime_error(
+            "readkycfile \"filename\"\n"
+            "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The kyc file name\n"
+            "2. \"outfilename\" (string, required) The output file name\n"
+            "\nExamples:\n"
+            "\nDump the keys\n"
+            + HelpExampleCli("readkycfile", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("readkycfile", "\"test\", \"testout\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            );
+
+    
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CKYCFile file;
+    file.read(request.params[0].get_str().c_str());
+
+    // parse file to extract bitcoin address - untweaked pubkey pairs and validate derivation
+    std::ofstream outfile;
+    outfile.open(request.params[1].get_str().c_str());
+    if (!outfile.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open output file");
+
+    //Write out the decrypted file
+    outfile << file;
+
+    return NullUniValue;
 }
 
 UniValue dumpderivedkeys(const JSONRPCRequest& request)

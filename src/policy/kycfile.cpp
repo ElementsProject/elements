@@ -1,4 +1,6 @@
-// Copyright (c) 2018 The CommerceBlock Developers                                                                                                                                             // Distributed under the MIT software license, see the accompanying                                                                                                                            // file COPYING or http://www.opensource.org/licenses/mit-license.php.  
+// Copyright (c) 2018 The CommerceBlock Developers
+// Distributed under the MIT software license, see the accompanying                                                                             
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.  
 
 #include "kycfile.h"
 #include <boost/algorithm/string.hpp>
@@ -155,7 +157,7 @@ bool CKYCFile::read(){
                         // std::system_error(
                         //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
                         //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
-                        continue;
+                       continue;
                     }
 
                     //Addresses valid, write to map
@@ -219,3 +221,5 @@ std::ostream& operator<<(std::ostream& os, const CKYCFile& fl){
     os << fl.getStream().str();
     return os; 
 }
+
+

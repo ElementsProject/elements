@@ -5,8 +5,10 @@
 #pragma once
 
 #include "policylist.h"
-#include "wallet/wallet.h"
 #include <map>
+#ifdef ENABLE_WALLET
+#include "wallet/wallet.h"
+#endif
 #include <queue>
 
 class CWhiteList : public CPolicyList{
@@ -32,8 +34,10 @@ public:
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
+#ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
-
+#endif //#ifdef ENABLE_WALLET
+	
   	//Update from transaction
   	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 

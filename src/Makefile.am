@@ -204,7 +204,6 @@ libbitcoin_server_a_SOURCES = \
   policy/policy.cpp \
   policy/policylist.cpp \
   policy/whitelist.cpp \
-  policy/kycfile.cpp \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
@@ -244,6 +243,7 @@ libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   global/common.cpp \
+  policy/kycfile.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/rpcdump.cpp \

@@ -4645,6 +4645,7 @@ extern UniValue importpubkey(const JSONRPCRequest& request);
 extern UniValue dumpwallet(const JSONRPCRequest& request);
 extern UniValue dumpderivedkeys(const JSONRPCRequest& request);
 extern UniValue dumpkycfile(const JSONRPCRequest& request);
+extern UniValue readkycfile(const JSONRPCRequest& request);
 extern UniValue getderivedkeys(const JSONRPCRequest& request);
 extern UniValue validatederivedkeys(const JSONRPCRequest& request);
 extern UniValue importwallet(const JSONRPCRequest& request);
@@ -4673,6 +4674,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
     { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
+    { "wallet",             "readkycfile",              &readkycfile,              true,   {"filename", "outfilename", "onboardpubkey"} },
     { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename", "feeasset"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
