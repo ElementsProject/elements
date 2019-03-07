@@ -3236,6 +3236,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
                         LogPrintf("extraFeePaid: %s\n", extraFeePaid);
                         std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                        // TODO CA: Fix this GetAmount when blinded
                         change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
                         blind_details->o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
                         nFeeRet -= extraFeePaid;
@@ -3262,6 +3263,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     LogPrintf("Adding additional fee: %s\n", additionalFeeNeeded);
                     std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
                     // Only reduce change if remaining amount is still a large enough output.
+                    // TODO CA: Fix these GetAmounts when blinded
                     if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
                         change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
                         if (blind_details) {
@@ -3322,7 +3324,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 const CScript& scriptPubKey = coin.txout.scriptPubKey;
                 SignatureData sigdata;
 
-                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue.GetAmount(), SIGHASH_ALL), scriptPubKey, sigdata))
+                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
                 {
                     strFailReason = _("Signing transaction failed");
                     return false;
