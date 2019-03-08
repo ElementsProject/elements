@@ -105,7 +105,7 @@ const uint256 CMerkleTx::ABANDON_HASH(uint256S("00000000000000000000000000000000
 
 std::string COutput::ToString() const
 {
-    return strprintf("COutput(%s, %d, %d) [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->tx->vout[i].nValue.GetAmount()));
+    return strprintf("COutput(%s, %d, %d) [%s] [%s]", tx->GetHash().ToString(), i, nDepth, FormatMoney(tx->GetOutputValueOut(i)), tx->GetOutputAsset(i).GetHex());
 }
 
 /** A class to identify which pubkeys a script and a keystore have in common. */
@@ -2243,6 +2243,7 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
     AssertLockHeld(cs_wallet);
 
     vCoins.clear();
+    //TODO(CA) consider tallying per asset here. not sure what this is used for
     CAmount nTotal = 0;
 
     for (const auto& entry : mapWallet)
@@ -2587,7 +2588,7 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
             return false;
         }
         const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
-        const CAmount& amount = mi->second.tx->vout[input.prevout.n].nValue.GetAmount();
+        const CConfidentialValue& amount = mi->second.tx->vout[input.prevout.n].nValue;
         SignatureData sigdata;
         if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
             return false;
@@ -2799,6 +2800,9 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
 }
 
 bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
+    if (blind_details || issuance_details) {
+        assert(g_con_elementswitness);
+    }
 
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;
@@ -2974,7 +2978,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // vouts to the payees
                 //TODO(rebase) CA: revisit constants
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
-                for (const auto& recipient : vecSend)
+                for (const CRecipient& recipient : vecSend)
                 {
                     LogPrintf("recipient...\n");
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
@@ -3278,18 +3282,37 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         }
                     }
 
-                    // TODO CA: Swap back in unblinded version and re-blind before break
                     // If we have change output already, just increase it
-                    if (false && nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                    if (nFeeRet > nFeeNeeded && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                         CAmount extraFeePaid = nFeeRet - nFeeNeeded;
                         LogPrintf("extraFeePaid: %s\n", extraFeePaid);
-                        std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
-                        change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
-                        blind_details->o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
-                        nFeeRet -= extraFeePaid;
-                        if (g_con_elementswitness) {
+
+                        // If blinding we need to edit the unblinded tx and re-blind. Otherwise just edit the tx.
+                        if (blind_details) {
+                            txNew = blind_details->tx_unblinded_unsigned;
+                            std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                            change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
+                            blind_details->o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
+
+                            nFeeRet -= extraFeePaid;
                             txNew.vout.back().nValue = nFeeRet; // update fee output
                             blind_details->o_amounts.back() = nFeeRet;
+
+                            // Re-blind tx after editing and change.
+                            blind_details->tx_unblinded_unsigned = txNew;
+                            int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
+                            assert(ret != -1);
+                            if (ret != blind_details->num_to_blind) {
+                                strFailReason = _("Unable to blind the transaction properly. This should not happen.");
+                                return false;
+                            }
+                        } else {
+                            std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                            change_position->nValue = change_position->nValue.GetAmount() + extraFeePaid;
+                            nFeeRet -= extraFeePaid;
+                            if (g_con_elementswitness) {
+                                txNew.vout.back().nValue = nFeeRet; // update fee output
+                            }
                         }
                     }
                     break; // Done, enough fee included.
@@ -3305,25 +3328,44 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 // TODO CA: Swap back in unblinded version and re-blind before break
                 // Try to reduce change to include necessary fee
-                if (false && nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
+                if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
                     LogPrintf("Adding additional fee: %s\n", additionalFeeNeeded);
-                    std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
-                    // Only reduce change if remaining amount is still a large enough output.
-                    if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
-                        change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
-                        if (blind_details) {
+
+                    // If blinding we need to edit the unblinded tx and re-blind. Otherwise just edit the tx.
+                    if (blind_details) {
+                        txNew = blind_details->tx_unblinded_unsigned;
+                        std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                        // Only reduce change if remaining amount is still a large enough output.
+                        if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
+                            change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
                             blind_details->o_amounts[nChangePosInOut] = change_position->nValue.GetAmount();
-                        }
-                        nFeeRet += additionalFeeNeeded;
-                        if (g_con_elementswitness) {
+
+                            nFeeRet += additionalFeeNeeded;
                             txNew.vout.back().nValue = nFeeRet; // update fee output
-                            if (blind_details) {
-                                blind_details->o_amounts.back() = nFeeRet; // update change details
+                            blind_details->o_amounts.back() = nFeeRet; // update change details
+
+                            // Re-blind tx after editing and change.
+                            blind_details->tx_unblinded_unsigned = txNew;
+                            int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
+                            assert(ret != -1);
+                            if (ret != blind_details->num_to_blind) {
+                                strFailReason = _("Unable to blind the transaction properly. This should not happen.");
+                                return false;
                             }
+                            break; // Done, able to increase fee from change
                         }
-                        // TODO CA: blind transaction again here
-                        break; // Done, able to increase fee from change
+                    } else {
+                        std::vector<CTxOut>::iterator change_position = txNew.vout.begin()+nChangePosInOut;
+                        // Only reduce change if remaining amount is still a large enough output.
+                        if (change_position->nValue.GetAmount() >= MIN_FINAL_CHANGE + additionalFeeNeeded) {
+                            change_position->nValue = change_position->nValue.GetAmount() - additionalFeeNeeded;
+                            nFeeRet += additionalFeeNeeded;
+                            if (g_con_elementswitness) {
+                                txNew.vout.back().nValue = nFeeRet; // update fee output
+                            }
+                            break; // Done, able to increase fee from change
+                        }
                     }
                 }
 

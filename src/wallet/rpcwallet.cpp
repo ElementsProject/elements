@@ -5617,7 +5617,6 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
 
 static CTransactionRef SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, CWallet* pwallet)
 {
-
     CAsset reissue_token = issuance_details->reissuance_token;
     CAmount curBalance = pwallet->GetBalance()[reissue_token];
 
@@ -5631,18 +5630,14 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
         change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
     }
 
-    CAmount nFeeRequired;
-    std::string strError;
     std::vector<CRecipient> vecSend;
-    int nChangePosRet = -1;
     // Signal outputs to skip "funding" with fixed asset numbers 1, 2, ...
     // We don't know the asset during initial issuance until inputs are chosen
-    CRecipient recipient = {asset_script, asset_amount, CAsset(uint256S("1")), asset_pubkey, false};
     if (asset_script.size() > 0) {
-        vecSend.push_back(recipient);
+        vecSend.push_back({asset_script, asset_amount, CAsset(uint256S("1")), asset_pubkey, false});
     }
     if (token_script.size() > 0) {
-        recipient = {token_script, token_amount, CAsset(uint256S("2")), token_pubkey, false};
+        CRecipient recipient = {token_script, token_amount, CAsset(uint256S("2")), token_pubkey, false};
         // We need to select the issuance token(s) to spend
         if (!reissue_token.IsNull()) {
             recipient.asset = reissue_token;
@@ -5654,16 +5649,23 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
         }
         vecSend.push_back(recipient);
     }
+
+    CAmount nFeeRequired;
+    int nChangePosRet = -1;
+    std::string strError;
     CCoinControl dummy_control;
     BlindDetails blind_details;
     CTransactionRef tx_ref(MakeTransactionRef());
     if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, &blind_details, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
+
     CValidationState state;
     mapValue_t map_value;
-    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state, &blind_details))
+    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state, &blind_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
+    }
+
     return tx_ref;
 }
 
@@ -5741,13 +5743,12 @@ UniValue issueasset(const JSONRPCRequest& request)
     CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
-    uint256 entropy;
     CAsset asset;
     CAsset token;
     assert(!tx_ref->vin.empty());
     GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, uint256());
     CalculateAsset(asset, issuance_details.entropy);
-    CalculateReissuanceToken(token, entropy, blind_issuances);
+    CalculateReissuanceToken(token, issuance_details.entropy, blind_issuances);
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("txid", tx_ref->GetHash().GetHex());

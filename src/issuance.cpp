@@ -43,7 +43,7 @@ void CalculateReissuanceToken(CAsset& reissuanceToken, const uint256& entropy, b
     std::vector<uint256> leaves;
     leaves.reserve(2);
     leaves.push_back(entropy);
-    leaves.push_back(fConfidential? kTwo: kOne);
+    leaves.push_back(fConfidential ? kTwo : kOne);
     reissuanceToken = CAsset(ComputeFastMerkleRoot(leaves));
 }
 

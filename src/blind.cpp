@@ -477,7 +477,6 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 
                 // Successfully blinded this issuance
                 num_blinded++;
-
             }
         }
     }
