@@ -5992,14 +5992,6 @@ UniValue destroyamount(const JSONRPCRequest& request)
     CCoinControl no_coin_control; // This is a deprecated API
     CTransactionRef tx = SendMoney(pwallet, address, nAmount, asset, false, no_coin_control, std::move(mapValue), true);
 
-    //TODO(rebase) can't do this without wtx
-    //std::string blinds;
-    //for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
-    //    blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
-    //    blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
-    //}
-    //AuditLogPrintf("%s : destroyamount %s asset %s id %s txid:%s\nblinds:\n%s\n", getUser(), request.params[1].getValStr(), strasset, asset.GetHex(), wtx.GetHash().GetHex(), blinds);
-
     return tx->GetHash().GetHex();
 }
 
