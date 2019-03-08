@@ -1074,6 +1074,11 @@ public:
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
     CAmountMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmountMap GetChange(const CTransaction& tx) const;
+
+    // ELEMENTS:
+    CAmountMap GetCredit(const CWalletTx& wtx, const isminefilter& filter) const;
+    CAmountMap GetChange(const CWalletTx& wtx) const;
+
     void ChainStateFlushed(const CBlockLocator& loc) override;
 
     DBErrors LoadWallet(bool& fFirstRunRet);
