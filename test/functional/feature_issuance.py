@@ -100,7 +100,7 @@ class IssuanceTest (BitcoinTestFramework):
         self.sync_all()
 
     def run_test(self):
-        self.nodes[0].generate(101)
+        self.nodes[0].generate(105)
 
         # Unblinded issuance of asset
         issued = self.nodes[0].issueasset(1, 1, False)
