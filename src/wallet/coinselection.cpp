@@ -232,8 +232,6 @@ static void ApproximateBestSubset(const std::vector<OutputGroup>& groups, const 
 bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& groups, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet) {
     setCoinsRet.clear();
     mapValueRet.clear();
-    LogPrintf("mapTargetValue:\n");
-    PrintAmountMap(mapTargetValue);
 
     std::vector<OutputGroup> asset_groups;
     std::set<CInputCoin> asset_coinsret;
@@ -241,7 +239,6 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
     for(std::map<CAsset, CAmount>::const_iterator it = mapTargetValue.begin(); it != mapTargetValue.end(); ++it) {
         asset_groups.clear();
         asset_coinsret.clear();
-        LogPrintf("filtering groups for asset %s to send amount %s\n", it->first.GetHex(), it->second);
 
         if (it->second == 0) {
             continue;
@@ -258,9 +255,7 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
                 }
             }
 
-            LogPrintf("group of size %s\n", g.m_outputs.size());
             if (add) {
-                LogPrintf("added!\n");
                 asset_groups.push_back(g);
             }
         }
@@ -275,14 +270,10 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
             return false;
         }
         mapValueRet[it->first] = outValue;
-        LogPrintf("knapsack found outValue %s in %d coins\n", outValue, asset_coinsret.size());
         for (CInputCoin ic : asset_coinsret) {
             setCoinsRet.insert(ic);
         }
     }
-    LogPrintf("knapsacking done. mapValueRet:\n");
-    PrintAmountMap(mapValueRet);
-    LogPrintf("setCoinsRet.size(): %d\n", setCoinsRet.size());
 
     return true;
 }
