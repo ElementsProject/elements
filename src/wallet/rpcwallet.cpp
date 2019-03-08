@@ -5944,6 +5944,65 @@ UniValue listissuances(const JSONRPCRequest& request)
 
 }
 
+UniValue destroyamount(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+        throw std::runtime_error(
+            "destroyamount asset amount ( \"comment\" )\n"
+            "\nDestroy an amount of a given asset.\n\n"
+            "\nArguments:\n"
+            "1. \"asset\"       (string, required) Hex asset id or asset label to destroy.\n"
+            "2. \"amount\"      (numeric or string, required) The amount to destroy (8 decimals above the minimal unit).\n"
+            "3. \"comment\"     (string, optional) A comment used to store what the transaction is for. \n"
+            "                             This is not part of the transaction, just kept in your wallet.\n"
+            "\nResult:\n"
+            "\"transactionid\"  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("destroyamount", "\"bitcoin\" 100")
+            + HelpExampleCli("destroyamount", "\"bitcoin\" 100 \"destroy assets\"")
+            + HelpExampleRpc("destroyamount", "\"bitcoin\" 100 \"destroy assets\"")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    std::string strasset = request.params[0].get_str();
+    CAsset asset = GetAssetFromString(strasset);
+
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount to destroy");
+    }
+
+    mapValue_t mapValue;
+    if (request.params.size() > 2 && !request.params[2].isNull() && !request.params[2].get_str().empty()) {
+        mapValue["comment"] = request.params[2].get_str();
+    }
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    NullData nulldata;
+    CTxDestination address(nulldata);
+    CCoinControl no_coin_control; // This is a deprecated API
+    CTransactionRef tx = SendMoney(pwallet, address, nAmount, asset, false, no_coin_control, std::move(mapValue), true);
+
+    //TODO(rebase) can't do this without wtx
+    //std::string blinds;
+    //for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
+    //    blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+    //    blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+    //}
+    //AuditLogPrintf("%s : destroyamount %s asset %s id %s txid:%s\nblinds:\n%s\n", getUser(), request.params[1].getValStr(), strasset, asset.GetHex(), wtx.GetHash().GetHex(), blinds);
+
+    return tx->GetHash().GetHex();
+}
+
 
 // END ELEMENTS commands
 //
@@ -6033,14 +6092,15 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_descriptor", "bip32_counter", "liquid_pak"} },
     { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
-    { "wallet",             "importblindingkey",                &importblindingkey, {"address", "hexkey", "key_is_master"}},
-    { "wallet",             "importissuanceblindingkey",        &importissuanceblindingkey, {"txid", "vin", "blindingkey"}},
-    { "wallet",             "dumpblindingkey",                  &dumpblindingkey, {"address"}},
-    { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey, {"txid", "vin"}},
+    { "wallet",             "importblindingkey",                &importblindingkey,             {"address", "hexkey", "key_is_master"}},
+    { "wallet",             "importissuanceblindingkey",        &importissuanceblindingkey,     {"txid", "vin", "blindingkey"}},
+    { "wallet",             "dumpblindingkey",                  &dumpblindingkey,               {"address"}},
+    { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey,       {"txid", "vin"}},
     { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
-    { "wallet",             "listissuances",                    &listissuances, {"asset"}},
-    { "wallet",             "issueasset",                       &issueasset, {"assetamount", "tokenamount", "blind"}},
-    { "wallet",             "reissueasset",                     &reissueasset, {"asset, assetamount"}},
+    { "wallet",             "listissuances",                    &listissuances,                 {"asset"}},
+    { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
+    { "wallet",             "reissueasset",                     &reissueasset,                  {"asset, assetamount"}},
+    { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment"} },
 };
 // clang-format on
 
