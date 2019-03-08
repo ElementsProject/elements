@@ -1249,7 +1249,9 @@ CAmountMap CWallet::GetDebit(const CTxIn &txin, const isminefilter& filter) cons
             if (txin.prevout.n < prev.tx->vout.size())
                 if (IsMine(prev.tx->vout[txin.prevout.n]) & filter) {
                     CAmountMap amounts;
+                    LogPrintf("xxx");
                     amounts[prev.GetOutputAsset(txin.prevout.n)] = std::max<CAmount>(0, prev.GetOutputValueOut(txin.prevout.n));
+                    LogPrintf("xxxy");
                     return amounts;
                 }
         }
@@ -2451,6 +2453,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
             group.effective_value = 0;
             for (auto it = group.m_outputs.begin(); it != group.m_outputs.end(); ) {
                 const CInputCoin& coin = *it;
+                LogPrintf("potential panic 2456: %b\n", coin.txout.nValue.IsExplicit());
                 CAmount effective_value = coin.txout.nValue.GetAmount() - (coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes));
                 // Only include outputs that are positive effective value (i.e. not dust)
                 if (effective_value > 0) {
@@ -2625,6 +2628,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             setAssets.insert(txOut.nAsset.GetAsset());
         }
 
+        LogPrintf("potential panic 2631: %b %b\n", txOut.nValue.IsExplicit(), txOut.nAsset.IsExplicit());
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(), setSubtractFeeFromOutputs.count(idx) == 1};
         vecSend.push_back(recipient);
     }
@@ -3228,6 +3232,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                     assert(ret != -1);
                     if (ret != blind_details->num_to_blind) {
+                        LogPrintf("ERROR: Blinded wrong number of parameters: %d / %d\n", ret, blind_details->num_to_blind);
                         strFailReason = _("Unable to blind the transaction properly. This should not happen.");
                         return false;
                     }
@@ -3303,6 +3308,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                             assert(ret != -1);
                             if (ret != blind_details->num_to_blind) {
+                                LogPrintf("ERROR: Blinded wrong number of parameters: %d / %d\n", ret, blind_details->num_to_blind);
                                 strFailReason = _("Unable to blind the transaction properly. This should not happen.");
                                 return false;
                             }
@@ -3350,6 +3356,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                             assert(ret != -1);
                             if (ret != blind_details->num_to_blind) {
+                                LogPrintf("ERROR: Blinded wrong number of parameters: %d / %d\n", ret, blind_details->num_to_blind);
                                 strFailReason = _("Unable to blind the transaction properly. This should not happen.");
                                 return false;
                             }
