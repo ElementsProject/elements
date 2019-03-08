@@ -104,8 +104,9 @@ class IssuanceTest (BitcoinTestFramework):
 
         # Unblinded issuance of asset
         issued = self.nodes[0].issueasset(1, 1, False)
-        assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["asset"]], 1)
-        assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
+        balance = self.nodes[0].getwalletinfo()["balance"]
+        assert_equal(balance[issued["asset"]], 1)
+        assert_equal(balance[issued["token"]], 1)
         # Quick unblinded reissuance check, making 2*COIN total
         self.nodes[0].reissueasset(issued["asset"], 1)
 
@@ -114,9 +115,10 @@ class IssuanceTest (BitcoinTestFramework):
 
         issued2 = self.nodes[0].issueasset(2, 1)
         test_asset = issued2["asset"]
-        assert_equal(self.nodes[0].getwalletinfo(test_asset)['balance'], Decimal(2))
-
-        assert_equal(self.nodes[1].getwalletinfo(test_asset)['balance'], Decimal(0))
+        assert_equal(self.nodes[0].getwalletinfo()['balance'][test_asset], Decimal(2))
+        node1balance = self.nodes[1].getwalletinfo()['balance']
+        if test_asset in node1balance:
+            assert_equal(node1balance[test_asset], Decimal(0))
 
         # Send some bitcoin to other nodes
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 3)
