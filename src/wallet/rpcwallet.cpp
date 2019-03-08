@@ -5788,60 +5788,53 @@ UniValue reissueasset(const JSONRPCRequest& request)
     LOCK2(cs_main, pwallet->cs_wallet);
 
     std::string assetstr = request.params[0].get_str();
-
     CAsset asset = GetAssetFromString(assetstr);
 
     CAmount nAmount = AmountFromValue(request.params[1]);
-    if (nAmount <= 0)
+    if (nAmount <= 0) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Reissuance must create a non-zero amount.");
+    }
 
-    if (!pwallet->IsLocked())
+    if (!pwallet->IsLocked()) {
         pwallet->TopUpKeyPool();
+    }
 
     // Find the entropy and reissuance token in wallet
+    IssuanceDetails issuance_details;
+    issuance_details.reissuance_asset = asset;
     std::map<uint256, std::pair<CAsset, CAsset> > tokenMap = pwallet->GetReissuanceTokenTypes();
-    CAsset reissuance_token;
-    uint256 entropy;
     for (const auto& it : tokenMap) {
         if (it.second.second == asset) {
-            reissuance_token = it.second.first;
-            entropy = it.first;
+            issuance_details.entropy = it.first;
+            issuance_details.reissuance_token = it.second.first;
         }
         if (it.second.first == asset) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Asset given is a reissuance token type and can not be reissued.");
         }
     }
-    if (reissuance_token.IsNull()) {
+    if (issuance_details.reissuance_token.IsNull()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Asset reissuance token definition could not be found in wallet.");
     }
 
-    CPubKey newKey;
-    CKeyID keyID;
-    CTxDestination asset_dest;
-    CPubKey asset_dest_blindpub;
-    CTxDestination token_dest;
-    CPubKey token_dest_blindpub;
-
     // Add destination for the to-be-created asset
-    if (!pwallet->GetKeyFromPool(newKey)) {
+    CPubKey newAssetKey;
+    if (!pwallet->GetKeyFromPool(newAssetKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    asset_dest = PKHash(newKey.GetID());
+    CTxDestination asset_dest = PKHash(newAssetKey.GetID());
     pwallet->SetAddressBook(asset_dest, "", "receive");
-    asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
+    CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
 
     // Add destination for tokens we are moving
-    if (!pwallet->GetKeyFromPool(newKey)) {
+    CPubKey newTokenKey;
+    if (!pwallet->GetKeyFromPool(newTokenKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    token_dest = PKHash(newKey.GetID());
+    CTxDestination token_dest = PKHash(newTokenKey.GetID());
     pwallet->SetAddressBook(token_dest, "", "receive");
-    token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
+    CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 
     // Attempt a send.
-    IssuanceDetails issuance_details;
-    issuance_details.reissuance_asset = asset;
-    issuance_details.reissuance_token = reissuance_token;
     CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
     assert(!tx_ref->vin.empty());
 

@@ -5169,13 +5169,11 @@ void CWalletTx::WipeUnknownBlindingData()
     }
 }
 
-std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes() const
-{
+std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes() const {
     std::map<uint256, std::pair<CAsset, CAsset> > tokenMap;
     {
         LOCK2(cs_main, cs_wallet);
-        for (std::map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-        {
+        for (std::map<uint256, CWalletTx>::const_iterator it = mapWallet.begin(); it != mapWallet.end(); ++it) {
             const CWalletTx* pcoin = &(*it).second;
             CAsset asset;
             CAsset token;

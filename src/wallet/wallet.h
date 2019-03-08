@@ -1254,6 +1254,7 @@ public:
     bool AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
     bool SetMasterBlindingKey(const uint256& key);
 
+    /// Returns a map of entropy to the respective pair of reissuance token and issuance asset.
     std::map<uint256, std::pair<CAsset, CAsset> > GetReissuanceTokenTypes() const;
 };
 
