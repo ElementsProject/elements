@@ -3277,6 +3277,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             txNew.vout.back().nValue = nFeeRet; // update fee output
                             blind_details->o_amounts.back() = nFeeRet;
 
+                            // Wipe output blinding factors and start over
+                            blind_details->o_amount_blinds.clear();
+
+                            blind_details->o_asset_blinds.clear();
+
                             // Re-blind tx after editing and change.
                             blind_details->tx_unblinded_unsigned = txNew;
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
@@ -3306,7 +3311,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     return false;
                 }
 
-                // TODO CA: Swap back in unblinded version and re-blind before break
                 // Try to reduce change to include necessary fee
                 if (nChangePosInOut != -1 && nSubtractFeeFromAmount == 0) {
                     CAmount additionalFeeNeeded = nFeeNeeded - nFeeRet;
@@ -3324,6 +3328,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             nFeeRet += additionalFeeNeeded;
                             txNew.vout.back().nValue = nFeeRet; // update fee output
                             blind_details->o_amounts.back() = nFeeRet; // update change details
+                            // Wipe output blinding factors and start over
+                            blind_details->o_amount_blinds.clear();
+
+                            blind_details->o_asset_blinds.clear();
 
                             // Re-blind tx after editing and change.
                             blind_details->tx_unblinded_unsigned = txNew;
