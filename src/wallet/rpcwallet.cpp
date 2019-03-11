@@ -377,7 +377,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 10)
         throw std::runtime_error(
             "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\")\n"
             "\nSend an amount to a given address.\n"
@@ -454,7 +454,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
     LogPrintf("xxasset: %s\n", strasset);
-    if (request.params.size() > 8 && request.params[8].isStr()) {
+    if (request.params.size() > 8 && request.params[8].isStr() && !request.params[8].get_str().empty()) {
         strasset = request.params[8].get_str();
     }
     LogPrintf("xxasset: %s\n", strasset);

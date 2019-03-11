@@ -125,7 +125,7 @@ class IssuanceTest (BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 4)
         self.nodes[0].generate(1)
         self.sync_all()
-        self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3)
+        self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3, "", "", False, False, 1, "UNSET", "", False)
         self.nodes[0].generate(1)
         self.sync_all()
 
