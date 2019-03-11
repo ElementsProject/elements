@@ -31,7 +31,8 @@ public:
     CTxOut txout;
     CAmount effective_value;
     // ELEMENTS:
-    CAsset effective_asset;
+    CAmount value;
+    CAsset asset;
     uint256 bf_value;
     uint256 bf_asset;
 

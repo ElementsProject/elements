@@ -18,8 +18,8 @@ CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
 
     outpoint = COutPoint(wtx->tx->GetHash(), i);
     txout = wtx->tx->vout[i];
-    effective_value = wtx->GetOutputValueOut(i);
-    effective_asset = wtx->GetOutputAsset(i);
+    value = wtx->GetOutputValueOut(i);
+    asset = wtx->GetOutputAsset(i);
     bf_value = wtx->GetOutputAmountBlindingFactor(i);
     bf_asset = wtx->GetOutputAssetBlindingFactor(i);
 }
@@ -249,7 +249,7 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
         for (OutputGroup g : groups) {
             bool add = true;
             for (CInputCoin c : g.m_outputs) {
-                if (c.effective_asset != it->first) {
+                if (c.asset != it->first) {
                     add = false;
                     break;
                 }

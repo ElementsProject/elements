@@ -2397,7 +2397,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
         for (OutputGroup g : groups) {
             bool add = true;
             for (CInputCoin c : g.m_outputs) {
-                if (c.effective_asset != asset) {
+                if (c.asset != asset) {
                     add = false;
                     break;
                 }
@@ -2428,7 +2428,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
             group.effective_value = 0;
             for (auto it = group.m_outputs.begin(); it != group.m_outputs.end(); ) {
                 const CInputCoin& coin = *it;
-                CAmount effective_value = coin.effective_value - (coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes));
+                CAmount effective_value = coin.value - (coin.m_input_bytes < 0 ? 0 : coin_selection_params.effective_fee.GetFee(coin.m_input_bytes));
                 // Only include outputs that are positive effective value (i.e. not dust)
                 if (effective_value > 0) {
                     LogPrintf("effective value: %s\n", effective_value);
@@ -2770,8 +2770,8 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
     for (const CInputCoin& coin : selected_coins) {
         det->i_amount_blinds.push_back(coin.bf_value);
         det->i_asset_blinds.push_back(coin.bf_asset);
-        det->i_assets.push_back(coin.effective_asset);
-        det->i_amounts.push_back(coin.effective_value);
+        det->i_assets.push_back(coin.asset);
+        det->i_amounts.push_back(coin.value);
         if (coin.txout.nValue.IsCommitment() || coin.txout.nAsset.IsCommitment()) {
             num_inputs_blinded++;
         }
@@ -3172,7 +3172,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 for (const CInputCoin& coin : selected_coins) {
                     txNew.vin.push_back(CTxIn(coin.outpoint, CScript()));
 
-                    if (issuance_details && coin.effective_asset == issuance_details->reissuance_token) {
+                    if (issuance_details && coin.asset == issuance_details->reissuance_token) {
                         reissuance_index = txNew.vin.size() - 1;
                         token_blinding = coin.bf_asset;
                     }
@@ -3497,9 +3497,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     summary += "    ";
                 }
                 summary += strprintf("#%d: %s [%s] (%s [%s])\n", i,
-                    selected_coins[i].effective_value,
+                    selected_coins[i].value,
                     selected_coins[i].txout.nValue.IsExplicit() ? "explicit" : "blinded",
-                    selected_coins[i].effective_asset.GetHex(),
+                    selected_coins[i].asset.GetHex(),
                     selected_coins[i].txout.nAsset.IsExplicit() ? "explicit" : "blinded"
                 );
             }
