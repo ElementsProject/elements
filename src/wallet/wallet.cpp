@@ -2704,6 +2704,63 @@ void resetBlindDetails(BlindDetails* det) {
     det->only_change_pos = -1;
 }
 
+void printBlindDetails(BlindDetails* det) {
+    LogPrintf("BLINDDETAILS:\n");
+    if (!det) {
+        LogPrintf("NULL\n");
+    }
+
+    LogPrintf("num_to_blind: %d\n", det->num_to_blind);
+    LogPrintf("change_to_blind: %d\n", det->change_to_blind);
+    LogPrintf("only_recipient_blind_index: %d\n", det->only_recipient_blind_index);
+    LogPrintf("only_change_pos: %d\n", det->only_change_pos);
+
+    LogPrintf("i_amount_blinds (len: %d):\n", det->i_amount_blinds.size());
+    for (unsigned int i = 0; i < det->i_amount_blinds.size(); ++i) {
+        LogPrintf("- %s\n", det->i_amount_blinds[i].GetHex());
+    }
+
+    LogPrintf("i_asset_blinds (len: %d):\n", det->i_asset_blinds.size());
+    for (unsigned int i = 0; i < det->i_asset_blinds.size(); ++i) {
+        LogPrintf("- %s\n", det->i_amount_blinds[i].GetHex());
+    }
+
+    LogPrintf("i_assets (len: %d):\n", det->i_assets.size());
+    for (unsigned int i = 0; i < det->i_assets.size(); ++i) {
+        LogPrintf("- %s\n", det->i_assets[i].GetHex());
+    }
+
+    LogPrintf("i_amounts (len: %d):\n", det->i_amounts.size());
+    for (unsigned int i = 0; i < det->i_amounts.size(); ++i) {
+        LogPrintf("- %s\n", det->i_amounts[i]);
+    }
+
+    LogPrintf("o_amounts (len: %d):\n", det->o_amounts.size());
+    for (unsigned int i = 0; i < det->o_amounts.size(); ++i) {
+        LogPrintf("- %s\n", det->o_amounts[i]);
+    }
+
+    LogPrintf("o_pubkeys (len: %d):\n", det->o_pubkeys.size());
+    for (unsigned int i = 0; i < det->o_pubkeys.size(); ++i) {
+        LogPrintf("- %s\n", HexStr(det->o_pubkeys[i].begin(), det->o_pubkeys[i].end()));
+    }
+
+    LogPrintf("o_amount_blinds (len: %d):\n", det->o_amount_blinds.size());
+    for (unsigned int i = 0; i < det->o_amount_blinds.size(); ++i) {
+        LogPrintf("- %s\n", det->o_amount_blinds[i].GetHex());
+    }
+
+    LogPrintf("o_assets (len: %d):\n", det->o_assets.size());
+    for (unsigned int i = 0; i < det->o_assets.size(); ++i) {
+        LogPrintf("- %s\n", det->o_assets[i].GetHex());
+    }
+
+    LogPrintf("o_asset_blinds (len: %d):\n", det->o_asset_blinds.size());
+    for (unsigned int i = 0; i < det->o_asset_blinds.size(); ++i) {
+        LogPrintf("- %s\n", det->o_asset_blinds[i].GetHex());
+    }
+}
+
 bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& txNew, std::vector<CInputCoin>& selected_coins, std::string& strFailReason) {
     int num_inputs_blinded = 0;
 
@@ -3205,6 +3262,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                     // Keep a backup of transaction in case re-blinding necessary
                     blind_details->tx_unblinded_unsigned = txNew;
+                    printBlindDetails(blind_details);
                     int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                     assert(ret != -1);
                     if (ret != blind_details->num_to_blind) {
@@ -3281,11 +3339,11 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                             // Wipe output blinding factors and start over
                             blind_details->o_amount_blinds.clear();
-
                             blind_details->o_asset_blinds.clear();
 
                             // Re-blind tx after editing and change.
                             blind_details->tx_unblinded_unsigned = txNew;
+                            printBlindDetails(blind_details);
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                             assert(ret != -1);
                             if (ret != blind_details->num_to_blind) {
@@ -3330,13 +3388,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             nFeeRet += additionalFeeNeeded;
                             txNew.vout.back().nValue = nFeeRet; // update fee output
                             blind_details->o_amounts.back() = nFeeRet; // update change details
+
                             // Wipe output blinding factors and start over
                             blind_details->o_amount_blinds.clear();
-
                             blind_details->o_asset_blinds.clear();
 
                             // Re-blind tx after editing and change.
                             blind_details->tx_unblinded_unsigned = txNew;
+                            printBlindDetails(blind_details);
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                             assert(ret != -1);
                             if (ret != blind_details->num_to_blind) {

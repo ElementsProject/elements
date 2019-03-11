@@ -260,7 +260,9 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         }
         if (!issuance.nAmount.IsNull()) {
             LogPrintf("Issuance Input #%d\n", i);
-            LogPrintf("Value exp: %s\n", val.GetAmount());
+            if (issuance.nAmount.IsExplicit()) {
+                LogPrintf("Value exp: %s\n", issuance.nAmount.GetAmount());
+            }
 
             // Note: This check disallows issuances in transactions with *no* witness data.
             // This can be relaxed in a future update as a HF by passing in an empty rangeproof
@@ -284,7 +286,9 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
         }
         if (!issuance.nInflationKeys.IsNull()) {
             LogPrintf("Reissuance Input #%d\n", i);
-            LogPrintf("Value exp: %s\n", val.GetAmount());
+            if (issuance.nInflationKeys.IsExplicit()) {
+                LogPrintf("Value exp: %s\n", issuance.nInflationKeys.GetAmount());
+            }
 
             // Only initial issuance can have reissuance tokens
             if (!issuance.assetBlindingNonce.IsNull()) {
