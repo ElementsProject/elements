@@ -4,7 +4,7 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes_bi
+from test_framework.util import assert_equal, assert_greater_than_or_equal, connect_nodes_bi
 from test_framework.authproxy import JSONRPCException
 from decimal import Decimal
 
@@ -120,9 +120,12 @@ class IssuanceTest (BitcoinTestFramework):
         if test_asset in node1balance:
             assert_equal(node1balance[test_asset], Decimal(0))
 
-        # Send some bitcoin to other nodes
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 3)
-        self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 3)
+        # Send bitcoin to node 1 and then from 1 to 2 to force node 1 to
+        # spend confidential money.
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 4)
+        self.nodes[0].generate(1)
+        self.sync_all()
+        self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3)
         self.nodes[0].generate(1)
         self.sync_all()
 
@@ -131,6 +134,7 @@ class IssuanceTest (BitcoinTestFramework):
         self.nodes[2].destroyamount('bitcoin', 2) # Destroy 2 BTC
         self.nodes[2].generate(1)
         self.sync_all()
+        assert_greater_than_or_equal(pre_destroy_btc_balance - Decimal('2'), self.nodes[2].getbalance()['bitcoin'])
 
         issuedamount = self.nodes[0].getwalletinfo()['balance'][issued["token"]]
         assert_equal(issuedamount, Decimal('1.0'))
