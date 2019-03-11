@@ -174,7 +174,7 @@ class IssuanceTest (BitcoinTestFramework):
         issuancedata = self.nodes[2].issueasset(0, Decimal('0.00000006')) #0 of asset, 6 reissuance token
 
         # Node 2 will send node 1 a reissuance token, both will generate assets
-        self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), Decimal('0.00000001'), "", "", False, issuancedata["token"])
+        self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), Decimal('0.00000001'), "", "", False, False, 1, "UNSET", issuancedata["token"])
         # node 1 needs to know about a (re)issuance to reissue itself
         self.nodes[1].importaddress(self.nodes[2].gettransaction(issuancedata["txid"])["details"][0]["address"])
         # also send some bitcoin
@@ -206,13 +206,14 @@ class IssuanceTest (BitcoinTestFramework):
         addr2 = txdet2[len(txdet2)-1]["address"]
         addr3 = txdet3[len(txdet3)-1]["address"]
 
-        assert_equal(len(self.nodes[0].listissuances()), 6);
+        print(len(self.nodes[0].listissuances()))
+        assert_equal(len(self.nodes[0].listissuances()), 5);
         self.nodes[0].importaddress(addr1)
         self.nodes[0].importaddress(addr2)
         self.nodes[0].importaddress(addr3)
 
         issuances = self.nodes[0].listissuances()
-        assert_equal(len(issuances), 9)
+        assert_equal(len(issuances), 8)
 
         for issue in issuances:
             if issue['txid'] == redata1["txid"] and issue['vin'] == redata1["vin"]:
