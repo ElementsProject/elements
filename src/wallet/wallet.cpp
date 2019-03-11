@@ -3001,7 +3001,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     txNew.vout.push_back(txout);
                     if (blind_details) {
                         blind_details->o_pubkeys.push_back(recipient.confidentiality_key);
-                        blind_details->num_to_blind++;
+                        if (blind_details->o_pubkeys.back().IsFullyValid()) {
+                            blind_details->num_to_blind++;
+                        }
                     }
                 }
 
@@ -3206,7 +3208,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                     assert(ret != -1);
                     if (ret != blind_details->num_to_blind) {
-                        LogPrintf("ERROR: Blinded wrong number of parameters: %d / %d\n", ret, blind_details->num_to_blind);
+                        LogPrintf("ERROR: Blinded wrong number of parameters first try: %d / %d\n", ret, blind_details->num_to_blind);
                         strFailReason = _("Unable to blind the transaction properly. This should not happen.");
                         return false;
                     }
@@ -3287,7 +3289,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                             assert(ret != -1);
                             if (ret != blind_details->num_to_blind) {
-                                LogPrintf("ERROR: Blinded wrong number of parameters: %d / %d\n", ret, blind_details->num_to_blind);
+                                LogPrintf("ERROR: Blinded wrong number of parameters when increasing change output: %d / %d\n", ret, blind_details->num_to_blind);
                                 strFailReason = _("Unable to blind the transaction properly. This should not happen.");
                                 return false;
                             }
@@ -3338,7 +3340,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             int ret = BlindTransaction(blind_details->i_amount_blinds, blind_details->i_asset_blinds, blind_details->i_assets, blind_details->i_amounts, blind_details->o_amount_blinds, blind_details->o_asset_blinds,  blind_details->o_pubkeys, issuance_asset_keys, issuance_token_keys, txNew);
                             assert(ret != -1);
                             if (ret != blind_details->num_to_blind) {
-                                LogPrintf("ERROR: Blinded wrong number of parameters: %d / %d\n", ret, blind_details->num_to_blind);
+                                LogPrintf("ERROR: Blinded wrong number of parameters when reducing change: %d / %d\n", ret, blind_details->num_to_blind);
                                 strFailReason = _("Unable to blind the transaction properly. This should not happen.");
                                 return false;
                             }
@@ -3475,6 +3477,8 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
         // Write down blinding information
         if (blind_details) {
             assert(blind_details->o_amounts.size() == wtxNew.tx->vout.size());
+            assert(blind_details->o_asset_blinds.size() == wtxNew.tx->vout.size());
+            assert(blind_details->o_amount_blinds.size() == wtxNew.tx->vout.size());
             for (unsigned int i = 0; i < blind_details->o_amounts.size(); i++) {
                 wtxNew.SetBlindingData(i, blind_details->o_pubkeys[i], blind_details->o_amounts[i], blind_details->o_amount_blinds[i], blind_details->o_assets[i], blind_details->o_asset_blinds[i]);
             }
