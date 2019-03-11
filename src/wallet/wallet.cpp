@@ -3006,6 +3006,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 txNew.vin.clear();
                 txNew.vout.clear();
+                txNew.witness.SetNull();
                 bool fFirst = true;
 
                 CAmountMap mapValueToSelect = mapValue;
