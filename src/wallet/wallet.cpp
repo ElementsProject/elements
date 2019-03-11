@@ -3062,6 +3062,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         blind_details->o_pubkeys.push_back(recipient.confidentiality_key);
                         if (blind_details->o_pubkeys.back().IsFullyValid()) {
                             blind_details->num_to_blind++;
+                            blind_details->only_recipient_blind_index = txNew.vout.size()-1;
                         }
                     }
                 }
@@ -3135,7 +3136,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             assert(blind_pub.IsFullyValid());
                             blind_details->num_to_blind++;
                             blind_details->change_to_blind++;
-                            blind_details->only_recipient_blind_index = txNew.vout.size()-1;
                             blind_details->only_change_pos = vChangePosInOut[it->first];
                         }
                     }
