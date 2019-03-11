@@ -101,6 +101,8 @@ class IssuanceTest (BitcoinTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(105)
+        # Make sure test starts with no initial issuance.
+        assert_equal(len(self.nodes[0].listissuances()), 0);
 
         # Unblinded issuance of asset
         issued = self.nodes[0].issueasset(1, 1, False)
