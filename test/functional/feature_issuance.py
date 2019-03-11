@@ -126,6 +126,7 @@ class IssuanceTest (BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
         self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3, "", "", False, False, 1, "UNSET", "", False)
+        self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
 
@@ -142,7 +143,7 @@ class IssuanceTest (BitcoinTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_all()
-        assert(issued["token"] not in self.nodes[0].getinfo()['balance'])
+        assert(issued["token"] not in self.nodes[0].getwalletinfo()['balance'])
 
         # Test various issuance and auditing paths
 

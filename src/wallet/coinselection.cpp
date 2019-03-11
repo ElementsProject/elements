@@ -21,7 +21,7 @@ CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
     effective_value = wtx->GetOutputValueOut(i);
     effective_asset = wtx->GetOutputAsset(i);
     bf_value = wtx->GetOutputAmountBlindingFactor(i);
-    bf_asset = wtx->GetOutputAmountBlindingFactor(i);
+    bf_asset = wtx->GetOutputAssetBlindingFactor(i);
 }
 
 // Descending order comparator
