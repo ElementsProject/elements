@@ -191,6 +191,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "sendmany", 8 , "ignoreblindfail" },
     { "sendtoaddress", 9 , "ignoreblindfail" },
     { "importblindingkey", 2, "key_is_master"},
+    { "createrawtransaction", 4, "output_assets" },
 
 };
 // clang-format on
