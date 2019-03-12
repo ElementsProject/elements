@@ -88,9 +88,10 @@ def process_raw_issuance(node, issuance_list):
 
     assert_equal(num_issuance, len(issuance_list))
 
-class IssuanceTest (BitcoinTestFramework):
+class IssuanceTest(BitcoinTestFramework):
 
     def set_test_params(self):
+        self.extra_args = [["-blindedaddresses=1"]] * 3
         self.num_nodes = 3
         self.setup_clean_chain = True
 
