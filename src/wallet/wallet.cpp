@@ -2602,7 +2602,6 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             setAssets.insert(txOut.nAsset.GetAsset());
         }
 
-        LogPrintf("potential panic 2631: %b %b\n", txOut.nValue.IsExplicit(), txOut.nAsset.IsExplicit());
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), setSubtractFeeFromOutputs.count(idx) == 1};
         vecSend.push_back(recipient);
     }
