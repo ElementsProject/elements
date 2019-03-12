@@ -475,6 +475,10 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CAmount nAmount = AmountFromValue(outputs[name_]);
 
             CTxOut out(asset, nAmount, scriptPubKey);
+            if (IsBlindDestination(destination)) {
+                CPubKey blind_pub = GetDestinationBlindingKey(destination);
+                out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+            }
             rawTx.vout.push_back(out);
         }
     }
