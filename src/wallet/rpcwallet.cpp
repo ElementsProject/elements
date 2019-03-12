@@ -3029,9 +3029,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
         if (g_con_elementswitness) {
             if (tx_out.nAsset.IsCommitment()) {
                 entry.pushKV("assetcommitment", HexStr(tx_out.nAsset.vchCommitment));
-            } else {
-                entry.pushKV("asset", assetid.GetHex());
             }
+            entry.pushKV("asset", assetid.GetHex());
             if (tx_out.nValue.IsCommitment()) {
                 entry.pushKV("amountcommitment", HexStr(tx_out.nValue.vchCommitment));
             }
