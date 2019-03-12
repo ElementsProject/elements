@@ -339,7 +339,7 @@ class IssuanceTest (BitcoinTestFramework):
 
         issued_address = self.nodes[0].getnewaddress()
         # Create transaction spending the reissuance token
-        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:Decimal('0.00000001')}, 0, {issued_address:issued_asset["token"]})
+        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:Decimal('0.00000001')}, 0, False, {issued_address:issued_asset["token"]})
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
         # Find the reissuance input
         reissuance_index = -1
@@ -358,7 +358,7 @@ class IssuanceTest (BitcoinTestFramework):
         # Now send reissuance token to blinded multisig, then reissue
         addrs = []
         for i in range(3):
-            addrs.append(self.nodes[0].validateaddress(self.nodes[0].getnewaddress())["pubkey"])
+            addrs.append(self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress())["pubkey"])
 
 
         multisig_addr = self.nodes[0].createmultisig(2,addrs)
@@ -371,7 +371,7 @@ class IssuanceTest (BitcoinTestFramework):
         # Import blinding key to be able to decrypt values sent to it
         self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
 
-        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, issued_asset["asset"])
+        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, False, 1, "UNSET", issued_asset["asset"])
         self.nodes[0].generate(1)
 
         # Get that multisig output
@@ -384,7 +384,7 @@ class IssuanceTest (BitcoinTestFramework):
         assert(utxo_info is not None)
 
         # Now make transaction spending that input
-        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, {issued_address:issued_asset["token"]})
+        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         # Find the reissuance input
         reissuance_index = -1
@@ -421,7 +421,7 @@ class IssuanceTest (BitcoinTestFramework):
         assert(utxo_info is not None)
 
         # Now spend the token, and create reissuance
-        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, {issued_address:issued_tx["token"]})
+        raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_tx["token"]})
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         # Find the reissuance input
         reissuance_index = -1
