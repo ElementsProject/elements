@@ -21,7 +21,9 @@ def process_raw_issuance(node, issuance_list):
         next_destinations[node.getnewaddress()] = output_values
 
     raw_tx = node.createrawtransaction([], next_destinations)
-    funded_tx = node.fundrawtransaction(raw_tx)['hex']
+    # We "over-fund" these transactions to 50 sat/vbyte since issuances aren't baked in yet
+    # Otherwise huge multi-issuances may fail min-relay
+    funded_tx = node.fundrawtransaction(raw_tx, {"feeRate":Decimal('0.00050000')})['hex']
     issued_call_details = node.rawissueasset(funded_tx, issuance_list)
     issued_tx = issued_call_details[-1]["hex"] # Get hex from end
     # don't accept blinding fail, and blind all issuances or none at all
