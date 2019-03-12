@@ -6,6 +6,7 @@
 
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
+#include <issuance.h>
 #include <key_io.h>
 #include <script/script.h>
 #include <script/standard.h>
@@ -223,29 +224,65 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
             o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
             in.pushKV("scriptSig", o);
-
-            if (tx.witness.vtxinwit.size() > i) {
-                const CScriptWitness &scriptWitness = tx.witness.vtxinwit[i].scriptWitness;
-                if (!scriptWitness.IsNull()) {
-                    UniValue txinwitness(UniValue::VARR);
-                    for (const auto &item : scriptWitness.stack) {
-                        txinwitness.push_back(HexStr(item.begin(), item.end()));
-                    }
-                    in.pushKV("txinwitness", txinwitness);
-                }
-            }
-
-            // ELEMENTS:
             in.pushKV("is_pegin", txin.m_is_pegin);
-            if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
-                UniValue pegin_witness(UniValue::VARR);
-                for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
-                    pegin_witness.push_back(HexStr(item.begin(), item.end()));
-                }
-                in.pushKV("pegin_witness", pegin_witness);
-            }
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
+
+        if (tx.witness.vtxinwit.size() > i) {
+            const CScriptWitness &scriptWitness = tx.witness.vtxinwit[i].scriptWitness;
+            if (!scriptWitness.IsNull()) {
+                UniValue txinwitness(UniValue::VARR);
+                for (const auto &item : scriptWitness.stack) {
+                    txinwitness.push_back(HexStr(item.begin(), item.end()));
+                }
+                in.pushKV("txinwitness", txinwitness);
+            }
+        }
+
+        // ELEMENTS:
+        if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
+            UniValue pegin_witness(UniValue::VARR);
+            for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
+                pegin_witness.push_back(HexStr(item.begin(), item.end()));
+            }
+            in.pushKV("pegin_witness", pegin_witness);
+        }
+        const CAssetIssuance& issuance = txin.assetIssuance;
+        if (!issuance.IsNull()) {
+            UniValue issue(UniValue::VOBJ);
+            issue.pushKV("assetBlindingNonce", issuance.assetBlindingNonce.GetHex());
+            CAsset asset;
+            CAsset token;
+            uint256 entropy;
+            if (issuance.assetBlindingNonce.IsNull()) {
+                GenerateAssetEntropy(entropy, txin.prevout, issuance.assetEntropy);
+                issue.pushKV("assetEntropy", entropy.GetHex());
+                CalculateAsset(asset, entropy);
+                CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
+                issue.pushKV("isreissuance", false);
+                issue.pushKV("token", token.GetHex());
+            }
+            else {
+                issue.pushKV("assetEntropy", issuance.assetEntropy.GetHex());
+                issue.pushKV("isreissuance", true);
+                CalculateAsset(asset, issuance.assetEntropy);
+            }
+            issue.pushKV("asset", asset.GetHex());
+
+            if (issuance.nAmount.IsExplicit()) {
+                issue.pushKV("assetamount", ValueFromAmount(issuance.nAmount.GetAmount()));
+            } else if (issuance.nAmount.IsCommitment()) {
+                issue.pushKV("assetamountcommitment", HexStr(issuance.nAmount.vchCommitment));
+            }
+            if (issuance.nInflationKeys.IsExplicit()) {
+                issue.pushKV("tokenamount", ValueFromAmount(issuance.nInflationKeys.GetAmount()));
+            } else if (issuance.nInflationKeys.IsCommitment()) {
+                issue.pushKV("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment));
+            }
+            in.pushKV("issuance", issue);
+        }
+        // END ELEMENTS
+
         vin.push_back(in);
     }
     entry.pushKV("vin", vin);
