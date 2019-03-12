@@ -26,7 +26,7 @@ def process_raw_issuance(node, issuance_list):
     issued_tx = issued_call_details[-1]["hex"] # Get hex from end
     # don't accept blinding fail, and blind all issuances or none at all
     blind_tx = node.blindrawtransaction(issued_tx, False, [], issuance_list[0]["blind"])
-    signed_tx = node.signrawtransaction(blind_tx)
+    signed_tx = node.signrawtransactionwithwallet(blind_tx)
     tx_id = node.sendrawtransaction(signed_tx['hex'])
     node.generate(1)
     assert_equal(node.gettransaction(tx_id)["confirmations"], 1)
