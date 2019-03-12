@@ -23,7 +23,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
         self.num_nodes = 2
 
         #Set default asset name
-        self.extra_args = [["-defaultpeggedassetname=testasset"], ["-defaultpeggedassetname=testasset"]]
+        self.extra_args = [["-defaultpeggedassetname=testasset", "-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_coinbase=1", "-con_blocksubsidy=0"]]*2
 
     def setup_network(self, split=False):
         self.setup_nodes()

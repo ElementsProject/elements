@@ -68,6 +68,7 @@ BASE_SCRIPTS = [
     'rpc_calcfastmerkleroot.py',
     'feature_txwitness.py',
     'feature_issuance.py',
+    'default_asset_name.py',
     # Longest test should go first, to favor running tests in parallel
     'feature_fee_estimation.py',
     'wallet_hd.py',
