@@ -17,6 +17,32 @@
 #include <utilmoneystr.h>
 #include <utilstrencodings.h>
 
+#include <secp256k1_rangeproof.h>
+
+static secp256k1_context* secp256k1_blind_context = NULL;
+
+class RPCRawTransaction_ECC_Init {
+public:
+    RPCRawTransaction_ECC_Init() {
+        assert(secp256k1_blind_context == NULL);
+
+        secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+        assert(ctx != NULL);
+
+        secp256k1_blind_context = ctx;
+    }
+
+    ~RPCRawTransaction_ECC_Init() {
+        secp256k1_context *ctx = secp256k1_blind_context;
+        secp256k1_blind_context = NULL;
+
+        if (ctx) {
+            secp256k1_context_destroy(ctx);
+        }
+    }
+};
+static RPCRawTransaction_ECC_Init ecc_init_on_load;
+
 UniValue ValueFromAmount(const CAmount& amount)
 {
     bool sign = amount < 0;
@@ -296,6 +322,21 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         if (txout.nValue.IsExplicit()) {
             out.pushKV("value", ValueFromAmount(txout.nValue.GetAmount()));
         } else {
+            int exp;
+            int mantissa;
+            uint64_t minv;
+            uint64_t maxv;
+            const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
+            if (ptxoutwit && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
+                if (exp == -1) {
+                    out.pushKV("value", ValueFromAmount((CAmount)minv));
+                } else {
+                    out.pushKV("value-minimum", ValueFromAmount((CAmount)minv));
+                    out.pushKV("value-maximum", ValueFromAmount((CAmount)maxv));
+                }
+                out.pushKV("ct-exponent", exp);
+                out.pushKV("ct-bits", mantissa);
+            }
             out.pushKV("valuecommitment", txout.nValue.GetHex());
         }
         if (g_con_elementswitness) {
