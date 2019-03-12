@@ -379,7 +379,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 10)
         throw std::runtime_error(
-            "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\")\n"
+            "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\" \"assetlabel\" ignoreblindfail )\n"
             "\nSend an amount to a given address.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
@@ -940,11 +940,10 @@ static UniValue sendmany(const JSONRPCRequest& request)
         assets = request.params[8].get_obj();
     }
 
-    /* CA: re-enable for assets
     bool ignore_blind_fail = true;
     if (request.params.size() > 9) {
         ignore_blind_fail = request.params[9].get_bool();
-    }*/
+    }
 
     std::set<CTxDestination> destinations;
     std::vector<CRecipient> vecSend;
@@ -1021,6 +1020,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::string strFailReason;
     CTransactionRef tx;
     BlindDetails blind_details;
+    blind_details.ignore_blind_failure = ignore_blind_fail;
     bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, &blind_details, nullptr /* issuance_details*/);
     if (!fCreated) {
         LogPrintf("xxxfunds 3: \n");
