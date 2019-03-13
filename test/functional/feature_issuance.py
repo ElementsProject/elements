@@ -352,6 +352,12 @@ class IssuanceTest(BitcoinTestFramework):
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
+        # FIXME: intermittant balance failure: Looks like reissuance token is being
+        # burned as the amount in the fee output from fundraw
+        if not self.nodes[0].testmempoolaccept([signed_tx["hex"]])[0]["allowed"]:
+            print(funded_tx)
+            import pdb
+            pdb.set_trace()
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
@@ -371,8 +377,8 @@ class IssuanceTest(BitcoinTestFramework):
         self.nodes[0].importaddress(blinded_multisig)
         # Import blinding key to be able to decrypt values sent to it
         self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
-
-        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, False, 1, "UNSET", issued_asset["asset"])
+        # Sending to this address must achieve blinding to reissue from this address
+        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, False, 1, "UNSET", issued_asset["asset"], False)
         self.nodes[0].generate(1)
 
         # Get that multisig output
@@ -383,6 +389,10 @@ class IssuanceTest(BitcoinTestFramework):
                 utxo_info = utxo
                 break
         assert(utxo_info is not None)
+        if utxo_info["amountblinder"] is "0000000000000000000000000000000000000000000000000000000000000000":
+            import pdb
+            pdb.set_trace()
+        assert(utxo_info["amountblinder"] is not "0000000000000000000000000000000000000000000000000000000000000000")
 
         # Now make transaction spending that input
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
@@ -395,7 +405,10 @@ class IssuanceTest(BitcoinTestFramework):
                 break
         assert(reissuance_index != -1)
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
+        print("Funded: "+funded_tx)
+        print("Reissued: "+reissued_tx['hex'])
 
+        # FIXME: intermittant blinding failure
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
