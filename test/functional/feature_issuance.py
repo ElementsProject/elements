@@ -91,8 +91,8 @@ def process_raw_issuance(node, issuance_list):
 class IssuanceTest(BitcoinTestFramework):
 
     def set_test_params(self):
-        self.extra_args = [["-blindedaddresses=1"]] * 3
         self.num_nodes = 3
+        self.extra_args = [["-blindedaddresses=1"]] * self.num_nodes
         self.setup_clean_chain = True
 
     def setup_network(self, split=False):

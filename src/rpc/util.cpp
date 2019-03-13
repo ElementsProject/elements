@@ -182,13 +182,11 @@ public:
     }
 };
 
-CPubKey GetDestinationBlindingKey(const CTxDestination& dest)
-{
+CPubKey GetDestinationBlindingKey(const CTxDestination& dest) {
     return boost::apply_visitor(BlindingPubkeyVisitor(), dest);
 }
 
-bool IsBlindDestination(const CTxDestination& dest)
-{
+bool IsBlindDestination(const CTxDestination& dest) {
     return GetDestinationBlindingKey(dest).IsFullyValid();
 }
 

@@ -343,7 +343,7 @@ class WalletTest(BitcoinTestFramework):
 
         # Import address and private key to check correct behavior of spendable unspents
         # 1. Send some coins to generate new UTXO
-        address_to_import = self.nodes[2].getnewaddress()
+        address_to_import = self.nodes[2].getaddressinfo(self.nodes[2].getnewaddress())["confidential"]
         txid = self.nodes[0].sendtoaddress(address_to_import, 1)
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0:3]])
