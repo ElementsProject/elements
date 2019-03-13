@@ -2624,8 +2624,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     std::vector<std::unique_ptr<CReserveKey>> reservekeys;
     reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
     CTransactionRef tx_new;
-    BlindDetails blind_details;
-    if (!CreateTransaction(vecSend, tx_new, reservekeys, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, &blind_details)) {
+    BlindDetails* blind_details = g_con_elementswitness ? new BlindDetails() : NULL;
+    if (!CreateTransaction(vecSend, tx_new, reservekeys, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
         return false;
     }
     LogPrintf("returned nFeeRet: %s\n", nFeeRet);
