@@ -2624,7 +2624,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     std::vector<std::unique_ptr<CReserveKey>> reservekeys;
     reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
     CTransactionRef tx_new;
-    if (!CreateTransaction(vecSend, tx_new, reservekeys, nFeeRet, nChangePosInOut, strFailReason, coinControl, false)) {
+    BlindDetails blind_details;
+    if (!CreateTransaction(vecSend, tx_new, reservekeys, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, &blind_details)) {
         return false;
     }
     LogPrintf("returned nFeeRet: %s\n", nFeeRet);
@@ -3472,6 +3473,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 nIn++;
             }
+        } else if (blind_details) {
+            // "sign" also means blind for the purposes of making a complete tx
+            // or just funding one properly
+            txNew = blind_details->tx_unblinded_unsigned;
         }
 
         // Normalize the witness in case it is not serialized before mempool
