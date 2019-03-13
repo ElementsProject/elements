@@ -2800,6 +2800,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
         det->o_amounts.push_back(0);
         det->o_assets.push_back(det->o_assets.back());
         det->num_to_blind++;
+        wallet->WalletLogPrintf("Adding OP_RETURN output to complete blinding since there are %d blinded inputs and no blinded outputs\n", num_inputs_blinded);
 
         // No blinded inputs, but 1 blinded output
     } else if (num_inputs_blinded == 0 && det->num_to_blind == 1) {
@@ -2813,6 +2814,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
                 det->o_pubkeys[det->only_change_pos] = CPubKey();
                 det->o_amount_blinds[det->only_change_pos] = uint256();
                 det->o_asset_blinds[det->only_change_pos] = uint256();
+                wallet->WalletLogPrintf("Unblinding change at index %d due to lack of inputs and other outputs being blinded.\n", det->only_change_pos);
             } else {
                 strFailReason = _("Change output could not be blinded as there are no blinded inputs and no other blinded outputs.");
                 return false;
@@ -2827,6 +2829,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
                 det->o_pubkeys[det->only_recipient_blind_index] = CPubKey();
                 det->o_amount_blinds[det->only_recipient_blind_index] = uint256();
                 det->o_asset_blinds[det->only_recipient_blind_index] = uint256();
+                wallet->WalletLogPrintf("Unblinding single blinded output at index %d due to lack of inputs and other outputs being blinded.", det->only_recipient_blind_index);
             } else {
                 strFailReason = _("Transaction output could not be blinded as there are no blinded inputs and no other blinded outputs.");
                 return false;
