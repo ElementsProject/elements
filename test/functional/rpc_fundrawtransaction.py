@@ -538,10 +538,11 @@ class RawTransactionsTest(BitcoinTestFramework):
         outputs = {self.nodes[0].getnewaddress():1.1}
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
+        blindedTx = self.nodes[1].blindrawtransaction(fundedTx['hex'])
 
         #now we need to unlock
         self.nodes[1].walletpassphrase("test", 600)
-        signedTx = self.nodes[1].signrawtransactionwithwallet(fundedTx['hex'])
+        signedTx = self.nodes[1].signrawtransactionwithwallet(blindedTx)
         txId = self.nodes[1].sendrawtransaction(signedTx['hex'])
         self.nodes[1].generate(1)
         self.sync_all()
@@ -570,6 +571,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         outputs = {self.nodes[0].getnewaddress():0.15,self.nodes[0].getnewaddress():0.04}
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
+        blindedTx = self.nodes[1].blindrawtransaction(fundedTx['hex'])
 
         #create same transaction over sendtoaddress
         txId = self.nodes[1].sendmany("", outputs)
@@ -602,7 +604,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         outputs = {self.nodes[0].getnewaddress():0.15,self.nodes[0].getnewaddress():0.04}
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
-        fundedAndSignedTx = self.nodes[1].signrawtransactionwithwallet(fundedTx['hex'])
+        blindedTx = self.nodes[1].blindrawtransaction(fundedTx['hex'])
+        fundedAndSignedTx = self.nodes[1].signrawtransactionwithwallet(blindedTx)
         txId = self.nodes[1].sendrawtransaction(fundedAndSignedTx['hex'])
         self.sync_all()
         self.nodes[0].generate(1)
@@ -654,7 +657,10 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Backward compatibility test (2nd param is includeWatching)
         result = self.nodes[3].fundrawtransaction(rawtx, True)
-        res_dec = self.nodes[0].decoderawtransaction(result["hex"])
+        blinded_result = self.nodes[3].blindrawtransaction(result['hex'])
+        unblinded_result = self.nodes[3].unblindrawtransaction(blinded_result)
+        #res_dec = self.nodes[0].decoderawtransaction(blinded_result)
+        res_dec = self.nodes[0].decoderawtransaction(unblinded_result['hex'])
         assert_equal(len(res_dec["vin"]), 2)
         assert(res_dec["vin"][0]["txid"] == watchonly_txid or res_dec["vin"][1]["txid"] == watchonly_txid)
 
@@ -662,7 +668,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_greater_than(result["changepos"], -1)
         assert_equal(result["fee"] + res_dec["vout"][result["changepos"]]["value"], watchonly_amount / 10)
 
-        signedtx = self.nodes[3].signrawtransactionwithwallet(result["hex"])
+        signedtx = self.nodes[3].signrawtransactionwithwallet(blinded_result)
         assert(not signedtx["complete"])
         signedtx = self.nodes[0].signrawtransactionwithwallet(signedtx["hex"])
         assert(signedtx["complete"])
