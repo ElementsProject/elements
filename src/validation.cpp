@@ -1609,7 +1609,13 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, cons
                 undo.nHeight = alternate.nHeight;
                 undo.fCoinBase = alternate.fCoinBase;
             } else {
-                return DISCONNECT_FAILED; // adding output for transaction without known metadata
+                // ELEMENTS:
+                // If we're connecting genesis outputs, it's probably actually just
+                // a genesis output, let it through. N.B. The case where it's a corrupted
+                // txundo from per-tx db will not be caught!
+                if (!Params().GetConsensus().connect_genesis_outputs) {
+                    return DISCONNECT_FAILED; // adding output for transaction without known metadata
+                }
             }
         }
         // The potential_overwrite parameter to AddCoin is only allowed to be false if we know for
