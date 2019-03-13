@@ -1635,6 +1635,15 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, cons
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
 
+// We don't want to compare things that are not stored in utxo db, specifically
+// the nonce commitment which has no consensus meaning for spending conditions
+static bool TxOutDBEntryIsSame(const CTxOut& block_txout, const CTxOut& txdb_txout)
+{
+    return txdb_txout.nValue == block_txout.nValue &&
+        txdb_txout.nAsset == block_txout.nAsset &&
+        txdb_txout.scriptPubKey == block_txout.scriptPubKey;
+}
+
 /** Undo the effects of this block (with given index) on the UTXO set represented by coins.
  *  When FAILED is returned, view is left in an indeterminate state. */
 DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view)
@@ -1665,7 +1674,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 COutPoint out(hash, o);
                 Coin coin;
                 bool is_spent = view.SpendCoin(out, &coin);
-                if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase) {
+                if (!is_spent || !TxOutDBEntryIsSame(tx.vout[o], coin.out) || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase) {
                     fClean = false; // transaction output mismatch
                 }
             }
