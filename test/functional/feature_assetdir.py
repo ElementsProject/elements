@@ -23,6 +23,7 @@ class AssetdirTests(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
+        [["-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_coinbase=1", "-con_blocksubsidy=0"]]
 
     def setup_network(self, split=False):
         self.setup_nodes()
@@ -41,25 +42,20 @@ class AssetdirTests(BitcoinTestFramework):
         self.stop_nodes()
         self.start_nodes([["-assetdir=" + asset1hex + ":asset1", "-assetdir=" + asset2hex + ":asset2"]])
 
-        #Check that listissuances returns all 3 issuances
+        #Check that listissuances return all issuances
         issuances = self.nodes[0].listissuances()
-        assert_equal(len(issuances), 3)
+        assert_equal(len(issuances), 2)
         
-        #Check all 3 asset labels have been set: 'bitcoin', 'asset1', 'asset2'
+        #Check all asset labels have been set: 'asset1', 'asset2'
         #We can not be sure they will always be returned in the same order so will loop each one
         label = ""
         for issue in issuances:
             label += issue["assetlabel"]
         
-        assert_greater_than(label.find("bitcoin"), -1)
         assert_greater_than(label.find("asset1"), -1)
         assert_greater_than(label.find("asset2"), -1)
 
         #Check we can get a list of isuances for a given label
-        issuances = self.nodes[0].listissuances("bitcoin")
-        assert_equal(len(issuances), 1)
-        assert_equal(issuances[0]["assetlabel"], "bitcoin")
-
         issuances = self.nodes[0].listissuances("asset1")
         assert_equal(len(issuances), 1)
         assert_equal(issuances[0]["assetlabel"], "asset1")
@@ -68,23 +64,6 @@ class AssetdirTests(BitcoinTestFramework):
         issuances = self.nodes[0].listissuances(asset2hex)
         assert_equal(len(issuances), 1)
         assert_equal(issuances[0]["assetlabel"], "asset2")
-
-        #Check a non-existant label or hex raises an error
-        rpc_error = True
-        try:
-            self.nodes[0].listissuances("doesnotexist")
-            rpc_error=False
-        except Exception as e:
-            assert_equal(e.error["code"], -4)
-
-        try:
-            self.nodes[0].listissuances("0000000000000000000000000000000000000000000000000000000000000000")
-            rpc_error=False
-        except Exception as e:
-            assert_equal(e.error["code"], -4)
-
-        #Check that the code did error
-        assert_equal(rpc_error, True)
 
 if __name__ == '__main__':
     AssetdirTests().main()
