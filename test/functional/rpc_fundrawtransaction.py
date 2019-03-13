@@ -28,6 +28,7 @@ def get_unspent(listunspent, amount):
 class RawTransactionsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
+        self.extra_args = [["-blindedaddresses=1"]] * self.num_nodes
         self.setup_clean_chain = True
 
     def skip_test_if_missing_module(self):
@@ -55,6 +56,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #            = 2 bytes * minRelayTxFeePerByte
         feeTolerance = 2 * min_relay_tx_fee/1000
+        # ELEMENTS NOTE: fee deltas will be negative due to blinding and no blinding in rawtransaction
 
         self.nodes[2].generate(1)
         self.sync_all()
@@ -380,7 +382,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #compare fee
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert(feeDelta >= 0 and feeDelta <= feeTolerance)
+        assert(feeDelta <= feeTolerance)
         ############################################################
 
         ############################################################
@@ -395,7 +397,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #compare fee
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert(feeDelta >= 0 and feeDelta <= feeTolerance)
+        assert(feeDelta <= feeTolerance)
         ############################################################
 
 
@@ -422,7 +424,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #compare fee
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert(feeDelta >= 0 and feeDelta <= feeTolerance)
+        assert(feeDelta <= feeTolerance)
         ############################################################
 
 
@@ -455,7 +457,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #compare fee
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert(feeDelta >= 0 and feeDelta <= feeTolerance)
+        assert(feeDelta <= feeTolerance)
         ############################################################
 
 
@@ -575,7 +577,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #compare fee
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert(feeDelta >= 0 and feeDelta <= feeTolerance*19) #~19 inputs
+        assert(feeDelta <= feeTolerance*19) #~19 inputs
 
 
         #############################################
