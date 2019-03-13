@@ -3452,10 +3452,16 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             input.scriptSig = CScript();
             input.nSequence = nSequence;
         }
-
         // Also remove witness data for scripts
         for (auto& inwit : txNew.witness.vtxinwit) {
             inwit.scriptWitness.SetNull();
+        }
+
+        // Do the same things for unblinded version of tx when applicable
+        if (blind_details) {
+            for (auto& input : blind_details->tx_unblinded_unsigned.vin) {
+                input.nSequence = nSequence;
+            }
         }
 
         if (sign)
