@@ -14,6 +14,8 @@
         {
             "value": 1.00000000,
             "asset": "0000000000000000000000000000000000000000000000000000000000000000",
+            "commitmentnonce": "",
+            "commitmentnonce_fully_valid": false,
             "n": 0,
             "scriptPubKey": {
                 "asm": "OP_HASH160 6edf12858999f0dae74f9c692e6694ee3621b2ac OP_EQUAL",
