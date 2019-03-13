@@ -155,13 +155,15 @@ class EstimateFeeTest(BitcoinTestFramework):
         # resorting to tx's that depend on the mempool when those run out
         for i in range(numblocks):
             random.shuffle(self.confutxo)
-            for j in range(random.randrange(100 - 50, 100 + 50)):
+            # ELEMENTS: make fewer txns since larger: ~236 bytes: 69k/4/234=~73
+            # Pick a number smaller than that, stingy miner is even stingier
+            for j in range(random.randrange(55 - 15, 55 + 15)):
                 from_index = random.randint(1, 2)
                 (txhex, fee) = small_txpuzzle_randfee(self.nodes[from_index], self.confutxo,
                                                       self.memutxo, Decimal("0.005"), min_fee, min_fee)
                 tx_kbytes = (len(txhex) // 2) / 1000.0
                 self.fees_per_kb.append(float(fee) / tx_kbytes)
-            sync_mempools(self.nodes[0:3], wait=.1)
+            sync_mempools(self.nodes[0:3], wait=10, timeout=240) # Slower to sync than btc
             mined = mining_node.getblock(mining_node.generate(1)[0], True)["tx"]
             sync_blocks(self.nodes[0:3], wait=.1)
             # update which txouts are confirmed
