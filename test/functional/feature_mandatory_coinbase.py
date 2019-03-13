@@ -7,7 +7,7 @@
 from binascii import b2a_hex
 
 from test_framework.blocktools import create_coinbase
-from test_framework.messages import CBlock, CProof, CTxOutValue
+from test_framework.messages import CBlock, CProof, CTxOutValue, CTxOut
 from test_framework.script import CScript, OP_RETURN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
@@ -79,6 +79,32 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         block.vtx = [coinbase_tx]
         assert_template(node0, block, None)
         assert_template(node1, block, None)
+
+        #
+        # Also test that coinbases can't have fees.
+        self.sync_all()
+        tmpl = node1.getblocktemplate()
+        coinbase_tx = create_coinbase(height=int(tmpl["height"]))
+        # sequence numbers must not be max for nLockTime to have effect
+        coinbase_tx.vin[0].nSequence = 2 ** 32 - 2
+        # Add fee output.
+        coinbase_tx.vout[0].nValue.setToAmount(coinbase_tx.vout[0].nValue.getAmount() - 1)
+        coinbase_tx.vout.append(CTxOut(1))
+        coinbase_tx.rehash()
+        block = CBlock()
+        block.nVersion = tmpl["version"]
+        block.hashPrevBlock = int(tmpl["previousblockhash"], 16)
+        block.nTime = tmpl["curtime"]
+        block.nBits = int(tmpl["bits"], 16)
+        block.nNonce = 0
+        block.proof = CProof(bytearray.fromhex('51'))
+        block.vtx = [coinbase_tx]
+        block.block_height = int(tmpl["height"])
+        block.hashMerkleRoot = block.calc_merkle_root()
+
+        # should not be accepted
+        assert_template(node0, block, "bad-cb-fee")
+        assert_template(node1, block, "bad-cb-fee")
 
 if __name__ == '__main__':
     MandatoryCoinbaseTest().main()
