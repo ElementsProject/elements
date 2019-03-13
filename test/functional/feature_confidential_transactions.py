@@ -4,36 +4,42 @@
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import *
+from test_framework.util import connect_nodes_bi, assert_equal
+from decimal import Decimal
 
 class CTTest (BitcoinTestFramework):
 
-    def __init__(self):
-        super().__init__()
+    def set_test_params(self):
         self.num_nodes = 3
         self.setup_clean_chain = True
+        args = ["-blindedaddresses=1", "-initialfreecoins=2100000000000000", "-con_blocksubsidy=0"]
+        self.extra_args = [args] * self.num_nodes
+        self.extra_args[0].append("-anyonecanspendaremine=1") # first node gets the coins
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir)
-        connect_nodes_bi(self.nodes,0,1)
-        connect_nodes_bi(self.nodes,1,2)
-        connect_nodes_bi(self.nodes,0,2)
-        self.is_network_split=False
+        self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes_bi(self.nodes, 1, 2)
+        connect_nodes_bi(self.nodes, 0, 2)
+        self.is_network_split = False
         self.sync_all()
 
     def run_test(self):
+
         print("General Confidential tests")
-        #Running balances
+        # Running balances
         node0 = self.nodes[0].getbalance()["bitcoin"]
+        assert_equal(node0, 21000000)
         node1 = 0
         node2 = 0
 
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), node0, "", "", True)
         self.nodes[0].generate(101)
         self.sync_all()
+        print(self.nodes[0].getwalletinfo())
         assert_equal(self.nodes[0].getbalance()["bitcoin"], node0)
-        assert_equal(self.nodes[1].getbalance("", 1, False, "bitcoin"), node1)
-        assert_equal(self.nodes[2].getbalance("", 1, False, "bitcoin"), node2)
+        assert_equal(self.nodes[1].getbalance("*", 1, False, "bitcoin"), node1)
+        assert_equal(self.nodes[2].getbalance("*", 1, False, "bitcoin"), node2)
 
         # Send 3 BTC from 0 to a new unconfidential address of 2 with
         # the sendtoaddress call
@@ -48,7 +54,7 @@ class CTTest (BitcoinTestFramework):
         node2 = node2 + value0
 
         assert_equal(self.nodes[0].getbalance()["bitcoin"], node0)
-        assert_equal(self.nodes[1].getbalance("", 1, False, "bitcoin"), node1)
+        assert_equal(self.nodes[1].getbalance("*", 1, False, "bitcoin"), node1)
         assert_equal(self.nodes[2].getbalance()["bitcoin"], node2)
 
         # Send 5 BTC from 0 to a new address of 2 with the sendtoaddress call
@@ -63,7 +69,7 @@ class CTTest (BitcoinTestFramework):
         node2 = node2 + value1
 
         assert_equal(self.nodes[0].getbalance()["bitcoin"], node0)
-        assert_equal(self.nodes[1].getbalance("", 1, False, "bitcoin"), node1)
+        assert_equal(self.nodes[1].getbalance("*", 1, False, "bitcoin"), node1)
         assert_equal(self.nodes[2].getbalance()["bitcoin"], node2)
 
         # Send 7 BTC from 0 to the unconfidential address of 2 and 11 BTC to the
@@ -91,7 +97,7 @@ class CTTest (BitcoinTestFramework):
         node2 += value2 + value3
 
         assert_equal(self.nodes[0].getbalance()["bitcoin"], node0)
-        assert_equal(self.nodes[1].getbalance("", 1, False, "bitcoin"), node1)
+        assert_equal(self.nodes[1].getbalance("*", 1, False, "bitcoin"), node1)
         assert_equal(self.nodes[2].getbalance()["bitcoin"], node2)
 
         # Check 2's listreceivedbyaddress
@@ -177,7 +183,7 @@ class CTTest (BitcoinTestFramework):
         node0 -= value4
         node2 += value4
         assert_equal(self.nodes[0].getbalance()["bitcoin"], node0)
-        assert_equal(self.nodes[1].getbalance("", 1, False, "bitcoin"), node1)
+        assert_equal(self.nodes[1].getbalance("*", 1, False, "bitcoin"), node1)
         assert_equal(self.nodes[2].getbalance()["bitcoin"], node2)
 
         # Testing wallet's ability to deblind its own outputs
@@ -255,7 +261,7 @@ class CTTest (BitcoinTestFramework):
         self.sync_all()
 
         # Should have exactly 1 in change(trusted, though not confirmed) after sending one off
-        assert_equal(self.nodes[0].getbalance("doesntmatter", 0, False, test_asset), 1)
+        assert_equal(self.nodes[0].getbalance("*", 0, False, test_asset), 1)
         assert_equal(self.nodes[2].getunconfirmedbalance(test_asset), Decimal(1))
 
         b_utxos = self.nodes[2].listunspent(0, 0, [], True, "bitcoin")
