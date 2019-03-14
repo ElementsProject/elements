@@ -3093,8 +3093,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
                     // Include the fee cost for outputs. Note this is only used for BnB right now
                     coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
-                    // TODO CA: inflate this number for rangeproofs/commitments
-                    // N.B. not solved in elements-0.14
+                    // ELEMENTS: Core's logic isn't great here. We should be computing
+                    // cost of making output + future spend. We're not as concerned
+                    // about dust anyways, so let's focus upstream.
                     if (recipient.asset == policyAsset && IsDust(txout, ::dustRelayFee))
                     {
                         LogPrintf("dust..\n");
