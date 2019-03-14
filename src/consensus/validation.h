@@ -109,10 +109,9 @@ static inline int64_t GetTransactionInputWeight(const CTransaction& tx, const si
     // scriptWitness size is added here because witnesses and txins are split up in segwit serialization.
     assert(tx.witness.vtxinwit.size() > nIn);
     // ELEMENTS: This is only used for change size calculation in wallet, assert if
-    // anything is unexpected for this call e.g. issuances, rangeproofs, surjection proofs
+    // anything is unexpected for this call e.g. issuances, rangeproofs
     assert(tx.witness.vtxinwit[nIn].vchIssuanceAmountRangeproof.empty());
     assert(tx.witness.vtxinwit[nIn].vchInflationKeysRangeproof.empty());
-    assert(tx.witness.vtxoutwit[nIn].IsNull());
 
     return ::GetSerializeSize(tx.vin[nIn], PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1)
     + ::GetSerializeSize(tx.vin[nIn], PROTOCOL_VERSION)
