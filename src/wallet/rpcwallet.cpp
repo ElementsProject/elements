@@ -355,6 +355,7 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     vecSend.push_back(recipient);
     CTransactionRef tx;
     BlindDetails* blind_details = g_con_elementswitness ? new BlindDetails() : NULL;
+    if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
     if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
