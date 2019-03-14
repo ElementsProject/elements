@@ -2229,13 +2229,12 @@ CAmountMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     return balance;
 }
 
-void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const CCoinControl *coinControl, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const int nMinDepth, const int nMaxDepth) const
+void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const CCoinControl *coinControl, const CAmount &nMinimumAmount, const CAmount &nMaximumAmount, const CAmount &nMinimumSumAmount, const uint64_t nMaximumCount, const int nMinDepth, const int nMaxDepth, const CAsset* asset_filter) const
 {
     AssertLockHeld(cs_main);
     AssertLockHeld(cs_wallet);
 
     vCoins.clear();
-    //TODO(CA) consider tallying per asset here. not sure what this is used for
     CAmount nTotal = 0;
 
     for (const auto& entry : mapWallet)
@@ -2300,6 +2299,10 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
         for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++) {
             CAmount outValue = pcoin->GetOutputValueOut(i);
+            CAsset asset = pcoin->GetOutputAsset(i);
+            if (asset_filter && asset != *asset_filter) {
+                continue;
+            }
             if (outValue < nMinimumAmount || outValue > nMaximumAmount)
                 continue;
 
