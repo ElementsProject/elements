@@ -361,17 +361,15 @@ class IssuanceTest(BitcoinTestFramework):
             addrs.append(self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress())["pubkey"])
 
 
-        multisig_addr = self.nodes[0].createmultisig(2,addrs)
+        multisig_addr = self.nodes[0].addmultisigaddress(2,addrs)
         blinded_addr = self.nodes[0].getnewaddress()
         blinding_pubkey = self.nodes[0].validateaddress(blinded_addr)["confidential_key"]
         blinding_privkey = self.nodes[0].dumpblindingkey(blinded_addr)
         blinded_multisig = self.nodes[0].createblindedaddress(multisig_addr["address"], blinding_pubkey)
-        # Import address so we consider the reissuance tokens ours
-        self.nodes[0].importaddress(blinded_multisig)
         # Import blinding key to be able to decrypt values sent to it
         self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
         # Sending to this address must achieve blinding to reissue from this address
-        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, False, 1, "UNSET", issued_asset["asset"], False)
+        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["token"]], "", "", False, False, 1, "UNSET", issued_asset["token"], False)
         self.nodes[0].generate(1)
 
         # Get that multisig output
@@ -380,13 +378,14 @@ class IssuanceTest(BitcoinTestFramework):
         for utxo in self.nodes[0].listunspent():
             if utxo["asset"] == issued_asset["token"]:
                 utxo_info = utxo
+                assert_equal(blinded_multisig, self.nodes[0].getaddressinfo(utxo_info["address"])["confidential"])
                 break
         assert(utxo_info is not None)
         assert(utxo_info["amountblinder"] is not "0000000000000000000000000000000000000000000000000000000000000000")
 
         # Now make transaction spending that input
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
-        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx, {"includeWatching":True})["hex"]
         # Find the reissuance input
         reissuance_index = -1
         for i, tx_input in enumerate(self.nodes[0].decoderawtransaction(funded_tx)["vin"]):
@@ -395,10 +394,7 @@ class IssuanceTest(BitcoinTestFramework):
                 break
         assert(reissuance_index != -1)
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
-        print("Funded: "+funded_tx)
-        print("Reissued: "+reissued_tx['hex'])
 
-        # FIXME: intermittant blinding failure
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
