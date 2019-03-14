@@ -1360,11 +1360,7 @@ CAmountMap CWallet::GetCredit(const CWalletTx& wtx, const isminefilter& filter) 
     CAmountMap nCredit;
     for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
         if (IsMine(wtx.tx->vout[i]) & filter) {
-            CAmount credit = wtx.GetOutputValueOut(i);
-            if (credit < 0) {
-                continue;
-            }
-
+            CAmount credit = std::max<CAmount>(0, wtx.GetOutputValueOut(i));
             if (!MoneyRange(credit))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
 
@@ -1378,6 +1374,8 @@ CAmountMap CWallet::GetCredit(const CWalletTx& wtx, const isminefilter& filter) 
 
 CAmountMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
 {
+    assert(false && "CWallet::GetCredit(const CTransaction&, const isminefilter&): this method should not be used anymore");
+
     CAmountMap nCredit;
     for (const CTxOut& txout : tx.vout)
     {
@@ -1940,24 +1938,15 @@ CAmountMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& fil
     {
         if (!pwallet->IsSpent(hashTx, i))
         {
-            const CTxOut &txout = tx->vout[i];
-            if (txout.nAsset.IsExplicit() && txout.nValue.IsExplicit()) {
-                nCredit += pwallet->GetCredit(txout, filter);
-            } else {
-                if (pwallet->IsMine(txout) & filter) {
-                    CAmount credit = GetOutputValueOut(i);
-                    if (credit < 0) {
-                        continue;
-                    }
+            if (pwallet->IsMine(tx->vout[i]) & filter) {
+                CAmount credit = std::max<CAmount>(0, GetOutputValueOut(i));
+                if (!MoneyRange(credit))
+                    throw std::runtime_error(std::string(__func__) + ": value out of range");
 
-                    if (!MoneyRange(credit))
-                        throw std::runtime_error(std::string(__func__) + ": value out of range");
-
-                    nCredit[GetOutputAsset(i)] += credit;
-                }
+                nCredit[GetOutputAsset(i)] += std::max<CAmount>(0, GetOutputValueOut(i));
+                if (!MoneyRange(nCredit))
+                    throw std::runtime_error(std::string(__func__) + ": value out of range");
             }
-            if (!MoneyRange(nCredit))
-                throw std::runtime_error(std::string(__func__) + " : value out of range");
         }
     }
 
