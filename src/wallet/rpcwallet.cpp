@@ -3079,9 +3079,17 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
       }
       else {
         RPCTypeCheckArgument(options, UniValue::VOBJ);
+
+        // ELEMENTS: if only 1 changeAddress provided, use that one for policyAsset
+        if (options.exists("changeAddress") && options["changeAddress"].isStr()) {
+            UniValue obj(UniValue::VOBJ);
+            obj[::policyAsset.GetHex()] = options["changeAddress"].get_str();
+            options["changeAddress"] = obj;
+        }
+
         RPCTypeCheckObj(options,
             {
-                {"changeAddress", UniValueType(UniValue::VSTR)},
+                {"changeAddress", UniValueType(UniValue::VOBJ)},
                 {"changePosition", UniValueType(UniValue::VNUM)},
                 {"change_type", UniValueType(UniValue::VSTR)},
                 {"includeWatching", UniValueType(UniValue::VBOOL)},
@@ -3095,13 +3103,25 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             true, true);
 
         if (options.exists("changeAddress")) {
-            CTxDestination dest = DecodeDestination(options["changeAddress"].get_str());
+            std::map<std::string, UniValue>& kv;
+            options["changeAddress"].getObjMap(kv);
 
-            if (!IsValidDestination(dest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
+            std::map<CAsset, CTxDestination> destinations;
+            for (const std::map<std::string, UniValue>::const_iterator it = kv.begin(); it != kv.end(); ++it) {
+                CAsset asset = GetAssetFromString(it->first);
+                if (asset.IsNull()) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress key must be a valid asset label or hex");
+                }
+
+                CTxDestination dest = DecodeDestination(it->second.get_str());
+                if (!IsValidDestination(dest)) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
+                }
+
+                destinations[asset] = dest;
             }
 
-            coinControl.destChange = dest;
+            coinControl.destChange = destinations;
         }
 
         if (options.exists("changePosition"))
@@ -3202,7 +3222,7 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
                             "1. \"hexstring\"           (string, required) The hex string of the raw transaction\n"
                             "2. options                 (object, optional)\n"
                             "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The bitcoin address to receive the change\n"
+                            "     \"changeAddress\"          (string/object, optional, default pool address) The bitcoin address to receive the change or a map from asset to address\n"
                             "     \"changePosition\"         (numeric, optional, default random) The index of the change output\n"
                             "     \"change_type\"            (string, optional) The output type to use. Only valid if changeAddress is not specified. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"

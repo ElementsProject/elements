@@ -2886,7 +2886,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
     return true;
 }
 
-bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
+bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reserveKeys, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
     if (blind_details || issuance_details) {
         assert(g_con_elementswitness);
     }
@@ -2976,14 +2976,14 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             // Create change script that will be used if we need change
             // TODO: pass in scriptChange instead of reservekey so
             // change transaction isn't always pay-to-bitcoin-address
-            CScript scriptChange;
+            std::map<CAsset, CScript> mapScriptChange;
 
             // TODO CA: generate N scriptChange, one for each asset
             // coin control: send change to custom address
-            if (!boost::get<CNoDestination>(&coin_control.destChange)) {
-                // TODO CA: Disable this for multi-asset sends? Or support vector
-                // in destChange
-                scriptChange = GetScriptForDestination(coin_control.destChange);
+            if (!boost::get<std::map<CAsset, CTxDestination>>(&coin_control.destChange)) {
+                for (const std::map<CAsset, CTxDestination>::const_iterator it = coin_control.begin(); it != coin_control.end(); ++it) {
+                    scriptChange[it->first] = GetScriptForDestination(it->second);
+                }
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
                 //  The drawback is that by not reusing a previous key, the change may be lost if a
