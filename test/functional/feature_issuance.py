@@ -385,7 +385,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         # Now make transaction spending that input
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
-        funded_tx = self.nodes[0].fundrawtransaction(raw_tx, {"includeWatching":True})["hex"]
+        funded_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
         # Find the reissuance input
         reissuance_index = -1
         for i, tx_input in enumerate(self.nodes[0].decoderawtransaction(funded_tx)["vin"]):
