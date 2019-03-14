@@ -1266,6 +1266,8 @@ isminetype CWallet::IsMine(const CTxOut& txout) const
 
 CAmountMap CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
 {
+    assert(false && "CWallet::GetCredit(const CTxOut&, const isminefilter&): this method should not be used anymore");
+
     CAmountMap credit;
     if (txout.nAsset.IsExplicit() && txout.nValue.IsExplicit()) {
         credit[txout.nAsset.GetAsset()] = txout.nValue.GetAmount();
@@ -3313,7 +3315,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         // If blinded token derivation, blind the issuance
                         CAsset temp_token;
                         CalculateReissuanceToken(temp_token, issuance_details->entropy, true);
-                        //TODO(stevenroose) verify if blind_details is always given is this case
                         if (temp_token == issuance_details->reissuance_token && blind_details) {
                             CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(txNew.vin[reissuance_index].prevout.hash.begin(), txNew.vin[reissuance_index].prevout.hash.end()) << txNew.vin[reissuance_index].prevout.n);
                             issuance_asset_keys.resize(reissuance_index);

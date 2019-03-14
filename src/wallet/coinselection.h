@@ -14,7 +14,6 @@ static const CAmount MIN_CHANGE = CENT;
 //! final minimum change amount after paying for fees
 static const CAmount MIN_FINAL_CHANGE = MIN_CHANGE/2;
 
-//TODO(stevenroose) 
 class CWalletTx;
 class uint256;
 
