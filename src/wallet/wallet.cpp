@@ -2519,6 +2519,16 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             ++it;
     }
 
+    // ELEMENTS: filter coins for assets we are interested in; always keep policyAsset for fees
+    for (std::vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end() && coin_control.HasSelected();) {
+        CAsset asset = it->GetInputCoin().asset;
+        if (asset != ::policyAsset && mapTargetValue.find(asset) == mapTargetValue.end()) {
+            it = vCoins.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     // form groups from remaining coins; note that preset coins will not
     // automatically have their associated (same address) coins included
     if (coin_control.m_avoid_partial_spends && vCoins.size() > OUTPUT_GROUP_MAX_ENTRIES) {
@@ -2533,7 +2543,17 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     size_t max_descendants = (size_t)std::max<int64_t>(1, gArgs.GetArg("-limitdescendantcount", DEFAULT_DESCENDANT_LIMIT));
     bool fRejectLongChains = gArgs.GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS);
 
+    // We will have to do coin selection on the difference between the target and the provided values.
+    // However, some inputs can be provided with assets that are not in the target, we need to make sure
+    // the map of the difference does not have negative values.
     CAmountMap mapTargetMinusPreset = mapTargetValue - mapValueFromPresetInputs;
+    for (CAmountMap::const_iterator it = mapTargetMinusPreset.begin(); it != mapTargetMinusPreset.end();) {
+        if (it->second <= 0) {
+            it = mapTargetMinusPreset.erase(it);
+        } else {
+            ++it;
+        }
+    }
 
     bool res = mapTargetValue <= mapValueFromPresetInputs ||
         SelectCoinsMinConf(mapTargetMinusPreset, CoinEligibilityFilter(1, 6, 0), groups, setCoinsRet, mapValueRet, coin_selection_params, bnb_used) ||
@@ -3124,7 +3144,16 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         if (itPos == vChangePosInOut.end())
                         {
                             // Insert change txn at random position:
-                            vChangePosInOut[it->first] = GetRandInt(txNew.vout.size()+1);
+                            int newPos = GetRandInt(txNew.vout.size()+1);
+
+                            // Update existing entries in vChangePos that have been moved.
+                            for (std::map<CAsset, int>::iterator itPos2 = vChangePosInOut.begin(); itPos2 != vChangePosInOut.end(); ++itPos2) {
+                                if (itPos2->second >= newPos) {
+                                    itPos2->second++;
+                                }
+                            }
+
+                            vChangePosInOut[it->first] = newPos;
                         }
                         else if ((unsigned int)itPos->second > txNew.vout.size())
                         {
@@ -4933,15 +4962,16 @@ void CWallet::LearnAllRelatedScripts(const CPubKey& key)
 
 std::vector<OutputGroup> CWallet::GroupOutputs(const std::vector<COutput>& outputs, bool single_coin) const {
     std::vector<OutputGroup> groups;
-    std::map<CTxDestination, OutputGroup> gmap;
-    CTxDestination dst;
+    std::map<std::pair<CAsset, CTxDestination>, OutputGroup> gmap;
+    std::pair<CAsset, CTxDestination> dst;
     for (const auto& output : outputs) {
         if (output.fSpendable) {
             CInputCoin input_coin = output.GetInputCoin();
+            dst.first = input_coin.asset;
 
             size_t ancestors, descendants;
             mempool.GetTransactionAncestry(output.tx->GetHash(), ancestors, descendants);
-            if (!single_coin && ExtractDestination(output.tx->tx->vout[output.i].scriptPubKey, dst)) {
+            if (!single_coin && ExtractDestination(output.tx->tx->vout[output.i].scriptPubKey, dst.second)) {
                 // Limit output groups to no more than 10 entries, to protect
                 // against inadvertently creating a too-large transaction
                 // when using -avoidpartialspends

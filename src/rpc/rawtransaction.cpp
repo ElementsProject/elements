@@ -1852,10 +1852,22 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     int n_blinded_ins = 0;
 
-    if (inputBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter: one (potentially empty) input blind for each input must be provided");
-    if (inputAmounts.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter: one (potentially empty) input blind for each input must be provided");
-    if (inputAssets.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter: one (potentially empty) input asset id for each input must be provided");
-    if (inputAssetBlinds.size() != tx.vin.size()) throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
+    if (inputBlinds.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+    }
+    if (inputAmounts.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+    }
+    if (inputAssets.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input asset id for each input must be provided");
+    }
+    if (inputAssetBlinds.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
+    }
 
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;

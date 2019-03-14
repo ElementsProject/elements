@@ -234,22 +234,28 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
     setCoinsRet.clear();
     mapValueRet.clear();
 
-    std::vector<OutputGroup> asset_groups;
-    std::set<CInputCoin> asset_coinsret;
+    std::vector<OutputGroup> inner_groups;
+    std::set<CInputCoin> inner_coinsret;
     // Perform the standard Knapsack solver for every asset individually.
     for(std::map<CAsset, CAmount>::const_iterator it = mapTargetValue.begin(); it != mapTargetValue.end(); ++it) {
-        asset_groups.clear();
-        asset_coinsret.clear();
+        inner_groups.clear();
+        inner_coinsret.clear();
 
         if (it->second == 0) {
             continue;
         }
 
-        // Get output groups that only contain this asset.
-        // We consider that groups will almost always be of one asset entirely.
-        for (OutputGroup g : groups) {
+        // We filter the groups on two conditions:
+        // - only groups that have (exclusively) coins of the asset we're solving for
+        // - no groups that are already used in setCoinsRet
+        for (const OutputGroup& g : groups) {
             bool add = true;
-            for (CInputCoin c : g.m_outputs) {
+            for (const CInputCoin& c : g.m_outputs) {
+                if (setCoinsRet.find(c) != setCoinsRet.end()) {
+                    add = false;
+                    break;
+                }
+
                 if (c.asset != it->first) {
                     add = false;
                     break;
@@ -257,21 +263,21 @@ bool KnapsackSolver(const CAmountMap& mapTargetValue, std::vector<OutputGroup>& 
             }
 
             if (add) {
-                asset_groups.push_back(g);
+                inner_groups.push_back(g);
             }
         }
 
-        if (asset_groups.size() == 0) {
+        if (inner_groups.size() == 0) {
             // No output groups for this asset.
             return false;
         }
 
         CAmount outValue;
-        if (!KnapsackSolver(it->second, asset_groups, asset_coinsret, outValue)) {
+        if (!KnapsackSolver(it->second, inner_groups, inner_coinsret, outValue)) {
             return false;
         }
         mapValueRet[it->first] = outValue;
-        for (CInputCoin ic : asset_coinsret) {
+        for (const CInputCoin& ic : inner_coinsret) {
             setCoinsRet.insert(ic);
         }
     }

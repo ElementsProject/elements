@@ -302,6 +302,11 @@ class CTTest (BitcoinTestFramework):
 
         # Check for value accounting when asset issuance is null but token not, ie unblinded
         issued = self.nodes[0].issueasset(0, 1, False)
+        walletinfo = self.nodes[0].getwalletinfo()
+        assert(issued["asset"] not in walletinfo["balance"])
+        assert_equal(walletinfo["balance"][issued["token"]], Decimal(1))
+        assert(issued["asset"] not in walletinfo["unconfirmed_balance"])
+        assert(issued["token"] not in walletinfo["unconfirmed_balance"])
 
         # Check for value when receiving different assets by same address.
         self.nodes[0].sendtoaddress(unconfidential_address2, Decimal('0.00000001'), "", "", False, False, 1, "UNSET", test_asset)
@@ -377,7 +382,7 @@ class CTTest (BitcoinTestFramework):
         # Test fundrawtransaction with multiple assets
         issue = self.nodes[0].issueasset(1, 0)
         assetaddr = self.nodes[0].getnewaddress()
-        rawtx = self.nodes[0].createrawtransaction([], {assetaddr:1, self.nodes[0].getnewaddress():2}, 0, {assetaddr:issue["asset"]})
+        rawtx = self.nodes[0].createrawtransaction([], {assetaddr:1, self.nodes[0].getnewaddress():2}, 0, False, {assetaddr:issue["asset"]})
         funded = self.nodes[0].fundrawtransaction(rawtx)
         blinded = self.nodes[0].blindrawtransaction(funded["hex"])
         signed = self.nodes[0].signrawtransactionwithwallet(blinded)

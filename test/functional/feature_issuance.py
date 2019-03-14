@@ -211,7 +211,6 @@ class IssuanceTest(BitcoinTestFramework):
         addr2 = txdet2[len(txdet2)-1]["address"]
         addr3 = txdet3[len(txdet3)-1]["address"]
 
-        print(len(self.nodes[0].listissuances()))
         assert_equal(len(self.nodes[0].listissuances()), 5);
         self.nodes[0].importaddress(addr1)
         self.nodes[0].importaddress(addr2)
@@ -352,12 +351,6 @@ class IssuanceTest(BitcoinTestFramework):
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
-        # FIXME: intermittant balance failure: Looks like reissuance token is being
-        # burned as the amount in the fee output from fundraw
-        if not self.nodes[0].testmempoolaccept([signed_tx["hex"]])[0]["allowed"]:
-            print(funded_tx)
-            import pdb
-            pdb.set_trace()
         tx_id = self.nodes[0].sendrawtransaction(signed_tx["hex"])
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].gettransaction(tx_id)["confirmations"], 1)
@@ -389,9 +382,6 @@ class IssuanceTest(BitcoinTestFramework):
                 utxo_info = utxo
                 break
         assert(utxo_info is not None)
-        if utxo_info["amountblinder"] is "0000000000000000000000000000000000000000000000000000000000000000":
-            import pdb
-            pdb.set_trace()
         assert(utxo_info["amountblinder"] is not "0000000000000000000000000000000000000000000000000000000000000000")
 
         # Now make transaction spending that input
