@@ -346,18 +346,15 @@ class IssuanceTest (BitcoinTestFramework):
         for i in range(3):
             addrs.append(self.nodes[0].validateaddress(self.nodes[0].getnewaddress())["pubkey"])
 
-
-        multisig_addr = self.nodes[0].createmultisig(2,addrs)
+        multisig_addr = self.nodes[0].addmultisigaddress(2,addrs)
         blinded_addr = self.nodes[0].getnewaddress()
         blinding_pubkey = self.nodes[0].validateaddress(blinded_addr)["confidential_key"]
         blinding_privkey = self.nodes[0].dumpblindingkey(blinded_addr)
-        blinded_multisig = self.nodes[0].createblindedaddress(multisig_addr["address"], blinding_pubkey)
-        # Import address so we consider the reissuance tokens ours
-        self.nodes[0].importaddress(blinded_multisig)
+        blinded_multisig = self.nodes[0].createblindedaddress(multisig_addr, blinding_pubkey)
         # Import blinding key to be able to decrypt values sent to it
         self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
 
-        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["asset"]], "", "", False, issued_asset["asset"])
+        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["token"]], "", "", False, issued_asset["token"])
         self.nodes[0].generate(1)
 
         # Get that multisig output
@@ -366,6 +363,7 @@ class IssuanceTest (BitcoinTestFramework):
         for utxo in self.nodes[0].listunspent():
             if utxo["asset"] == issued_asset["token"]:
                 utxo_info = utxo
+                assert_equal(utxo_info["address"], multisig_addr)
                 break
         assert(utxo_info is not None)
 
