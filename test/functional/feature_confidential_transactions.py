@@ -409,5 +409,7 @@ class CTTest (BitcoinTestFramework):
         assert("value" in outputs[0] and "value" in outputs[1] and "value" in outputs[2])
         assert_equal(outputs[2]["scriptPubKey"]["type"], 'nulldata')
 
+        # TODO: signrawtransactionwith{wallet, key} with confidential segwit input given as previous transaction arg
+
 if __name__ == '__main__':
     CTTest ().main ()

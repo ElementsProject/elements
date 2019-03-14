@@ -882,6 +882,10 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
                 newcoin.out.nValue = CConfidentialValue(MAX_MONEY);
                 if (prevOut.exists("amount")) {
                     newcoin.out.nValue = CConfidentialValue(AmountFromValue(find_value(prevOut, "amount")));
+                } else if (prevOut.exists("amountcommitment")) {
+                    // Segwit sigs require the amount commitment to be sighashed
+                    uint256 asset_commit = uint256S(prevOut["amountcommitment"].get_str());
+                    newcoin.out.nValue.vchCommitment = std::vector<unsigned char>(asset_commit.begin(), asset_commit.end());
                 }
                 newcoin.nHeight = 1;
                 view.AddCoin(out, std::move(newcoin), true);
@@ -952,8 +956,6 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         UpdateTransaction(mtx, i, sigdata);
 
         // amount must be specified for valid segwit signature
-        // TODO: CA Signing requires serialized CConfidentialValue for signature hash, provide it
-        // as "amountcommitment"
         if (amount.IsExplicit() && amount.GetAmount() == MAX_MONEY && !mtx.witness.vtxinwit[i].scriptWitness.IsNull()) {
             throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin.out.ToString()));
         }
@@ -1008,7 +1010,8 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
             "         \"vout\":n,                  (numeric, required) The output number\n"
             "         \"scriptPubKey\": \"hex\",     (string, required) script key\n"
             "         \"redeemScript\": \"hex\",     (string, required for P2SH or P2WSH) redeem script\n"
-            "         \"amount\": value            (numeric, required) The amount spent\n"
+            "         \"amount\": value            (numeric, required if non-confidential segwit output) The amount spent\n"
+            "         \"amountcommitment\": \"hex\", (string, required if confidential segiwt output) The amount commitment spent\n"
             "       }\n"
             "       ,...\n"
             "    ]\n"
