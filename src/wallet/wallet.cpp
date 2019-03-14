@@ -1359,6 +1359,10 @@ CAmountMap CWallet::GetCredit(const CWalletTx& wtx, const isminefilter& filter) 
     for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
         if (IsMine(wtx.tx->vout[i]) & filter) {
             CAmount credit = wtx.GetOutputValueOut(i);
+            if (credit < 0) {
+                continue;
+            }
+
             if (!MoneyRange(credit))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
 
@@ -1387,6 +1391,10 @@ CAmountMap CWallet::GetChange(const CWalletTx& wtx) const {
     for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
         if (IsChange(wtx.tx->vout[i])) {
             CAmount change = wtx.GetOutputValueOut(i);
+            if (change < 0) {
+                continue;
+            }
+
             if (!MoneyRange(change))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
 
@@ -1936,10 +1944,10 @@ CAmountMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& fil
             } else {
                 if (pwallet->IsMine(txout) & filter) {
                     CAmount credit = GetOutputValueOut(i);
-                    if (credit == -1) {
-                        // Can be invalid if wrong blinding key used, don't throw error
+                    if (credit < 0) {
                         continue;
                     }
+
                     if (!MoneyRange(credit))
                         throw std::runtime_error(std::string(__func__) + ": value out of range");
 
@@ -2188,9 +2196,17 @@ CAmountMap CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth) c
         for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
             const CTxOut& out = wtx.tx->vout[i];
             if (outgoing && IsChange(out)) {
-                debit[wtx.GetOutputAsset(i)] -= wtx.GetOutputValueOut(i);
+                CAmount amt = wtx.GetOutputValueOut(i);
+                if (amt < 0) {
+                    continue;
+                }
+                debit[wtx.GetOutputAsset(i)] -= amt;
             } else if (IsMine(out) & filter && depth >= minDepth) {
-                balance[wtx.GetOutputAsset(i)] += wtx.GetOutputValueOut(i);
+                CAmount amt = wtx.GetOutputValueOut(i);
+                if (amt < 0) {
+                    continue;
+                }
+                balance[wtx.GetOutputAsset(i)] += amt;
             }
         }
 
@@ -2212,7 +2228,11 @@ CAmountMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
     AvailableCoins(vCoins, true, coinControl);
     for (const COutput& out : vCoins) {
         if (out.fSpendable) {
-            balance[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
+            CAmount amt = out.tx->GetOutputValueOut(out.i);
+            if (amt < 0) {
+                continue;
+            }
+            balance[out.tx->GetOutputAsset(out.i)] += amt;
         }
     }
     return balance;
@@ -2288,7 +2308,8 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
             continue;
 
         for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++) {
-            if (pcoin->GetOutputValueOut(i) < nMinimumAmount || pcoin->GetOutputValueOut(i) > nMaximumAmount)
+            CAmount outValue = pcoin->GetOutputValueOut(i);
+            if (outValue < nMinimumAmount || outValue > nMaximumAmount)
                 continue;
 
             if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(COutPoint(entry.first, i)))
@@ -2313,7 +2334,7 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
-                nTotal += pcoin->GetOutputValueOut(i);
+                nTotal += outValue;
 
                 if (nTotal >= nMinimumSumAmount) {
                     return;
@@ -2482,7 +2503,12 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         {
             if (!out.fSpendable)
                  continue;
-            mapValueRet[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
+
+            CAmount amt = out.tx->GetOutputValueOut(out.i);
+            if (amt < 0) {
+                continue;
+            }
+            mapValueRet[out.tx->GetOutputAsset(out.i)] += amt;
             setCoinsRet.insert(out.GetInputCoin());
         }
         return (mapValueRet >= mapTargetValue);
@@ -2507,8 +2533,13 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             // Clearly invalid input, fail
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
+
             // Just to calculate the marginal byte size
-            mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
+            CAmount amt = pcoin->GetOutputValueOut(outpoint.n);
+            if (amt < 0) {
+                continue;
+            }
+            mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += amt;
             setPresetCoins.insert(CInputCoin(pcoin, outpoint.n));
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -4078,9 +4109,12 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
                     continue;
 
                 CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->GetOutputValueOut(i);
-
                 if (!balances.count(addr))
                     balances[addr] = 0;
+
+                if (n < 0) {
+                    continue;
+                }
                 balances[addr] += n;
             }
         }

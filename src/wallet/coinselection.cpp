@@ -18,7 +18,7 @@ CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
 
     outpoint = COutPoint(wtx->tx->GetHash(), i);
     txout = wtx->tx->vout[i];
-    effective_value = wtx->GetOutputValueOut(i);
+    effective_value = std::max<CAmount>(0, wtx->GetOutputValueOut(i));
     value = wtx->GetOutputValueOut(i);
     asset = wtx->GetOutputAsset(i);
     bf_value = wtx->GetOutputAmountBlindingFactor(i);

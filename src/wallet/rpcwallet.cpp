@@ -661,7 +661,11 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
             if (txout.scriptPubKey == scriptPubKey) {
                 if (wtx.GetDepthInMainChain() >= nMinDepth) {
                     CAmountMap wtxValue;
-                    wtxValue[wtx.GetOutputAsset(i)] = wtx.GetOutputValueOut(i);
+                    CAmount amt = wtx.GetOutputValueOut(i);
+                    if (amt < 0) {
+                        continue;
+                    }
+                    wtxValue[wtx.GetOutputAsset(i)] = amt;
                     amounts += wtxValue;
                 }
             }
@@ -735,7 +739,11 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwallet, address) && setAddress.count(address)) {
                 if (wtx.GetDepthInMainChain() >= nMinDepth) {
                     CAmountMap wtxValue;
-                    wtxValue[wtx.GetOutputAsset(i)] = wtx.GetOutputValueOut(i);
+                    CAmount amt = wtx.GetOutputValueOut(i);
+                    if (amt < 0) {
+                        continue;
+                    }
+                    wtxValue[wtx.GetOutputAsset(i)] = amt;
                     amounts += wtxValue;
                 }
             }
@@ -1319,7 +1327,8 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(!(mine & filter))
                 continue;
 
-            if (wtx.GetOutputValueOut(index) < 0) {
+            CAmount amt = wtx.GetOutputValueOut(index);
+            if (amt < 0) {
                 continue;
             }
 
@@ -1328,7 +1337,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             }
 
             tallyitem& item = mapTally[address];
-            item.mapAmount[wtx.GetOutputAsset(index)] += wtx.GetOutputValueOut(index);
+            item.mapAmount[wtx.GetOutputAsset(index)] += amt;
             item.nConf = std::min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -2998,7 +3007,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         CAmount amount = out.tx->GetOutputValueOut(out.i);
         CAsset assetid = out.tx->GetOutputAsset(out.i);
         // Only list known outputs that match optional filter
-        if (g_con_elementswitness && (amount == -1 || assetid.IsNull())) {
+        if (g_con_elementswitness && (amount < 0 || assetid.IsNull())) {
             LogPrintf("wallet", "Unable to unblind output: %s:%d\n", out.tx->tx->GetHash().GetHex(), out.i);
             continue;
         }
@@ -5576,10 +5585,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     }
 
     LogPrintf("going to blind (num_pubkeys = %d)\n", num_pubkeys);
-//    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != num_pubkeys) {
-    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL));
-    LogPrintf("BlindTransaction: %d\n", ret);
-    if (ret != num_pubkeys) {
+    if (BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys, tx, (auxiliary_generators.size() ? &auxiliary_generators : NULL)) != num_pubkeys) {
         // TODO Have more rich return values, communicating to user what has been blinded
         // User may be ok not blinding something that for instance has no corresponding type on input
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");

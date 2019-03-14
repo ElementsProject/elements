@@ -18,6 +18,9 @@
 static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
 
 /*
+ * Unblind a pair of confidental asset and value.
+ * Note that unblinded data will only be outputted if *BOTH* asset and value could be unblinded.
+ *
  * blinding_key is used to create the nonce to rewind the rangeproof in conjunction with the nNonce commitment. In the case of a 0-length nNonce, the blinding key is directly used as the nonce.
  * Currently there is only a sidechannel message in the rangeproof so a valid rangeproof must
  * be included in the pair to recover value and asset data.
