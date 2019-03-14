@@ -89,9 +89,6 @@ class FedPegTest(BitcoinTestFramework):
             ]
             if not self.options.parent_bitcoin:
                 extra_args.extend([
-                    #TODO(rebase) should the defaults be put back to elements-specific ones?
-                    #'-parentpubkeyprefix=235',
-                    #'-parentscriptprefix=75',
                     '-parentpubkeyprefix=111',
                     '-parentscriptprefix=196',
                     '-con_parent_chain_signblockscript=51',

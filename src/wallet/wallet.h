@@ -658,7 +658,7 @@ struct BlindDetails {
     // Only used to strip blinding if its the only blind output in certain situations
     int only_recipient_blind_index;
     // Needed in case of one blinded output that is change and no blind inputs
-    int only_change_pos; //TODO(stevenroose) check if this is relevant
+    int only_change_pos;
 };
 
 class WalletRescanReserver; //forward declarations for ScanForWalletTransactions/RescanFromTime

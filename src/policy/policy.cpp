@@ -141,8 +141,8 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
             nDataOut++;
             if (params.GetEnforcePak() &&
                     txout.scriptPubKey.IsPegoutScript(params.ParentGenesisBlockHash()) &&
-                (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash()))) {
-                // TODO(rebase) CT/CA check for asset type
+                    txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset &&
+                    (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash()))) {
                 reason = "invalid-pegout-proof";
                 return false;
             }
