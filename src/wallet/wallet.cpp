@@ -1936,6 +1936,10 @@ CAmountMap CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& fil
             } else {
                 if (pwallet->IsMine(txout) & filter) {
                     CAmount credit = GetOutputValueOut(i);
+                    if (credit == -1) {
+                        // Can be invalid if wrong blinding key used, don't throw error
+                        continue;
+                    }
                     if (!MoneyRange(credit))
                         throw std::runtime_error(std::string(__func__) + ": value out of range");
 
