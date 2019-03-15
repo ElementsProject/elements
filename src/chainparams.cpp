@@ -673,7 +673,7 @@ public:
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
         pchMessageStart[2] = 0xb5;
-        pchMessageStart[3] = 0xdb;
+        pchMessageStart[3] = 0xda;
 
         nDefaultPort = 7042;
 
