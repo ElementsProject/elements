@@ -1628,10 +1628,10 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             CBlock block;
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
-                    AddToWalletIfInvolvingMe(*block.vtx[posInBlock], pindex, posInBlock, fUpdate);
                     if(fRequireWhitelistCheck || fScanWhitelist){
                         addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
                     }
+                    AddToWalletIfInvolvingMe(*block.vtx[posInBlock], pindex, posInBlock, fUpdate);
                 }
                 if (!ret) {
                     ret = pindex;
