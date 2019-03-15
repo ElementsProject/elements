@@ -344,8 +344,10 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     // Parse Bitcoin address
     CScript scriptPubKey = GetScriptForDestination(address);
 
-    // Create the correct amount of reserve keys.
-    int numReservedKeysNeeded = 2 + coin_control.destChange.size(); // 1 fee + 1 destination
+    // Create the lower bound number of reserve keys.
+    std::vector<COutPoint> vPresetInputs;
+    coin_control.ListSelected(vPresetInputs);
+    int numReservedKeysNeeded = 2 + vPresetInputs.size(); // 1 fee + 1 destination
     std::vector<std::unique_ptr<CReserveKey>> reserveKeys;
     for (int i = 0; i < numReservedKeysNeeded; ++i) {
         reserveKeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
@@ -1024,8 +1026,13 @@ static UniValue sendmany(const JSONRPCRequest& request)
     for (auto recipient : vecSend) {
         setAssets.insert(recipient.asset);
     }
-    for (auto dest : coin_control.destChange) {
-        setAssets.insert(dest.first);
+    std::vector<COutPoint> vPresetInputs;
+    coin_control.ListSelected(vPresetInputs);
+    for (const COutPoint& presetInput : vPresetInputs) {
+        std::map<uint256, CWalletTx>::const_iterator it = pwallet->mapWallet.find(presetInput.hash);
+        if (it != pwallet->mapWallet.end()) {
+            setAssets.insert(it->second.GetOutputAsset(presetInput.n));
+        }
     }
     for (unsigned int i = 0; i < setAssets.size(); i++) {
         change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
@@ -3087,16 +3094,9 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
       else {
         RPCTypeCheckArgument(options, UniValue::VOBJ);
 
-        // ELEMENTS: if only 1 changeAddress provided, use that one for policyAsset
-        if (options.exists("changeAddress") && options["changeAddress"].isStr()) {
-            UniValue obj(UniValue::VOBJ);
-            obj.pushKV(::policyAsset.GetHex(), options["changeAddress"].get_str());
-            options.pushKV("changeAddress", obj);
-        }
-
         RPCTypeCheckObj(options,
             {
-                {"changeAddress", UniValueType(UniValue::VOBJ)},
+                {"changeAddress", UniValueType()}, // will be checked below
                 {"changePosition", UniValueType(UniValue::VNUM)},
                 {"change_type", UniValueType(UniValue::VSTR)},
                 {"includeWatching", UniValueType(UniValue::VBOOL)},
@@ -3110,22 +3110,35 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             true, true);
 
         if (options.exists("changeAddress")) {
-            std::map<std::string, UniValue> kvMap;
-            options["changeAddress"].getObjMap(kvMap);
-
             std::map<CAsset, CTxDestination> destinations;
-            for (const std::pair<std::string, UniValue>& kv : kvMap) {
-                CAsset asset = GetAssetFromString(kv.first);
-                if (asset.IsNull()) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress key must be a valid asset label or hex");
-                }
 
-                CTxDestination dest = DecodeDestination(kv.second.get_str());
+            if (options["changeAddress"].isStr()) {
+                // Single destination for default asset (policyAsset).
+                CTxDestination dest = DecodeDestination(options["changeAddress"].get_str());
                 if (!IsValidDestination(dest)) {
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
                 }
+                destinations[::policyAsset] = dest;
+            } else if (options["changeAddress"].isObject()) {
+                // Map of assets to destinations.
+                std::map<std::string, UniValue> kvMap;
+                options["changeAddress"].getObjMap(kvMap);
 
-                destinations[asset] = dest;
+                for (const std::pair<std::string, UniValue>& kv : kvMap) {
+                    CAsset asset = GetAssetFromString(kv.first);
+                    if (asset.IsNull()) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress key must be a valid asset label or hex");
+                    }
+
+                    CTxDestination dest = DecodeDestination(kv.second.get_str());
+                    if (!IsValidDestination(dest)) {
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
+                    }
+
+                    destinations[asset] = dest;
+                }
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress must be either a map or a string");
             }
 
             coinControl.destChange = destinations;

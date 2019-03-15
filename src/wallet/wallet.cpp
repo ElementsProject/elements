@@ -2630,8 +2630,6 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     std::vector<CRecipient> vecSend;
     std::set<CAsset> setAssets;
     std::vector<std::unique_ptr<CReserveKey>> vChangeKey;
-    // Avoid copying CReserveKeys which causes badness
-    vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
 
     // Turn the txout set into a CRecipient vector.
     for (size_t idx = 0; idx < tx.vout.size(); idx++) {
@@ -2642,13 +2640,13 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             strFailReason = _("Pre-funded amounts must be non-blinded");
             return false;
         }
+
+        // Account for the asset in the possible change destinations.
+        setAssets.insert(txOut.nAsset.GetAsset());
+
         // Fee outputs should not be added to avoid overpayment of fees
         if (txOut.IsFee()) {
             continue;
-        }
-        if (setAssets.count(txOut.nAsset.GetAsset()) == 0) {
-            vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
-            setAssets.insert(txOut.nAsset.GetAsset());
         }
 
         CRecipient recipient = {txOut.scriptPubKey, txOut.nValue.GetAmount(), txOut.nAsset.GetAsset(), CPubKey(txOut.nNonce.vchCommitment), setSubtractFeeFromOutputs.count(idx) == 1};
@@ -2661,17 +2659,20 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
         coinControl.Select(txin.prevout);
     }
 
-    // Always add policyAsset, as fees via policyAsset may create change
-    if (setAssets.count(policyAsset) == 0) {
-        vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
+    // Also account for the assets in the preset inputs.
+    std::vector<COutPoint> vPresetInputs;
+    coinControl.ListSelected(vPresetInputs);
+    for (const COutPoint& presetInput : vPresetInputs) {
+        std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(presetInput.hash);
+        if (it != mapWallet.end()) {
+            setAssets.insert(it->second.GetOutputAsset(presetInput.n));
+        }
     }
 
-    // Also add change keys for the assets in pre-set inputs that might not have accounted for yet.
-    for (auto dest : coinControl.destChange) {
-        if (setAssets.count(dest.first) == 0) {
-            vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
-            setAssets.insert(dest.first);
-        }
+    // Then reserve a key for each asset. Account for policyAsset always.
+    setAssets.insert(::policyAsset);
+    for (size_t i = 0; i < setAssets.size(); ++i) {
+        vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
     }
 
     // Acquire the locks to prevent races to the new locked unspents between the
@@ -2901,6 +2902,8 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     }
 
     CAmountMap mapValue;
+    // Always assume that we are at least sending policyAsset.
+    mapValue[::policyAsset] = 0;
     int nChangePosRequest = nChangePosInOut;
     std::map<CAsset, int> vChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -3033,6 +3036,12 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         continue;
                     }
 
+                    CAsset asset = it->second.GetOutputAsset(presetInput.n);
+                    if (mapScriptChange.find(asset) != mapScriptChange.end()) {
+                        // This asset already has a change script.
+                        continue;
+                    }
+
                     CPubKey vchPubKey;
                     if (index >= reserveKeys.size() || !reserveKeys[index]->GetReservedKey(vchPubKey, true)) {
                         strFailReason = _("Keypool ran out, please call keypoolrefill first");
@@ -3040,7 +3049,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
 
                     LearnRelatedScripts(vchPubKey, change_type);
-                    mapScriptChange[it->second.GetOutputAsset(presetInput.n)] = std::pair<int, CScript>(index,
+                    mapScriptChange[asset] = std::pair<int, CScript>(index,
                             GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type)));
                     ++index;
                 }
