@@ -566,6 +566,8 @@ class CCustomParams : public CRegTestParams {
         base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
 
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 4));
+
         // END ELEMENTS fields
 
         // CSV always active by default, unlike regtest
