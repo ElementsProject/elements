@@ -566,6 +566,8 @@ class CCustomParams : public CRegTestParams {
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
         parent_blech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
 
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 4));
+
         // Calculate pegged Bitcoin asset
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
         uint256 entropy;

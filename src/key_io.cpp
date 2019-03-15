@@ -32,22 +32,38 @@ public:
 
     std::string operator()(const PKHash& id) const
     {
+        if (id.blinding_pubkey.IsFullyValid()) {
+            assert(!for_parent);
+            std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::BLINDED_ADDRESS);
+            // Blinded addresses have the actual address type prefix inside the payload.
+            std::vector<unsigned char> prefix = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
+            data.insert(data.end(), prefix.begin(), prefix.end());
+            data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            data.insert(data.end(), id.begin(), id.end());
+            return EncodeBase58Check(data);
+        }
+
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_PUBKEY_ADDRESS : CChainParams::PUBKEY_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
-        if (id.blinding_pubkey.IsFullyValid()) {
-            data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
-        }
         data.insert(data.end(), id.begin(), id.end());
         return EncodeBase58Check(data);
     }
 
     std::string operator()(const ScriptHash& id) const
     {
+        if (id.blinding_pubkey.IsFullyValid()) {
+            assert(!for_parent);
+            std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::BLINDED_ADDRESS);
+            // Blinded addresses have the actual address type prefix inside the payload.
+            std::vector<unsigned char> prefix = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+            data.insert(data.end(), prefix.begin(), prefix.end());
+            data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
+            data.insert(data.end(), id.begin(), id.end());
+            return EncodeBase58Check(data);
+        }
+
         CChainParams::Base58Type type = for_parent ? CChainParams::PARENT_SCRIPT_ADDRESS : CChainParams::SCRIPT_ADDRESS;
         std::vector<unsigned char> data = m_params.Base58Prefix(type);
-        if (id.blinding_pubkey.IsFullyValid()) {
-            data.insert(data.end(), id.blinding_pubkey.begin(), id.blinding_pubkey.end());
-        }
         data.insert(data.end(), id.begin(), id.end());
         return EncodeBase58Check(data);
     }
@@ -119,17 +135,25 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         // base58-encoded Bitcoin addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).
         // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
+
+        // Blinded addresses have two prefixes: first the blinded one, then the traditional one.
+        const std::vector<unsigned char>& blinded_prefix = params.Base58Prefix(CChainParams::BLINDED_ADDRESS);
+
         CChainParams::Base58Type type_pkh = for_parent ? CChainParams::PARENT_PUBKEY_ADDRESS : CChainParams::PUBKEY_ADDRESS;
         const std::vector<unsigned char>& pubkey_prefix = params.Base58Prefix(type_pkh);
         if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
             return PKHash(hash);
-        } else if (data.size() == hash.size() + pubkey_prefix.size() + pk_size && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
+        } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size && 
+                std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) && 
+                std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin() + blinded_prefix.size())) {
+            auto payload_start = data.begin() + blinded_prefix.size() + pubkey_prefix.size();
             CPubKey pubkey;
-            pubkey.Set(data.begin() + pubkey_prefix.size(), data.begin() + pubkey_prefix.size() + pk_size);
-            std::copy(data.begin() + pubkey_prefix.size() + pk_size, data.end(), hash.begin());
+            pubkey.Set(payload_start, payload_start + pk_size);
+            std::copy(payload_start + pk_size, data.end(), hash.begin());
             return PKHash(hash, pubkey);
         }
+
         // Script-hash-addresses have version 5 (or 196 testnet).
         // The data vector contains RIPEMD160(SHA256(cscript)), where cscript is the serialized redemption script.
         CChainParams::Base58Type type_sh = for_parent ? CChainParams::PARENT_SCRIPT_ADDRESS : CChainParams::SCRIPT_ADDRESS;
@@ -137,10 +161,13 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return ScriptHash(hash);
-        } else if (data.size() == hash.size() + script_prefix.size() + pk_size && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
+        } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size && 
+                std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) && 
+                std::equal(script_prefix.begin(), script_prefix.end(), data.begin() + blinded_prefix.size())) {
+            auto payload_start = data.begin() + blinded_prefix.size() + script_prefix.size();
             CPubKey pubkey;
-            pubkey.Set(data.begin() + pubkey_prefix.size(), data.begin() + pubkey_prefix.size() + pk_size);
-            std::copy(data.begin() + pubkey_prefix.size() + pk_size, data.end(), hash.begin());
+            pubkey.Set(payload_start, payload_start + pk_size);
+            std::copy(payload_start + pk_size, data.end(), hash.begin());
             return ScriptHash(hash, pubkey);
         }
     }

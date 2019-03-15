@@ -54,6 +54,7 @@ public:
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
         // ELEMENTS
+        BLINDED_ADDRESS,
         PARENT_PUBKEY_ADDRESS,
         PARENT_SCRIPT_ADDRESS,
 
