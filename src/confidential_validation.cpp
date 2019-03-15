@@ -457,7 +457,5 @@ bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees) {
         }
         remaining[out.nAsset.GetAsset()] -= out.nValue.GetAmount();
     }
-    LogPrintf("Remaining:\n");
-    PrintAmountMap(remaining);
     return MoneyRange(remaining);
 }
