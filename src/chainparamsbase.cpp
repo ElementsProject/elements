@@ -14,6 +14,7 @@
 const std::string CBaseChainParams::MAIN = "main";
 const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
+const std::string CBaseChainParams::LIQUID1 = "liquidv1";
 
 void SetupChainParamsBaseOptions()
 {
