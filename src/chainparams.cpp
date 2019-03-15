@@ -750,6 +750,7 @@ public:
         // Finally, create genesis block
         genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
         consensus.hashGenesisBlock = genesis.GetHash();
+        assert(consensus.hashGenesisBlock.GetHex() == "1466275836220db2944ca059a3a10ef6fd2ea684b0688d2c379296888a206003");
     }
 
 };
