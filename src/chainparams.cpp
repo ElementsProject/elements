@@ -650,6 +650,7 @@ public:
 
         nPruneAfterHeight = 1000;
         fDefaultConsistencyChecks = false;
+        fRequireStandard = true;
         fMineBlocksOnDemand = false;
         m_fallback_fee_enabled = false; // TODO Will this break stuff?
 
@@ -674,6 +675,8 @@ public:
         pchMessageStart[1] = 0xbf;
         pchMessageStart[2] = 0xb5;
         pchMessageStart[3] = 0xdb;
+
+        nDefaultPort = 7042;
 
         vSeeds.clear();
         vSeeds.emplace_back("seed.liquidnetwork.io");
