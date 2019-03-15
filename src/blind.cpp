@@ -235,9 +235,6 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
     assert(tx.vin.size() == input_asset_blinding_factors.size());
     assert(tx.vin.size() == input_assets.size());
     assert(tx.vin.size() == input_amounts.size());
-    if (auxiliary_generators) {
-        assert(auxiliary_generators->size() >= tx.vin.size());
-    }
 
     std::vector<unsigned char*> blindptrs;
     std::vector<const unsigned char*> assetblindptrs;
@@ -255,8 +252,16 @@ int BlindTransaction(std::vector<uint256 >& input_blinding_factors, const std::v
 
     // Needed to construct the proof itself. Generators must match final transaction to be valid
     std::vector<secp256k1_generator> targetAssetGenerators;
-    surjectionTargets.resize(tx.vin.size()*3);
-    targetAssetGenerators.resize(tx.vin.size()*3);
+
+    // maxTargets is a strict upper-bound for the size of target vectors.
+    // The vectors will be shrunk later according to final count of totalTargets
+    size_t maxTargets = tx.vin.size()*3;
+    if (auxiliary_generators) {
+        assert(auxiliary_generators->size() >= tx.vin.size());
+        maxTargets += auxiliary_generators->size() - tx.vin.size();
+    }
+    surjectionTargets.resize(maxTargets);
+    targetAssetGenerators.resize(maxTargets);
 
     // input_asset_blinding_factors is only for inputs, not for issuances(0 by def)
     // but we need to create surjection proofs against this list so we copy and insert 0's
