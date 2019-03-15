@@ -435,5 +435,5 @@ bool MatchLiquidWatchman(const CScript& script)
         return false;
     }
     // No more pushes
-    return (it + 1 == script.end());
+    return (it == script.end());
 }
