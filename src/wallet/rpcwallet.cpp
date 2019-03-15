@@ -344,9 +344,14 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     // Parse Bitcoin address
     CScript scriptPubKey = GetScriptForDestination(address);
 
+    // Create the correct amount of reserve keys.
+    int numReservedKeysNeeded = 2 + coin_control.destChange.size(); // 1 fee + 1 destination
+    std::vector<std::unique_ptr<CReserveKey>> reserveKeys;
+    for (int i = 0; i < numReservedKeysNeeded; ++i) {
+        reserveKeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+    }
+
     // Create and send the transaction
-    std::vector<std::unique_ptr<CReserveKey>> reservekeys;
-    reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
     CAmount nFeeRequired;
     std::string strError;
     std::vector<CRecipient> vecSend;
@@ -356,13 +361,13 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     CTransactionRef tx;
     BlindDetails* blind_details = g_con_elementswitness ? new BlindDetails() : NULL;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
-    if (!pwallet->CreateTransaction(vecSend, tx, reservekeys, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
+    if (!pwallet->CreateTransaction(vecSend, tx, reserveKeys, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekeys, g_connman.get(), state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reserveKeys, g_connman.get(), state, blind_details)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -1019,7 +1024,9 @@ static UniValue sendmany(const JSONRPCRequest& request)
     for (auto recipient : vecSend) {
         setAssets.insert(recipient.asset);
     }
-    change_keys.reserve(setAssets.size()); // Shouldn't be needed anymore with unique_ptr
+    for (auto dest : coin_control.destChange) {
+        setAssets.insert(dest.first);
+    }
     for (unsigned int i = 0; i < setAssets.size(); i++) {
         change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
     }
@@ -3083,8 +3090,8 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
         // ELEMENTS: if only 1 changeAddress provided, use that one for policyAsset
         if (options.exists("changeAddress") && options["changeAddress"].isStr()) {
             UniValue obj(UniValue::VOBJ);
-            obj[::policyAsset.GetHex()] = options["changeAddress"].get_str();
-            options["changeAddress"] = obj;
+            obj.pushKV(::policyAsset.GetHex(), options["changeAddress"].get_str());
+            options.pushKV("changeAddress", obj);
         }
 
         RPCTypeCheckObj(options,
@@ -3103,17 +3110,17 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             true, true);
 
         if (options.exists("changeAddress")) {
-            std::map<std::string, UniValue>& kv;
-            options["changeAddress"].getObjMap(kv);
+            std::map<std::string, UniValue> kvMap;
+            options["changeAddress"].getObjMap(kvMap);
 
             std::map<CAsset, CTxDestination> destinations;
-            for (const std::map<std::string, UniValue>::const_iterator it = kv.begin(); it != kv.end(); ++it) {
-                CAsset asset = GetAssetFromString(it->first);
+            for (const std::pair<std::string, UniValue>& kv : kvMap) {
+                CAsset asset = GetAssetFromString(kv.first);
                 if (asset.IsNull()) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress key must be a valid asset label or hex");
                 }
 
-                CTxDestination dest = DecodeDestination(it->second.get_str());
+                CTxDestination dest = DecodeDestination(kv.second.get_str());
                 if (!IsValidDestination(dest)) {
                     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
                 }

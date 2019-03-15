@@ -2629,7 +2629,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 {
     std::vector<CRecipient> vecSend;
     std::set<CAsset> setAssets;
-    std::vector<CReserveKey> vChangeKey;
+    std::vector<std::unique_ptr<CReserveKey>> vChangeKey;
     // Avoid copying CReserveKeys which causes badness
     vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
 
@@ -2647,7 +2647,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             continue;
         }
         if (setAssets.count(txOut.nAsset.GetAsset()) == 0) {
-            vChangeKey.push_back(CReserveKey(this));
+            vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
             setAssets.insert(txOut.nAsset.GetAsset());
         }
 
@@ -2663,18 +2663,24 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 
     // Always add policyAsset, as fees via policyAsset may create change
     if (setAssets.count(policyAsset) == 0) {
-        vChangeKey.push_back(CReserveKey(this));
+        vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
+    }
+
+    // Also add change keys for the assets in pre-set inputs that might not have accounted for yet.
+    for (auto dest : coinControl.destChange) {
+        if (setAssets.count(dest.first) == 0) {
+            vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
+            setAssets.insert(dest.first);
+        }
     }
 
     // Acquire the locks to prevent races to the new locked unspents between the
     // CreateTransaction call and LockCoin calls (when lockUnspents is true).
     LOCK2(cs_main, cs_wallet);
 
-    std::vector<std::unique_ptr<CReserveKey>> reservekeys;
-    reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
     CTransactionRef tx_new;
     BlindDetails* blind_details = g_con_elementswitness ? new BlindDetails() : NULL;
-    if (!CreateTransaction(vecSend, tx_new, reservekeys, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
+    if (!CreateTransaction(vecSend, tx_new, vChangeKey, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
         return false;
     }
     LogPrintf("returned nFeeRet: %s\n", nFeeRet);
@@ -2896,6 +2902,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
     CAmountMap mapValue;
     int nChangePosRequest = nChangePosInOut;
+    std::map<CAsset, int> vChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
 
     for (const auto& recipient : vecSend)
@@ -2967,25 +2974,24 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     {
         std::set<CInputCoin> setCoins;
 
-
         // Preserve order of selected inputs for surjection proofs
         std::vector<CInputCoin> selected_coins;
+
+        // A map that keeps track of the change script for each asset and also 
+        // the index of the reserveKeys used for that script (-1 if none).
+        std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
+
         LOCK2(cs_main, cs_wallet);
         {
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, &coin_control);
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
 
-            // Create change script that will be used if we need change
-            // TODO: pass in scriptChange instead of reservekey so
-            // change transaction isn't always pay-to-bitcoin-address
-            std::map<CAsset, CScript> mapScriptChange;
-
-            // TODO CA: generate N scriptChange, one for each asset
-            // coin control: send change to custom address
-            if (!boost::get<std::map<CAsset, CTxDestination>>(&coin_control.destChange)) {
-                for (const std::map<CAsset, CTxDestination>::const_iterator it = coin_control.begin(); it != coin_control.end(); ++it) {
-                    scriptChange[it->first] = GetScriptForDestination(it->second);
+            mapScriptChange.clear();
+            if (coin_control.destChange.size() > 0) {
+                for (const std::pair<CAsset, CTxDestination>& dest : coin_control.destChange) {
+                    // No need to test we cover all assets.  We produce error for that later.
+                    mapScriptChange[dest.first] = std::pair<int, CScript>(-1, GetScriptForDestination(dest.second));
                 }
             } else { // no coin control: send change to newly generated address
                 // Note: We use a new key here to keep it from being obvious which side is the change.
@@ -3000,22 +3006,48 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     strFailReason = _("Can't generate a change-address key. Private keys are disabled for this wallet.");
                     return false;
                 }
-                CPubKey vchPubKey;
-                bool ret;
-                ret = reservekey[0] ? reservekey[0]->GetReservedKey(vchPubKey, true) : false;
-                if (!ret)
-                {
-                    strFailReason = _("Keypool ran out, please call keypoolrefill first");
-                    return false;
-                }
 
                 const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
+                // One change script per output asset.
+                size_t index = 0;
+                for (const std::pair<CAsset, CAmount>& value : mapValue) {
+                    CPubKey vchPubKey;
+                    if (index >= reserveKeys.size() || !reserveKeys[index]->GetReservedKey(vchPubKey, true)) {
+                        strFailReason = _("Keypool ran out, please call keypoolrefill first");
+                        return false;
+                    }
 
-                LearnRelatedScripts(vchPubKey, change_type);
-                scriptChange = GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type));
-                LogPrintf("change script: %s\n", HexStr(scriptChange.begin(), scriptChange.end()));
+                    LearnRelatedScripts(vchPubKey, change_type);
+                    mapScriptChange[value.first] = std::pair<int, CScript>(index,
+                            GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type)));
+                    ++index;
+                }
+
+                // Also make sure we have change scripts for the pre-selected inputs.
+                std::vector<COutPoint> vPresetInputs;
+                coin_control.ListSelected(vPresetInputs);
+                for (const COutPoint& presetInput : vPresetInputs) {
+                    std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(presetInput.hash);
+                    if (it == mapWallet.end()) {
+                        // Ignore this here, will fail more gracefully later.
+                        continue;
+                    }
+
+                    CPubKey vchPubKey;
+                    if (index >= reserveKeys.size() || !reserveKeys[index]->GetReservedKey(vchPubKey, true)) {
+                        strFailReason = _("Keypool ran out, please call keypoolrefill first");
+                        return false;
+                    }
+
+                    LearnRelatedScripts(vchPubKey, change_type);
+                    mapScriptChange[it->second.GetOutputAsset(presetInput.n)] = std::pair<int, CScript>(index,
+                            GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type)));
+                    ++index;
+                }
             }
-            CTxOut change_prototype_txout(CAsset(), 0, scriptChange);
+            assert(mapScriptChange.size() > 0);
+
+            CTxOut change_prototype_txout(mapScriptChange.begin()->first, 0, mapScriptChange.begin()->second.second);
             // TODO CA: Set this for each change output
             coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
             if (g_con_elementswitness) {
@@ -3051,7 +3083,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 // We need to output the position of the policyAsset change output.
                 // So we keep track of the change position of all assets
                 // individually and set the export variable in the end.
-                std::map<CAsset, int> vChangePosInOut;
+                vChangePosInOut.clear();
                 if (nChangePosRequest >= 0) {
                     vChangePosInOut[::policyAsset] = nChangePosRequest;
                 }
@@ -3150,39 +3182,45 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 LogPrintf("mapValueToSelect:\n");
                 PrintAmountMap(mapValueToSelect);
 
-                for(std::map<CAsset, CAmount>::const_iterator it = mapChange.begin(); it != mapChange.end(); ++it) {
-                    if (it->second == 0) {
-                        vChangePosInOut.erase(it->first);
+                for(const std::pair<CAsset, CAmount>& assetChange : mapChange) {
+                    if (assetChange.second == 0) {
+                        vChangePosInOut.erase(assetChange.first);
                         continue;
                     }
 
                     // Fill a vout to ourself
-                    CTxOut newTxOut(it->first, it->second, scriptChange);
+                    const std::map<CAsset, std::pair<int, CScript>>::const_iterator itScript = mapScriptChange.find(assetChange.first);
+                    if (itScript == mapScriptChange.end()) {
+                        strFailReason = strprintf("No change destination provided for asset %s", assetChange.first.GetHex());
+                        return false;
+                    }
+
+                    CTxOut newTxOut(assetChange.first, assetChange.second, itScript->second.second);
 
                     // Never create dust outputs; if we would, just
                     // add the dust to the fee.
                     // The nChange when BnB is used is always going to go to fees.
-                    if (it->first == policyAsset && (IsDust(newTxOut, discard_rate) || bnb_used))
+                    if (assetChange.first == policyAsset && (IsDust(newTxOut, discard_rate) || bnb_used))
                     {
-                        vChangePosInOut.erase(it->first);
-                        nFeeRet += it->second;
+                        vChangePosInOut.erase(assetChange.first);
+                        nFeeRet += assetChange.second;
                     }
                     else
                     {
-                        std::map<CAsset, int>::const_iterator itPos = vChangePosInOut.find(it->first);
+                        std::map<CAsset, int>::const_iterator itPos = vChangePosInOut.find(assetChange.first);
                         if (itPos == vChangePosInOut.end())
                         {
                             // Insert change txn at random position:
                             int newPos = GetRandInt(txNew.vout.size()+1);
 
                             // Update existing entries in vChangePos that have been moved.
-                            for (std::map<CAsset, int>::iterator itPos2 = vChangePosInOut.begin(); itPos2 != vChangePosInOut.end(); ++itPos2) {
-                                if (itPos2->second >= newPos) {
-                                    itPos2->second++;
+                            for (std::map<CAsset, int>::iterator it = vChangePosInOut.begin(); it != vChangePosInOut.end(); ++it) {
+                                if (it->second >= newPos) {
+                                    it->second++;
                                 }
                             }
 
-                            vChangePosInOut[it->first] = newPos;
+                            vChangePosInOut[assetChange.first] = newPos;
                         }
                         else if ((unsigned int)itPos->second > txNew.vout.size())
                         {
@@ -3190,15 +3228,15 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                             return false;
                         }
 
-                        std::vector<CTxOut>::iterator position = txNew.vout.begin()+vChangePosInOut[it->first];
+                        std::vector<CTxOut>::iterator position = txNew.vout.begin()+vChangePosInOut[assetChange.first];
                         txNew.vout.insert(position, newTxOut);
-                        CPubKey blind_pub = GetBlindingPubKey(scriptChange);
+                        CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
                         if (blind_details) {
-                            blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[it->first], blind_pub);
+                            blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], blind_pub);
                             assert(blind_pub.IsFullyValid());
                             blind_details->num_to_blind++;
                             blind_details->change_to_blind++;
-                            blind_details->only_change_pos = vChangePosInOut[it->first];
+                            blind_details->only_change_pos = vChangePosInOut[assetChange.first];
                         }
                     }
                 }
@@ -3493,7 +3531,17 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             }
         }
 
-        if (nChangePosInOut == -1 && reservekey[0]) reservekey[0]->ReturnKey(); // Return any reserved key if we don't have change
+        // Release any change keys that we didn't use.
+        for (const std::pair<CAsset, std::pair<int, CScript>>& it : mapScriptChange) {
+            int index = it.second.first;
+            if (index < 0) {
+                continue;
+            }
+
+            if (vChangePosInOut.find(it.first) == vChangePosInOut.end()) {
+                reserveKeys[index]->ReturnKey();
+            }
+        }
 
         // Note how the sequence number is set to non-maxint so that
         // the nLockTime set above actually works.
