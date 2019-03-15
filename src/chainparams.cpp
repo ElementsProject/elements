@@ -48,10 +48,8 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const CScript&
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vout.resize(1);
     txNew.vin[0].scriptSig = genesisScriptSig;
-    txNew.vout[0].nValue = CConfidentialValue(genesisReward);
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
+    txNew.vout.push_back(CTxOut(CAsset(), genesisReward, genesisOutputScript));
 
     CBlock genesis;
     genesis.nTime    = nTime;
