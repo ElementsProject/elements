@@ -73,10 +73,11 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
     std::vector<std::vector<unsigned char> > solutions;
     unsigned int required;
     std::vector<std::vector<unsigned char>> keys;
+    bool is_liquidv1_watchman = MatchLiquidWatchman(federation_script);
     // Sanity check federation_script only to match 3 templates
-    if (federation_script != CScript() << OP_TRUE &&
-            !MatchMultisig(federation_script, required, keys) &&
-            !MatchLiquidWatchman(federation_script)) {
+    if (!is_liquidv1_watchman &&
+            federation_script != CScript() << OP_TRUE &&
+            !MatchMultisig(federation_script, required, keys)) {
        assert(false);
     }
 
@@ -86,6 +87,10 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
         opcodetype opcodeTmp;
         while (federation_script.GetOp(sdpc, opcodeTmp, vch))
         {
+            // For liquid watchman template, don't tweak emergency keys
+            if (is_liquidv1_watchman && opcodeTmp == OP_ELSE) {
+                break;
+            }
             size_t pub_len = 33;
             if (vch.size() == pub_len)
             {
