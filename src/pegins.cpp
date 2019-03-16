@@ -85,14 +85,15 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
         CScript::const_iterator sdpc = federation_script.begin();
         std::vector<unsigned char> vch;
         opcodetype opcodeTmp;
+        bool liquid_op_else_found = false;
         while (federation_script.GetOp(sdpc, opcodeTmp, vch))
         {
             // For liquid watchman template, don't tweak emergency keys
             if (is_liquidv1_watchman && opcodeTmp == OP_ELSE) {
-                break;
+                liquid_op_else_found = true;
             }
             size_t pub_len = 33;
-            if (vch.size() == pub_len)
+            if (vch.size() == pub_len && !liquid_op_else_found)
             {
                 unsigned char tweak[32];
                 CHMAC_SHA256(vch.data(), pub_len).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(tweak);
@@ -180,7 +181,7 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
     // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
     CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
     CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
-    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(CScriptID(witness_output)) << OP_EQUAL);
+    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(ScriptHash(CScriptID(witness_output))) << OP_EQUAL);
     if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
         return false;
     }
