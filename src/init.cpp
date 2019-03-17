@@ -65,6 +65,7 @@
 
 #include <primitives/pak.h> // CPAKList
 #include <assetsdir.h> // InitGlobalAssetDir
+#include <pegins.h>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqnotificationinterface.h>
@@ -1845,7 +1846,21 @@ bool AppInitMain()
         }
     }
 
-    // ********************************************************* Step 14: finished
+    // ********************************************************* Step 14: Check fedpeg
+    // ELEMENTS:
+    if (chainparams.GetConsensus().has_parent_chain) {
+        // Will assert if not properly formatted
+        const CScript& fedpeg_script = chainparams.GetConsensus().fedpegScript;
+        unsigned int dummy_required;
+        std::vector<std::vector<unsigned char>> dummy_keys;
+        if (!MatchLiquidWatchman(fedpeg_script) &&
+                fedpeg_script != CScript() << OP_TRUE &&
+                !MatchMultisig(fedpeg_script, dummy_required, dummy_keys)) {
+            return InitError(_("ERROR: Fedpegscript is not one of the accepted templates: OP_TRUE, CHECKMULTISIG, and Liquidv1"));
+        }
+    }
+
+    // ********************************************************* Step 15: finished
 
     SetRPCWarmupFinished();
 
