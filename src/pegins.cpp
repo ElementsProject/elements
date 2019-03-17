@@ -78,7 +78,7 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
     if (!is_liquidv1_watchman &&
             federation_script != CScript() << OP_TRUE &&
             !MatchMultisig(federation_script, required, keys)) {
-       assert(false);
+        assert(false);
     }
 
     {
