@@ -18,6 +18,7 @@ from .messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
+    CTxOutAsset,
     CTxOutValue,
     FromHex,
     ToHex,
@@ -29,6 +30,7 @@ from .messages import (
     sha256,
     uint256_from_str,
     CProof,
+    BITCOIN_ASSET_OUT,
 )
 from .script import (
     CScript,
@@ -81,13 +83,19 @@ def add_witness_commitment(block, nonce=0):
     # First calculate the merkle root of the block's
     # transactions, with witnesses.
     witness_nonce = nonce
+
+    # ELEMENTS: add empty txout to end of coinbase tx
+    block.vtx[0].vout.append(CTxOut())
+    block.vtx[0].vout[-1].setNull()
+    block.vtx[0].rehash()
+
     witness_root = block.calc_witness_merkle_root()
     # witness_nonce should go to coinbase witness.
-    block.vtx[0].wit.vtxinwit = [CTxInWitness()]
-    block.vtx[0].wit.vtxinwit[0].scriptWitness.stack = [ser_uint256(witness_nonce)]
+    #block.vtx[0].wit.vtxinwit = [CTxInWitness()]
+    #block.vtx[0].wit.vtxinwit[0].scriptWitness.stack = [ser_uint256(witness_nonce)]
 
     # witness commitment is the last OP_RETURN output in coinbase
-    block.vtx[0].vout.append(CTxOut(0, get_witness_script(witness_root, witness_nonce)))
+    block.vtx[0].vout[-1] = CTxOut(0, get_witness_script(witness_root, witness_nonce), nAsset=CTxOutAsset(BITCOIN_ASSET_OUT))
     block.vtx[0].rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
     block.rehash()

@@ -269,6 +269,9 @@ class COutPoint():
         self.hash = hash
         self.n = n
 
+    def isNull(self):
+        return self.hash == 0 and self.n == 0
+
     def deserialize(self, f):
         self.hash = deser_uint256(f)
         self.n = struct.unpack("<I", f.read(4))[0]
@@ -313,6 +316,9 @@ class CTxIn():
 class CTxOutAsset(object):
     def __init__(self, vchCommitment=b"\x00"):
         self.vchCommitment = vchCommitment
+
+    def setNull(self):
+        self.vchCommitment = b'\x00'
 
     def deserialize(self, f):
         version = ord(f.read(1))
@@ -380,6 +386,9 @@ class CTxOutNonce(object):
     def __init__(self, vchCommitment=b"\x00"):
         self.vchCommitment = vchCommitment
 
+    def setNull(self):
+        self.vchCommitment = b'\x00'
+
     def deserialize(self, f):
         version = ord(f.read(1))
         if version == 0: self.vchCommitment = b'\x00'
@@ -406,6 +415,12 @@ class CTxOut():
             self.nValue = nValue
         self.nNonce = nNonce
         self.scriptPubKey = scriptPubKey
+
+    def setNull(self):
+        self.nAsset.setNull()
+        self.nValue.setNull()
+        self.nNonce.setNull()
+        self.scriptPubKey = b''
 
     def is_fee(self):
         return len(self.scriptPubKey) == 0
@@ -646,7 +661,10 @@ class CTransaction(object):
     def calc_witness_hash(self):
         leaves = []
         for i in range(len(self.vin)):
-            wit = self.wit.vtxinwit[i] if i < len(self.wit.vtxinwit) else CTxInWitness()
+            if i >= len(self.wit.vtxinwit) or self.vin[i].prevout.isNull():
+                wit = CTxInWitness()
+            else:
+                wit = self.wit.vtxinwit[i]
             leaves.append(wit.calc_witness_hash())
         inwitroot = calcfastmerkleroot(leaves)
 
@@ -804,11 +822,8 @@ class CBlock(CBlockHeader):
         return self.get_merkle_root(hashes)
 
     def calc_witness_merkle_root(self):
-        # For witness root purposes, the hash of the
-        # coinbase, with witness, is defined to be 0...0
-        hashes = [ser_uint256(0)]
-
-        for tx in self.vtx[1:]:
+        hashes = []
+        for tx in self.vtx:
             # Calculate the hashes with witness data
             hashes.append(ser_uint256(tx.calc_witness_hash()))
 
