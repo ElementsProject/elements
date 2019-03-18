@@ -3354,6 +3354,10 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
     if (consensusParams.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout != 0) {
         if (commitpos == -1) {
             // ELEMENTS: Shim in blank coinbase output for witness output hash
+            // Previous iterations of CA could have allowed witness data
+            // in coinbase transactions, and this witness data must be committed
+            // to here.
+            //
             // Is No-op in Bitcoin
             CMutableTransaction tx0(*block.vtx[0]);
             tx0.vout.push_back(CTxOut());
