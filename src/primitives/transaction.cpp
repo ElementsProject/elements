@@ -95,7 +95,8 @@ uint256 CTransaction::GetWitnessOnlyHash() const
     leaves.reserve(std::max(vin.size(), vout.size()));
     /* Inputs */
     for (size_t i = 0; i < vin.size(); ++i) {
-        const CTxInWitness& txinwit = witness.vtxinwit.size() <= i || vin[i].prevout.IsNull() ? CTxInWitness() : witness.vtxinwit[i];
+        // Input has no witness OR is null input(coinbase)
+        const CTxInWitness& txinwit = (witness.vtxinwit.size() <= i || vin[i].prevout.IsNull()) ? CTxInWitness() : witness.vtxinwit[i];
         leaves.push_back(txinwit.GetHash());
     }
     uint256 hashIn = ComputeFastMerkleRoot(leaves);
