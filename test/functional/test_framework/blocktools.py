@@ -89,7 +89,8 @@ def add_witness_commitment(block, nonce=0):
     # block.vtx[0].vout[-1].nAsset.setNull() # TODO find out why this breaks stuff
     # unless you directly put back in a valid .vchCommitment
 
-    witness_root = block.calc_witness_merkle_root()
+    witness_root_hex = block.calc_witness_merkle_root()
+    witness_root = uint256_from_str(hex_str_to_bytes(witness_root_hex)[::-1])
     # witness_nonce should go to coinbase witness.
     block.vtx[0].wit.vtxinwit = [CTxInWitness()]
     block.vtx[0].wit.vtxinwit[0].scriptWitness.stack = [ser_uint256(witness_nonce)]

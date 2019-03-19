@@ -674,7 +674,8 @@ class CTransaction(object):
             leaves.append(wit.calc_witness_hash())
         outwitroot = calcfastmerkleroot(leaves)
 
-        return uint256_from_str(hex_str_to_bytes(calcfastmerkleroot([inwitroot, outwitroot]))[::-1])
+        # returns bitcoin hash print style string
+        return calcfastmerkleroot([inwitroot, outwitroot])
 
     def is_valid(self):
         self.calc_sha256()
@@ -825,9 +826,10 @@ class CBlock(CBlockHeader):
         hashes = []
         for tx in self.vtx:
             # Calculate the hashes with witness data
-            hashes.append(ser_uint256(tx.calc_witness_hash()))
+            hashes.append(tx.calc_witness_hash())
 
-        return self.get_merkle_root(hashes)
+        # returns bitcoin hash print order hex string
+        return calcfastmerkleroot(hashes)
 
     def is_valid(self):
         self.calc_sha256()
