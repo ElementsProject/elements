@@ -16,6 +16,9 @@
 class CCoinsViewCache;
 class CTxOut;
 
+// ELEMENTS:
+extern CAsset policyAsset;
+
 /** Default for -blockmaxweight, which controls the range of block weights the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_WEIGHT = MAX_BLOCK_WEIGHT - 4000;
 /** Default for -blockmintxfee, which sets the minimum feerate for a transaction in blocks created by mining code **/

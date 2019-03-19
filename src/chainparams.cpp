@@ -7,6 +7,7 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
+#include <issuance.h>
 #include <primitives/transaction.h>
 #include <tinyformat.h>
 #include <util.h>
@@ -144,11 +145,14 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
+        g_con_elementswitness = false;
+        g_con_blockheightinheader = false;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -267,10 +271,14 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
+        g_signed_blocks = false;
+        g_con_elementswitness = false;
+        g_con_blockheightinheader = false;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -364,10 +372,14 @@ public:
 
         consensus.genesis_subsidy = 50*COIN;
         consensus.connect_genesis_outputs = false;
+        consensus.subsidy_asset = CAsset();
         anyonecanspend_aremine = false;
         enforce_pak = false;
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
+        g_signed_blocks = false;
+        g_con_elementswitness = false;
+        g_con_blockheightinheader = false;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -572,6 +584,27 @@ class CCustomParams : public CRegTestParams {
         parent_blech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
 
         base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 4));
+
+        // Calculate pegged Bitcoin asset
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
+        uint256 entropy;
+        GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
+
+        // Elements serialization uses derivation, bitcoin serialization uses 0x00
+        if (g_con_elementswitness) {
+            CalculateAsset(consensus.pegged_asset, entropy);
+        } else {
+            assert(consensus.pegged_asset == CAsset());
+        }
+
+        consensus.parent_pegged_asset.SetHex(args.GetArg("-con_parent_pegged_asset", "0x00"));
+        initial_reissuance_tokens = args.GetArg("-initialreissuancetokens", 0);
+
+        // Subsidy asset, like policyAsset, defaults to the pegged_asset
+        consensus.subsidy_asset = consensus.pegged_asset;
+        if (gArgs.IsArgSet("-subsidyasset")) {
+            consensus.subsidy_asset = CAsset(uint256S(gArgs.GetArg("-subsidyasset", "0x00")));
+        }
 
         // END ELEMENTS fields
 

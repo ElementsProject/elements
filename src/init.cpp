@@ -65,6 +65,7 @@
 
 #include <primitives/pak.h> // CPAKList
 #include <assetsdir.h> // InitGlobalAssetDir
+#include <pegins.h>
 
 #if ENABLE_ZMQ
 #include <zmq/zmqnotificationinterface.h>
@@ -512,6 +513,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blech32_hrp", strprintf("The human-readable part of the chain's blech32 encoding. Used in confidential addresses.(default: %s)", defaultChainParams->Blech32HRP()), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-defaultpeggedassetname", "Default name of the pegged asset. (default: bitcoin)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-blindedaddresses", "Give blind addresses by default via getnewaddress and getrawchangeaddress. (default: -con_elementswitness value)", false, OptionsCategory::ELEMENTS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
@@ -539,6 +541,12 @@ void SetupServerArgs()
     gArgs.AddArg("-parentscriptprefix", strprintf("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)", 196), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parent_bech32_hrp", strprintf("The human-readable part of the parent chain's bech32 encoding. (default: %s)", "bc"), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-parent_blech32_hrp", strprintf("The human-readable part of the parent chain's blech32 encoding. (default: %s)", "bc"), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parent_pegged_asset=<hex>", "Asset ID (hex) for pegged asset for when parent chain has CA. (default: 0x00)", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-feeasset=<hex>", strprintf("Asset ID (hex) for mempool/relay fees (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-subsidyasset=<hex>", strprintf("Asset ID (hex) for the block subsidy (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-initialreissuancetokens=<n>", "The amount of reissuance tokens created in the genesis block. (default: 0)", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-ct_bits", strprintf("The default number of hiding bits in a rangeproof. Will be exceeded to cover amounts exceeding the maximum hiding value. (default: %d)", 36), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-ct_exponent", strprintf("The hiding exponent. (default: %s)", 0), false, OptionsCategory::CHAINPARAMS);
 
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
@@ -1294,6 +1302,9 @@ bool AppInitMain()
     RegisterZMQRPCCommands(tableRPC);
 #endif
 
+    // ELEMENTS:
+    policyAsset = CAsset(uint256S(gArgs.GetArg("-feeasset", chainparams.GetConsensus().pegged_asset.GetHex())));
+
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
      * that the server is there and will be ready later).  Warmup mode will
@@ -1832,7 +1843,21 @@ bool AppInitMain()
         }
     }
 
-    // ********************************************************* Step 14: finished
+    // ********************************************************* Step 14: Check fedpeg
+    // ELEMENTS:
+    if (chainparams.GetConsensus().has_parent_chain) {
+        // Will assert if not properly formatted
+        const CScript& fedpeg_script = chainparams.GetConsensus().fedpegScript;
+        unsigned int dummy_required;
+        std::vector<std::vector<unsigned char>> dummy_keys;
+        if (!MatchLiquidWatchman(fedpeg_script) &&
+                fedpeg_script != CScript() << OP_TRUE &&
+                !MatchMultisig(fedpeg_script, dummy_required, dummy_keys)) {
+            return InitError(_("ERROR: Fedpegscript is not one of the accepted templates: OP_TRUE, CHECKMULTISIG, and Liquidv1"));
+        }
+    }
+
+    // ********************************************************* Step 15: finished
 
     SetRPCWarmupFinished();
 

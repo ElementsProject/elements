@@ -16,6 +16,8 @@
 #include <utilstrencodings.h>
 #include <chainparams.h> // Peg-out enforcement
 
+// ELEMENTS:
+CAsset policyAsset;
 
 CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
