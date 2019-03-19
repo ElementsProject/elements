@@ -345,7 +345,8 @@ class CTxOutValue(object):
 
     def __init__(self, value=None):
         self.setNull()
-        if value != None: self.setToAmount(value)
+        if value is not None:
+            self.setToAmount(value)
 
     def setNull(self):
         self.vchCommitment = b'\x00'
@@ -498,8 +499,8 @@ class CTxInWitness(object):
 
     def is_null(self):
         return len(self.vchIssuanceAmountRangeproof) == 0 \
-        and len(self.vchInflationKeysRangeproof) == 0 \
-        and self.scriptWitness.is_null()
+            and len(self.vchInflationKeysRangeproof) == 0 \
+            and self.scriptWitness.is_null()
 
 
 class CTxOutWitness(object):
