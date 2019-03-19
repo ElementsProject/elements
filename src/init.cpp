@@ -1279,6 +1279,9 @@ bool AppInitMain()
 
     InitSignatureCache();
     InitScriptExecutionCache();
+    InitRangeproofCache();
+    InitSurjectionproofCache();
+
 
     LogPrintf("Using %u threads for script verification\n", nScriptCheckThreads);
     if (nScriptCheckThreads) {

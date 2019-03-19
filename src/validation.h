@@ -12,6 +12,7 @@
 
 #include <amount.h>
 #include <coins.h>
+#include <confidential_validation.h>
 #include <fs.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <policy/feerate.h>
@@ -365,7 +366,7 @@ bool CheckSequenceLocks(const CTransaction &tx, int flags, LockPoints* lp = null
  * Closure representing one script verification
  * Note that this stores references to the spending transaction
  */
-class CScriptCheck
+class CScriptCheck : public CCheck
 {
 private:
     CTxOut m_tx_out;
@@ -373,27 +374,14 @@ private:
     unsigned int nIn;
     unsigned int nFlags;
     bool cacheStore;
-    ScriptError error;
     PrecomputedTransactionData *txdata;
 
 public:
-    CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
+    CScriptCheck(): ptxTo(nullptr), nIn(0), nFlags(0), cacheStore(false) {}
     CScriptCheck(const CTxOut& outIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, PrecomputedTransactionData* txdataIn) :
-        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn) { }
+        m_tx_out(outIn), ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), txdata(txdataIn) { }
 
     bool operator()();
-
-    void swap(CScriptCheck &check) {
-        std::swap(ptxTo, check.ptxTo);
-        std::swap(m_tx_out, check.m_tx_out);
-        std::swap(nIn, check.nIn);
-        std::swap(nFlags, check.nFlags);
-        std::swap(cacheStore, check.cacheStore);
-        std::swap(error, check.error);
-        std::swap(txdata, check.txdata);
-    }
-
-    ScriptError GetScriptError() const { return error; }
 };
 
 /** Initializes the script-execution cache */

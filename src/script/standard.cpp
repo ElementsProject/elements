@@ -55,6 +55,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITNESS_UNKNOWN: return "witness_unknown";
     case TX_TRUE: return "true";
+    case TX_FEE: return "fee";
     }
     return nullptr;
 }
@@ -111,6 +112,11 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
 
     if (Params().anyonecanspend_aremine && scriptPubKey == CScript() << OP_TRUE) {
         return TX_TRUE;
+    }
+
+    // Fee outputs are for elements-style transactions only
+    if (g_con_elementsmode && scriptPubKey == CScript()) {
+        return TX_FEE;
     }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:

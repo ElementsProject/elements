@@ -14,6 +14,12 @@
 #include <uint256.h>
 
 
+// Check if explicit TX fees overflow or are negative
+bool HasValidFee(const CTransaction& tx);
+
+// Compute the fee from the explicit fee outputs. Must call HasValidFee first
+CAmountMap GetFeeMap(const CTransaction& tx);
+
 /**
  * ELEMENTS:
  * Closure representing one verification, either script or range checks.
@@ -82,6 +88,10 @@ public:
 };
 
 ScriptError QueueCheck(std::vector<CCheck*>* queue, CCheck* check);
+
+bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, std::vector<CCheck*>* pvChecks, const bool cacheStore);
+
+bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees);
 
 
 #endif // BITCOIN_CONFIDENTIAL_VALIDATION_H
