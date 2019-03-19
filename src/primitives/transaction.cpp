@@ -47,15 +47,21 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn)
 {
+    nAsset = nAssetIn;
     nValue = nValueIn;
     scriptPubKey = scriptPubKeyIn;
 }
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN, nValue % COIN, HexStr(scriptPubKey).substr(0, 30));
+    std::string strAsset;
+    if (nAsset.IsExplicit())
+        strAsset = strprintf("nAsset=%s, ", nAsset.GetAsset().GetHex());
+    if (nAsset.IsCommitment())
+        strAsset = std::string("nAsset=CONFIDENTIAL, ");
+    return strprintf("CTxOut(%snValue=%s, scriptPubKey=%s)", strAsset, (nValue.IsExplicit() ? strprintf("%d.%08d", nValue.GetAmount() / COIN, nValue.GetAmount() % COIN) : std::string("CONFIDENTIAL")), HexStr(scriptPubKey).substr(0, 30));
 }
 
 CMutableTransaction::CMutableTransaction() : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
@@ -89,7 +95,8 @@ uint256 CTransaction::GetWitnessOnlyHash() const
     leaves.reserve(std::max(vin.size(), vout.size()));
     /* Inputs */
     for (size_t i = 0; i < vin.size(); ++i) {
-        const CTxInWitness& txinwit = witness.vtxinwit.size() <= i || vin[i].prevout.IsNull() ? CTxInWitness() : witness.vtxinwit[i];
+        // Input has no witness OR is null input(coinbase)
+        const CTxInWitness& txinwit = (witness.vtxinwit.size() <= i || vin[i].prevout.IsNull()) ? CTxInWitness() : witness.vtxinwit[i];
         leaves.push_back(txinwit.GetHash());
     }
     uint256 hashIn = ComputeFastMerkleRoot(leaves);
@@ -114,15 +121,19 @@ CTransaction::CTransaction(const CMutableTransaction& tx) :
 CTransaction::CTransaction(CMutableTransaction&& tx) :
         vin(std::move(tx.vin)), vout(std::move(tx.vout)), nVersion(tx.nVersion), nLockTime(tx.nLockTime), witness(std::move(tx.witness)),hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 
-CAmount CTransaction::GetValueOut() const
-{
-    CAmount nValueOut = 0;
+CAmountMap CTransaction::GetValueOutMap() const {
+
+    CAmountMap values;
     for (const auto& tx_out : vout) {
-        nValueOut += tx_out.nValue;
-        if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
+        if (tx_out.nValue.IsExplicit() && tx_out.nAsset.IsExplicit()) {
+            CAmountMap m;
+            m[tx_out.nAsset.GetAsset()] = tx_out.nValue.GetAmount();
+            values += m;
+            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset.GetAsset()]))
+                throw std::runtime_error(std::string(__func__) + ": value out of range");
+        }
     }
-    return nValueOut;
+    return values;
 }
 
 unsigned int CTransaction::GetTotalSize() const

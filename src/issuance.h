@@ -43,4 +43,6 @@ void CalculateAsset(CAsset& asset, const uint256& entropy);
  */
 void CalculateReissuanceToken(CAsset& reissuanceToken, const uint256& entropy, bool fConfidential);
 
+void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const uint256& contract, const int64_t asset_outputs, const int64_t asset_values, const int64_t reissuance_outputs, const int64_t reissuance_values, const CScript& issuance_destination);
+
 #endif // BITCOIN_ISSUANCE_H

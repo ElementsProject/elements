@@ -55,7 +55,13 @@ CAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
-    return (txout.nValue < GetDustThreshold(txout, dustRelayFeeIn));
+    if (!txout.nValue.IsExplicit())
+        return false; // FIXME
+    if (!txout.nAsset.IsExplicit())
+        return false;
+    if (txout.IsFee())
+        return false;
+    return (txout.nValue.GetAmount() < GetDustThreshold(txout, dustRelayFeeIn));
 }
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
@@ -132,20 +138,18 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
         }
 
         if (whichType == TX_NULL_DATA) {
-        }
-        if (whichType == TX_NULL_DATA) {
             nDataOut++;
             if (params.GetEnforcePak() &&
                     txout.scriptPubKey.IsPegoutScript(params.ParentGenesisBlockHash()) &&
-                (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash()))) {
-                // TODO(rebase) CT/CA check for asset type
+                    txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset &&
+                    (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash()))) {
                 reason = "invalid-pegout-proof";
                 return false;
             }
         } else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
-        } else if (IsDust(txout, ::dustRelayFee)) {
+        } else if ((txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == policyAsset) && IsDust(txout, ::dustRelayFee)) {
             reason = "dust";
             return false;
         }

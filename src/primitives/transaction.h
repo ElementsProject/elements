@@ -237,7 +237,9 @@ public:
 class CTxOut
 {
 public:
-    CAmount nValue;
+    CConfidentialAsset nAsset;
+    CConfidentialValue nValue;
+    CConfidentialNonce nNonce;
     CScript scriptPubKey;
 
     CTxOut()
@@ -245,30 +247,58 @@ public:
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn);
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(nValue);
-        READWRITE(scriptPubKey);
+        if (g_con_elementsmode) {
+            READWRITE(nAsset);
+            READWRITE(nValue);
+            READWRITE(nNonce);
+            READWRITE(scriptPubKey);
+        } else {
+            CAmount value;
+            if (!ser_action.ForRead()) {
+                value = nValue.GetAmount();
+            }
+            READWRITE(value);
+            if (ser_action.ForRead()) {
+                nValue.SetToAmount(value);
+            }
+            READWRITE(scriptPubKey);
+        }
     }
 
     void SetNull()
     {
-        nValue = -1;
+        nAsset.SetNull();
+        nValue.SetNull();
+        nNonce.SetNull();
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return (nValue == -1);
+        if (!g_con_elementsmode) {
+            // Ignore the asset and the nonce in compatibility mode.
+            return nValue.IsNull() && scriptPubKey.empty();
+        }
+
+        return nAsset.IsNull() && nValue.IsNull() && nNonce.IsNull() && scriptPubKey.empty();
+    }
+
+    bool IsFee() const {
+        return g_con_elementsmode && scriptPubKey == CScript()
+            && nValue.IsExplicit() && nAsset.IsExplicit();
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
     {
-        return (a.nValue       == b.nValue &&
+        return (a.nAsset == b.nAsset &&
+                a.nValue == b.nValue &&
+                a.nNonce == b.nNonce &&
                 a.scriptPubKey == b.scriptPubKey);
     }
 
@@ -482,7 +512,7 @@ public:
     uint256 GetWitnessOnlyHash() const;
 
     // Return sum of txouts.
-    CAmount GetValueOut() const;
+    CAmountMap GetValueOutMap() const;
     // GetValueIn() is a method on CCoinsViewCache, because
     // inputs must be known to compute value in.
 

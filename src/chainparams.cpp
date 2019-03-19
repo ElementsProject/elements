@@ -48,10 +48,8 @@ static CBlock CreateGenesisBlock(const Consensus::Params& params, const CScript&
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
-    txNew.vout.resize(1);
     txNew.vin[0].scriptSig = genesisScriptSig;
-    txNew.vout[0].nValue = genesisReward;
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
+    txNew.vout.push_back(CTxOut(CAsset(), genesisReward, genesisOutputScript));
 
     CBlock genesis;
     genesis.nTime    = nTime;
@@ -84,23 +82,6 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
     const CScript genesisScriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return CreateGenesisBlock(params, genesisScriptSig, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
-}
-
-/** Add an issuance transaction to the genesis block. Typically used to pre-issue
- * the policyAsset of a blockchain. The genesis block is not actually validated,
- * so this transaction simply has to match issuance structure. */
-static void AppendInitialIssuance(CBlock& genesis_block, const COutPoint& prevout, const int64_t asset_values, const CScript& issuance_destination) {
-
-    // Note: Genesis block isn't actually validated, outputs are entered into utxo db only
-    CMutableTransaction txNew;
-    txNew.nVersion = 1;
-    txNew.vin.resize(1);
-    txNew.vin[0].prevout = prevout;
-
-    txNew.vout.push_back(CTxOut(asset_values, issuance_destination));
-
-    genesis_block.vtx.push_back(MakeTransactionRef(std::move(txNew)));
-    genesis_block.hashMerkleRoot = BlockMerkleRoot(genesis_block);
 }
 
 /**
@@ -623,8 +604,8 @@ class CCustomParams : public CRegTestParams {
             // Intended compatibility with Liquid v1 and elements-0.14.1
             std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
             genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
-            if (initialFreeCoins != 0) {
-                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), initialFreeCoins, CScript() << OP_TRUE);
+            if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
+                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
         } else {
             throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));

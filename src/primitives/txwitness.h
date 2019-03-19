@@ -23,8 +23,8 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
-        //READWRITE(vchIssuanceAmountRangeproof);
-        //READWRITE(vchInflationKeysRangeproof);
+        READWRITE(vchIssuanceAmountRangeproof);
+        READWRITE(vchInflationKeysRangeproof);
         READWRITE(scriptWitness.stack);
         READWRITE(m_pegin_witness.stack);
     }
@@ -105,15 +105,13 @@ public:
         for (size_t n = 0; n < vtxinwit.size(); n++) {
             READWRITE(vtxinwit[n]);
         }
-        //TODO(rebase) CA/CT
-        //for (size_t n = 0; n < vtxoutwit.size(); n++) {
-        //    READWRITE(vtxoutwit[n]);
-        //}
-        //TODO(stevenroose) re-enabled after testing
-        //if (IsNull()) {
-        //    /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */
-        //    throw std::ios_base::failure("Superfluous witness record");
-        //}
+        for (size_t n = 0; n < vtxoutwit.size(); n++) {
+            READWRITE(vtxoutwit[n]);
+        }
+        if (IsNull()) {
+            /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */
+            throw std::ios_base::failure("Superfluous witness record");
+        }
     }
 
     bool IsEmpty() const
