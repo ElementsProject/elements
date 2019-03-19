@@ -499,7 +499,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     ss3 >> cc3;
     BOOST_CHECK_EQUAL(cc3.fCoinBase, false);
     BOOST_CHECK_EQUAL(cc3.nHeight, 0U);
-    BOOST_CHECK_EQUAL(cc3.out.nValue, 0);
+    BOOST_CHECK_EQUAL(cc3.out.nValue.GetAmount(), 0);
     BOOST_CHECK_EQUAL(cc3.out.scriptPubKey.size(), 0U);
 
     // scriptPubKey that ends beyond the end of the stream
@@ -577,7 +577,7 @@ void GetCoinsMapEntry(const CCoinsMap& map, CAmount& value, char& flags)
         if (it->second.coin.IsSpent()) {
             value = PRUNED;
         } else {
-            value = it->second.coin.out.nValue;
+            value = it->second.coin.out.nValue.GetAmount();
         }
         flags = it->second.flags;
         assert(flags != NO_ENTRY);

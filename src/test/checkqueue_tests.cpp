@@ -154,7 +154,7 @@ static void Correct_Queue_range(std::vector<size_t> range)
        tg.create_thread([&]{small_queue->Thread();});
     }
     // Make vChecks here to save on malloc (this test can be slow...)
-    std::vector<FakeCheckCheckCompletion> vChecks;
+    std::vector<FakeCheckCheckCompletion*> vChecks;
     for (const size_t i : range) {
         size_t total = i;
         FakeCheckCheckCompletion::n_calls = 0;
@@ -226,10 +226,10 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Catches_Failure)
         while (remaining) {
             size_t r = InsecureRandRange(10);
 
-            std::vector<FailingCheck> vChecks;
-            vChecks.reserve(r);
-            for (size_t k = 0; k < r && remaining; k++, remaining--)
-                vChecks.emplace_back(remaining == 1);
+            std::vector<FailingCheck*> vChecks;
+            for (size_t k = 0; k < r && remaining; k++, remaining--) {
+                vChecks.push_back(new FailingCheck(remaining == 1));
+            }
             control.Add(vChecks);
         }
         bool success = control.Wait();
@@ -256,9 +256,11 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Recovers_From_Failure)
         for (const bool end_fails : {true, false}) {
             CCheckQueueControl<FailingCheck> control(fail_queue.get());
             {
-                std::vector<FailingCheck> vChecks;
-                vChecks.resize(100, false);
-                vChecks[99] = end_fails;
+                std::vector<FailingCheck*> vChecks;
+                for (size_t i = 0; i < 100; i++) {
+                    vChecks.push_back(new FailingCheck(false));
+                }
+                vChecks[99] = new FailingCheck(end_fails);
                 control.Add(vChecks);
             }
             bool r =control.Wait();
@@ -287,9 +289,10 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_UniqueCheck)
         CCheckQueueControl<UniqueCheck> control(queue.get());
         while (total) {
             size_t r = InsecureRandRange(10);
-            std::vector<UniqueCheck> vChecks;
-            for (size_t k = 0; k < r && total; k++)
-                vChecks.emplace_back(--total);
+            std::vector<UniqueCheck*> vChecks;
+            for (size_t k = 0; k < r && total; k++) {
+                vChecks.emplace_back(new UniqueCheck(--total));
+            }
             control.Add(vChecks);
         }
     }
@@ -321,12 +324,12 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Memory)
             CCheckQueueControl<MemoryCheck> control(queue.get());
             while (total) {
                 size_t r = InsecureRandRange(10);
-                std::vector<MemoryCheck> vChecks;
+                std::vector<MemoryCheck*> vChecks;
                 for (size_t k = 0; k < r && total; k++) {
                     total--;
                     // Each iteration leaves data at the front, back, and middle
                     // to catch any sort of deallocation failure
-                    vChecks.emplace_back(total == 0 || total == i || total == i/2);
+                    vChecks.emplace_back(new MemoryCheck(total == 0 || total == i || total == i/2));
                 }
                 control.Add(vChecks);
             }
@@ -349,11 +352,12 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_FrozenCleanup)
     }
     std::thread t0([&]() {
         CCheckQueueControl<FrozenCleanupCheck> control(queue.get());
-        std::vector<FrozenCleanupCheck> vChecks(1);
+        std::vector<FrozenCleanupCheck*> vChecks;
         // Freezing can't be the default initialized behavior given how the queue
         // swaps in default initialized Checks (otherwise freezing destructor
         // would get called twice).
-        vChecks[0].should_freeze = true;
+        vChecks.push_back(new FrozenCleanupCheck());
+        vChecks[0]->should_freeze = true;
         control.Add(vChecks);
         control.Wait(); // Hangs here
     });
