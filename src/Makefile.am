@@ -92,6 +92,7 @@ endif
 BITCOIN_CORE_H = \
   addrdb.h \
   addrman.h \
+  asset.h \
   base58.h \
   bech32.h \
   blech32.h \
@@ -359,6 +360,7 @@ libbitcoin_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
+  asset.cpp \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
