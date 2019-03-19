@@ -158,6 +158,7 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
 
 #ifdef ENABLE_WALLET
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CCoinsViewCache mapInputs(pcoinsTip);
   mapInputs.SetBestBlock(pindex->GetBlockHash());
   return RegisterAddress(tx, mapInputs);
@@ -167,8 +168,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pind
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   #ifdef ENABLE_WALLET
-  //Check if this is a ID registration (whitetoken) transaction
-  // Get input addresses an lookup associated idpubkeys
+  if(!mapInputs.HaveInputs(tx)) 
+    return false; // No inputs for tx in cache
+
   if (tx.IsCoinBase())
     return false; // Coinbases don't use vin normally
 
@@ -176,25 +178,24 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   opcodetype opcode;
   std::vector<unsigned char> bytes;
 
+  // For each TXOUT, if a TX_REGISTERADDRESS, read the data
   BOOST_FOREACH (const CTxOut& txout, tx.vout) {
     std::vector<std::vector<unsigned char> > vSolutions;
     txnouttype whichType;
-    //Is the output solvable?
     if (!Solver(txout.scriptPubKey, whichType, vSolutions)) return false;
-    //Is it a TX_REGISTERADDRESS?
     if(whichType == TX_REGISTERADDRESS) {
       CScript::const_iterator pc = txout.scriptPubKey.begin();
-      //Can the bytes be read?
       if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return false;
       break;
     }
   }
 
-  //Confirm data read from the TX_REGISTERADDRESS
-  if(bytes.size()==0) return false;
-
   unsigned int pubKeySize=33;
   unsigned int addrSize=20;
+
+  //Confirm data read from the TX_REGISTERADDRESS
+  unsigned int minDataSize=pubKeySize+addrSize;
+  if(bytes.size()<minDataSize) return false;
 
   // Are the first 33 bytes a currently whitelisted KYC public key? 
   // If so, this is an initial onboarding transaction, and those 33 bytes are the server KYC public key.
@@ -264,12 +265,13 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   //The next AES_BLOCKSIZE bytes of the message are the initialization vector
   //used to decrypt the rest of the message
   //std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
+  minDataSize=AES_BLOCKSIZE;
+  if(bytes.size()<minDataSize) return false;
   it2=it1+AES_BLOCKSIZE;
   std::vector<unsigned char> initVec(it1, it2);
   it1=it2;
   it2=bytes.end();
   std::vector<unsigned char> encryptedData(it1, it2);
-
   //Get the private key that is paired with kycKey
   CBitcoinAddress kycAddr(kycKey);
   std::string sKYCAddr = kycAddr.ToString();
