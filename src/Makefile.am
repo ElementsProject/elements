@@ -94,6 +94,7 @@ BITCOIN_CORE_H = \
   addrman.h \
   base58.h \
   bech32.h \
+  blech32.h \
   bloom.h \
   blockencodings.h \
   blockfilter.h \
@@ -403,6 +404,7 @@ libbitcoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
+  blech32.cpp \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
