@@ -373,6 +373,8 @@ libbitcoin_consensus_a_SOURCES = \
   prevector.h \
   primitives/block.cpp \
   primitives/block.h \
+  primitives/confidential.cpp \
+  primitives/confidential.h \
   primitives/txwitness.cpp \
   primitives/txwitness.h \
   primitives/transaction.cpp \
