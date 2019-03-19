@@ -93,6 +93,7 @@ BITCOIN_CORE_H = \
   addrdb.h \
   addrman.h \
   asset.h \
+  assetsdir.h \
   base58.h \
   bech32.h \
   blech32.h \
@@ -292,6 +293,7 @@ endif
 libbitcoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
+  assetsdir.cpp \
   interfaces/wallet.cpp \
   wallet/coincontrol.cpp \
   wallet/crypter.cpp \

@@ -30,6 +30,8 @@
 
 #include <univalue.h>
 
+#include <assetsdir.h>
+
 static UniValue validateaddress(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
@@ -542,6 +544,21 @@ UniValue calcfastmerkleroot(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue dumpassetlabels(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "dumpassetlabels\n"
+            "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n"
+            + HelpExampleCli("dumpassetlabels", "" )
+            + HelpExampleRpc("dumpassetlabels", "" )
+        );
+    UniValue obj(UniValue::VOBJ);
+    for (const auto& as : gAssetsDir.GetKnownAssets()) {
+        obj.pushKV(gAssetsDir.GetLabel(as), as.GetHex());
+    }
+    return obj;
+}
 
 class BlindingPubkeyAdderVisitor : public boost::static_visitor<>
 {
@@ -643,6 +660,7 @@ static const CRPCCommand commands[] =
     { "util",               "getpakinfo",             &getpakinfo,             {}},
     { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script"} },
     { "util",               "createblindedaddress",   &createblindedaddress,   {"address", "blinding_key"}},
+    { "util",               "dumpassetlabels",        &dumpassetlabels,        {}},
     { "hidden",             "calcfastmerkleroot",     &calcfastmerkleroot,     {"leaves"} },
 
     /* Not shown in help */
