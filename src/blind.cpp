@@ -188,3 +188,20 @@ void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_co
     secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, conf_value.vchCommitment.data(), &value_commit);
     assert(conf_value.IsValid());
 }
+
+size_t GetNumIssuances(const CTransaction& tx)
+{
+    unsigned int num_issuances = 0;
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        if (!tx.vin[i].assetIssuance.IsNull()) {
+            if (!tx.vin[i].assetIssuance.nAmount.IsNull()) {
+                num_issuances++;
+            }
+            if (!tx.vin[i].assetIssuance.nInflationKeys.IsNull()) {
+                num_issuances++;
+            }
+        }
+    }
+    return num_issuances;
+}
+

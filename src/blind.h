@@ -35,4 +35,6 @@ void BlindAsset(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, 
 
 void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_commitment& value_commit, const unsigned char* value_blindptr, const secp256k1_generator& asset_gen, const CAmount amount);
 
+size_t GetNumIssuances(const CTransaction& tx);
+
 #endif //BITCOIN_WALLET_BLIND_H

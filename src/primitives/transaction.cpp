@@ -41,6 +41,8 @@ std::string CTxIn::ToString() const
         str += strprintf(", scriptSig=%s", HexStr(scriptSig).substr(0, 24));
     if (nSequence != SEQUENCE_FINAL)
         str += strprintf(", nSequence=%u", nSequence);
+    if (!assetIssuance.IsNull())
+        str += strprintf(", %s", assetIssuance.ToString());
     str += ")";
     return str;
 }
