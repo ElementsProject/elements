@@ -75,7 +75,7 @@ class TxWitnessTest(BitcoinTestFramework):
         assert_equal(nodetx["hash"], wtxid)
 
         # witness hash stuff
-        assert_equal(nodetx["withash"], bytes_to_hex_str(ser_uint256(tx.calc_witness_hash())[::-1]))
+        assert_equal(nodetx["withash"], tx.calc_witness_hash())
         return (txid, wtxid)
 
     def test_transaction_serialization(self):
