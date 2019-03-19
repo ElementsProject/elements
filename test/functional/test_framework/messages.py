@@ -270,7 +270,7 @@ class COutPoint():
         self.n = n
 
     def isNull(self):
-        return self.hash == 0 and self.n == 0
+        return self.hash == 0 and self.n == 4294967295
 
     def deserialize(self, f):
         self.hash = deser_uint256(f)
