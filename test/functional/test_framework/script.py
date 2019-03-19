@@ -687,8 +687,10 @@ def SegwitVersion1SignatureHash(script, txTo, inIdx, hashtype, amount):
         hashSequence = uint256_from_str(hash256(serialize_sequence))
 
     if not (hashtype & SIGHASH_ANYONECANPAY):
-        serialize_issuance = b'\x00'
+        serialize_issuance = bytes()
         # TODO actually serialize issuances
+        for _ in txTo.vin:
+            serialize_issuance += b'\x00'
         hashIssuance = uint256_from_str(hash256(serialize_issuance))
 
     if ((hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
