@@ -97,6 +97,7 @@ BITCOIN_CORE_H = \
   base58.h \
   bech32.h \
   blech32.h \
+  blind.h \
   bloom.h \
   blockencodings.h \
   blockfilter.h \
@@ -114,6 +115,7 @@ BITCOIN_CORE_H = \
   compat/endian.h \
   compat/sanity.h \
   compressor.h \
+  confidential_validation.h \
   consensus/consensus.h \
   consensus/tx_verify.h \
   core_io.h \
@@ -233,6 +235,7 @@ libbitcoin_server_a_SOURCES = \
   block_proof.cpp \
   chain.cpp \
   checkpoints.cpp \
+  confidential_validation.cpp \
   consensus/tx_verify.cpp \
   httprpc.cpp \
   httpserver.cpp \
@@ -412,6 +415,7 @@ libbitcoin_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
   blech32.cpp \
+  blind.cpp \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \

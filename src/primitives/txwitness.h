@@ -5,16 +5,15 @@
 #ifndef BITCOIN_PRIMITIVES_TXWITNESS_H
 #define BITCOIN_PRIMITIVES_TXWITNESS_H
 
+#include <primitives/confidential.h>
 #include <script/script.h>
 #include <uint256.h>
 
 class CTxInWitness
 {
 public:
-    // TODO generalize CScriptWitness into just CWitness
-    //TODO(rebase) CA/CT
-    //std::vector<unsigned char> vchIssuanceAmountRangeproof;
-    //std::vector<unsigned char> vchInflationKeysRangeproof;
+    std::vector<unsigned char> vchIssuanceAmountRangeproof;
+    std::vector<unsigned char> vchInflationKeysRangeproof;
     CScriptWitness scriptWitness;
     // Re-use script witness struct to include its own witness
     CScriptWitness m_pegin_witness;
@@ -34,13 +33,12 @@ public:
 
     bool IsNull() const
     {
-        //return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull() && m_pegin_witness.IsNull();
-        return scriptWitness.IsNull() && m_pegin_witness.IsNull();
+        return vchIssuanceAmountRangeproof.empty() && vchInflationKeysRangeproof.empty() && scriptWitness.IsNull() && m_pegin_witness.IsNull();
     }
     void SetNull()
     {
-        //vchIssuanceAmountRangeproof.clear();
-        //vchInflationKeysRangeproof.clear();
+        vchIssuanceAmountRangeproof.clear();
+        vchInflationKeysRangeproof.clear();
         scriptWitness.stack.clear();
         m_pegin_witness.stack.clear();
     }
