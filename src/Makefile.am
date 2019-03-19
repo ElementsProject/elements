@@ -129,6 +129,7 @@ BITCOIN_CORE_H = \
   interfaces/handler.h \
   interfaces/node.h \
   interfaces/wallet.h \
+  issuance.h \
   key.h \
   key_io.h \
   keystore.h \
@@ -414,6 +415,7 @@ libbitcoin_common_a_SOURCES = \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
+  issuance.cpp \
   key.cpp \
   key_io.cpp \
   keystore.cpp \
