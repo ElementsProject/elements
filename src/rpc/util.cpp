@@ -8,6 +8,9 @@
 #include <rpc/util.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <policy/policy.h>
+#include <assetsdir.h>
+#include <core_io.h>
 
 // Converts a hex string to a public key if possible
 CPubKey HexToPubKey(const std::string& hex_in)
@@ -271,3 +274,35 @@ UniValue DescribeBlindAddress(const CTxDestination& dest)
     return ret;
 }
 
+// Attaches labeled balance reports to UniValue obj with asset filter
+// "" displays *all* assets as VOBJ pairs, while named assets must have
+// been entered via -assetdir configuration argument and are returned as VNUM.
+UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
+{
+    // Make sure the policyAsset is always present in the balance map.
+    CAmountMap balance = balanceOrig;
+    balance[::policyAsset] += 0;
+
+    // If we don't do assets or a specific asset is given, we filter out once asset.
+    if (!g_con_elementsmode || strasset != "") {
+        if (g_con_elementsmode) {
+            return ValueFromAmount(balance[GetAssetFromString(strasset)]);
+        } else {
+            return ValueFromAmount(balance[::policyAsset]);
+        }
+    }
+
+    UniValue obj(UniValue::VOBJ);
+    for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
+        // Unknown assets
+        if (it->first.IsNull())
+            continue;
+        UniValue pair(UniValue::VOBJ);
+        std::string label = gAssetsDir.GetLabel(it->first);
+        if (label == "") {
+            label = it->first.GetHex();
+        }
+        obj.pushKV(label, ValueFromAmount(it->second));
+    }
+    return obj;
+}
