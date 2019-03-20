@@ -2814,7 +2814,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
                 det->o_pubkeys[det->only_recipient_blind_index] = CPubKey();
                 det->o_amount_blinds[det->only_recipient_blind_index] = uint256();
                 det->o_asset_blinds[det->only_recipient_blind_index] = uint256();
-                wallet->WalletLogPrintf("Unblinding single blinded output at index %d due to lack of inputs and other outputs being blinded.", det->only_recipient_blind_index);
+                wallet->WalletLogPrintf("Unblinding single blinded output at index %d due to lack of inputs and other outputs being blinded.\n", det->only_recipient_blind_index);
             } else {
                 strFailReason = _("Transaction output could not be blinded as there are no blinded inputs and no other blinded outputs.");
                 return false;
@@ -3551,7 +3551,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     tx->vout[i].nAsset.IsExplicit() ? "explicit" : "blinded"
                 );
             }
-            WalletLogPrintf(summary);
+            WalletLogPrintf(summary+"\n");
         }
     }
 
