@@ -13,14 +13,11 @@
 #include <miner.h>
 #include <net_processing.h>
 #include <pow.h>
-#include <ui_interface.h>
 #include <policy/policy.h>
 #include <streams.h>
 #include <rpc/server.h>
 #include <rpc/register.h>
-#include <rpc/server.h>
 #include <script/sigcache.h>
-#include <streams.h>
 #include <ui_interface.h>
 #include <validation.h>
 
