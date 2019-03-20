@@ -6124,6 +6124,74 @@ UniValue generatepegoutproof(const JSONRPCRequest& request)
     return HexStr(voutput.begin(), voutput.end());
 }
 
+// Only used for functionary integration tests
+UniValue getpegoutkeys(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "getpegoutkeys \"btcprivkey\" \"offlinepubkey\"\n"
+            "\n(DEPRECATED) Please see `initpegoutwallet` and `sendtomainchain` for best-supported and easiest workflow. This call is for the Liquid network participants' `offline` wallet ONLY. Returns `sumkeys` corresponding to the sum of the Offline PAK and the imported Bitcoin key. The wallet must have the Offline private PAK to succeed. The output will be used in `generatepegoutproof` and `sendtomainchain`. Care is required to keep the bitcoin private key, as well as the `sumkey` safe, as a leak of both results in the leak of your `offlinekey`. Therefore it is recommended to create Bitcoin keys and do Bitcoin transaction signing directly on an offline wallet co-located with your offline Liquid wallet.\n"
+            "\nArguments:\n"
+            "1. \"btcprivkey\"           (string) Base58 Bitcoin private key that will be combined with the offline privkey\n"
+            "2. \"offlinepubkey\"        (string) Hex pubkey of key to combine with btcprivkey. Primarily intended for integration testing.\n"
+            "\nResult:\n"
+            "\"sumkey\"              (string) Base58 string of the sumkey.\n"
+            "\"btcpubkey\"           (string) Hex string of the bitcoin pubkey that corresponds to the pegout destination Bitcoin address\n"
+            "\"btcaddress\"          (string) Destination Bitcoin address for the funds being pegged out using these keys"
+            + HelpExampleCli("getpegoutkeys", "")
+            + HelpExampleCli("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\" \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
+            + HelpExampleRpc("getpegoutkeys", "")
+            + HelpExampleRpc("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\", \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!request.params[1].isStr() || !IsHex(request.params[1].get_str()) || request.params[1].get_str().size() != 66) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "offlinepubkey must be hex string of size 66");
+    }
+
+    std::vector<unsigned char> offlinepubbytes = ParseHex(request.params[1].get_str());
+    CPubKey offline_pub = CPubKey(offlinepubbytes.begin(), offlinepubbytes.end());
+
+    if (!offline_pub.IsFullyValid()) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "offlinepubkey is not a valid pubkey");
+    }
+
+    CKey pegoutkey;
+    if (!pwallet->GetKey(offline_pub.GetID(), pegoutkey))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Offline key can not be found in wallet");
+
+    CKey bitcoinkey = DecodeSecret(request.params[0].get_str());
+    if (!bitcoinkey.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
+    }
+
+    CPubKey bitcoinpubkey = bitcoinkey.GetPubKey();
+    assert(bitcoinkey.VerifyPubKey(bitcoinpubkey));
+
+    std::vector<unsigned char> pegoutkeybytes(pegoutkey.begin(), pegoutkey.end());
+    std::vector<unsigned char> pegoutsubkeybytes(bitcoinkey.begin(), bitcoinkey.end());
+
+    if (!secp256k1_ec_privkey_tweak_add(secp256k1_ctx, &pegoutkeybytes[0], &pegoutsubkeybytes[0]))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Summed key invalid");
+
+    CKey sumseckey;
+    sumseckey.Set(pegoutkeybytes.begin(), pegoutkeybytes.end(), true);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("sumkey", EncodeSecret(sumseckey));
+    ret.pushKV("btcpubkey", HexStr(bitcoinpubkey.begin(), bitcoinpubkey.end()));
+    ret.pushKV("btcaddress", EncodeParentDestination(PKHash(bitcoinpubkey.GetID())));
+
+    return ret;
+}
 
 // END ELEMENTS commands
 //
@@ -6223,6 +6291,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
     { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment"} },
     { "hidden",             "generatepegoutproof",              &generatepegoutproof,           {"sumkey", "btcpubkey", "onlinepubkey"} },
+    { "hidden",             "getpegoutkeys",                    &getpegoutkeys,                 {"btcprivkey", "offlinepubkey"} },
 };
 // clang-format on
 
