@@ -38,6 +38,7 @@
 #include <blind.h>
 #include <issuance.h>
 #include <crypto/hmac_sha256.h>
+#include <random.h>
 
 static const size_t OUTPUT_GROUP_MAX_ENTRIES = 10;
 
@@ -2551,7 +2552,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         // Cases where we have 11+ outputs all pointing to the same destination may result in
         // privacy leaks as they will potentially be deterministically sorted. We solve that by
         // explicitly shuffling the outputs before processing
-        std::shuffle(vCoins.begin(), vCoins.end(), FastRandomContext());
+        Shuffle(vCoins.begin(), vCoins.end(), FastRandomContext());
     }
     std::vector<OutputGroup> groups = GroupOutputs(vCoins, !coin_control.m_avoid_partial_spends);
 
@@ -3188,7 +3189,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 // Elements: Shuffle here to preserve random ordering for surjection proofs
                 selected_coins = std::vector<CInputCoin>(setCoins.begin(), setCoins.end());
-                std::shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
+                Shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
 
                 // Dummy fill vin for maximum size estimation
                 //
