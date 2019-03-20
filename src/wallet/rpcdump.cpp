@@ -1333,3 +1333,113 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
     ret.pushKV("address_lookahead", address_list);
     return ret;
 }
+
+UniValue importblindingkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "importblindingkey \"address\" \"blindinghex\"\n"
+            "\nImports a private blinding key in hex for a CT address."
+            "\nArguments:\n"
+            "1. \"address\"          (string, required) The CT address\n"
+            "2. \"hexkey\"           (string, required) The blinding key in hex\n"
+            "3. \"key_is_master\"    (bool, optional, default=false) If the `hexkey` is a master blinding key. Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n"
+            "\nExample:\n"
+            + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    CTxDestination dest = DecodeDestination(request.params[0].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address.");
+    }
+    if (!IsBlindDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Address is not confidential.");
+    }
+
+    if (!IsHex(request.params[1].get_str())) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
+    }
+    std::vector<unsigned char> keydata = ParseHex(request.params[1].get_str());
+    if (keydata.size() != 32) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length");
+    }
+
+    bool key_is_master = false;
+    if (!request.params[2].isNull()) {
+        key_is_master = request.params[2].get_bool();
+    }
+
+    CKey key;
+    key.Set(keydata.begin(), keydata.end(), true);
+    if (!key.IsValid() || key.GetPubKey() != GetDestinationBlindingKey(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Address and key do not match");
+    }
+
+    uint256 keyval;
+    memcpy(keyval.begin(), &keydata[0], 32);
+    if (key_is_master) {
+        if (pwallet->SetMasterBlindingKey(keyval)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import master blinding key");
+        }
+    } else {
+        if (!pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), keyval)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import blinding key");
+        }
+    }
+    pwallet->MarkDirty();
+
+    return NullUniValue;
+}
+
+UniValue dumpblindingkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "dumpblindingkey \"address\"\n"
+            "\nDumps the private blinding key for a CT address in hex."
+            "\nArguments:\n"
+            "1. \"address\"          (string, required) The CT address\n"
+            "\nResult:\n"
+            "\"blindingkey\"      (string) The blinding key\n"
+            "\nExample:\n"
+            + HelpExampleCli("dumpblindingkey", "\"my address\"")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+
+    CTxDestination dest = DecodeDestination(request.params[0].get_str());
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+    }
+    if (!IsBlindDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not a CT address");
+    }
+    CScript script = GetScriptForDestination(dest);
+    CKey key;
+    key = pwallet->GetBlindingKey(&script);
+    if (key.IsValid()) {
+        CPubKey pubkey(key.GetPubKey());
+        if (pubkey == GetDestinationBlindingKey(dest)) {
+            return HexStr(key.begin(), key.end());
+        }
+    }
+
+    throw JSONRPCError(RPC_WALLET_ERROR, "Blinding key for address is unknown");
+}
