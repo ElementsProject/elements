@@ -74,8 +74,9 @@ class BIP65Test(BitcoinTestFramework):
 
         self.log.info("Test that an invalid-according-to-CLTV transaction can still appear in a block")
 
+        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(self.coinbase_txids[0])["hex"])["vout"][0]["value"]
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[0],
-                self.nodeaddress, amount=1.0)
+                self.nodeaddress, amount=1.0, fee=coinbase_value-1)
         cltv_invalidate(spendtx)
         spendtx.rehash()
 
@@ -105,8 +106,9 @@ class BIP65Test(BitcoinTestFramework):
         self.log.info("Test that invalid-according-to-cltv transactions cannot appear in a block")
         block.nVersion = 4
 
+        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(self.coinbase_txids[1])["hex"])["vout"][0]["value"]
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
-                self.nodeaddress, amount=1.0)
+                self.nodeaddress, amount=1.0, fee=coinbase_value-1)
         cltv_invalidate(spendtx)
         spendtx.rehash()
 

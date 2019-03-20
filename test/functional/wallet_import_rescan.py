@@ -72,10 +72,11 @@ class Variant(collections.namedtuple("Variant", "call data rescan prune")):
         if self.expected_txs:
             assert_equal(len(addresses[0]["txids"]), self.expected_txs)
 
+        unconfidential_address = self.node.getaddressinfo(self.address["address"])["unconfidential"]
         if txid is not None:
             address, = [ad for ad in addresses if txid in ad["txids"]]
-            assert_equal(address["address"], self.address["address"])
-            assert_equal(address["amount"], self.expected_balance)
+            assert(address["address"] == self.address["address"] or address["address"] == unconfidential_address)
+            assert_equal(address["amount"], {"bitcoin": self.expected_balance})
             assert_equal(address["confirmations"], confirmations)
             # Verify the transaction is correctly marked watchonly depending on
             # whether the transaction pays to an imported public key or

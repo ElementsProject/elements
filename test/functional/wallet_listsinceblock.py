@@ -155,6 +155,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         recipient_dict = {
             self.nodes[0].getnewaddress(): 1,
             self.nodes[1].getnewaddress(): change,
+            "fee": "0.0003",
         }
         utxo_dicts = [{
             'txid': utxo['txid'],
@@ -168,6 +169,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         recipient_dict2 = {
             self.nodes[3].getnewaddress(): 1,
             self.nodes[2].getnewaddress(): change,
+            "fee": "0.0003",
         }
         self.nodes[2].sendrawtransaction(
             self.nodes[2].signrawtransactionwithwallet(
@@ -230,6 +232,7 @@ class ListSinceBlockTest (BitcoinTestFramework):
         recipient_dict = {
             self.nodes[0].getnewaddress(): 1,
             self.nodes[2].getnewaddress(): change,
+            "fee": "0.0003"
         }
         utxo_dicts = [{
             'txid': utxo['txid'],

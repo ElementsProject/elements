@@ -270,12 +270,12 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(15)
         b23 = self.next_block(23, spend=out[6])
         tx = CTransaction()
-        # ELEMENTS: mysterious off-by-one
         #script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 69
-        script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 70
+        script_length = MAX_BLOCK_BASE_SIZE - len(b23.serialize()) - 149
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b23.vtx[1].sha256, 0)))
+        tx.vout.append(CTxOut(b23.vtx[1].vout[0].nValue.getAmount() - 0)) # fee
         b23 = self.update_block(23, [tx])
         # Make sure the math above worked out to produce a max-sized block
         assert_equal(len(b23.serialize()), MAX_BLOCK_BASE_SIZE)
@@ -285,11 +285,11 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block of size MAX_BLOCK_BASE_SIZE + 1")
         self.move_tip(15)
         b24 = self.next_block(24, spend=out[6])
-        # ELEMENTS: mysterious off-by-one
         #script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 69
-        script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 70
+        script_length = MAX_BLOCK_BASE_SIZE - len(b24.serialize()) - 149
         script_output = CScript([b'\x00' * (script_length + 1)])
         tx.vout = [CTxOut(0, script_output)]
+        tx.vout.append(CTxOut(b23.vtx[1].vout[0].nValue.getAmount() - 0)) # fee
         b24 = self.update_block(24, [tx])
         assert_equal(len(b24.serialize()), MAX_BLOCK_BASE_SIZE + 1)
         self.sync_blocks([b24], success=False, reject_reason='bad-blk-length', reconnect=True)
@@ -423,10 +423,11 @@ class FullBlockTest(BitcoinTestFramework):
         self.move_tip(35)
         b39 = self.next_block(39)
         b39_outputs = 0
-        b39_sigops_per_output = 6
+        # ELEMENTS: increase the number of sigops per output to not hit max block size first
+        b39_sigops_per_output = 11
 
         # Build the redeem script, hash it, use hash to create the p2sh script
-        redeem_script = CScript([self.coinbase_pubkey] + [OP_2DUP, OP_CHECKSIGVERIFY] * 5 + [OP_CHECKSIG])
+        redeem_script = CScript([self.coinbase_pubkey] + [OP_2DUP, OP_CHECKSIGVERIFY] * (b39_sigops_per_output-1) + [OP_CHECKSIG])
         redeem_script_hash = hash160(redeem_script)
         p2sh_script = CScript([OP_HASH160, redeem_script_hash, OP_EQUAL])
 
@@ -434,7 +435,8 @@ class FullBlockTest(BitcoinTestFramework):
         # This must be signed because it is spending a coinbase
         spend = out[11]
         tx = self.create_tx(spend, 0, 1, p2sh_script)
-        tx.vout.append(CTxOut(spend.vout[0].nValue - 1, CScript([OP_TRUE])))
+        tx.vout.append(CTxOut(spend.vout[0].nValue.getAmount() - 1, CScript([OP_TRUE])))
+        self.update_fee(tx, spend, 0)
         self.sign_tx(tx, spend)
         tx.rehash()
         b39 = self.update_block(39, [tx])
@@ -446,7 +448,8 @@ class FullBlockTest(BitcoinTestFramework):
         total_size = len(b39.serialize())
         while(total_size < MAX_BLOCK_BASE_SIZE):
             tx_new = self.create_tx(tx_last, 1, 1, p2sh_script)
-            tx_new.vout.append(CTxOut(tx_last.vout[1].nValue - 1, CScript([OP_TRUE])))
+            tx_new.vout.append(CTxOut(tx_last.vout[1].nValue.getAmount() - 1, CScript([OP_TRUE])))
+            self.update_fee(tx_new, tx_last, 1)
             tx_new.rehash()
             total_size += len(tx_new.serialize())
             if total_size >= MAX_BLOCK_BASE_SIZE:
@@ -481,6 +484,7 @@ class FullBlockTest(BitcoinTestFramework):
             tx.vin.append(CTxIn(lastOutpoint, b''))
             # second input is corresponding P2SH output from b39
             tx.vin.append(CTxIn(COutPoint(b39.vtx[i].sha256, 0), b''))
+            tx.vout.append(CTxOut(b39.vtx[i].vout[0].nValue.getAmount())) # fee
             # Note: must pass the redeem_script (not p2sh_script) to the signature hash function
             (sighash, err) = SignatureHash(redeem_script, tx, 1, SIGHASH_ALL)
             sig = self.coinbase_key.sign(sighash) + bytes(bytearray([SIGHASH_ALL]))
@@ -743,7 +747,7 @@ class FullBlockTest(BitcoinTestFramework):
         b59 = self.next_block(59)
         tx = self.create_and_sign_transaction(out[17], 51 * COIN)
         b59 = self.update_block(59, [tx])
-        self.sync_blocks([b59], success=False, reject_reason='bad-txns-in-belowout', reconnect=True)
+        self.sync_blocks([b59], success=False, reject_reason='block-validation-failed', reconnect=True)
 
         # reset to good chain
         self.move_tip(57)
@@ -826,12 +830,12 @@ class FullBlockTest(BitcoinTestFramework):
         tx = CTransaction()
 
         # use canonical serialization to calculate size
-        # ELEMENTS: mysterious off-by-one
         #script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 69
-        script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 70
+        script_length = MAX_BLOCK_BASE_SIZE - len(b64a.normal_serialize()) - 149
         script_output = CScript([b'\x00' * script_length])
         tx.vout.append(CTxOut(0, script_output))
         tx.vin.append(CTxIn(COutPoint(b64a.vtx[1].sha256, 0)))
+        tx.vout.append(CTxOut(b64a.vtx[1].vout[0].nValue.getAmount() - 0)) # fee
         b64a = self.update_block("64a", [tx])
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
         self.sync_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize(): iostream error')
@@ -860,8 +864,9 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Accept a block with a transaction spending an output created in the same block")
         self.move_tip(64)
         b65 = self.next_block(65)
-        tx1 = self.create_and_sign_transaction(out[19], out[19].vout[0].nValue)
-        tx2 = self.create_and_sign_transaction(tx1, 0)
+        tx1 = self.create_and_sign_transaction(out[19], out[19].vout[0].nValue.getAmount())
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx2 = self.create_and_sign_transaction(tx1, 1)
         b65 = self.update_block(65, [tx1, tx2])
         self.sync_blocks([b65], True)
         self.save_spendable_output()
@@ -873,7 +878,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block with a transaction spending an output created later in the same block")
         self.move_tip(65)
         b66 = self.next_block(66)
-        tx1 = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue)
+        tx1 = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue.getAmount())
         tx2 = self.create_and_sign_transaction(tx1, 1)
         b66 = self.update_block(66, [tx2, tx1])
         self.sync_blocks([b66], success=False, reject_reason='bad-txns-inputs-missingorspent', reconnect=True)
@@ -887,7 +892,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block with a transaction double spending a transaction creted in the same block")
         self.move_tip(65)
         b67 = self.next_block(67)
-        tx1 = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue)
+        tx1 = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue.getAmount())
         tx2 = self.create_and_sign_transaction(tx1, 1)
         tx3 = self.create_and_sign_transaction(tx1, 2)
         b67 = self.update_block(67, [tx1, tx2, tx3])
@@ -908,14 +913,14 @@ class FullBlockTest(BitcoinTestFramework):
         self.log.info("Reject a block trying to claim too much subsidy in the coinbase transaction")
         self.move_tip(65)
         b68 = self.next_block(68, additional_coinbase_value=10)
-        tx = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue - 9)
+        tx = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue.getAmount() - 9)
         b68 = self.update_block(68, [tx])
         self.sync_blocks([b68], success=False, reject_reason='bad-cb-amount', reconnect=True)
 
         self.log.info("Accept a block claiming the correct subsidy in the coinbase transaction")
         self.move_tip(65)
         b69 = self.next_block(69, additional_coinbase_value=10)
-        tx = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue - 10)
+        tx = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue.getAmount() - 10)
         self.update_block(69, [tx])
         self.sync_blocks([b69], True)
         self.save_spendable_output()
@@ -1113,9 +1118,9 @@ class FullBlockTest(BitcoinTestFramework):
         b83 = self.next_block(83)
         op_codes = [OP_IF, OP_INVALIDOPCODE, OP_ELSE, OP_TRUE, OP_ENDIF]
         script = CScript(op_codes)
-        tx1 = self.create_and_sign_transaction(out[28], out[28].vout[0].nValue, script)
-
-        tx2 = self.create_and_sign_transaction(tx1, 0, CScript([OP_TRUE]))
+        tx1 = self.create_and_sign_transaction(out[28], out[28].vout[0].nValue.getAmount(), script)
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx2 = self.create_and_sign_transaction(tx1, 1, CScript([OP_TRUE]))
         tx2.vin[0].scriptSig = CScript([OP_FALSE])
         tx2.rehash()
 
@@ -1130,20 +1135,27 @@ class FullBlockTest(BitcoinTestFramework):
         #
         self.log.info("Test re-orging blocks with OP_RETURN in them")
         b84 = self.next_block(84)
-        tx1 = self.create_tx(out[29], 0, 0, CScript([OP_RETURN]))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx1.vout.append(CTxOut(0, CScript([OP_TRUE])))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx1 = self.create_tx(out[29], 0, 1, CScript([OP_RETURN]))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        tx1.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        self.update_fee(tx1, out[29], 0)
         tx1.calc_sha256()
         self.sign_tx(tx1, out[29])
         tx1.rehash()
         tx2 = self.create_tx(tx1, 1, 0, CScript([OP_RETURN]))
         tx2.vout.append(CTxOut(0, CScript([OP_RETURN])))
+        self.update_fee(tx2, tx1, 1)
         tx3 = self.create_tx(tx1, 2, 0, CScript([OP_RETURN]))
-        tx3.vout.append(CTxOut(0, CScript([OP_TRUE])))
-        tx4 = self.create_tx(tx1, 3, 0, CScript([OP_TRUE]))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx3.vout.append(CTxOut(1, CScript([OP_TRUE])))
+        self.update_fee(tx3, tx1, 2)
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx4 = self.create_tx(tx1, 3, 1, CScript([OP_TRUE]))
         tx4.vout.append(CTxOut(0, CScript([OP_RETURN])))
+        self.update_fee(tx4, tx1, 3)
         tx5 = self.create_tx(tx1, 4, 0, CScript([OP_RETURN]))
 
         b84 = self.update_block(84, [tx1, tx2, tx3, tx4, tx5])
@@ -1168,7 +1180,8 @@ class FullBlockTest(BitcoinTestFramework):
 
         # trying to spend the OP_RETURN output is rejected
         b89a = self.next_block("89a", spend=out[32])
-        tx = self.create_tx(tx1, 0, 0, CScript([OP_TRUE]))
+        # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+        tx = self.create_tx(tx1, 0, 1, CScript([OP_TRUE]))
         b89a = self.update_block("89a", [tx])
         self.sync_blocks([b89a], success=False, reject_reason='bad-txns-inputs-missingorspent', reconnect=True)
 
@@ -1181,12 +1194,13 @@ class FullBlockTest(BitcoinTestFramework):
         for i in range(89, LARGE_REORG_SIZE + 89):
             b = self.next_block(i, spend)
             tx = CTransaction()
-            # ELEMENTS: mysterious off-by-one
             #script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
-            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 70
-            script_output = CScript([b'\x00' * script_length])
+            script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 149
+            # ELEMENTS: doesn't support 0 value for non-OP_RETURN
+            script_output = CScript([OP_RETURN, b'\x00' * (script_length-1)])
             tx.vout.append(CTxOut(0, script_output))
             tx.vin.append(CTxIn(COutPoint(b.vtx[1].sha256, 0)))
+            self.update_fee(tx, b.vtx[1], 0)
             b = self.update_block(i, [tx])
             assert_equal(len(b.serialize()), MAX_BLOCK_BASE_SIZE)
             blocks.append(b)
@@ -1223,7 +1237,21 @@ class FullBlockTest(BitcoinTestFramework):
 
     # this is a little handier to use than the version in blocktools.py
     def create_tx(self, spend_tx, n, value, script=CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])):
-        return create_tx_with_script(spend_tx, n, amount=value, script_pub_key=script)
+        fee = spend_tx.vout[n].nValue.getAmount() - value
+        return create_tx_with_script(spend_tx, n, amount=value, fee=fee, script_pub_key=script)
+
+    # update the fee output amount and also move it to the end
+    def update_fee(self, tx, prev_tx, prev_n):
+        total_out = 0
+        for i in reversed(range(len(tx.vout))):
+            if tx.vout[i].is_fee():
+                del tx.vout[i]
+            else:
+                total_out += tx.vout[i].nValue.getAmount()
+        fee = prev_tx.vout[prev_n].nValue.getAmount() - total_out
+        if fee > 0:
+            tx.vout.append(CTxOut(fee))
+        tx.calc_sha256()
 
     # sign a transaction, using the key we know about
     # this signs input 0 in tx, which is assumed to be spending output n in spend_tx
@@ -1251,12 +1279,12 @@ class FullBlockTest(BitcoinTestFramework):
         # First create the coinbase
         height = self.block_heights[base_block_hash] + 1
         coinbase = create_coinbase(height, self.coinbase_pubkey)
-        coinbase.vout[0].nValue += additional_coinbase_value
+        coinbase.vout[0].nValue.setToAmount(coinbase.vout[0].nValue.getAmount() + additional_coinbase_value)
         coinbase.rehash()
         if spend is None:
             block = create_block(base_block_hash, coinbase, block_time)
         else:
-            coinbase.vout[0].nValue += spend.vout[0].nValue - 1  # all but one satoshi to fees
+            coinbase.vout[0].nValue.setToAmount(coinbase.vout[0].nValue.getAmount() + spend.vout[0].nValue.getAmount() - 1)  # all but one satoshi to fees
             coinbase.rehash()
             block = create_block(base_block_hash, coinbase, block_time)
             tx = self.create_tx(spend, 0, 1, script)  # spend 1 satoshi

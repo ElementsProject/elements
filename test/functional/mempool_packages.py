@@ -30,11 +30,12 @@ class MempoolPackagesTest(BitcoinTestFramework):
         outputs = {}
         for i in range(num_outputs):
             outputs[node.getnewaddress()] = send_value
+        outputs["fee"] = fee
         rawtx = node.createrawtransaction(inputs, outputs)
         signedtx = node.signrawtransactionwithwallet(rawtx)
         txid = node.sendrawtransaction(signedtx['hex'])
         fulltx = node.getrawtransaction(txid, 1)
-        assert(len(fulltx['vout']) == num_outputs) # make sure we didn't generate a change output
+        assert(len(fulltx['vout']) == num_outputs + 1) # make sure we didn't generate a change output
         return (txid, send_value)
 
     def run_test(self):
@@ -274,6 +275,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
         outputs = {}
         for i in range(2):
             outputs[self.nodes[0].getnewaddress()] = send_value
+        outputs["fee"] = fee
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         txid = self.nodes[0].sendrawtransaction(signedtx['hex'])
@@ -298,6 +300,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
         # Now generate tx8, with a big fee
         inputs = [ {'txid' : tx1_id, 'vout': 0}, {'txid' : txid, 'vout': 0} ]
         outputs = { self.nodes[0].getnewaddress() : send_value + value - 4*fee }
+        outputs["fee"] = 3*fee
         rawtx = self.nodes[0].createrawtransaction(inputs, outputs)
         signedtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         txid = self.nodes[0].sendrawtransaction(signedtx['hex'])

@@ -123,6 +123,8 @@ class WalletHDTest(BitcoinTestFramework):
         outs = self.nodes[1].decoderawtransaction(self.nodes[1].gettransaction(txid)['hex'])['vout']
         keypath = ""
         for out in outs:
+            if out["scriptPubKey"]["type"] == "fee":
+                continue
             if out['value'] != 1:
                 keypath = self.nodes[1].getaddressinfo(out['scriptPubKey']['addresses'][0])['hdkeypath']
 

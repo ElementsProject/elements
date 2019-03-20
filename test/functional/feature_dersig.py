@@ -61,8 +61,9 @@ class BIP66Test(BitcoinTestFramework):
 
         self.log.info("Test that a transaction with non-DER signature can still appear in a block")
 
+        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(self.coinbase_txids[0])["hex"])["vout"][0]["value"]
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[0],
-                self.nodeaddress, amount=1.0)
+                self.nodeaddress, amount=1.0, fee=coinbase_value-1)
         unDERify(spendtx)
         spendtx.rehash()
 
@@ -94,8 +95,9 @@ class BIP66Test(BitcoinTestFramework):
         self.log.info("Test that transactions with non-DER signatures cannot appear in a block")
         block.nVersion = 3
 
+        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(self.coinbase_txids[1])["hex"])["vout"][0]["value"]
         spendtx = create_transaction(self.nodes[0], self.coinbase_txids[1],
-                self.nodeaddress, amount=1.0)
+                self.nodeaddress, amount=1.0, fee=coinbase_value-1)
         unDERify(spendtx)
         spendtx.rehash()
 
@@ -124,7 +126,8 @@ class BIP66Test(BitcoinTestFramework):
             assert b'Non-canonical DER signature' in self.nodes[0].p2p.last_message["reject"].reason
 
         self.log.info("Test that a version 3 block with a DERSIG-compliant transaction is accepted")
-        block.vtx[1] = create_transaction(self.nodes[0], self.coinbase_txids[1], self.nodeaddress, amount=1.0)
+        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(self.coinbase_txids[1])["hex"])["vout"][0]["value"]
+        block.vtx[1] = create_transaction(self.nodes[0], self.coinbase_txids[1], self.nodeaddress, amount=1.0, fee=coinbase_value-1)
         block.hashMerkleRoot = block.calc_merkle_root()
         block.rehash()
         block.solve()

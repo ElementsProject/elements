@@ -319,6 +319,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
         # Elements:
+        f.write("con_parent_pegged_asset=" + BITCOIN_ASSET + "\n")
         f.write("con_blocksubsidy=5000000000\n")
         f.write("con_connect_coinbase=0\n")
         f.write("anyonecanspendaremine=0\n")
@@ -327,6 +328,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
         f.write("con_csv_deploy_start=0\n") # Enhance tests if removing this line
+        f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
@@ -543,7 +545,7 @@ def gen_return_txouts():
     from .messages import CTxOut, CTxOutValue
     for k in range(128):
         txout = CTxOut()
-        txout.nValue = 0
+        txout.nValue = CTxOutValue(0)
         txout.scriptPubKey = hex_str_to_bytes(script_pubkey)
         txouts.append(txout)
     return txouts
@@ -591,7 +593,10 @@ def find_vout_for_address(node, txid, addr):
     given address. Raises runtime error exception if not found.
     """
     tx = node.getrawtransaction(txid, True)
+    unblind_addr = node.validateaddress(addr)["unconfidential"]
     for i in range(len(tx["vout"])):
-        if any([addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
+        if tx["vout"][i]["scriptPubKey"]["type"] == "fee":
+            continue
+        if any([unblind_addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))

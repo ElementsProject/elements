@@ -88,8 +88,8 @@ class WalletLabelsTest(BitcoinTestFramework):
         node.generate(1)
         for label in labels:
             assert_equal(
-                node.getreceivedbyaddress(label.addresses[0]), amount_to_send)
-            assert_equal(node.getreceivedbylabel(label.name), amount_to_send)
+                node.getreceivedbyaddress(label.addresses[0])['bitcoin'], amount_to_send)
+            assert_equal(node.getreceivedbylabel(label.name)['bitcoin'], amount_to_send)
 
         for i, label in enumerate(labels):
             to_label = labels[(i + 1) % len(labels)]
@@ -99,7 +99,7 @@ class WalletLabelsTest(BitcoinTestFramework):
             address = node.getnewaddress(label.name)
             label.add_receive_address(address)
             label.verify(node)
-            assert_equal(node.getreceivedbylabel(label.name), 2)
+            assert_equal(node.getreceivedbylabel(label.name)['bitcoin'], 2)
             label.verify(node)
         node.generate(101)
 

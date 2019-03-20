@@ -173,6 +173,7 @@ class WalletTest(BitcoinTestFramework):
             outputs = {}
             inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
             outputs[self.nodes[2].getnewaddress()] = utxo["amount"] - 3
+            outputs["fee"] = 3
             raw_tx = self.nodes[0].createrawtransaction(inputs, outputs)
             txns_to_send.append(self.nodes[0].signrawtransactionwithwallet(raw_tx))
 
@@ -260,7 +261,8 @@ class WalletTest(BitcoinTestFramework):
         signed_raw_tx = self.nodes[1].signrawtransactionwithwallet(raw_tx)
         decoded_raw_tx = self.nodes[1].decoderawtransaction(signed_raw_tx['hex'])
         zero_value_txid = decoded_raw_tx['txid']
-        self.nodes[1].sendrawtransaction(signed_raw_tx['hex'])
+        # ELEMENTS: this test doesn't make sense
+        #self.nodes[1].sendrawtransaction(signed_raw_tx['hex'])
 
         self.sync_all()
         self.nodes[1].generate(1)  # mine a block
@@ -272,7 +274,8 @@ class WalletTest(BitcoinTestFramework):
             if uTx['txid'] == zero_value_txid:
                 found = True
                 assert_equal(uTx['amount'], Decimal('0'))
-        assert(found)
+        # ELEMENTS: this test doesn't make sense
+        #assert(found)
 
         # do some -walletbroadcast tests
         self.stop_nodes()
@@ -340,7 +343,7 @@ class WalletTest(BitcoinTestFramework):
 
         # Import address and private key to check correct behavior of spendable unspents
         # 1. Send some coins to generate new UTXO
-        address_to_import = self.nodes[2].getnewaddress()
+        address_to_import = self.nodes[2].getaddressinfo(self.nodes[2].getnewaddress())["confidential"]
         txid = self.nodes[0].sendtoaddress(address_to_import, 1)
         self.nodes[0].generate(1)
         self.sync_all([self.nodes[0:3]])
@@ -349,11 +352,14 @@ class WalletTest(BitcoinTestFramework):
         self.nodes[1].importaddress(address_to_import)
 
         # 3. Validate that the imported address is watch-only on node1
+        # ELEMENTS: not watching without blinding key, watchonly with blinding key
+        assert(not self.nodes[1].getaddressinfo(address_to_import)["iswatchonly"])
+        self.nodes[1].importblindingkey(address_to_import, self.nodes[2].dumpblindingkey(address_to_import))
         assert(self.nodes[1].getaddressinfo(address_to_import)["iswatchonly"])
 
         # 4. Check that the unspents after import are not spendable
         assert_array_result(self.nodes[1].listunspent(),
-                            {"address": address_to_import},
+                            {"address": self.nodes[1].getaddressinfo(address_to_import)["unconfidential"]},
                             {"spendable": False})
 
         # 5. Import private key of the previously imported address on node1
@@ -362,7 +368,7 @@ class WalletTest(BitcoinTestFramework):
 
         # 6. Check that the unspents are now spendable on node1
         assert_array_result(self.nodes[1].listunspent(),
-                            {"address": address_to_import},
+                            {"address": self.nodes[1].getaddressinfo(address_to_import)["unconfidential"]},
                             {"spendable": True})
 
         # Mine a block from node0 to an address from node1
