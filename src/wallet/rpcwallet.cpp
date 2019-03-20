@@ -858,7 +858,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 10)
         throw std::runtime_error(
-            "sendmany \"\" \"\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] replaceable conf_target \"estimate_mode\")\n"
+            "sendmany \"\" \"\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] replaceable conf_target \"estimate_mode\", [\"output_assets\"])\n"
             "\nSend multiple times. Amounts are double-precision floating point numbers."
             + HelpRequiringPassphrase(pwallet) + "\n"
             "\nArguments:\n"
@@ -5459,7 +5459,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
 
     if (request.fHelp || (request.params.size() < 1 || request.params.size() > 5))
         throw std::runtime_error(
-            "blindrawtransaction \"hexstring\" ( ignoreblindfail [\"assetcommitment,...\"] blind_issuances \"totalblinder\" )\n"
+            "blindrawtransaction \"hexstring\" ( ignoreblindfail [\"asset_commitment,...\"] blind_issuances \"totalblinder\" )\n"
             "\nConvert one or more outputs of a raw transaction into confidential ones using only wallet inputs.\n"
             "Returns the hex-encoded raw transaction.\n"
             "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
@@ -5803,7 +5803,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "reissueasset asset assetamount\n"
+            "reissueasset \"asset\" assetamount\n"
             "\nCreate more of an already issued asset. Must have reissuance token in wallet to do so. Reissuing does not affect your reissuance token balance, only asset.\n"
             "\nArguments:\n"
             "1. \"asset\"                 (string, required) The asset you want to re-issue. The corresponding token must be in your wallet.\n"
@@ -6095,8 +6095,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "lockunspent",                      &lockunspent,                   {"unlock","transactions"} },
     { "wallet",             "removeprunedfunds",                &removeprunedfunds,             {"txid"} },
     { "wallet",             "rescanblockchain",                 &rescanblockchain,              {"start_height", "stop_height"} },
-    { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode"} },
-    { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
+    { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode", "output_assets", "ignoreblindfail"} },
+    { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode", "assetlabel", "ignoreblindfail"} },
     { "wallet",             "sethdseed",                        &sethdseed,                     {"newkeypool","seed"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
     { "wallet",             "settxfee",                         &settxfee,                      {"amount"} },
@@ -6112,7 +6112,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getpeginaddress",                  &getpeginaddress,               {} },
     { "wallet",             "claimpegin",                       &claimpegin,                    {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",                   &createrawpegin,                {"bitcoin_tx", "txoutproof", "claim_script"} },
-    { "wallet",             "blindrawtransaction",              &blindrawtransaction,           {"hexstring", "ignoreblindfail", "assetcommitment", "blind_issuances", "totalblinder"} },
+    { "wallet",             "blindrawtransaction",              &blindrawtransaction,           {"hexstring", "ignoreblindfail", "asset_commitments", "blind_issuances", "totalblinder"} },
     { "wallet",             "unblindrawtransaction",            &unblindrawtransaction,         {"hex"} },
     { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_descriptor", "bip32_counter", "liquid_pak"} },
@@ -6124,7 +6124,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
     { "wallet",             "listissuances",                    &listissuances,                 {"asset"}},
     { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
-    { "wallet",             "reissueasset",                     &reissueasset,                  {"asset, assetamount"}},
+    { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
     { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment"} },
 };
 // clang-format on
