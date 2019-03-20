@@ -458,11 +458,9 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
-    LogPrintf("xxasset: %s\n", strasset);
     if (request.params.size() > 8 && request.params[8].isStr() && !request.params[8].get_str().empty()) {
         strasset = request.params[8].get_str();
     }
-    LogPrintf("xxasset: %s\n", strasset);
     CAsset asset = GetAssetFromString(strasset);
     if (asset.IsNull() && g_con_elementsmode) {
         throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
