@@ -151,7 +151,7 @@ public:
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
-        g_con_elementswitness = false;
+        g_con_elementsmode = false;
         g_con_blockheightinheader = false;
 
         /**
@@ -277,7 +277,7 @@ public:
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
-        g_con_elementswitness = false;
+        g_con_elementsmode = false;
         g_con_blockheightinheader = false;
 
         pchMessageStart[0] = 0x0b;
@@ -378,7 +378,7 @@ public:
         multi_data_permitted = false;
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
-        g_con_elementswitness = false;
+        g_con_elementsmode = false;
         g_con_blockheightinheader = false;
 
         pchMessageStart[0] = 0xfa;
@@ -543,7 +543,7 @@ class CCustomParams : public CRegTestParams {
         // Note: These globals are needed to avoid circular dependencies.
         // Default to true for custom chains.
         g_con_blockheightinheader = args.GetBoolArg("-con_blockheightinheader", true);
-        g_con_elementswitness = args.GetBoolArg("-con_elementswitness", true);
+        g_con_elementsmode = args.GetBoolArg("-con_elementsmode", true);
 
         // No subsidy for custom chains by default
         consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", 0);
@@ -591,7 +591,7 @@ class CCustomParams : public CRegTestParams {
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
 
         // Elements serialization uses derivation, bitcoin serialization uses 0x00
-        if (g_con_elementswitness) {
+        if (g_con_elementsmode) {
             CalculateAsset(consensus.pegged_asset, entropy);
         } else {
             assert(consensus.pegged_asset == CAsset());
@@ -712,7 +712,7 @@ public:
         g_signed_blocks = true;
 
         g_con_blockheightinheader = true;
-        g_con_elementswitness = true;
+        g_con_elementsmode = true;
 
         consensus.genesis_subsidy = 0;
 
@@ -750,7 +750,7 @@ public:
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
 
         // Elements serialization uses derivation, bitcoin serialization uses 0x00
-        if (g_con_elementswitness) {
+        if (g_con_elementsmode) {
             CalculateAsset(consensus.pegged_asset, entropy);
         } else {
             assert(consensus.pegged_asset == CAsset());

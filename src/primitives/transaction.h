@@ -18,7 +18,7 @@ static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 // ELEMENTS:
 // Globals to avoid circular dependencies.
-extern bool g_con_elementswitness;
+extern bool g_con_elementsmode;
 
 /** An outpoint - a combination of a transaction hash and an index n into its vout */
 class COutPoint
@@ -310,7 +310,7 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
 
     // Witness serialization is different between Elements and Core.
     // See code comments in SerializeTransaction for details about the differences.
-    if (g_con_elementswitness) {
+    if (g_con_elementsmode) {
         s >> flags;
         s >> tx.vin;
         s >> tx.vout;
@@ -378,7 +378,7 @@ inline void SerializeTransaction(const TxType& tx, Stream& s) {
     }
 
     // Witness serialization is different between Elements and Core.
-    if (g_con_elementswitness) {
+    if (g_con_elementsmode) {
         // In Elements-style serialization, all normal data is serialized first and the
         // witnesses all in the end.
         s << flags;

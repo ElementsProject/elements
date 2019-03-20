@@ -200,7 +200,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
 {
     entry.pushKV("txid", tx.GetHash().GetHex());
     entry.pushKV("hash", tx.GetWitnessHash().GetHex());
-    if (g_con_elementswitness) {
+    if (g_con_elementsmode) {
         entry.pushKV("wtxid", tx.GetWitnessHash().GetHex());
         entry.pushKV("withash", tx.GetWitnessOnlyHash().GetHex());
     }

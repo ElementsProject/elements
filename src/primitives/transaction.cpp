@@ -9,7 +9,7 @@
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 
-bool g_con_elementswitness = false;
+bool g_con_elementsmode = false;
 
 std::string COutPoint::ToString() const
 {
@@ -83,7 +83,7 @@ uint256 CTransaction::ComputeWitnessHash() const
 // ELEMENTS ONLY
 uint256 CTransaction::GetWitnessOnlyHash() const
 {
-    assert(g_con_elementswitness);
+    assert(g_con_elementsmode);
 
     std::vector<uint256> leaves;
     leaves.reserve(std::max(vin.size(), vout.size()));

@@ -108,7 +108,7 @@ static inline int64_t GetTransactionInputWeight(const CTransaction& tx, const si
 {
     // scriptWitness size is added here because witnesses and txins are split up in segwit serialization.
     assert(tx.witness.vtxinwit.size() > nIn);
-    //TODO(rebase) only count CA/CT witnesses when g_con_elementswitness is true
+    //TODO(rebase) only count CA/CT witnesses when g_con_elementsmode is true
     return ::GetSerializeSize(tx.vin[nIn], PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1)
     + ::GetSerializeSize(tx.vin[nIn], PROTOCOL_VERSION)
     + ::GetSerializeSize(tx.witness.vtxinwit[nIn].scriptWitness.stack, PROTOCOL_VERSION)
