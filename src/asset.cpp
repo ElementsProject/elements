@@ -1,9 +1,5 @@
 
 #include <asset.h>
-#include <assetsdir.h>
-#include <core_io.h>
-#include <policy/policy.h>
-
 
 CAmountMap& operator+=(CAmountMap& a, const CAmountMap& b)
 {

@@ -2,9 +2,7 @@
 #ifndef BITCOIN_ASSET_H
 #define BITCOIN_ASSET_H
 
-#include <stdint.h>
 #include <uint256.h>
-#include <stdlib.h>
 
 #include <amount.h>
 #include <serialize.h>

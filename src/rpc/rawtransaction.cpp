@@ -33,9 +33,6 @@
 #include <blind.h>
 #include <issuance.h>
 #include <rpc/util.h>
-#ifdef ENABLE_WALLET
-#include <wallet/rpcwallet.h>
-#endif
 
 #include <future>
 #include <stdint.h>
