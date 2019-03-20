@@ -2,8 +2,8 @@
 // // Distributed under the MIT software license, see the accompanying
 // // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_WALLET_BLIND_H
-#define BITCOIN_WALLET_BLIND_H
+#ifndef BITCOIN_BLIND_H
+#define BITCOIN_BLIND_H
 
 #include <key.h>
 #include <pubkey.h>
@@ -60,4 +60,4 @@ void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_b
 
 size_t GetNumIssuances(const CTransaction& tx);
 
-#endif //BITCOIN_WALLET_BLIND_H
+#endif //BITCOIN_BLIND_H
