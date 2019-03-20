@@ -514,6 +514,7 @@ void SetupServerArgs()
     gArgs.AddArg("-assetdir", "Entries of pet names of assets, in this format:asset=<hex>:<label>. There can be any number of entries.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-defaultpeggedassetname", "Default name of the pegged asset. (default: bitcoin)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-blindedaddresses", "Give blind addresses by default via getnewaddress and getrawchangeaddress. (default: -con_elementsmode value)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-blindedprefix", "The byte prefix, in decimal, of blinded addresses. (default: 4)", false, OptionsCategory::ELEMENTS);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
