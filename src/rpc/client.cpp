@@ -167,6 +167,13 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "combineblocksigs", 1, "signatures" },
     { "sendtomainchain", 1, "amount" },
     { "sendtomainchain", 2, "subtractfeefromamount" },
+    { "rawblindrawtransaction", 1, "inputblinder" },
+    { "rawblindrawtransaction", 2, "inputamount" },
+    { "rawblindrawtransaction", 3, "inputasset" },
+    { "rawblindrawtransaction", 4, "inputassetblinder" },
+    { "rawblindrawtransaction", 6, "ignoreblindfail" },
+    { "createrawtransaction", 4, "output_assets" },
+
 };
 // clang-format on
 
