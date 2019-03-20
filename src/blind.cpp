@@ -152,6 +152,22 @@ bool SurjectOutput(CTxOutWitness& txoutwit, const std::vector<secp256k1_fixed_as
     return true;
 }
 
+// Creates ECDH nonce commitment using ephemeral key and output_pubkey
+uint256 GenerateOutputRangeproofNonce(CTxOut& out, const CPubKey output_pubkey)
+{
+    // Generate ephemeral key for ECDH nonce generation
+    CKey ephemeral_key;
+    ephemeral_key.MakeNewKey(true);
+    CPubKey ephemeral_pubkey = ephemeral_key.GetPubKey();
+    assert(ephemeral_pubkey.size() == CConfidentialNonce::nCommittedSize);
+    out.nNonce.vchCommitment.resize(ephemeral_pubkey.size());
+    memcpy(&out.nNonce.vchCommitment[0], &ephemeral_pubkey[0], ephemeral_pubkey.size());
+    // Generate nonce
+    uint256 nonce = ephemeral_key.ECDH(output_pubkey);
+    CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
+    return nonce;
+}
+
 bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vector<unsigned char*>& value_blindptrs, const uint256& nonce, const CAmount amount, const CScript& scriptPubKey, const secp256k1_pedersen_commitment& value_commit, const secp256k1_generator& gen, const CAsset& asset, std::vector<const unsigned char*>& asset_blindptrs)
 {
     // Prep range proof
@@ -205,3 +221,359 @@ size_t GetNumIssuances(const CTransaction& tx)
     return num_issuances;
 }
 
+int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& out_val_blind_factors, std::vector<uint256 >& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators)
+{
+    // Sanity check input data and output_pubkey size, clear other output data
+    assert(tx.vout.size() >= output_pubkeys.size());
+    assert(tx.vin.size()+GetNumIssuances(tx) >= issuance_blinding_privkey.size());
+    assert(tx.vin.size()+GetNumIssuances(tx) >= token_blinding_privkey.size());
+    out_val_blind_factors.clear();
+    out_val_blind_factors.resize(tx.vout.size());
+    out_asset_blind_factors.clear();
+    out_asset_blind_factors.resize(tx.vout.size());
+    assert(tx.vin.size() == input_value_blinding_factors.size());
+    assert(tx.vin.size() == input_asset_blinding_factors.size());
+    assert(tx.vin.size() == input_assets.size());
+    assert(tx.vin.size() == input_amounts.size());
+    if (auxiliary_generators) {
+        assert(auxiliary_generators->size() >= tx.vin.size());
+    }
+
+    std::vector<unsigned char*> value_blindptrs;
+    std::vector<const unsigned char*> asset_blindptrs;
+    std::vector<uint64_t> blinded_amounts;
+    value_blindptrs.reserve(tx.vout.size() + tx.vin.size());
+    asset_blindptrs.reserve(tx.vout.size() + tx.vin.size());
+
+    int ret;
+    int num_blind_attempts = 0, num_issuance_blind_attempts = 0, num_blinded = 0;
+
+    //Surjection proof prep
+
+    // Needed to surj init, only matches to output asset matters, rest can be garbage
+    std::vector<secp256k1_fixed_asset_tag> surjection_targets;
+
+    // Needed to construct the proof itself. Generators must match final transaction to be valid
+    std::vector<secp256k1_generator> target_asset_generators;
+    surjection_targets.resize(tx.vin.size()*3);
+    target_asset_generators.resize(tx.vin.size()*3);
+
+    // input_asset_blinding_factors is only for inputs, not for issuances(0 by def)
+    // but we need to create surjection proofs against this list so we copy and insert 0's
+    // where issuances occur.
+    std::vector<uint256> target_asset_blinders;
+
+    size_t totalTargets = 0;
+    for (size_t i = 0; i < tx.vin.size(); i++) {
+        // For each input we either need the asset/blinds or the generator
+        if (input_assets[i].IsNull()) {
+            // If non-empty generator exists, parse
+            if (auxiliary_generators) {
+                // Parse generator here
+                ret = secp256k1_generator_parse(secp256k1_blind_context, &target_asset_generators[totalTargets], &(*auxiliary_generators)[i][0]);
+                if (ret != 1) {
+                    return -1;
+                }
+            } else {
+                return -1;
+            }
+        } else {
+            ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &target_asset_generators[totalTargets], input_assets[i].begin(), input_asset_blinding_factors[i].begin());
+            assert(ret == 1);
+        }
+        memcpy(&surjection_targets[totalTargets], input_assets[i].begin(), 32);
+        target_asset_blinders.push_back(input_asset_blinding_factors[i]);
+        totalTargets++;
+
+        // Create target generators for issuances
+        CAssetIssuance& issuance = tx.vin[i].assetIssuance;
+        uint256 entropy;
+        CAsset asset;
+        CAsset token;
+        if (!issuance.IsNull()) {
+            if (issuance.nAmount.IsCommitment() || issuance.nInflationKeys.IsCommitment()) {
+                return -1;
+            }
+            // New Issuance
+            if (issuance.assetBlindingNonce.IsNull()) {
+                bool blind_issuance = (token_blinding_privkey.size() > i && token_blinding_privkey[i].IsValid()) ? true : false;
+                GenerateAssetEntropy(entropy, tx.vin[i].prevout, issuance.assetEntropy);
+                CalculateAsset(asset, entropy);
+                CalculateReissuanceToken(token, entropy, blind_issuance);
+            } else {
+                CalculateAsset(asset, issuance.assetEntropy);
+            }
+
+            if (!issuance.nAmount.IsNull()) {
+                memcpy(&surjection_targets[totalTargets], asset.begin(), 32);
+                ret = secp256k1_generator_generate(secp256k1_blind_context, &target_asset_generators[totalTargets], asset.begin());
+                assert(ret != 0);
+                // Issuance asset cannot be blinded by definition
+                target_asset_blinders.push_back(uint256());
+                totalTargets++;
+            }
+            if (!issuance.nInflationKeys.IsNull()) {
+                assert(!token.IsNull());
+                memcpy(&surjection_targets[totalTargets], token.begin(), 32);
+                ret = secp256k1_generator_generate(secp256k1_blind_context, &target_asset_generators[totalTargets], token.begin());
+                assert(ret != 0);
+                // Issuance asset cannot be blinded by definition
+                target_asset_blinders.push_back(uint256());
+                totalTargets++;
+            }
+        }
+    }
+
+    if (auxiliary_generators) {
+        // Process any additional targets from auxiliary_generators
+        // we know nothing about it other than the generator itself
+        for (size_t i = tx.vin.size(); i < auxiliary_generators->size(); i++) {
+            ret = secp256k1_generator_parse(secp256k1_blind_context, &target_asset_generators[totalTargets], &(*auxiliary_generators)[i][0]);
+            if (ret != 1) {
+                return -1;
+            }
+            memset(&surjection_targets[totalTargets], 0, 32);
+            target_asset_blinders.push_back(uint256());
+            totalTargets++;
+        }
+    }
+
+    // Resize the target surjection lists to how many actually exist
+    assert(totalTargets == target_asset_blinders.size());
+    surjection_targets.resize(totalTargets);
+    target_asset_generators.resize(totalTargets);
+
+    //Total blinded inputs that you own (that you are balancing against)
+    int num_known_input_blinds = 0;
+    //Number of outputs and issuances to blind
+    int num_to_blind = 0;
+
+    // Make sure witness lengths are correct
+    tx.witness.vtxoutwit.resize(tx.vout.size());
+    tx.witness.vtxinwit.resize(tx.vin.size());
+
+    size_t txoutwitsize = tx.witness.vtxoutwit.size();
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        if (!input_value_blinding_factors[nIn].IsNull() || !input_asset_blinding_factors[nIn].IsNull()) {
+            if (input_amounts[nIn] < 0) {
+                return -1;
+            }
+            value_blindptrs.push_back(input_value_blinding_factors[nIn].begin());
+            asset_blindptrs.push_back(input_asset_blinding_factors[nIn].begin());
+            blinded_amounts.push_back(input_amounts[nIn]);
+            num_known_input_blinds++;
+        }
+
+        // Count number of issuance pseudo-inputs to blind
+        CAssetIssuance& issuance = tx.vin[nIn].assetIssuance;
+        if (!issuance.IsNull()) {
+            // Marked for blinding
+            if (issuance_blinding_privkey.size() > nIn && issuance_blinding_privkey[nIn].IsValid()) {
+                if(issuance.nAmount.IsExplicit() && tx.witness.vtxinwit[nIn].vchIssuanceAmountRangeproof.empty()) {
+                    num_to_blind++;
+                } else {
+                    return -1;
+                }
+            }
+            if (token_blinding_privkey.size() > nIn && token_blinding_privkey[nIn].IsValid()) {
+                if(issuance.nInflationKeys.IsExplicit() && tx.witness.vtxinwit[nIn].vchInflationKeysRangeproof.empty()) {
+                    num_to_blind++;
+                } else {
+                    return -1;
+                }
+            }
+        }
+    }
+
+    for (size_t nOut = 0; nOut < output_pubkeys.size(); nOut++) {
+        if (output_pubkeys[nOut].IsValid()) {
+            // Keys must be valid and outputs completely unblinded or else call fails
+            if (!output_pubkeys[nOut].IsFullyValid() ||
+                (!tx.vout[nOut].nValue.IsExplicit() || !tx.vout[nOut].nAsset.IsExplicit()) ||
+                   (txoutwitsize > nOut && !tx.witness.vtxoutwit[nOut].IsNull())
+                        || tx.vout[nOut].IsFee()) {
+                return -1;
+            }
+            num_to_blind++;
+         }
+    }
+
+
+    //Running total of newly blinded outputs
+    static const unsigned char diff_zero[32] = {0};
+    assert(num_to_blind <= 10000); // More than 10k outputs? Stop spamming.
+    unsigned char blind[10000][32];
+    unsigned char asset_blind[10000][32];
+    secp256k1_pedersen_commitment value_commit;
+    secp256k1_generator asset_gen;
+    CAsset asset;
+
+    // First blind issuance pseudo-inputs
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        for (size_t nPseudo = 0; nPseudo < 2; nPseudo++) {
+            if ((nPseudo == 0 && issuance_blinding_privkey.size() > nIn && issuance_blinding_privkey[nIn].IsValid()) ||
+                    (nPseudo == 1 && token_blinding_privkey.size() > nIn && token_blinding_privkey[nIn].IsValid())) {
+                num_blind_attempts++;
+                num_issuance_blind_attempts++;
+                CAssetIssuance& issuance = tx.vin[nIn].assetIssuance;
+                // First iteration does issuance asset, second inflation keys
+                CConfidentialValue& conf_value = nPseudo ? issuance.nInflationKeys : issuance.nAmount;
+                if (conf_value.IsNull()) {
+                    continue;
+                }
+                CAmount amount = conf_value.GetAmount();
+                blinded_amounts.push_back(amount);
+
+                // Derive the asset of the issuance asset/token
+                if (issuance.assetBlindingNonce.IsNull()) {
+					uint256 entropy;
+                    GenerateAssetEntropy(entropy, tx.vin[nIn].prevout, issuance.assetEntropy);
+                    if (nPseudo == 0) {
+                        CalculateAsset(asset, entropy);
+                    } else {
+                        bool blind_issuance = (token_blinding_privkey.size() > nIn && token_blinding_privkey[nIn].IsValid()) ? true : false;
+                        CalculateReissuanceToken(asset, entropy, blind_issuance);
+                    }
+				} else {
+                    if (nPseudo == 0) {
+                        CalculateAsset(asset, issuance.assetEntropy);
+                    } else {
+                        // Re-issuance only has one pseudo-input maximum
+                        continue;
+                    }
+                }
+
+                // Fill out the value blinders and blank asset blinder
+                GetStrongRandBytes(&blind[num_blind_attempts-1][0], 32);
+                // Issuances are not asset-blinded
+                memset(&asset_blind[num_blind_attempts-1][0], 0, 32);
+                value_blindptrs.push_back(&blind[num_blind_attempts-1][0]);
+                asset_blindptrs.push_back(&asset_blind[num_blind_attempts-1][0]);
+
+                if (num_blind_attempts == num_to_blind) {
+                    // All outputs we own are unblinded, we don't support this type of blinding
+                    // though it is possible. No privacy gained here, incompatible with secp api
+                    return num_blinded;
+                }
+
+                if (tx.witness.vtxinwit.size() <= nIn) {
+                    tx.witness.vtxinwit.resize(tx.vin.size());
+                }
+                CTxInWitness& txinwit = tx.witness.vtxinwit[nIn];
+
+                // Create unblinded generator. We throw away all but `asset_gen`
+                CConfidentialAsset conf_asset;
+                BlindAsset(conf_asset, asset_gen, asset, asset_blindptrs.back());
+
+                // Create value commitment
+                CreateValueCommitment(conf_value, value_commit, value_blindptrs.back(), asset_gen, amount);
+
+                // nonce should just be blinding key
+                uint256 nonce = nPseudo ? uint256(std::vector<unsigned char>(token_blinding_privkey[nIn].begin(), token_blinding_privkey[nIn].end())) : uint256(std::vector<unsigned char>(issuance_blinding_privkey[nIn].begin(), issuance_blinding_privkey[nIn].end()));
+
+                // Generate rangeproof, no script committed for issuances
+                bool rangeresult = GenerateRangeproof((nPseudo ? txinwit.vchInflationKeysRangeproof : txinwit.vchIssuanceAmountRangeproof), value_blindptrs, nonce, amount, CScript(), value_commit, asset_gen, asset, asset_blindptrs);
+                assert(rangeresult);
+
+                // Successfully blinded this issuance
+                num_blinded++;
+            }
+        }
+    }
+
+    // This section of code *only* deals with unblinded outputs
+    // that we want to blind
+    for (size_t nOut = 0; nOut < output_pubkeys.size(); nOut++) {
+        if (output_pubkeys[nOut].IsFullyValid()) {
+            CTxOut& out = tx.vout[nOut];
+            num_blind_attempts++;
+            CConfidentialAsset& conf_asset = out.nAsset;
+            CConfidentialValue& conf_value = out.nValue;
+            CAmount amount = conf_value.GetAmount();
+            asset = out.nAsset.GetAsset();
+            blinded_amounts.push_back(conf_value.GetAmount());
+
+            GetStrongRandBytes(&blind[num_blind_attempts-1][0], 32);
+            GetStrongRandBytes(&asset_blind[num_blind_attempts-1][0], 32);
+            value_blindptrs.push_back(&blind[num_blind_attempts-1][0]);
+            asset_blindptrs.push_back(&asset_blind[num_blind_attempts-1][0]);
+
+            // Last blinding factor r' is set as -(output's (vr + r') - input's (vr + r')).
+            // Before modifying the transaction or return arguments we must
+            // ensure the final blinding factor to not be its corresponding -vr (aka unblinded),
+            // or 0, in the case of 0-value output, insisting on additional output to blind.
+            if (num_blind_attempts == num_to_blind) {
+
+                // Can't successfully blind in this case, since -vr = r
+                // This check is assuming blinds are generated randomly
+                // Adversary would need to create all input blinds
+                // therefore would already know all your summed output amount anyways.
+                if (num_blind_attempts == 1 && num_known_input_blinds == 0) {
+                    return num_blinded;
+                }
+
+                // Generate value we intend to insert
+                ret = secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blinded_amounts[0], &asset_blindptrs[0], &value_blindptrs[0], num_blind_attempts + num_known_input_blinds, num_issuance_blind_attempts + num_known_input_blinds);
+                assert(ret);
+
+                // Resulting blinding factor can sometimes be 0
+                // where inputs are the negations of each other
+                // and the unblinded value of the output is 0.
+                // e.g. 1 unblinded input to 2 blinded outputs,
+                // then spent to 1 unblinded output. (vr + r')
+                // becomes just (r'), if this is 0, we can just
+                // abort and not blind and the math adds up.
+                // Count as success(to signal caller that nothing wrong) and return early
+                if (memcmp(diff_zero, &blind[num_blind_attempts-1][0], 32) == 0) {
+                   return ++num_blinded;
+                }
+            }
+
+            CTxOutWitness& txoutwit = tx.witness.vtxoutwit[nOut];
+
+            out_val_blind_factors[nOut] = uint256(std::vector<unsigned char>(value_blindptrs[value_blindptrs.size()-1], value_blindptrs[value_blindptrs.size()-1]+32));
+            out_asset_blind_factors[nOut] = uint256(std::vector<unsigned char>(asset_blindptrs[asset_blindptrs.size()-1], asset_blindptrs[asset_blindptrs.size()-1]+32));
+
+            //Blind the asset ID
+            BlindAsset(conf_asset, asset_gen, asset, asset_blindptrs.back());
+
+            // Create value commitment
+            CreateValueCommitment(conf_value, value_commit, value_blindptrs.back(), asset_gen, amount);
+
+            // Generate nonce for rewind by owner
+            uint256 nonce = GenerateOutputRangeproofNonce(out, output_pubkeys[nOut]);
+
+            // Generate rangeproof
+            bool rangeresult = GenerateRangeproof(txoutwit.vchRangeproof, value_blindptrs, nonce, amount, out.scriptPubKey, value_commit, asset_gen, asset, asset_blindptrs);
+            assert(rangeresult);
+
+            // Create surjection proof for this output
+            if (!SurjectOutput(txoutwit, surjection_targets, target_asset_generators, target_asset_blinders, asset_blindptrs, asset_gen, asset)) {
+                continue;
+            }
+
+            // Successfully blinded this output
+            num_blinded++;
+        }
+    }
+
+    return num_blinded;
+}
+
+void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys) {
+    for (size_t nOut = 0; nOut < tx.vout.size(); nOut++) {
+        // Any place-holder blinding pubkeys are extracted
+        if (tx.vout[nOut].nValue.IsExplicit()) {
+            CPubKey pubkey(tx.vout[nOut].nNonce.vchCommitment);
+            if (pubkey.IsFullyValid()) {
+                output_pubkeys.push_back(pubkey);
+            } else {
+                output_pubkeys.push_back(CPubKey());
+            }
+        }
+        // No way to unblind anything, just fill out
+        output_value_blinds.push_back(uint256());
+        output_asset_blinds.push_back(uint256());
+    }
+    // We cannot unwind issuance inputs because there is no nonce placeholder for pubkeys
+}
