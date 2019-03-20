@@ -3013,7 +3013,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
         CAsset assetid = out.tx->GetOutputAsset(out.i);
         // Only list known outputs that match optional filter
         if (g_con_elementsmode && (amount < 0 || assetid.IsNull())) {
-            LogPrintf("wallet", "Unable to unblind output: %s:%d\n", out.tx->tx->GetHash().GetHex(), out.i);
+            wallet->WalletLogPrintf("Unable to unblind output: %s:%d\n", out.tx->tx->GetHash().GetHex(), out.i);
             continue;
         }
         if (!asset_str.empty() && asset_filter != assetid) {
