@@ -73,6 +73,7 @@ BASE_SCRIPTS = [
     'feature_default_asset_name.py',
     'feature_assetsdir.py',
     'feature_initial_reissuance_token.py',
+    'feature_progress.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py',
     'wallet_backup.py',
