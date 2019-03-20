@@ -54,6 +54,7 @@ public:
         EXT_PUBLIC_KEY,
         EXT_SECRET_KEY,
         // ELEMENTS
+        BLINDED_ADDRESS,
         PARENT_PUBKEY_ADDRESS,
         PARENT_SCRIPT_ADDRESS,
 
@@ -80,6 +81,7 @@ public:
     const std::vector<std::string>& DNSSeeds() const { return vSeeds; }
     const std::vector<unsigned char>& Base58Prefix(Base58Type type) const { return base58Prefixes[type]; }
     const std::string& Bech32HRP() const { return bech32_hrp; }
+    const std::string& Blech32HRP() const { return blech32_hrp; }
     const std::vector<SeedSpec6>& FixedSeeds() const { return vFixedSeeds; }
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
@@ -87,6 +89,7 @@ public:
     const uint256 ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
     bool anyonecanspend_aremine;
     const std::string& ParentBech32HRP() const { return parent_bech32_hrp; }
+    const std::string& ParentBlech32HRP() const { return parent_blech32_hrp; }
     bool GetEnforcePak() const { return enforce_pak; }
     bool GetMultiDataPermitted() const { return multi_data_permitted; }
 
@@ -100,9 +103,11 @@ protected:
     std::vector<std::string> vSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string bech32_hrp;
+    std::string blech32_hrp;
     std::string strNetworkID;
     CBlock genesis;
     CAmount initialFreeCoins;
+    CAmount initial_reissuance_tokens;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
@@ -113,6 +118,7 @@ protected:
     // ELEMENTS extra fields:
     uint256 parentGenesisBlockHash;
     std::string parent_bech32_hrp;
+    std::string parent_blech32_hrp;
     bool enforce_pak;
     bool multi_data_permitted;
 };

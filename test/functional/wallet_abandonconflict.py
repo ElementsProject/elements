@@ -26,7 +26,7 @@ class AbandonConflictTest(BitcoinTestFramework):
     def run_test(self):
         self.nodes[1].generate(100)
         sync_blocks(self.nodes)
-        balance = self.nodes[0].getbalance()
+        balance = self.nodes[0].getbalance()['bitcoin']
         txA = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))
         txB = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))
         txC = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("10"))
@@ -39,7 +39,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         assert_raises_rpc_error(-5, 'Transaction not eligible for abandonment', lambda: self.nodes[0].abandontransaction(txid=txA))
 
         sync_blocks(self.nodes)
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert(balance - newbalance < Decimal("0.001")) #no more than fees lost
         balance = newbalance
 
@@ -59,6 +59,7 @@ class AbandonConflictTest(BitcoinTestFramework):
 
         outputs[self.nodes[0].getnewaddress()] = Decimal("14.99998")
         outputs[self.nodes[1].getnewaddress()] = Decimal("5")
+        outputs["fee"] = 2 * Decimal('10') - Decimal('14.99998') - Decimal('5')
         signed = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs))
         txAB1 = self.nodes[0].sendrawtransaction(signed["hex"])
 
@@ -71,6 +72,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         inputs.append({"txid":txC, "vout":nC})
         outputs = {}
         outputs[self.nodes[0].getnewaddress()] = Decimal("24.9996")
+        outputs["fee"] = Decimal('14.99998') + Decimal('10') - Decimal('24.9996')
         signed2 = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs))
         txABC2 = self.nodes[0].sendrawtransaction(signed2["hex"])
 
@@ -78,12 +80,13 @@ class AbandonConflictTest(BitcoinTestFramework):
         signed3_change = Decimal("24.999")
         inputs = [ {"txid":txABC2, "vout":0} ]
         outputs = { self.nodes[0].getnewaddress(): signed3_change }
+        outputs["fee"] = Decimal('24.9996') - signed3_change
         signed3 = self.nodes[0].signrawtransactionwithwallet(self.nodes[0].createrawtransaction(inputs, outputs))
         # note tx is never directly referenced, only abandoned as a child of the above
         self.nodes[0].sendrawtransaction(signed3["hex"])
 
         # In mempool txs from self should increase balance from change
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance - Decimal("30") + signed3_change)
         balance = newbalance
 
@@ -98,11 +101,11 @@ class AbandonConflictTest(BitcoinTestFramework):
 
         # Not in mempool txs from self should only reduce balance
         # inputs are still spent, but change not received
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance - signed3_change)
         # Unconfirmed received funds that are not in mempool, also shouldn't show
         # up in unconfirmed balance
-        unconfbalance = self.nodes[0].getunconfirmedbalance() + self.nodes[0].getbalance()
+        unconfbalance = self.nodes[0].getunconfirmedbalance()['bitcoin']+ self.nodes[0].getbalance()['bitcoin']
         assert_equal(unconfbalance, newbalance)
         # Also shouldn't show up in listunspent
         assert(not txABC2 in [utxo["txid"] for utxo in self.nodes[0].listunspent(0)])
@@ -111,7 +114,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         # Abandon original transaction and verify inputs are available again
         # including that the child tx was also abandoned
         self.nodes[0].abandontransaction(txAB1)
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance + Decimal("30"))
         balance = newbalance
 
@@ -119,19 +122,19 @@ class AbandonConflictTest(BitcoinTestFramework):
         self.stop_node(0)
         self.start_node(0, extra_args=["-minrelaytxfee=0.00001"])
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
-        assert_equal(self.nodes[0].getbalance(), balance)
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], balance)
 
         # But if it is received again then it is unabandoned
         # And since now in mempool, the change is available
         # But its child tx remains abandoned
         self.nodes[0].sendrawtransaction(signed["hex"])
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance - Decimal("20") + Decimal("14.99998"))
         balance = newbalance
 
         # Send child tx again so it is unabandoned
         self.nodes[0].sendrawtransaction(signed2["hex"])
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance - Decimal("10") - Decimal("14.99998") + Decimal("24.9996"))
         balance = newbalance
 
@@ -139,7 +142,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         self.stop_node(0)
         self.start_node(0, extra_args=["-minrelaytxfee=0.0001"])
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance - Decimal("24.9996"))
         balance = newbalance
 
@@ -149,6 +152,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         inputs.append({"txid":txA, "vout":nA})
         outputs = {}
         outputs[self.nodes[1].getnewaddress()] = Decimal("9.9999")
+        outputs["fee"] = Decimal('10') - Decimal('9.9999')
         tx = self.nodes[0].createrawtransaction(inputs, outputs)
         signed = self.nodes[0].signrawtransactionwithwallet(tx)
         self.nodes[1].sendrawtransaction(signed["hex"])
@@ -158,7 +162,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         # Verify that B and C's 10 BTC outputs are available for spending again because AB1 is now conflicted
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         assert_equal(newbalance, balance + Decimal("20"))
         balance = newbalance
 
@@ -166,7 +170,7 @@ class AbandonConflictTest(BitcoinTestFramework):
         # Invalidate the block with the double spend and B's 10 BTC output should no longer be available
         # Don't think C's should either
         self.nodes[0].invalidateblock(self.nodes[0].getbestblockhash())
-        newbalance = self.nodes[0].getbalance()
+        newbalance = self.nodes[0].getbalance()['bitcoin']
         #assert_equal(newbalance, balance - Decimal("10"))
         self.log.info("If balance has not declined after invalidateblock then out of mempool wallet tx which is no longer")
         self.log.info("conflicted has not resumed causing its inputs to be seen as spent.  See Issue #7315")

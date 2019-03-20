@@ -23,6 +23,11 @@ from io import BytesIO
 
 logger = logging.getLogger("TestFramework.utils")
 
+BITCOIN_ASSET = "e08fa5a62d79b9e3f5f476743a5535512f0f44444533275a2adc5fe8476a2eac"
+BITCOIN_ASSET_BYTES = bytearray.fromhex(BITCOIN_ASSET)
+BITCOIN_ASSET_BYTES.reverse()
+BITCOIN_ASSET_OUT = b"\x01"+BITCOIN_ASSET_BYTES
+
 # This variable should be set to the node being used for CalcFastMerkleRoot calls
 node_fastmerkle = None
 
@@ -314,6 +319,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
         # Elements:
+        f.write("con_parent_pegged_asset=" + BITCOIN_ASSET + "\n")
         f.write("con_blocksubsidy=5000000000\n")
         f.write("con_connect_coinbase=0\n")
         f.write("anyonecanspendaremine=0\n")
@@ -322,6 +328,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
         f.write("con_csv_deploy_start=0\n") # Enhance tests if removing this line
+        f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
@@ -512,6 +519,7 @@ def create_confirmed_utxos(fee, node, count):
         send_value = t['amount'] - fee
         outputs[addr1] = satoshi_round(send_value / 2)
         outputs[addr2] = satoshi_round(send_value / 2)
+        outputs["fee"] = fee
         raw_tx = node.createrawtransaction(inputs, outputs)
         signed_tx = node.signrawtransactionwithwallet(raw_tx)["hex"]
         node.sendrawtransaction(signed_tx)
@@ -534,10 +542,10 @@ def gen_return_txouts():
         script_pubkey = script_pubkey + "01"
     # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
     txouts = []
-    from .messages import CTxOut
+    from .messages import CTxOut, CTxOutValue
     for k in range(128):
         txout = CTxOut()
-        txout.nValue = 0
+        txout.nValue = CTxOutValue(0)
         txout.scriptPubKey = hex_str_to_bytes(script_pubkey)
         txouts.append(txout)
     return txouts
@@ -554,6 +562,7 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
         outputs = {}
         change = t['amount'] - fee
         outputs[addr] = satoshi_round(change)
+        outputs["fee"] = fee
         rawtx = node.createrawtransaction(inputs, outputs)
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(rawtx)))
@@ -584,7 +593,10 @@ def find_vout_for_address(node, txid, addr):
     given address. Raises runtime error exception if not found.
     """
     tx = node.getrawtransaction(txid, True)
+    unblind_addr = node.validateaddress(addr)["unconfidential"]
     for i in range(len(tx["vout"])):
-        if any([addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
+        if tx["vout"][i]["scriptPubKey"]["type"] == "fee":
+            continue
+        if any([unblind_addr == a for a in tx["vout"][i]["scriptPubKey"]["addresses"]]):
             return i
     raise RuntimeError("Vout not found for address: txid=%s, addr=%s" % (txid, addr))

@@ -74,7 +74,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "createrawtransaction", self.nodes[0].createrawtransaction, [])
 
         # Test `createrawtransaction` invalid extra parameters
-        assert_raises_rpc_error(-1, "createrawtransaction", self.nodes[0].createrawtransaction, [], {}, 0, False, 'foo')
+        # ELEMENTS: we have extra elements arguments
+        assert_raises_rpc_error(-1, "createrawtransaction", self.nodes[0].createrawtransaction, [], {}, 0, False, [], 'foo')
 
         # Test `createrawtransaction` invalid `inputs`
         txid = '1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000'
@@ -253,18 +254,18 @@ class RawTransactionsTest(BitcoinTestFramework):
         mSigObj = self.nodes[2].addmultisigaddress(2, [addr1Obj['pubkey'], addr1])['address']
 
         #use balance deltas instead of absolute values
-        bal = self.nodes[2].getbalance()
+        bal = self.nodes[2].getbalance()['bitcoin']
 
         # send 1.2 BTC to msig adr
         txId = self.nodes[0].sendtoaddress(mSigObj, 1.2)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[2].getbalance(), bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], bal+Decimal('1.20000000')) #node2 has both keys of the 2of2 ms addr., tx should affect the balance
 
 
         # 2of3 test from different nodes
-        bal = self.nodes[2].getbalance()
+        bal = self.nodes[2].getbalance()['bitcoin']
         addr1 = self.nodes[1].getnewaddress()
         addr2 = self.nodes[2].getnewaddress()
         addr3 = self.nodes[2].getnewaddress()
@@ -284,7 +285,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         #THIS IS AN INCOMPLETE FEATURE
         #NODE2 HAS TWO OF THREE KEY AND THE FUNDS SHOULD BE SPENDABLE AND COUNT AT BALANCE CALCULATION
-        assert_equal(self.nodes[2].getbalance(), bal) #for now, assume the funds of a 2of3 multisig tx are not marked as spendable
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], bal) #for now, assume the funds of a 2of3 multisig tx are not marked as spendable
 
         txDetails = self.nodes[0].gettransaction(txId, True)
         rawTx = self.nodes[0].decoderawtransaction(txDetails['hex'])
@@ -294,9 +295,10 @@ class RawTransactionsTest(BitcoinTestFramework):
                 vout = outpoint
                 break
 
-        bal = self.nodes[0].getbalance()
+        bal = self.nodes[0].getbalance()['bitcoin']
         inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "amount" : vout['value']}]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
+        outputs["fee"] = vout["value"] - Decimal('2.19')
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxPartialSigned = self.nodes[1].signrawtransactionwithwallet(rawTx, inputs)
         assert_equal(rawTxPartialSigned['complete'], False) #node1 only has one key, can't comp. sign the tx
@@ -308,10 +310,10 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
 
         # 2of2 test for combining transactions
-        bal = self.nodes[2].getbalance()
+        bal = self.nodes[2].getbalance()['bitcoin']
         addr1 = self.nodes[1].getnewaddress()
         addr2 = self.nodes[2].getnewaddress()
 
@@ -329,7 +331,7 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        assert_equal(self.nodes[2].getbalance(), bal) # the funds of a 2of2 multisig tx should not be marked as spendable
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], bal) # the funds of a 2of2 multisig tx should not be marked as spendable
 
         txDetails = self.nodes[0].gettransaction(txId, True)
         rawTx2 = self.nodes[0].decoderawtransaction(txDetails['hex'])
@@ -339,9 +341,10 @@ class RawTransactionsTest(BitcoinTestFramework):
                 vout = outpoint
                 break
 
-        bal = self.nodes[0].getbalance()
+        bal = self.nodes[0].getbalance()['bitcoin']
         inputs = [{ "txid" : txId, "vout" : vout['n'], "scriptPubKey" : vout['scriptPubKey']['hex'], "redeemScript" : mSigObjValid['hex'], "amount" : vout['value']}]
         outputs = { self.nodes[0].getnewaddress() : 2.19 }
+        outputs["fee"] = vout["value"] - Decimal('2.19')
         rawTx2 = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxPartialSigned1 = self.nodes[1].signrawtransactionwithwallet(rawTx2, inputs)
         self.log.debug(rawTxPartialSigned1)
@@ -357,13 +360,13 @@ class RawTransactionsTest(BitcoinTestFramework):
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
-        assert_equal(self.nodes[0].getbalance(), bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], bal+Decimal('50.00000000')+Decimal('2.19000000')) #block reward + tx
 
         # decoderawtransaction tests
         # witness transaction
         # new in core:
         #encrawtx = "010000000001010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0100e1f50500000000000102616100000000"
-        encrawtx = "0100000000010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0100e1f505000000000000000000"
+        encrawtx = "0100000001010000000000000072c1a6a246ae63f74f931e8365e15a089c68d61900000000000000000000ffffffff0101ac2e6a47e85fdc2a5a27334544440f2f5135553a7476f4f5e3b9792da6a58fe0010000000005f5e100000000000000000001026161000000"
         decrawtx = self.nodes[0].decoderawtransaction(encrawtx, True) # decode as witness transaction
         assert_equal(decrawtx['vout'][0]['value'], Decimal('1.00000000'))
 

@@ -6,6 +6,7 @@
 #ifndef BITCOIN_CONSENSUS_PARAMS_H
 #define BITCOIN_CONSENSUS_PARAMS_H
 
+#include <asset.h>
 #include <uint256.h>
 #include <limits>
 #include <map>
@@ -83,6 +84,7 @@ struct Params {
     // ELEMENTS CHAIN PARAMS
     CScript mandatory_coinbase_destination;
     CAmount genesis_subsidy;
+    CAsset subsidy_asset;
     bool connect_genesis_outputs;
     bool has_parent_chain;
     uint256 parentChainPowLimit;
@@ -90,6 +92,8 @@ struct Params {
     CScript parent_chain_signblockscript;
     bool ParentChainHasPow() const { return parent_chain_signblockscript == CScript();}
     CScript fedpegScript;
+    CAsset pegged_asset;
+    CAsset parent_pegged_asset;
     // g_con_blockheightinheader global hack instead of proper arg due to circular dep
     std::string genesis_style;
     CScript signblockscript;

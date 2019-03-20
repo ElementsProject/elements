@@ -18,6 +18,7 @@ from .messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
+    CTxOutValue,
     FromHex,
     ToHex,
     bytes_to_hex_str,
@@ -80,13 +81,20 @@ def add_witness_commitment(block, nonce=0):
     # First calculate the merkle root of the block's
     # transactions, with witnesses.
     witness_nonce = nonce
-    witness_root = block.calc_witness_merkle_root()
+
+    # ELEMENTS: add empty txout to end of coinbase tx
+    block.vtx[0].vout.append(CTxOut())
+    # block.vtx[0].vout[-1].nAsset.setNull() # TODO find out why this breaks stuff
+    # unless you directly put back in a valid .vchCommitment
+
+    witness_root_hex = block.calc_witness_merkle_root()
+    witness_root = uint256_from_str(hex_str_to_bytes(witness_root_hex)[::-1])
     # witness_nonce should go to coinbase witness.
     block.vtx[0].wit.vtxinwit = [CTxInWitness()]
     block.vtx[0].wit.vtxinwit[0].scriptWitness.stack = [ser_uint256(witness_nonce)]
 
     # witness commitment is the last OP_RETURN output in coinbase
-    block.vtx[0].vout.append(CTxOut(0, get_witness_script(witness_root, witness_nonce)))
+    block.vtx[0].vout[-1] = CTxOut(0, get_witness_script(witness_root, witness_nonce))
     block.vtx[0].rehash()
     block.hashMerkleRoot = block.calc_merkle_root()
     block.rehash()
@@ -115,9 +123,10 @@ def create_coinbase(height, pubkey=None):
     coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
                         ser_string(serialize_script_num(height)), 0xffffffff))
     coinbaseoutput = CTxOut()
-    coinbaseoutput.nValue = 50 * COIN
+    value = 50 * COIN
     halvings = int(height / 150)  # regtest
-    coinbaseoutput.nValue >>= halvings
+    value >>= halvings
+    coinbaseoutput.nValue = CTxOutValue(value)
     if (pubkey is not None):
         coinbaseoutput.scriptPubKey = CScript([pubkey, OP_CHECKSIG])
     else:
@@ -126,7 +135,7 @@ def create_coinbase(height, pubkey=None):
     coinbase.calc_sha256()
     return coinbase
 
-def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=CScript()):
+def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, fee=0, script_pub_key=CScript()):
     """Return one-input, one-output transaction object
        spending the prevtx's n-th output with the given amount.
 
@@ -136,27 +145,29 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, script_pub_key=C
     assert(n < len(prevtx.vout))
     tx.vin.append(CTxIn(COutPoint(prevtx.sha256, n), script_sig, 0xffffffff))
     tx.vout.append(CTxOut(amount, script_pub_key))
+    if fee > 0:
+        tx.vout.append(CTxOut(fee))
     tx.calc_sha256()
     return tx
 
-def create_transaction(node, txid, to_address, *, amount):
+def create_transaction(node, txid, to_address, *, amount, fee):
     """ Return signed transaction spending the first output of the
         input txid. Note that the node must be able to sign for the
         output that is being spent, and the node must not be running
         multiple wallets.
     """
-    raw_tx = create_raw_transaction(node, txid, to_address, amount=amount)
+    raw_tx = create_raw_transaction(node, txid, to_address, amount=amount, fee=fee)
     tx = CTransaction()
     tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx)))
     return tx
 
-def create_raw_transaction(node, txid, to_address, *, amount):
+def create_raw_transaction(node, txid, to_address, *, amount, fee):
     """ Return raw signed transaction spending the first output of the
         input txid. Note that the node must be able to sign for the
         output that is being spent, and the node must not be running
         multiple wallets.
     """
-    rawtx = node.createrawtransaction(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount})
+    rawtx = node.createrawtransaction(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee})
     signresult = node.signrawtransactionwithwallet(rawtx)
     assert_equal(signresult["complete"], True)
     return signresult['hex']
@@ -170,7 +181,7 @@ def get_legacy_sigopcount_block(block, accurate=True):
 def get_legacy_sigopcount_tx(tx, accurate=True):
     count = 0
     for i in tx.vout:
-        count += i.scriptPubKey.GetSigOpCount(accurate)
+        count += CScript(i.scriptPubKey).GetSigOpCount(accurate)
     for j in tx.vin:
         # scriptSig might be of type bytes, so convert to CScript for the moment
         count += CScript(j.scriptSig).GetSigOpCount(accurate)
@@ -204,7 +215,9 @@ def create_witness_tx(node, use_p2wsh, utxo, pubkey, encode_p2sh, amount):
         addr = key_to_p2sh_p2wpkh(pubkey) if encode_p2sh else key_to_p2wpkh(pubkey)
     if not encode_p2sh:
         assert_equal(node.getaddressinfo(addr)['scriptPubKey'], witness_script(use_p2wsh, pubkey))
-    return node.createrawtransaction([utxo], {addr: amount})
+    if "amount" not in utxo:
+        utxo["amount"] = node.gettxout(utxo["txid"], utxo["vout"])["value"]
+    return node.createrawtransaction([utxo], {addr: amount, "fee": utxo["amount"]-amount})
 
 def send_to_witness(use_p2wsh, node, utxo, pubkey, encode_p2sh, amount, sign=True, insert_redeem_script=""):
     """Create a transaction spending a given utxo to a segwit output.

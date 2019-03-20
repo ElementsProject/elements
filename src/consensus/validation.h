@@ -108,11 +108,14 @@ static inline int64_t GetTransactionInputWeight(const CTransaction& tx, const si
 {
     // scriptWitness size is added here because witnesses and txins are split up in segwit serialization.
     assert(tx.witness.vtxinwit.size() > nIn);
-    //TODO(rebase) only count CA/CT witnesses when g_con_elementswitness is true
+    // ELEMENTS: This is only used for change size calculation in wallet, assert if
+    // anything is unexpected for this call e.g. issuances, rangeproofs
+    assert(tx.witness.vtxinwit[nIn].vchIssuanceAmountRangeproof.empty());
+    assert(tx.witness.vtxinwit[nIn].vchInflationKeysRangeproof.empty());
+
     return ::GetSerializeSize(tx.vin[nIn], PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR - 1)
     + ::GetSerializeSize(tx.vin[nIn], PROTOCOL_VERSION)
-    + ::GetSerializeSize(tx.witness.vtxinwit[nIn].scriptWitness.stack, PROTOCOL_VERSION)
-    + ::GetSerializeSize(tx.witness.vtxinwit[nIn].m_pegin_witness.stack, PROTOCOL_VERSION);
+    + ::GetSerializeSize(tx.witness.vtxinwit[nIn].scriptWitness.stack, PROTOCOL_VERSION);
 }
 
 #endif // BITCOIN_CONSENSUS_VALIDATION_H

@@ -13,6 +13,8 @@
 
 #include <stdint.h>
 
+#include <pubkey.h> // blinding_pubkey
+
 static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
 class CKeyID;
@@ -66,6 +68,8 @@ enum txnouttype
     TX_WITNESS_V0_KEYHASH,
     TX_WITNESS_UNKNOWN, //!< Only for Witness versions not already defined above
     TX_TRUE, // For testing purposes only
+    // ELEMENTS:
+    TX_FEE,
 };
 
 class CNoDestination {
@@ -74,19 +78,45 @@ public:
     friend bool operator<(const CNoDestination &a, const CNoDestination &b) { return true; }
 };
 
+struct PKHash : public uint160
+{
+    PKHash() : uint160() {}
+    explicit PKHash(const uint160& hash) : uint160(hash) {}
+    explicit PKHash(const CPubKey& pubkey);
+    explicit PKHash(const CPubKey& pubkey, const CPubKey& blinding_pubkey);
+    explicit PKHash(const uint160& hash, const CPubKey& blinding_pubkey);
+    using uint160::uint160;
+    CPubKey blinding_pubkey;
+};
+
+struct ScriptHash : public uint160
+{
+    ScriptHash() : uint160() {}
+    explicit ScriptHash(const uint160& hash) : uint160(hash) {}
+    explicit ScriptHash(const CScript& script);
+    explicit ScriptHash(const CScript& script, const CPubKey& blinding_pubkey);
+    explicit ScriptHash(const uint160& hash, const CPubKey& blinding_pubkey);
+    using uint160::uint160;
+    CPubKey blinding_pubkey;
+};
+
 struct WitnessV0ScriptHash : public uint256
 {
     WitnessV0ScriptHash() : uint256() {}
     explicit WitnessV0ScriptHash(const uint256& hash) : uint256(hash) {}
     explicit WitnessV0ScriptHash(const CScript& script);
+    explicit WitnessV0ScriptHash(const CScript& script, const CPubKey& blinding_pubkey);
     using uint256::uint256;
+    CPubKey blinding_pubkey;
 };
 
 struct WitnessV0KeyHash : public uint160
 {
     WitnessV0KeyHash() : uint160() {}
     explicit WitnessV0KeyHash(const uint160& hash) : uint160(hash) {}
+    explicit WitnessV0KeyHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
     using uint160::uint160;
+    CPubKey blinding_pubkey;
 };
 
 //! CTxDestination subtype to encode any future Witness version
@@ -95,6 +125,7 @@ struct WitnessUnknown
     unsigned int version;
     unsigned int length;
     unsigned char program[40];
+    CPubKey blinding_pubkey;
 
     friend bool operator==(const WitnessUnknown& w1, const WitnessUnknown& w2) {
         if (w1.version != w2.version) return false;
@@ -129,15 +160,15 @@ public:
 /**
  * A txout script template with a specific destination. It is either:
  *  * CNoDestination: no destination set
- *  * CKeyID: TX_PUBKEYHASH destination (P2PKH)
- *  * CScriptID: TX_SCRIPTHASH destination (P2SH)
+ *  * PKHash: TX_PUBKEYHASH destination (P2PKH)
+ *  * ScriptHash: TX_SCRIPTHASH destination (P2SH)
  *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
  *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
  *  * NullData: TX_NULL_DATA destination (OP_RETURN)
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
-typedef boost::variant<CNoDestination, CKeyID, CScriptID, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, NullData> CTxDestination;
+typedef boost::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, NullData> CTxDestination;
 
 /** Check whether a CTxDestination is a CNoDestination. */
 bool IsValidDestination(const CTxDestination& dest);

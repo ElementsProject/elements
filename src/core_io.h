@@ -6,6 +6,7 @@
 #define BITCOIN_CORE_IO_H
 
 #include <amount.h>
+#include <asset.h>
 
 #include <string>
 #include <vector>

@@ -307,7 +307,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_connect_coinbase=0\n")
         f.write("anyonecanspendaremine=0\n")
         f.write("con_blockheightinheader=0\n")
-        f.write("con_elementswitness=0\n")
+        f.write("con_elementsmode=0\n")
         f.write("con_signed_blocks=0\n")
         f.write("multi_data_permitted=0\n")
         f.write("walletrbf=0\n") # Default is 1 in Elements
@@ -316,6 +316,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip66height=1251\n")
         f.write("con_genesis_style=bitcoin\n")
         f.write("con_csv_deploy_start=0\n") # Default is -1 (always active)
+        f.write("blindedaddresses=0\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir

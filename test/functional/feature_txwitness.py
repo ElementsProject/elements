@@ -29,7 +29,7 @@ class TxWitnessTest(BitcoinTestFramework):
     def assert_tx_format_also_signed(self, utxo, segwit):
         raw = self.nodes[0].createrawtransaction(
             [{"txid": utxo["txid"], "vout": utxo["vout"]}],
-            [{self.unknown_addr: "49.9"}]
+            [{self.unknown_addr: "49.9"}, {"fee": "0.1"}]
         )
 
         unsigned_decoded = self.nodes[0].decoderawtransaction(raw)
@@ -40,6 +40,8 @@ class TxWitnessTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(raw)))
         assert_equal(tx.vin[0].prevout.hash, int("0x"+utxo["txid"], 0))
+        assert_equal(len(tx.vin), len(unsigned_decoded["vin"]))
+        assert_equal(len(tx.vout), len(unsigned_decoded["vout"]))
         # assert re-encoding
         serialized = bytes_to_hex_str(tx.serialize())
         assert_equal(serialized, raw)
@@ -73,7 +75,7 @@ class TxWitnessTest(BitcoinTestFramework):
         assert_equal(nodetx["hash"], wtxid)
 
         # witness hash stuff
-        assert_equal(nodetx["withash"], bytes_to_hex_str(ser_uint256(tx.calc_witness_hash())[::-1]))
+        assert_equal(nodetx["withash"], tx.calc_witness_hash())
         return (txid, wtxid)
 
     def test_transaction_serialization(self):

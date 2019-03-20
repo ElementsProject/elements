@@ -54,18 +54,16 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const Sidechain::Bitcoin::CT
 
 bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, unsigned int nOut)
 {
-    //if (!txBTC.vout[nOut].nValue.IsExplicit()) {
-    //    return false;
-    //}
-    //if (!txBTC.vout[nOut].nAsset.IsExplicit()) {
-    //    return false;
-    //}
-    //if (txBTC.vout[nOut].nAsset.GetAsset() != Params().GetConsensus().parent_pegged_asset) {
-    //    return false;
-    //}
-    //amount = txBTC.vout[nOut].nValue.GetAmount();
-    //TODO(rebase) re-enable above for CA/CT
-    amount = txBTC.vout[nOut].nValue;
+    if (!txBTC.vout[nOut].nValue.IsExplicit()) {
+        return false;
+    }
+    if (!txBTC.vout[nOut].nAsset.IsExplicit()) {
+        return false;
+    }
+    if (txBTC.vout[nOut].nAsset.GetAsset() != Params().GetConsensus().parent_pegged_asset) {
+        return false;
+    }
+    amount = txBTC.vout[nOut].nValue.GetAmount();
     return true;
 }
 
@@ -75,67 +73,72 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
     std::vector<std::vector<unsigned char> > solutions;
     unsigned int required;
     std::vector<std::vector<unsigned char>> keys;
+    bool is_liquidv1_watchman = MatchLiquidWatchman(federation_script);
     // Sanity check federation_script only to match 3 templates
-    if (federation_script != CScript() << OP_TRUE &&
-            !MatchMultisig(federation_script, required, keys) &&
-            !MatchLiquidWatchman(federation_script)) {
-       assert(false);
+    if (!is_liquidv1_watchman &&
+            federation_script != CScript() << OP_TRUE &&
+            !MatchMultisig(federation_script, required, keys)) {
+        assert(false);
     }
 
+    CScript::const_iterator sdpc = federation_script.begin();
+    std::vector<unsigned char> vch;
+    opcodetype opcodeTmp;
+    bool liquid_op_else_found = false;
+    while (federation_script.GetOp(sdpc, opcodeTmp, vch))
     {
-        CScript::const_iterator sdpc = federation_script.begin();
-        std::vector<unsigned char> vch;
-        opcodetype opcodeTmp;
-        while (federation_script.GetOp(sdpc, opcodeTmp, vch))
+        // For liquid watchman template, don't tweak emergency keys
+        if (is_liquidv1_watchman && opcodeTmp == OP_ELSE) {
+            liquid_op_else_found = true;
+        }
+
+        size_t pub_len = 33;
+        if (vch.size() == pub_len && !liquid_op_else_found)
         {
-            size_t pub_len = 33;
-            if (vch.size() == pub_len)
-            {
-                unsigned char tweak[32];
-                CHMAC_SHA256(vch.data(), pub_len).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(tweak);
-                int ret;
-                secp256k1_pubkey watchman;
-                secp256k1_pubkey tweaked;
-                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_validation, &watchman, vch.data(), pub_len);
-                assert(ret == 1);
-                ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_validation, &tweaked, vch.data(), pub_len);
-                assert(ret == 1);
-                // If someone creates a tweak that makes this fail, they broke SHA256
-                ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx_validation, &tweaked, tweak);
-                assert(ret == 1);
-                unsigned char new_pub[33];
-                ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx_validation, new_pub, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED);
-                assert(ret == 1);
-                assert(pub_len == 33);
+            unsigned char tweak[32];
+            CHMAC_SHA256(vch.data(), pub_len).Write(scriptPubKey.data(), scriptPubKey.size()).Finalize(tweak);
+            int ret;
+            secp256k1_pubkey watchman;
+            secp256k1_pubkey tweaked;
+            ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_validation, &watchman, vch.data(), pub_len);
+            assert(ret == 1);
+            ret = secp256k1_ec_pubkey_parse(secp256k1_ctx_validation, &tweaked, vch.data(), pub_len);
+            assert(ret == 1);
+            // If someone creates a tweak that makes this fail, they broke SHA256
+            ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx_validation, &tweaked, tweak);
+            assert(ret == 1);
+            unsigned char new_pub[33];
+            ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx_validation, new_pub, &pub_len, &tweaked, SECP256K1_EC_COMPRESSED);
+            assert(ret == 1);
+            assert(pub_len == 33);
 
-                // push tweaked pubkey
-                std::vector<unsigned char> pub_vec(new_pub, new_pub + pub_len);
-                scriptDestination << pub_vec;
+            // push tweaked pubkey
+            std::vector<unsigned char> pub_vec(new_pub, new_pub + pub_len);
+            scriptDestination << pub_vec;
 
-                // Sanity checks to reduce pegin risk. If the tweaked
-                // value flips a bit, we may lose pegin funds irretrievably.
-                // We take the tweak, derive its pubkey and check that
-                // `tweaked - watchman = tweak` to check the computation
-                // two different ways
-                secp256k1_pubkey tweaked2;
-                ret = secp256k1_ec_pubkey_create(secp256k1_ctx_validation, &tweaked2, tweak);
-                assert(ret);
-                ret = secp256k1_ec_pubkey_negate(secp256k1_ctx_validation, &watchman);
-                assert(ret);
-                secp256k1_pubkey* pubkey_combined[2];
-                pubkey_combined[0] = &watchman;
-                pubkey_combined[1] = &tweaked;
-                secp256k1_pubkey maybe_tweaked2;
-                ret = secp256k1_ec_pubkey_combine(secp256k1_ctx_validation, &maybe_tweaked2, pubkey_combined, 2);
-                assert(ret);
-                assert(!memcmp(&maybe_tweaked2, &tweaked2, 64));
+            // Sanity checks to reduce pegin risk. If the tweaked
+            // value flips a bit, we may lose pegin funds irretrievably.
+            // We take the tweak, derive its pubkey and check that
+            // `tweaked - watchman = tweak` to check the computation
+            // two different ways
+            secp256k1_pubkey tweaked2;
+            ret = secp256k1_ec_pubkey_create(secp256k1_ctx_validation, &tweaked2, tweak);
+            assert(ret);
+            ret = secp256k1_ec_pubkey_negate(secp256k1_ctx_validation, &watchman);
+            assert(ret);
+            secp256k1_pubkey* pubkey_combined[2];
+            pubkey_combined[0] = &watchman;
+            pubkey_combined[1] = &tweaked;
+            secp256k1_pubkey maybe_tweaked2;
+            ret = secp256k1_ec_pubkey_combine(secp256k1_ctx_validation, &maybe_tweaked2, pubkey_combined, 2);
+            assert(ret);
+            assert(!memcmp(&maybe_tweaked2, &tweaked2, 64));
+        } else {
+            // add to script untouched
+            if (vch.size() > 0) {
+                scriptDestination << vch;
             } else {
-                // add to script untouched
-                if (vch.size() > 0) {
-                    scriptDestination << vch;
-                } else {
-                    scriptDestination << opcodeTmp;
-                }
+                scriptDestination << opcodeTmp;
             }
         }
     }
@@ -177,7 +180,7 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
     // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
     CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
     CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
-    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(CScriptID(witness_output)) << OP_EQUAL);
+    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(ScriptHash(CScriptID(witness_output))) << OP_EQUAL);
     if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
         return false;
     }
@@ -273,8 +276,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         err_msg = "Asset type was not 32 bytes.";
         return false;
     }
-    //TODO(rebase) CA
-    //CAsset asset(stack[1]);
+    CAsset asset(stack[1]);
 
     // Get genesis blockhash
     if (stack[2].size() != 32) {
@@ -345,11 +347,10 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         return false;
     }
 
-    //TODO(rebase) CA
-    //// Check the asset type corresponds to a valid pegged asset (only one for now)
-    //if (asset != Params().GetConsensus().pegged_asset) {
-    //    return false;
-    //}
+    // Check the asset type corresponds to a valid pegged asset (only one for now)
+    if (asset != Params().GetConsensus().pegged_asset) {
+        return false;
+    }
 
     // Finally, validate peg-in via rpc call
     if (check_depth && gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
@@ -367,9 +368,7 @@ CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
     CAmount value;
     stream >> value;
 
-    //TODO(rebase) CA
-    //return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
-    return CTxOut(value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+    return CTxOut(CAsset(pegin_witness.stack[1]), CConfidentialValue(value), CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
 }
 
 bool MatchLiquidWatchman(const CScript& script)
@@ -441,5 +440,5 @@ bool MatchLiquidWatchman(const CScript& script)
         return false;
     }
     // No more pushes
-    return (it + 1 == script.end());
+    return (it == script.end());
 }

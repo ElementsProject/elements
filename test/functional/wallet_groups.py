@@ -50,9 +50,9 @@ class WalletGroupTest(BitcoinTestFramework):
         tx1 = self.nodes[1].getrawtransaction(txid1, True)
         # txid1 should have 1 input and 2 outputs
         assert_equal(1, len(tx1["vin"]))
-        assert_equal(2, len(tx1["vout"]))
+        assert_equal(2+1, len(tx1["vout"]))
         # one output should be 0.2, the other should be ~0.3
-        v = [vout["value"] for vout in tx1["vout"]]
+        v = [vout["value"] for vout in tx1["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         v.sort()
         assert_approx(v[0], 0.2)
         assert_approx(v[1], 0.3, 0.0001)
@@ -61,25 +61,26 @@ class WalletGroupTest(BitcoinTestFramework):
         tx2 = self.nodes[2].getrawtransaction(txid2, True)
         # txid2 should have 2 inputs and 2 outputs
         assert_equal(2, len(tx2["vin"]))
-        assert_equal(2, len(tx2["vout"]))
+        assert_equal(2+1, len(tx2["vout"]))
         # one output should be 0.2, the other should be ~1.3
-        v = [vout["value"] for vout in tx2["vout"]]
+        v = [vout["value"] for vout in tx2["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         v.sort()
         assert_approx(v[0], 0.2)
         assert_approx(v[1], 1.3, 0.0001)
 
         # Empty out node2's wallet
-        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance(), subtractfeefromamount=True)
+        self.nodes[2].sendtoaddress(address=self.nodes[0].getnewaddress(), amount=self.nodes[2].getbalance()['bitcoin'], subtractfeefromamount=True)
         self.sync_all()
         self.nodes[0].generate(1)
 
         # Fill node2's wallet with 10000 outputs corresponding to the same
         # scriptPubKey
         for i in range(5):
-            raw_tx = self.nodes[0].createrawtransaction([{"txid":"0"*64, "vout":0}], [{addr2[0]: 0.05}])
+            raw_tx = self.nodes[0].createrawtransaction([{"txid":"0"*64, "vout":0}], [{addr2[0]: 0.10}])
             tx = FromHex(CTransaction(), raw_tx)
             tx.vin = []
-            tx.vout = [tx.vout[0]] * 2000
+            # ELEMENTS: lower number because outputs are bigger (otherwise tx gets too large)
+            tx.vout = [tx.vout[0]] * 1000
             funded_tx = self.nodes[0].fundrawtransaction(ToHex(tx))
             signed_tx = self.nodes[0].signrawtransactionwithwallet(funded_tx['hex'])
             self.nodes[0].sendrawtransaction(signed_tx['hex'])

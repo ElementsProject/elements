@@ -69,6 +69,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
     case TX_WITNESS_UNKNOWN:
+    case TX_FEE:
         break;
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();
@@ -91,7 +92,7 @@ IsMineResult IsMineInner(const CKeyStore& keystore, const CScript& scriptPubKey,
             // This also applies to the P2WSH case.
             break;
         }
-        ret = std::max(ret, IsMineInner(keystore, GetScriptForDestination(CKeyID(uint160(vSolutions[0]))), IsMineSigVersion::WITNESS_V0));
+        ret = std::max(ret, IsMineInner(keystore, GetScriptForDestination(PKHash(uint160(vSolutions[0]))), IsMineSigVersion::WITNESS_V0));
         break;
     }
     case TX_PUBKEYHASH:

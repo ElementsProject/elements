@@ -8,6 +8,9 @@
 #include <rpc/util.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
+#include <policy/policy.h>
+#include <assetsdir.h>
+#include <core_io.h>
 
 // Converts a hex string to a public key if possible
 CPubKey HexToPubKey(const std::string& hex_in)
@@ -76,7 +79,7 @@ public:
         return UniValue(UniValue::VOBJ);
     }
 
-    UniValue operator()(const CKeyID& keyID) const
+    UniValue operator()(const PKHash& keyID) const
     {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("isscript", false);
@@ -84,7 +87,7 @@ public:
         return obj;
     }
 
-    UniValue operator()(const CScriptID& scriptID) const
+    UniValue operator()(const ScriptHash& scriptID) const
     {
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("isscript", true);
@@ -133,4 +136,173 @@ public:
 UniValue DescribeAddress(const CTxDestination& dest)
 {
     return boost::apply_visitor(DescribeAddressVisitor(), dest);
+}
+
+// ELEMENTS
+
+class BlindingPubkeyVisitor : public boost::static_visitor<CPubKey>
+{
+public:
+    explicit BlindingPubkeyVisitor() {}
+
+    CPubKey operator()(const CNoDestination& dest) const
+    {
+        return CPubKey();
+    }
+
+    CPubKey operator()(const PKHash& keyID) const
+    {
+        return keyID.blinding_pubkey;
+    }
+
+    CPubKey operator()(const ScriptHash& scriptID) const
+    {
+        return scriptID.blinding_pubkey;
+    }
+
+    CPubKey operator()(const WitnessV0KeyHash& id) const
+    {
+        return id.blinding_pubkey;
+    }
+
+    CPubKey operator()(const WitnessV0ScriptHash& id) const
+    {
+        return id.blinding_pubkey;
+    }
+
+    CPubKey operator()(const WitnessUnknown& id) const
+    {
+        return id.blinding_pubkey;
+    }
+
+    CPubKey operator()(const NullData& id) const
+    {
+        return CPubKey();
+    }
+};
+
+CPubKey GetDestinationBlindingKey(const CTxDestination& dest) {
+    return boost::apply_visitor(BlindingPubkeyVisitor(), dest);
+}
+
+bool IsBlindDestination(const CTxDestination& dest) {
+    return GetDestinationBlindingKey(dest).IsFullyValid();
+}
+
+class DescribeBlindAddressVisitor : public boost::static_visitor<UniValue>
+{
+public:
+
+    explicit DescribeBlindAddressVisitor() {}
+
+    UniValue operator()(const CNoDestination& dest) const { return UniValue(UniValue::VOBJ); }
+
+    UniValue operator()(const PKHash& pkhash) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = pkhash.blinding_pubkey;
+        if (IsBlindDestination(pkhash)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            PKHash unblinded(pkhash);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(pkhash));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const ScriptHash& scripthash) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = scripthash.blinding_pubkey;
+        if (IsBlindDestination(scripthash)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            ScriptHash unblinded(scripthash);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(scripthash));
+        }
+
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV0KeyHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = id.blinding_pubkey;
+        if (IsBlindDestination(id)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            WitnessV0KeyHash unblinded(id);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(id));
+        }
+
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV0ScriptHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        const CPubKey& blind_pub = id.blinding_pubkey;
+        if (IsBlindDestination(id)) {
+            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            WitnessV0ScriptHash unblinded(id);
+            unblinded.blinding_pubkey = CPubKey();
+            obj.pushKV("unconfidential", EncodeDestination(unblinded));
+        } else {
+            obj.pushKV("confidential_key", "");
+            obj.pushKV("unconfidential", EncodeDestination(id));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
+    UniValue operator()(const NullData& id) const { return NullUniValue; }
+};
+
+UniValue DescribeBlindAddress(const CTxDestination& dest)
+{
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKVs(boost::apply_visitor(DescribeBlindAddressVisitor(), dest));
+    return ret;
+}
+
+// Attaches labeled balance reports to UniValue obj with asset filter
+// "" displays *all* assets as VOBJ pairs, while named assets must have
+// been entered via -assetdir configuration argument and are returned as VNUM.
+UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset)
+{
+    // Make sure the policyAsset is always present in the balance map.
+    CAmountMap balance = balanceOrig;
+    balance[::policyAsset] += 0;
+
+    // If we don't do assets or a specific asset is given, we filter out once asset.
+    if (!g_con_elementsmode || strasset != "") {
+        if (g_con_elementsmode) {
+            return ValueFromAmount(balance[GetAssetFromString(strasset)]);
+        } else {
+            return ValueFromAmount(balance[::policyAsset]);
+        }
+    }
+
+    UniValue obj(UniValue::VOBJ);
+    for(std::map<CAsset, CAmount>::const_iterator it = balance.begin(); it != balance.end(); ++it) {
+        // Unknown assets
+        if (it->first.IsNull())
+            continue;
+        UniValue pair(UniValue::VOBJ);
+        std::string label = gAssetsDir.GetLabel(it->first);
+        if (label == "") {
+            label = it->first.GetHex();
+        }
+        obj.pushKV(label, ValueFromAmount(it->second));
+    }
+    return obj;
 }

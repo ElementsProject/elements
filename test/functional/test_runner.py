@@ -67,12 +67,18 @@ BASE_SCRIPTS = [
     'feature_blocksign.py',
     'rpc_calcfastmerkleroot.py',
     'feature_txwitness.py',
+    'rpc_tweakfedpeg.py',
+    'feature_issuance.py',
+    'feature_confidential_transactions.py',
+    'feature_default_asset_name.py',
+    'feature_assetsdir.py',
+    'feature_initial_reissuance_token.py',
     # Longest test should go first, to favor running tests in parallel
-    'feature_fee_estimation.py',
     'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
-    'mining_getblocktemplate_longpoll.py',
+    # ELEMENTS: no longpolling
+    #'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
     'feature_block.py',
     'rpc_fundrawtransaction.py',
@@ -93,7 +99,8 @@ BASE_SCRIPTS = [
     'rpc_txoutproof.py',
     'wallet_listreceivedby.py',
     'wallet_abandonconflict.py',
-    'feature_csv_activation.py',
+    # ELEMENTS: no transitions in Elements
+    #'feature_csv_activation.py',
     'rpc_rawtransaction.py',
     'wallet_address_types.py',
     'feature_bip68_sequence.py',
@@ -144,7 +151,8 @@ BASE_SCRIPTS = [
     'feature_rbf.py',
     'mempool_packages.py',
     'rpc_createmultisig.py',
-    'feature_versionbits_warning.py',
+    # ELEMENTS: no versionbits in use
+    #'feature_versionbits_warning.py',
     'rpc_preciousblock.py',
     'wallet_importprunedfunds.py',
     'rpc_zmq.py',
@@ -187,6 +195,8 @@ EXTENDED_SCRIPTS = [
     # Longest test should go first, to favor running tests in parallel
     'feature_pruning.py',
     'feature_dbcrash.py',
+    'feature_fee_estimation.py',
+
 ]
 
 # Place EXTENDED_SCRIPTS first since it has the 3 longest running tests

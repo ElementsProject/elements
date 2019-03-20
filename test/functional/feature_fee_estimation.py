@@ -61,6 +61,7 @@ def small_txpuzzle_randfee(from_node, conflist, unconflist, amount, min_fee, fee
             raise RuntimeError("Insufficient funds: need %d, have %d" % (amount + fee, total_in))
     tx.vout.append(CTxOut(int((total_in - amount - fee) * COIN), P2SH_1))
     tx.vout.append(CTxOut(int(amount * COIN), P2SH_2))
+    tx.vout.append(CTxOut(int(fee*COIN))) # fee
     # These transactions don't need to be signed, but we still have to insert
     # the ScriptSig that will satisfy the ScriptPubKey.
     for inp in tx.vin:
@@ -87,6 +88,7 @@ def split_inputs(from_node, txins, txouts, initial_split=False):
     rem_change = prevtxout["amount"] - half_change - Decimal("0.00001000")
     tx.vout.append(CTxOut(int(half_change * COIN), P2SH_1))
     tx.vout.append(CTxOut(int(rem_change * COIN), P2SH_2))
+    tx.vout.append(CTxOut(int(0.00001*COIN))) # fee
 
     # If this is the initial split we actually need to sign the transaction
     # Otherwise we just need to insert the proper ScriptSig
@@ -153,13 +155,15 @@ class EstimateFeeTest(BitcoinTestFramework):
         # resorting to tx's that depend on the mempool when those run out
         for i in range(numblocks):
             random.shuffle(self.confutxo)
-            for j in range(random.randrange(100 - 50, 100 + 50)):
+            # ELEMENTS: make fewer txns since larger: ~236 bytes: 69k/4/234=~73
+            # Pick a number smaller than that, stingy miner is even stingier
+            for j in range(random.randrange(55 - 15, 55 + 15)):
                 from_index = random.randint(1, 2)
                 (txhex, fee) = small_txpuzzle_randfee(self.nodes[from_index], self.confutxo,
                                                       self.memutxo, Decimal("0.005"), min_fee, min_fee)
                 tx_kbytes = (len(txhex) // 2) / 1000.0
                 self.fees_per_kb.append(float(fee) / tx_kbytes)
-            sync_mempools(self.nodes[0:3], wait=.1)
+            sync_mempools(self.nodes[0:3], wait=10, timeout=240) # Slower to sync than btc
             mined = mining_node.getblock(mining_node.generate(1)[0], True)["tx"]
             sync_blocks(self.nodes[0:3], wait=.1)
             # update which txouts are confirmed

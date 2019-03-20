@@ -12,6 +12,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
+#include <secp256k1_ecdh.h>
 
 static secp256k1_context* secp256k1_context_sign = nullptr;
 
@@ -200,6 +201,15 @@ bool SigHasLowR(const secp256k1_ecdsa_signature* sig)
     // to a positive value by prepending a 0x00 byte so that the highest bit is 0. We can avoid this prepending by ensuring that
     // our highest bit is always 0, and thus we must check that the first byte is less than 0x80.
     return compact_sig[0] < 0x80;
+}
+
+uint256 CKey::ECDH(const CPubKey& pubkey) const {
+    assert(fValid);
+    uint256 result;
+    secp256k1_pubkey pkey;
+    assert(secp256k1_ec_pubkey_parse(secp256k1_context_sign, &pkey, pubkey.begin(), pubkey.size()));
+    assert(secp256k1_ecdh(secp256k1_context_sign, result.begin(), &pkey, begin(), NULL, NULL));
+    return result;
 }
 
 bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, bool grind, uint32_t test_case) const {

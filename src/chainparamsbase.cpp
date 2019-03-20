@@ -14,6 +14,7 @@
 const std::string CBaseChainParams::MAIN = "main";
 const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
+const std::string CBaseChainParams::LIQUID1 = "liquidv1";
 
 void SetupChainParamsBaseOptions()
 {
@@ -26,7 +27,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_mandatorycoinbase", "All non-zero valued coinbase outputs must go to this scriptPubKey, if set.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_connect_coinbase", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_elementswitness", "Use Elements-like instead of Core-like witness encoding.  This is required for CA/CT. (default: true)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_elementsmode", "Use Elements-like instead of Core-like witness encoding.  This is required for CA/CT. (default: true)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_blockheightinheader", "Whether the chain includes the block height directly in the header, for easier validation of block height in low-resource environments. (default: true)", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_genesis_style=<style>", "Use genesis style <style> (default: elements). Results in genesis block compatibility with various networks. Allowed values: elements, bitcoin", true, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", false, OptionsCategory::CHAINPARAMS);
@@ -61,9 +62,11 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
         return MakeUnique<CBaseChainParams>("testnet3", 18332, 8332);
     else if (chain == CBaseChainParams::REGTEST)
         return MakeUnique<CBaseChainParams>("regtest", 18443, 18332);
+    else if (chain == CBaseChainParams::LIQUID1)
+        return MakeUnique<CBaseChainParams>("liquidv1", 7041, 8332);
 
     // ELEMENTS:
-    return MakeUnique<CBaseChainParams>(chain, 7041, 18332);
+    return MakeUnique<CBaseChainParams>(chain, 7040, 18332);
 }
 
 void SelectBaseParams(const std::string& chain)

@@ -404,6 +404,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
 
+    // ELEMENTS:
     typedef std::pair<uint256, COutPoint> PeginPair;
     for(const PeginPair& it : entry.setPeginsSpent) {
         std::pair<std::map<std::pair<uint256, COutPoint>, uint256>::iterator, bool> ret = mapPeginsSpentToTxid.insert(std::make_pair(it, tx.GetHash()));
@@ -651,9 +652,9 @@ static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCa
 {
     CTransaction tx = entry.GetTx();
     CValidationState state;
-    CAmount txfee = 0;
+    CAmountMap fee_map;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, txfee, setPeginsSpent);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);
 

@@ -269,6 +269,8 @@ EXTRA_DIST += \
     test/util/data/txcreatesignv1.hex \
     test/util/data/txcreatesignv1.json \
     test/util/data/txcreatesignv2.hex \
+    test/util/data/txcreatemultisig4_elements.hex \
+    test/util/data/txcreatemultisig4_elements.json \
     test/util/rpcauth-test.py
 
 CLEANFILES = $(OSX_DMG) $(BITCOIN_WIN_INSTALLER)

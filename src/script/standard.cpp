@@ -21,10 +21,25 @@ unsigned nMaxDatacarrierBytes = MAX_OP_RETURN_RELAY;
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
+ScriptHash::ScriptHash(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
+ScriptHash::ScriptHash(const CScript& in, const CPubKey& blinding_pubkey_in) : uint160(Hash160(in.begin(), in.end())), blinding_pubkey(blinding_pubkey_in) {}
+ScriptHash::ScriptHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
+
+PKHash::PKHash(const CPubKey& pubkey) : uint160(pubkey.GetID()) {}
+PKHash::PKHash(const CPubKey& pubkey, const CPubKey& blinding_pubkey_in) : uint160(pubkey.GetID()), blinding_pubkey(blinding_pubkey_in) {}
+PKHash::PKHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
+
 WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in)
 {
     CSHA256().Write(in.data(), in.size()).Finalize(begin());
 }
+
+WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in, const CPubKey& blinding_pubkey_in)
+{
+    CSHA256().Write(in.data(), in.size()).Finalize(begin());
+    blinding_pubkey = blinding_pubkey_in;
+}
+
 
 const char* GetTxnOutputType(txnouttype t)
 {
@@ -40,6 +55,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_WITNESS_UNKNOWN: return "witness_unknown";
     case TX_TRUE: return "true";
+    case TX_FEE: return "fee";
     }
     return nullptr;
 }
@@ -96,6 +112,11 @@ txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned 
 
     if (Params().anyonecanspend_aremine && scriptPubKey == CScript() << OP_TRUE) {
         return TX_TRUE;
+    }
+
+    // Fee outputs are for elements-style transactions only
+    if (g_con_elementsmode && scriptPubKey == CScript()) {
+        return TX_FEE;
     }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:
@@ -174,17 +195,17 @@ bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
         if (!pubKey.IsValid())
             return false;
 
-        addressRet = pubKey.GetID();
+        addressRet = PKHash(pubKey);
         return true;
     }
     else if (whichType == TX_PUBKEYHASH)
     {
-        addressRet = CKeyID(uint160(vSolutions[0]));
+        addressRet = PKHash(uint160(vSolutions[0]));
         return true;
     }
     else if (whichType == TX_SCRIPTHASH)
     {
-        addressRet = CScriptID(uint160(vSolutions[0]));
+        addressRet = ScriptHash(uint160(vSolutions[0]));
         return true;
     } else if (whichType == TX_WITNESS_V0_KEYHASH) {
         WitnessV0KeyHash hash;
@@ -229,7 +250,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
             if (!pubKey.IsValid())
                 continue;
 
-            CTxDestination address = pubKey.GetID();
+            CTxDestination address = PKHash(pubKey);
             addressRet.push_back(address);
         }
 
@@ -262,13 +283,13 @@ public:
         return false;
     }
 
-    bool operator()(const CKeyID &keyID) const {
+    bool operator()(const PKHash &keyID) const {
         script->clear();
         *script << OP_DUP << OP_HASH160 << ToByteVector(keyID) << OP_EQUALVERIFY << OP_CHECKSIG;
         return true;
     }
 
-    bool operator()(const CScriptID &scriptID) const {
+    bool operator()(const ScriptHash &scriptID) const {
         script->clear();
         *script << OP_HASH160 << ToByteVector(scriptID) << OP_EQUAL;
         return true;

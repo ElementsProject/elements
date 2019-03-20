@@ -24,7 +24,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot, BITCOIN_ASSET_OUT
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -269,6 +269,9 @@ class COutPoint():
         self.hash = hash
         self.n = n
 
+    def isNull(self):
+        return self.hash == 0 and self.n == 4294967295
+
     def deserialize(self, f):
         self.hash = deser_uint256(f)
         self.n = struct.unpack("<I", f.read(4))[0]
@@ -310,26 +313,155 @@ class CTxIn():
             % (repr(self.prevout), bytes_to_hex_str(self.scriptSig),
                self.nSequence)
 
+class CTxOutAsset(object):
+    def __init__(self, vchCommitment=b"\x00"):
+        self.vchCommitment = vchCommitment
 
-class CTxOut():
-    def __init__(self, nValue=0, scriptPubKey=b""):
-        self.nValue = nValue
-        self.scriptPubKey = scriptPubKey
+    def setNull(self):
+        self.vchCommitment = b'\x00'
 
     def deserialize(self, f):
-        self.nValue = struct.unpack("<q", f.read(8))[0]
+        version = ord(f.read(1))
+        if version == 0:
+            self.vchCommitment = b'\x00'
+        elif version == 1:
+            self.vchCommitment = b'\x01' + f.read(32)
+        elif version == 0xff:
+            self.vchCommitment = b'\xff' + f.read(32)
+        elif version == 10 or version == 11:
+            self.vchCommitment = bytes([version]) + f.read(32)
+        else:
+            raise 'invalid CTxOutAsset in deserialize'
+
+    def serialize(self):
+        r = b""
+        r += self.vchCommitment
+        return r
+
+    def setToAsset(self, val):
+        if len(val) != 32:
+            raise 'invalid asset hash (expected 32 bytes got %d)' % len(val)
+        self.vchCommitment = b'\x01' + val
+
+    def __repr__(self):
+        return "CTxOutAsset(vchCommitment=%s)" % self.vchCommitment
+
+class CTxOutValue(object):
+
+    def __init__(self, value=None):
+        self.setNull()
+        if value is not None:
+            self.setToAmount(value)
+
+    def setNull(self):
+        self.vchCommitment = b'\x00'
+
+    def deserialize(self, f):
+        version = ord(f.read(1))
+        if version == 0:
+            self.vchCommitment = b'\x00'
+        elif version == 1:
+            self.vchCommitment = b'\x01' + f.read(8)
+        elif version == 0xff:
+            self.vchCommitment = b'\xff' + f.read(8)
+        elif version == 8 or version == 9:
+            self.vchCommitment = bytes([version]) + f.read(32)
+        else:
+            raise Exception('invalid CTxOutValue in deserialize. version %d' % version)
+
+    def serialize(self):
+        r = b""
+        if len(self.vchCommitment) < 1:
+            raise ValueError('invalid commitment')
+        r += self.vchCommitment
+        return r
+
+    def setToAmount(self, amount):
+        commit = [1]*9
+        for i in range(8): #8 bytes
+            commit[8-i] = ((amount >> (i*8)) & 0xff)
+        self.vchCommitment = bytes(commit)
+
+    def getAmount(self):
+        if self.vchCommitment[0] != 1:
+            raise ValueError('getAmount() called on non-explicit CTxOutValue')
+        ret = 0
+        for i in range(8): #8 bytes
+            ret <<= 8
+            ret |= self.vchCommitment[i+1]
+        return ret
+
+    def __repr__(self):
+        return "CTxOutValue(vchCommitment=%s)" % self.vchCommitment
+
+class CTxOutNonce(object):
+    def __init__(self, vchCommitment=b"\x00"):
+        self.vchCommitment = vchCommitment
+
+    def setNull(self):
+        self.vchCommitment = b'\x00'
+
+    def deserialize(self, f):
+        version = ord(f.read(1))
+        if version == 0:
+            self.vchCommitment = b'\x00'
+        elif version == 1:
+            self.vchCommitment = b'\x01' + f.read(32)
+        elif version == 0xff:
+            self.vchCommitment = b'\xff' + f.read(32)
+        elif version == 2 or version == 3:
+            self.vchCommitment = bytes([version]) + f.read(32)
+        else:
+            raise ValueError('invalid CTxOutNonce in deserialize')
+
+    def serialize(self):
+        r = b""
+        r += self.vchCommitment
+        return r
+
+    def __repr__(self):
+        return "CTxOutNonce(vchCommitment=%s)" % self.vchCommitment
+
+
+class CTxOut():
+    def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT), nNonce=CTxOutNonce()):
+        self.nAsset = nAsset
+        if type(nValue) is int:
+            self.nValue = CTxOutValue(nValue)
+        else:
+            self.nValue = nValue
+        self.nNonce = nNonce
+        self.scriptPubKey = scriptPubKey
+
+    def setNull(self):
+        self.nAsset.setNull()
+        self.nValue.setNull()
+        self.nNonce.setNull()
+        self.scriptPubKey = b''
+
+    def is_fee(self):
+        return len(self.scriptPubKey) == 0
+
+    def deserialize(self, f):
+        self.nAsset = CTxOutAsset()
+        self.nAsset.deserialize(f)
+        self.nValue = CTxOutValue()
+        self.nValue.deserialize(f)
+        self.nNonce = CTxOutNonce()
+        self.nNonce.deserialize(f)
         self.scriptPubKey = deser_string(f)
 
     def serialize(self):
         r = b""
-        r += struct.pack("<q", self.nValue)
+        r += self.nAsset.serialize()
+        r += self.nValue.serialize()
+        r += self.nNonce.serialize()
         r += ser_string(self.scriptPubKey)
         return r
 
     def __repr__(self):
-        return "CTxOut(nValue=%i.%08i scriptPubKey=%s)" \
-            % (self.nValue // COIN, self.nValue % COIN,
-               bytes_to_hex_str(self.scriptPubKey))
+        return "CTxOut(nAsset=%s nValue=%s nNonce=%s scriptPubKey=%s)" \
+            % (self.nAsset, self.nValue, self.nNonce, bytes_to_hex_str(self.scriptPubKey))
 
 
 class CScriptWitness():
@@ -355,23 +487,23 @@ class CTxInWitness(object):
         self.peginWitness = CScriptWitness()
 
     def deserialize(self, f):
-        #TODO(rebase) CA/CT
-        #self.vchIssuanceAmountRangeproof = deser_string(f)
-        #self.vchInflationKeysRangeproof = deser_string(f)
+        self.vchIssuanceAmountRangeproof = deser_string(f)
+        self.vchInflationKeysRangeproof = deser_string(f)
         self.scriptWitness.stack = deser_string_vector(f)
         self.peginWitness.stack = deser_string_vector(f)
 
     def serialize(self):
         r = b''
-        #TODO(rebase) CA/CT
-        #r += ser_string(self.vchIssuanceAmountRangeproof)
-        #r += ser_string(self.vchInflationKeysRangeproof)
+        r += ser_string(self.vchIssuanceAmountRangeproof)
+        r += ser_string(self.vchInflationKeysRangeproof)
         r += ser_string_vector(self.scriptWitness.stack)
         r += ser_string_vector(self.peginWitness.stack)
         return r
 
     def calc_witness_hash(self):
         leaves = [
+            encode(hash256(ser_string(self.vchIssuanceAmountRangeproof))[::-1], 'hex_codec').decode('ascii'),
+            encode(hash256(ser_string(self.vchInflationKeysRangeproof))[::-1], 'hex_codec').decode('ascii'),
             encode(hash256(ser_string_vector(self.scriptWitness.stack))[::-1], 'hex_codec').decode('ascii'),
             encode(hash256(ser_string_vector(self.peginWitness.stack))[::-1], 'hex_codec').decode('ascii')
         ]
@@ -383,8 +515,8 @@ class CTxInWitness(object):
 
     def is_null(self):
         return len(self.vchIssuanceAmountRangeproof) == 0 \
-        and len(self.vchInflationKeysRangeproof) == 0 \
-        and self.scriptWitness.is_null()
+            and len(self.vchInflationKeysRangeproof) == 0 \
+            and self.scriptWitness.is_null()
 
 
 class CTxOutWitness(object):
@@ -425,9 +557,8 @@ class CTxWitness(object):
     def deserialize(self, f):
         for i in range(len(self.vtxinwit)):
             self.vtxinwit[i].deserialize(f)
-        #TODO(rebase) CA/CT
-        #for i in range(len(self.vtxoutwit)):
-        #    self.vtxoutwit[i].deserialize(f)
+        for i in range(len(self.vtxoutwit)):
+            self.vtxoutwit[i].deserialize(f)
 
     def serialize(self):
         r = b""
@@ -435,6 +566,8 @@ class CTxWitness(object):
         # we omit the length of the vector, which is required to be
         # the same length as the transaction's vin vector.
         for x in self.vtxinwit:
+            r += x.serialize()
+        for x in self.vtxoutwit:
             r += x.serialize()
         return r
 
@@ -510,14 +643,16 @@ class CTransaction(object):
         r += ser_vector(self.vout)
         r += struct.pack("<I", self.nLockTime)
         if flags & 1:
-            if (len(self.wit.vtxinwit) != len(self.vin)):
+            if len(self.wit.vtxinwit) != len(self.vin):
                 # vtxinwit must have the same length as vin
                 self.wit.vtxinwit = self.wit.vtxinwit[:len(self.vin)]
                 for i in range(len(self.wit.vtxinwit), len(self.vin)):
                     self.wit.vtxinwit.append(CTxInWitness())
+            if len(self.wit.vtxoutwit) != len(self.vout):
+                # vtxoutwit must have the same length as vout
                 self.wit.vtxoutwit = self.wit.vtxoutwit[:len(self.vout)]
                 for i in range(len(self.wit.vtxoutwit), len(self.vout)):
-                    self.wit.vtxoutwit.append(CTxInWitness())
+                    self.wit.vtxoutwit.append(CTxOutWitness())
             r += self.wit.serialize()
         return r
 
@@ -543,7 +678,10 @@ class CTransaction(object):
     def calc_witness_hash(self):
         leaves = []
         for i in range(len(self.vin)):
-            wit = self.wit.vtxinwit[i] if i < len(self.wit.vtxinwit) else CTxInWitness()
+            if i >= len(self.wit.vtxinwit) or self.vin[i].prevout.isNull():
+                wit = CTxInWitness()
+            else:
+                wit = self.wit.vtxinwit[i]
             leaves.append(wit.calc_witness_hash())
         inwitroot = calcfastmerkleroot(leaves)
 
@@ -553,7 +691,8 @@ class CTransaction(object):
             leaves.append(wit.calc_witness_hash())
         outwitroot = calcfastmerkleroot(leaves)
 
-        return uint256_from_str(hex_str_to_bytes(calcfastmerkleroot([inwitroot, outwitroot]))[::-1])
+        # returns bitcoin hash print style string
+        return calcfastmerkleroot([inwitroot, outwitroot])
 
     def is_valid(self):
         self.calc_sha256()
@@ -701,15 +840,13 @@ class CBlock(CBlockHeader):
         return self.get_merkle_root(hashes)
 
     def calc_witness_merkle_root(self):
-        # For witness root purposes, the hash of the
-        # coinbase, with witness, is defined to be 0...0
-        hashes = [ser_uint256(0)]
-
-        for tx in self.vtx[1:]:
+        hashes = []
+        for tx in self.vtx:
             # Calculate the hashes with witness data
-            hashes.append(ser_uint256(tx.calc_witness_hash()))
+            hashes.append(tx.calc_witness_hash())
 
-        return self.get_merkle_root(hashes)
+        # returns bitcoin hash print order hex string
+        return calcfastmerkleroot(hashes)
 
     def is_valid(self):
         self.calc_sha256()

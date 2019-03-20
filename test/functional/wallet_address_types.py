@@ -91,9 +91,9 @@ class AddressTypeTest(BitcoinTestFramework):
     def get_balances(self, confirmed=True):
         """Return a list of confirmed or unconfirmed balances."""
         if confirmed:
-            return [self.nodes[i].getbalance() for i in range(4)]
+            return [self.nodes[i].getbalance()['bitcoin'] for i in range(4)]
         else:
-            return [self.nodes[i].getunconfirmedbalance() for i in range(4)]
+            return [self.nodes[i].getunconfirmedbalance()['bitcoin'] for i in range(4)]
 
     def test_address(self, node, address, multisig, typ):
         """Run sanity checks on an address."""
@@ -152,11 +152,12 @@ class AddressTypeTest(BitcoinTestFramework):
         tx = self.nodes[node_sender].decoderawtransaction(raw_tx)
 
         # Make sure the transaction has change:
-        assert_equal(len(tx["vout"]), len(destinations) + 1)
+        assert_equal(len(tx["vout"]), len(destinations) + 2)
 
         # Make sure the destinations are included, and remove them:
-        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"]]
-        change_addresses = [d for d in output_addresses if d not in destinations]
+        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"] if vout["scriptPubKey"]["type"] != "fee"]
+        unconfidential_destinations = [self.nodes[node_sender].getaddressinfo(addr)["unconfidential"] for addr in destinations]
+        change_addresses = [d for d in output_addresses if d not in unconfidential_destinations]
         assert_equal(len(change_addresses), 1)
 
         self.log.debug("Check if change address " + change_addresses[0] + " is " + expected_type)
@@ -262,7 +263,7 @@ class AddressTypeTest(BitcoinTestFramework):
         self.nodes[5].sendtoaddress(self.nodes[4].getnewaddress(), Decimal("1"))
         self.nodes[5].generate(1)
         sync_blocks(self.nodes)
-        assert_equal(self.nodes[4].getbalance(), 1)
+        assert_equal(self.nodes[4].getbalance()['bitcoin'], 1)
 
         self.log.info("Nodes with addresstype=legacy never use a P2WPKH change output")
         self.test_change_output_type(0, [to_address_bech32_1], 'legacy')

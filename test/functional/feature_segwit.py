@@ -17,7 +17,7 @@ from test_framework.address import (
 )
 from test_framework.blocktools import witness_script, send_to_witness
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, sha256, ToHex
-from test_framework.script import CScript, OP_HASH160, OP_CHECKSIG, OP_0, hash160, OP_EQUAL, OP_DUP, OP_EQUALVERIFY, OP_1, OP_2, OP_CHECKMULTISIG, OP_TRUE, OP_DROP
+from test_framework.script import CScript, OP_HASH160, OP_CHECKSIG, OP_0, hash160, OP_EQUAL, OP_DUP, OP_EQUALVERIFY, OP_1, OP_2, OP_CHECKMULTISIG, OP_TRUE, OP_DROP, OP_RETURN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes, hex_str_to_bytes, sync_blocks, try_rpc
 
@@ -111,7 +111,7 @@ class SegWitTest(BitcoinTestFramework):
         assert(tmpl['transactions'][0]['sigops'] == 2)
         self.nodes[0].generate(1) #block 162
 
-        balance_presetup = self.nodes[0].getbalance()
+        balance_presetup = self.nodes[0].getbalance()['bitcoin']
         self.pubkey = []
         p2sh_ids = [] # p2sh_ids[NODE][VER] is an array of txids that spend to a witness version VER pkscript to an address for NODE embedded in p2sh
         wit_ids = [] # wit_ids[NODE][VER] is an array of txids that spend to a witness version VER pkscript to an address for NODE via bare witness
@@ -143,9 +143,9 @@ class SegWitTest(BitcoinTestFramework):
         sync_blocks(self.nodes)
 
         # Make sure all nodes recognize the transactions as theirs
-        assert_equal(self.nodes[0].getbalance(), balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
-        assert_equal(self.nodes[1].getbalance(), 20*Decimal("49.999"))
-        assert_equal(self.nodes[2].getbalance(), 20*Decimal("49.999"))
+        assert_equal(self.nodes[0].getbalance()['bitcoin'], balance_presetup - 60*50 + 20*Decimal("49.999") + 50)
+        assert_equal(self.nodes[1].getbalance()['bitcoin'], 20*Decimal("49.999"))
+        assert_equal(self.nodes[2].getbalance()['bitcoin'], 20*Decimal("49.999"))
 
         self.nodes[0].generate(260) #block 423
         sync_blocks(self.nodes)
@@ -229,6 +229,7 @@ class SegWitTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(int(txid1, 16), 0), b''))
         tx.vout.append(CTxOut(int(49.99 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))
+        tx.vout.append(CTxOut(int(49.996*COIN - 49.99*COIN)))
         tx2_hex = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))['hex']
         txid2 = self.nodes[0].sendrawtransaction(tx2_hex)
         tx = FromHex(CTransaction(), tx2_hex)
@@ -238,6 +239,7 @@ class SegWitTest(BitcoinTestFramework):
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(int(txid2, 16), 0), b""))
         tx.vout.append(CTxOut(int(49.95 * COIN), CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE])))  # Huge fee
+        tx.vout.append(CTxOut(int(49.99*COIN - 49.95*COIN)))
         tx.calc_sha256()
         txid3 = self.nodes[0].sendrawtransaction(ToHex(tx))
         assert(tx.wit.is_null())
@@ -564,10 +566,14 @@ class SegWitTest(BitcoinTestFramework):
         for use_p2wsh in [False, True]:
             if use_p2wsh:
                 scriptPubKey = "00203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a"
-                transaction = "0100000000000100e1f505000000002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000"
+                # original btc tx:
+                # 01000000000100e1f505000000002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000
+                transaction = "0100000000000101ac2e6a47e85fdc2a5a27334544440f2f5135553a7476f4f5e3b9792da6a58fe0010000000005f5e100002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000"
             else:
                 scriptPubKey = "a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d87"
-                transaction = "0100000000000100e1f5050000000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000"
+                # original btc tx:
+                # 01000000000100e1f5050000000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000
+                transaction = "0100000000000101ac2e6a47e85fdc2a5a27334544440f2f5135553a7476f4f5e3b9792da6a58fe0010000000005f5e1000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000"
 
             self.nodes[1].importaddress(scriptPubKey, "", False)
             rawtxfund = self.nodes[1].fundrawtransaction(transaction)['hex']
@@ -587,8 +593,11 @@ class SegWitTest(BitcoinTestFramework):
         utxo = find_spendable_utxo(self.nodes[0], 50)
         tx = CTransaction()
         tx.vin.append(CTxIn(COutPoint(int('0x'+utxo['txid'],0), utxo['vout'])))
+        remaining = 50*COIN
         for i in script_list:
             tx.vout.append(CTxOut(10000000, i))
+            remaining -= 10000000
+        tx.vout.append(CTxOut(remaining))
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
         txid = self.nodes[0].sendrawtransaction(signresults, True)
@@ -633,14 +642,19 @@ class SegWitTest(BitcoinTestFramework):
 
     def create_and_mine_tx_from_txids(self, txids, success = True):
         tx = CTransaction()
+        total_in = 0
         for i in txids:
             txtmp = CTransaction()
             txraw = self.nodes[0].getrawtransaction(i)
             f = BytesIO(hex_str_to_bytes(txraw))
             txtmp.deserialize(f)
             for j in range(len(txtmp.vout)):
+                if txtmp.vout[j].is_fee():
+                    continue
+                total_in += txtmp.vout[j].nValue.getAmount()
                 tx.vin.append(CTxIn(COutPoint(int('0x'+i,0), j)))
-        tx.vout.append(CTxOut(0, CScript()))
+        tx.vout.append(CTxOut(0, CScript([OP_RETURN])))
+        tx.vout.append(CTxOut(total_in))
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
         self.nodes[0].sendrawtransaction(signresults, True)
