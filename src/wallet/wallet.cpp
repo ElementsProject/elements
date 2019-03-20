@@ -2906,7 +2906,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         // Preserve order of selected inputs for surjection proofs
         std::vector<CInputCoin> selected_coins;
 
-        // A map that keeps track of the change script for each asset and also 
+        // A map that keeps track of the change script for each asset and also
         // the index of the reserveKeys used for that script (-1 if none).
         std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
 

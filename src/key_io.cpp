@@ -144,8 +144,8 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
             return PKHash(hash);
-        } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size && 
-                std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) && 
+        } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size &&
+                std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) &&
                 std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin() + blinded_prefix.size())) {
             auto payload_start = data.begin() + blinded_prefix.size() + pubkey_prefix.size();
             CPubKey pubkey;
@@ -161,8 +161,8 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return ScriptHash(hash);
-        } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size && 
-                std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) && 
+        } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size &&
+                std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) &&
                 std::equal(script_prefix.begin(), script_prefix.end(), data.begin() + blinded_prefix.size())) {
             auto payload_start = data.begin() + blinded_prefix.size() + script_prefix.size();
             CPubKey pubkey;

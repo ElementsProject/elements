@@ -964,7 +964,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     CAmountMap totalAmount;
     std::vector<std::string> keys = sendTo.getKeys();
     for (const std::string& name_ : keys) {
-        std::string strasset = Params().GetConsensus().pegged_asset.GetHex(); 
+        std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
         if (!assets.isNull() && assets[name_].isStr()) {
             strasset = assets[name_].get_str();
         }

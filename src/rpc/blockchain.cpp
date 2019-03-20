@@ -2236,7 +2236,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
         result.pushKV("success", res);
         result.pushKV("searched_items", count);
 
-		if (!g_con_elementsmode) {
+        if (!g_con_elementsmode) {
             for (const auto& it : coins) {
                 const COutPoint& outpoint = it.first;
                 const Coin& coin = it.second;

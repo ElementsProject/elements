@@ -679,7 +679,7 @@ public:
 
         vSeeds.clear();
         vSeeds.emplace_back("seed.liquidnetwork.io");
-		vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_liquidv1, pnSeed6_liquidv1 + ARRAYLEN(pnSeed6_liquidv1));
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_liquidv1, pnSeed6_liquidv1 + ARRAYLEN(pnSeed6_liquidv1));
 
         //
         // ELEMENTS fields
@@ -777,8 +777,8 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
         return std::unique_ptr<CChainParams>(new CTestNetParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
-	else if (chain == CBaseChainParams::LIQUID1)
-		return std::unique_ptr<CChainParams>(new CLiquidV1Params());
+    else if (chain == CBaseChainParams::LIQUID1)
+        return std::unique_ptr<CChainParams>(new CLiquidV1Params());
 
     return std::unique_ptr<CChainParams>(new CCustomParams(chain, gArgs));
 }
