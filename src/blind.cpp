@@ -96,7 +96,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
         return false;
     }
 
-    // Convienience pointers to starting point of each recovered 32 byte message
+    // Convenience pointers to starting point of each recovered 32 byte message
     unsigned char *asset_type = msg;
     unsigned char *asset_blinder = msg+32;
 

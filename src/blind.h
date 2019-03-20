@@ -18,7 +18,7 @@
 static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
 
 /*
- * Unblind a pair of confidental asset and value.
+ * Unblind a pair of confidential asset and value.
  * Note that unblinded data will only be outputted if *BOTH* asset and value could be unblinded.
  *
  * blinding_key is used to create the nonce to rewind the rangeproof in conjunction with the nNonce commitment. In the case of a 0-length nNonce, the blinding key is directly used as the nonce.
@@ -37,7 +37,7 @@ void BlindAsset(CConfidentialAsset& conf_asset, secp256k1_generator& asset_gen, 
 
 void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_commitment& value_commit, const unsigned char* value_blindptr, const secp256k1_generator& asset_gen, const CAmount amount);
 
-/* Returns the number of ouputs that were successfully blinded.
+/* Returns the number of outputs that were successfully blinded.
  * In many cases a `0` can be fixed by adding an additional output.
  * @param[in]   input_blinding_factors - A vector of input blinding factors that will be used to create the balanced output blinding factors
  * @param[in]   input_asset_blinding_factors - A vector of input asset blinding factors that will be used to create the balanced output blinding factors

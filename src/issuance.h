@@ -20,7 +20,7 @@
 void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint256& contracthash);
 
 /**
- * Derive the asset from the entropy. See Definintion 19 of the confidential
+ * Derive the asset from the entropy. See Definition 19 of the confidential
  * assets paper.
  *
  * @param[out]  asset    The nonce used as auxiliary input to the Pedersen
