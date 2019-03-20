@@ -322,11 +322,16 @@ class CTxOutAsset(object):
 
     def deserialize(self, f):
         version = ord(f.read(1))
-        if version == 0: self.vchCommitment = b'\x00'
-        elif version == 1: self.vchCommitment = b'\x01' + f.read(32)
-        elif version == 0xff: self.vchCommitment = b'\xff' + f.read(32)
-        elif version == 10 or version == 11: self.vchCommitment = bytes([version]) + f.read(32)
-        else: raise 'invalid CTxOutAsset in deserialize'
+        if version == 0:
+            self.vchCommitment = b'\x00'
+        elif version == 1:
+            self.vchCommitment = b'\x01' + f.read(32)
+        elif version == 0xff:
+            self.vchCommitment = b'\xff' + f.read(32)
+        elif version == 10 or version == 11:
+            self.vchCommitment = bytes([version]) + f.read(32)
+        else:
+            raise 'invalid CTxOutAsset in deserialize'
 
     def serialize(self):
         r = b""
@@ -353,15 +358,21 @@ class CTxOutValue(object):
 
     def deserialize(self, f):
         version = ord(f.read(1))
-        if version == 0: self.vchCommitment = b'\x00'
-        elif version == 1: self.vchCommitment = b'\x01' + f.read(8)
-        elif version == 0xff: self.vchCommitment = b'\xff' + f.read(8)
-        elif version == 8 or version == 9: self.vchCommitment = bytes([version]) + f.read(32)
-        else: raise Exception('invalid CTxOutValue in deserialize. version %d' % version)
+        if version == 0:
+            self.vchCommitment = b'\x00'
+        elif version == 1:
+            self.vchCommitment = b'\x01' + f.read(8)
+        elif version == 0xff:
+            self.vchCommitment = b'\xff' + f.read(8)
+        elif version == 8 or version == 9:
+            self.vchCommitment = bytes([version]) + f.read(32)
+        else:
+            raise Exception('invalid CTxOutValue in deserialize. version %d' % version)
 
     def serialize(self):
         r = b""
-        if len(self.vchCommitment) < 1: raise ValueError('invalid commitment')
+        if len(self.vchCommitment) < 1:
+            raise ValueError('invalid commitment')
         r += self.vchCommitment
         return r
 
@@ -392,11 +403,16 @@ class CTxOutNonce(object):
 
     def deserialize(self, f):
         version = ord(f.read(1))
-        if version == 0: self.vchCommitment = b'\x00'
-        elif version == 1: self.vchCommitment = b'\x01' + f.read(32)
-        elif version == 0xff: self.vchCommitment = b'\xff' + f.read(32)
-        elif version == 2 or version == 3: self.vchCommitment = bytes([version]) + f.read(32)
-        else: raise ValueError('invalid CTxOutNonce in deserialize')
+        if version == 0:
+            self.vchCommitment = b'\x00'
+        elif version == 1:
+            self.vchCommitment = b'\x01' + f.read(32)
+        elif version == 0xff:
+            self.vchCommitment = b'\xff' + f.read(32)
+        elif version == 2 or version == 3:
+            self.vchCommitment = bytes([version]) + f.read(32)
+        else:
+            raise ValueError('invalid CTxOutNonce in deserialize')
 
     def serialize(self):
         r = b""

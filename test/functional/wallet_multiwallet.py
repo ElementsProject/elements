@@ -14,7 +14,6 @@ from test_framework.test_node import ErrorMatch
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    BITCOIN_ASSET,
 )
 
 

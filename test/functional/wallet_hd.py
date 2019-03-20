@@ -12,7 +12,6 @@ from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
     assert_raises_rpc_error,
-    BITCOIN_ASSET,
 )
 
 

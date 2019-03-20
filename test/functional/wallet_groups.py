@@ -8,7 +8,6 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.messages import CTransaction, FromHex, ToHex
 from test_framework.util import (
     assert_equal,
-    BITCOIN_ASSET,
 )
 
 def assert_approx(v, vexp, vspan=0.00001):

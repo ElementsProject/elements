@@ -79,8 +79,7 @@ def process_raw_issuance(node, issuance_list):
                 if "asset" in output and output["asset"] == issuance_details[issuance_type]:
                     if issuance_type+"_address" not in issuance_req:
                         raise Exception("Found asset type not requested")
-                    if "value" in output and \
-                        output["value"] == issuance_req[issuance_type+"_amount"]:
+                    if "value" in output and output["value"] == issuance_req[issuance_type+"_amount"]:
                         asset_found = True
 
             # Find the asset type if it was created
@@ -105,7 +104,7 @@ class IssuanceTest(BitcoinTestFramework):
     def run_test(self):
         self.nodes[0].generate(105)
         # Make sure test starts with no initial issuance.
-        assert_equal(len(self.nodes[0].listissuances()), 0);
+        assert_equal(len(self.nodes[0].listissuances()), 0)
 
         # Unblinded issuance of asset
         issued = self.nodes[0].issueasset(1, 1, False)
@@ -211,7 +210,7 @@ class IssuanceTest(BitcoinTestFramework):
         addr2 = txdet2[len(txdet2)-1]["address"]
         addr3 = txdet3[len(txdet3)-1]["address"]
 
-        assert_equal(len(self.nodes[0].listissuances()), 5);
+        assert_equal(len(self.nodes[0].listissuances()), 5)
         self.nodes[0].importaddress(addr1)
         self.nodes[0].importaddress(addr2)
         self.nodes[0].importaddress(addr3)

@@ -18,7 +18,6 @@ from .messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
-    CTxOutAsset,
     CTxOutValue,
     FromHex,
     ToHex,
@@ -30,7 +29,6 @@ from .messages import (
     sha256,
     uint256_from_str,
     CProof,
-    BITCOIN_ASSET_OUT,
 )
 from .script import (
     CScript,

@@ -16,7 +16,6 @@ from test_framework.util import (
     sync_blocks,
     sync_mempools,
     wait_until,
-    BITCOIN_ASSET,
 )
 
 class WalletTest(BitcoinTestFramework):
@@ -269,10 +268,10 @@ class WalletTest(BitcoinTestFramework):
         self.sync_all()
 
         unspent_txs = self.nodes[0].listunspent()  # zero value tx must be in listunspents output
-        found = False
+        #found = False
         for uTx in unspent_txs:
             if uTx['txid'] == zero_value_txid:
-                found = True
+                #found = True
                 assert_equal(uTx['amount'], Decimal('0'))
         # ELEMENTS: this test doesn't make sense
         #assert(found)

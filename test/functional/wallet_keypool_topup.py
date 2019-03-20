@@ -18,7 +18,6 @@ from test_framework.util import (
     assert_equal,
     connect_nodes_bi,
     sync_blocks,
-    BITCOIN_ASSET,
 )
 
 

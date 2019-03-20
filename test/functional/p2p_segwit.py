@@ -487,7 +487,8 @@ class SegWitTest(BitcoinTestFramework):
         tx.vin = [CTxIn(COutPoint(self.utxo[0].sha256, self.utxo[0].n), b'')]
         tx.vout = [CTxOut(value, script_pubkey), CTxOut(value, p2sh_script_pubkey)]
         tx.vout.append(CTxOut(value, CScript([OP_TRUE])))
-        if self.utxo[0].nValue % 3 > 0: tx.vout.append(CTxOut(self.utxo[0].nValue - 3*value))
+        if self.utxo[0].nValue % 3 > 0:
+            tx.vout.append(CTxOut(self.utxo[0].nValue - 3*value))
         tx.rehash()
         txid = tx.sha256
 
@@ -1742,7 +1743,8 @@ class SegWitTest(BitcoinTestFramework):
             split_value = total_value // num_outputs
             for i in range(num_outputs):
                 tx.vout.append(CTxOut(split_value, script_pubkey))
-            if total_value % num_outputs > 0: tx.vout.append(CTxOut(total_value - num_outputs*split_value)) # fee
+            if total_value % num_outputs > 0:
+                tx.vout.append(CTxOut(total_value - num_outputs*split_value)) # fee
             for i in range(num_inputs):
                 # Now try to sign each input, using a random hashtype.
                 anyonecanpay = 0
@@ -1815,7 +1817,8 @@ class SegWitTest(BitcoinTestFramework):
         # Just spend to our usual anyone-can-spend output
         tx.vout = [CTxOut(output_value, CScript([OP_TRUE]))] * 2
         total_in = sum(i.nValue for i in temp_utxos)
-        if total_in - 2*output_value > 0: tx.vout.append(CTxOut(total_in - 2*output_value)) # fee
+        if total_in - 2*output_value > 0:
+            tx.vout.append(CTxOut(total_in - 2*output_value)) # fee
         for i in temp_utxos:
             # Use SIGHASH_ALL|SIGHASH_ANYONECANPAY so we can build up
             # the signatures as we go.
@@ -2054,7 +2057,8 @@ class SegWitTest(BitcoinTestFramework):
             tx.vout.append(CTxOut(split_value, script_pubkey))
         tx.vout[-2].scriptPubKey = script_pubkey_toomany
         tx.vout[-1].scriptPubKey = script_pubkey_justright
-        if self.utxo[0].nValue % outputs > 0: tx.vout.append(CTxOut(self.utxo[0].nValue - outputs*split_value)) # fee
+        if self.utxo[0].nValue % outputs > 0:
+            tx.vout.append(CTxOut(self.utxo[0].nValue - outputs*split_value)) # fee
         tx.rehash()
 
         block_1 = self.build_next_block()

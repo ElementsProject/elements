@@ -9,7 +9,7 @@ from decimal import Decimal
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, CTxOutValue
 from test_framework.script import CScript, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes, satoshi_round, BITCOIN_ASSET
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes, satoshi_round
 
 from io import BytesIO
 

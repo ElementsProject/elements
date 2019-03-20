@@ -8,11 +8,8 @@
 # Test listissuances returns a list of all issuances or specific issuances based on asset hex or asset label.
 #
 
-from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, assert_greater_than
-from test_framework.util import *
 
 class AssetdirTests(BitcoinTestFramework):
     """
@@ -45,13 +42,13 @@ class AssetdirTests(BitcoinTestFramework):
         #Check that listissuances return all issuances
         issuances = self.nodes[0].listissuances()
         assert_equal(len(issuances), 2)
-        
+
         #Check all asset labels have been set: 'asset1', 'asset2'
         #We can not be sure they will always be returned in the same order so will loop each one
         label = ""
         for issue in issuances:
             label += issue["assetlabel"]
-        
+
         assert_greater_than(label.find("asset1"), -1)
         assert_greater_than(label.find("asset2"), -1)
 

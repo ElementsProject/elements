@@ -16,7 +16,7 @@ from test_framework.messages import BlockTransactions, BlockTransactionsRequest,
 from test_framework.mininode import mininode_lock, P2PInterface
 from test_framework.script import CScript, OP_TRUE, OP_DROP
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, get_bip9_status, satoshi_round, sync_blocks, wait_until, BITCOIN_ASSET
+from test_framework.util import assert_equal, get_bip9_status, satoshi_round, sync_blocks, wait_until
 from test_framework import util
 
 # TestP2PConn: A peer we use to send messages to bitcoind, and store responses.

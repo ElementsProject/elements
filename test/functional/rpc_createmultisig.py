@@ -5,7 +5,6 @@
 """Test transaction signing using the signrawtransaction* RPCs."""
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import BITCOIN_ASSET
 import decimal
 
 class RpcCreateMultiSigTest(BitcoinTestFramework):

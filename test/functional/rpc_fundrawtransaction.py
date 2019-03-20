@@ -15,7 +15,6 @@ from test_framework.util import (
     connect_nodes_bi,
     count_bytes,
     find_vout_for_address,
-    BITCOIN_ASSET,
 )
 
 

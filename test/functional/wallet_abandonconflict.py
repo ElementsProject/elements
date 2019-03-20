@@ -13,7 +13,7 @@
 from decimal import Decimal
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, disconnect_nodes, sync_blocks, sync_mempools, BITCOIN_ASSET
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, disconnect_nodes, sync_blocks, sync_mempools
 
 class AbandonConflictTest(BitcoinTestFramework):
     def set_test_params(self):

@@ -7,9 +7,7 @@
 # Test chain initialisation when specifying default asset name.
 #
 
-from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import assert_equal, connect_nodes_bi
 
 class NamedDefaultAssetTest(BitcoinTestFramework):
@@ -42,7 +40,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
         assert_equal(walletinfo1["balance"]["testasset"], 21000000)
 
         #Send some of the default asset to the second node
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False) 
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False)
         self.nodes[0].generate(101)
         self.sync_all()
 

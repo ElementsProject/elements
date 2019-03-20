@@ -5,7 +5,7 @@ import hashlib
 import random
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi, BITCOIN_ASSET)
+from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi)
 from test_framework import (
     address,
     key,

@@ -20,7 +20,6 @@ from test_framework.util import (
     assert_greater_than,
     assert_greater_than_or_equal,
     hex_str_to_bytes,
-    BITCOIN_ASSET,
 )
 
 class ReqType(Enum):

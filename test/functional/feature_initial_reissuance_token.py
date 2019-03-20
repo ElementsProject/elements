@@ -7,11 +7,8 @@
 # Test chain initialisation when specifying number of reissuance tokens to issue.
 #
 
-from decimal import Decimal
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.authproxy import JSONRPCException
 from test_framework.util import connect_nodes_bi, assert_equal
-from test_framework.util import *
 
 class InitialReissuanceTokenTest(BitcoinTestFramework):
     """

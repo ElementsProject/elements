@@ -148,7 +148,7 @@ class CTTest (BitcoinTestFramework):
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
-                                                  {unconfidential_address: unspent[0]["amount"] - fee, "fee":fee});
+                                                  {unconfidential_address: unspent[0]["amount"] - fee, "fee":fee})
 
         # Test that blindrawtransaction adds an OP_RETURN output to balance blinders
         temptx = self.nodes[0].blindrawtransaction(tx)
@@ -164,7 +164,7 @@ class CTTest (BitcoinTestFramework):
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
                                                   {unconfidential_address: value4,
-                                                   change_address: unspent[0]["amount"] - value4 - fee, "fee":fee});
+                                                   change_address: unspent[0]["amount"] - value4 - fee, "fee":fee})
         tx = self.nodes[0].blindrawtransaction(tx)
         tx_signed = self.nodes[0].signrawtransactionwithwallet(tx)
         txid = self.nodes[0].sendrawtransaction(tx_signed['hex'])
@@ -222,7 +222,7 @@ class CTTest (BitcoinTestFramework):
         # therefore result will be same even though we change blinding keys
         assert_equal(len(self.nodes[0].listunspent(0, 0, [new_validated["unconfidential"]])), 1)
 
-        #### Confidential Assets Tests ####
+        # Confidential Assets Tests
 
         print("Assets tests...")
 
@@ -295,8 +295,8 @@ class CTTest (BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
 
-        redata1 = self.nodes[1].reissueasset(issuancedata["asset"], Decimal('0.05'))
-        redata2 = self.nodes[2].reissueasset(issuancedata["asset"], Decimal('0.025'))
+        self.nodes[1].reissueasset(issuancedata["asset"], Decimal('0.05'))
+        self.nodes[2].reissueasset(issuancedata["asset"], Decimal('0.025'))
         self.nodes[1].generate(1)
         self.sync_all()
 
@@ -349,8 +349,8 @@ class CTTest (BitcoinTestFramework):
         # Basic checks of rawblindrawtransaction functionality
         blinded_addr = self.nodes[0].getnewaddress()
         addr = self.nodes[0].validateaddress(blinded_addr)["unconfidential"]
-        txid1 = self.nodes[0].sendtoaddress(blinded_addr, 1)
-        txid2 = self.nodes[0].sendtoaddress(blinded_addr, 3)
+        self.nodes[0].sendtoaddress(blinded_addr, 1)
+        self.nodes[0].sendtoaddress(blinded_addr, 3)
         unspent = self.nodes[0].listunspent(0, 0)
         assert_equal(len(unspent), 4)
         rawtx = self.nodes[0].createrawtransaction([{"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]}, {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}], {addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.2"), "fee":Decimal("0.2")})

@@ -61,7 +61,6 @@ from test_framework.util import (
     connect_nodes_bi,
     sync_blocks,
     sync_mempools,
-    BITCOIN_ASSET,
 )
 
 
