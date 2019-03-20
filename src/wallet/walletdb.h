@@ -206,8 +206,9 @@ public:
     bool WriteOnlineKey(const CPubKey& online_key);
     bool WriteOfflineCounter(int counter);
     bool WriteOfflineDescriptor(const std::string& offline_desc);
-    // DEPRECATED
     bool WriteOfflineXPubKey(const CExtPubKey& offline_xpub);
+    bool WriteBlindingDerivationKey(const uint256& key);
+    bool WriteSpecificBlindingKey(const uint160& scriptid, const uint256& key);
 
     DBErrors LoadWallet(CWallet* pwallet);
     DBErrors FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);

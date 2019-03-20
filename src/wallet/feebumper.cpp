@@ -94,6 +94,10 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // if there was no change output or multiple change outputs, fail
     int nOutput = -1;
     for (size_t i = 0; i < wtx.tx->vout.size(); ++i) {
+        if (wtx.GetOutputAsset(i) != ::policyAsset) {
+            continue;
+        }
+
         if (wallet->IsChange(wtx.tx->vout[i])) {
             if (nOutput != -1) {
                 errors.push_back("Transaction has multiple change outputs");
@@ -107,8 +111,22 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         return Result::WALLET_ERROR;
     }
 
+    // Find the fee output.
+    int nFeeOutput = -1;
+    for (int i = (int)wtx.tx->vout.size()-1; i >= 0; --i) {
+        if (wtx.GetOutputAsset(i) == ::policyAsset && wtx.tx->vout[i].IsFee()) {
+            nFeeOutput = i;
+            break;
+        }
+    }
+
     // Calculate the expected size of the new transaction.
     int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
+    if (g_con_elementsmode && nFeeOutput == -1) {
+        CMutableTransaction with_fee_output = CMutableTransaction{*wtx.tx};
+        with_fee_output.vout.push_back(CTxOut(::policyAsset, 0, CScript()));
+        txSize = GetVirtualTransactionSize(with_fee_output);
+    }
     const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(*wtx.tx, wallet);
     if (maxNewTxSize < 0) {
         errors.push_back("Transaction contains inputs that cannot be signed");
@@ -116,7 +134,10 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     }
 
     // calculate the old fee and fee-rate
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE) - wtx.tx->GetValueOut();
+    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
+    if (g_con_elementsmode) {
+        old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
+    }
     CFeeRate nOldFeeRate(old_fee, txSize);
     CFeeRate nNewFeeRate;
     // The wallet uses a conservative WALLET_INCREMENTAL_RELAY_FEE value to
@@ -187,19 +208,32 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     assert(nDelta > 0);
     mtx = CMutableTransaction{*wtx.tx};
     CTxOut* poutput = &(mtx.vout[nOutput]);
-    if (poutput->nValue < nDelta) {
+    // TODO CA: Decrypt output amount using wallet
+    if (!poutput->nValue.IsExplicit() || poutput->nValue.GetAmount() < nDelta) {
         errors.push_back("Change output is too small to bump the fee");
         return Result::WALLET_ERROR;
     }
 
     // If the output would become dust, discard it (converting the dust to fee)
-    poutput->nValue -= nDelta;
-    if (poutput->nValue <= GetDustThreshold(*poutput, GetDiscardRate(*wallet, ::feeEstimator))) {
+    poutput->nValue = poutput->nValue.GetAmount() - nDelta;
+    if (poutput->nValue.GetAmount() <= GetDustThreshold(*poutput, GetDiscardRate(*wallet, ::feeEstimator))) {
         wallet->WalletLogPrintf("Bumping fee and discarding dust output\n");
-        new_fee += poutput->nValue;
+        new_fee += poutput->nValue.GetAmount();
         mtx.vout.erase(mtx.vout.begin() + nOutput);
         if (mtx.witness.vtxoutwit.size() > (size_t) nOutput) {
             mtx.witness.vtxoutwit.erase(mtx.witness.vtxoutwit.begin() + nOutput);
+        }
+        if (nFeeOutput > nOutput) {
+            --nFeeOutput;
+        }
+    }
+
+    // Update fee output or add one.
+    if (g_con_elementsmode) {
+        if (nFeeOutput >= 0) {
+            mtx.vout[nFeeOutput].nValue.SetToAmount(new_fee);
+        } else {
+            mtx.vout.push_back(CTxOut(::policyAsset, new_fee, CScript()));
         }
     }
 
@@ -242,10 +276,15 @@ Result CommitTransaction(CWallet* wallet, const uint256& txid, CMutableTransacti
     CTransactionRef tx = MakeTransactionRef(std::move(mtx));
     mapValue_t mapValue = oldWtx.mapValue;
     mapValue["replaces_txid"] = oldWtx.GetHash().ToString();
+    // wipe blinding details to not store old information
+    mapValue["blindingdata"] = "";
+    // TODO CA: store new blinding data to remember otherwise unblindable outputs
 
-    CReserveKey reservekey(wallet);
+    std::vector<std::unique_ptr<CReserveKey>> reservekeys;
+    reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(wallet)));
+    //reservekeys.push_back(std::unique_ptr<CReserveKey>(wallet));
     CValidationState state;
-    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, reservekey, g_connman.get(), state)) {
+    if (!wallet->CommitTransaction(tx, std::move(mapValue), oldWtx.vOrderForm, reservekeys, g_connman.get(), state)) {
         // NOTE: CommitTransaction never returns false, so this should never happen.
         errors.push_back(strprintf("The transaction was rejected: %s", FormatStateMessage(state)));
         return Result::WALLET_ERROR;

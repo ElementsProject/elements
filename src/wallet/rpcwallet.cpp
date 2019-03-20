@@ -4,6 +4,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <amount.h>
+#include <asset.h>
+#include <assetsdir.h>
 #include <block_proof.h>
 #include <chain.h>
 #include <consensus/validation.h>
@@ -50,6 +52,8 @@
 #include <script/generic.hpp> // signblock
 #include <script/descriptor.h> // initpegoutwallet
 #include <span.h> // sendtomainchain_pak
+#include <blind.h>
+#include <issuance.h>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -137,8 +141,12 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry) EXCLUSIVE_LOCK
     }
     entry.pushKV("bip125-replaceable", rbfStatus);
 
-    for (const std::pair<const std::string, std::string>& item : wtx.mapValue)
-        entry.pushKV(item.first, item.second);
+    for (const std::pair<const std::string, std::string>& item : wtx.mapValue) {
+        // Skip blinding data which isn't parseable
+        if (item.first != "blindingdata") {
+            entry.pushKV(item.first, item.second);
+        }
+    }
 }
 
 static std::string LabelFromValue(const UniValue& value)
@@ -164,6 +172,8 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
             "\nReturns a new Bitcoin address for receiving payments.\n"
             "If 'label' is specified, it is added to the address book \n"
             "so payments received with the address will be associated with 'label'.\n"
+            "Blinded addresses are returned by default, and can be set with\n"
+            "startup argument `-blindedaddresses`.\n"
             "\nArguments:\n"
             "1. \"label\"          (string, optional) The label name for the address to be linked to. If not provided, the default label \"\" is used. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name.\n"
             "2. \"address_type\"   (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype.\n"
@@ -203,7 +213,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    if (g_con_elementsmode) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode)) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
     }
@@ -227,6 +237,8 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
             "getrawchangeaddress ( \"address_type\" )\n"
             "\nReturns a new Bitcoin address, for receiving change.\n"
             "This is for use with raw transactions, NOT normal use.\n"
+            "Blinded addresses are returned by default, and can be set with\n"
+            "startup argument `-blindedaddresses`.\n"
             "\nArguments:\n"
             "1. \"address_type\"           (string, optional) The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
             "\nResult:\n"
@@ -262,7 +274,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     pwallet->LearnRelatedScripts(vchPubKey, output_type);
     CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
-    if (g_con_elementsmode) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode)) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(vchPubKey, output_type, blinding_pubkey);
     }
@@ -311,15 +323,15 @@ static UniValue setlabel(const JSONRPCRequest& request)
 }
 
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue)
+static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, const CAsset& asset, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, bool ignore_blind_fail)
 {
-    CAmount curBalance = pwallet->GetBalance();
+    CAmountMap curBalance = pwallet->GetBalance();
 
     // Check amount
     if (nValue <= 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > curBalance)
+    if (nValue > curBalance[asset])
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
     if (pwallet->GetBroadcastTransactions() && !g_connman) {
@@ -329,22 +341,32 @@ static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &
     // Parse Bitcoin address
     CScript scriptPubKey = GetScriptForDestination(address);
 
+    // Create the lower bound number of reserve keys.
+    std::vector<COutPoint> vPresetInputs;
+    coin_control.ListSelected(vPresetInputs);
+    int numReservedKeysNeeded = 2 + vPresetInputs.size(); // 1 fee + 1 destination
+    std::vector<std::unique_ptr<CReserveKey>> reserveKeys;
+    for (int i = 0; i < numReservedKeysNeeded; ++i) {
+        reserveKeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+    }
+
     // Create and send the transaction
-    CReserveKey reservekey(pwallet);
     CAmount nFeeRequired;
     std::string strError;
     std::vector<CRecipient> vecSend;
     int nChangePosRet = -1;
-    CRecipient recipient = {scriptPubKey, nValue, fSubtractFeeFromAmount};
+    CRecipient recipient = {scriptPubKey, nValue, asset, GetDestinationBlindingKey(address), fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
     CTransactionRef tx;
-    if (!pwallet->CreateTransaction(vecSend, tx, reservekey, nFeeRequired, nChangePosRet, strError, coin_control)) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
+    BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
+    if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
+    if (!pwallet->CreateTransaction(vecSend, tx, reserveKeys, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
+        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservekey, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reserveKeys, g_connman.get(), state, blind_details)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -360,9 +382,9 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 10)
         throw std::runtime_error(
-            "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\")\n"
+            "sendtoaddress \"address\" amount ( \"comment\" \"comment_to\" subtractfeefromamount replaceable conf_target \"estimate_mode\" \"assetlabel\" ignoreblindfail )\n"
             "\nSend an amount to a given address.\n"
             + HelpRequiringPassphrase(pwallet) +
             "\nArguments:\n"
@@ -381,6 +403,8 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
             "       \"UNSET\"\n"
             "       \"ECONOMICAL\"\n"
             "       \"CONSERVATIVE\"\n"
+            "9. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
+            "10. \"ignoreblindfail\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -433,10 +457,25 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         }
     }
 
+    std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
+    LogPrintf("xxasset: %s\n", strasset);
+    if (request.params.size() > 8 && request.params[8].isStr() && !request.params[8].get_str().empty()) {
+        strasset = request.params[8].get_str();
+    }
+    LogPrintf("xxasset: %s\n", strasset);
+    CAsset asset = GetAssetFromString(strasset);
+    if (asset.IsNull() && g_con_elementsmode) {
+        throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
+    }
+
+    bool ignore_blind_fail = true;
+    if (request.params.size() > 9) {
+        ignore_blind_fail = request.params[9].get_bool();
+    }
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, fSubtractFeeFromAmount, coin_control, std::move(mapValue));
+    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, asset, fSubtractFeeFromAmount, coin_control, std::move(mapValue), ignore_blind_fail);
     return tx->GetHash().GetHex();
 }
 
@@ -579,6 +618,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"address\"         (string, required) The bitcoin address for transactions.\n"
             "2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount   (numeric) The total amount in " + CURRENCY_UNIT + " received at this address.\n"
             "\nExamples:\n"
@@ -614,19 +654,34 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
         nMinDepth = request.params[1].get_int();
 
     // Tally
-    CAmount nAmount = 0;
-    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
+    CAmountMap amounts;
+    for (auto& pairWtx : pwallet->mapWallet) {
+        CWalletTx& wtx = pairWtx.second;
         if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
             continue;
 
-        for (const CTxOut& txout : wtx.tx->vout)
-            if (txout.scriptPubKey == scriptPubKey)
-                if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+            const CTxOut& txout = wtx.tx->vout[i];
+            if (txout.scriptPubKey == scriptPubKey) {
+                if (wtx.GetDepthInMainChain() >= nMinDepth) {
+                    CAmountMap wtxValue;
+                    CAmount amt = wtx.GetOutputValueOut(i);
+                    if (amt < 0) {
+                        continue;
+                    }
+                    wtxValue[wtx.GetOutputAsset(i)] = amt;
+                    amounts += wtxValue;
+                }
+            }
+        }
     }
 
-    return  ValueFromAmount(nAmount);
+    std::string asset = "";
+    if (request.params.size() > 2 && request.params[2].isStr()) {
+        asset = request.params[2].get_str();
+    }
+
+    return AmountMapToUniv(amounts, asset);
 }
 
 
@@ -646,6 +701,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
             "\nArguments:\n"
             "1. \"label\"        (string, required) The selected label, may be the default label using \"\".\n"
             "2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
+            "3. \"assetlabel\"      (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this label.\n"
             "\nExamples:\n"
@@ -675,23 +731,35 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
     std::set<CTxDestination> setAddress = pwallet->GetLabelAddresses(label);
 
     // Tally
-    CAmount nAmount = 0;
-    for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
+    CAmountMap amounts;
+    for (auto& pairWtx : pwallet->mapWallet) {
+        CWalletTx& wtx = pairWtx.second;
         if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
             continue;
 
-        for (const CTxOut& txout : wtx.tx->vout)
-        {
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+            const CTxOut& txout = wtx.tx->vout[i];
             CTxDestination address;
             if (ExtractDestination(txout.scriptPubKey, address) && IsMine(*pwallet, address) && setAddress.count(address)) {
-                if (wtx.GetDepthInMainChain() >= nMinDepth)
-                    nAmount += txout.nValue;
+                if (wtx.GetDepthInMainChain() >= nMinDepth) {
+                    CAmountMap wtxValue;
+                    CAmount amt = wtx.GetOutputValueOut(i);
+                    if (amt < 0) {
+                        continue;
+                    }
+                    wtxValue[wtx.GetOutputAsset(i)] = amt;
+                    amounts += wtxValue;
+                }
             }
         }
     }
 
-    return ValueFromAmount(nAmount);
+    std::string asset = "";
+    if (request.params.size() > 2 && request.params[2].isStr()) {
+        asset = request.params[2].get_str();
+    }
+
+    return AmountMapToUniv(amounts, asset);
 }
 
 
@@ -704,7 +772,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || (request.params.size() > 3 ))
+    if (request.fHelp || (request.params.size() > 4 ))
         throw std::runtime_error(
             "getbalance ( \"(dummy)\" minconf include_watchonly )\n"
             "\nReturns the total available balance.\n"
@@ -714,6 +782,7 @@ static UniValue getbalance(const JSONRPCRequest& request)
             "1. (dummy)           (string, optional) Remains for backward compatibility. Must be excluded or set to \"*\".\n"
             "2. minconf           (numeric, optional, default=0) Only include transactions confirmed at least this many times.\n"
             "3. include_watchonly (bool, optional, default=false) Also include balance in watch-only addresses (see 'importaddress')\n"
+            "4. \"assetlabel\"   (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in " + CURRENCY_UNIT + " received for this wallet.\n"
             "\nExamples:\n"
@@ -746,7 +815,12 @@ static UniValue getbalance(const JSONRPCRequest& request)
         filter = filter | ISMINE_WATCH_ONLY;
     }
 
-    return ValueFromAmount(pwallet->GetBalance(filter, min_depth));
+    std::string asset = "";
+    if (!request.params[3].isNull() && request.params[3].isStr()) {
+        asset = request.params[3].get_str();
+    }
+
+    return AmountMapToUniv(pwallet->GetBalance(filter, min_depth), asset);
 }
 
 static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
@@ -769,7 +843,7 @@ static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
-    return ValueFromAmount(pwallet->GetUnconfirmedBalance());
+    return AmountMapToUniv(pwallet->GetUnconfirmedBalance(), "");
 }
 
 
@@ -782,10 +856,10 @@ static UniValue sendmany(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 10)
         throw std::runtime_error(
-            "sendmany \"\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] replaceable conf_target \"estimate_mode\")\n"
-            "\nSend multiple times. Amounts are double-precision floating point numbers.\n"
+            "sendmany \"\" \"\" {\"address\":amount,...} ( minconf \"comment\" [\"address\",...] replaceable conf_target \"estimate_mode\")\n"
+            "\nSend multiple times. Amounts are double-precision floating point numbers."
             + HelpRequiringPassphrase(pwallet) + "\n"
             "\nArguments:\n"
             "1. \"dummy\"               (string, required) Must be set to \"\" for backwards compatibility.\n"
@@ -810,6 +884,12 @@ static UniValue sendmany(const JSONRPCRequest& request)
             "       \"UNSET\"\n"
             "       \"ECONOMICAL\"\n"
             "       \"CONSERVATIVE\"\n"
+            "9. \"output_assets\"     (string, optional, default=bitcoin) a json object of addresses to assets\n"
+            "   {\n"
+            "       \"address\": \"hex\" \n"
+            "       ...\n"
+            "   }\n"
+            "10. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
              "\nResult:\n"
             "\"txid\"                   (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
             "                                    the number of addresses.\n"
@@ -822,7 +902,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
             + HelpExampleCli("sendmany", "\"\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\" 1 \"\" \"[\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\\\",\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\"]\"") +
             "\nAs a json rpc call\n"
             + HelpExampleRpc("sendmany", "\"\", {\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\":0.01,\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\":0.02}, 6, \"testing\"")
-        );
+            );
 
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
@@ -865,12 +945,34 @@ static UniValue sendmany(const JSONRPCRequest& request)
         }
     }
 
+    UniValue assets;
+    if (!request.params[8].isNull()) {
+        if (!g_con_elementsmode) {
+            throw JSONRPCError(RPC_TYPE_ERROR, "Asset argument cannot be given for Bitcoin serialization.");
+        }
+        assets = request.params[8].get_obj();
+    }
+
+    bool ignore_blind_fail = true;
+    if (request.params.size() > 9) {
+        ignore_blind_fail = request.params[9].get_bool();
+    }
+
     std::set<CTxDestination> destinations;
     std::vector<CRecipient> vecSend;
 
-    CAmount totalAmount = 0;
+    CAmountMap totalAmount;
     std::vector<std::string> keys = sendTo.getKeys();
     for (const std::string& name_ : keys) {
+        std::string strasset = Params().GetConsensus().pegged_asset.GetHex(); 
+        if (!assets.isNull() && assets[name_].isStr()) {
+            strasset = assets[name_].get_str();
+        }
+        CAsset asset = GetAssetFromString(strasset);
+        if (asset.IsNull() && g_con_elementsmode) {
+            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
+        }
+
         CTxDestination dest = DecodeDestination(name_);
         if (!IsValidDestination(dest)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
@@ -885,7 +987,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         CAmount nAmount = AmountFromValue(sendTo[name_]);
         if (nAmount <= 0)
             throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
-        totalAmount += nAmount;
+        totalAmount[asset] += nAmount;
 
         bool fSubtractFeeFromAmount = false;
         for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {
@@ -894,7 +996,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
                 fSubtractFeeFromAmount = true;
         }
 
-        CRecipient recipient = {scriptPubKey, nAmount, fSubtractFeeFromAmount};
+        CRecipient recipient = {scriptPubKey, nAmount, asset, GetDestinationBlindingKey(dest), fSubtractFeeFromAmount};
         vecSend.push_back(recipient);
     }
 
@@ -909,16 +1011,39 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::shuffle(vecSend.begin(), vecSend.end(), FastRandomContext());
 
     // Send
-    CReserveKey keyChange(pwallet);
+    std::vector<std::unique_ptr<CReserveKey>> change_keys;
+
+    std::set<CAsset> setAssets;
+    setAssets.insert(policyAsset);
+    for (auto recipient : vecSend) {
+        setAssets.insert(recipient.asset);
+    }
+    std::vector<COutPoint> vPresetInputs;
+    coin_control.ListSelected(vPresetInputs);
+    for (const COutPoint& presetInput : vPresetInputs) {
+        std::map<uint256, CWalletTx>::const_iterator it = pwallet->mapWallet.find(presetInput.hash);
+        if (it != pwallet->mapWallet.end()) {
+            setAssets.insert(it->second.GetOutputAsset(presetInput.n));
+        }
+    }
+    for (unsigned int i = 0; i < setAssets.size(); i++) {
+        change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+    }
+
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     std::string strFailReason;
     CTransactionRef tx;
-    bool fCreated = pwallet->CreateTransaction(vecSend, tx, keyChange, nFeeRequired, nChangePosRet, strFailReason, coin_control);
-    if (!fCreated)
+    BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
+    if (g_con_elementsmode) {
+        blind_details->ignore_blind_failure = ignore_blind_fail;
+    }
+    bool fCreated = pwallet->CreateTransaction(vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, blind_details);
+    if (!fCreated) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
+    }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, keyChange, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, g_connman.get(), state, blind_details)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -1131,13 +1256,13 @@ static UniValue addwitnessaddress(const JSONRPCRequest& request)
 
 struct tallyitem
 {
-    CAmount nAmount;
+    CAmountMap mapAmount;
     int nConf;
     std::vector<uint256> txids;
     bool fIsWatchonly;
     tallyitem()
     {
-        nAmount = 0;
+        mapAmount = CAmountMap();
         nConf = std::numeric_limits<int>::max();
         fIsWatchonly = false;
     }
@@ -1162,12 +1287,21 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
 
     bool has_filtered_address = false;
     CTxDestination filtered_address = CNoDestination();
-    if (!by_label && params.size() > 3) {
+    if (!by_label && params.size() > 3 && params[3].get_str() != "") {
         if (!IsValidDestinationString(params[3].get_str())) {
             throw JSONRPCError(RPC_WALLET_ERROR, "address_filter parameter was invalid");
         }
         filtered_address = DecodeDestination(params[3].get_str());
         has_filtered_address = true;
+    }
+
+    std::string strasset = "";
+    if (params.size() > 4 && params[4].isStr()) {
+        strasset = params[4].get_str();
+    }
+    CAsset asset;
+    if (!strasset.empty()) {
+        asset = GetAssetFromString(strasset);
     }
 
     // Tally
@@ -1182,8 +1316,10 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (nDepth < nMinDepth)
             continue;
 
-        for (const CTxOut& txout : wtx.tx->vout)
+        for (size_t index = 0; index < wtx.tx->vout.size(); ++index)
         {
+            const CTxOut& txout = wtx.tx->vout[index];
+
             CTxDestination address;
             if (!ExtractDestination(txout.scriptPubKey, address))
                 continue;
@@ -1196,8 +1332,17 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(!(mine & filter))
                 continue;
 
+            CAmount amt = wtx.GetOutputValueOut(index);
+            if (amt < 0) {
+                continue;
+            }
+
+            if (strasset != "" && wtx.GetOutputAsset(index) != asset) {
+                continue;
+            }
+
             tallyitem& item = mapTally[address];
-            item.nAmount += txout.nValue;
+            item.mapAmount[wtx.GetOutputAsset(index)] += amt;
             item.nConf = std::min(item.nConf, nDepth);
             item.txids.push_back(wtx.GetHash());
             if (mine & ISMINE_WATCH_ONLY)
@@ -1229,12 +1374,12 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (it == mapTally.end() && !fIncludeEmpty)
             continue;
 
-        CAmount nAmount = 0;
+        CAmountMap mapAmount;
         int nConf = std::numeric_limits<int>::max();
         bool fIsWatchonly = false;
         if (it != mapTally.end())
         {
-            nAmount = (*it).second.nAmount;
+            mapAmount = (*it).second.mapAmount;
             nConf = (*it).second.nConf;
             fIsWatchonly = (*it).second.fIsWatchonly;
         }
@@ -1242,7 +1387,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
         if (by_label)
         {
             tallyitem& _item = label_tally[label];
-            _item.nAmount += nAmount;
+            _item.mapAmount += mapAmount;
             _item.nConf = std::min(_item.nConf, nConf);
             _item.fIsWatchonly = fIsWatchonly;
         }
@@ -1252,7 +1397,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("address",       EncodeDestination(address));
-            obj.pushKV("amount",        ValueFromAmount(nAmount));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount, ""));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
             UniValue transactions(UniValue::VARR);
@@ -1272,12 +1417,12 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
     {
         for (const auto& entry : label_tally)
         {
-            CAmount nAmount = entry.second.nAmount;
+            CAmountMap mapAmount = entry.second.mapAmount;
             int nConf = entry.second.nConf;
             UniValue obj(UniValue::VOBJ);
             if (entry.second.fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
-            obj.pushKV("amount",        ValueFromAmount(nAmount));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount, ""));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label",         entry.first);
             ret.push_back(obj);
@@ -1296,7 +1441,7 @@ static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() > 4)
+    if (request.fHelp || request.params.size() > 5)
         throw std::runtime_error(
             "listreceivedbyaddress ( minconf include_empty include_watchonly address_filter )\n"
             "\nList balances by receiving address.\n"
@@ -1305,6 +1450,7 @@ static UniValue listreceivedbyaddress(const JSONRPCRequest& request)
             "2. include_empty     (bool, optional, default=false) Whether to include addresses that haven't received any payments.\n"
             "3. include_watchonly (bool, optional, default=false) Whether to include watch-only addresses (see 'importaddress').\n"
             "4. address_filter    (string, optional) If present, only return information on this address.\n"
+            "5. assetlabel        (string, optional) The hex asset id or asset label to filter for.\n"
             "\nResult:\n"
             "[\n"
             "  {\n"
@@ -1420,6 +1566,11 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
             MaybePushAddress(entry, s.destination);
             entry.pushKV("category", "send");
             entry.pushKV("amount", ValueFromAmount(-s.amount));
+            if (g_con_elementsmode) {
+                entry.pushKV("amountblinder", s.amount_blinding_factor.GetHex());
+                entry.pushKV("asset", s.asset.GetHex());
+                entry.pushKV("assetblinder", s.asset_blinding_factor.GetHex());
+            }
             if (pwallet->mapAddressBook.count(s.destination)) {
                 entry.pushKV("label", pwallet->mapAddressBook[s.destination].name);
             }
@@ -1460,6 +1611,11 @@ static void ListTransactions(CWallet* const pwallet, const CWalletTx& wtx, int n
                 entry.pushKV("category", "receive");
             }
             entry.pushKV("amount", ValueFromAmount(r.amount));
+            if (g_con_elementsmode) {
+                entry.pushKV("amountblinder", r.amount_blinding_factor.GetHex());
+                entry.pushKV("asset", r.asset.GetHex());
+                entry.pushKV("assetblinder", r.asset_blinding_factor.GetHex());
+            }
             if (pwallet->mapAddressBook.count(r.destination)) {
                 entry.pushKV("label", label);
             }
@@ -1805,14 +1961,23 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    CAmount nCredit = wtx.GetCredit(filter);
-    CAmount nDebit = wtx.GetDebit(filter);
-    CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
+    CAmountMap nCredit = wtx.GetCredit(filter);
+    CAmountMap nDebit = wtx.GetDebit(filter);
+    CAmountMap nNet = nCredit - nDebit;
+    assert(HasValidFee(*wtx.tx));
+    CAmountMap nFee = wtx.IsFromMe(filter) ? CAmountMap() - GetFeeMap(*wtx.tx) : CAmountMap();
+    if (!g_con_elementsmode) {
+        CAmount total_out = 0;
+        for (const auto& output : wtx.tx->vout) {
+            total_out += output.nValue.GetAmount();
+        }
+        nFee = CAmountMap();
+        nFee[::policyAsset] = wtx.IsFromMe(filter) ? total_out - nDebit[::policyAsset] : 0;
+    }
 
-    entry.pushKV("amount", ValueFromAmount(nNet - nFee));
+    entry.pushKV("amount", AmountMapToUniv(nNet - nFee, ""));
     if (wtx.IsFromMe(filter))
-        entry.pushKV("fee", ValueFromAmount(nFee));
+        entry.pushKV("fee", AmountMapToUniv(nFee, ""));
 
     WalletTxToJSON(wtx, entry);
 
@@ -2450,9 +2615,9 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
-    obj.pushKV("balance",       ValueFromAmount(pwallet->GetBalance()));
-    obj.pushKV("unconfirmed_balance", ValueFromAmount(pwallet->GetUnconfirmedBalance()));
-    obj.pushKV("immature_balance",    ValueFromAmount(pwallet->GetImmatureBalance()));
+    obj.pushKV("balance",       AmountMapToUniv(pwallet->GetBalance(), ""));
+    obj.pushKV("unconfirmed_balance", AmountMapToUniv(pwallet->GetUnconfirmedBalance(), ""));
+    obj.pushKV("immature_balance",    AmountMapToUniv(pwallet->GetImmatureBalance(), ""));
     obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
     obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());
     obj.pushKV("keypoolsize", (int64_t)kpExternalSize);
@@ -2727,6 +2892,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "      \"maximumAmount\"    (numeric or string, default=unlimited) Maximum value of each UTXO in " + CURRENCY_UNIT + "\n"
             "      \"maximumCount\"     (numeric or string, default=unlimited) Maximum number of UTXOs\n"
             "      \"minimumSumAmount\" (numeric or string, default=unlimited) Minimum sum value of all UTXOs in " + CURRENCY_UNIT + "\n"
+            "      \"asset\"            (string, default="") Asset to filter outputs for.\n"
             "    }\n"
             "\nResult\n"
             "[                   (array of json object)\n"
@@ -2794,6 +2960,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     CAmount nMaximumAmount = MAX_MONEY;
     CAmount nMinimumSumAmount = MAX_MONEY;
     uint64_t nMaximumCount = 0;
+    std::string asset_str;
 
     if (!request.params[4].isNull()) {
         const UniValue& options = request.params[4].get_obj();
@@ -2809,6 +2976,14 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
         if (options.exists("maximumCount"))
             nMaximumCount = options["maximumCount"].get_int64();
+
+        if (options.exists("asset"))
+            asset_str = options["asset"].get_str();
+    }
+
+    CAsset asset_filter;
+    if (!asset_str.empty()) {
+        asset_filter = GetAssetFromString(asset_str);
     }
 
     // Make sure the results are valid at least up to the most recent block
@@ -2819,18 +2994,32 @@ static UniValue listunspent(const JSONRPCRequest& request)
     std::vector<COutput> vecOutputs;
     {
         LOCK2(cs_main, pwallet->cs_wallet);
-        pwallet->AvailableCoins(vecOutputs, !include_unsafe, nullptr, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, nMinDepth, nMaxDepth);
+        pwallet->AvailableCoins(vecOutputs, !include_unsafe, nullptr, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, nMinDepth, nMaxDepth, asset_filter.IsNull() ? nullptr : &asset_filter);
     }
 
     LOCK(pwallet->cs_wallet);
 
     for (const COutput& out : vecOutputs) {
         CTxDestination address;
+        const CTxOut& tx_out = out.tx->tx->vout[out.i];
         const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
         bool fValidAddress = ExtractDestination(scriptPubKey, address);
 
         if (destinations.size() && (!fValidAddress || !destinations.count(address)))
             continue;
+
+        // Elements
+        CAmount amount = out.tx->GetOutputValueOut(out.i);
+        CAsset assetid = out.tx->GetOutputAsset(out.i);
+        // Only list known outputs that match optional filter
+        if (g_con_elementsmode && (amount < 0 || assetid.IsNull())) {
+            LogPrintf("wallet", "Unable to unblind output: %s:%d\n", out.tx->tx->GetHash().GetHex(), out.i);
+            continue;
+        }
+        if (!asset_str.empty() && asset_filter != assetid) {
+            continue;
+        }
+        //////////
 
         UniValue entry(UniValue::VOBJ);
         entry.pushKV("txid", out.tx->GetHash().GetHex());
@@ -2854,7 +3043,18 @@ static UniValue listunspent(const JSONRPCRequest& request)
         }
 
         entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
-        entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
+        entry.pushKV("amount", ValueFromAmount(amount));
+        if (g_con_elementsmode) {
+            if (tx_out.nAsset.IsCommitment()) {
+                entry.pushKV("assetcommitment", HexStr(tx_out.nAsset.vchCommitment));
+            }
+            entry.pushKV("asset", assetid.GetHex());
+            if (tx_out.nValue.IsCommitment()) {
+                entry.pushKV("amountcommitment", HexStr(tx_out.nValue.vchCommitment));
+            }
+            entry.pushKV("amountblinder", out.tx->GetOutputAmountBlindingFactor(out.i).ToString());
+            entry.pushKV("assetblinder", out.tx->GetOutputAssetBlindingFactor(out.i).ToString());
+        }
         entry.pushKV("confirmations", out.nDepth);
         entry.pushKV("spendable", out.fSpendable);
         entry.pushKV("solvable", out.fSolvable);
@@ -2884,9 +3084,10 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
       }
       else {
         RPCTypeCheckArgument(options, UniValue::VOBJ);
+
         RPCTypeCheckObj(options,
             {
-                {"changeAddress", UniValueType(UniValue::VSTR)},
+                {"changeAddress", UniValueType()}, // will be checked below
                 {"changePosition", UniValueType(UniValue::VNUM)},
                 {"change_type", UniValueType(UniValue::VSTR)},
                 {"includeWatching", UniValueType(UniValue::VBOOL)},
@@ -2900,13 +3101,38 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             true, true);
 
         if (options.exists("changeAddress")) {
-            CTxDestination dest = DecodeDestination(options["changeAddress"].get_str());
+            std::map<CAsset, CTxDestination> destinations;
 
-            if (!IsValidDestination(dest)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
+            if (options["changeAddress"].isStr()) {
+                // Single destination for default asset (policyAsset).
+                CTxDestination dest = DecodeDestination(options["changeAddress"].get_str());
+                if (!IsValidDestination(dest)) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
+                }
+                destinations[::policyAsset] = dest;
+            } else if (options["changeAddress"].isObject()) {
+                // Map of assets to destinations.
+                std::map<std::string, UniValue> kvMap;
+                options["changeAddress"].getObjMap(kvMap);
+
+                for (const std::pair<std::string, UniValue>& kv : kvMap) {
+                    CAsset asset = GetAssetFromString(kv.first);
+                    if (asset.IsNull()) {
+                        throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress key must be a valid asset label or hex");
+                    }
+
+                    CTxDestination dest = DecodeDestination(kv.second.get_str());
+                    if (!IsValidDestination(dest)) {
+                        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "changeAddress must be a valid bitcoin address");
+                    }
+
+                    destinations[asset] = dest;
+                }
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "changeAddress must be either a map or a string");
             }
 
-            coinControl.destChange = dest;
+            coinControl.destChange = destinations;
         }
 
         if (options.exists("changePosition"))
@@ -3007,7 +3233,7 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
                             "1. \"hexstring\"           (string, required) The hex string of the raw transaction\n"
                             "2. options                 (object, optional)\n"
                             "   {\n"
-                            "     \"changeAddress\"          (string, optional, default pool address) The bitcoin address to receive the change\n"
+                            "     \"changeAddress\"          (string/object, optional, default pool address) The bitcoin address to receive the change or a map from asset to address\n"
                             "     \"changePosition\"         (numeric, optional, default random) The index of the change output\n"
                             "     \"change_type\"            (string, optional) The output type to use. Only valid if changeAddress is not specified. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -changetype.\n"
                             "     \"includeWatching\"        (boolean, optional, default false) Also select inputs which are watch only\n"
@@ -3096,7 +3322,8 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
             "         \"vout\":n,                  (numeric, required) The output number\n"
             "         \"scriptPubKey\": \"hex\",     (string, required) script key\n"
             "         \"redeemScript\": \"hex\",     (string, required for P2SH or P2WSH) redeem script\n"
-            "         \"amount\": value            (numeric, required) The amount spent\n"
+            "         \"amount\": value            (numeric, required if non-confidential segwit output) The amount spent\n"
+            "         \"amountcommitment\": \"hex\", (string, required if confidential segiwt output) The amount commitment spent\n"
             "       }\n"
             "       ,...\n"
             "    ]\n"
@@ -3610,6 +3837,83 @@ static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& de
     return ret;
 }
 
+class DescribeWalletBlindAddressVisitor : public boost::static_visitor<UniValue>
+{
+public:
+    CWallet * const pwallet;
+    isminetype mine;
+
+    explicit DescribeWalletBlindAddressVisitor(CWallet* _pwallet, isminetype mine_in) : pwallet(_pwallet), mine(mine_in) {}
+
+    UniValue operator()(const CNoDestination& dest) const { return UniValue(UniValue::VOBJ); }
+
+    UniValue operator()(const PKHash& pkhash) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        if (!IsBlindDestination(pkhash) && mine != ISMINE_NO) {
+            CPubKey blind_pub = pwallet->GetBlindingPubKey(GetScriptForDestination(pkhash));
+            PKHash dest(pkhash);
+            dest.blinding_pubkey = blind_pub;
+            obj.pushKV("confidential", EncodeDestination(dest));
+        } else {
+            obj.pushKV("confidential", EncodeDestination(pkhash));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const ScriptHash& scripthash) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        if (!IsBlindDestination(scripthash) && mine != ISMINE_NO) {
+            CPubKey blind_pub = pwallet->GetBlindingPubKey(GetScriptForDestination(scripthash));
+            ScriptHash dest(scripthash);
+            dest.blinding_pubkey = blind_pub;
+            obj.pushKV("confidential", EncodeDestination(dest));
+        } else {
+            obj.pushKV("confidential", EncodeDestination(scripthash));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV0KeyHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        if (!IsBlindDestination(id) && mine != ISMINE_NO) {
+            CPubKey blind_pub = pwallet->GetBlindingPubKey(GetScriptForDestination(id));
+            WitnessV0KeyHash dest(id);
+            dest.blinding_pubkey = blind_pub;
+            obj.pushKV("confidential", EncodeDestination(dest));
+        } else {
+            obj.pushKV("confidential", EncodeDestination(id));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessV0ScriptHash& id) const
+    {
+        UniValue obj(UniValue::VOBJ);
+        if (!IsBlindDestination(id) && mine != ISMINE_NO) {
+            CPubKey blind_pub = pwallet->GetBlindingPubKey(GetScriptForDestination(id));
+            WitnessV0ScriptHash dest(id);
+            dest.blinding_pubkey = blind_pub;
+            obj.pushKV("confidential", EncodeDestination(dest));
+        } else {
+            obj.pushKV("confidential", EncodeDestination(id));
+        }
+        return obj;
+    }
+
+    UniValue operator()(const WitnessUnknown& id) const { return UniValue(UniValue::VOBJ); }
+    UniValue operator()(const NullData& id) const { return NullUniValue; }
+};
+
+static UniValue DescribeWalletBlindAddress(CWallet* pwallet, const CTxDestination& dest, isminetype mine)
+{
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKVs(boost::apply_visitor(DescribeWalletBlindAddressVisitor(pwallet, mine), dest));
+    return ret;
+}
+
 /** Convert CAddressBookData to JSON record.  */
 static UniValue AddressBookDataToJSON(const CAddressBookData& data, const bool verbose)
 {
@@ -3658,6 +3962,9 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
             "  \"pubkey\" : \"publickeyhex\",    (string, optional) The hex value of the raw public key, for single-key addresses (possibly embedded in P2SH or P2WSH)\n"
             "  \"embedded\" : {...},           (object, optional) Information about the address embedded in P2SH or P2WSH, if relevant and known. It includes all getaddressinfo output fields for the embedded address, excluding metadata (\"timestamp\", \"hdkeypath\", \"hdseedid\") and relation to the wallet (\"ismine\", \"iswatchonly\").\n"
             "  \"iscompressed\" : true|false,  (boolean) If the address is compressed\n"
+            "  \"confidential_key\" : \"hex\", (string) The hex value of the raw blinding public key for that address, if any. \"\" if none.\n"
+            "  \"unconfidential\" : \"address\", (string) The address without confidentiality key.\n"
+            "  \"confidential\" : \"address\", (string) The address with wallet-stored confidentiality key if known. Only displayed for non-confidential address inputs.\n"
             "  \"label\" :  \"label\"         (string) The label associated with the address, \"\" is the default label\n"
             "  \"timestamp\" : timestamp,      (number, optional) The creation time of the key if available in seconds since epoch (Jan 1 1970 GMT)\n"
             "  \"hdkeypath\" : \"keypath\"       (string, optional) The HD keypath if the key is HD and available\n"
@@ -3694,10 +4001,20 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
     isminetype mine = IsMine(*pwallet, dest);
+    // Elements: Addresses we can not unblind outputs for aren't spendable
+    if (IsBlindDestination(dest) &&
+            GetDestinationBlindingKey(dest) != pwallet->GetBlindingPubKey(GetScriptForDestination(dest))) {
+        mine = ISMINE_NO;
+    }
     ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
     ret.pushKV("iswatchonly", bool(mine & ISMINE_WATCH_ONLY));
     UniValue detail = DescribeWalletAddress(pwallet, dest);
     ret.pushKVs(detail);
+    // Elements blinding info
+    UniValue blind_detail = DescribeWalletBlindAddress(pwallet, dest, mine);
+    ret.pushKVs(blind_detail);
+    blind_detail = DescribeBlindAddress(dest);
+    ret.pushKVs(blind_detail);
     if (pwallet->mapAddressBook.count(dest)) {
         ret.pushKV("label", pwallet->mapAddressBook[dest].name);
     }
@@ -3957,7 +4274,7 @@ bool FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, const C
         SignatureData sigdata;
         psbt_out.FillSignatureData(sigdata);
 
-        MutableTransactionSignatureCreator creator(psbtx.tx.get_ptr(), 0, out.nValue, 1);
+        MutableTransactionSignatureCreator creator(psbtx.tx.get_ptr(), 0, out.nValue.GetAmount(), 1);
         ProduceSignature(HidingSigningProvider(pwallet, true, !bip32derivs), creator, out.scriptPubKey, sigdata);
         psbt_out.FromSignatureData(sigdata);
     }
@@ -4115,7 +4432,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
 
     CAmount fee;
     int change_position;
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"]);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"], NullUniValue /* CA: assets_in */);
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
     // Make a blank psbt
@@ -4190,8 +4507,6 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
 
     //Creates new address for receiving unlocked utxos
     JSONRPCRequest req;
-    //TODO(rebase) replace with CT/CA
-    //CTxDestination dest(DecodeDestination(getnewaddress(req).get_str()).GetUnblinded());
     CTxDestination address = DecodeDestination(getnewaddress(req).get_str());
 
     Witnessifier w(pwallet);
@@ -4459,11 +4774,7 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue));
-
-    //TODO(rebase) CT/CA
-    //  v this line was in elements-0.14 instead of the line above here
-    ////SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, CPubKey(), wtxNew, true);
+    CTransactionRef tx = SendMoney(pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
 
     return (*tx).GetHash().GetHex();
 
@@ -4612,9 +4923,10 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     int whitelistindex=-1;
     std::vector<secp256k1_pubkey> pak_online = paklist.OnlineKeys();
     for (unsigned int i=0; i<pak_online.size(); i++) {
-        if (memcmp((void *)&pak_online[i], (void *)&onlinepubkey_secp, sizeof(secp256k1_pubkey)) == 0)
+        if (memcmp((void *)&pak_online[i], (void *)&onlinepubkey_secp, sizeof(secp256k1_pubkey)) == 0) {
             whitelistindex = i;
             break;
+        }
     }
     if (whitelistindex == -1)
         throw JSONRPCError(RPC_WALLET_ERROR, "Given online key is not in Pegout Authorization Key List");
@@ -4704,7 +5016,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, subtract_fee, no_coin_control, std::move(mapValue));
+    CTransactionRef tx = SendMoney(pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
 
     pwallet->SetOfflineCounter(counter+1);
 
@@ -4852,8 +5164,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     CAmount value = 0;
     if (!GetAmountFromParentChainPegin(value, txBTC, nOut)) {
-        //TODO(rebase) CT/CA
-        //throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
     }
 
     CDataStream stream(0, 0);
@@ -4896,10 +5207,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CScriptWitness pegin_witness;
     std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
     stack.push_back(value_bytes);
-    //TODO(rebase) CA
-    std::vector<unsigned char> empty(32);
-    stack.push_back(empty);
-    //stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
+    stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
     stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
     stack.push_back(std::vector<unsigned char>(witnessProgScript.begin(), witnessProgScript.end()));
     stack.push_back(txData);
@@ -4923,10 +5231,8 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CCoinControl coin_control;
     CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, mempool, ::feeEstimator, nullptr);
 
-    //TODO(rebase) CT
-    //mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
-    //mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
-    mtx.vout[0].nValue = mtx.vout[0].nValue - nFeeNeeded;
+    mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
+    mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
 
     UniValue ret(UniValue::VOBJ);
 
@@ -5018,8 +5324,9 @@ UniValue claimpegin(const JSONRPCRequest& request)
     // Send it
     CValidationState state;
     mapValue_t mapValue;
-    CReserveKey reservekey(pwallet);
-    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservekey, g_connman.get(), state)) {
+    std::vector<std::unique_ptr<CReserveKey>> reservekeys;
+    reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservekeys, g_connman.get(), state)) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }

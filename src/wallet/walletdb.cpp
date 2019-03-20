@@ -174,6 +174,14 @@ bool WalletBatch::WriteOfflineCounter(int counter)
     return WriteIC(std::string("offlinecounter"), counter);
 }
 
+bool WalletBatch::WriteBlindingDerivationKey(const uint256& key) {
+     return WriteIC(std::string("blindingderivationkey"), key);
+}
+
+bool WalletBatch::WriteSpecificBlindingKey(const uint160& scriptid, const uint256& key) {
+    return WriteIC(std::make_pair(std::string("specificblindingkey"), scriptid), key);
+}
+
 class CWalletScanState {
 public:
     unsigned int nKeys;
@@ -466,6 +474,24 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             std::string descriptor;
             ssValue >> descriptor;
             pwallet->offline_desc = descriptor;
+        }
+        else if (strType == "blindingderivationkey")
+        {
+            assert(pwallet->blinding_derivation_key.IsNull());
+            uint256 key;
+            ssValue >> key;
+            pwallet->blinding_derivation_key = key;
+        }
+        else if (strType == "specificblindingkey")
+        {
+            CScriptID scriptid;
+            ssKey >> scriptid;
+            uint256 key;
+            ssValue >> key;
+            if (!pwallet->LoadSpecificBlindingKey(scriptid, key)) {
+                strErr = "Error reading wallet database: LoadSpecificBlindingKey failed";
+                return false;
+            }
        } else if (strType != "bestblock" && strType != "bestblock_nomerkle" &&
                 strType != "minversion" && strType != "acentry") {
             wss.m_unknown_records++;
@@ -554,6 +580,16 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
 
     if (fNoncriticalErrors && result == DBErrors::LOAD_OK)
         result = DBErrors::NONCRITICAL_ERROR;
+
+    if (pwallet->blinding_derivation_key.IsNull()) {
+        CKey key;
+        key.MakeNewKey(true);
+        uint256 keybin;
+        memcpy(keybin.begin(), key.begin(), key.size());
+        if (!pwallet->SetMasterBlindingKey(keybin)) {
+            result = DBErrors::LOAD_FAIL;
+        }
+    }
 
     // Any wallet corruption at all: skip any rewriting or
     // upgrading, we don't want to make it worse.

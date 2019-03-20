@@ -174,6 +174,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "rawblindrawtransaction", 3, "inputasset" },
     { "rawblindrawtransaction", 4, "inputassetblinder" },
     { "rawblindrawtransaction", 6, "ignoreblindfail" },
+    { "sendmany", 7 , "output_assets" },
+    { "sendmany", 8 , "ignoreblindfail" },
+    { "sendtoaddress", 9 , "ignoreblindfail" },
     { "createrawtransaction", 4, "output_assets" },
 
 };
