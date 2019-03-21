@@ -131,7 +131,12 @@ static const std::string MAINCHAIN_COOKIEAUTH_FILE = "regtest/.cookie";
 /** Get name mainchain RPC authentication cookie file */
 static fs::path GetMainchainAuthCookieFile()
 {
-    boost::filesystem::path path(gArgs.GetArg("-mainchainrpccookiefile", MAINCHAIN_COOKIEAUTH_FILE));
+    std::string cookie_file = MAINCHAIN_COOKIEAUTH_FILE;
+    // Bitcoin mainnet exception
+    if (gArgs.GetChainName() == "liquidv1") {
+        cookie_file = ".cookie";
+    }
+    boost::filesystem::path path(gArgs.GetArg("-mainchainrpccookiefile", cookie_file));
     if (!path.is_complete()) path = GetDataDir(false) / path;
     return path;
 }
