@@ -18,7 +18,7 @@ test/lint/check-doc.py
 test/lint/check-rpc-mappings.py .
 test/lint/lint-all.sh
 
-if [ "$TRAVIS_REPO_SLUG" = "bitcoin/bitcoin" -a "$TRAVIS_EVENT_TYPE" = "cron" ]; then
+if [ "$TRAVIS_REPO_SLUG" = "ElementsProject/elements" -a "$TRAVIS_EVENT_TYPE" = "cron" ]; then
     while read -r LINE; do travis_retry gpg --keyserver hkp://subset.pool.sks-keyservers.net --recv-keys $LINE; done < contrib/verify-commits/trusted-keys &&
     travis_wait 50 contrib/verify-commits/verify-commits.py;
 fi
