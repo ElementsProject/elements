@@ -351,6 +351,10 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
             const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
             const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
             s >> tx.witness;
+            if (!tx.HasWitness()) {
+                /* It's illegal to encode witnesses when all witness stacks are empty. */
+                throw std::ios_base::failure("Superfluous witness record");
+            }
         }
     } else {
         const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
@@ -380,6 +384,10 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
                 if (tx.vin[i].m_is_pegin) {
                     s >> tx.witness.vtxinwit[i].m_pegin_witness.stack;
                 }
+            }
+            if (!tx.HasWitness()) {
+                /* It's illegal to encode witnesses when all witness stacks are empty. */
+                throw std::ios_base::failure("Superfluous witness record");
             }
         }
         s >> tx.nLockTime;
