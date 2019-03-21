@@ -39,6 +39,7 @@ from test_framework.messages import (
     ser_vector,
     sha256,
     uint256_from_str,
+    FromHex,
 )
 from test_framework.mininode import (
     P2PInterface,
@@ -83,6 +84,7 @@ from test_framework.util import (
     hex_str_to_bytes,
     sync_blocks,
     sync_mempools,
+    assert_raises_rpc_error,
 )
 from test_framework import util
 
@@ -277,6 +279,7 @@ class SegWitTest(BitcoinTestFramework):
         self.test_non_standard_witness()
         self.test_upgrade_after_activation()
         self.test_witness_sigops()
+        self.test_superfluous_witness()
 
     # Individual tests
 
@@ -2125,6 +2128,34 @@ class SegWitTest(BitcoinTestFramework):
         test_witness_block(self.nodes[0], self.test_node, block_5, accepted=True)
 
         # TODO: test p2sh sigop counting
+
+    def test_superfluous_witness(self):
+        # Serialization of tx that puts witness flag to 1 always
+        def serialize_with_bogus_witness(tx):
+            flags = 1
+            r = b""
+            r += struct.pack("<i", tx.nVersion)
+            r += struct.pack("<B", flags)
+            r += ser_vector(tx.vin)
+            r += ser_vector(tx.vout)
+            r += struct.pack("<I", tx.nLockTime)
+            if flags & 1:
+                if len(tx.wit.vtxinwit) != len(tx.vin):
+                    # vtxinwit must have the same length as vin
+                    tx.wit.vtxinwit = tx.wit.vtxinwit[:len(tx.vin)]
+                    for i in range(len(tx.wit.vtxinwit), len(tx.vin)):
+                        tx.wit.vtxinwit.append(CTxInWitness())
+                if len(tx.wit.vtxoutwit) != len(tx.vout):
+                    # vtxoutwit must have the same length as vout
+                    tx.wit.vtxoutwit = tx.wit.vtxoutwit[:len(tx.vout)]
+                    for i in range(len(tx.wit.vtxoutwit), len(tx.vout)):
+                        tx.wit.vtxoutwit.append(CTxOutWitness())
+                r += tx.wit.serialize()
+            return r
+
+        raw = self.nodes[0].createrawtransaction([{"txid":"00"*32, "vout":0}], {self.nodes[0].getnewaddress():1})
+        tx = FromHex(CTransaction(), raw)
+        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, serialize_with_bogus_witness(tx).hex())
 
 if __name__ == '__main__':
     SegWitTest().main()
