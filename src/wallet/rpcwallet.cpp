@@ -6026,6 +6026,172 @@ UniValue destroyamount(const JSONRPCRequest& request)
     return tx->GetHash().GetHex();
 }
 
+// Only used for functionary integration tests
+UniValue generatepegoutproof(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 3)
+        throw std::runtime_error(
+            "generatepegoutproof sumkey btcpubkey onlinepubkey\n"
+            "\nONLY FOR TESTING: Generates pegout authorization proof for pegout based on the summed privkey and returns in hex. Result should be passed as an argument in `sendtomainchain`. Caution: Whitelist proof-validating mempools will filter incorrect pegoutproofs but aren't consensus enforced!\n"
+            "\nArguments:\n"
+            "1. \"sumkey\"          (string, required) Base58 summed key of Bitcoin and offline key\n"
+            "2. \"btcpubkey\"       (string, required) Hex pegout destination Bitcoin pubkey\n"
+            "3. \"onlinepubkey\"    (string, required) hex `online pubkey`\n"
+            "\nResult:\n"
+            "\"pegoutproof\"              (string, hex) pegout authorization proof to be passed into sendtomainchain\n"
+            + HelpExampleCli("generatepegoutproof", "\"cQtNrRngdc4RJ9CkuTVKVLyxPFsijiTJySob24xCdKXGohdFhXML\" \"02c611095119e3dc96db428a0e190a3e142237bcd2efa4fb358257497885af3ab6\" \"0390695fff5535780df1e04c1f6c10e7c0a399fa56cfce34bf8108d0a9bc7a437b\"")
+            + HelpExampleRpc("generatepegoutproof", "\"cQtNrRngdc4RJ9CkuTVKVLyxPFsijiTJySob24xCdKXGohdFhXML\" \"02c611095119e3dc96db428a0e190a3e142237bcd2efa4fb358257497885af3ab6\" \"0390695fff5535780df1e04c1f6c10e7c0a399fa56cfce34bf8108d0a9bc7a437b\"")
+            );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!IsHex(request.params[1].get_str()))
+        throw JSONRPCError(RPC_TYPE_ERROR, "btcpubkey must be hex string");
+    if (!IsHex(request.params[2].get_str()))
+        throw JSONRPCError(RPC_TYPE_ERROR, "onlinepubkey must be hex string");
+
+    //Parse private keys
+
+    CKey summedSecret = DecodeSecret(request.params[0].get_str());
+    if (!summedSecret.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid summed private key encoding");
+    }
+
+    std::vector<unsigned char> sumprivkeybytes(summedSecret.begin(), summedSecret.end());
+    std::vector<unsigned char> btcpubkeybytes = ParseHex(request.params[1].get_str());
+    std::vector<unsigned char> onlinepubkeybytes = ParseHex(request.params[2].get_str());
+
+    //Parse onlinepubkey
+    CPubKey onlinepubkey;
+    onlinepubkey.Set(onlinepubkeybytes.begin(), onlinepubkeybytes.end());
+    if (!onlinepubkey.IsFullyValid())
+        throw JSONRPCError(RPC_WALLET_ERROR, "Invalid online pubkey");
+    secp256k1_pubkey onlinepubkey_secp;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &onlinepubkey_secp, &onlinepubkeybytes[0], onlinepubkeybytes.size()))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Invalid online pubkey");
+
+    CPAKList paklist = g_paklist_blockchain;
+    if (g_paklist_config) {
+        paklist = *g_paklist_config;
+    }
+    if (paklist.IsReject()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pegout freeze is under effect to aid a pak transition to a new list. Please consult the network operator.");
+    }
+
+    //Find PAK online pubkey on PAK list
+    int whitelistindex=-1;
+    std::vector<secp256k1_pubkey> pak_online = paklist.OnlineKeys();
+    for (unsigned int i=0; i<pak_online.size(); i++) {
+        if (!memcmp((void *)&pak_online[i], (void *)&onlinepubkey_secp, sizeof(secp256k1_pubkey)))
+            whitelistindex = i;
+    }
+    if (whitelistindex == -1)
+        throw JSONRPCError(RPC_WALLET_ERROR, "Given online key is not in Pegout Authorization Key List");
+
+    CKey masterOnlineKey;
+    if (!pwallet->GetKey(onlinepubkey.GetID(), masterOnlineKey))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Given online key is in master set but not in wallet");
+
+    //Parse own offline pubkey
+    secp256k1_pubkey btcpubkey;
+    if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &btcpubkey, &btcpubkeybytes[0], btcpubkeybytes.size()) != 1)
+        throw JSONRPCError(RPC_WALLET_ERROR, "btcpubkey is invalid pubkey");
+
+    //Create, verify whitelist proof
+    secp256k1_whitelist_signature sig;
+    if(secp256k1_whitelist_sign(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpubkey, masterOnlineKey.begin(), &sumprivkeybytes[0], whitelistindex, NULL, NULL) != 1)
+        throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization proof signing failed");
+
+    if (secp256k1_whitelist_verify(secp256k1_ctx, &sig, &paklist.OnlineKeys()[0], &paklist.OfflineKeys()[0], paklist.size(), &btcpubkey) != 1)
+        throw JSONRPCError(RPC_WALLET_ERROR, "Pegout authorization proof was created and signed but is invalid");
+
+    //Serialize and return as hex
+    size_t expectedOutputSize = 1 + 32 * (1 + paklist.size());
+    const size_t preSize = expectedOutputSize;
+    assert(1 + 32 * (1 + 256) >= expectedOutputSize);
+    unsigned char output[1 + 32 * (1 + 256)];
+    secp256k1_whitelist_signature_serialize(secp256k1_ctx, output, &expectedOutputSize, &sig);
+    assert(expectedOutputSize == preSize);
+    std::vector<unsigned char> voutput(output, output + expectedOutputSize / sizeof(output[0]));
+
+    return HexStr(voutput.begin(), voutput.end());
+}
+
+// Only used for functionary integration tests
+UniValue getpegoutkeys(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            "getpegoutkeys \"btcprivkey\" \"offlinepubkey\"\n"
+            "\n(DEPRECATED) Please see `initpegoutwallet` and `sendtomainchain` for best-supported and easiest workflow. This call is for the Liquid network participants' `offline` wallet ONLY. Returns `sumkeys` corresponding to the sum of the Offline PAK and the imported Bitcoin key. The wallet must have the Offline private PAK to succeed. The output will be used in `generatepegoutproof` and `sendtomainchain`. Care is required to keep the bitcoin private key, as well as the `sumkey` safe, as a leak of both results in the leak of your `offlinekey`. Therefore it is recommended to create Bitcoin keys and do Bitcoin transaction signing directly on an offline wallet co-located with your offline Liquid wallet.\n"
+            "\nArguments:\n"
+            "1. \"btcprivkey\"           (string) Base58 Bitcoin private key that will be combined with the offline privkey\n"
+            "2. \"offlinepubkey\"        (string) Hex pubkey of key to combine with btcprivkey. Primarily intended for integration testing.\n"
+            "\nResult:\n"
+            "\"sumkey\"              (string) Base58 string of the sumkey.\n"
+            "\"btcpubkey\"           (string) Hex string of the bitcoin pubkey that corresponds to the pegout destination Bitcoin address\n"
+            "\"btcaddress\"          (string) Destination Bitcoin address for the funds being pegged out using these keys"
+            + HelpExampleCli("getpegoutkeys", "")
+            + HelpExampleCli("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\" \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
+            + HelpExampleRpc("getpegoutkeys", "")
+            + HelpExampleRpc("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\", \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!request.params[1].isStr() || !IsHex(request.params[1].get_str()) || request.params[1].get_str().size() != 66) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "offlinepubkey must be hex string of size 66");
+    }
+
+    std::vector<unsigned char> offlinepubbytes = ParseHex(request.params[1].get_str());
+    CPubKey offline_pub = CPubKey(offlinepubbytes.begin(), offlinepubbytes.end());
+
+    if (!offline_pub.IsFullyValid()) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "offlinepubkey is not a valid pubkey");
+    }
+
+    CKey pegoutkey;
+    if (!pwallet->GetKey(offline_pub.GetID(), pegoutkey))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Offline key can not be found in wallet");
+
+    CKey bitcoinkey = DecodeSecret(request.params[0].get_str());
+    if (!bitcoinkey.IsValid()) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
+    }
+
+    CPubKey bitcoinpubkey = bitcoinkey.GetPubKey();
+    assert(bitcoinkey.VerifyPubKey(bitcoinpubkey));
+
+    std::vector<unsigned char> pegoutkeybytes(pegoutkey.begin(), pegoutkey.end());
+    std::vector<unsigned char> pegoutsubkeybytes(bitcoinkey.begin(), bitcoinkey.end());
+
+    if (!secp256k1_ec_privkey_tweak_add(secp256k1_ctx, &pegoutkeybytes[0], &pegoutsubkeybytes[0]))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Summed key invalid");
+
+    CKey sumseckey;
+    sumseckey.Set(pegoutkeybytes.begin(), pegoutkeybytes.end(), true);
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("sumkey", EncodeSecret(sumseckey));
+    ret.pushKV("btcpubkey", HexStr(bitcoinpubkey.begin(), bitcoinpubkey.end()));
+    ret.pushKV("btcaddress", EncodeParentDestination(PKHash(bitcoinpubkey.GetID())));
+
+    return ret;
+}
 
 // END ELEMENTS commands
 //
@@ -6124,6 +6290,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
     { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment"} },
+    { "hidden",             "generatepegoutproof",              &generatepegoutproof,           {"sumkey", "btcpubkey", "onlinepubkey"} },
+    { "hidden",             "getpegoutkeys",                    &getpegoutkeys,                 {"btcprivkey", "offlinepubkey"} },
 };
 // clang-format on
 
