@@ -558,7 +558,7 @@ BOOST_AUTO_TEST_CASE(util_GetChainName)
     std::string error;
 
     test_args.ParseParameters(0, (char**)argv_testnet, error);
-    BOOST_CHECK_EQUAL(test_args.GetChainName(), "main");
+    BOOST_CHECK_EQUAL(test_args.GetChainName(), "elementsregtest");
 
     test_args.ParseParameters(2, (char**)argv_testnet, error);
     BOOST_CHECK_EQUAL(test_args.GetChainName(), "test");

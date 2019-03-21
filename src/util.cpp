@@ -980,7 +980,7 @@ std::string ArgsManager::GetChainName() const
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
-    return GetArg("-chain", CBaseChainParams::MAIN);
+    return GetArg("-chain", "elementsregtest");
 }
 
 #ifndef WIN32
