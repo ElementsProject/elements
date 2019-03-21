@@ -30,7 +30,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
         outputs = {}
         for i in range(num_outputs):
             outputs[node.getnewaddress()] = send_value
-        outputs["fee"] = fee
+        outputs["fee"] = value - (num_outputs * send_value)
         rawtx = node.createrawtransaction(inputs, outputs)
         signedtx = node.signrawtransactionwithwallet(rawtx)
         txid = node.sendrawtransaction(signedtx['hex'])
