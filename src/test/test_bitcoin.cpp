@@ -67,6 +67,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     if (!fedpegscript.empty()) {
         gArgs.SoftSetArg("-fedpegscript", fedpegscript);
         gArgs.SoftSetBoolArg("-con_has_parent_chain", true);
+        gArgs.SoftSetBoolArg("-validatepegin", false);
     }
     // CreateAndProcessBlock() does not support building SegWit blocks, so don't activate in these tests.
     // TODO: fix the code to support SegWit blocks.

@@ -353,7 +353,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     }
 
     // Finally, validate peg-in via rpc call
-    if (check_depth && gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+    if (check_depth && gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         if (!IsConfirmedBitcoinBlock(block_hash, Params().GetConsensus().pegin_min_depth, num_txs)) {
             err_msg = "Needs more confirmations.";
             return false;

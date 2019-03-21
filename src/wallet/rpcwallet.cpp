@@ -5239,7 +5239,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     ret.pushKV("hex", strHex);
 
     // Additional block lee-way to avoid bitcoin block races
-    if (gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+    if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         ret.pushKV("mature", IsConfirmedBitcoinBlock(merkleBlock.header.GetHash(), Params().GetConsensus().pegin_min_depth+2, merkleBlock.txn.GetNumTransactions()));
     }
 
