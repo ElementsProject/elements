@@ -1708,12 +1708,12 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
         double progress_end;
         {
             LOCK(cs_main);
-            progress_begin = GuessVerificationProgress(chainParams.TxData(), pindex);
+            progress_begin = GuessVerificationProgress(pindex, chainParams.GetConsensus().nPowTargetSpacing);
             if (pindexStop == nullptr) {
                 tip = chainActive.Tip();
-                progress_end = GuessVerificationProgress(chainParams.TxData(), tip);
+                progress_end = GuessVerificationProgress(tip, chainParams.GetConsensus().nPowTargetSpacing);
             } else {
-                progress_end = GuessVerificationProgress(chainParams.TxData(), pindexStop);
+                progress_end = GuessVerificationProgress(pindexStop, chainParams.GetConsensus().nPowTargetSpacing);
             }
         }
         double progress_current = progress_begin;
@@ -1748,11 +1748,11 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             {
                 LOCK(cs_main);
                 pindex = chainActive.Next(pindex);
-                progress_current = GuessVerificationProgress(chainParams.TxData(), pindex);
+                progress_current = GuessVerificationProgress(pindex, chainParams.GetConsensus().nPowTargetSpacing);
                 if (pindexStop == nullptr && tip != chainActive.Tip()) {
                     tip = chainActive.Tip();
                     // in case the tip has changed, update progress max
-                    progress_end = GuessVerificationProgress(chainParams.TxData(), tip);
+                    progress_end = GuessVerificationProgress(tip, chainParams.GetConsensus().nPowTargetSpacing);
                 }
             }
         }

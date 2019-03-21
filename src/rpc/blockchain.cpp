@@ -1292,7 +1292,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         obj.pushKV("difficulty",            (double)GetDifficulty(chainActive.Tip()));
     }
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(chainparams.TxData(), chainActive.Tip()));
+    obj.pushKV("verificationprogress",  GuessVerificationProgress(chainActive.Tip(), chainparams.GetConsensus().nPowTargetSpacing));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
     if (!g_signed_blocks) {
         obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
