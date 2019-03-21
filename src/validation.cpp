@@ -5128,7 +5128,7 @@ bool BitcoindRPCCheck(const bool init)
     pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
 
     // Next, check for working and valid rpc
-    if (gArgs.GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+    if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         // During init try until a non-RPC_IN_WARMUP result
         while (true) {
             try {

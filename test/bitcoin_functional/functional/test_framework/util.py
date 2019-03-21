@@ -305,6 +305,8 @@ def initialize_datadir(dirname, n, chain):
         # Elements:
         f.write("con_blocksubsidy=5000000000\n")
         f.write("con_connect_coinbase=0\n")
+        f.write("con_has_parent_chain=0\n")
+        f.write("parentgenesisblockhash=0\n")
         f.write("anyonecanspendaremine=0\n")
         f.write("con_blockheightinheader=0\n")
         f.write("con_elementsmode=0\n")

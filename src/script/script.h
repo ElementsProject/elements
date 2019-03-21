@@ -43,8 +43,6 @@ static const int MAX_STACK_SIZE = 1000;
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
 
 // ELEMENTS:
-// Validate pegin proof by checking Bitcoin transaction inclusion in mainchain.
-static const bool DEFAULT_VALIDATE_PEGIN = false;
 // Number of confirms on parent chain required to confirm on sidechain.
 static const unsigned int DEFAULT_PEGIN_CONFIRMATION_DEPTH = 8;
 
