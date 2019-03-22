@@ -71,3 +71,13 @@ if [ "$RUN_BITCOIN_TESTS" = "true" ]; then
     DOCKER_EXEC test/bitcoin_functional/functional/test_runner.py --combinedlogslen=4000 --coverage --quiet --failfast ${extended}
     END_FOLD
 fi
+
+if [ "$RUN_FEDPEG_BITCOIND_TEST" = "true" ]; then
+    BEGIN_FOLD fedpeg-bitcoind-test
+    BITCOIND_VERSION=0.17.1
+    BITCOIND_ARCH=x86_64-linux-gnu
+    DOCKER_EXEC curl -O https://bitcoincore.org/bin/bitcoin-core-$BITCOIND_VERSION/bitcoin-$BITCOIND_VERSION-$BITCOIND_ARCH.tar.gz
+    DOCKER_EXEC tar -zxf bitcoin-$BITCOIND_VERSION-$BITCOIND_ARCH.tar.gz
+    DOCKER_EXEC test/functional/feature_fedpeg.py --parent_bitcoin --parent_binpath $(pwd)/bitcoin-$BITCOIND_VERSION/bin/bitcoind
+    END_FOLD
+fi

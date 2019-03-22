@@ -562,7 +562,7 @@ class CCustomParams : public CRegTestParams {
         base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentpubkeyprefix", 111));
         base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
         parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
-        parent_blech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
+        parent_blech32_hrp = args.GetArg("-parent_blech32_hrp", "bcrt");
 
         base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 4));
 

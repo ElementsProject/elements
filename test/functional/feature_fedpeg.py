@@ -38,16 +38,22 @@ class FedPegTest(BitcoinTestFramework):
 
         self.nodes = []
         # Setup parent nodes
-        parent_chain = "regtest" if self.options.parent_bitcoin else "parent"
+        parent_chain = "parent" if not self.options.parent_bitcoin else "regtest"
         parent_binary = [self.options.parent_binpath] if self.options.parent_binpath != "" else None
         for n in range(2):
             extra_args = [
-                "-printtoconsole=0",
                 "-port="+str(p2p_port(n)),
                 "-rpcport="+str(rpc_port(n))
             ]
             if self.options.parent_bitcoin:
+                # bitcoind can't read elements.conf config files
                 extra_args.extend([
+                    "-regtest=1",
+                    "-printtoconsole=0",
+                    "-server=1",
+                    "-discover=0",
+                    "-keypool=1",
+                    "-listenonion=0",
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
                 ])
             else:
@@ -58,7 +64,7 @@ class FedPegTest(BitcoinTestFramework):
                     "-signblockscript=51", # OP_TRUE
                 ])
 
-            self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary)
+            self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary, chain_in_args=[not self.options.parent_bitcoin])
             self.start_node(n)
             print("Node {} started".format(n))
 
@@ -86,6 +92,8 @@ class FedPegTest(BitcoinTestFramework):
                 '-mainchainrpchost=127.0.0.1',
                 '-mainchainrpcport=%s' % rpc_port(n),
                 '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
+                '-parentpubkeyprefix=111',
+                '-parentscriptprefix=196',
             ]
             if not self.options.parent_bitcoin:
                 extra_args.extend([
