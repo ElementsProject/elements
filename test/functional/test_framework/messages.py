@@ -285,6 +285,38 @@ class COutPoint():
     def __repr__(self):
         return "COutPoint(hash=%064x n=%i)" % (self.hash, self.n)
 
+OUTPOINT_ISSUANCE_FLAG = (1 << 31)
+OUTPOINT_PEGIN_FLAG = (1 << 30)
+OUTPOINT_INDEX_MASK = 0x3fffffff
+
+class CAssetIssuance():
+    def __init__(self):
+        self.assetBlindingNonce = 0
+        self.assetEntropy = 0
+        self.nAmount = CTxOutValue()
+        self.nInflationKeys = CTxOutValue()
+
+    def isNull(self):
+        return self.nAmount.isNull() and self.nInflationKeys.isNull()
+
+    def deserialize(self, f):
+        self.assetBlindingNonce = deser_uint256(f)
+        self.assetEntropy = deser_uint256(f)
+        self.nAmount = CTxOutValue()
+        self.nAmount.deserialize(f)
+        self.nInflationKeys = CTxOutValue()
+        self.nInflatoinKeys.deserialize(f)
+
+    def serialize(self):
+        r = b""
+        r += ser_uint256(self.assetBlindingNonce)
+        r += ser_uint256(self.assetEntropy)
+        r += self.nAmount.serialize()
+        r += self.nInflationKeys.serialize()
+        return r
+
+    def __repr__(self):
+        return "CAssetIssuance(assetBlindingNonce=%064x assetEntropy=%064x nAmount=%s nInflationKeys=%s)" % (self.assetBlindingNonce, self.assetEntropy, self.nAmount.vchCommitment, self.nInflationKeys.vchCommitment)
 
 class CTxIn():
     def __init__(self, outpoint=None, scriptSig=b"", nSequence=0):
@@ -294,24 +326,52 @@ class CTxIn():
             self.prevout = outpoint
         self.scriptSig = scriptSig
         self.nSequence = nSequence
+        self.m_is_pegin = False
+        self.assetIssuance = CAssetIssuance()
 
     def deserialize(self, f):
         self.prevout = COutPoint()
         self.prevout.deserialize(f)
+
+        has_asset_issuance = False
+        # Do masking, extract presence of assetIssuance
+        if not self.prevout.isNull(): # ignore coinbase for issuance/pegin
+            if self.prevout.n & OUTPOINT_ISSUANCE_FLAG > 0:
+                has_asset_issuance = True
+            if self.prevout.n & OUTPOINT_PEGIN_FLAG > 0:
+                self.m_is_pegin = True
+            self.prevout.n = self.prevout.n & OUTPOINT_INDEX_MASK
+
         self.scriptSig = deser_string(f)
         self.nSequence = struct.unpack("<I", f.read(4))[0]
 
+        if has_asset_issuance:
+            self.assetIssuance = CAssetIssuance()
+            self.assetIssuance.deserialize(f)
+
     def serialize(self):
+        outpoint = COutPoint()
+        outpoint.hash = self.prevout.hash
+        outpoint.n = self.prevout.n
+        # First apply peg-in and issuance logic to prevout.n, before serializing
+        if self.prevout.n != 4294967295: # ignore coinbase for issuance/pegin
+            if not self.assetIssuance.isNull():
+                outpoint.n |= OUTPOINT_ISSUANCE_FLAG
+            if self.m_is_pegin:
+                outpoint.n |= OUTPOINT_PEGIN_FLAG
+
         r = b""
-        r += self.prevout.serialize()
+        r += outpoint.serialize()
         r += ser_string(self.scriptSig)
         r += struct.pack("<I", self.nSequence)
+        if self.prevout.n != 4294967295 and outpoint.n & OUTPOINT_ISSUANCE_FLAG:
+            r += self.assetIssuance.serialize()
         return r
 
     def __repr__(self):
-        return "CTxIn(prevout=%s scriptSig=%s nSequence=%i)" \
+        return "CTxIn(prevout=%s scriptSig=%s nSequence=%i m_is_pegin=%s assetIssuance=%s)" \
             % (repr(self.prevout), bytes_to_hex_str(self.scriptSig),
-               self.nSequence)
+               self.nSequence, self.m_is_pegin, self.assetIssuance)
 
 class CTxOutAsset(object):
     def __init__(self, vchCommitment=b"\x00"):
@@ -355,6 +415,9 @@ class CTxOutValue(object):
 
     def setNull(self):
         self.vchCommitment = b'\x00'
+
+    def isNull(self):
+        return self.vchCommitment == b'\x00'
 
     def deserialize(self, f):
         version = ord(f.read(1))
@@ -510,8 +573,8 @@ class CTxInWitness(object):
         return calcfastmerkleroot(leaves)
 
     def __repr__(self):
-        return "CTxInWitness (%s, %s, %s)" % (self.vchIssuanceAmountRangeproof,
-            self.vchInflationKeysRangeproof, self.scriptWitness)
+        return "CTxInWitness (%s, %s, %s %s)" % (self.vchIssuanceAmountRangeproof,
+            self.vchInflationKeysRangeproof, self.scriptWitness, self.peginWitness)
 
     def is_null(self):
         return len(self.vchIssuanceAmountRangeproof) == 0 \
@@ -799,7 +862,7 @@ class CBlockHeader():
         return self.sha256
 
     def __repr__(self):
-        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x block_height=%s nTime=%s)" \
+        return "CBlockHeader(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x ntime=%s block_height=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
                time.ctime(self.nTime), self.block_height)
 
