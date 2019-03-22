@@ -668,6 +668,18 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         CCoinsViewMemPool viewMemPool(pcoinsTip.get(), pool);
         view.SetBackend(viewMemPool);
 
+        // Quickly check for peg-in witness data on non-peg-in inputs
+        for (size_t input_index = 0; input_index < tx.vin.size(); ++input_index) {
+            if (!tx.vin[input_index].m_is_pegin) {
+                // Check that the corresponding pegin witness is empty
+                // Note that the witness vector must be size 0 or len(vin)
+                if (!tx.witness.vtxinwit.empty() &&
+                        !tx.witness.vtxinwit[input_index].m_pegin_witness.IsNull()) {
+                    return state.Invalid(false, REJECT_PEGIN, "extra-pegin-witness");
+                }
+            }
+        }
+
         // do all inputs exist?
         for (const CTxIn& txin : tx.vin) {
             // ELEMENTS:
