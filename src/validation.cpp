@@ -5107,7 +5107,7 @@ public:
  * from the perspective of peg-in witness validation. Blocks are
  * added to this queue in ConnectTip based on the error code returned.
  */
-bool BitcoindRPCCheck(const bool init)
+bool MainchainRPCCheck(const bool init)
 {
     // First, we can clear out any blocks thatsomehow are now deemed valid
     // eg reconsiderblock rpc call manually
@@ -5144,7 +5144,7 @@ bool BitcoindRPCCheck(const bool init)
                         continue;
                     }
                     else {
-                        LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+                        LogPrintf("ERROR: Mainchain daemon RPC check returned 'error' response.\n");
                         return false;
                     }
                 }
@@ -5160,7 +5160,7 @@ bool BitcoindRPCCheck(const bool init)
                 reply = CallMainChainRPC("getblockhash", params);
                 error = reply["error"];
                 if (!error.isNull()) {
-                    LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
+                    LogPrintf("ERROR: Mainchain daemon RPC check returned 'error' response.\n");
                     return false;
                 }
                 result = reply["result"];
@@ -5169,7 +5169,7 @@ bool BitcoindRPCCheck(const bool init)
                     return false;
                 }
             } catch (const std::runtime_error& re) {
-                LogPrintf("ERROR: Failure connecting to bitcoind RPC: %s\n", std::string(re.what()));
+                LogPrintf("ERROR: Failure connecting to mainchain daemon RPC: %s\n", std::string(re.what()));
                 return false;
             }
             // Success

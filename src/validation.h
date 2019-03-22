@@ -506,6 +506,6 @@ inline bool IsBlockPruned(const CBlockIndex* pblockindex)
 
 // ELEMENTS:
 /** Check if bitcoind connection via RPC is correctly working*/
-bool BitcoindRPCCheck(bool init);
+bool MainchainRPCCheck(bool init);
 
 #endif // BITCOIN_VALIDATION_H

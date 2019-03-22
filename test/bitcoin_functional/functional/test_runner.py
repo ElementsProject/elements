@@ -92,7 +92,8 @@ BASE_SCRIPTS = [
     # vv Tests less than 30s vv
     'wallet_keypool_topup.py',
     'interface_zmq.py',
-    'interface_bitcoin_cli.py',
+    # ELEMENTS:
+    #'interface_bitcoin_cli.py',
     'mempool_resurrect.py',
     'wallet_txn_doublespend.py --mineblock',
     'wallet_txn_clone.py',
@@ -108,7 +109,8 @@ BASE_SCRIPTS = [
     'wallet_disableprivatekeys.py --usecli',
     'interface_http.py',
     'rpc_psbt.py',
-    'rpc_users.py',
+    # ELEMENTS:
+    #'rpc_users.py',
     'feature_proxy.py',
     'rpc_signrawtransaction.py',
     'wallet_groups.py',
@@ -160,12 +162,14 @@ BASE_SCRIPTS = [
     'p2p_fingerprint.py',
     'feature_uacomment.py',
     'p2p_unrequested_blocks.py',
-    'feature_includeconf.py',
+    # ELEMENTS:
+    #'feature_includeconf.py',
     'rpc_scantxoutset.py',
     'feature_logging.py',
     'p2p_node_network_limited.py',
     'feature_blocksdir.py',
-    'feature_config_args.py',
+    # ELEMENTS:
+    #'feature_config_args.py',
     'rpc_help.py',
     'feature_help.py',
     # Don't append tests at the end to avoid merge conflicts

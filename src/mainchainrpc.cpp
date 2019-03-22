@@ -177,10 +177,10 @@ bool IsConfirmedBitcoinBlock(const uint256& hash, const int nMinConfirmationDept
             }
         }
     } catch (CConnectionFailed& e) {
-        LogPrintf("ERROR: Lost connection to bitcoind RPC, you will want to restart after fixing this!\n");
+        LogPrintf("ERROR: Lost connection to mainchain daemon RPC, you will want to restart after fixing this!\n");
         return false;
     } catch (...) {
-        LogPrintf("ERROR: Failure connecting to bitcoind RPC, you will want to restart after fixing this!\n");
+        LogPrintf("ERROR: Failure connecting to mainchain daemon RPC, you will want to restart after fixing this!\n");
         return false;
     }
     return true;
