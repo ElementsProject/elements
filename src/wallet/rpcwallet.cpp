@@ -531,8 +531,8 @@ UniValue onboarduser(const JSONRPCRequest& request){
     if(request.params.size() >= 2){
         assetStr=request.params[1].get_str();
     }
-    CAsset feeasset = GetAssetFromString(assetStr);  
-    
+    CAsset feeasset = GetAssetFromString(assetStr);
+
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     EnsureWalletIsUnlocked();
@@ -547,12 +547,12 @@ UniValue onboarduser(const JSONRPCRequest& request){
     CWalletTx wtx;
     SendOnboardTx(feeasset, script, wtx);
     return wtx.GetHash().GetHex();
-}  
+}
 
-//Register an unwhitelisted address from the keypool to the 
+//Register an unwhitelisted address from the keypool to the
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
-static void SendAddNextToWhitelistTx(const CAsset& feeAsset, 
+static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     const int nToRegister, const CPubKey& pubKey,
     CWalletTx& wtxNew){
 
@@ -564,7 +564,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     // Check the balance of the "from" address
     map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
-   
+
     // Check amount
     if (nToRegister <= 0 || nToRegister > 100)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid naddresses");
@@ -574,11 +574,11 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
 
     //Get the addresses to be registered, or use the predefined script
- 
+
     CRegisterAddressScript* raScript = new CRegisterAddressScript();
 
     int nReg=0;
-    
+
     CBitcoinAddress addr;
         // get the next registered base58check encoded tweaked public key and add it to the whitelist
     std::set<CKeyID> setKeyPool;
@@ -607,7 +607,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
-        
+
 
     // Create a dummy transaction in order to calculate the required fee
     std::vector<CReserveKey> vChangeKey;
@@ -627,7 +627,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     CWalletTx wtxDummy;
 
     if (!pwalletMain->CreateTransaction(vecSendDummy, wtxDummy, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true)) {
-        strError = strprintf("Error: failed to create transaction.");      
+        strError = strprintf("Error: failed to create transaction.");
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
@@ -641,7 +641,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     if (!pwalletMain->SelectCoins(vAvailableCoins, mapValueToSelect, setCoins, mapValueRet, nullptr, feeAsset))
     {
-       strError = strprintf("Error: failed to select coins.");      
+       strError = strprintf("Error: failed to select coins.");
        throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
@@ -652,7 +652,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     coinControl.fAllowOtherInputs=false;
 //    BOOST_FOREACH(const COutput& out, setCoins) {
 
-  
+
     //Create the script using the selected input address to encrypt it
     CKey privKey;
     // "From" address
@@ -679,7 +679,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
             }
         }
     }
-    
+
     if(inputAddrs.size() == 0)
     {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: could not retrieve private key for \"fromaddress\" from wallet.");
@@ -700,7 +700,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     //Create the transacrtion again. This time, the script is encrypted.
     if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, asset, true)) {
-        strError = strprintf("Error: failed to create transaction.");      
+        strError = strprintf("Error: failed to create transaction.");
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
@@ -708,7 +708,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
-    }  
+    }
 }
 
 UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
@@ -738,7 +738,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     std::string sFeeAsset="CBT";
     if(request.params.size() == 2)
         sFeeAsset=request.params[1].get_str();
-    CAsset feeasset = GetAssetFromString(sFeeAsset);  
+    CAsset feeasset = GetAssetFromString(sFeeAsset);
 
     CWalletTx wtx;
     CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
@@ -746,7 +746,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     SendAddNextToWhitelistTx(feeasset, naddr, kycPubKey, wtx);
 
 
-    //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(), 
+    //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(),
     //    request.params[1].get_str(), wtx.GetHash().GetHex());
 
     return wtx.GetHash().GetHex();
@@ -3119,7 +3119,7 @@ UniValue listunspent(const JSONRPCRequest& request)
     }
 
     bool bPolicy=false;
-    
+
 
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;
@@ -4510,10 +4510,10 @@ UniValue createrawburn(const JSONRPCRequest& request)
     CTxOut txoutAsset(asset,nAmount,destroyScript);
     rawTx.vout.push_back(txoutAsset);
 
-    //standard sequence number 
+    //standard sequence number
     uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
 
-    //generate input from the provided outpoint  
+    //generate input from the provided outpoint
     CTxIn in(tokenOutpoint, CScript(), nSequence);
 
     //push single input to raw transaction

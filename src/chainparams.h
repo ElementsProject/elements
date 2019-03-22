@@ -119,6 +119,7 @@ protected:
     CScript freezeListCoinsDestination;
     CScript burnListCoinsDestination;
     CScript whiteListCoinsDestination;
+    CScript challengeCoinsDestination;
     std::vector<SeedSpec6> vFixedSeeds;
     bool fMiningRequiresPeers;
     bool fDefaultConsistencyChecks;

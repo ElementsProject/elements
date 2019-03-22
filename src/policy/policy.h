@@ -26,6 +26,8 @@ extern CAsset freezelistAsset;
 extern CAsset burnlistAsset;
 /** the asset for burnlist policy **/
 extern CAsset whitelistAsset;
+/** the asset for guardnode challenge **/
+extern CAsset challengeAsset;
 
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;
@@ -135,14 +137,14 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     */
 bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-    /**                                                                
+    /**
     * Update the freezelist with the input tx encoding
     * if the tx has an encoded address in its outputs, these are added to the freezelist
     * if the tx has encoded addresses in its inputs, these are removed from the freezelist
     */
 bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-    /**                                                                
+    /**
     * Update the burnlist with the input tx encoding
     * if the tx has an encoded address in its outputs, these are added to the burnlist
     * if the tx has encoded addresses in its inputs, these are removed from the burnlist

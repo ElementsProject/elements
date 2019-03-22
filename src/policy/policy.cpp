@@ -14,6 +14,7 @@ CAsset policyAsset;
 CAsset freezelistAsset;
 CAsset burnlistAsset;
 CAsset whitelistAsset;
+CAsset challengeAsset;
 
     /**
      * Check transaction inputs to mitigate two
@@ -105,7 +106,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
 
 bool IsBurn(const CTransaction& tx)
 {
-  //function that determines if all outputs of a transaction are OP_RETURN 
+  //function that determines if all outputs of a transaction are OP_RETURN
   txnouttype whichType;
 
   for (CTxOut const &txout : tx.vout) {
@@ -129,9 +130,10 @@ bool IsPolicy(const CTransaction& tx)
 }
 
 bool IsPolicy(const CAsset& asset){
-  if(asset == freezelistAsset || 
-     asset == burnlistAsset || 
-     asset == whitelistAsset) 
+  if(asset == freezelistAsset ||
+     asset == burnlistAsset ||
+     asset == whitelistAsset ||
+     asset == challengeAsset)
     return true;
   return false;
 }
@@ -156,7 +158,7 @@ bool IsWhitelisted(const CTransaction& tx)
     //skip whitelist check if output is OP_RETURN
     if(whichType == TX_NULL_DATA) continue;
     //skip whitelist check if output is OP_REGISTERADDRESS
-    if(whichType == TX_REGISTERADDRESS) continue;    
+    if(whichType == TX_REGISTERADDRESS) continue;
     //return false if not P2PKH
     if(!(whichType == TX_PUBKEYHASH)) return false;
 
@@ -479,11 +481,11 @@ bool LoadBurnList(CCoinsView *view)
         CCoins coins;
         if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
             ss << key;
-      
+
             //loop over all vouts within a single transaction
             for (unsigned int i=0; i<coins.vout.size(); i++) {
                 const CTxOut &out = coins.vout[i];
-    
+
                 //null vouts are spent
                 if (!out.IsNull()) {
                     ss << VARINT(i+1);

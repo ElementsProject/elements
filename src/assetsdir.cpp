@@ -49,6 +49,19 @@ void CAssetsDir::InitFromStrings(const std::vector<std::string>& assetsToInit)
     }
     // Set "CBT" to the pegged asset for tests
     Set(Params().GetConsensus().pegged_asset, AssetMetadata("CBT"));
+    // Add labels for all policy assets
+    if (Params().GetConsensus().freezelist_asset != CAsset()) {
+        Set(Params().GetConsensus().freezelist_asset, AssetMetadata("FREEZELIST"));
+    }
+    if (Params().GetConsensus().burnlist_asset != CAsset()) {
+        Set(Params().GetConsensus().burnlist_asset, AssetMetadata("BURNLIST"));
+    }
+    if (Params().GetConsensus().whitelist_asset != CAsset()) {
+        Set(Params().GetConsensus().whitelist_asset, AssetMetadata("WHITELIST"));
+    }
+    if (Params().GetConsensus().challenge_asset != CAsset()) {
+        Set(Params().GetConsensus().challenge_asset, AssetMetadata("CHALLENGE"));
+    }
 }
 
 CAsset CAssetsDir::GetAsset(const std::string& label) const
