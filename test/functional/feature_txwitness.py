@@ -14,12 +14,14 @@
 
 """
 
-from test_framework.messages import CTransaction, CBlock, ser_uint256
+from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, CBlockHeader, uint256_from_str, CTxOut, ToHex
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes
+from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
 from test_framework import util
+from test_framework.blocktools import create_coinbase, create_block, get_witness_script
 
 from io import BytesIO
+import copy
 
 class TxWitnessTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -121,16 +123,63 @@ class TxWitnessTest(BitcoinTestFramework):
         block.rehash()
         assert_equal(block.hash, self.nodes[0].getbestblockhash())
 
+    def test_coinbase_witness(self):
+
+        def WitToHex(obj):
+            return bytes_to_hex_str(obj.serialize(with_witness=True))
+
+        block = self.nodes[0].getnewblockhex()
+        block_struct = FromHex(CBlock(), block)
+
+        # Test vanilla block round-trip
+        self.nodes[0].testproposedblock(WitToHex(block_struct))
+
+        # Assert there's scriptWitness in the coinbase input that is the witness nonce and nothing else
+        assert_equal(block_struct.vtx[0].wit.vtxinwit[0].scriptWitness.stack, [b'\x00'*32])
+        assert_equal(block_struct.vtx[0].wit.vtxinwit[0].vchIssuanceAmountRangeproof, b'')
+        assert_equal(block_struct.vtx[0].wit.vtxinwit[0].vchInflationKeysRangeproof, b'')
+        assert_equal(block_struct.vtx[0].wit.vtxinwit[0].peginWitness.stack, [])
+
+        # Add extra witness that isn't covered by witness merkle root, make sure blocks are still valid
+        block_witness_stuffed = copy.deepcopy(block_struct)
+        block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchIssuanceAmountRangeproof = b'\x00'
+        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        block_witness_stuffed = copy.deepcopy(block_struct)
+        block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchInflationKeysRangeproof = b'\x00'
+        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        block_witness_stuffed = copy.deepcopy(block_struct)
+        block_witness_stuffed.vtx[0].wit.vtxinwit[0].peginWitness.stack = [b'\x00']
+        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        block_witness_stuffed = copy.deepcopy(block_struct)
+
+        # Add extra witness data that is covered by witness merkle root, make sure invalid until
+        # witness merkle root is recalculated
+        assert_equal(block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchSurjectionproof, b'')
+        assert_equal(block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchRangeproof, b'')
+        block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchRangeproof = b'\x00'*100000
+        block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchSurjectionproof = b'\x00'*100000
+        assert_raises_rpc_error(-25, "bad-witness-merkle-match", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
+        witness_root_hex = block_witness_stuffed.calc_witness_merkle_root()
+        witness_root = uint256_from_str(hex_str_to_bytes(witness_root_hex)[::-1])
+        block_witness_stuffed.vtx[0].vout[-1] = CTxOut(0, get_witness_script(witness_root, 0))
+        block_witness_stuffed.vtx[0].rehash()
+        block_witness_stuffed.hashMerkleRoot = block_witness_stuffed.calc_merkle_root()
+        block_witness_stuffed.rehash()
+        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        assert_greater_than(len(WitToHex(block_witness_stuffed)), 100000*4) # Make sure the witness data is actually serialized
+
+        # Test that issuance inputs in coinbase don't survive a serialization round-trip
+        # (even though this can't cause issuance to occur either way due to VerifyCoinbaseAmount semantics)
+        block_witness_stuffed = copy.deepcopy(block_struct)
+        block_witness_stuffed.vtx[0].vin[0].assetIssuance.nAmount.setToAmount(1)
+        assert(not block_witness_stuffed.vtx[0].vin[0].assetIssuance.isNull())
+        stuffed_decoded = self.nodes[0].decoderawtransaction(ToHex(block_witness_stuffed.vtx[0]))
+        assert("issuance" not in stuffed_decoded["vin"][0])
 
     def run_test(self):
         util.node_fastmerkle = self.nodes[0]
+        self.test_coinbase_witness()
         self.test_transaction_serialization()
-
-
-
-
-
-
 
 if __name__ == '__main__':
     TxWitnessTest().main()
