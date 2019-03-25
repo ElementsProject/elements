@@ -167,8 +167,7 @@ class TxWitnessTest(BitcoinTestFramework):
         block_witness_stuffed = copy.deepcopy(block_struct)
 
 
-        # Add extra witness data that is covered by witness merkle root, make sure invalid until
-        # witness merkle root is recalculated
+        # Add extra witness data that is covered by witness merkle root, make sure invalid
         assert_equal(block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchSurjectionproof, b'')
         assert_equal(block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchRangeproof, b'')
         block_witness_stuffed.vtx[0].wit.vtxoutwit[0].vchRangeproof = b'\x00'*100000
@@ -180,7 +179,7 @@ class TxWitnessTest(BitcoinTestFramework):
         block_witness_stuffed.vtx[0].rehash()
         block_witness_stuffed.hashMerkleRoot = block_witness_stuffed.calc_merkle_root()
         block_witness_stuffed.rehash()
-        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-amount", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
         assert_greater_than(len(WitToHex(block_witness_stuffed)), 100000*4) # Make sure the witness data is actually serialized
 
         # Test that issuance inputs in coinbase don't survive a serialization round-trip
