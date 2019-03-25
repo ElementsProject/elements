@@ -58,7 +58,7 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, chain, *, rpchost, timewait, bitcoind, bitcoin_cli, mocktime, coverage_dir, extra_conf=None, extra_args=None, use_cli=False):
+    def __init__(self, i, datadir, chain, *, rpchost, timewait, bitcoind, bitcoin_cli, mocktime, coverage_dir, extra_conf=None, extra_args=None, use_cli=False, chain_in_args=True):
         self.index = i
         self.datadir = datadir
         self.stdout_dir = os.path.join(self.datadir, "stdout")
@@ -77,7 +77,6 @@ class TestNode():
         self.args = [
             self.binary,
             "-datadir=" + self.datadir,
-            "-chain=" + self.chain,
             "-logtimemicros",
             "-debug",
             "-debugexclude=libevent",
@@ -85,6 +84,8 @@ class TestNode():
             "-mocktime=" + str(mocktime),
             "-uacomment=testnode%d" % i
         ]
+        if chain_in_args:
+            self.args += ["-chain=" + self.chain]
 
         self.cli = TestNodeCLI(bitcoin_cli, self.datadir, self.chain)
         self.use_cli = use_cli
