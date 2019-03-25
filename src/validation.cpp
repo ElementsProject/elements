@@ -3560,6 +3560,16 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         }
     }
 
+    // Coinbase transaction can not have input witness data which is not covered
+    // (or committed to) by the witness or regular merkle tree
+    for (const auto& inwit : block.vtx[0]->witness.vtxinwit) {
+        if (!inwit.vchIssuanceAmountRangeproof.empty() ||
+                !inwit.vchInflationKeysRangeproof.empty() ||
+                !inwit.m_pegin_witness.IsNull()) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-cb-witness", true, "Coinbase has invalid input witness data.");
+        }
+    }
+
     // Validation for witness commitments.
     // * We compute the witness hash (which is the hash including witnesses) of all the block's transactions, except the
     //   coinbase (where 0x0000....0000 is used instead).

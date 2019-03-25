@@ -143,13 +143,13 @@ class TxWitnessTest(BitcoinTestFramework):
         # Add extra witness that isn't covered by witness merkle root, make sure blocks are still valid
         block_witness_stuffed = copy.deepcopy(block_struct)
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchIssuanceAmountRangeproof = b'\x00'
-        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
         block_witness_stuffed = copy.deepcopy(block_struct)
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchInflationKeysRangeproof = b'\x00'
-        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
         block_witness_stuffed = copy.deepcopy(block_struct)
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].peginWitness.stack = [b'\x00']
-        self.nodes[0].testproposedblock(WitToHex(block_witness_stuffed))
+        assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
         block_witness_stuffed = copy.deepcopy(block_struct)
 
         # Add extra witness data that is covered by witness merkle root, make sure invalid until
