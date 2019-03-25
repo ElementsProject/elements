@@ -148,9 +148,24 @@ class TxWitnessTest(BitcoinTestFramework):
         block_witness_stuffed.vtx[0].wit.vtxinwit[0].vchInflationKeysRangeproof = b'\x00'
         assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
         block_witness_stuffed = copy.deepcopy(block_struct)
-        block_witness_stuffed.vtx[0].wit.vtxinwit[0].peginWitness.stack = [b'\x00']
+
+        # Let's blow out block weight limit by adding 4MW here
+        block_witness_stuffed.vtx[0].wit.vtxinwit[0].peginWitness.stack = [b'\x00'*4000000]
         assert_raises_rpc_error(-25, "bad-cb-witness", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
+
+        # Test that node isn't blinded to the block
+        # Previously an over-stuffed block >4MW would have been marked permanently bad
+        # as it already passes witness merkle and regular merkle root checks
+        block_height = self.nodes[0].getblockcount()
+        assert_equal(self.nodes[0].submitblock(WitToHex(block_witness_stuffed)), "bad-cb-witness")
+        assert_equal(block_height, self.nodes[0].getblockcount())
+        assert_equal(self.nodes[0].submitblock(WitToHex(block_struct)), None)
+        assert_equal(block_height+1, self.nodes[0].getblockcount())
+
+        # New block since we used the first one
+        block_struct = FromHex(CBlock(), self.nodes[0].getnewblockhex())
         block_witness_stuffed = copy.deepcopy(block_struct)
+
 
         # Add extra witness data that is covered by witness merkle root, make sure invalid until
         # witness merkle root is recalculated
