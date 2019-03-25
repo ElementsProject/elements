@@ -10,6 +10,8 @@ from test_framework.util import (
     get_datadir_path,
     rpc_port,
     p2p_port,
+    assert_raises_rpc_error,
+    assert_equal,
 )
 from decimal import Decimal
 
@@ -53,9 +55,10 @@ class FedPegTest(BitcoinTestFramework):
             else:
                 extra_args.extend([
                     "-validatepegin=0",
-                    "-initialfreecoins=2100000000000000",
+                    "-initialfreecoins=0",
                     "-anyonecanspendaremine",
                     "-signblockscript=51", # OP_TRUE
+                    '-con_blocksubsidy=5000000000',
                 ])
 
             self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary)
@@ -390,7 +393,38 @@ class FedPegTest(BitcoinTestFramework):
         # Make sure balance went down
         assert(bal_2 + 1 < bal_1)
 
-        sidechain.sendtomainchain(some_btc_addr, bal_2, True)
+        # Have bitcoin output go directly into a claim output
+        pegin_info = sidechain.getpeginaddress()
+        mainchain_addr = pegin_info["mainchain_address"]
+        claim_script = pegin_info["claim_script"]
+        # Watch the address so we can get tx without txindex
+        parent.importaddress(mainchain_addr)
+        claim_block = parent.generatetoaddress(50, mainchain_addr)[0]
+        block_coinbase = parent.getblock(claim_block, 2)["tx"][0]
+        claim_txid = block_coinbase["txid"]
+        claim_tx = block_coinbase["hex"]
+        claim_proof = parent.gettxoutproof([claim_txid], claim_block)
+
+        # Can't claim something even though it has 50 confirms since it's coinbase
+        assert_raises_rpc_error(-8, "Peg-in Bitcoin transaction needs more confirmations to be sent.", sidechain.claimpegin, claim_tx, claim_proof)
+        # If done via raw API, still doesn't work
+        coinbase_pegin = sidechain.createrawpegin(claim_tx, claim_proof)
+        assert_equal(coinbase_pegin["mature"], False)
+        signed_pegin = sidechain.signrawtransactionwithwallet(coinbase_pegin["hex"])["hex"]
+        assert_raises_rpc_error(-26, "bad-pegin-witness, Needs more confirmations.", sidechain.sendrawtransaction, signed_pegin)
+
+        # 50 more blocks to allow wallet to make it succeed by relay and consensus
+        parent.generatetoaddress(50, parent.getnewaddress())
+        # Wallet still doesn't want to for 2 more confirms
+        assert_equal(sidechain.createrawpegin(claim_tx, claim_proof)["mature"], False)
+        # But we can just shoot it off
+        claim_txid = sidechain.sendrawtransaction(signed_pegin)
+        sidechain.generatetoaddress(1, sidechain.getnewaddress())
+        assert_equal(sidechain.gettransaction(claim_txid)["confirmations"], 1)
+
+
+        # Send rest of coins using subtractfee from output arg
+        sidechain.sendtomainchain(some_btc_addr, sidechain.getwalletinfo()["balance"]['bitcoin'], True)
 
         assert(sidechain.getwalletinfo()["balance"]['bitcoin'] == 0)
 

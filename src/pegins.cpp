@@ -189,7 +189,7 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
 }
 
 template<typename T>
-static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, T& merkle_block, const std::vector<unsigned char>& merkle_block_raw)
+static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, unsigned int& tx_index, T& merkle_block, const std::vector<unsigned char>& merkle_block_raw)
 {
     try {
         std::vector<uint256> tx_hashes;
@@ -205,6 +205,7 @@ static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, 
             return false;
         }
         tx_hash = tx_hashes[0];
+        tx_index = tx_indices[0];
     } catch (std::exception& e) {
         // Invalid encoding of merkle block
         return false;
@@ -295,10 +296,11 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     uint256 block_hash;
     uint256 tx_hash;
     int num_txs;
+    unsigned int tx_index = 0;
     // Get txout proof
     if (Params().GetConsensus().ParentChainHasPow()) {
         Sidechain::Bitcoin::CMerkleBlock merkle_block_pow;
-        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block_pow, stack[5])) {
+        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, tx_index, merkle_block_pow, stack[5])) {
             err_msg = "Could not extract block and tx from merkleblock.";
             return false;
         }
@@ -316,7 +318,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         num_txs = merkle_block_pow.txn.GetNumTransactions();
     } else {
         CMerkleBlock merkle_block;
-        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block, stack[5])) {
+        if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, tx_index, merkle_block, stack[5])) {
             err_msg = "Could not extract block and tx from merkleblock.";
             return false;
         }
@@ -354,7 +356,13 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 
     // Finally, validate peg-in via rpc call
     if (check_depth && gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
-        if (!IsConfirmedBitcoinBlock(block_hash, Params().GetConsensus().pegin_min_depth, num_txs)) {
+        unsigned int required_depth = Params().GetConsensus().pegin_min_depth;
+        // Don't allow coinbase output claims before coinbase maturity
+        if (tx_index == 0) {
+            required_depth = std::max(required_depth, (unsigned int)COINBASE_MATURITY);
+        }
+        LogPrintf("Required depth: %d\n", required_depth);
+        if (!IsConfirmedBitcoinBlock(block_hash, required_depth, num_txs)) {
             err_msg = "Needs more confirmations.";
             return false;
         }
