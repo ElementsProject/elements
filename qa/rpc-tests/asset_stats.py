@@ -111,7 +111,7 @@ class AssetStatsTest (BitcoinTestFramework):
         #issue a new asset
         asset2 = self.nodes[0].issueasset(Decimal('800.0'),Decimal('1.0'))
         self.nodes[0].generate(10)
-        self.sync_all()        
+        self.sync_all()
 
         #check the token and entropy in the asset stats
         iter = 0
@@ -202,7 +202,7 @@ class AssetStatsTest (BitcoinTestFramework):
         sendtx = self.nodes[0].sendrawtransaction(sigtx["hex"])
 
         self.nodes[0].generate(10)
-        self.sync_all()    
+        self.sync_all()
 
         #check asset report amounts
         stats5 = self.nodes[2].getutxoassetinfo()

@@ -1266,10 +1266,10 @@ UniValue getbalance(const JSONRPCRequest& request)
             wtx.GetAmounts(listReceived, listSent, allFee, strSentAccount, filter);
             if (wtx.GetDepthInMainChain() >= nMinDepth)
             {
-                BOOST_FOREACH(const COutputEntry& r, listReceived)
+                for (COutputEntry const &r : listReceived)
                     mapBalance[r.asset] += r.amount;
             }
-            BOOST_FOREACH(const COutputEntry& s, listSent)
+            for (COutputEntry const &s : listSent)
                 mapBalance[s.asset] -= s.amount;
             mapBalance[wtx.tx->GetFee().begin()->first] -= allFee;
             // Tally issuances since there are no corresponding "receives"
