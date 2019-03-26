@@ -49,6 +49,9 @@ class PAKTest (BitcoinTestFramework):
         self.extra_args[i_pak1] = self.extra_args[i_pak1] + pak_to_option(pak1)
         self.extra_args[i_pak2] = self.extra_args[i_pak2] + pak_to_option(pak2)
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
 
         # Give novalidate 50 BTC

@@ -28,6 +28,9 @@ class TweakFedpegTest(BitcoinTestFramework):
     def setup_network(self):
         self.setup_nodes()
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         # Test that OP_TRUE mainchain_addr/claim_script never changes
         assert_equal(self.nodes[0].getsidechaininfo()["fedpegscript"], OP_TRUE_SCRIPT)

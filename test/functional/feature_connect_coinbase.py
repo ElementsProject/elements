@@ -19,6 +19,9 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.extra_args = [["-con_connect_coinbase=0", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN)],
                            ["-con_connect_coinbase=1", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-anyonecanspendaremine=1']]
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         # Same genesis block
         assert_equal(self.nodes[0].getblockhash(0), self.nodes[1].getblockhash(0))

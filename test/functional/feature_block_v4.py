@@ -18,6 +18,9 @@ class BlockV4Test(BitcoinTestFramework):
         self.extra_args = [['-whitelist=127.0.0.1', '-con_bip34height=0', '-con_bip65height=0', '-con_bip66height=0', '-con_csv_deploy_start=-1']]
         self.setup_clean_chain = True
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
 
         # First, quick check that CSV is ACTIVE at genesis

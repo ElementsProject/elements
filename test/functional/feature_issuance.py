@@ -94,6 +94,9 @@ class IssuanceTest(BitcoinTestFramework):
         self.extra_args = [["-blindedaddresses=1"]] * self.num_nodes
         self.setup_clean_chain = True
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def setup_network(self, split=False):
         self.setup_nodes()
         connect_nodes_bi(self.nodes, 0, 1)

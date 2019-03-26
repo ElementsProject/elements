@@ -22,6 +22,9 @@ class AssetdirTests(BitcoinTestFramework):
         self.num_nodes = 1
         [["-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_coinbase=1", "-con_blocksubsidy=0"]]
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def setup_network(self, split=False):
         self.setup_nodes()
 

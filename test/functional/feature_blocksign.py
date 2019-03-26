@@ -46,6 +46,10 @@ class BlockSignTest(BitcoinTestFramework):
         As well as syncing blocks over p2p
 
     """
+
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     # Dynamically generate N keys to be used for block signing.
     def init_keys(self, num_keys):
         self.keys = []
