@@ -1631,6 +1631,10 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
                     if(fRequireWhitelistCheck || fScanWhitelist){
                         addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
                     }
+                    if(fRecordInflation){
+                        UpdateAssetMap(*block.vtx[posInBlock]);
+                        UpdateFreezeHistory(*block.vtx[posInBlock],pindex->nHeight);
+                    }
                     AddToWalletIfInvolvingMe(*block.vtx[posInBlock], pindex, posInBlock, fUpdate);
                 }
                 if (!ret) {

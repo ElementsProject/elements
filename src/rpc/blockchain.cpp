@@ -1032,18 +1032,75 @@ UniValue getutxoassetinfo(const JSONRPCRequest& request)
     std::map<CAsset,CAssetStats> stats;
     if (GetAssetStats(pcoinsTip, stats)) {
         for(auto const& asset : stats){
-	    UniValue item(UniValue::VOBJ);
-	    item.push_back(Pair("asset",asset.first.GetHex()));
-	    item.push_back(Pair("spendabletxouts",asset.second.nSpendableOutputs));
-	    item.push_back(Pair("amountspendable",ValueFromAmount(asset.second.nSpendableAmount)));
-	    item.push_back(Pair("frozentxouts",asset.second.nFrozenOutputs));
-	    item.push_back(Pair("amountfrozen",ValueFromAmount(asset.second.nFrozenAmount)));
-	    ret.push_back(item);
-	}
+    	    UniValue item(UniValue::VOBJ);
+    	    item.push_back(Pair("asset",asset.first.GetHex()));
+    	    item.push_back(Pair("spendabletxouts",asset.second.nSpendableOutputs));
+    	    item.push_back(Pair("amountspendable",ValueFromAmount(asset.second.nSpendableAmount)));
+    	    item.push_back(Pair("frozentxouts",asset.second.nFrozenOutputs));
+    	    item.push_back(Pair("amountfrozen",ValueFromAmount(asset.second.nFrozenAmount)));
+            //add entropy and token mappings
+            if(fRecordInflation) {
+                bool fd = false;
+                for(uint32_t itr = 0; itr < assetEntropyMap.size(); ++itr) {
+                    if(assetEntropyMap[itr].asset == asset.first) {
+                        item.push_back(Pair("entropy",assetEntropyMap[itr].entropy.GetHex()));
+                        item.push_back(Pair("token",assetEntropyMap[itr].token.GetHex()));
+                        fd = true;
+                        break;
+                    }
+                }
+                if(!fd) {
+                    item.push_back(Pair("entropy","null"));
+                    item.push_back(Pair("token","null"));
+                }
+            }
+    	    ret.push_back(item);
+    	}
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
     return ret;
+}
+
+UniValue getfreezehistory(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 0)
+        throw runtime_error(
+            "getfreezehistory height\n"
+            "Returns an array conatining the history of frozen (redemption) transactions\n"
+            "It returns all outputs that have been unfrozen in the last height blocks\n"
+            "If height is zero it returns all frozen outputs\n"
+            "\nResult:\n"
+            "[\n"
+            "   {\n"
+            "       \"txid\": \"xxxx\",        (string) transaction ID of the redemption transaction\n"
+            "       \"blocks\": xxxxxx,         (numeric) the current number of blocks processed in the server\n"
+            "   }\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockchaininfo", "0")
+            + HelpExampleRpc("getblockchaininfo", "0")
+        );
+
+//    uint32_t nHeight = request.params[0].get_int();
+
+    uint32_t nHeight = 0;
+
+    UniValue ar(UniValue::VARR);
+    uint32_t bh = chainActive.Height();
+    for (uint32_t itr = 0; itr < freezeHistList.size(); ++itr) {
+        if(freezeHistList[itr].spendheight > bh - nHeight || nHeight == 0) {
+            UniValue obj(UniValue::VOBJ);
+            obj.push_back(Pair("txid",freezeHistList[itr].txid.GetHex()));
+            obj.push_back(Pair("vout",(int)freezeHistList[itr].vout));
+            obj.push_back(Pair("asset",freezeHistList[itr].asset.GetHex()));
+            obj.push_back(Pair("value",ValueFromAmount(freezeHistList[itr].value)));
+            obj.push_back(Pair("start",(int)freezeHistList[itr].freezeheight));
+            obj.push_back(Pair("end",(int)freezeHistList[itr].spendheight));
+            ar.push_back(obj);
+        }
+    }
+    return ar;
 }
 
 UniValue gettxout(const JSONRPCRequest& request)
@@ -2332,6 +2389,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "gettxout",               &gettxout,               true,  {"txid","n","include_mempool"} },
     { "blockchain",         "gettxoutsetinfo",        &gettxoutsetinfo,        true,  {} },
     { "blockchain",         "getutxoassetinfo",       &getutxoassetinfo,       true,  {} },
+    { "blockchain",         "getfreezehistory",       &getfreezehistory,       true,  {"height"} },
     { "blockchain",         "pruneblockchain",        &pruneblockchain,        true,  {"height"} },
     { "blockchain",         "verifychain",            &verifychain,            true,  {"checklevel","nblocks"} },
 

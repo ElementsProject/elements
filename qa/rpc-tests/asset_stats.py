@@ -12,9 +12,11 @@ class AssetStatsTest (BitcoinTestFramework):
         super().__init__()
         self.num_nodes = 3
         self.setup_clean_chain = True
+        self.extra_args = [['-txindex'] for i in range(3)]
+        self.extra_args[0].append("-recordinflation=1")
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir)
+        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir, self.extra_args[:3])
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
@@ -111,10 +113,21 @@ class AssetStatsTest (BitcoinTestFramework):
         self.nodes[0].generate(10)
         self.sync_all()        
 
+        #check the token and entropy in the asset stats
+        iter = 0
+        stats4 = self.nodes[0].getutxoassetinfo()
+        for assetstats in stats4:
+            if asset2["asset"] == assetstats["asset"]:
+                assert_equal(assetstats["entropy"],asset2["entropy"])
+                assert_equal(assetstats["token"],asset2["token"])
+                iter +=1
+        assert(iter == 1)
+
         newadd = self.nodes[0].getnewaddress()
         txidnew = self.nodes[0].sendtoaddress(newadd,Decimal('750.0')," "," ",False,asset2["asset"],True)
         self.nodes[0].generate(10)
         self.sync_all()
+
 
         #send some asset to a frozen output
 
@@ -131,10 +144,12 @@ class AssetStatsTest (BitcoinTestFramework):
         #create raw tx
         addr4 = self.nodes[2].getnewaddress()
         addrfrz = "2dZRkPX3hrPtuBrmMkbGtxTxsuYYgAaFrXZ"
-        rawtx = self.nodes[0].createrawtransaction([{"txid":txidnew,"vout":vout}],{addrfrz:Decimal('0.0001'),addr4:Decimal('749.9998'),"fee":Decimal("0.0001")},0,{addrfrz:asset2["asset"],addr4:asset2["asset"],"fee":asset2["asset"]})
+        rawtx = self.nodes[0].createrawtransaction([{"txid":txidnew,"vout":vout}],{addrfrz:Decimal('0.0000'),addr4:Decimal('749.9999'),"fee":Decimal("0.0001")},0,{addrfrz:asset2["asset"],addr4:asset2["asset"],"fee":asset2["asset"]})
         sigtx = self.nodes[0].signrawtransaction(rawtx)
 
         sendtx = self.nodes[0].sendrawtransaction(sigtx["hex"])
+
+        blkh = self.nodes[0].getinfo()["blocks"] + 1
 
         self.nodes[0].generate(10)
         self.sync_all()
@@ -153,6 +168,15 @@ class AssetStatsTest (BitcoinTestFramework):
                 assert_equal(assetstats["amountfrozen"], Decimal('0.0'))
                 iter +=1
         assert(iter == 2)
+
+        #check the freeze updated in the history array
+        frzhist = self.nodes[0].getfreezehistory()
+
+        for output in frzhist:
+            if output["txid"] == sendtx:
+                assert_equal(output["asset"],asset2["asset"])
+                assert_equal(output["start"],blkh)
+                assert_equal(output["end"],0)
 
         #send some asset to a burn (OP_RETURN) output
 
@@ -194,6 +218,36 @@ class AssetStatsTest (BitcoinTestFramework):
                 assert_equal(assetstats["amountfrozen"], Decimal('0.0'))
                 iter +=1
         assert(iter == 2)
+
+        #check history of the frozen asset
+        frzhist = self.nodes[0].getfreezehistory()
+
+        for output in frzhist:
+            if output["txid"] == sendtx:
+                assert_equal(output["asset"],asset2["asset"])
+                assert_equal(output["start"],blkh)
+                assert_equal(output["end"],0)
+
+        #spend the frozen output
+        newadd = self.nodes[0].getnewaddress()
+        txidnew = self.nodes[2].sendtoaddress(newadd,Decimal('700.0')," "," ",False,asset2["asset"],True)
+        self.nodes[0].generate(10)
+        self.sync_all()                
+
+        blkh2 = self.nodes[0].getinfo()["blocks"] + 1
+
+        self.nodes[0].generate(10)
+        self.sync_all()
+
+        #check history of the frozen asset is set to spent
+        frzhist = self.nodes[0].getfreezehistory()
+
+        for output in frzhist:
+            if output["txid"] == sendtx:
+                assert_equal(output["asset"],asset2["asset"])
+                assert_equal(output["start"],blkh)
+                assert_equal(output["end"],blkh2)
+                        
 
 if __name__ == '__main__':
     AssetStatsTest ().main ()

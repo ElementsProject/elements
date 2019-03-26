@@ -71,6 +71,8 @@ CChain chainActive;
 CBlockIndex *pindexBestHeader = NULL;
 CWaitableCriticalSection csBestBlock;
 CConditionVariable cvBlockChange;
+std::vector<IssuanceData> assetEntropyMap;
+std::vector<FreezeHist> freezeHistList;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 bool fReindex = false;
@@ -84,6 +86,7 @@ bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
+bool fRecordInflation = DEFAULT_RECORD_INFLATION;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
@@ -936,8 +939,8 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
                 if (tx.vout[i].scriptPubKey.IsUnspendable()) {
                     continue;
                 } else {
-                    // No spendable 0-value outputs
-                    return false;
+                    // allow zero value outputs
+                    continue;
                 }
             }
 
@@ -2805,8 +2808,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 addressWhitelist.RegisterAddress(tx, view);
             }
         }
-        
 
+        if(fRecordInflation) {
+            UpdateAssetMap(tx);
+            UpdateFreezeHistory(tx,chainActive.Height()+1);
+        }
+        
         // GetTransactionSigOpCost counts 3 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
