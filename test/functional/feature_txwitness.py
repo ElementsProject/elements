@@ -14,14 +14,15 @@
 
 """
 
-from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, CBlockHeader, uint256_from_str, CTxOut, ToHex
+from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, uint256_from_str, CTxOut, ToHex, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
 from test_framework import util
-from test_framework.blocktools import create_coinbase, create_block, get_witness_script
+from test_framework.blocktools import get_witness_script
 
 from io import BytesIO
 import copy
+import struct
 
 class TxWitnessTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -182,13 +183,35 @@ class TxWitnessTest(BitcoinTestFramework):
         assert_raises_rpc_error(-25, "bad-cb-amount", self.nodes[0].testproposedblock, WitToHex(block_witness_stuffed))
         assert_greater_than(len(WitToHex(block_witness_stuffed)), 100000*4) # Make sure the witness data is actually serialized
 
+        # A CTxIn that always serializes the asset issuance, even for coinbases.
+        class AlwaysIssuanceCTxIn(CTxIn):
+            def serialize(self):
+                r = b''
+                outpoint = COutPoint()
+                outpoint.hash = self.prevout.hash
+                outpoint.n = self.prevout.n
+                outpoint.n |= OUTPOINT_ISSUANCE_FLAG
+                r += outpoint.serialize()
+                r += ser_string(self.scriptSig)
+                r += struct.pack("<I", self.nSequence)
+                r += self.assetIssuance.serialize()
+                return r
+
         # Test that issuance inputs in coinbase don't survive a serialization round-trip
         # (even though this can't cause issuance to occur either way due to VerifyCoinbaseAmount semantics)
         block_witness_stuffed = copy.deepcopy(block_struct)
+        coinbase_orig = copy.deepcopy(block_witness_stuffed.vtx[0].vin[0])
+        coinbase_ser_size = len(block_witness_stuffed.vtx[0].vin[0].serialize())
+        block_witness_stuffed.vtx[0].vin[0] = AlwaysIssuanceCTxIn()
+        block_witness_stuffed.vtx[0].vin[0].prevout = coinbase_orig.prevout
+        block_witness_stuffed.vtx[0].vin[0].scriptSig = coinbase_orig.scriptSig
+        block_witness_stuffed.vtx[0].vin[0].nSequence = coinbase_orig.nSequence
         block_witness_stuffed.vtx[0].vin[0].assetIssuance.nAmount.setToAmount(1)
+        bad_coinbase_ser_size = len(block_witness_stuffed.vtx[0].vin[0].serialize())
+        # 32+32+9+1 should be serialized for each assetIssuance field
+        assert_equal(bad_coinbase_ser_size, coinbase_ser_size+32+32+9+1)
         assert(not block_witness_stuffed.vtx[0].vin[0].assetIssuance.isNull())
-        stuffed_decoded = self.nodes[0].decoderawtransaction(ToHex(block_witness_stuffed.vtx[0]))
-        assert("issuance" not in stuffed_decoded["vin"][0])
+        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, ToHex(block_witness_stuffed.vtx[0]))
 
     def run_test(self):
         util.node_fastmerkle = self.nodes[0]
