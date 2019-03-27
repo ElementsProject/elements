@@ -26,6 +26,9 @@ class TxWitnessTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def assert_tx_format_also_signed(self, utxo, segwit):
         raw = self.nodes[0].createrawtransaction(
             [{"txid": utxo["txid"], "vout": utxo["vout"]}],

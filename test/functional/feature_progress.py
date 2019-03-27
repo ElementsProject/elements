@@ -23,6 +23,9 @@ class ProgressTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.extra_args = [["-debug", "-con_npowtargetspacing=1", "-maxtimeadjustment=0"]] * self.num_nodes
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def setup_network(self):
         self.setup_nodes()
         self.is_network_split = True

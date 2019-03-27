@@ -29,6 +29,9 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
         self.is_network_split = False
         self.sync_all()
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         #Claim all anyone-can-spend coins and test that calling sendtoaddress without providing the assetlabel parameter results in the specified default pegged asset being sent.
         self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 21000000, "", "", True)

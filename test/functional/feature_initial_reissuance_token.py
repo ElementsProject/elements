@@ -23,6 +23,9 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
         #Set number of initial reissuance tokens and also set initial free coins less than max so we can reissue more later
         self.extra_args = [["-initialreissuancetokens=200000000", "-initialfreecoins=2000000000000000", "-anyonecanspendaremine=1", "-con_connect_coinbase=1", "-con_blocksubsidy=0", "-blindedaddresses=1"]]*2
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def setup_network(self, split=False):
         self.setup_nodes()
         connect_nodes_bi(self.nodes, 0, 1)

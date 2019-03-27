@@ -25,6 +25,9 @@ class CTTest (BitcoinTestFramework):
         self.is_network_split = False
         self.sync_all()
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
 
         print("General Confidential tests")

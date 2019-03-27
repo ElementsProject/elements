@@ -137,7 +137,6 @@ jobs:
         DEP_OPTS="NO_WALLET=1 NO_QT=1"
         GOAL="install"
         BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
-        RUN_FUNCTIONAL_TESTS=false
 # Cross-Mac
     - stage: test
       env: >-

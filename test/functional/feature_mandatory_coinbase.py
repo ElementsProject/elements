@@ -33,6 +33,9 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         # Non-zero coinbase outputs *must* match this. Not setting it means anything is allowed
         self.extra_args = [["-con_mandatorycoinbase="+mandatory_script], []]
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def run_test(self):
         node0 = self.nodes[0]
         node1 = self.nodes[1]

@@ -32,6 +32,9 @@ class FedPegTest(BitcoinTestFramework):
         parser.add_argument("--parent_bitcoin", dest="parent_bitcoin", default=False, action="store_true",
                             help="Parent nodes are Bitcoin")
 
+    def skip_test_if_missing_module(self):
+        self.skip_if_no_wallet()
+
     def setup_network(self, split=False):
         if self.options.parent_bitcoin and self.options.parent_binpath == "":
             raise Exception("Can't run with --parent_bitcoin without specifying --parent_binpath")
