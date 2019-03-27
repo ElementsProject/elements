@@ -320,7 +320,9 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nTx            = diskindex.nTx;
 
                 const uint256 block_hash = pindexNew->GetBlockHash();
-                if (!CheckProof(pindexNew->GetBlockHeader(), consensusParams) &&
+                // Only validate one of every 1000 block header for sanity check
+                if (pindexNew->nHeight % 1000 == 0 &&
+                        !CheckProof(pindexNew->GetBlockHeader(), consensusParams) &&
                     block_hash != consensusParams.hashGenesisBlock) {
                     return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
                 }
