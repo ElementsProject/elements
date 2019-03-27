@@ -2,32 +2,15 @@
 // Copyright (c) 2009-2016 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 #include "rpc/server.h"
-
 #include "base58.h"
 #include "init.h"
-#include "random.h"
 #include "sync.h"
-#include "ui_interface.h"
 #include "util.h"
 #include "utilstrencodings.h"
-
-#include <univalue.h>
-
-#include <boost/bind.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/foreach.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/signals2/signal.hpp>
-#include <boost/thread.hpp>
 #include <boost/algorithm/string/case_conv.hpp> // for to_upper()
-
-#include <memory> // for unique_ptr
 #include <unordered_map>
-
 //For thread local rpc username
-#include <boost/thread/tss.hpp>
 //Thread local rpc user name for logging purposes
 boost::thread_specific_ptr<std::string> userInstance;
 
@@ -80,7 +63,7 @@ void RPCTypeCheck(const UniValue& params,
                   bool fAllowNull)
 {
     unsigned int i = 0;
-    BOOST_FOREACH(UniValue::VType t, typesExpected)
+    for (UniValue::VType t : typesExpected)
     {
         if (params.size() <= i)
             break;
@@ -119,7 +102,7 @@ void RPCTypeCheckObj(const UniValue& o,
 
     if (fStrict)
     {
-        BOOST_FOREACH(const string& k, o.getKeys())
+        for (string const &k : o.getKeys())
         {
             if (typesExpected.count(k) == 0)
             {
@@ -198,7 +181,7 @@ std::string CRPCTable::help(const std::string& strCommand) const
         vCommands.push_back(make_pair(mi->second->category + mi->first, mi->second));
     sort(vCommands.begin(), vCommands.end());
 
-    BOOST_FOREACH(const PAIRTYPE(string, const CRPCCommand*)& command, vCommands)
+    for (pair<string, CRPCCommand const*> const &command : vCommands)
     {
         const CRPCCommand *pcmd = command.second;
         string strMethod = pcmd->name;

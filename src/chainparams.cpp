@@ -153,6 +153,7 @@ protected:
         freezeListCoinsDestination = StrHexToScriptWithDefault(GetArg("-freezelistcoinsdestination", ""), CScript() << OP_RETURN);
         burnListCoinsDestination = StrHexToScriptWithDefault(GetArg("-burnlistcoinsdestination", ""), CScript() << OP_RETURN);
         whiteListCoinsDestination = StrHexToScriptWithDefault(GetArg("-whitelistcoinsdestination", ""), CScript() << OP_RETURN);
+        challengeCoinsDestination = StrHexToScriptWithDefault(GetArg("-challengecoinsdestination", ""), CScript() << OP_RETURN);
         attestationHash = uint256S(GetArg("-attestationhash", ""));
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
@@ -205,9 +206,11 @@ public:
         if (initialFreeCoins != 0) {
             AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);
 
+            int nOut = 1;
             if(!freezeListCoinsDestination.IsUnspendable()) {
                 uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000010");
-                const COutPoint prevout = COutPoint(uint256(commit), 1);
+                const COutPoint prevout = COutPoint(uint256(commit), nOut);
+                ++nOut;
 
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.freezelist_asset, entropy);
@@ -217,7 +220,8 @@ public:
 
             if(!burnListCoinsDestination.IsUnspendable()) {
                 uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000020");
-                const COutPoint prevout = COutPoint(uint256(commit), 2);
+                const COutPoint prevout = COutPoint(uint256(commit), nOut);
+                ++nOut;
 
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.burnlist_asset, entropy);
@@ -227,12 +231,24 @@ public:
 
             if(!whiteListCoinsDestination.IsUnspendable()) {
                 uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000030");
-                const COutPoint prevout = COutPoint(uint256(commit), 3);
+                const COutPoint prevout = COutPoint(uint256(commit), nOut);
+                ++nOut;
 
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.whitelist_asset, entropy);
 
                 AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, whiteListCoinsDestination);
+            }
+
+            if(!challengeCoinsDestination.IsUnspendable()) {
+                uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000040");
+                const COutPoint prevout = COutPoint(uint256(commit), nOut);
+                ++nOut;
+
+                GenerateAssetEntropy(entropy,  prevout, contract);
+                CalculateAsset(consensus.challenge_asset, entropy);
+
+                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, challengeCoinsDestination);
             }
         }
         consensus.hashGenesisBlock = genesis.GetHash();

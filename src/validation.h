@@ -139,6 +139,8 @@ static const bool DEFAULT_SCAN_WHITELIST = false;
 static const bool DEFAULT_BLOCK_ISSUANCE = false;
 static const bool DEFAULT_BURNLIST_CHECK = false;
 static const bool DEFAULT_FREEZELIST_CHECK = false;
+static const bool DEFAULT_REQUESTLIST_CHECK = false;
+static const bool DEFAULT_RECORD_INFLATION = false;
 
 /** Default for -permitbaremultisig */
 static const bool DEFAULT_PERMIT_BAREMULTISIG = true;
@@ -168,6 +170,32 @@ extern CPolicyList addressFreezelist;
 //burnlist address list
 extern CPolicyList addressBurnlist;
 
+struct IssuanceData
+{
+	CAsset asset;
+	uint256 token;
+	uint256 entropy;
+};
+
+struct FreezeHist
+{
+	CAsset asset;
+	uint256 txid;
+	uint32_t vout;
+	uint32_t freezeheight;
+	uint32_t spendheight;
+	CAmount value;
+	bool operator==(const FreezeHist& p) const
+	{
+		return txid == p.txid && vout == p.vout;
+	}
+};
+
+// list of issued asset IDs to tokens and entropy
+extern std::vector<IssuanceData> assetEntropyMap;
+// freeze history
+extern std::vector<FreezeHist> freezeHistList;
+
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern CTxMemPool mempool;
@@ -187,8 +215,10 @@ extern bool fIsBareMultisigStd;
 extern bool fRequireWhitelistCheck;
 extern bool fScanWhitelist;
 extern bool fRequireFreezelistCheck;
+extern bool fRequireRequestListCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;
+extern bool fRecordInflation;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;

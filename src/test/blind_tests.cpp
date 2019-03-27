@@ -364,10 +364,6 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_blinds, output_asset_blinds, output_pubkeys, vDummy, vDummy, txtemp) == 4);
         BOOST_CHECK(VerifyAmounts(cache, txtemp));
 
-        // Transaction may not have spendable 0-value output
-        txtemp.vout.push_back(CTxOut(CAsset(), 0, CScript() << OP_TRUE));
-        BOOST_CHECK(!VerifyAmounts(cache, txtemp));
-
         // Create imbalance by removing fees, should still be able to blind
         txtemp = tx5;
         txtemp.vout.resize(5);

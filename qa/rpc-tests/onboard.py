@@ -41,7 +41,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
-     
+
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
         connect_nodes_bi(self.nodes,0,1)
@@ -76,7 +76,7 @@ class OnboardTest (BitcoinTestFramework):
         wlscript = "76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac"
         genhash = self.nodes[0].getblockhash(0)
         genblock = self.nodes[0].getblock(genhash)
-        
+
         for txid in genblock["tx"]:
             rawtx = self.nodes[0].getrawtransaction(txid,True)
             if rawtx["vout"][0]["scriptPubKey"]["hex"] == flscript:
@@ -109,7 +109,7 @@ class OnboardTest (BitcoinTestFramework):
 
         inputs=[]
         vin = {}
-        vin["txid"]= wltxid 
+        vin["txid"]= wltxid
         vin["vout"]= 0
         inputs.append(vin)
         outputs = []
@@ -141,7 +141,7 @@ class OnboardTest (BitcoinTestFramework):
         node1addr=self.nodes[1].getnewaddress()
         iswl=self.nodes[0].querywhitelist(node1addr)
         assert(iswl)
-        
+
         keypool=100
         nwhitelisted=keypool-1
 
@@ -159,23 +159,18 @@ class OnboardTest (BitcoinTestFramework):
         #Restart the nodes. The whitelist will be restored. TODO
         wl1file="wl1.dat"
         self.nodes[1].dumpwhitelist(wl1file)
-    
-   #     time.sleep(1)
 
-#        try:
- #           stop_node(self.nodes[1],1)
-  #      except ConnectionResetError as e:
-   #         pass
-    #    except ConnectionRefusedError as e:
-     #       pass
-
-#        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[:3]) 
-
-#        wl1file_2="wl1_2.dat"
- #       self.nodes[1].dumpwhitelist(wl1file_2)
-#
- #       assert(filecmp.cmp(wlfile, wlfile_2))
-
+        # time.sleep(1)
+        # try:
+        #     stop_node(self.nodes[1],1)
+        #  except ConnectionResetError as e:
+        #     pass
+        # except ConnectionRefusedError as e:
+        #     pass
+        # self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[:3])
+        # wl1file_2="wl1_2.dat"
+        # self.nodes[1].dumpwhitelist(wl1file_2)
+        # assert(filecmp.cmp(wlfile, wlfile_2))
 
         #Node 1 registers additional addresses to whitelist
         nadd=100
@@ -210,7 +205,7 @@ class OnboardTest (BitcoinTestFramework):
         wltx_decoded=self.nodes[1].decoderawtransaction(wltx)
         wltx_send
         wlvouts=wltx_decoded["vout"]
-        
+
         wlvout = list(filter(lambda x: x["scriptPubKey"]["type"] == "multisig", wlvouts))[0]
         print(wlvout)
         wlvoutn=wlvout["n"]
@@ -240,7 +235,7 @@ class OnboardTest (BitcoinTestFramework):
         #The whitelist should now be empty
         nlines=self.linecount(wl1file_3)
         nlines_bl=self.linecount(wl1_bl_file)
-   
+
         assert_equal(nlines-nlines_bl,nwhitelisted)
 
         return
