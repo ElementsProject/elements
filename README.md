@@ -67,6 +67,37 @@ edit: docker-compose.yml, adding:
       - /home/your_username/ocean_full_node:/home/bitcoin/.bitcoin
 ```
 
+### Using docker secrets
+
+Add a secrets block to contrib/docker/docker-compose.yml
+
+```
+secrets:
+  ocean_user:
+    file: ocean_user
+  ocean_pass:
+    file: ocean_pass
+```
+
+Modify the service block to use the newly defined secrets:
+
+```
+services:
+  node:
+    secrets:
+      - ocean_user
+      - ocean_pass
+```
+
+Remove the rpc authentication arguments from the command:
+
+```
+-rpcuser=${BITCOIN_RPC_USER:-ocean}
+-rpcpassword=${BITCOIN_RPC_PASSWORD:-oceanpass}
+```
+
+Create and populate ocean_user and ocean_pass files with credentials in the same directory.
+
 ### Dig deeper
 
 As root
