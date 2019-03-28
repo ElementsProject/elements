@@ -2,55 +2,20 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-//A wrapper class for AES256CBCEncryption
+//An implementation of ECIES AES256CBC Encryption
 
 #include "ecies.h"
-#include "crypto/aes.h"
 #include "random.h"
+#include "utilstrencodings.h"
+#include "crypto/sha1.h"
+#include "crypto/sha512.h"
+#include "crypto/hmac_sha256.h"
 #include <sstream>
 #include <iostream>
 
 
+//Keys are randomly selected.
 CECIES::CECIES(){
-	//Generate a random initialization vector.
-    GetStrongRandBytes(_iv, AES_BLOCKSIZE);
-    //Generate a random key.
-    GetStrongRandBytes(_k, AES256_KEYSIZE);
-    Initialize();
-}
-
-//This sets up an encryption scheme based on a private key from one key pair
-//and public key from another key pair. A shared secret _k is generated which is
-//used to enrypt/decrypt messages.
-CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey, const uCharVec iv){
-	//Generate the ECDH exchange shared secret from the private key and the public key
-  check(privKey,pubKey, iv);
-	uint256 k = privKey.ECDH(pubKey);
-	memcpy(_k, &k, 32);
-	set_iv(iv);
-	unsigned char tmp[AES_BLOCKSIZE];
-	GetStrongRandBytes(tmp, AES_BLOCKSIZE);
-	//std::stringstream ss;
-	//	ss << 
-	//" Shared secret: " << _k << 
-	//" iv: " << _iv << std::endl;
-	Initialize();
-}
-
-CECIES::CECIES(const CKey& privKey, const CPubKey& pubKey){
-  //Generate the ECDH exchange shared secret from the private key and the public key
-  check(privKey,pubKey);
-  uint256 k = privKey.ECDH(pubKey);
-  memcpy(_k, &k, 32);
-  //Randomly generate a initialization vector.
-  GetStrongRandBytes(_iv, AES_BLOCKSIZE);
-  //  std::stringstream ss;
-  //  ss << 
-//	"Priv key: " << privKey.GetPrivKey().ToString() <<
-//	" Pub key: " << pubKey << 
-//  " Shared secret: " << _k << 
-//  " iv: " << _iv << std::endl;
-  Initialize();
 }
 
 void CECIES::check(const CKey& privKey, const CPubKey& pubKey){
@@ -60,97 +25,166 @@ void CECIES::check(const CKey& privKey, const CPubKey& pubKey){
   _bOK=true;
 }
 
-void CECIES::check(const CKey& privKey, const CPubKey& pubKey, const uCharVec iv){
- check(privKey, pubKey);
- if(_bOK){
- 	_bOK=false;
-	 if(iv.size()==AES_BLOCKSIZE) _bOK=true;
-	}
-}
-
 CECIES::~CECIES(){
-	delete _encryptor;
-	delete _decryptor;
 }
 
-bool CECIES::set_iv(uCharVec iv){
-	std::copy(iv.begin(), iv.begin() + AES_BLOCKSIZE, _iv);
-	return true;
-}
 
-//Initialize from serialized private key 
-bool CECIES::Initialize(){
-	_decryptor=new AES256CBCDecrypt(_k, _iv, true);
-	_encryptor=new AES256CBCEncrypt(_k, _iv, true);
-	return true;
+bool CECIES::CheckMagic(const uCharVec& encryptedMessage) const{
+	uCharVec magic(encryptedMessage.begin(), encryptedMessage.begin() + _magic.size());
+	return (magic == _magic);
 }
-
+	
+//Encryption: generate ephmeral private key, and include it's public key in the header.
+//Generate a dhared secret using the ephemeral private key and the recipient's public key.
 bool CECIES::Encrypt(uCharVec& em, 
- 	const uCharVec& m) const{
-	//Add padding if needed.
-	//unsigned int size = m.size();
-	//if (size % AES_BLOCKSIZE) {
-	//	m.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
-//	}
-//	em.resize(m.size(), _padChar);
+ 	const uCharVec& m, const CPubKey& pubKey){
+	CKey ephemeralKey;	
+	ephemeralKey.MakeNewKey(true);
+	return Encrypt(em, m, pubKey, ephemeralKey);
+}
+
+//Encryption: generate ephmeral private key, and include it's public key in the header.
+//Generate a dhared secret using the ephemeral private key and the recipient's public key.
+bool CECIES::Encrypt(uCharVec& em, 
+ 	const uCharVec& m, const CPubKey& pubKey, const CKey& privKey){
+
+	//Initialize the encryptor
+	check(privKey, pubKey);
+	if(!_bOK) return false;
+	uint256 ecdh_key = privKey.ECDH(pubKey);
+	
+	//sha512 hash of the elliptic curve diffie-hellman key to produce an encryption key and a MAC key
+	unsigned char arrKey[CSHA512::OUTPUT_SIZE];
+	CSHA512().Write(ecdh_key.begin(), ecdh_key.size()).Finalize(arrKey);
+
+	unsigned char k[AES256_KEYSIZE];
+	memcpy(k, &arrKey[0], sizeof(k));
+	memcpy(_k_mac_encrypt, &arrKey[0]+sizeof(k), sizeof(_k_mac_encrypt));
+
+
+	//Generate a pseudorandom initialization vector using sha1
+	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
+	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
+
+	//Copy the required number of bytes to _iv
+	unsigned char iv[AES_BLOCKSIZE];
+	memcpy(iv, &iv_tmp[0], sizeof(iv));
+
+	AES256CBCEncrypt encryptor(k, iv, true);
+		
 	int size=m.size();
-	em.resize(size+AES_BLOCKSIZE);
-	int paddedSize=_encryptor->Encrypt(m.data(), size, em.data());
-	em.resize(paddedSize);
-    return true;
+	uCharVec ciphertext(size+AES_BLOCKSIZE);
+
+	int paddedSize=encryptor.Encrypt(m.data(), size, ciphertext.data());
+	ciphertext.resize(paddedSize);
+	//Payload: _magic + pubkey + ciphertext
+
+	uCharVec msg(_magic.begin(), _magic.end());
+	CPubKey ephemeralPub = privKey.GetPubKey();
+	msg.insert(msg.end(), ephemeralPub.begin(), ephemeralPub.end());
+	msg.insert(msg.end(), ciphertext.begin(), ciphertext.end());
+	//Generate MAC
+	unsigned char mac[CSHA256::OUTPUT_SIZE];
+	CHMAC_SHA256(&_k_mac_encrypt[0], sizeof(_k_mac_encrypt))
+		.Write(&msg[0], msg.size())
+		.Finalize(mac);
+	
+	//Message: payload + MAC
+	msg.insert(msg.end(),std::begin(mac), std::end(mac));
+	//Base64 encode
+	std::string strEncoded=EncodeBase64(&msg[0], msg.size());
+	em=uCharVec(strEncoded.begin(), strEncoded.end());
+	return true;
 }
 
 bool CECIES::Decrypt(uCharVec& m, 
- 	const uCharVec& em) const{
-	//Add padding if needed.
-//	unsigned int size = em.size();
-//	if (size % AES_BLOCKSIZE) {
-//		em.resize(AES_BLOCKSIZE*(size/AES_BLOCKSIZE +1), _padChar);
-//	}
-//	m.resize(em.size(), _padChar);
-	int paddedSize = em.size();
+				const uCharVec& em, 
+				const CKey& privKey){
+	CPubKey pubKey;
+	return Decrypt(m, em, privKey, pubKey);
+}
+
+bool CECIES::Decrypt(uCharVec& m, 
+				const uCharVec& em, 
+				const CKey& privKey, 
+				const CPubKey& pubKey){
+
+	std::string sem(em.begin(), em.end());
+	bool bInvalid;
+	uCharVec decoded=DecodeBase64(sem.c_str(), &bInvalid);
+	if(bInvalid) return false;
+	if(!CheckMagic(decoded)) return false;
+	uCharVec ciphertext;
+
+	//Initialize decryptor
+	auto it1=decoded.begin()+_magic.size();
+	auto it2=it1+33;
+	// ecdh shared secret from ephemeral public key (in message header) and my private key
+	CPubKey ephemeralPub;
+	if(pubKey == CPubKey()){
+		ephemeralPub.Set(it1, it2);
+	} else {
+		ephemeralPub=pubKey;
+	}
+	check(privKey, ephemeralPub);
+	if(!_bOK) return false;
+	uint256 ecdh_key = privKey.ECDH(ephemeralPub);
+	
+	it1=it2;
+	it2=decoded.end()-CSHA256::OUTPUT_SIZE;
+
+	//sha512 hash of the elliptic curve diffie-hellman key to produce an encryption key and a MAC key
+	unsigned char arrKey[CSHA512::OUTPUT_SIZE];
+	CSHA512().Write(ecdh_key.begin(), ecdh_key.size()).Finalize(arrKey);
+
+	unsigned char k[AES256_KEYSIZE];
+	memcpy(k, &arrKey[0], sizeof(k));
+	memcpy(_k_mac_decrypt, &arrKey[0]+sizeof(k), sizeof(_k_mac_decrypt));
+	
+	//Generate a pseudorandom initialization vector using sha1
+	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
+	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
+	//Copy the required number of bytes to _iv
+	unsigned char iv[AES_BLOCKSIZE];
+	memcpy(iv, &iv_tmp[0], sizeof(iv));
+
+	//Check the message authentication code (MAC)
+	uCharVec MAC_written(it2, decoded.end());
+	//Generate MAC
+	uCharVec payload(decoded.begin(), it2);
+	unsigned char mac[CSHA256::OUTPUT_SIZE];
+	CHMAC_SHA256(&_k_mac_decrypt[0], sizeof(_k_mac_decrypt))
+		.Write(&payload[0], payload.size())
+		.Finalize(mac);
+	uCharVec MAC_calculated(&mac[0], &mac[0]+sizeof(mac));
+	if(MAC_written != MAC_calculated) return false;
+	
+	AES256CBCDecrypt decryptor(k, iv, true);
+
+	ciphertext=uCharVec(it1, it2);
+
+	int paddedSize = ciphertext.size();
 	m.resize(paddedSize);
-	int size=_decryptor->Decrypt(em.data(), paddedSize, m.data());
+	int size=decryptor.Decrypt(ciphertext.data(), paddedSize, m.data());
 	//Remove the padding.
 	m.resize(size);
     return true;
 }
 
 bool CECIES::Encrypt(std::string& em, 
- 	const std::string& m) const{
-	uCharVec vm(m.begin(), m.end());
+ 	const std::string& m, const CPubKey& pubKey){
 	uCharVec vem;
-	bool bResult=Encrypt(vem, vm);
+	uCharVec vm(m.begin(), m.end());
+	bool bResult=Encrypt(vem, vm, pubKey);
 	if(bResult) em=std::string(vem.begin(), vem.end());
     return bResult;
 }
 
 bool CECIES::Decrypt(std::string& m, 
- 	const std::string& em) const{
+ 	const std::string& em, const CKey& privKey){
 	uCharVec vem(em.begin(), em.end());
 	uCharVec vm;
-	bool bResult=Decrypt(vm, vem);
+	bool bResult=Decrypt(vm, vem, privKey);
 	if (bResult) m=std::string(vm.begin(), vm.end());
     return bResult;
 }
-
-uCharVec CECIES::get_iv(){
-	uCharVec retval(_iv, _iv+AES_BLOCKSIZE);
-	return retval;
-}
-
-bool CECIES::Test1(){
-	Initialize();
-	std::string spm = "Test message for ECIES.";
-	std::vector<unsigned char> pm(spm.begin(), spm.end());
-	std::vector<unsigned char> em;
-	std::vector<unsigned char> dm;
-	std::cout << spm << std::endl;
-	//EncryptMessage(em, pm);
-	std::cout << std::string(em.begin(), em.end()) << std::endl;
-//	DecryptMessage(dm, em);
-	std::cout << std::string(dm.begin(), dm.end()) << std::endl;
-	return true;
-}
-
-

@@ -2,9 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-//A wrapper class for AES256CBCEncryption
+//An implementation of ECIES AES256CBC Encryption
 
-#pragma once
+#ifndef OCEAN_ECIES_H
+#define OCEAN_ECIES_H
 
 #include "key.h"
 #include "crypto/aes.h"
@@ -14,45 +15,42 @@ typedef std::vector<unsigned char> uCharVec;
 class CECIES{
 public:
 	CECIES();
-	CECIES(const CKey& privKey, const CPubKey& pubKey,  const uCharVec iv);
-	CECIES(const CKey& privKey, const CPubKey& pubKey);
-
 	~CECIES();
 	
 	/**
     * Encrypt/decrypt a message string.
     */
 
-    bool Encrypt(uCharVec& em, 
-    	const uCharVec& m) const;
+	bool Encrypt(uCharVec& em, 
+   	const uCharVec& m, const CPubKey& pubKey);
+   	//Use a defined priv key instead of an ephemeral one.
+   	bool Encrypt(uCharVec& em, 
+   	const uCharVec& m, const CPubKey& pubKey, const CKey& privKey);
     bool Decrypt(uCharVec& m, 
-    	const uCharVec& em) const;
+    	const uCharVec& em, const CKey& privKey, const CPubKey& pubKey);
+    bool Decrypt(uCharVec& m, 
+    	const uCharVec& em, const CKey& privKey);
     bool Encrypt(std::string& em, 
-    	const std::string& m) const;
+    	const std::string& m, const CPubKey& pubKey);
     bool Decrypt(std::string& m, 
-    	const std::string& em) const;
-
-    bool Test1();
-
-	uCharVec get_iv();
-	bool set_iv(uCharVec iv);
+    	const std::string& em, const CKey& privKey);
 
 	bool OK(){return _bOK;}
 
 private:
-	unsigned char _iv[AES_BLOCKSIZE];
-	unsigned char _k[AES256_KEYSIZE];
 
-	unsigned char _padChar=0;
+	unsigned char _k_mac_encrypt[AES256_KEYSIZE];
+	unsigned char _k_mac_decrypt[AES256_KEYSIZE];
 
-	AES256CBCEncrypt* _encryptor;
-	AES256CBCDecrypt* _decryptor;
 
-	bool Initialize();
+	bool CheckMagic(const uCharVec& encryptedMessage) const;
 
 	bool _bOK = false;
 
 	void check(const CKey& privKey, const CPubKey& pubKey);
-	void check(const CKey& privKey, const CPubKey& pubKey, const uCharVec iv);
 
+	//Use the electrum wallet default "magic" string
+	const uCharVec _magic{'B','I','E','1'};
 };
+
+#endif //#ifndef OCEAN_ECIES_H

@@ -143,7 +143,7 @@ class OnboardTest (BitcoinTestFramework):
         assert(iswl)
 
         keypool=100
-        nwhitelisted=keypool-1
+        nwhitelisted=keypool
 
         #Send some tokens to node 1
         ntosend=100.234

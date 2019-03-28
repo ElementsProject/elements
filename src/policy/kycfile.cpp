@@ -16,10 +16,8 @@ CKYCFile::~CKYCFile(){
 void CKYCFile::clear(){
     _addressKeys.clear();
     _decryptedStream.clear();
-    delete _encryptor;
     delete _onboardPubKey;
     delete _onboardUserPubKey;
-    delete _initVec;
 }
 
 bool CKYCFile::close(){
@@ -57,6 +55,10 @@ bool CKYCFile::read(){
 
     clear();
 
+    CKey onboardPrivKey;   
+
+    CECIES encryptor;
+
     while (_file.good()){
         //Skip the header, footer
         std::string line;
@@ -73,7 +75,7 @@ bool CKYCFile::read(){
             _decryptedStream << line << "\n";
             std::vector<std::string> vstr;
             boost::split(vstr, line, boost::is_any_of(" "));
-            if (vstr.size() != 4)
+            if (vstr.size() != 3)
                 throw std::system_error(
                     std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
                     std::string(std::string(__func__) +  ": invalid KYC file"));
@@ -86,7 +88,6 @@ bool CKYCFile::read(){
                         std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
                         std::string(std::string(__func__) +  ": invalid kyc pub key in KYC file"));
 
-            CKey onboardPrivKey;
             if(!pwalletMain->GetKey(_onboardPubKey->GetID(), onboardPrivKey))
                 throw std::system_error(
                         std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
@@ -99,15 +100,8 @@ bool CKYCFile::read(){
                         std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
                         std::string(std::string(__func__) +  ": invalid onboard user pub key in kyc file"));
 
-            _initVec = new std::vector<unsigned char>(ParseHex(vstr[2]));
-            if(_initVec->size() != AES_BLOCKSIZE)
-                 throw std::system_error(
-                        std::error_code(CKYCFile::Errc::INVALID_PARAMETER, std::system_category()),
-                        std::string(std::string(__func__) +  ": invalid initialization vector in KYC file"));
-
-            initEncryptor(&onboardPrivKey, _onboardUserPubKey, _initVec);
             std::stringstream ssNBytes;
-            ssNBytes << vstr[3];
+            ssNBytes << vstr[2];
             ssNBytes >> nBytesToRead;
             continue;
         }
@@ -122,9 +116,10 @@ bool CKYCFile::read(){
         }
         if(size == nBytesToRead){
             if(data.size()==0){
-                std::vector<unsigned char> vch(ParseHex(ss.str()));
+                std::string str=ss.str();
+                std::vector<unsigned char> vch(str.begin(), str.end());
                 std::vector<unsigned char> vdata;
-                if(!_encryptor->Decrypt(vdata, vch))
+                if(!encryptor.Decrypt(vdata, vch, onboardPrivKey))
                     throw std::system_error(
                         std::error_code(CKYCFile::Errc::ENCRYPTION_ERROR, std::system_category()),
                         std::string(std::string(__func__) +  ": KYC file decryption failed"));
@@ -175,16 +170,6 @@ bool CKYCFile::read(){
     return true;
 }
 
-bool CKYCFile::initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec){
-    _onboardUserPubKey=pubKey;
-    _initVec=initVec;
-    delete _encryptor;
-     if(_initVec)
-        _encryptor = new CECIES(*privKey, *_onboardUserPubKey, *_initVec);
-    _encryptor = new CECIES(*privKey, *_onboardUserPubKey);
-    return _encryptor->OK();
-}
-
  bool CKYCFile::getOnboardingScript(CScript& script){
     COnboardingScript obScript;
 
@@ -211,9 +196,8 @@ bool CKYCFile::initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec){
         std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
     }
 
-    if(!obScript.SetKeys(&kycKey, _onboardUserPubKey)) return false;
     if(!obScript.Append(_addressKeys)) return false;
-    if(!obScript.Finalize(script)) return false;
+    if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;
     return true;
 }
 

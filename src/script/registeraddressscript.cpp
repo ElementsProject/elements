@@ -16,23 +16,16 @@ CRegisterAddressScript::CRegisterAddressScript(const CRegisterAddressScript* scr
 }
 
 CRegisterAddressScript::~CRegisterAddressScript(){
-	delete _encryptor;
-}
-
-//Encrypt the payload using the public, private key and build the script.
-bool CRegisterAddressScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
-	if(_encryptor) delete _encryptor;
-    _encryptor = new CECIES(*privKey, *pubKey);
-    return _encryptor->OK();
 }
 
 //Encrypt the payload, buid the script and return it.
-bool CRegisterAddressScript::Finalize(CScript& script){
+bool CRegisterAddressScript::Finalize(CScript& script, const CPubKey& ePubKey, const CKey& ePrivKey){
     _encrypted.clear();
-    _encryptor->Encrypt(_encrypted, _payload);
+    CECIES encryptor;
+    encryptor.Encrypt(_encrypted, _payload, ePubKey, ePrivKey);
 //    _encrypted.insert(_encrypted.begin(),_payload.begin(), _payload.end());
     //Prepend the initialization vector used in the encryption
-    ucvec sendData = _encryptor->get_iv();
+    ucvec sendData;
     sendData.insert(sendData.end(), _encrypted.begin(), _encrypted.end()); 
     //Assemble the script and return
     script.clear();
@@ -76,14 +69,5 @@ bool CRegisterAddressScript::Append(const std::vector<CPubKey>& keys){
       Append(pubKey);
     }
     return true;
-}
-
-//Get the initialization vector (randomly generated) used in the encryption
-ucvec CRegisterAddressScript::GetInitVec(){
-	ucvec result;
-	if(_encryptor){
-		result=_encryptor->get_iv();
-	}
-	return result;
 }
 

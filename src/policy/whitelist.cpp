@@ -262,14 +262,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   if(inputPubKeys.size()!=1) return false;
 
-  //The next AES_BLOCKSIZE bytes of the message are the initialization vector
-  //used to decrypt the rest of the message
-  //std::vector<unsigned char> fromPubKey(it, it+=pubKeySize);
-  minDataSize=AES_BLOCKSIZE;
-  if(bytes.size()<minDataSize) return false;
-  it2=it1+AES_BLOCKSIZE;
-  std::vector<unsigned char> initVec(it1, it2);
-  it1=it2;
+  //Read the encrypted message data
   it2=bytes.end();
   std::vector<unsigned char> encryptedData(it1, it2);
   //Get the private key that is paired with kycKey
@@ -288,18 +281,13 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     decryptPubKey=&inputPubKey;
   }
   
-  //Decrypt the data
-  //One of the input public keys together with the KYC private key 
-  //will compute the shared secret used to encrypt the data
-
   bool bSuccess=false;
 
   //Decrypt
-  CECIES decryptor(decryptPrivKey, *decryptPubKey, initVec);
-  if(!decryptor.OK()) return false;
+  CECIES decryptor;
   std::vector<unsigned char> data;
   data.resize(encryptedData.size());
-  decryptor.Decrypt(data, encryptedData);
+  decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey);
     
   //Interpret the data
   //First 20 bytes: keyID 

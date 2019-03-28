@@ -798,9 +798,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     
 
     //Encrypt the above string
-    CECIES encryptor(onboardUserKey, onboardPubKey);
-    if(!encryptor.OK())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot set encryption keys");
+    CECIES encryptor;
+    
     std::string encrypted;
     //Remove new line character from end of string
 
@@ -809,22 +808,18 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
     std::vector<unsigned char> vEnc;
 
+if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Encryption failed.");
+    
 
-    encryptor.Encrypt(vEnc, vRaw);
-
-    //Append the initialization vector to the file
-    std::vector<unsigned char> vInitVec = encryptor.get_iv();
-    std::string sInitVec(HexStr(vInitVec.begin(), vInitVec.end()));
-
-
-    std::string sEncHex(HexStr(vEnc.begin(), vEnc.end()));
+    std::string sEnc(vEnc.begin(), vEnc.end());
 
     //Append the initialization vector and encrypted keys
     std::string sOnboardUserPubKey = HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end());
-    file << strprintf("%s %s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), 
-        sOnboardUserPubKey, sInitVec, sEncHex.size());
+    file << strprintf("%s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), 
+        sOnboardUserPubKey, sEnc.size());
 
-    file << sEncHex << "\n";
+    file << sEnc << "\n";
     file << "# End of dump\n";
     file.close();
 

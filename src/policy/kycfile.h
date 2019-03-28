@@ -29,16 +29,15 @@ class CKYCFile{
 		bool close();
 		bool open(std::string filename);
 
-		bool initEncryptor(CKey* privKey, CPubKey* pubKey, uc_vec* initVec=nullptr);
+		bool initEncryptor();
 
 		std::vector<CPubKey> getAddressKeys() const {return _addressKeys;}
 		const CPubKey* getOnboardPubKey() const {return _onboardPubKey;}
 		const CPubKey* getOnboardUserPubKey() const {return _onboardUserPubKey;}
-		const uc_vec* getInitVec() const {return _initVec;}
-
+		
 		const std::stringstream& getStream() const {return _decryptedStream;}
 
-		 enum Errc{
+		enum Errc{
    		 	FILE_IO_ERROR,
    		 	INVALID_ADDRESS_OR_KEY,
    		 	WALLET_KEY_ACCESS_ERROR,
@@ -54,8 +53,7 @@ class CKYCFile{
 		CECIES* _encryptor = nullptr;
 		CPubKey* _onboardPubKey = nullptr;
 		CPubKey* _onboardUserPubKey = nullptr;
-    	uc_vec* _initVec = nullptr;
-
+    	
     	CWhiteList* _whitelist=nullptr;
 
     	// The user address keys to be whitelisted

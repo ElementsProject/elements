@@ -18,17 +18,14 @@ public:
 	virtual ~CRegisterAddressScript();
 
 	//Encrypt the payload using the public, private key and build the script.
-	virtual bool SetKeys(const CKey* privKey, const CPubKey* pubKey);
-	virtual bool Finalize(CScript& script);
+	virtual bool Finalize(CScript& script, const CPubKey& ePubKey, const CKey& ePrivKey);
 	virtual bool FinalizeUnencrypted(CScript& script);
 	bool Append(const CPubKey& key);
 	bool Append(const std::vector<CPubKey>& keys);
-	//Get the initialization vector (randomly generated) used in the encryption
-	ucvec GetInitVec();
+
 	virtual void clear(){_payload.clear(); _encrypted.clear(); ((CScript*)this)->clear();}
 
 protected:
-	CECIES* _encryptor = nullptr;
 	ucvec _payload;
 	ucvec _encrypted;
 };

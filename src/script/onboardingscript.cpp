@@ -22,24 +22,28 @@ COnboardingScript::~COnboardingScript(){
 
 }
 
-bool COnboardingScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
-    CRegisterAddressScript::SetKeys(privKey, pubKey);
-    _kycPubKey=privKey->GetPubKey();
-    _userPubKey=*pubKey;
-    return true;
-}
+//bool COnboardingScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
+//    CRegisterAddressScript::SetKeys(privKey, pubKey);
+//    _kycPubKey=privKey->GetPubKey();
+//    _userPubKey=*pubKey;
+//    return true;
+//}
 
-bool COnboardingScript::Finalize(CScript& script){
+bool COnboardingScript::Finalize(CScript& script, 
+                    const CPubKey& onboardPubKey, 
+                    const CKey& kycPrivKey){
+
    	_encrypted.clear();
-    _encryptor->Encrypt(_encrypted, _payload);
+    CECIES encryptor;
+    encryptor.Encrypt(_encrypted, _payload, onboardPubKey, kycPrivKey);
 
     //Onboarding keys    	
-    ucvec vPubKeyKYC = ToByteVector(_kycPubKey);
+    ucvec vPubKeyKYC = ToByteVector(kycPrivKey.GetPubKey());
     _payload.insert(_payload.end(), 
                     vPubKeyKYC.begin(), 
                     vPubKeyKYC.end());
 
-    ucvec vPubKeyUser = ToByteVector(_userPubKey);
+    ucvec vPubKeyUser = ToByteVector(onboardPubKey);
     _payload.insert(_payload.end(), 
                     vPubKeyUser.begin(), 
                     vPubKeyUser.end());
@@ -47,10 +51,6 @@ bool COnboardingScript::Finalize(CScript& script){
     //Append the keys
 	ucvec sendData = vPubKeyKYC;
 	sendData.insert(sendData.end(), vPubKeyUser.begin(), vPubKeyUser.end());
-
-    //Append the initialization vector used in the encryption
-    ucvec initVec = _encryptor->get_iv();
-    sendData.insert(sendData.end(), initVec.begin(), initVec.end());
 
 	//Append the encrypted addresses
     sendData.insert(sendData.end(), _encrypted.begin(), _encrypted.end()); 

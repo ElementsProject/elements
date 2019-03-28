@@ -17,8 +17,8 @@ public:
  
 	virtual ~COnboardingScript();
 
-	virtual bool SetKeys(const CKey* privKey, const CPubKey* pubKey);
-	virtual bool Finalize(CScript& script);
+	virtual bool Finalize(CScript& script, const CPubKey& onboardPubKey,
+		const CKey& kycPrivKey);
 	virtual bool FinalizeUnencrypted(CScript& script);
 
 	bool SetOnboardingKeyKYC(const CPubKey& key);

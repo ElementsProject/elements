@@ -687,8 +687,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     //Finalize the encrypted script.
     CScript script;
-    raScript->SetKeys(&key, &pubKey);
-    raScript->Finalize(script);
+    raScript->Finalize(script, pubKey, key);
 
     vector<CRecipient> vecSend;
     CAmount amount(0);
