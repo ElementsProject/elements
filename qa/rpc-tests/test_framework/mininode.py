@@ -498,27 +498,31 @@ class CTxInWitness(object):
         self.vchIssuanceAmountRangeproof = b'';
         self.vchInflationKeysRangeproof = b'';
         self.scriptWitness = CScriptWitness()
+        self.pegin_witness = CScriptWitness()
 
     def deserialize(self, f):
         self.vchIssuanceAmountRangeproof = deser_string(f)
         self.vchInflationKeysRangeproof = deser_string(f)
         self.scriptWitness.stack = deser_string_vector(f)
+        self.pegin_witness.stack = deser_string_vector(f)
 
     def serialize(self):
         r = b''
         r += ser_string(self.vchIssuanceAmountRangeproof)
         r += ser_string(self.vchInflationKeysRangeproof)
         r += ser_string_vector(self.scriptWitness.stack)
+        r += ser_string_vector(self.pegin_witness.stack)
         return r
 
     def __repr__(self):
-        return "CTxInWitness (%s, %s, %s)" % (self.vchIssuanceAmountRangeproof,
-            self.vchInflationKeysRangeproof, self.scriptWitness)
+        return "CTxInWitness (%s, %s, %s, %s)" % (self.vchIssuanceAmountRangeproof,
+            self.vchInflationKeysRangeproof, self.scriptWitness, self.pegin_witness)
 
     def is_null(self):
         return len(self.vchIssuanceAmountRangeproof) == 0 \
         and len(self.vchInflationKeysRangeproof) == 0 \
-        and self.scriptWitness.is_null()
+        and self.scriptWitness.is_null() \
+        and self.pegin_witness.is_null()
 
 class CTxOutWitness(object):
     def __init__(self):
@@ -559,6 +563,8 @@ class CTxWitness(object):
         # we omit the length of the vector, which is required to be
         # the same length as the transaction's vin vector.
         for x in self.vtxinwit:
+            r += x.serialize()
+        for x in self.vtxoutwit:
             r += x.serialize()
         return r
 
@@ -608,7 +614,7 @@ class CTransaction(object):
             self.wit.deserialize(f)
         if flags > 1:
             raise TypeError('Extra witness flags:' + str(flags))
-        
+
         self.sha256 = None
         self.hash = None
 

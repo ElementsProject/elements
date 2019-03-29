@@ -3,8 +3,22 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+import io
+
+from decimal import Decimal
+
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import *
+from test_framework.mininode import (
+    COIN, CTransaction, CTxOut, CTxOutAsset, CTxOutValue,
+    CTxInWitness, CTxOutWitness,
+)
+from test_framework.util import (
+    start_nodes, connect_nodes_bi, assert_equal,
+    hex_str_to_bytes, bytes_to_hex_str,
+    BITCOIN_ASSET_OUT
+)
+from test_framework.authproxy import JSONRPCException
+
 
 class CTTest (BitcoinTestFramework):
 
@@ -307,7 +321,8 @@ class CTTest (BitcoinTestFramework):
         assert_equal(multi_asset_amount['bitcoin'], value1 + value3 )
         assert_equal(multi_asset_amount[test_asset], Decimal('0.00000003'))
 
-        # Check blinded multisig functionality
+        # Check blinded multisig functionality and partial blinding functionality
+
         # Get two pubkeys
         blinded_addr = self.nodes[0].getnewaddress()
         pubkey = self.nodes[0].validateaddress(blinded_addr)["pubkey"]
@@ -325,15 +340,148 @@ class CTTest (BitcoinTestFramework):
         # Create blinded address from p2sh address and import corresponding privkey
         blinded_multisig_addr = self.nodes[0].createblindedaddress(unconfidential_addr, blinding_pubkey)
         self.nodes[0].importblindingkey(blinded_multisig_addr, blinding_key)
-        self.nodes[1].importblindingkey(blinded_multisig_addr, blinding_key)
-        # Send coins to blinded multisig address and check that they were received
-        self.nodes[2].sendtoaddress(blinded_multisig_addr, 1)
-        self.sync_all()
-        assert_equal(len(self.nodes[0].listunspent(0, 0, [unconfidential_addr])), 1)
-        assert_equal(len(self.nodes[1].listunspent(0, 0, [unconfidential_addr])), 1)
 
-        self.nodes[0].generate(1)
+        # Issue new asset, to use different assets in one transaction when doing
+        # partial blinding. Just to make these tests a bit more elaborate :-)
+        issued3 = self.nodes[2].issueasset(1, 0)
+        self.nodes[2].generate(1)
         self.sync_all()
+        node2_balance = self.nodes[2].getbalance()
+        assert(issued3['asset'] in node2_balance)
+        assert_equal(node2_balance[issued3['asset']], Decimal(1))
+
+        # Send asset to blinded multisig address and check that it was received
+        self.nodes[2].sendtoaddress(blinded_multisig_addr, 1, "", "", False, issued3['asset'])
+        self.sync_all()
+        # We will use this multisig UTXO in our partially-blinded transaction,
+        # and will also check that multisig UTXO can be successfully spent
+        # after the transaction is signed by node1 and node0 in succession.
+        unspent_asset = self.nodes[0].listunspent(0, 0, [unconfidential_addr], True, issued3['asset'])
+        assert_equal(len(unspent_asset), 1)
+        assert(issued3['asset'] not in self.nodes[2].getbalance())
+
+        # Create new UTXO on node0 to be used in our partially-blinded transaction
+        blinded_addr = self.nodes[0].getnewaddress()
+        addr = self.nodes[0].validateaddress(blinded_addr)["unconfidential"]
+        self.nodes[0].sendtoaddress(blinded_addr, 0.1)
+        unspent = self.nodes[0].listunspent(0, 0, [addr])
+        assert_equal(len(unspent), 1)
+
+        # Create new UTXO on node1 to be used in our partially-blinded transaction
+        blinded_addr2 = self.nodes[1].getnewaddress()
+        addr2 = self.nodes[1].validateaddress(blinded_addr2)["unconfidential"]
+        self.nodes[1].sendtoaddress(blinded_addr2, 0.11)
+        unspent2 = self.nodes[1].listunspent(0, 0, [addr2])
+        assert_equal(len(unspent2), 1)
+
+        # The transaction will have three non-fee outputs
+        dst_addr = self.nodes[0].getnewaddress()
+        dst_addr2 = self.nodes[1].getnewaddress()
+        dst_addr3 = self.nodes[2].getnewaddress()
+
+        # Create one part of the transaction to partially blind
+        rawtx = self.nodes[0].createrawtransaction(
+            [{"txid": unspent2[0]["txid"], "vout": unspent2[0]["vout"]}], {dst_addr2: Decimal("0.01")})
+
+        # Create another part of the transaction to partially blind
+        rawtx2 = self.nodes[0].createrawtransaction(
+            [{"txid": unspent[0]["txid"], "vout": unspent[0]["vout"]},
+             {"txid": unspent_asset[0]["txid"], "vout": unspent_asset[0]["vout"]}],
+            {dst_addr: Decimal("0.1"), dst_addr3: Decimal("1.0")},
+            0,
+            {dst_addr: unspent[0]['asset'], dst_addr3: unspent_asset[0]['asset']})
+
+        sum_i = unspent2[0]["amount"] + unspent[0]["amount"]
+        sum_o = 0.01 + 0.10 + 0.1
+        assert_equal(int(round(sum_i*COIN)), int(round(sum_o*COIN)))
+
+        # Blind the first part of the transaction - we need to supply the
+        # assetcommmitments for all of the inputs, for the surjectionproof
+        # to be valid after we combine the transactions
+        blindtx = self.nodes[1].blindrawtransaction(
+            rawtx, True, [
+                unspent2[0]['assetcommitment'],
+                unspent[0]['assetcommitment'],
+                unspent_asset[0]['assetcommitment']
+            ])
+
+        # Combine the transactions
+
+        # Blinded, but incomplete transaction.
+        # 1 input and 1 output, but no fee output, and
+        # it was blinded with 3 asset commitments, that means
+        # the final transaction should have 3 inputs.
+        btx = CTransaction()
+        btx.deserialize(io.BytesIO(hex_str_to_bytes(blindtx)))
+
+        # Unblinded transaction, with 2 inputs and 2 outputs.
+        # We will add them to the other transaction to make it complete.
+        ubtx = CTransaction()
+        ubtx.deserialize(io.BytesIO(hex_str_to_bytes(rawtx2)))
+
+        # We will add inputs and outputs of unblinded transaction
+        # on top of inputs and outputs of the blinded, but incomplete transaction.
+        # We also append empty witness instances to make witness arrays match
+        # vin/vout arrays
+        btx.vin.append(ubtx.vin[0])
+        btx.wit.vtxinwit.append(CTxInWitness())
+        btx.vout.append(ubtx.vout[0])
+        btx.wit.vtxoutwit.append(CTxOutWitness())
+        btx.vin.append(ubtx.vin[1])
+        btx.wit.vtxinwit.append(CTxInWitness())
+        btx.vout.append(ubtx.vout[1])
+        btx.wit.vtxoutwit.append(CTxOutWitness())
+        # Add explicit fee output
+        btx.vout.append(CTxOut(nValue=CTxOutValue(10000000),
+                               nAsset=CTxOutAsset(BITCOIN_ASSET_OUT)))
+        btx.wit.vtxoutwit.append(CTxOutWitness())
+
+        # Input 0 is bitcoin asset (already blinded)
+        # Input 1 is also bitcoin asset
+        # Input 2 is our new asset
+        # Input 3 is fee that we added above (also bitcoin asset)
+
+        # Blind with wrong order of assetcommitments - such transaction should be rejected
+        blindtx = self.nodes[0].blindrawtransaction(
+            bytes_to_hex_str(btx.serialize()), True, [
+                unspent_asset[0]['assetcommitment'],
+                unspent[0]['assetcommitment'],
+                unspent2[0]['assetcommitment']
+            ])
+
+        stx2 = self.nodes[1].signrawtransaction(blindtx)
+        stx = self.nodes[0].signrawtransaction(stx2['hex'])
+        self.sync_all()
+        try:
+            self.nodes[2].sendrawtransaction(stx['hex'])
+            raise AssertionError(
+                "Shouldn't be able to send a transaction that was blinded "
+                "with incorrectly ordered assetcommitments")
+        except JSONRPCException:
+            pass
+
+        # Blind with correct order of assetcommitments
+        blindtx = self.nodes[0].blindrawtransaction(
+            bytes_to_hex_str(btx.serialize()), True, [
+                unspent2[0]['assetcommitment'],
+                unspent[0]['assetcommitment'],
+                unspent_asset[0]['assetcommitment']
+            ])
+
+        stx2 = self.nodes[1].signrawtransaction(blindtx)
+        stx = self.nodes[0].signrawtransaction(stx2['hex'])
+        txid = self.nodes[2].sendrawtransaction(stx['hex'])
+        self.nodes[2].generate(1)
+        assert self.nodes[2].getrawtransaction(txid, 1)['confirmations'] == 1
+        self.sync_all()
+
+        # Check that the sent asset has reached its destination
+        unconfidential_dst_addr3 = self.nodes[2].validateaddress(dst_addr3)["unconfidential"]
+        unspent_asset2 = self.nodes[2].listunspent(1, 1, [unconfidential_dst_addr3], True, issued3['asset'])
+        assert_equal(len(unspent_asset2), 1)
+        assert_equal(unspent_asset2[0]['amount'], Decimal(1))
+        # And that the balance was correctly updated
+        assert_equal(self.nodes[2].getbalance()[issued3['asset']], Decimal(1))
 
         # Basic checks of rawblindrawtransaction functionality
         blinded_addr = self.nodes[0].getnewaddress()
