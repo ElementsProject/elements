@@ -7,6 +7,8 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import connect_nodes_bi, assert_equal
 from test_framework.authproxy import JSONRPCException
 from decimal import Decimal
+import os
+import re
 
 class CTTest (BitcoinTestFramework):
 
@@ -28,7 +30,62 @@ class CTTest (BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    def test_wallet_recovery(self):
+        file_path = "/tmp/blind_details"
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
+        # Wallet recovery requires more than just seed, but also master blinding key
+        # which currently is not derived from seed, see
+        # https://github.com/ElementsProject/elements/pull/232
+        blind_addr = self.nodes[0].getnewaddress()
+
+        self.nodes[0].dumpwallet(file_path)
+
+        found_seed = False
+        found_blind = False
+        with open(file_path, encoding="utf8") as f:
+            for line in f:
+                if "hdseed=1" in line:
+                    split = re.split(" ", line)
+                    found_seed = split[0]
+                split = re.split("Master private blinding key: ", line)
+                if len(split) == 2:
+                    assert_equal(len(split[1].rstrip()), 64)
+                    found_blind = split[1].rstrip()
+
+        assert_equal(found_blind, self.nodes[0].dumpmasterblindingkey())
+
+        # Create new wallet
+        self.nodes[0].createwallet("recover")
+        rec = self.nodes[0].get_wallet_rpc("recover")
+        wrong_info = rec.getaddressinfo(blind_addr)
+        assert("pubkey" not in wrong_info)
+        assert_equal(wrong_info["ismine"], False)
+
+        # Setting seed should get us more info, still not "ours" until blinding key
+        rec.generatetoaddress(1, rec.getnewaddress()) # get out of IBD
+        rec.sethdseed(True, found_seed)
+
+        wrong_blind_info = rec.getaddressinfo(blind_addr)
+        assert("pubkey" in wrong_blind_info)
+        assert_equal(wrong_blind_info["ismine"], False)
+
+        # Now import master blinding key
+        rec.importmasterblindingkey(found_blind)
+        assert_equal(rec.dumpmasterblindingkey(), found_blind)
+        blind_info = rec.getaddressinfo(blind_addr)
+        assert("pubkey" in blind_info)
+        assert_equal(blind_info["ismine"], True)
+        assert_equal(rec.getaddressinfo(blind_info["unconfidential"])["confidential"], blind_addr)
+        self.nodes[0].unloadwallet("recover")
+
     def run_test(self):
+
+        print("Testing wallet secret recovery")
+        self.test_wallet_recovery()
 
         print("General Confidential tests")
         # Running balances

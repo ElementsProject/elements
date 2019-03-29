@@ -764,7 +764,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     }
     // ELEMENTS: Dump the master blinding key in hex as well
     if (!pwallet->blinding_derivation_key.IsNull()) {
-        file << ("# Master private blinding key: " + pwallet->blinding_derivation_key.GetHex() + "\n\n");
+        file << ("# Master private blinding key: " + HexStr(pwallet->blinding_derivation_key) + "\n\n");
     }
     for (std::vector<std::pair<int64_t, CKeyID> >::const_iterator it = vKeyBirth.begin(); it != vKeyBirth.end(); it++) {
         const CKeyID &keyid = it->second;
@@ -1343,14 +1343,13 @@ UniValue importblindingkey(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+    if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
             "importblindingkey \"address\" \"blindinghex\"\n"
             "\nImports a private blinding key in hex for a CT address."
             "\nArguments:\n"
             "1. \"address\"          (string, required) The CT address\n"
             "2. \"hexkey\"           (string, required) The blinding key in hex\n"
-            "3. \"key_is_master\"    (bool, optional, default=false) If the `hexkey` is a master blinding key. Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n"
             "\nExample:\n"
             + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
         );
@@ -1373,11 +1372,6 @@ UniValue importblindingkey(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length");
     }
 
-    bool key_is_master = false;
-    if (!request.params[2].isNull()) {
-        key_is_master = request.params[2].get_bool();
-    }
-
     CKey key;
     key.Set(keydata.begin(), keydata.end(), true);
     if (!key.IsValid() || key.GetPubKey() != GetDestinationBlindingKey(dest)) {
@@ -1386,15 +1380,51 @@ UniValue importblindingkey(const JSONRPCRequest& request)
 
     uint256 keyval;
     memcpy(keyval.begin(), &keydata[0], 32);
-    if (key_is_master) {
-        if (pwallet->SetMasterBlindingKey(keyval)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import master blinding key");
-        }
-    } else {
-        if (!pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), keyval)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import blinding key");
-        }
+    if (!pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), keyval)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import blinding key");
     }
+    pwallet->MarkDirty();
+
+    return NullUniValue;
+}
+
+UniValue importmasterblindingkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "importblindingkey \"address\" \"blindinghex\"\n"
+            "\nImports a master private blinding key in hex for a CT address."
+            "Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n"
+            "\nArguments:\n"
+            "1. \"hexkey\"           (string, required) The blinding key in hex\n"
+            "\nExample:\n"
+            + HelpExampleCli("importmasterblindingkey", "<hexkey>")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!IsHex(request.params[0].get_str())) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
+    }
+    std::vector<unsigned char> keydata = ParseHex(request.params[0].get_str());
+    if (keydata.size() != 32) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal key length");
+    }
+
+    uint256 keyval;
+    memcpy(keyval.begin(), &keydata[0], 32);
+
+    if (!pwallet->SetMasterBlindingKey(keyval)) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Failed to import master blinding key");
+    }
+
     pwallet->MarkDirty();
 
     return NullUniValue;
@@ -1517,6 +1547,34 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
     }
 
     throw JSONRPCError(RPC_WALLET_ERROR, "Blinding key for address is unknown");
+}
+
+UniValue dumpmasterblindingkey(const JSONRPCRequest& request)
+{
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() != 0)
+        throw std::runtime_error(
+            "dumpmasterblindingkey\n"
+            "\nDumps the master private blinding key in hex."
+            "\nResult:\n"
+            "\"blindingkey\"      (string) The master blinding key\n"
+            "\nExample:\n"
+            + HelpExampleCli("dumpmasterblindingkey", "")
+        );
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!pwallet->blinding_derivation_key.IsNull()) {
+        return HexStr(pwallet->blinding_derivation_key);
+    } else {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Master blinding key is uninitialized.");
+    }
 }
 
 UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
