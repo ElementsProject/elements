@@ -870,9 +870,14 @@ std::string GetContract()
     return GetFileFromDataDir(contractPath.c_str());
 }
 
-uint256 GetContractHash()
+/**
+ * Get Hash of terms and conditions Contract
+ * Contract is stored in the datadir in a dedicated dir for each network name
+ * Add network optional argument in case BaseParams() has not been defined yet
+ */
+uint256 GetContractHash(const std::string& network)
 {
-    const auto contractPath = CONTRACT_FILE_PATH + BaseParams().DataDir() + "/latest.txt";
+    const auto contractPath = CONTRACT_FILE_PATH + (network != "" ? network : BaseParams().DataDir()) + "/latest.txt";
     const std::string contract = GetFileFromDataDir(contractPath.c_str());
     if (contract == "")
     {
