@@ -9,7 +9,7 @@ void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint
     // E : entropy
     // I : prevout
     // C : contract
-    // E = H( H(I) || H(C) )
+    // E = H( H(I) || C )
     std::vector<uint256> leaves;
     leaves.reserve(2);
     leaves.push_back(SerializeHash(prevout, SER_GETHASH, 0));
