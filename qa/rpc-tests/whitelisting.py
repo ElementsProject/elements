@@ -120,8 +120,10 @@ class WhitelistingTest (BitcoinTestFramework):
         print("Sending 21 BTC from 0 to 2 using sendtoaddress.")
         txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
         txout1v0 = self.nodes[0].gettxout(txid1, 0)
+        self.nodes[1].generate(101)
+        self.sync_all()
         try:
-            rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
+            rawtx1 = self.nodes[1].getrawtransaction(txid1, 1)
             print("Raw trans:")
             print(rawtx1)
         except JSONRPCException as e:
@@ -134,8 +136,10 @@ class WhitelistingTest (BitcoinTestFramework):
 
         txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
+        self.nodes[1].generate(101)
+        self.sync_all()
         try:
-            rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
+            rawtx2 = self.nodes[1].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
             assert("No such mempool transaction" in e.error['message'])
             #Abandon the transaction to allow the output to be respent
