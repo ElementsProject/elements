@@ -458,6 +458,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             // ELEMENTS: explicit fee outputs
             CAmount nAmount = AmountFromValue(outputs[name_]);
             fee_out = CTxOut(asset, nAmount, CScript());
+        } else if (name_ == "burn") {
+            CScript datascript = CScript() << OP_RETURN;
+            CAmount nAmount = AmountFromValue(outputs[name_]);
+            CTxOut out(asset, nAmount, datascript);
+            rawTx.vout.push_back(out);
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
@@ -522,6 +527,7 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
             "    {\n"
             "      \"data\": \"hex\" ,    (obj, optional) A key-value pair. The key must be \"data\", the value is hex encoded data\n"
             "      \"vdata\": [\"hex\"]   (string, optional) The key is \"vdata\", the value is an array of hex encoded data\n"
+            "      \"burn\": x.xxx,       (obj, optional) A key-value pair. The key must be \"burn\", the value is the amount that will be burned.\n"
             "    },\n"
             "    {\n"
             "      \"fee\": x.xxx         (numeric or string, optional) The key is \"fee\", the value the fee output you want to add.\n"

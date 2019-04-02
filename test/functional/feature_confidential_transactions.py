@@ -469,6 +469,35 @@ class CTTest (BitcoinTestFramework):
         assert("value" in outputs[0] and "value" in outputs[1] and "value" in outputs[2])
         assert_equal(outputs[2]["scriptPubKey"]["type"], 'nulldata')
 
+        # Test burn argument in createrawtransaction
+        raw_burn1 = self.nodes[0].createrawtransaction([], {self.nodes[0].getnewaddress():1, "burn":2})
+        decode_burn1 = self.nodes[0].decoderawtransaction(raw_burn1)
+        assert_equal(len(decode_burn1["vout"]), 2)
+        found_pay = False
+        found_burn = False
+        for output in decode_burn1["vout"]:
+            if output["scriptPubKey"]["asm"] == "OP_RETURN":
+                found_burn = True
+                if output["asset"] != self.nodes[0].dumpassetlabels()["bitcoin"]:
+                    raise Exception("Burn should have been bitcoin(policyAsset)")
+            if output["scriptPubKey"]["type"] == "scripthash":
+                found_pay = True
+        assert(found_pay and found_burn)
+
+        raw_burn2 = self.nodes[0].createrawtransaction([], {self.nodes[0].getnewaddress():1, "burn":2}, 101, False, {"burn":"deadbeef"*8})
+        decode_burn2 = self.nodes[0].decoderawtransaction(raw_burn2)
+        assert_equal(len(decode_burn2["vout"]), 2)
+        found_pay = False
+        found_burn = False
+        for output in decode_burn2["vout"]:
+            if output["scriptPubKey"]["asm"] == "OP_RETURN":
+                found_burn = True
+                if output["asset"] != "deadbeef"*8:
+                    raise Exception("Burn should have been deadbeef")
+            if output["scriptPubKey"]["type"] == "scripthash":
+                found_pay = True
+        assert(found_pay and found_burn)
+
         # TODO: signrawtransactionwith{wallet, key} with confidential segwit input given as previous transaction arg
 
 if __name__ == '__main__':
