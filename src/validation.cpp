@@ -1488,7 +1488,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 return true;
             }
 
-            txdata.Init(tx);
+            std::vector<CTxOut> spent_outputs;
+            spent_outputs.reserve(tx.vin.size());
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
 
@@ -1502,7 +1503,11 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
 
                 const Coin& coin = tx.vin[i].m_is_pegin ? pegin_coin : inputs.AccessCoin(prevout);
                 assert(!coin.IsSpent());
+                spent_outputs.emplace_back(coin.out);
+            }
 
+            txdata.Init(tx, std::move(spent_outputs));
+            for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 // We very carefully only pass in things to CScriptCheck which
                 // are clearly committed to by tx' witness hash. This provides
                 // a sanity check that our caching is not introducing consensus
@@ -1510,7 +1515,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 // spent being checked as a part of CScriptCheck.
 
                 // Verify signature
-                CCheck* check = new CScriptCheck(coin.out, tx, i, flags, cacheSigStore, &txdata);
+                CCheck* check = new CScriptCheck(txdata.m_spent_outputs[i], tx, i, flags, cacheSigStore, &txdata);
                 ScriptError serror = QueueCheck(pvChecks, check);
                 if (serror != SCRIPT_ERR_OK) {
                     if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
@@ -1520,7 +1525,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         // arguments; if so, don't trigger DoS protection to
                         // avoid splitting the network between upgraded and
                         // non-upgraded nodes.
-                        CScriptCheck check2(coin.out, tx, i,
+                        CScriptCheck check2(txdata.m_spent_outputs[i], tx, i,
                                 flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
                         if (check2()) {
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(serror)));
