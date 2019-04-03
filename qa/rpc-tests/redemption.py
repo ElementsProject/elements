@@ -5,6 +5,9 @@ from test_framework.util import *
 # Test 1 : Normal Configuration Without Procedural Error
 #===============================================================================
 def test_redemption_1(node):
+  #create asset to send
+  issue = node.issueasset('10','0')
+  node.generate(10)
   #=============================================================================
   # Create Address
   #=============================================================================
@@ -21,26 +24,30 @@ def test_redemption_1(node):
   #=============================================================================
   # Create Inputs & Outputs
   #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
   # Make Inputs
   inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
+    "txid": issue["txid"],
+    "vout": 1,
+    "nValue": Decimal(10.0)
   }]
   # Make Outputs
   outputs = {
     addr0 : 1,
     addr1 : 1,
     addr2 : 1,
-    addr3 : unspent[0]["amount"] - 3 - fee,
-    "fee": fee
+    addr3 : 7
+  }
+  #assets
+  assets = {
+    addr0 : issue["asset"],
+    addr1 : issue["asset"],
+    addr2 : issue["asset"],
+    addr3 : issue["asset"]
   }
   #=============================================================================
   # Create Transaction & Signed Transaction
   #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
+  tx = node.createrawtransaction(inputs, outputs,0,assets);
   signedtx = node.signrawtransaction(tx)
   #=============================================================================
   # Send Transaction and try if is valid or not valid
@@ -57,6 +64,9 @@ def test_redemption_1(node):
 # Test 2 : Test With an Address not Listed in FreezeList
 #===============================================================================
 def test_redemption_2(node):
+  #create asset to send
+  issue = node.issueasset('10','0')
+  node.generate(10)
   #=============================================================================
   # Create Address
   #=============================================================================
@@ -72,26 +82,30 @@ def test_redemption_2(node):
   #=============================================================================
   # Create Inputs & Outputs
   #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
   # Make Inputs
   inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
+    "txid": issue["txid"],
+    "vout": 1,
+    "nValue": Decimal(10.0)
   }]
   # Make Outputs
   outputs = {
     addr0 : 1,
     addr1 : 1,
     addr2 : 1,
-    addr3 : unspent[0]["amount"] - 3 - fee,
-    "fee": fee
+    addr3 : 7
+  }
+  #assets
+  assets = {
+    addr0 : issue["asset"],
+    addr1 : issue["asset"],
+    addr2 : issue["asset"],
+    addr3 : issue["asset"]
   }
   #=============================================================================
   # Create Transaction & Signed Transaction
   #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
+  tx = node.createrawtransaction(inputs, outputs,0,assets);
   signedtx = node.signrawtransaction(tx)
   #=============================================================================
   # Send Transaction and try if is valid or not valid
@@ -104,6 +118,9 @@ def test_redemption_2(node):
 # Test 3 : Test With no Address Listed in FreezeList
 #===============================================================================
 def test_redemption_3(node):
+  #create asset to send
+  issue = node.issueasset('10','0')
+  node.generate(10)
   #=============================================================================
   # Create Address
   #=============================================================================
@@ -114,26 +131,30 @@ def test_redemption_3(node):
   #=============================================================================
   # Create Inputs & Outputs
   #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
   # Make Inputs
   inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
+    "txid": issue["txid"],
+    "vout": 1,
+    "nValue": Decimal(10.0)
   }]
   # Make Outputs
   outputs = {
     addr0 : 1,
     addr1 : 1,
     addr2 : 1,
-    addr3 : unspent[0]["amount"] - 3 - fee,
-    "fee": fee
+    addr3 : 7
+  }
+  #assets
+  assets = {
+    addr0 : issue["asset"],
+    addr1 : issue["asset"],
+    addr2 : issue["asset"],
+    addr3 : issue["asset"]
   }
   #=============================================================================
   # Create Transaction & Signed Transaction
   #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
+  tx = node.createrawtransaction(inputs, outputs,0,assets);
   signedtx = node.signrawtransaction(tx)
   #=============================================================================
   # Send Transaction and try if is valid or not valid
@@ -146,6 +167,9 @@ def test_redemption_3(node):
 # Test 4 : Just Test With not Null Addresses
 #===============================================================================
 def test_redemption_4(node):
+  #create asset to send
+  issue = node.issueasset('10','0')
+  node.generate(10)
   #=============================================================================
   # Create Address
   #=============================================================================
@@ -156,26 +180,30 @@ def test_redemption_4(node):
   #=============================================================================
   # Create Inputs & Outputs
   #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
   # Make Inputs
   inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
+    "txid": issue["txid"],
+    "vout": 1,
+    "nValue": Decimal(10.0)
   }]
   # Make Outputs
   outputs = {
     addr0 : 1,
     addr1 : 1,
     addr2 : 1,
-    addr3 : unspent[0]["amount"] - 3 - fee,
-    "fee": fee
+    addr3 : 7
+  }
+  #assets
+  assets = {
+    addr0 : issue["asset"],
+    addr1 : issue["asset"],
+    addr2 : issue["asset"],
+    addr3 : issue["asset"]
   }
   #=============================================================================
   # Create Transaction & Signed Transaction
   #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
+  tx = node.createrawtransaction(inputs, outputs,0,assets);
   signedtx = node.signrawtransaction(tx)
   #=============================================================================
   # Send Transaction and try if is valid or not valid
@@ -189,6 +217,9 @@ def test_redemption_4(node):
 # Test 5 : Test With a Null Address that is not at the Top of the List
 #===============================================================================
 def test_redemption_5(node):
+  #create asset to send
+  issue = node.issueasset('10','0')
+  node.generate(10)
   #=============================================================================
   # Create Address
   #=============================================================================
@@ -199,26 +230,30 @@ def test_redemption_5(node):
   #=============================================================================
   # Create Inputs & Outputs
   #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
   # Make Inputs
   inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
+    "txid": issue["txid"],
+    "vout": 1,
+    "nValue": Decimal(10.0)
   }]
   # Make Outputs
   outputs = {
     addr0 : 1,
     addr1 : 1,
     addr2 : 1,
-    addr3 : unspent[0]["amount"] - 3 - fee,
-    "fee": fee
+    addr3 : 7
+  }
+  #assets
+  assets = {
+    addr0 : issue["asset"],
+    addr1 : issue["asset"],
+    addr2 : issue["asset"],
+    addr3 : issue["asset"]
   }
   #=============================================================================
   # Create Transaction & Signed Transaction
   #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
+  tx = node.createrawtransaction(inputs, outputs,0,assets);
   signedtx = node.signrawtransaction(tx)
   #=============================================================================
   # Send Transaction and try if is valid or not valid
@@ -227,91 +262,6 @@ def test_redemption_5(node):
   if txid["allowed"] == 0:
     return True
   return False
-#===============================================================================
-# Test 6 : Test With a Single Null Address in the List
-#===============================================================================
-def test_redemption_6(node):
-  #=============================================================================
-  # Create Address
-  #=============================================================================
-  addr0 = "2dZRkPX3hrPtuBrmMkbGtxTxsuYYgAaFrXZ" # Addr Null
-  #=============================================================================
-  # Create Inputs & Outputs
-  #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
-  # Make Inputs
-  inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
-  }]
-  # Make Outputs
-  outputs = {
-    addr0 : unspent[0]["amount"] - fee,
-    "fee": fee
-  }
-  #=============================================================================
-  # Create Transaction & Signed Transaction
-  #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
-  signedtx = node.signrawtransaction(tx)
-  #=============================================================================
-  # Send Transaction and try if is valid or not valid
-  #=============================================================================
-  txid = node.testmempoolaccept(signedtx["hex"])
-  if txid["allowed"] == 0:
-    return True
-  print(txid)
-  return False
-#===============================================================================
-# Test 7 : Test With Several Null Addresses in the List
-#===============================================================================
-def test_redemption_7(node):
-  #=============================================================================
-  # Create Address
-  #=============================================================================
-  addr0 = "2dZRkPX3hrPtuBrmMkbGtxTxsuYYgAaFrXZ" # Addr Null
-  addr1 = "2dcDRR6iK553L5svftC8GccfrhtoRQ5rx1W"
-  addr2 = "2dZRkPX3hrPtuBrmMkbGtxTxsuYYgAaFrXZ" # Addr Null
-  addr3 = "2dxhnrM8Fa9RB1eCfgK2FW5rDH3DJsZ2Mvn"
-  #=============================================================================
-  # Add address to FreezeList
-  #=============================================================================
-  node.addtofreezelist(addr1)
-  node.addtofreezelist(addr3)
-  #=============================================================================
-  # Create Inputs & Outputs
-  #=============================================================================
-  unspent = node.listunspent()
-  fee = Decimal('0.0001')
-  # Make Inputs
-  inputs = [{
-    "txid": unspent[0]["txid"],
-    "vout": unspent[0]["vout"],
-    "nValue": unspent[0]["amount"]
-  }]
-  # Make Outputs
-  outputs = {
-    addr0 : 1,
-    addr1 : 1,
-    addr2 : 1,
-    addr3 : unspent[0]["amount"] - 3 - fee,
-    "fee": fee
-  }
-  #=============================================================================
-  # Create Transaction & Signed Transaction
-  #=============================================================================
-  tx = node.createrawtransaction(inputs, outputs);
-  signedtx = node.signrawtransaction(tx)
-  #=============================================================================
-  # Send Transaction and try if is valid or not valid
-  #=============================================================================
-  txid = node.testmempoolaccept(signedtx["hex"])
-  if txid["allowed"] == 0:
-    print(txid)
-    return False
-  return True
 
 class RedemptionTest (BitcoinTestFramework):
   def __init__(self):
@@ -376,22 +326,6 @@ class RedemptionTest (BitcoinTestFramework):
     else:
       failed = True
       print("Test 5 :\033[1;31;40m KO\033[0m")
-    #===========================================================================
-    # Test : 6
-    #===========================================================================
-    if test_redemption_6(self.nodes[0]) == True:
-      print("Test 6 :\033[1;32;40m OK\033[0m")
-    else:
-      failed = True
-      print("Test 6 :\033[1;31;40m KO\033[0m")
-    #===========================================================================
-    # Test : 7
-    #===========================================================================
-    if test_redemption_7(self.nodes[0]) == True:
-      print("Test 7 :\033[1;32;40m OK\033[0m")
-    else:
-      failed = True
-      print("Test 7 :\033[1;31;40m KO\033[0m")
     #===========================================================================
     # End
     #===========================================================================

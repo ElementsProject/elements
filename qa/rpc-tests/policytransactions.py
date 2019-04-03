@@ -15,6 +15,10 @@ class PolicyTransactionTest (BitcoinTestFramework):
         self.extra_args = [['-txindex'] for i in range(3)]
         self.extra_args[0].append("-freezelist=1")
         self.extra_args[0].append("-burnlist=1")
+        self.extra_args[1].append("-freezelist=1")
+        self.extra_args[1].append("-burnlist=1")
+        self.extra_args[2].append("-freezelist=1")
+        self.extra_args[2].append("-burnlist=1")
         self.extra_args[0].append("-initialfreecoins=50000000000000")
         self.extra_args[0].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
@@ -69,12 +73,23 @@ class PolicyTransactionTest (BitcoinTestFramework):
                 patxid = txid
                 pavalue = rawtx["vout"][0]["value"]
 
-        #Send some policyasset outputs to the second node
+        #issue some non-policy asset
+        assaddr = self.nodes[0].getnewaddress()
+        tokaddr = self.nodes[0].getnewaddress()
+        cngaddr = self.nodes[0].getnewaddress()
+        rawissue = self.nodes[0].createrawissuance(assaddr,1000.0,tokaddr,1.0,cngaddr,pavalue,'1',patxid,str(0))
+        signissue = self.nodes[0].signrawtransaction(rawissue["rawtx"])
+        sendissue = self.nodes[0].sendrawtransaction(signissue["hex"])
+
+        self.nodes[0].generate(1)
+        self.sync_all()       
+
+        #Send some coins to the second node
         fundaddr = self.nodes[1].getnewaddress()
         inputs = []
         vin = {}
         vin["txid"] = patxid
-        vin["vout"] = 0
+        vin["vout"] = 1
         inputs.append(vin)
         outp = {}
         outp[fundaddr] = 4999.999
@@ -96,7 +111,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         frzaddress1 = self.nodes[1].getnewaddress()
 
         #send some coins to that address
-        rtxid = self.nodes[1].sendtoaddress(frzaddress1,100)
+        rtxid = self.nodes[0].sendtoaddress(frzaddress1,100,"","",False,rawissue["asset"])
 
         self.nodes[0].generate(1)
         self.sync_all()
@@ -143,20 +158,19 @@ class PolicyTransactionTest (BitcoinTestFramework):
         outp = {}
         outp[newaddr] = 99.999
         outp["fee"] = 0.001
-        newtx = self.nodes[1].createrawtransaction(inputs,outp)
+        assmap = {}
+        assmap[newaddr] = rawissue["asset"]
+        assmap["fee"] = rawissue["asset"]
+        newtx = self.nodes[1].createrawtransaction(inputs,outp,0,assmap)
         newtx_signed = self.nodes[1].signrawtransaction(newtx)
         assert(newtx_signed["complete"])
-        newtx_send = self.nodes[1].sendrawtransaction(newtx_signed["hex"])
-
-        #check to see if tx in node 0 mempool
         try:
-            rawtx = self.nodes[0].getrawtransaction(newtx_send, 1)
+            newtx_send = self.nodes[1].sendrawtransaction(newtx_signed["hex"])
         except JSONRPCException as e:
-            assert("No such mempool or blockchain transaction" in e.error['message'])
-            #Abandon the transaction to allow the output to be respent
-#            self.nodes[1].abandontransaction(newtx_send)
-        else:
-            raise AssertionError("Output accepted spending from a freezelisted address.")        
+            assert("freezelist-address-input" in e.error['message'])
+
+        self.nodes[0].generate(1)
+        self.sync_all()
 
         #remnove the address from the freezelist by spending the policy tx
         frzaddress2 = self.nodes[1].getnewaddress()
@@ -185,6 +199,8 @@ class PolicyTransactionTest (BitcoinTestFramework):
 
         #try and spend from the un-frozen output
         newtx_send = self.nodes[1].sendrawtransaction(newtx_signed["hex"])
+
+        self.sync_all()
 
         mempool = self.nodes[0].getrawmempool()
 

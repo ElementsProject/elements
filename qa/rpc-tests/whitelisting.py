@@ -115,10 +115,14 @@ class WhitelistingTest (BitcoinTestFramework):
                 continue
             assert_equal(self.nodes[i].getbalance("", 0, False, "CBT"), 0)
        
-        # Send 21 BTC from 0 to 2 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
-        print(self.nodes[0].getwalletinfo("CBT"))
-        print("Sending 21 BTC from 0 to 2 using sendtoaddress.")
-        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
+        # issue some new asset (that is not the policy asset)
+        issue = self.nodes[0].issueasset('100.0','0')
+        self.nodes[1].generate(1)
+
+        # Send 21 issued asset from 0 to 2 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
+        print(self.nodes[0].getwalletinfo())
+        print("Sending 21 issued asset from 0 to 2 using sendtoaddress.")
+        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11,"","",False,issue["asset"])
         txout1v0 = self.nodes[0].gettxout(txid1, 0)
         self.nodes[1].generate(101)
         self.sync_all()
@@ -134,7 +138,7 @@ class WhitelistingTest (BitcoinTestFramework):
             raise AssertionError("Output accepted to non-whitelisted address.")
 
 
-        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
         self.nodes[1].generate(101)
         self.sync_all()
@@ -166,9 +170,9 @@ class WhitelistingTest (BitcoinTestFramework):
         assert_equal(self.nodes[0].querywhitelist(self.nodes[2].getnewaddress()), True)
         
         # Send 21 BTC from 0 to 2 using sendtoaddress
-        print("Sending 21 BTC from 0 to 2 using sendtoaddress")
-        print(self.nodes[0].getwalletinfo("CBT"))
-        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
+        print("Sending 21 issued asset from 0 to 2 using sendtoaddress")
+        print(self.nodes[0].getwalletinfo())
+        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11,"","",False,issue["asset"])
         txout1v0 = self.nodes[0].gettxout(txid1, 0)
         rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
         #amountcommit1 = rawtx1["vout"][0]["amountcommitment"]
@@ -177,7 +181,7 @@ class WhitelistingTest (BitcoinTestFramework):
         #assert_equal(amountcommit1, txout1v0['amountcommitment'])
 
 
-        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
         rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
         #amountcommit2 = rawtx2["vout"][0]["amountcommitment"]
@@ -185,15 +189,15 @@ class WhitelistingTest (BitcoinTestFramework):
         assert(not txout2v0['coinbase'])
         #assert_equal(amountcommit2, txout2v0['amountcommitment'])
 
-        walletinfo = self.nodes[0].getwalletinfo("CBT")
+        walletinfo = self.nodes[0].getwalletinfo(issue["asset"])
         assert_equal(walletinfo['immature_balance'], 0)
 
         # Have node1 mine 101 blocks
         self.nodes[0].generate(101)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance("", 0, False, "CBT"), 21000000-21)
-        assert_equal(self.nodes[2].getbalance("", 0, False, "CBT"), 21)
+        assert_equal(self.nodes[0].getbalance("", 0, False, issue["asset"]), 100-21)
+        assert_equal(self.nodes[2].getbalance("", 0, False, issue["asset"]), 21)
 
 
         #check that dumpwhitelist dumps the correct number of keys
@@ -210,7 +214,7 @@ class WhitelistingTest (BitcoinTestFramework):
         assert_equal(num_keys, 0)
         print(self.nodes[0].getwalletinfo("CBT"))
         print("Sending 21 BTC from 0 to 2 using sendtoaddress.")
-        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
+        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11,"","",False,issue["asset"])
         txout1v0 = self.nodes[0].gettxout(txid1, 0)
         try:
             rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
@@ -222,7 +226,7 @@ class WhitelistingTest (BitcoinTestFramework):
         else:
             raise AssertionError("Output accepted to non-whitelisted address.")
 
-        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
         try:
             rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
@@ -244,7 +248,7 @@ class WhitelistingTest (BitcoinTestFramework):
         # Send 21 BTC from 0 to 2 using sendtoaddress
         print("Sending 21 BTC from 0 to 2 using sendtoaddress")
         print(self.nodes[0].getwalletinfo("CBT"))
-        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11)
+        txid1 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 11,"","",False,issue["asset"])
         txout1v0 = self.nodes[0].gettxout(txid1, 0)
         rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
         #amountcommit1 = rawtx1["vout"][0]["amountcommitment"]
@@ -253,7 +257,7 @@ class WhitelistingTest (BitcoinTestFramework):
         #assert_equal(amountcommit1, txout1v0['amountcommitment'])
 
 
-        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10)
+        txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
         rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
         #amountcommit2 = rawtx2["vout"][0]["amountcommitment"]
@@ -268,8 +272,8 @@ class WhitelistingTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
-        assert_equal(self.nodes[0].getbalance("", 0, False, "CBT"), 21000000-42)
-        assert_equal(self.nodes[2].getbalance("", 0, False, "CBT"), 42)
+        assert_equal(self.nodes[0].getbalance("", 0, False, issue["asset"]), 100-42)
+        assert_equal(self.nodes[2].getbalance("", 0, False, issue["asset"]), 42)
 
         print("End.")
 
