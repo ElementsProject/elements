@@ -56,6 +56,12 @@ static UniValue validateaddress(const JSONRPCRequest& request)
             "  \"witness_program\" : \"hex\"     (string, optional) The hex value of the witness program\n"
             "  \"confidential_key\" : \"hex\", (string) The hex value of the raw blinding public key for that address, if any. \"\" if none.\n"
             "  \"unconfidential\" : \"address\", (string) The address without confidentiality key.\n"
+            "   \"parent_address_info\":         (obj) If the address isvalid_parent, this object contains details about the parent address type.\n"
+            "   {\n"
+            "       \"address\" : \"address\",\n"
+            "       \"scriptPubKey\" : \"hex\",\n"
+            "       ...\n"
+            "   }\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
@@ -81,6 +87,20 @@ static UniValue validateaddress(const JSONRPCRequest& request)
         ret.pushKVs(detail);
         UniValue blind_detail = DescribeBlindAddress(dest);
         ret.pushKVs(blind_detail);
+    }
+    if (is_valid_parent) {
+        UniValue parent_info(UniValue::VOBJ);
+        std::string currentAddress = EncodeParentDestination(parent_dest);
+        parent_info.pushKV("address", currentAddress);
+
+        CScript scriptPubKey = GetScriptForDestination(parent_dest);
+        parent_info.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+
+        UniValue detail = DescribeAddress(parent_dest);
+        parent_info.pushKVs(detail);
+        UniValue blind_detail = DescribeBlindAddress(parent_dest);
+        parent_info.pushKVs(blind_detail);
+        ret.pushKV("parent_address_info", parent_info);
     }
     return ret;
 }
