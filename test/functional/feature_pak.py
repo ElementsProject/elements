@@ -33,9 +33,8 @@ pak2 = [("03767a74373b7207c5ae1214295197a88ec2abdf92e9e2a29daf024c322fae9fcb", "
         ("02f4a7445f9c48ee8590a930d3fc4f0f5763e3d1d003fdf5fc822e7ba18f380632", "036b3786f029751ada9f02f519a86c7e02fb2963a7013e7e668eb5f7ec069b9e7e")]
 
 # Args that will be re-used in slightly different ways across runs
-# TODO remove lol once parent chain hrp default is changed
-args = [["-acceptnonstdtxn=0", "-initialfreecoins=100000000", "-parent_bech32_hrp=lol"]] \
-       + [["-acceptnonstdtxn=0", "-enforce_pak=1", "-initialfreecoins=100000000", "-parent_bech32_hrp=lol"]]*4
+args = [["-acceptnonstdtxn=0", "-initialfreecoins=100000000", "-parent_bech32_hrp=lol", "-pubkeyprefix=112", "-scriptprefix=197"]] \
+       + [["-acceptnonstdtxn=0", "-enforce_pak=1", "-initialfreecoins=100000000", "-parent_bech32_hrp=lol", "-pubkeyprefix=112", "-scriptprefix=197"]]*4
 args[i_reject] = args[i_reject] + ['-pak=reject']
 # Novalidate has pak entry, should not act on it ever
 args[i_novalidate] = args[i_novalidate] + pak_to_option(pak1)
@@ -220,6 +219,11 @@ class PAKTest (BitcoinTestFramework):
             assert_equal(init_results[i]["liquid_pak_address"], info_results[i]["liquid_pak_address"])
             assert_equal(info_results[i]["bitcoin_descriptor"], xpub_desc)
             assert_equal(info_results[i]["bip32_counter"], "0")
+            validata = self.nodes[i].validateaddress(init_results[i]["address_lookahead"][0])
+            assert not validata["isvalid"]
+            assert validata["isvalid_parent"]
+            assert not validata["parent_address_info"]["isscript"]
+            assert not validata["parent_address_info"]["iswitness"]
 
         # Use custom derivation counter values, check if stored correctly,
         # address lookahead looks correct and that new liquid_pak was chosen
@@ -349,11 +353,19 @@ class PAKTest (BitcoinTestFramework):
         validata = self.nodes[i_pak1].validateaddress(wpkh_stmc["bitcoin_address"])
         assert(not validata["isvalid"])
         assert(validata["isvalid_parent"])
+        assert(not validata["parent_address_info"]["isscript"])
+        assert(validata["parent_address_info"]["iswitness"])
         assert_equal(wpkh_pak_info["bip32_counter"], wpkh_stmc["bip32_counter"])
         assert_equal(wpkh_pak_info["bitcoin_descriptor"], wpkh_stmc["bitcoin_descriptor"])
 
         sh_wpkh_desc = "sh(wpkh("+xpub+"/0/1/*))"
         sh_wpkh_info = self.nodes[i_pak1].initpegoutwallet(sh_wpkh_desc)
+
+        validata = self.nodes[i_pak1].validateaddress(sh_wpkh_info["address_lookahead"][0])
+        assert(not validata["isvalid"])
+        assert(validata["isvalid_parent"])
+        assert(validata["parent_address_info"]["isscript"])
+        assert(not validata["parent_address_info"]["iswitness"])
 
         # Add to pak list for pak1, restart
         self.stop_nodes()
@@ -395,6 +407,8 @@ class PAKTest (BitcoinTestFramework):
                 else:
                     raise Exception("Found unexpected peg-out output")
         assert(peg_out_found)
+
+        # TODO: create rawsendtomainchain to do transaction surgery for testing
 
 if __name__ == '__main__':
     PAKTest ().main ()
