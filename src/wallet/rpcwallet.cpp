@@ -5527,8 +5527,8 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         COutPoint prevout = tx.vin[nIn].prevout;
 
         std::map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.find(prevout.hash);
-        if (it == pwallet->mapWallet.end()) {
-            // For inputs we don't own input assetcommitments for the surjection must be supplied
+        if (it == pwallet->mapWallet.end() || pwallet->IsMine(tx.vin[nIn]) == ISMINE_NO) {
+            // For inputs we don't own, input assetcommitments for the surjection must be supplied.
             if (auxiliary_generators.size() > 0) {
                 input_blinds.push_back(uint256());
                 input_asset_blinds.push_back(uint256());
