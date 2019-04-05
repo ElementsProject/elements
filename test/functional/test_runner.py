@@ -75,6 +75,7 @@ BASE_SCRIPTS = [
     'feature_initial_reissuance_token.py',
     'feature_progress.py',
     # Longest test should go first, to favor running tests in parallel
+    'feature_fee_estimation.py',
     'wallet_hd.py',
     'wallet_backup.py',
     # vv Tests less than 5m vv
@@ -196,7 +197,6 @@ EXTENDED_SCRIPTS = [
     # Longest test should go first, to favor running tests in parallel
     'feature_pruning.py',
     'feature_dbcrash.py',
-    'feature_fee_estimation.py',
 
 ]
 
