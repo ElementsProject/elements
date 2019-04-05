@@ -10,6 +10,17 @@ a collection of feature experiments and extensions to the Bitcoin protocol.
 This platform enables anyone to build their own businesses or networks
 pegged to Bitcoin as a sidechain or run as a standalone blockchain with arbitrary asset tokens.
 
+Modes
+-----
+
+Elements supports a few different pre-set chains for syncing. Note though some are intended for QA and debugging only:
+
+* Liquid mode: `elementsd -chain=liquidv1` (syncs with Liquid network)
+* Bitcoin mainnet mode: `elementsd -chain=main` (not intended to be run for commerce)
+* Bitcoin testnet mode: `elementsd -chain=testnet3`
+* Bitcoin regtest mode: `elementsd -chain=regtest`
+* Elements custom chains: Any other `-chain=` argument. It has regtest-like default parameters that can be over-ridden by the user by a rich set of start-up options.
+
 Confidential Assets
 ----------------
 The latest feature in the Elements blockchain platform is Confidential Assets,
