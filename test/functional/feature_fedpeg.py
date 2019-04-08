@@ -68,6 +68,8 @@ class FedPegTest(BitcoinTestFramework):
                     "-anyonecanspendaremine",
                     "-signblockscript=51", # OP_TRUE
                     '-con_blocksubsidy=5000000000',
+                    "-pubkeyprefix=111",
+                    "-scriptprefix=196",
                 ])
 
             self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary, chain_in_args=[not self.options.parent_bitcoin])
