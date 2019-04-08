@@ -56,17 +56,20 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     // Received by Bitcoin Address
                     sub.type = TransactionRecord::RecvWithAddress;
                     sub.address = EncodeDestination(wtx.txout_address[i]);
+                    sub.asset = wtx.txout_assets[i];
                 }
                 else
                 {
                     // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
                     sub.type = TransactionRecord::RecvFromOther;
                     sub.address = mapValue["from"];
+                    sub.asset = wtx.txout_assets[i];
                 }
                 if (wtx.is_coinbase)
                 {
                     // Generated
                     sub.type = TransactionRecord::Generated;
+                    sub.asset = wtx.txout_assets[i];
                 }
 
                 parts.append(sub);
@@ -101,7 +104,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             CAmount nChange = valueFor(wtx.change, ::policyAsset);
 
             parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
-                            -(nDebit - nChange) + (nCredit - nChange)));
+                            -(nDebit - nChange) + (nCredit - nChange), ::policyAsset));
             parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
         }
         else if (fAllFromMe)
@@ -125,6 +128,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 sub.idx = nOut;
                 sub.involvesWatchAddress = involvesWatchAddress;
                 sub.amount = -wtx.txout_amounts[nOut];
+                sub.asset = wtx.txout_assets[nOut];
 
                 if (!boost::get<CNoDestination>(&wtx.txout_address[nOut]))
                 {
@@ -146,6 +150,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 TransactionRecord sub(hash, nTime);
                 sub.type = TransactionRecord::Fee;
                 sub.amount = -nTxFee;
+                sub.asset = ::policyAsset;
                 parts.append(sub);
             }
         }
@@ -154,7 +159,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
             //
             // Mixed debit transaction, can't break down payees
             //
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet));
+            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, CAsset()));
             parts.last().involvesWatchAddress = involvesWatchAddress;
         }
     }

@@ -6,6 +6,7 @@
 #define BITCOIN_QT_TRANSACTIONRECORD_H
 
 #include <amount.h>
+#include <asset.h>
 #include <uint256.h>
 
 #include <QList>
@@ -101,9 +102,9 @@ public:
 
     TransactionRecord(uint256 _hash, qint64 _time,
                 Type _type, const std::string &_address,
-                const CAmount& _amount):
+                const CAmount& _amount, const CAsset& _asset):
             hash(_hash), time(_time), type(_type), address(_address),
-            amount(_amount),
+            amount(_amount), asset(_asset),
             idx(0)
     {
     }
@@ -120,6 +121,7 @@ public:
     Type type;
     std::string address;
     CAmount amount;
+    CAsset asset;
     /**@}*/
 
     /** Subtransaction index, for sort key */
