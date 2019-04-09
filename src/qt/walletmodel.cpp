@@ -234,9 +234,10 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
         auto& newTx = transaction.getWtx();
         std::vector<CAmount> out_amounts;
-        newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
+        newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, out_amounts, strFailReason);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx)
+            assert(out_amounts.size() == newTx->get().vout.size());
             transaction.reassignAmounts(out_amounts, nChangePosRet);
 
         if(!newTx)

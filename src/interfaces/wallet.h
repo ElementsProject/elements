@@ -138,6 +138,7 @@ public:
         bool sign,
         int& change_pos,
         CAmount& fee,
+        std::vector<CAmount>& out_amounts,
         std::string& fail_reason) = 0;
 
     //! Return whether transaction can be abandoned.

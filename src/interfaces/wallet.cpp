@@ -231,6 +231,7 @@ public:
         bool sign,
         int& change_pos,
         CAmount& fee,
+        std::vector<CAmount>& out_amounts,
         std::string& fail_reason) override
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
@@ -243,10 +244,12 @@ public:
                 pending->m_keys.emplace_back(new CReserveKey(&m_wallet));
             }
         }
+        BlindDetails blind_details;
         if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_keys, fee, change_pos,
-                fail_reason, coin_control, sign)) {
+                fail_reason, coin_control, sign, &blind_details)) {
             return {};
         }
+        out_amounts = blind_details.o_amounts;
         return std::move(pending);
     }
     bool transactionCanBeAbandoned(const uint256& txid) override { return m_wallet.TransactionCanBeAbandoned(txid); }
