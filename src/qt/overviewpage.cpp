@@ -170,8 +170,8 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users
-    bool showImmature = !balances.immature_balance.empty();
-    bool showWatchOnlyImmature = !balances.immature_watch_only_balance.empty();
+    bool showImmature = !!balances.immature_balance;
+    bool showWatchOnlyImmature = !!balances.immature_watch_only_balance;
 
     // for symmetry reasons also show immature label when the watch-only one is shown
     ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature);
