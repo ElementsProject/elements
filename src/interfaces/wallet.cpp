@@ -237,8 +237,11 @@ public:
         auto pending = MakeUnique<PendingWalletTxImpl>(m_wallet);
         // Pad change keys to cover total possible number of assets
         // One already exists(for policyAsset), so one for each destination
-        for (size_t i = 0; i < recipients.size(); ++i) {
-            pending->m_keys.emplace_back(new CReserveKey(&m_wallet));
+        std::set<CAsset> assets_seen;
+        for (const auto& rec : recipients) {
+            if (assets_seen.insert(rec.asset).second) {
+                pending->m_keys.emplace_back(new CReserveKey(&m_wallet));
+            }
         }
         if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_keys, fee, change_pos,
                 fail_reason, coin_control, sign)) {
