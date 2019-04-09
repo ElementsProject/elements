@@ -193,7 +193,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 }
 
                 // Short-circuit when it's an issuance to self
-                if (assets_issued_to_me_only.count(asset) == 0) {
+                if (assets_issued_to_me_only.count(asset) != 0) {
                     continue;
                 }
 
