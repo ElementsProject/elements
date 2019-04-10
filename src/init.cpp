@@ -1873,7 +1873,7 @@ bool AppInitMain()
     }
     uiInterface.InitMessage(_("Awaiting mainchain RPC warmup"));
     if (!MainchainRPCCheck(true)) { //Initial check, fail immediately
-        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from the mainchain daemon. Please check debug.log for more information."));
+        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from the mainchain daemon. Please check debug.log for more information.")
         + "\n\n"
         + strprintf(_("If you haven't setup a %s please get the latest stable version from %s or if you do not need to validate pegins set in your elements configuration %s"), "bitcoind", "https://bitcoincore.org/en/download/", "validatepegin=0"));
     }
