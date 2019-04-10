@@ -99,6 +99,9 @@ class FedPegTest(BitcoinTestFramework):
                 '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
                 '-parentpubkeyprefix=111',
                 '-parentscriptprefix=196',
+                # Turn of consistency checks that can cause assert when parent node stops
+                # and a peg-in transaction fails this belt-and-suspenders check.
+                '-checkmempool=0',
             ]
             if not self.options.parent_bitcoin:
                 extra_args.extend([
