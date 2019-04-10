@@ -111,6 +111,9 @@ public:
     //! database can detect payments to newer address types.
     virtual void learnRelatedScripts(const CPubKey& key, OutputType type) = 0;
 
+    //! Get blinding pubkey for script
+    virtual CPubKey getBlindingPubKey(const CScript& script) = 0;
+
     //! Add dest data.
     virtual bool addDestData(const CTxDestination& dest, const std::string& key, const std::string& value) = 0;
 

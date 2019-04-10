@@ -192,6 +192,10 @@ public:
         return result;
     }
     void learnRelatedScripts(const CPubKey& key, OutputType type) override { m_wallet.LearnRelatedScripts(key, type); }
+    CPubKey getBlindingPubKey(const CScript& script) override
+    {
+        return m_wallet.GetBlindingPubKey(script);
+    }
     bool addDestData(const CTxDestination& dest, const std::string& key, const std::string& value) override
     {
         LOCK(m_wallet.cs_wallet);
