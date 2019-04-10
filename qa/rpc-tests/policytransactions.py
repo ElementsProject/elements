@@ -31,7 +31,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         self.extra_args[2].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
-     
+
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
         connect_nodes_bi(self.nodes,0,1)
@@ -57,7 +57,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         blscript = "76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac"
         genhash = self.nodes[0].getblockhash(0)
         genblock = self.nodes[0].getblock(genhash)
-        
+
         for txid in genblock["tx"]:
             rawtx = self.nodes[0].getrawtransaction(txid,True)
             if rawtx["vout"][0]["scriptPubKey"]["hex"] == flscript:
@@ -82,7 +82,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         sendissue = self.nodes[0].sendrawtransaction(signissue["hex"])
 
         self.nodes[0].generate(1)
-        self.sync_all()       
+        self.sync_all()
 
         #Send some coins to the second node
         fundaddr = self.nodes[1].getnewaddress()
@@ -106,7 +106,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         policyaddress = self.nodes[0].getnewaddress()
         validatepaddress = self.nodes[0].validateaddress(policyaddress)
         policypubkey = validatepaddress['pubkey']
-        
+
         #get an address for the freezelist
         frzaddress1 = self.nodes[1].getnewaddress()
 
@@ -192,7 +192,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         frztx_send = self.nodes[0].sendrawtransaction(frztx_signed["hex"])
 
         self.nodes[0].generate(1)
-        self.sync_all()       
+        self.sync_all()
 
         #check that the freezelist has been updated
         assert_equal(self.nodes[0].queryfreezelist(frzaddress1), False)
@@ -212,7 +212,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         #check the operation of the burnlist
         burnaddress1 = self.nodes[1].getnewaddress()
 
-        assert_equal(self.nodes[0].queryburnlist(burnaddress1), False)        
+        assert_equal(self.nodes[0].queryburnlist(burnaddress1), False)
 
         #generate the tx to freeze the user address
         inputs = []
@@ -257,7 +257,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
         brntx_send = self.nodes[0].sendrawtransaction(brntx_signed["hex"])
 
         self.nodes[0].generate(1)
-        self.sync_all()       
+        self.sync_all()
 
         #check that the freezelist has been updated
         assert_equal(self.nodes[0].queryburnlist(burnaddress1), False)

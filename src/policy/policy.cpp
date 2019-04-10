@@ -17,8 +17,9 @@ CAsset freezelistAsset;
 CAsset burnlistAsset;
 CAsset whitelistAsset;
 CAsset challengeAsset;
+CAsset permissionAsset;
 
-    /**
+/**
      * Check transaction inputs to mitigate two
      * potential denial-of-service attacks:
      *
@@ -135,13 +136,14 @@ bool IsPolicy(CTransaction const &tx) {
 }
 
 bool IsPolicy(const CAsset& asset){
-  if(asset == policyAsset ||
-     asset == freezelistAsset ||
-     asset == burnlistAsset ||
-     asset == whitelistAsset ||
-     asset == challengeAsset)
-    return true;
-  return false;
+    if (asset == policyAsset ||
+        asset == freezelistAsset ||
+        asset == burnlistAsset ||
+        asset == whitelistAsset ||
+        asset == challengeAsset ||
+        asset == permissionAsset)
+        return true;
+    return false;
 }
 
 // @fn IsWhitelisted

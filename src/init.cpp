@@ -532,6 +532,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-burnlistcoinsdestination", strprintf(_("The destination of the tokens for controlling the burnlist. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-whitelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the whitelist. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-challengecoinsdestination", strprintf(_("The destination of the tokens for issuing guardnode challenges. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-permissioncoinsdestination", strprintf(_("The destination of the tokens for permitting request creation. (default: %d)"), 0));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
@@ -1050,7 +1051,9 @@ bool AppInitParameterInteraction()
     if(GetArg("-challengecoinsdestination", "").size() > 0) {
         challengeAsset = CAsset(uint256S(chainparams.GetConsensus().challenge_asset.GetHex()));
     }
-
+    if (GetArg("-permissioncoinsdestination", "").size() > 0) {
+        permissionAsset = CAsset(uint256S(chainparams.GetConsensus().permission_asset.GetHex()));
+    }
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:
     // if you set it to zero then
@@ -1102,7 +1105,7 @@ bool AppInitParameterInteraction()
     fRequireWhitelistCheck = GetBoolArg("-pkhwhitelist", DEFAULT_WHITELIST_CHECK);
     fScanWhitelist = GetBoolArg("-pkhwhitelist-scan", DEFAULT_SCAN_WHITELIST);
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
-    fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);  
+    fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fIsBareMultisigStd = GetBoolArg("-permitbaremultisig", DEFAULT_PERMIT_BAREMULTISIG);

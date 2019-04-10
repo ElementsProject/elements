@@ -28,6 +28,8 @@ extern CAsset burnlistAsset;
 extern CAsset whitelistAsset;
 /** the asset for guardnode challenge **/
 extern CAsset challengeAsset;
+/** the asset for request permissions **/
+extern CAsset permissionAsset;
 
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;

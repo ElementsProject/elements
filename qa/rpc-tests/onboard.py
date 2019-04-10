@@ -99,6 +99,7 @@ class OnboardTest (BitcoinTestFramework):
         #Whitelist node 0 addresses
         self.nodes[0].dumpderivedkeys("keys.main")
         self.nodes[0].readwhitelist("keys.main")
+        os.remove("keys.main")
 
         #Register a KYC public key
         policyaddr=self.nodes[0].getnewaddress()
@@ -134,6 +135,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
 
         self.nodes[0].onboarduser(kycfile, "CBT")
+        os.remove(kycfile)
 
         self.nodes[0].generate(101)
         self.sync_all()
@@ -182,9 +184,7 @@ class OnboardTest (BitcoinTestFramework):
         wl1file_2="wl1_2.dat"
         self.nodes[1].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
-        print(nlines1)
         nlines2=self.linecount(wl1file_2)
-        print(nlines2)
         assert_equal(nlines2-nlines1, nadd)
 
 
@@ -207,7 +207,6 @@ class OnboardTest (BitcoinTestFramework):
         wlvouts=wltx_decoded["vout"]
 
         wlvout = list(filter(lambda x: x["scriptPubKey"]["type"] == "multisig", wlvouts))[0]
-        print(wlvout)
         wlvoutn=wlvout["n"]
         blvalue=wlvout["value"]
 
@@ -238,6 +237,10 @@ class OnboardTest (BitcoinTestFramework):
 
         assert_equal(nlines-nlines_bl,nwhitelisted)
 
+        os.remove(wl1file)
+        os.remove(wl1file_2)
+        os.remove(wl1file_3)
+        os.remove(wl1_bl_file)
         return
 
 if __name__ == '__main__':

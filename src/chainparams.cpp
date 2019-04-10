@@ -154,6 +154,7 @@ protected:
         burnListCoinsDestination = StrHexToScriptWithDefault(GetArg("-burnlistcoinsdestination", ""), CScript() << OP_RETURN);
         whiteListCoinsDestination = StrHexToScriptWithDefault(GetArg("-whitelistcoinsdestination", ""), CScript() << OP_RETURN);
         challengeCoinsDestination = StrHexToScriptWithDefault(GetArg("-challengecoinsdestination", ""), CScript() << OP_RETURN);
+        permissionCoinsDestination = StrHexToScriptWithDefault(GetArg("-permissioncoinsdestination", ""), CScript() << OP_RETURN);
         attestationHash = uint256S(GetArg("-attestationhash", ""));
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
@@ -249,6 +250,17 @@ public:
                 CalculateAsset(consensus.challenge_asset, entropy);
 
                 AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, challengeCoinsDestination);
+            }
+
+            if (!permissionCoinsDestination.IsUnspendable()) {
+                uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000050");
+                const COutPoint prevout = COutPoint(uint256(commit), nOut);
+                ++nOut;
+
+                GenerateAssetEntropy(entropy, prevout, contract);
+                CalculateAsset(consensus.permission_asset, entropy);
+
+                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins / 100, 0, 0, permissionCoinsDestination);
             }
         }
         consensus.hashGenesisBlock = genesis.GetHash();
