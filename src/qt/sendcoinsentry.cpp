@@ -45,7 +45,7 @@ SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *par
     // Connect signals
     connect(ui->payAmount, &BitcoinAmountField::valueChanged, this, &SendCoinsEntry::payAmountChanged);
     connect(ui->checkboxSubtractFeeFromAmount, &QCheckBox::toggled, this, &SendCoinsEntry::subtractFeeFromAmountChanged);
-    connect(ui->payAmount, SIGNAL(valueChanged()), this, SLOT(payAmountChangedInternal()));
+    connect(ui->payAmount, &BitcoinAmountField::valueChanged, this, &SendCoinsEntry::payAmountChangedInternal);
     connect(ui->deleteButton, &QPushButton::clicked, this, &SendCoinsEntry::deleteClicked);
     connect(ui->deleteButton_is, &QPushButton::clicked, this, &SendCoinsEntry::deleteClicked);
     connect(ui->deleteButton_s, &QPushButton::clicked, this, &SendCoinsEntry::deleteClicked);
@@ -87,7 +87,7 @@ void SendCoinsEntry::setModel(WalletModel *_model)
 
     if (_model && _model->getOptionsModel()) {
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &SendCoinsEntry::updateDisplayUnit);
-        connect(_model, SIGNAL(assetTypesChanged()), this, SLOT(updateAssetTypes()));
+        connect(_model, &WalletModel::assetTypesChanged, this, &SendCoinsEntry::updateAssetTypes);
     }
 
     clear();
