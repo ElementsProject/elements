@@ -15,6 +15,7 @@
 #include <QClipboard>
 
 #include <policy/policy.h>
+#include <chainparams.h>
 
 SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *parent) :
     QStackedWidget(parent),
