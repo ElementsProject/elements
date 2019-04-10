@@ -208,6 +208,8 @@ void TestGUI()
     requestPaymentButton->click();
     for (QWidget* widget : QApplication::topLevelWidgets()) {
         if (widget->inherits("ReceiveRequestDialog")) {
+
+            /* URI are disabled for Elements-QT
             ReceiveRequestDialog* receiveRequestDialog = qobject_cast<ReceiveRequestDialog*>(widget);
             QTextEdit* rlist = receiveRequestDialog->QObject::findChild<QTextEdit*>("outUri");
             QString paymentText = rlist->toPlainText();
@@ -218,6 +220,7 @@ void TestGUI()
             QCOMPARE(paymentTextList.at(3), QString("Amount: 0.00000001 ") + QString::fromStdString(CURRENCY_UNIT));
             QCOMPARE(paymentTextList.at(4), QString("Label: TEST_LABEL_1"));
             QCOMPARE(paymentTextList.at(5), QString("Message: TEST_MESSAGE_1"));
+            */
         }
     }
 
