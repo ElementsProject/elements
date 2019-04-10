@@ -11,7 +11,7 @@
 
 #include <asset.h>
 #include <base58.h>
-#include "assetsdir.h"
+#include <assetsdir.h>
 #include <chainparams.h>
 #include <primitives/transaction.h>
 #include <key_io.h>

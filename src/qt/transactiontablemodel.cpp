@@ -13,7 +13,7 @@
 #include <qt/transactionrecord.h>
 #include <qt/walletmodel.h>
 
-#include "assetsdir.h"
+#include <assetsdir.h>
 #include <core_io.h>
 #include <interfaces/handler.h>
 #include <interfaces/node.h>

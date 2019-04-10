@@ -7,10 +7,10 @@
 #include <qt/bitcoinunits.h>
 #include <qt/guiconstants.h>
 #include <qt/qvaluecombobox.h>
-#include "guiutil.h"
+#include <qt/guiutil.h>
 
-#include "assetsdir.h"
-#include "chainparams.h"
+#include <assetsdir.h>
+#include <chainparams.h>
 
 #include <QApplication>
 #include <QAbstractSpinBox>
