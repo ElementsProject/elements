@@ -58,12 +58,10 @@ bool SolverRequests(const CScript& scriptPubKey, vector<vector<unsigned char> >&
     vSolutionsRet.clear();
 
     // first attempt to parse a number that comes before OP_CHECKLOCKTIMEVERIFY
+    // TODO: maybe implement a new template for 5 bytes data
     if (!scriptPubKey.GetOp(pc1, opcode1, vch1))
         return false;
-    if (opcode1 >= OP_1 && opcode1 <= OP_16) { // edge case num is between 1 - 16
-        CScriptNum bn((int)opcode1 - (int)(OP_1 - 1));
-        vSolutionsRet.push_back(bn.getvch());
-    } else if (opcode1 >=1 && opcode1 <= 5) { // check data allow max 5 bytes length
+    if (opcode1 >=1 && opcode1 <= 5) { // check data allow max 5 bytes length
         const CScriptNum nLockTime(vch1, true, 5);
         vSolutionsRet.push_back(nLockTime.getvch());
     } else {
