@@ -1430,7 +1430,7 @@
         <translation>Suma</translation>
     </message>
     <message>
-        <source>Enter a Bitcoin address (e.g. %1)</source>
+        <source>Enter a Liquid address (e.g. %1)</source>
         <translation>Zadajte bitcoin adresu (napr. %1)</translation>
     </message>
     <message>

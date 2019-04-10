@@ -1843,7 +1843,7 @@
     </message>
     <message>
         <location filename="../guiutil.cpp" line="+115"/>
-        <source>Enter a Bitcoin address (e.g. %1)</source>
+        <source>Enter a Liquid address (e.g. %1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

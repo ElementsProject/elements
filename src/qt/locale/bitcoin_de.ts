@@ -1446,7 +1446,7 @@
         <translation>Betrag</translation>
     </message>
     <message>
-        <source>Enter a Bitcoin address (e.g. %1)</source>
+        <source>Enter a Liquid address (e.g. %1)</source>
         <translation>Bitcoin-Adresse eingeben (z.B. %1)</translation>
     </message>
     <message>

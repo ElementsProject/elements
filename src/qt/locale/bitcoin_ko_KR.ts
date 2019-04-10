@@ -1450,7 +1450,7 @@
         <translation>거래액</translation>
     </message>
     <message>
-        <source>Enter a Bitcoin address (e.g. %1)</source>
+        <source>Enter a Liquid address (e.g. %1)</source>
         <translation>비트코인 주소를 입력하기 (예. %1)</translation>
     </message>
     <message>
