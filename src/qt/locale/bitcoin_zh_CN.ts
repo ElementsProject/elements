@@ -1797,7 +1797,7 @@
         <translation>清除</translation>
     </message>
     <message>
-        <source>Generate native segwit (Bech32) address</source>
+        <source>Generate blinded native segwit (Blech32) address</source>
         <translation>生成本地分离见证 (Bech32)地址</translation>
     </message>
     <message>

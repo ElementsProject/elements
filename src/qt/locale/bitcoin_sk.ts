@@ -1891,7 +1891,7 @@
         <translation>Natívne segwit adresy (Bech32 or BIP-173) znižujú Vaše budúce transakčné poplatky and ponúkajú lepšiu ochranu pred preklepmi, avšak staré peňaženky ich nepodporujú. Ak je toto pole nezaškrtnuté, bude vytvorená adresa kompatibilná so staršími peňaženkami.</translation>
     </message>
     <message>
-        <source>Generate native segwit (Bech32) address</source>
+        <source>Generate blinded native segwit (Blech32) address</source>
         <translation>Generovať natívnu segwit adresu (Bech32)</translation>
     </message>
     <message>

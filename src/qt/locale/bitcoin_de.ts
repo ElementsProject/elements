@@ -1922,7 +1922,7 @@
         <translation>Ureigene SegWit-Adressen (alias Bech32 oder BIP-173) werden Ihre Transaktionsgebühren senken und bieten besseren Tippfehlerschutz, werden jedoch von alten Brieftaschen nicht unterstützt. Wenn abgewählt, wird eine mit älteren Brieftaschen kompatible Adresse erstellt.</translation>
     </message>
     <message>
-        <source>Generate native segwit (Bech32) address</source>
+        <source>Generate blinded native segwit (Blech32) address</source>
         <translation>Generiere ureigene SegWit(Bech32)-Adresse</translation>
     </message>
     <message>

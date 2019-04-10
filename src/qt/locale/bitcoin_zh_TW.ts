@@ -1926,7 +1926,7 @@
         <translation>使用 segwit 原生位址(也叫做 Bech32 或 BIP-173)可以減少日後的交易手續費，也比較不容易打錯字，不過會跟舊版的錢包軟體不相容。如果沒有勾選的話，會改產生與舊版錢包軟體相容的位址。</translation>
     </message>
     <message>
-        <source>Generate native segwit (Bech32) address</source>
+        <source>Generate blinded native segwit (Blech32) address</source>
         <translation>產生 segwit 原生位址(Bech32)</translation>
     </message>
     <message>

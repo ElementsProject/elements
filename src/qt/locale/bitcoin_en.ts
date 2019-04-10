@@ -2496,7 +2496,7 @@
     </message>
     <message>
         <location line="+3"/>
-        <source>Generate native segwit (Bech32) address</source>
+        <source>Generate blinded native segwit (Blech32) address</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
