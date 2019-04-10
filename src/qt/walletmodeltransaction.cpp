@@ -42,6 +42,7 @@ void WalletModelTransaction::setTransactionFee(const CAmount& newFee)
 
 void WalletModelTransaction::reassignAmounts(const std::vector<CAmount>& outAmounts, int nChangePosRet)
 {
+    const CTransaction* walletTransaction = &wtx->get();
     int i = 0;
     for (auto it = recipients.begin(); it != recipients.end(); ++it)
     {
@@ -57,7 +58,7 @@ void WalletModelTransaction::reassignAmounts(const std::vector<CAmount>& outAmou
                 if (out.amount() <= 0) continue;
                 if (i == nChangePosRet)
                     i++;
-                subtotal += outAmounts[i];
+                subtotal += g_con_elementsmode ? outAmounts[i] : walletTransaction->vout[i].nValue.GetAmount();
                 i++;
             }
             rcp.asset_amount = subtotal;
@@ -66,7 +67,7 @@ void WalletModelTransaction::reassignAmounts(const std::vector<CAmount>& outAmou
         {
             if (i == nChangePosRet)
                 i++;
-            rcp.asset_amount = outAmounts[i];
+            rcp.asset_amount = g_con_elementsmode ? outAmounts[i] : walletTransaction->vout[i].nValue.GetAmount();
             i++;
         }
     }

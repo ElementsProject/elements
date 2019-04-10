@@ -250,7 +250,7 @@ public:
         }
         BlindDetails blind_details;
         if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_keys, fee, change_pos,
-                fail_reason, coin_control, sign, &blind_details)) {
+                fail_reason, coin_control, sign, g_con_elementsmode ? &blind_details : nullptr)) {
             return {};
         }
         out_amounts = blind_details.o_amounts;
