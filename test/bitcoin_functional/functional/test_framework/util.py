@@ -319,6 +319,9 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_genesis_style=bitcoin\n")
         f.write("con_csv_deploy_start=0\n") # Default is -1 (always active)
         f.write("blindedaddresses=0\n")
+        f.write("pubkeyprefix=111\n")
+        f.write("scriptprefix=196\n")
+        f.write("bech32_hrp=bcrt\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir

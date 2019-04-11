@@ -4744,7 +4744,7 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTxDestination parent_address = DecodeDestination(request.params[0].get_str());
+    CTxDestination parent_address = DecodeParentDestination(request.params[0].get_str());
     if (!IsValidDestination(parent_address))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
