@@ -82,6 +82,51 @@ BOOST_AUTO_TEST_CASE(script_standard_Solver_success)
     BOOST_CHECK(solutions[3] == ToByteVector(pubkeys[2]));
     BOOST_CHECK(solutions[4] == std::vector<unsigned char>({3}));
 
+    // TX_LOCKED_MULTISIG
+    s.clear();
+    s << 50 << OP_CHECKLOCKTIMEVERIFY << OP_DROP <<
+        OP_1 <<
+        ToByteVector(pubkeys[0]) <<
+        ToByteVector(pubkeys[1]) <<
+        OP_2 << OP_CHECKMULTISIG;
+    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_LOCKED_MULTISIG);
+    BOOST_CHECK_EQUAL(solutions.size(), 5U);
+    BOOST_CHECK(solutions[0] == CScriptNum(50).getvch());
+    BOOST_CHECK(solutions[1] == std::vector<unsigned char>({1}));
+    BOOST_CHECK(solutions[2] == ToByteVector(pubkeys[0]));
+    BOOST_CHECK(solutions[3] == ToByteVector(pubkeys[1]));
+    BOOST_CHECK(solutions[4] == std::vector<unsigned char>({2}));
+
+    s.clear();
+    s << 5000 << OP_CHECKLOCKTIMEVERIFY << OP_DROP <<
+        OP_2 <<
+        ToByteVector(pubkeys[0]) <<
+        ToByteVector(pubkeys[1]) <<
+        ToByteVector(pubkeys[2]) <<
+        OP_3 << OP_CHECKMULTISIG;
+    BOOST_CHECK(Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_LOCKED_MULTISIG);
+    BOOST_CHECK_EQUAL(solutions.size(), 6U);
+    BOOST_CHECK(solutions[0] == CScriptNum(5000).getvch());
+    BOOST_CHECK(solutions[1] == std::vector<unsigned char>({2}));
+    BOOST_CHECK(solutions[2] == ToByteVector(pubkeys[0]));
+    BOOST_CHECK(solutions[3] == ToByteVector(pubkeys[1]));
+    BOOST_CHECK(solutions[4] == ToByteVector(pubkeys[2]));
+    BOOST_CHECK(solutions[5] == std::vector<unsigned char>({3}));
+
+    s.clear();
+    // test more than 5 bytes in the locktime
+    s << (int64_t)(2UL << 40) << OP_CHECKLOCKTIMEVERIFY << OP_DROP <<
+        OP_2 <<
+        ToByteVector(pubkeys[0]) <<
+        ToByteVector(pubkeys[1]) <<
+        ToByteVector(pubkeys[2]) <<
+        OP_3 << OP_CHECKMULTISIG;
+    BOOST_CHECK(!Solver(s, whichType, solutions));
+    BOOST_CHECK_EQUAL(whichType, TX_NONSTANDARD);
+    BOOST_CHECK_EQUAL(solutions.size(), 0);
+
     // TX_NULL_DATA
     s.clear();
     s << OP_RETURN <<
