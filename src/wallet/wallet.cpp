@@ -3288,12 +3288,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (dPriority >= dPriorityNeeded && AllowFree(dPriority))
                         break;
                 }
-                CAmount nFeeNeeded;
-                if(IsPolicy(feeAsset)) { 
-                    nFeeNeeded = 0;
-                } else {
-                    nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
-                }
+
+                if(isPolicy) break;
+
+                CAmount nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
                 if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
                     nFeeNeeded = coinControl->nMinimumTotalFee;
                 }
@@ -3303,10 +3301,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
                 // because we must be at the maximum allowed fee.
                 if (nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))
-                {
-                    strFailReason = _("Transaction too large for fee policy");
-                    return false;
-                }
+                    {
+                        strFailReason = _("Transaction too large for fee policy");
+                        return false;
+                    }
+                
 
                 if (nFeeRet >= nFeeNeeded) {
                     /* TODO Push actual blinding outside of loop and reactivate this logic
