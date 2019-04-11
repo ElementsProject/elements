@@ -79,6 +79,7 @@ static WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LO
         result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back()) ?
                                                       IsMine(wallet, result.txout_address.back()) :
                                                       ISMINE_NO);
+        result.txout_is_change.push_back(wallet.IsChange(txout));
     }
     // ELEMENTS: Retrieve unblinded information about outputs
     for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
