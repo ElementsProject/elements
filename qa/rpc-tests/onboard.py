@@ -134,7 +134,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
-        self.nodes[0].onboarduser(kycfile, "CBT")
+        self.nodes[0].onboarduser(kycfile)
         os.remove(kycfile)
 
         self.nodes[0].generate(101)

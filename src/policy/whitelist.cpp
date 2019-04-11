@@ -234,6 +234,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   }
 
   if(bOnboard){
+    //Onboarding must be done using the whitelist asset 
+    if(!IsWhitelistAssetOnly(tx)) return false;
     // Check if reading from the client node
     if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
       // kycPubKey assigned to me by the whitelisting node

@@ -501,7 +501,7 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
-static void SendOnboardTx(const CAsset& feeAsset, const CScript& script,  CWalletTx& wtxNew){
+static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
@@ -509,29 +509,22 @@ static void SendOnboardTx(const CAsset& feeAsset, const CScript& script,  CWalle
     bool fSubtractFeeFromAmount=false, fIgnoreBlindFail=true;
     CPubKey confidentiality_pubkey;
 
-    SendMoney(script, nAmount, feeAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail);
+    SendMoney(script, nAmount, whitelistAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail);
 }
 
 UniValue onboarduser(const JSONRPCRequest& request){
-  if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+  if (request.fHelp || request.params.size() != 1) 
     throw runtime_error(
-            "onboarduser \"filename\" \"feeasset\"\n"
+            "onboarduser \"filename\" \n"
             "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
             "\nArguments:\n"
 
             "1. \"filename\"    (string, required) The kyc file name\n"
-            "2. \"feeasset\"    (string, optional) The asset type to use to pay the transaction fee\n"
-
+           
             "\nExamples:\n"
-            + HelpExampleCli("onboarduser", "\"my asset\", \"my filename\"")
-            + HelpExampleRpc("onboarduser", "\"my asset\", \"my filename\"")
+            + HelpExampleCli("onboarduser", "\"my filename\"")
+            + HelpExampleRpc("onboarduser", "\"my filename\"")
             );
-
-    std::string assetStr="CBT";
-    if(request.params.size() >= 2){
-        assetStr=request.params[1].get_str();
-    }
-    CAsset feeasset = GetAssetFromString(assetStr);
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -545,7 +538,7 @@ UniValue onboarduser(const JSONRPCRequest& request){
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot generate onboarding script");
 
     CWalletTx wtx;
-    SendOnboardTx(feeasset, script, wtx);
+    SendOnboardTx(script, wtx);
     return wtx.GetHash().GetHex();
 }
 
@@ -4674,7 +4667,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
     { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
     { "wallet",             "readkycfile",              &readkycfile,              true,   {"filename", "outfilename", "onboardpubkey"} },
-    { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename", "feeasset"} },
+    { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },

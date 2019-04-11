@@ -2796,6 +2796,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         feeAsset = vecSend[0].asset;
     }
 
+    bool isPolicy=IsPolicy(feeAsset);
+
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
@@ -2853,11 +2855,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         {
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, coinControl);
-
-            nFeeRet = 1;
+        
+            isPolicy ? nFeeRet = 0 : nFeeRet = 1;
             // Start with tiny non-zero fee for issuance entropy and loop until there is enough fee
             while (true)
-            {
+            {   
                 nChangePosInOut = nChangePosRequest;
                 output_pubkeys.clear();
                 int numToBlind = 0;
@@ -3008,7 +3010,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                         // Never create dust outputs; if we would, just
                         // add the dust to the fee.
-                        if (newTxOut.IsDust(dustRelayFee) && it->first == feeAsset)
+                        if (newTxOut.IsDust(dustRelayFee) && it->first == feeAsset &! isPolicy)
                         {
                             nChangePosInOut = -1;
                             nFeeRet += it->second;
@@ -3286,8 +3288,12 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     if (dPriority >= dPriorityNeeded && AllowFree(dPriority))
                         break;
                 }
-
-                CAmount nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
+                CAmount nFeeNeeded;
+                if(IsPolicy(feeAsset)) { 
+                    nFeeNeeded = 0;
+                } else {
+                    nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
+                }
                 if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
                     nFeeNeeded = coinControl->nMinimumTotalFee;
                 }
@@ -3382,6 +3388,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             strFailReason = _("Transaction too large");
             return false;
         }
+
+        // If the fee asset
     }
 
     if (GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS)) {

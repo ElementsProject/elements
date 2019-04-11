@@ -135,6 +135,25 @@ bool IsPolicy(CTransaction const &tx) {
     return false;
 }
 
+// @fn IsAllPolicy.
+// @brief determines if all outputs of a transaction are policy assets.
+// @param[in] class that contains the transaction.
+// @retrun true == successful process.
+// @retrun false == failed process.
+bool IsAllPolicy(CTransaction const &tx) {
+    for (CTxOut const &txout : tx.vout)
+        if (!IsPolicy(txout.nAsset.GetAsset()))
+            return false;
+    return true;
+}
+
+bool IsWhitelistAssetOnly(CTransaction const &tx){
+  for (CTxOut const &txout : tx.vout)
+        if (txout.nAsset.GetAsset() != whitelistAsset)
+            return false;
+  return true;
+}
+
 bool IsPolicy(const CAsset& asset){
     if (asset == policyAsset ||
         asset == freezelistAsset ||
