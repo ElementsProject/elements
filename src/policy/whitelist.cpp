@@ -192,42 +192,52 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   unsigned int pubKeySize=33;
   unsigned int addrSize=20;
+  unsigned int minPayloadSize=2;
 
   //Confirm data read from the TX_REGISTERADDRESS
-  unsigned int minDataSize=pubKeySize+addrSize;
+  unsigned int minDataSize=pubKeySize+addrSize+minPayloadSize;
   if(bytes.size()<minDataSize) return false;
+
 
   // Are the first 33 bytes a currently whitelisted KYC public key? 
   // If so, this is an initial onboarding transaction, and those 33 bytes are the server KYC public key.
   // And the following bytes are:
   // 33 bytes: client onboarding public key.
 
-  std::vector<unsigned char>::const_iterator it1=bytes.begin();
-  std::vector<unsigned char>::const_iterator it2=it1+pubKeySize;
-
-  CPubKey kycPubKey = CPubKey(it1, it2);
-  it1=it2;
-  it2+=pubKeySize;
-  CPubKey userOnboardPubKey = CPubKey(it1, it2);
-  it1=it2;
+  bool bOnboard=false;
+  CPubKey kycPubKey;
+  CPubKey userOnboardPubKey;
   CKeyID kycKey, keyId, onboardKeyID;
   CKey userOnboardPrivKey;
   CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
-  bool bOnboard=false;
 
-  if(kycPubKey.IsFullyValid()){
-    kycKey=kycPubKey.GetID();
-    bOnboard = find_kyc(kycKey);
+  unsigned int minOnboardDataSize=2*pubKeySize+minPayloadSize;
+  std::vector<unsigned char>::const_iterator it1=bytes.begin();
+  std::vector<unsigned char>::const_iterator it2=it1+pubKeySize;
+
+  if(bytes.size()>=minOnboardDataSize){
+    kycPubKey = CPubKey(it1, it2);
+    it1=it2;
+    it2+=pubKeySize;
+    userOnboardPubKey = CPubKey(it1, it2);
+    it1=it2;
+
+    if(kycPubKey.IsFullyValid()){
+      if(userOnboardPubKey.IsFullyValid()){
+        kycKey=kycPubKey.GetID();
+        bOnboard = find_kyc(kycKey);
+      }
+    }
+  } else {
+    bOnboard=false;
   }
 
   if(bOnboard){
     // Check if reading from the client node
-    if(userOnboardPubKey.IsFullyValid()){
-      if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
-        // kycPubKey assigned to me by the whitelisting node
-        pwalletMain->SetKYCPubKey(kycPubKey);
-      }
+    if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
+      // kycPubKey assigned to me by the whitelisting node
+      pwalletMain->SetKYCPubKey(kycPubKey);
       _onboardMap[userOnboardPubKey.GetID()]=kycPubKey;
     }
     inputPubKeys.insert(userOnboardPubKey);
