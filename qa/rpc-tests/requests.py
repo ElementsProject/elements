@@ -128,10 +128,10 @@ class GuardnodeTest(BitcoinTestFramework):
 
     # try send spend transaction
     inputs = {"txid": txid, "vout": 0, "sequence": 4294967294}
-    fee = Decimal('0.0001')
     addr = self.nodes[1].getnewaddress()
-    outputs = {addr: unspent[0]["amount"] - fee, "fee": fee}
-    txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount())
+    outputs = {addr: unspent[0]["amount"]}
+    assets = {addr: unspent[0]["asset"]}
+    txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount(), assets)
     signedTxSpend = self.nodes[1].signrawtransaction(txSpend)
     assert_equal(signedTxSpend["errors"][0]["error"], "Locktime requirement not satisfied")
 
@@ -162,25 +162,36 @@ class GuardnodeTest(BitcoinTestFramework):
         else:
             assert(False)
 
-    # make request 2 inactive
-    self.nodes[0].generate(10)
-    assert_equal([], self.nodes[0].getrequests())
+    # spend previously locked transaction
+    txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount(), assets)
+    signedTxSpend = self.nodes[1].signrawtransaction(txSpend)
+    txidSpend = self.nodes[1].sendrawtransaction(signedTxSpend["hex"])
 
-    # # generate more blocks and try again
-    # # CLTV signing not supported in bitcoin
-    # txraw = self.nodes[1].getrawtransaction(txid, 1)
-    # txSpend2 = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount())
-    # signedTxSpend2 = self.nodes[1].signrawtransaction(txSpend2,
-    #     [{
-    #         "txid": txid,
-    #         "vout": 0,
-    #         "scriptPubKey": txraw["vout"][0]["scriptPubKey"]["hex"],
-    #         "amount": unspent[0]["amount"]
-    #     }],
-    #     [priv])
-    # print(signedTxSpend2)
-    # print(self.nodes[1].decoderawtransaction(signedTxSpend2["hex"]))
-    # assert_equal(signedTxSpend2["errors"][0]["error"], "")
+    # try spend second transcation
+    inputs2 = {"txid": txid2, "vout": 0, "sequence": 4294967294}
+    addr2 = self.nodes[1].getnewaddress()
+    outputs2 = {addr2: unspent[1]["amount"]}
+    assets2 = {addr2: unspent[1]["asset"]}
+    txSpend2 = self.nodes[1].createrawtransaction([inputs2], outputs2, self.nodes[1].getblockcount(), assets2)
+    signedTxSpend2 = self.nodes[1].signrawtransaction(txSpend2)
+    assert_equal(signedTxSpend2["errors"][0]["error"], "Locktime requirement not satisfied")
+
+    # make request 2 inactive
+    self.sync_all()
+    self.nodes[0].generate(10)
+    self.sync_all()
+
+    assert_equal([], self.nodes[0].getrequests())
+    assert(self.nodes[1].getbalance()["PERMISSION"] == 1000)
+
+    # send second transaction
+    txSpend2 = self.nodes[1].createrawtransaction([inputs2], outputs2, self.nodes[1].getblockcount(), assets2)
+    signedTxSpend2 = self.nodes[1].signrawtransaction(txSpend2)
+    txidSpend2 = self.nodes[1].sendrawtransaction(signedTxSpend2["hex"])
+
+    self.sync_all()
+    self.nodes[0].generate(1)
+    assert(self.nodes[1].getbalance()["PERMISSION"] == 2000)
 
     return
 
