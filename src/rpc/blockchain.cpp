@@ -1048,7 +1048,8 @@ UniValue getrequests(const JSONRPCRequest& request)
             if (coins.vout.size() == 1 && !coins.IsCoinBase() &&
             coins.vout[0].nAsset.IsExplicit() && coins.vout[0].nAsset.GetAsset() == permissionAsset) {
                 vector<vector<unsigned char>> vSolutions;
-                if (SolverRequests(coins.vout[0].scriptPubKey, vSolutions)) {
+                txnouttype whichType;
+                if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
                     int endBlockHeight = CScriptNum(vSolutions[0], true).getint();
                     if (endBlockHeight >= chainActive.Height()) { // check request active
                         UniValue item(UniValue::VOBJ);

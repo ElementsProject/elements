@@ -61,6 +61,7 @@ enum txnouttype
     TX_WITNESS_V0_KEYHASH,
     TX_TRUE,
     TX_FEE,
+    TX_LOCKED_MULTISIG,
 };
 
 class CNoDestination {

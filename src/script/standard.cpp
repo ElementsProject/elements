@@ -42,79 +42,33 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_TRUE: return "true";
     case TX_FEE: return "fee";
+    case TX_LOCKED_MULTISIG: return "lockedmultisig";
     }
     return NULL;
 }
 
-/*
- * Solver for request transactions only
- */
-bool SolverRequests(const CScript& scriptPubKey, vector<vector<unsigned char> >& vSolutionsRet)
+/** Check push data opcode is between 1 and 5 bytes for OP_CHECKLOCKTIMEVERIFY argument */
+static constexpr bool IsCheckLockTimeSize(opcodetype opcode)
 {
-    opcodetype opcode1, opcode2;
-    vector<unsigned char> vch1, vch2;
-    CScript::const_iterator pc1 = scriptPubKey.begin();
+    return opcode >=1 && opcode <= 5;
+}
 
-    vSolutionsRet.clear();
+static bool MatchLocked(const CScript& script, valtype& locktime)
+{
+    opcodetype opcode1;
+    vector<unsigned char> vch1;
+    CScript::const_iterator pc1 = script.begin();
 
-    // first attempt to parse a number that comes before OP_CHECKLOCKTIMEVERIFY
-    // TODO: maybe implement a new template for 5 bytes data
-    if (!scriptPubKey.GetOp(pc1, opcode1, vch1))
+    // Attempt to parse locktime parameter of OP_CHECKLOCKTIMEVERIFY
+    if (!script.GetOp(pc1, opcode1, vch1))
         return false;
-    if (opcode1 >=1 && opcode1 <= 5) { // check data allow max 5 bytes length
+    if (IsCheckLockTimeSize(opcode1)
+            && script.size() >= 3 + opcode1
+            && script[1 + opcode1] == OP_CHECKLOCKTIMEVERIFY
+            && script[2 + opcode1] == OP_DROP) {
         const CScriptNum nLockTime(vch1, true, 5);
-        vSolutionsRet.push_back(nLockTime.getvch());
-    } else {
-        return false;
-    }
-
-    // add template for the remaining part of the script
-    const CScript script2 = CScript() << OP_CHECKLOCKTIMEVERIFY << OP_DROP
-        << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG;
-    CScript::const_iterator pc2 = script2.begin();
-    while (true)
-    {
-        if (pc1 == scriptPubKey.end() && pc2 == script2.end())
-        {
-            unsigned char m = vSolutionsRet[1][0];
-            unsigned char n = vSolutionsRet.back()[0];
-            if (m < 1 || n < 1 || m > n || vSolutionsRet.size()-2-1 != n)
-                return false;
-            return true;
-        }
-        if (!scriptPubKey.GetOp(pc1, opcode1, vch1)) {
-            break;
-        }
-        if (!script2.GetOp(pc2, opcode2, vch2)) {
-            break;
-        }
-
-        if (opcode2 == OP_PUBKEYS)
-        {
-            while (vch1.size() >= 33 && vch1.size() <= 65)
-            {
-                vSolutionsRet.push_back(vch1);
-                if (!scriptPubKey.GetOp(pc1, opcode1, vch1))
-                    break;
-            }
-            if (!script2.GetOp(pc2, opcode2, vch2))
-                break;
-        }
-        if (opcode2 == OP_SMALLINTEGER)
-        {
-            if (opcode1 == OP_0 ||
-                (opcode1 >= OP_1 && opcode1 <= OP_16))
-            {
-                char n = (char)CScript::DecodeOP_N(opcode1);
-                vSolutionsRet.push_back(valtype(1, n));
-            }
-            else
-                break;
-        }
-        else if (opcode1 != opcode2 || vch1 != vch2)
-        {
-            break;
-        }
+        locktime = nLockTime.getvch();
+        return true;
     }
     return false;
 }
@@ -241,10 +195,20 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         return true;
     }
 
+    // Before checking for multisig, check if script is locked and if that is
+    // the case skip the LOCKTIME OP_CHECKLOCKTIMEVERIFY OP_DROP of the script
+    bool fIsLocked = false;
+    CScript scriptPubKeyLocked;
+    if (MatchLocked(scriptPubKey, data)) {
+        fIsLocked = true;
+        scriptPubKeyLocked = CScript(scriptPubKey.begin() + 3 + data.size(), scriptPubKey.end());
+        vSolutionsRet.push_back(std::move(data)); // push lock time data
+    }
+
     unsigned int required;
     std::vector<std::vector<unsigned char>> keys;
-    if (MatchMultisig(scriptPubKey, required, keys)) {
-        typeRet = TX_MULTISIG;
+    if (MatchMultisig(fIsLocked ? scriptPubKeyLocked : scriptPubKey, required, keys)) {
+        typeRet = fIsLocked ? TX_LOCKED_MULTISIG : TX_MULTISIG;
         vSolutionsRet.push_back({static_cast<unsigned char>(required)}); // safe as required is in range 1..16
         vSolutionsRet.insert(vSolutionsRet.end(), keys.begin(), keys.end());
         vSolutionsRet.push_back({static_cast<unsigned char>(keys.size())}); // safe as size is in range 1..16
