@@ -409,7 +409,7 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, CCoinControl* coinControl = NULL)
 {
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
@@ -437,7 +437,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -449,9 +449,9 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     }
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, CCoinControl* coinControl = NULL)
 {
-    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail, coinControl);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -501,37 +501,59 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
-static void SendOnboardTx(const CAsset& feeAsset, const CScript& script,  CWalletTx& wtxNew){
+static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
-    int nAmount=0;
+    CAmount nAmount(0);
     bool fSubtractFeeFromAmount=false, fIgnoreBlindFail=true;
     CPubKey confidentiality_pubkey;
 
-    SendMoney(script, nAmount, feeAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail);
+
+    CCoinControl* coinControl = new CCoinControl();
+    //Fee = 0 
+    coinControl->fOverrideFeeRate=true;
+    coinControl->nFeeRate=CFeeRate(0);
+    coinControl->fAllowOtherInputs=false;
+
+    int nMinDepth=6;
+    int nMaxDepth=9999999;
+
+    vector<COutput> vecOutputs;
+    assert(pwalletMain != NULL);
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    pwalletMain->AvailableCoins(vecOutputs, true, NULL, true);
+    BOOST_FOREACH(const COutput& out, vecOutputs) {
+     if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth |! out.fSpendable)
+            continue;
+        CAmount nValue = out.tx->GetOutputValueOut(out.i);
+        CAsset assetid = out.tx->GetOutputAsset(out.i);
+        if (nValue >= nAmount && assetid == whitelistAsset){
+            coinControl->Select(COutPoint(out.tx->GetHash(), out.i));
+            break;
+        }
+    }
+
+    if(!coinControl->HasSelected()){
+         throw JSONRPCError(RPC_INVALID_PARAMETER, "No whitelist asset available");
+    }
+
+    SendMoney(script, nAmount, whitelistAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail, coinControl);
 }
 
 UniValue onboarduser(const JSONRPCRequest& request){
-  if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+  if (request.fHelp || request.params.size() != 1) 
     throw runtime_error(
-            "onboarduser \"filename\" \"feeasset\"\n"
+            "onboarduser \"filename\" \n"
             "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
             "\nArguments:\n"
 
             "1. \"filename\"    (string, required) The kyc file name\n"
-            "2. \"feeasset\"    (string, optional) The asset type to use to pay the transaction fee\n"
-
+           
             "\nExamples:\n"
-            + HelpExampleCli("onboarduser", "\"my asset\", \"my filename\"")
-            + HelpExampleRpc("onboarduser", "\"my asset\", \"my filename\"")
+            + HelpExampleCli("onboarduser", "\"my filename\"")
+            + HelpExampleRpc("onboarduser", "\"my filename\"")
             );
-
-    std::string assetStr="CBT";
-    if(request.params.size() >= 2){
-        assetStr=request.params[1].get_str();
-    }
-    CAsset feeasset = GetAssetFromString(assetStr);
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -545,7 +567,7 @@ UniValue onboarduser(const JSONRPCRequest& request){
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot generate onboarding script");
 
     CWalletTx wtx;
-    SendOnboardTx(feeasset, script, wtx);
+    SendOnboardTx(script, wtx);
     return wtx.GetHash().GetHex();
 }
 
@@ -4674,7 +4696,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
     { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
     { "wallet",             "readkycfile",              &readkycfile,              true,   {"filename", "outfilename", "onboardpubkey"} },
-    { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename", "feeasset"} },
+    { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },

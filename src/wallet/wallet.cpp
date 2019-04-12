@@ -3295,11 +3295,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     nFeeNeeded = coinControl->nFeeRate.GetFee(nBytes);
 
                 // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
-                // because we must be at the maximum allowed fee.
-                if (nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))
+                // because we must be at the maximum allowed fee, if this is not a policy Tx
+                if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
                 {
-                    strFailReason = _("Transaction too large for fee policy");
-                    return false;
+                    if(!IsAllPolicy(txUnblindedAndUnsigned)){
+                        strFailReason = _("Transaction too large for fee policy");
+                        return false;
+                    }
                 }
 
                 if (nFeeRet >= nFeeNeeded) {
@@ -3320,7 +3322,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         change_position->nValue = CConfidentialValue(change_position->nValue.GetAmount() + extraFeePaid);
                         nFeeRet -= extraFeePaid;
                     } */
-                    break; // Done, enough fee included.
+                   
+                    break; // Done, enough fee included.              
                 }
                 /* TODO Push actual blinding outside of loop and reactivate this logic
                 // Try to reduce change to include necessary fee
@@ -3382,6 +3385,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             strFailReason = _("Transaction too large");
             return false;
         }
+
     }
 
     if (GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS)) {

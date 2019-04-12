@@ -2725,7 +2725,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if(fRequireWhitelistCheck || fScanWhitelist){
             if(!addressWhitelist.RegisterAddress(tx, view)){
                 if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
-                addressWhitelist.Update(tx,view);
+                    addressWhitelist.Update(tx,view);
                 }
             } 
         }
