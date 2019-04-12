@@ -980,7 +980,12 @@ std::string ArgsManager::GetChainName() const
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
-    return GetArg("-chain", "elementsregtest");
+
+    std::string default_chain = "elementsregtest";
+#ifdef LIQUID
+    default_chain = "liquidv1";
+#endif
+    return GetArg("-chain", default_chain);
 }
 
 #ifndef WIN32

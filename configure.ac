@@ -194,8 +194,18 @@ AC_ARG_ENABLE([asm],
   [use_asm=$enableval],
   [use_asm=yes])
 
+AC_ARG_ENABLE([liquid],
+  [AS_HELP_STRING([--enable-liquid],
+  [Enable build that defaults to -chain=liquidv1])],
+  [liquid_build=yes],
+  [liquid_build=no])
+
 if test "x$use_asm" = xyes; then
   AC_DEFINE(USE_ASM, 1, [Define this symbol to build in assembly routines])
+fi
+
+if test "x$liquid_build" = xyes; then
+  AC_DEFINE(LIQUID, 1, [Define this symbol for Liquid builds])
 fi
 
 AC_ARG_WITH([system-univalue],
@@ -1378,6 +1388,7 @@ AM_CONDITIONAL([ENABLE_SSE41],[test x$enable_sse41 = xyes])
 AM_CONDITIONAL([ENABLE_AVX2],[test x$enable_avx2 = xyes])
 AM_CONDITIONAL([ENABLE_SHANI],[test x$enable_shani = xyes])
 AM_CONDITIONAL([USE_ASM],[test x$use_asm = xyes])
+AM_CONDITIONAL([LIQUID],[test x$liquid_build = xyes])
 
 AC_DEFINE(CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MAJOR, [Major version])
 AC_DEFINE(CLIENT_VERSION_MINOR, _CLIENT_VERSION_MINOR, [Minor version])
@@ -1510,6 +1521,7 @@ echo "  with test     = $use_tests"
 echo "  with bench    = $use_bench"
 echo "  with upnp     = $use_upnp"
 echo "  use asm       = $use_asm"
+echo "  liquid_build  = $liquid_build"
 echo "  sanitizers    = $use_sanitizers"
 echo "  debug enabled = $enable_debug"
 echo "  gprof enabled = $enable_gprof"
