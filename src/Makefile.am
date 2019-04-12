@@ -128,6 +128,7 @@ BITCOIN_CORE_H = \
   pow.h \
   protocol.h \
   random.h \
+  request.h \
   reverselock.h \
   rpc/client.h \
   rpc/protocol.h \

@@ -22,6 +22,7 @@
 #include "utilstrencodings.h"
 #include "hash.h"
 #include "ecies.h"
+#include "request.h"
 
 #include <fstream>
 
@@ -1050,33 +1051,16 @@ UniValue getrequests(const JSONRPCRequest& request)
                 vector<vector<unsigned char>> vSolutions;
                 txnouttype whichType;
                 if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
-                    int endBlockHeight = CScriptNum(vSolutions[0], true).getint();
-                    if (endBlockHeight >= chainActive.Height()) { // check request active
+                    auto request = CRequest::FromSolutions(vSolutions);
+                    if (request.nEndBlockHeight >= chainActive.Height()) { // check request active
                         UniValue item(UniValue::VOBJ);
-                        // get genesis from output 3
-                        char pubInt;
-                        uint256 genesisHash;
-                        CDataStream output3(vSolutions[3], SER_NETWORK, PROTOCOL_VERSION);
-                        output3 >> pubInt;
-                        output3 >> genesisHash;
-                        if (!fGenesisCheck || (genesisHash == hash)) {
-                            item.push_back(Pair("genesisBlock", genesisHash.GetHex()));
-                            // get remaining request data from output 4
-                            CDataStream output4(vSolutions[4], SER_NETWORK, PROTOCOL_VERSION);
-                            int val;
-                            output4 >> pubInt;
-                            output4 >> val;
-                            item.push_back(Pair("startBlockHeight", val));
-                            output4 >> val;
-                            item.push_back(Pair("numTickets", val));
-                            output4 >> val;
-                            item.push_back(Pair("decayConst", val));
-                            output4 >> val;
-                            item.push_back(Pair("feePercentage", val));
-
-                            // get end block height from output 0
-                            item.push_back(Pair("endBlockHeight", endBlockHeight));
-
+                        if (!fGenesisCheck || (request.hashGenesis == hash)) {
+                            item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
+                            item.push_back(Pair("startBlockHeight", request.nStartBlockHeight));
+                            item.push_back(Pair("numTickets", request.nNumTickets));
+                            item.push_back(Pair("decayConst", request.nDecayConst));
+                            item.push_back(Pair("feePercentage", request.nFeePercentage));
+                            item.push_back(Pair("endBlockHeight", request.nEndBlockHeight));
                             item.push_back(Pair("txid", key.ToString()));
                             ret.push_back(item);
                         }
