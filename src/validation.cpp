@@ -668,6 +668,18 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         CCoinsViewMemPool viewMemPool(pcoinsTip.get(), pool);
         view.SetBackend(viewMemPool);
 
+        // Quickly check for peg-in witness data on non-peg-in inputs
+        for (size_t input_index = 0; input_index < tx.vin.size(); ++input_index) {
+            if (!tx.vin[input_index].m_is_pegin) {
+                // Check that the corresponding pegin witness is empty
+                // Note that the witness vector must be size 0 or len(vin)
+                if (!tx.witness.vtxinwit.empty() &&
+                        !tx.witness.vtxinwit[input_index].m_pegin_witness.IsNull()) {
+                    return state.Invalid(false, REJECT_PEGIN, "extra-pegin-witness");
+                }
+            }
+        }
+
         // do all inputs exist?
         for (const CTxIn& txin : tx.vin) {
             // ELEMENTS:
@@ -3545,6 +3557,16 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
         if (block.vtx[0]->vin[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0]->vin[0].scriptSig.begin())) {
             return state.DoS(100, false, REJECT_INVALID, "bad-cb-height", false, "block height mismatch in coinbase");
+        }
+    }
+
+    // Coinbase transaction can not have input witness data which is not covered
+    // (or committed to) by the witness or regular merkle tree
+    for (const auto& inwit : block.vtx[0]->witness.vtxinwit) {
+        if (!inwit.vchIssuanceAmountRangeproof.empty() ||
+                !inwit.vchInflationKeysRangeproof.empty() ||
+                !inwit.m_pegin_witness.IsNull()) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-cb-witness", true, "Coinbase has invalid input witness data.");
         }
     }
 

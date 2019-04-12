@@ -406,6 +406,14 @@ bool VerifyAmounts(const std::vector<CTxOut>& inputs, const CTransaction& tx, st
 
 bool VerifyCoinbaseAmount(const CTransaction& tx, const CAmountMap& mapFees) {
     assert(tx.IsCoinBase());
+
+    // Miner shouldn't be stuffing witness data
+    for (const auto& outwit : tx.witness.vtxoutwit) {
+        if (!outwit.IsNull()) {
+            return false;
+        }
+    }
+
     CAmountMap remaining = mapFees;
     for (unsigned int i = 0; i < tx.vout.size(); i++) {
         const CTxOut& out = tx.vout[i];
