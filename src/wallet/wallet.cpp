@@ -3300,8 +3300,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 {
                     if(!IsAllPolicy(txUnblindedAndUnsigned)){
                         strFailReason = _("Transaction too large for fee policy");
+                        return false;
                     }
-                    return false;
                 }
 
                 if (nFeeRet >= nFeeNeeded) {
@@ -3322,7 +3322,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         change_position->nValue = CConfidentialValue(change_position->nValue.GetAmount() + extraFeePaid);
                         nFeeRet -= extraFeePaid;
                     } */
-                    break; // Done, enough fee included.
+                   
+                    break; // Done, enough fee included.              
                 }
                 /* TODO Push actual blinding outside of loop and reactivate this logic
                 // Try to reduce change to include necessary fee

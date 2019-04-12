@@ -505,15 +505,38 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
-    int nAmount=0;
+    CAmount nAmount(0);
     bool fSubtractFeeFromAmount=false, fIgnoreBlindFail=true;
     CPubKey confidentiality_pubkey;
+
 
     CCoinControl* coinControl = new CCoinControl();
     //Fee = 0 
     coinControl->fOverrideFeeRate=true;
     coinControl->nFeeRate=CFeeRate(0);
-    coinControl->fAllowOtherInputs=true;
+    coinControl->fAllowOtherInputs=false;
+
+    int nMinDepth=6;
+    int nMaxDepth=9999999;
+
+    vector<COutput> vecOutputs;
+    assert(pwalletMain != NULL);
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    pwalletMain->AvailableCoins(vecOutputs, true, NULL, true);
+    BOOST_FOREACH(const COutput& out, vecOutputs) {
+     if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth |! out.fSpendable)
+            continue;
+        CAmount nValue = out.tx->GetOutputValueOut(out.i);
+        CAsset assetid = out.tx->GetOutputAsset(out.i);
+        if (nValue >= nAmount && assetid == whitelistAsset){
+            coinControl->Select(COutPoint(out.tx->GetHash(), out.i));
+            break;
+        }
+    }
+
+    if(!coinControl->HasSelected()){
+         throw JSONRPCError(RPC_INVALID_PARAMETER, "No whitelist asset available");
+    }
 
     SendMoney(script, nAmount, whitelistAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail, coinControl);
 }
