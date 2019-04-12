@@ -409,7 +409,7 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, CCoinControl* coinControl = NULL)
 {
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
@@ -437,7 +437,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     int nChangePosRet = -1;
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
-    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail)) {
+    if (!pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
@@ -449,9 +449,9 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     }
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, CCoinControl* coinControl = NULL)
 {
-    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail, coinControl);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -509,7 +509,13 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
     bool fSubtractFeeFromAmount=false, fIgnoreBlindFail=true;
     CPubKey confidentiality_pubkey;
 
-    SendMoney(script, nAmount, whitelistAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail);
+    CCoinControl* coinControl = new CCoinControl();
+    //Fee = 0 
+    coinControl->fOverrideFeeRate=true;
+    coinControl->nFeeRate=CFeeRate(0);
+    coinControl->fAllowOtherInputs=true;
+
+    SendMoney(script, nAmount, whitelistAsset, fSubtractFeeFromAmount, confidentiality_pubkey, wtxNew, fIgnoreBlindFail, coinControl);
 }
 
 UniValue onboarduser(const JSONRPCRequest& request){

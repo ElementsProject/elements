@@ -2796,8 +2796,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         feeAsset = vecSend[0].asset;
     }
 
-    bool isPolicy=IsPolicy(feeAsset);
-
     wtxNew.fTimeReceivedIsTxTime = true;
     wtxNew.BindWallet(this);
     CMutableTransaction txNew;
@@ -2855,11 +2853,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         {
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, coinControl);
-        
-            isPolicy ? nFeeRet = 0 : nFeeRet = 1;
+
+            nFeeRet = 1;
             // Start with tiny non-zero fee for issuance entropy and loop until there is enough fee
             while (true)
-            {   
+            {
                 nChangePosInOut = nChangePosRequest;
                 output_pubkeys.clear();
                 int numToBlind = 0;
@@ -3010,7 +3008,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                         // Never create dust outputs; if we would, just
                         // add the dust to the fee.
-                        if (newTxOut.IsDust(dustRelayFee) && it->first == feeAsset &! isPolicy)
+                        if (newTxOut.IsDust(dustRelayFee) && it->first == feeAsset)
                         {
                             nChangePosInOut = -1;
                             nFeeRet += it->second;
@@ -3289,8 +3287,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         break;
                 }
 
-                if(isPolicy) break;
-
                 CAmount nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
                 if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
                     nFeeNeeded = coinControl->nMinimumTotalFee;
@@ -3299,13 +3295,12 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     nFeeNeeded = coinControl->nFeeRate.GetFee(nBytes);
 
                 // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
-                // because we must be at the maximum allowed fee.
-                if (nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))
-                    {
-                        strFailReason = _("Transaction too large for fee policy");
-                        return false;
-                    }
-                
+                // because we must be at the maximum allowed fee, if this is not a policy Tx
+                if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)) &! IsAllPolicy(txNew))
+                {
+                    strFailReason = _("Transaction too large for fee policy");
+                    return false;
+                }
 
                 if (nFeeRet >= nFeeNeeded) {
                     /* TODO Push actual blinding outside of loop and reactivate this logic
@@ -3388,7 +3383,6 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             return false;
         }
 
-        // If the fee asset
     }
 
     if (GetBoolArg("-walletrejectlongchains", DEFAULT_WALLET_REJECT_LONG_CHAINS)) {
