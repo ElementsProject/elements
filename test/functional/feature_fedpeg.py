@@ -15,8 +15,8 @@ from test_framework.util import (
 )
 from decimal import Decimal
 
-def get_new_unconfidential_address(node):
-    addr = node.getnewaddress()
+def get_new_unconfidential_address(node, addr_type="p2sh-segwit"):
+    addr = node.getnewaddress("", addr_type)
     val_addr = node.getaddressinfo(addr)
     if 'unconfidential' in val_addr:
         return val_addr['unconfidential']
@@ -153,6 +153,8 @@ class FedPegTest(BitcoinTestFramework):
                 pegout_tested = True
                 break
         assert pegout_tested
+        sidechain.generatetoaddress(1, sidechain.getnewaddress())
+        assert_equal(sidechain.gettransaction(pegout_txid)["confirmations"], 1)
 
     def run_test(self):
         parent = self.nodes[0]
@@ -294,8 +296,10 @@ class FedPegTest(BitcoinTestFramework):
             if "confirmations" not in tx or tx["confirmations"] == 0:
                 raise Exception("Peg-in confirmation has failed.")
 
-        print("Test pegout")
-        self.test_pegout(get_new_unconfidential_address(parent), sidechain)
+        print("Test pegouts")
+        self.test_pegout(get_new_unconfidential_address(parent, "legacy"), sidechain)
+        self.test_pegout(get_new_unconfidential_address(parent, "p2sh-segwit"), sidechain)
+        self.test_pegout(get_new_unconfidential_address(parent, "bech32"), sidechain)
 
         print("Test pegout P2SH")
         parent_chain_addr = get_new_unconfidential_address(parent)

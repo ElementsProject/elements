@@ -33,7 +33,6 @@ public:
     std::string operator()(const PKHash& id) const
     {
         if (id.blinding_pubkey.IsFullyValid()) {
-            assert(!for_parent);
             std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::BLINDED_ADDRESS);
             // Blinded addresses have the actual address type prefix inside the payload.
             std::vector<unsigned char> prefix = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
@@ -52,7 +51,6 @@ public:
     std::string operator()(const ScriptHash& id) const
     {
         if (id.blinding_pubkey.IsFullyValid()) {
-            assert(!for_parent);
             std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::BLINDED_ADDRESS);
             // Blinded addresses have the actual address type prefix inside the payload.
             std::vector<unsigned char> prefix = m_params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
