@@ -516,6 +516,7 @@ class CTxInWitness(object):
     def is_null(self):
         return len(self.vchIssuanceAmountRangeproof) == 0 \
             and len(self.vchInflationKeysRangeproof) == 0 \
+            and self.peginWitness.is_null() \
             and self.scriptWitness.is_null()
 
 
