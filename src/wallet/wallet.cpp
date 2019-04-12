@@ -2953,7 +2953,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
                 // One change script per output asset.
                 size_t index = 0;
-                for (const std::pair<CAsset, CAmount>& value : mapValue) {
+                for (const auto& value : mapValue) {
                     CPubKey vchPubKey;
                     if (index >= reserveKeys.size() || !reserveKeys[index]->GetReservedKey(vchPubKey, true)) {
                         strFailReason = _("Keypool ran out, please call keypoolrefill first");
@@ -3119,7 +3119,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
 
                 const CAmountMap mapChange = mapValueIn - mapValueToSelect;
 
-                for(const std::pair<CAsset, CAmount>& assetChange : mapChange) {
+                for(const auto& assetChange : mapChange) {
                     if (assetChange.second == 0) {
                         vChangePosInOut.erase(assetChange.first);
                         continue;
