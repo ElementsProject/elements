@@ -31,12 +31,12 @@ public:
 
     void setModel(WalletModel *model);
     bool validate(interfaces::Node& node);
-    SendCoinsRecipient getValue();
+    SendAssetsRecipient getValue();
 
     /** Return whether the entry is still empty and unedited */
     bool isClear();
 
-    void setValue(const SendCoinsRecipient &value);
+    void setValue(const SendAssetsRecipient &value);
     void setAddress(const QString &address);
     void setAmount(const CAmount &amount);
 
@@ -58,15 +58,17 @@ Q_SIGNALS:
     void subtractFeeFromAmountChanged();
 
 private Q_SLOTS:
+    void payAmountChangedInternal();
     void deleteClicked();
     void useAvailableBalanceClicked();
     void on_payTo_textChanged(const QString &address);
     void on_addressBookButton_clicked();
     void on_pasteButton_clicked();
     void updateDisplayUnit();
+    void updateAssetTypes();
 
 private:
-    SendCoinsRecipient recipient;
+    SendAssetsRecipient recipient;
     Ui::SendCoinsEntry *ui;
     WalletModel *model;
     const PlatformStyle *platformStyle;

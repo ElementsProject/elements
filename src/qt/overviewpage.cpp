@@ -88,11 +88,7 @@ public:
             foreground = option.palette.color(QPalette::Text);
         }
         painter->setPen(foreground);
-        QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true, BitcoinUnits::separatorAlways);
-        if(!confirmed)
-        {
-            amountText = QString("[") + amountText + QString("]");
-        }
+        QString amountText = index.sibling(index.row(), TransactionTableModel::Amount).data(Qt::DisplayRole).toString();
         painter->drawText(amountRect, Qt::AlignRight|Qt::AlignVCenter, amountText);
 
         painter->setPen(option.palette.color(QPalette::Text));
@@ -122,6 +118,11 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     ui->setupUi(this);
 
     m_balances.balance[::policyAsset] = -1;
+
+    // Move the "Recent Transactions" view below "Balances"
+    ui->verticalLayout_3->removeWidget(ui->frame_2);
+    ui->verticalLayout_2->addWidget(ui->frame_2);
+    ui->horizontalLayout->removeItem(ui->verticalLayout_3);
 
     // use a SingleColorIcon for the "out of sync warning" icon
     QIcon icon = platformStyle->SingleColorIcon(":/icons/warning");
@@ -163,19 +164,19 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 {
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     m_balances = balances;
-    ui->labelBalance->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelUnconfirmed->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.unconfirmed_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelImmature->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.immature_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelTotal->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.balance, ::policyAsset) + valueFor(balances.unconfirmed_balance, ::policyAsset) + valueFor(balances.immature_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchAvailable->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.watch_only_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchPending->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.unconfirmed_watch_only_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchImmature->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.immature_watch_only_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
-    ui->labelWatchTotal->setText(BitcoinUnits::formatWithUnit(unit, valueFor(balances.watch_only_balance, ::policyAsset) + valueFor(balances.unconfirmed_watch_only_balance, ::policyAsset) + valueFor(balances.immature_watch_only_balance, ::policyAsset), false, BitcoinUnits::separatorAlways));
+    ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelWatchAvailable->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelWatchPending->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelWatchImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+    ui->labelWatchTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
 
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users
-    bool showImmature = valueFor(balances.immature_balance, ::policyAsset) != 0;
-    bool showWatchOnlyImmature = valueFor(balances.immature_watch_only_balance, ::policyAsset) != 0;
+    bool showImmature = !!balances.immature_balance;
+    bool showWatchOnlyImmature = !!balances.immature_watch_only_balance;
 
     // for symmetry reasons also show immature label when the watch-only one is shown
     ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature);

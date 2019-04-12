@@ -2024,6 +2024,19 @@ bool CWalletTx::IsEquivalentTo(const CWalletTx& _tx) const
         return CTransaction(tx1) == CTransaction(tx2);
 }
 
+CAmountMap CWalletTx::GetIssuanceAssets(unsigned int input_index) const {
+    CAmountMap ret;
+    CAsset asset, token;
+    GetIssuanceAssets(input_index, &asset, &token);
+    if (!asset.IsNull()) {
+        ret[asset] = GetIssuanceAmount(input_index, false);
+    }
+    if (!token.IsNull()) {
+        ret[token] = GetIssuanceAmount(input_index, true);
+    }
+    return ret;
+}
+
 std::vector<uint256> CWallet::ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman)
 {
     std::vector<uint256> result;
@@ -5196,32 +5209,52 @@ CPubKey CWalletTx::GetOutputBlindingPubKey(unsigned int output_index) const {
     return ret;
 }
 
+void CWalletTx::GetIssuanceAssets(unsigned int input_index, CAsset* out_asset, CAsset* out_reissuance_token) const {
+    assert(input_index < tx->vin.size());
+    const CAssetIssuance& issuance = tx->vin[input_index].assetIssuance;
+
+    if (out_asset && issuance.nAmount.IsNull()) {
+        out_asset->SetNull();
+        out_asset = nullptr;
+    }
+    if (out_reissuance_token && issuance.nInflationKeys.IsNull()) {
+        out_reissuance_token->SetNull();
+        out_reissuance_token = nullptr;
+    }
+    if (!(out_asset || out_reissuance_token)) return;
+
+    if (issuance.assetBlindingNonce.IsNull()) {
+        uint256 entropy;
+        GenerateAssetEntropy(entropy, tx->vin[input_index].prevout, issuance.assetEntropy);
+        if (out_reissuance_token) {
+            CalculateReissuanceToken(*out_reissuance_token, entropy, issuance.nAmount.IsCommitment());
+        }
+        if (out_asset) {
+            CalculateAsset(*out_asset, entropy);
+        }
+    }
+    else {
+        if (out_reissuance_token) {
+            // Re-issuances don't emit issuance tokens
+            out_reissuance_token->SetNull();
+        }
+        if (out_asset) {
+            CalculateAsset(*out_asset, issuance.assetEntropy);
+        }
+    }
+}
+
 uint256 CWalletTx::GetIssuanceBlindingFactor(unsigned int input_index, bool reissuance_token) const {
     assert(input_index < tx->vin.size());
     CAsset asset;
     const CAssetIssuance& issuance = tx->vin[input_index].assetIssuance;
     const CTxWitness& wit = tx->witness;
-    if ((issuance.nAmount.IsNull() && !reissuance_token) || (issuance.nInflationKeys.IsNull() && reissuance_token)) {
+    GetIssuanceAssets(input_index, reissuance_token ? nullptr : &asset, reissuance_token ? &asset : nullptr);
+    if (asset.IsNull()) {
         return uint256();
     }
     const std::vector<unsigned char>& rangeproof = wit.vtxinwit.size() <= input_index ? std::vector<unsigned char>() : (reissuance_token ? wit.vtxinwit[input_index].vchInflationKeysRangeproof : wit.vtxinwit[input_index].vchIssuanceAmountRangeproof);
     unsigned int mapValueInd = GetPseudoInputOffset(input_index, reissuance_token)+tx->vout.size();
-  if (issuance.assetBlindingNonce.IsNull()) {
-        uint256 entropy;
-        GenerateAssetEntropy(entropy, tx->vin[input_index].prevout, issuance.assetEntropy);
-        if (reissuance_token) {
-            CalculateReissuanceToken(asset, entropy, issuance.nInflationKeys.IsCommitment());
-        } else {
-            CalculateAsset(asset, entropy);
-        }
-  }
-    else {
-        if (reissuance_token) {
-            // Re-issuances don't emit issuance tokens
-            return uint256();
-        }
-        CalculateAsset(asset, issuance.assetEntropy);
-    }
 
     uint256 ret;
     CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(tx->vin[input_index].prevout.hash.begin(), tx->vin[input_index].prevout.hash.end()) << tx->vin[input_index].prevout.n);
@@ -5232,31 +5265,18 @@ uint256 CWalletTx::GetIssuanceBlindingFactor(unsigned int input_index, bool reis
 CAmount CWalletTx::GetIssuanceAmount(unsigned int input_index, bool reissuance_token) const {
     assert(input_index < tx->vin.size());
     CAsset asset;
-    CAsset token;
     const CAssetIssuance& issuance = tx->vin[input_index].assetIssuance;
     const CTxWitness& wit = tx->witness;
-    if ((issuance.nAmount.IsNull() && !reissuance_token) || (issuance.nInflationKeys.IsNull() && reissuance_token)) {
-        return 0;
+    GetIssuanceAssets(input_index, reissuance_token ? nullptr : &asset, reissuance_token ? &asset : nullptr);
+    if (asset.IsNull()) {
+        return -1;
     }
     unsigned int mapValueInd = GetPseudoInputOffset(input_index, reissuance_token)+tx->vout.size();
     const std::vector<unsigned char>& rangeproof = wit.vtxinwit.size() <= input_index ? std::vector<unsigned char>() : (reissuance_token ? wit.vtxinwit[input_index].vchInflationKeysRangeproof : wit.vtxinwit[input_index].vchIssuanceAmountRangeproof);
-    if (issuance.assetBlindingNonce.IsNull()) {
-        uint256 entropy;
-        GenerateAssetEntropy(entropy, tx->vin[input_index].prevout, issuance.assetEntropy);
-        CalculateReissuanceToken(token, entropy, issuance.nAmount.IsCommitment());
-        CalculateAsset(asset, entropy);
-    }
-    else {
-        if (reissuance_token) {
-            // Re-issuances don't emit issuance tokens
-            return -1;
-        }
-        CalculateAsset(asset, issuance.assetEntropy);
-    }
 
     CAmount ret;
     CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(tx->vin[input_index].prevout.hash.begin(), tx->vin[input_index].prevout.hash.end()) << tx->vin[input_index].prevout.n);
-    GetBlindingData(mapValueInd, rangeproof, reissuance_token ? issuance.nInflationKeys : issuance.nAmount, CConfidentialAsset((reissuance_token ? token : asset)), CConfidentialNonce(), blindingScript, nullptr, &ret, nullptr, nullptr, nullptr);
+    GetBlindingData(mapValueInd, rangeproof, reissuance_token ? issuance.nInflationKeys : issuance.nAmount, CConfidentialAsset(asset), CConfidentialNonce(), blindingScript, nullptr, &ret, nullptr, nullptr, nullptr);
     return ret;
 }
 

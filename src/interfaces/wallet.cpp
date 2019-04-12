@@ -61,8 +61,14 @@ static WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LO
     WalletTx result;
     result.tx = wtx.tx;
     result.txin_is_mine.reserve(wtx.tx->vin.size());
-    for (const auto& txin : wtx.tx->vin) {
+    result.txin_issuance_asset.resize(wtx.tx->vin.size());
+    result.txin_issuance_token.resize(wtx.tx->vin.size());
+    for (unsigned int i = 0; i < wtx.tx->vin.size(); ++i) {
+        const auto& txin = wtx.tx->vin[i];
         result.txin_is_mine.emplace_back(wallet.IsMine(txin));
+        wtx.GetIssuanceAssets(i, &result.txin_issuance_asset[i], &result.txin_issuance_token[i]);
+        result.txin_issuance_asset_amount.emplace_back(wtx.GetIssuanceAmount(i, false));
+        result.txin_issuance_token_amount.emplace_back(wtx.GetIssuanceAmount(i, true));
     }
     result.txout_is_mine.reserve(wtx.tx->vout.size());
     result.txout_address.reserve(wtx.tx->vout.size());
@@ -73,6 +79,12 @@ static WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx) EXCLUSIVE_LO
         result.txout_address_is_mine.emplace_back(ExtractDestination(txout.scriptPubKey, result.txout_address.back()) ?
                                                       IsMine(wallet, result.txout_address.back()) :
                                                       ISMINE_NO);
+        result.txout_is_change.push_back(wallet.IsChange(txout));
+    }
+    // ELEMENTS: Retrieve unblinded information about outputs
+    for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
+        result.txout_amounts.emplace_back(wtx.GetOutputValueOut(i));
+        result.txout_assets.emplace_back(wtx.GetOutputAsset(i));
     }
     result.credit = wtx.GetCredit(ISMINE_ALL);
     result.debit = wtx.GetDebit(ISMINE_ALL);
@@ -181,6 +193,10 @@ public:
         return result;
     }
     void learnRelatedScripts(const CPubKey& key, OutputType type) override { m_wallet.LearnRelatedScripts(key, type); }
+    CPubKey getBlindingPubKey(const CScript& script) override
+    {
+        return m_wallet.GetBlindingPubKey(script);
+    }
     bool addDestData(const CTxDestination& dest, const std::string& key, const std::string& value) override
     {
         LOCK(m_wallet.cs_wallet);
@@ -220,14 +236,25 @@ public:
         bool sign,
         int& change_pos,
         CAmount& fee,
+        std::vector<CAmount>& out_amounts,
         std::string& fail_reason) override
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
         auto pending = MakeUnique<PendingWalletTxImpl>(m_wallet);
+        // Pad change keys to cover total possible number of assets
+        // One already exists(for policyAsset), so one for each destination
+        std::set<CAsset> assets_seen;
+        for (const auto& rec : recipients) {
+            if (assets_seen.insert(rec.asset).second) {
+                pending->m_keys.emplace_back(new CReserveKey(&m_wallet));
+            }
+        }
+        BlindDetails blind_details;
         if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_keys, fee, change_pos,
-                fail_reason, coin_control, sign)) {
+                fail_reason, coin_control, sign, g_con_elementsmode ? &blind_details : nullptr)) {
             return {};
         }
+        out_amounts = blind_details.o_amounts;
         return std::move(pending);
     }
     bool transactionCanBeAbandoned(const uint256& txid) override { return m_wallet.TransactionCanBeAbandoned(txid); }

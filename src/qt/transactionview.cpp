@@ -26,9 +26,11 @@
 #include <QDoubleValidator>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QItemDelegate>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
+#include <QPainter>
 #include <QPoint>
 #include <QScrollBar>
 #include <QSignalMapper>
@@ -36,6 +38,37 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
+
+class TransactionRecordDelegate : public QItemDelegate
+{
+    QSortFilterProxyModel* m_proxy;
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
+    {
+        bool alternate = false;
+        QVariant previous_hash;
+
+        for (int row = 0; row <= index.row(); ++row) {
+            QModelIndex sibling = m_proxy->mapToSource(index.sibling(row, 0));
+            QVariant hash = sibling.data(TransactionTableModel::TxHashRole);
+            if (row == 0) {
+                previous_hash = hash;
+            } else if (hash != previous_hash) {
+                alternate = !alternate;
+                previous_hash = hash;
+            }
+        }
+
+        if (alternate) {
+            painter->fillRect(option.rect, option.palette.alternateBase());
+        }
+
+        QItemDelegate::paint(painter, option, index);
+    }
+
+public:
+    TransactionRecordDelegate(QSortFilterProxyModel* proxy) : m_proxy(proxy) {}
+};
 
 TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *parent) :
     QWidget(parent), model(0), transactionProxyModel(0),
@@ -89,8 +122,9 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
                                         TransactionFilterProxy::TYPE(TransactionRecord::RecvFromOther));
     typeWidget->addItem(tr("Sent to"), TransactionFilterProxy::TYPE(TransactionRecord::SendToAddress) |
                                   TransactionFilterProxy::TYPE(TransactionRecord::SendToOther));
-    typeWidget->addItem(tr("To yourself"), TransactionFilterProxy::TYPE(TransactionRecord::SendToSelf));
     typeWidget->addItem(tr("Mined"), TransactionFilterProxy::TYPE(TransactionRecord::Generated));
+    typeWidget->addItem(tr("Fee"), TransactionFilterProxy::TYPE(TransactionRecord::Fee));
+    typeWidget->addItem(tr("Issuance"), TransactionFilterProxy::TYPE(TransactionRecord::IssuedAsset));
     typeWidget->addItem(tr("Other"), TransactionFilterProxy::TYPE(TransactionRecord::Other));
 
     hlayout->addWidget(typeWidget);
@@ -167,7 +201,6 @@ TransactionView::TransactionView(const PlatformStyle *platformStyle, QWidget *pa
     contextMenu->addAction(copyTxIDAction);
     contextMenu->addAction(copyTxHexAction);
     contextMenu->addAction(copyTxPlainText);
-    contextMenu->addAction(showDetailsAction);
     contextMenu->addSeparator();
     contextMenu->addAction(bumpFeeAction);
     contextMenu->addAction(abandonAction);
@@ -222,7 +255,7 @@ void TransactionView::setModel(WalletModel *_model)
 
         transactionView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         transactionView->setModel(transactionProxyModel);
-        transactionView->setAlternatingRowColors(true);
+        transactionView->setItemDelegate(new TransactionRecordDelegate(transactionProxyModel));
         transactionView->setSelectionBehavior(QAbstractItemView::SelectRows);
         transactionView->setSelectionMode(QAbstractItemView::ExtendedSelection);
         transactionView->setSortingEnabled(true);

@@ -20,6 +20,7 @@
 #include <util.h> // for GetBoolArg
 #include <wallet/coincontrol.h>
 #include <wallet/wallet.h>
+#include <rpc/util.h>
 
 #include <stdint.h>
 
@@ -28,6 +29,19 @@
 #include <QSet>
 #include <QTimer>
 
+SendAssetsRecipient::SendAssetsRecipient(SendCoinsRecipient r) :
+    address(r.address),
+    label(r.label),
+    asset(Params().GetConsensus().pegged_asset),
+    asset_amount(r.amount),
+    message(r.message),
+    paymentRequest(r.paymentRequest),
+    authenticatedMerchant(r.authenticatedMerchant),
+    fSubtractFeeFromAmount(r.fSubtractFeeFromAmount)
+{
+}
+
+#define SendCoinsRecipient SendAssetsRecipient
 
 WalletModel::WalletModel(std::unique_ptr<interfaces::Wallet> wallet, interfaces::Node& node, const PlatformStyle *platformStyle, OptionsModel *_optionsModel, QObject *parent) :
     QObject(parent), m_wallet(std::move(wallet)), m_node(node), optionsModel(_optionsModel), addressTableModel(0),
@@ -54,6 +68,11 @@ WalletModel::WalletModel(std::unique_ptr<interfaces::Wallet> wallet, interfaces:
 WalletModel::~WalletModel()
 {
     unsubscribeFromCoreSignals();
+}
+
+std::set<CAsset> WalletModel::getAssetTypes() const
+{
+    return cached_asset_types;
 }
 
 void WalletModel::updateStatus()
@@ -95,6 +114,16 @@ void WalletModel::checkBalanceChanged(const interfaces::WalletBalances& new_bala
     if(new_balances.balanceChanged(m_cached_balances)) {
         m_cached_balances = new_balances;
         Q_EMIT balanceChanged(new_balances);
+
+        std::set<CAsset> new_asset_types;
+        for (const auto& assetamount : new_balances.balance + new_balances.unconfirmed_balance) {
+            if (!assetamount.second) continue;
+            new_asset_types.insert(assetamount.first);
+        }
+        if (new_asset_types != cached_asset_types) {
+            cached_asset_types = new_asset_types;
+            Q_EMIT assetTypesChanged();
+        }
     }
 }
 
@@ -124,7 +153,7 @@ bool WalletModel::validateAddress(const QString &address)
 
 WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransaction &transaction, const CCoinControl& coinControl)
 {
-    CAmount total = 0;
+    CAmountMap total;
     bool fSubtractFeeFromAmount = false;
     QList<SendCoinsRecipient> recipients = transaction.getRecipients();
     std::vector<CRecipient> vecSend;
@@ -162,7 +191,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return InvalidAmount;
             }
-            total += subtotal;
+            total[Params().GetConsensus().pegged_asset] += subtotal;
         }
         else
         {   // User-entered bitcoin address / amount:
@@ -170,18 +199,20 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
             {
                 return InvalidAddress;
             }
-            if(rcp.amount <= 0)
+            if(rcp.asset_amount <= 0)
             {
                 return InvalidAmount;
             }
             setAddress.insert(rcp.address);
             ++nAddresses;
 
-            CScript scriptPubKey = GetScriptForDestination(DecodeDestination(rcp.address.toStdString()));
-            CRecipient recipient = {scriptPubKey, rcp.amount, ::policyAsset, CPubKey(), rcp.fSubtractFeeFromAmount};
+            CTxDestination dest = DecodeDestination(rcp.address.toStdString());
+            CScript scriptPubKey = GetScriptForDestination(dest);
+            CPubKey confidentiality_pubkey = GetDestinationBlindingKey(dest);
+            CRecipient recipient = {scriptPubKey, rcp.asset_amount, rcp.asset, confidentiality_pubkey, rcp.fSubtractFeeFromAmount};
             vecSend.push_back(recipient);
 
-            total += rcp.amount;
+            total[rcp.asset] += rcp.asset_amount;
         }
     }
     if(setAddress.size() != nAddresses)
@@ -189,7 +220,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         return DuplicateAddress;
     }
 
-    CAmount nBalance = m_wallet->getAvailableBalance(coinControl)[::policyAsset];
+    CAmountMap nBalance = m_wallet->getAvailableBalance(coinControl);
 
     if(total > nBalance)
     {
@@ -202,14 +233,17 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::string strFailReason;
 
         auto& newTx = transaction.getWtx();
-        newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
+        std::vector<CAmount> out_amounts;
+        newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, out_amounts, strFailReason);
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx)
-            transaction.reassignAmounts(nChangePosRet);
+            assert(out_amounts.size() == newTx->get().vout.size());
+            transaction.reassignAmounts(out_amounts, nChangePosRet);
 
         if(!newTx)
         {
-            if(!fSubtractFeeFromAmount && (total + nFeeRequired) > nBalance)
+            total[Params().GetConsensus().pegged_asset] += nFeeRequired;
+            if(!fSubtractFeeFromAmount && total > nBalance)
             {
                 return SendCoinsReturn(AmountWithFeeExceedsBalance);
             }

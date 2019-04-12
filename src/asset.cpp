@@ -121,6 +121,14 @@ bool operator!=(const CAmountMap& a, const CAmountMap& b)
     return !(a == b);
 }
 
+bool operator!(const CAmountMap& a)
+{
+    for (const auto& it : a) {
+        if (it.second) return false;
+    }
+    return true;
+}
+
 bool hasNegativeValue(const CAmountMap& amount)
 {
     for(std::map<CAsset, CAmount>::const_iterator it = amount.begin(); it != amount.end(); ++it) {

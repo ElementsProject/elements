@@ -22,5 +22,5 @@ if [ -n "$DPKG_ADD_ARCH" ]; then
 fi
 
 travis_retry DOCKER_EXEC apt-get update
-travis_retry DOCKER_EXEC apt-get install --no-install-recommends --no-upgrade -qq $PACKAGES $DOCKER_PACKAGES
+travis_retry DOCKER_EXEC apt-get install --no-install-recommends --no-upgrade -qq $COMMON_PACKAGES $PACKAGES $DOCKER_PACKAGES
 

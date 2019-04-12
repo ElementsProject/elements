@@ -40,6 +40,9 @@ public:
     /** @return the label associated to the asset id */
     std::string GetLabel(const CAsset& asset) const;
 
+    /** @return the label associated to the asset id, or some other identifier */
+    std::string GetIdentifier(const CAsset& asset) const;
+
     std::vector<CAsset> GetKnownAssets() const;
 };
 

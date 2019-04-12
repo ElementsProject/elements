@@ -36,96 +36,99 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     uint256 hash = wtx.tx->GetHash();
     std::map<std::string, std::string> mapValue = wtx.value_map;
 
-    if (nNet > 0 || wtx.is_coinbase)
-    {
-        //
-        // Credit
-        //
-        for(unsigned int i = 0; i < wtx.tx->vout.size(); i++)
-        {
-            const CTxOut& txout = wtx.tx->vout[i];
-            isminetype mine = wtx.txout_is_mine[i];
-            if(mine)
-            {
-                TransactionRecord sub(hash, nTime);
-                CTxDestination address;
-                sub.idx = i; // vout index
-                sub.credit = txout.nValue.GetAmount();
-                sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
-                if (wtx.txout_address_is_mine[i])
-                {
-                    // Received by Bitcoin Address
-                    sub.type = TransactionRecord::RecvWithAddress;
-                    sub.address = EncodeDestination(wtx.txout_address[i]);
-                }
-                else
-                {
-                    // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
-                    sub.type = TransactionRecord::RecvFromOther;
-                    sub.address = mapValue["from"];
-                }
-                if (wtx.is_coinbase)
-                {
-                    // Generated
-                    sub.type = TransactionRecord::Generated;
-                }
-
-                parts.append(sub);
-            }
-        }
+    bool involvesWatchAddress = false;
+    isminetype fAllFromMe = ISMINE_SPENDABLE;
+    bool any_from_me = false;
+    std::set<CAsset> assets_issued_to_me_only;
+    if (wtx.is_coinbase) {
+        fAllFromMe = ISMINE_NO;
     }
     else
     {
-        bool involvesWatchAddress = false;
-        isminetype fAllFromMe = ISMINE_SPENDABLE;
-        for (const isminetype mine : wtx.txin_is_mine)
+        CAmountMap assets_received_by_me_only;
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
         {
+            if (wtx.tx->vout[i].IsFee()) {
+                continue;
+            }
+            const CAsset& asset = wtx.txout_assets[i];
+            if (assets_received_by_me_only.count(asset) && assets_received_by_me_only.at(asset) < 0) {
+                // Already known to be received by not-me
+                continue;
+            }
+            isminetype mine = wtx.txout_address_is_mine[i];
+            if (!mine) {
+                assets_received_by_me_only[asset] = -1;
+            } else {
+                assets_received_by_me_only[asset] += wtx.txout_amounts[i];
+            }
+        }
+
+        any_from_me = false;
+        for (size_t i = 0; i < wtx.tx->vin.size(); ++i)
+        {
+            /* Issuance detection */
+            isminetype mine = wtx.txin_is_mine[i];
             if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
             if(fAllFromMe > mine) fAllFromMe = mine;
+            if (mine) any_from_me = true;
+            CAmountMap assets;
+            assets[wtx.txin_issuance_asset[i]] = wtx.txin_issuance_asset_amount[i];
+            assets[wtx.txin_issuance_token[i]] = wtx.txin_issuance_token_amount[i];
+            for (const auto& asset : assets) {
+                if (!asset.first.IsNull()) {
+                    if (assets_received_by_me_only.count(asset.first) == 0) {
+                        continue;
+                    }
+                    if (asset.second == assets_received_by_me_only.at(asset.first)) {
+                        // Special case: collapse the chain of issue, send, receive to just an issue
+                        assets_issued_to_me_only.insert(asset.first);
+                        continue;
+                    } else {
+                        TransactionRecord sub(hash, nTime);
+                        sub.involvesWatchAddress = involvesWatchAddress;
+                        sub.asset = asset.first;
+                        sub.amount = asset.second;
+                        sub.type = TransactionRecord::IssuedAsset;
+                        parts.append(sub);
+                    }
+                }
+            }
         }
+    }
 
-        isminetype fAllToMe = ISMINE_SPENDABLE;
-        for (const isminetype mine : wtx.txout_is_mine)
+    if (fAllFromMe || !any_from_me) {
+        for(unsigned int i = 0; i < wtx.tx->vout.size(); i++)
         {
-            if(mine & ISMINE_WATCH_ONLY) involvesWatchAddress = true;
-            if(fAllToMe > mine) fAllToMe = mine;
-        }
+            const CTxOut& txout = wtx.tx->vout[i];
+            const CAsset& asset = wtx.txout_assets[i];
+            if (txout.IsFee()) {
+                // explicit fee; ignore
+                continue;
+            }
 
-        if (fAllFromMe && fAllToMe)
-        {
-            // Payment to self
-            CAmount nChange = valueFor(wtx.change, ::policyAsset);
+            if (fAllFromMe && assets_issued_to_me_only.count(asset) == 0) {
+                // Change is only really possible if we're the sender
+                // Otherwise, someone just sent bitcoins to a change address, which should be shown
 
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::SendToSelf, "",
-                            -(nDebit - nChange), nCredit - nChange));
-            parts.last().involvesWatchAddress = involvesWatchAddress;   // maybe pass to TransactionRecord as constructor argument
-        }
-        else if (fAllFromMe)
-        {
-            //
-            // Debit
-            //
-            CAmount nTxFee = nDebit - wtx.tx->GetValueOutMap()[::policyAsset];
-
-            for (unsigned int nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
-            {
-                const CTxOut& txout = wtx.tx->vout[nOut];
-                TransactionRecord sub(hash, nTime);
-                sub.idx = nOut;
-                sub.involvesWatchAddress = involvesWatchAddress;
-
-                if(wtx.txout_is_mine[nOut])
-                {
-                    // Ignore parts sent to self, as this is usually the change
-                    // from a transaction sent back to our own address.
+                if (wtx.txout_is_change[i]) {
                     continue;
                 }
 
-                if (!boost::get<CNoDestination>(&wtx.txout_address[nOut]))
+                //
+                // Debit
+                //
+                TransactionRecord sub(hash, nTime);
+                sub.idx = i;
+                sub.involvesWatchAddress = involvesWatchAddress;
+                sub.amount = -wtx.txout_amounts[i];
+                sub.asset = asset;
+
+                if (!boost::get<CNoDestination>(&wtx.txout_address[i]))
                 {
                     // Sent to Bitcoin Address
                     sub.type = TransactionRecord::SendToAddress;
-                    sub.address = EncodeDestination(wtx.txout_address[nOut]);
+                    sub.address = EncodeDestination(wtx.txout_address[i]);
                 }
                 else
                 {
@@ -133,27 +136,68 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     sub.type = TransactionRecord::SendToOther;
                     sub.address = mapValue["to"];
                 }
+                parts.append(sub);
+            }
 
-                CAmount nValue = txout.nValue.GetAmount();
-                /* Add fee to first output */
-                if (nTxFee > 0)
+            isminetype mine = wtx.txout_is_mine[i];
+            if(mine)
+            {
+                //
+                // Credit
+                //
+
+                TransactionRecord sub(hash, nTime);
+                CTxDestination address;
+                sub.idx = i; // vout index
+                sub.amount = wtx.txout_amounts[i];
+                sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
+                if (wtx.txout_address_is_mine[i])
                 {
-                    nValue += nTxFee;
-                    nTxFee = 0;
+                    // Received by Bitcoin Address
+                    sub.type = TransactionRecord::RecvWithAddress;
+                    sub.address = EncodeDestination(wtx.txout_address[i]);
+                    sub.asset = asset;
                 }
-                sub.debit = -nValue;
+                else
+                {
+                    // Received by IP connection (deprecated features), or a multisignature or other non-simple transaction
+                    sub.type = TransactionRecord::RecvFromOther;
+                    sub.address = mapValue["from"];
+                    sub.asset = wtx.txout_assets[i];
+                }
+                if (wtx.is_coinbase)
+                {
+                    // Generated
+                    sub.type = TransactionRecord::Generated;
+                    sub.asset = wtx.txout_assets[i];
+                }
+                if (assets_issued_to_me_only.count(wtx.txout_assets[i])) {
+                    sub.type = TransactionRecord::IssuedAsset;
+                }
 
                 parts.append(sub);
             }
         }
-        else
-        {
-            //
-            // Mixed debit transaction, can't break down payees
-            //
-            parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, 0));
-            parts.last().involvesWatchAddress = involvesWatchAddress;
+
+        if (fAllFromMe) {
+            for (const auto& tx_fee : GetFeeMap(*wtx.tx)) {
+                if (!tx_fee.second) continue;
+
+                TransactionRecord sub(hash, nTime);
+                sub.type = TransactionRecord::Fee;
+                sub.asset = tx_fee.first;
+                sub.amount = -tx_fee.second;
+                parts.append(sub);
+            }
         }
+    }
+    else
+    {
+        //
+        // Mixed debit transaction, can't break down payees
+        //
+        parts.append(TransactionRecord(hash, nTime, TransactionRecord::Other, "", nNet, CAsset()));
+        parts.last().involvesWatchAddress = involvesWatchAddress;
     }
 
     return parts;
@@ -164,11 +208,32 @@ void TransactionRecord::updateStatus(const interfaces::WalletTxStatus& wtx, int 
     // Determine transaction status
 
     // Sort order, unrecorded transactions sort to the top
-    status.sortKey = strprintf("%010d-%01d-%010u-%03d",
+    int typesort;
+    switch (type) {
+    case Fee:
+        typesort = 0;
+        break;
+    case IssuedAsset:
+        typesort = 1;
+        break;
+    case SendToAddress:
+    case SendToOther:
+    case SendToSelf:
+        typesort = 2;
+        break;
+    case RecvWithAddress:
+    case RecvFromOther:
+        typesort = 3;
+        break;
+    default:
+        typesort = 10;
+    }
+    status.sortKey = strprintf("%010d-%01d-%010u-%03d-%d",
         wtx.block_height,
         wtx.is_coinbase ? 1 : 0,
         wtx.time_received,
-        idx);
+        idx,
+        typesort);
     status.countsForBalance = wtx.is_trusted && !(wtx.blocks_to_maturity > 0);
     status.depth = wtx.depth_in_main_chain;
     status.cur_num_blocks = numBlocks;

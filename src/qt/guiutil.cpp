@@ -11,6 +11,7 @@
 
 #include <asset.h>
 #include <base58.h>
+#include <assetsdir.h>
 #include <chainparams.h>
 #include <primitives/transaction.h>
 #include <key_io.h>
@@ -87,13 +88,15 @@ QFont fixedPitchFont()
 }
 
 // Just some dummy data to generate a convincing random-looking (but consistent) address
-static const uint8_t dummydata[] = {0xeb,0x15,0x23,0x1d,0xfc,0xeb,0x60,0x92,0x58,0x86,0xb6,0x7d,0x06,0x52,0x99,0x92,0x59,0x15,0xae,0xb1,0x72,0xc0,0x66,0x47};
+static const uint8_t dummydata[33] = {3};
 
 // Generate a dummy address with invalid CRC, starting with the network prefix.
 static std::string DummyAddress(const CChainParams &params)
 {
-    std::vector<unsigned char> sourcedata = params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);
-    sourcedata.insert(sourcedata.end(), dummydata, dummydata + sizeof(dummydata));
+    std::vector<unsigned char> sourcedata;
+    CPubKey dummy_key(&dummydata[0], &dummydata[33]);
+    ScriptHash script_dest(uint160(), dummy_key);
+    DecodeBase58(EncodeDestination(script_dest), sourcedata);
     for(int i=0; i<256; ++i) { // Try every trailing byte
         std::string s = EncodeBase58(sourcedata.data(), sourcedata.data() + sourcedata.size());
         if (!IsValidDestinationString(s)) {
@@ -111,7 +114,7 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
     widget->setFont(fixedPitchFont());
     // We don't want translators to use own addresses in translations
     // and this is the only place, where this address is supplied.
-    widget->setPlaceholderText(QObject::tr("Enter a Bitcoin address (e.g. %1)").arg(
+    widget->setPlaceholderText(QObject::tr("Enter a Liquid address (e.g. %1)").arg(
         QString::fromStdString(DummyAddress(Params()))));
     widget->setValidator(new BitcoinAddressEntryValidator(parent));
     widget->setCheckValidator(new BitcoinAddressCheckValidator(parent));
@@ -119,6 +122,8 @@ void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent)
 
 bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
 {
+    return false;  // TODO
+
     // return if URI is not valid or is no bitcoin: URI
     if(!uri.isValid() || uri.scheme() != QString("bitcoin"))
         return false;
@@ -771,6 +776,61 @@ fs::path qstringToBoostPath(const QString &path)
 QString boostPathToQString(const fs::path &path)
 {
     return QString::fromStdString(path.string(utf8));
+}
+
+QString formatAssetAmount(const CAsset& asset, const CAmount& amount, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators, bool include_asset_name)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        if (include_asset_name) {
+            return BitcoinUnits::formatWithUnit(bitcoin_unit, amount, false, separators);
+        } else {
+            return BitcoinUnits::format(bitcoin_unit, amount, false, separators);
+        }
+    }
+
+    qlonglong abs = qAbs(amount);
+    qlonglong whole = abs / 100000000;
+    qlonglong fraction = abs % 100000000;
+    QString str = QString("%1").arg(whole);
+    if (amount < 0) {
+        str.insert(0, '-');
+    }
+    if (fraction) {
+        str += QString(".%1").arg(fraction, 8, 10, QLatin1Char('0'));
+    }
+    if (include_asset_name) {
+        str += QString(" ") + QString::fromStdString(gAssetsDir.GetIdentifier(asset));
+    }
+    return str;
+}
+
+QString formatMultiAssetAmount(const CAmountMap& amountmap, const int bitcoin_unit, BitcoinUnits::SeparatorStyle separators, QString line_separator)
+{
+    QStringList ret;
+    if (bitcoin_unit >= 0) {
+        ret << formatAssetAmount(Params().GetConsensus().pegged_asset, amountmap.count(Params().GetConsensus().pegged_asset) ? amountmap.at(Params().GetConsensus().pegged_asset) : 0, bitcoin_unit, separators);
+    }
+    for (const auto& assetamount : amountmap) {
+        if (assetamount.first == Params().GetConsensus().pegged_asset) {
+            // Already handled first
+            continue;
+        }
+        if (!assetamount.second) {
+            // Don't include zero-amount assets
+            continue;
+        }
+        ret << formatAssetAmount(assetamount.first, assetamount.second, bitcoin_unit, separators);
+    }
+    return ret.join(line_separator);
+}
+
+bool parseAssetAmount(const CAsset& asset, const QString& text, const int bitcoin_unit, CAmount *val_out)
+{
+    if (asset == Params().GetConsensus().pegged_asset) {
+        return BitcoinUnits::parse(bitcoin_unit, text, val_out);
+    }
+
+    return BitcoinUnits::parse(BitcoinUnits::BTC, text, val_out);
 }
 
 QString formatDurationStr(int secs)

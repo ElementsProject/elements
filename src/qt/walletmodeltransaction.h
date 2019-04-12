@@ -11,7 +11,7 @@
 
 #include <QObject>
 
-class SendCoinsRecipient;
+class SendAssetsRecipient;
 
 namespace interfaces {
 class Node;
@@ -22,9 +22,9 @@ class PendingWalletTx;
 class WalletModelTransaction
 {
 public:
-    explicit WalletModelTransaction(const QList<SendCoinsRecipient> &recipients);
+    explicit WalletModelTransaction(const QList<SendAssetsRecipient> &recipients);
 
-    QList<SendCoinsRecipient> getRecipients() const;
+    QList<SendAssetsRecipient> getRecipients() const;
 
     std::unique_ptr<interfaces::PendingWalletTx>& getWtx();
     unsigned int getTransactionSize();
@@ -32,12 +32,12 @@ public:
     void setTransactionFee(const CAmount& newFee);
     CAmount getTransactionFee() const;
 
-    CAmount getTotalTransactionAmount() const;
+    CAmountMap getTotalTransactionAmount() const;
 
-    void reassignAmounts(int nChangePosRet); // needed for the subtract-fee-from-amount feature
+    void reassignAmounts(const std::vector<CAmount>& out_amounts, int nChangePosRet); // needed for the subtract-fee-from-amount feature
 
 private:
-    QList<SendCoinsRecipient> recipients;
+    QList<SendAssetsRecipient> recipients;
     std::unique_ptr<interfaces::PendingWalletTx> wtx;
     CAmount fee;
 };

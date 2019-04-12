@@ -380,7 +380,8 @@ QString AddressTableModel::addRow(const QString &type, const QString &label, con
             }
         }
         walletModel->wallet().learnRelatedScripts(newKey, address_type);
-        strAddress = EncodeDestination(GetDestinationForKey(newKey, address_type));
+        CPubKey blinding_pubkey = walletModel->wallet().getBlindingPubKey(GetScriptForDestination(GetDestinationForKey(newKey, address_type)));
+        strAddress = EncodeDestination(GetDestinationForKey(newKey, address_type, blinding_pubkey));
     }
     else
     {

@@ -468,7 +468,7 @@
 <context>
     <name>QObject</name>
     <message>
-        <source>Enter a Bitcoin address (e.g. %1)</source>
+        <source>Enter a Liquid address (e.g. %1)</source>
         <translation>輸入一個 Bitcoin 位址 (例如 %1)</translation>
     </message>
     <message>

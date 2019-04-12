@@ -7,6 +7,8 @@
 #include <interfaces/node.h>
 #include <policy/policy.h>
 
+#define SendCoinsRecipient SendAssetsRecipient
+
 WalletModelTransaction::WalletModelTransaction(const QList<SendCoinsRecipient> &_recipients) :
     recipients(_recipients),
     fee(0)
@@ -38,13 +40,13 @@ void WalletModelTransaction::setTransactionFee(const CAmount& newFee)
     fee = newFee;
 }
 
-void WalletModelTransaction::reassignAmounts(int nChangePosRet)
+void WalletModelTransaction::reassignAmounts(const std::vector<CAmount>& outAmounts, int nChangePosRet)
 {
     const CTransaction* walletTransaction = &wtx->get();
     int i = 0;
-    for (QList<SendCoinsRecipient>::iterator it = recipients.begin(); it != recipients.end(); ++it)
+    for (auto it = recipients.begin(); it != recipients.end(); ++it)
     {
-        SendCoinsRecipient& rcp = (*it);
+        auto& rcp = (*it);
 
         if (rcp.paymentRequest.IsInitialized())
         {
@@ -56,27 +58,27 @@ void WalletModelTransaction::reassignAmounts(int nChangePosRet)
                 if (out.amount() <= 0) continue;
                 if (i == nChangePosRet)
                     i++;
-                subtotal += walletTransaction->vout[i].nValue.GetAmount();
+                subtotal += g_con_elementsmode ? outAmounts[i] : walletTransaction->vout[i].nValue.GetAmount();
                 i++;
             }
-            rcp.amount = subtotal;
+            rcp.asset_amount = subtotal;
         }
         else // normal recipient (no payment request)
         {
             if (i == nChangePosRet)
                 i++;
-            rcp.amount = walletTransaction->vout[i].nValue.GetAmount();
+            rcp.asset_amount = g_con_elementsmode ? outAmounts[i] : walletTransaction->vout[i].nValue.GetAmount();
             i++;
         }
     }
 }
 
-CAmount WalletModelTransaction::getTotalTransactionAmount() const
+CAmountMap WalletModelTransaction::getTotalTransactionAmount() const
 {
-    CAmount totalTransactionAmount = 0;
-    for (const SendCoinsRecipient &rcp : recipients)
+    CAmountMap totalTransactionAmount;
+    for (const auto &rcp : recipients)
     {
-        totalTransactionAmount += rcp.amount;
+        totalTransactionAmount[rcp.asset] += rcp.asset_amount;
     }
     return totalTransactionAmount;
 }

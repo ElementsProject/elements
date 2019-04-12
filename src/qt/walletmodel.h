@@ -105,6 +105,24 @@ public:
     }
 };
 
+class SendAssetsRecipient
+{
+public:
+    explicit SendAssetsRecipient() : fSubtractFeeFromAmount(false) { }
+    explicit SendAssetsRecipient(SendCoinsRecipient r);
+public:
+    QString address;
+    QString label;
+    CAsset asset;
+    CAmount asset_amount;
+    QString message;
+
+    PaymentRequestPlus paymentRequest;
+    QString authenticatedMerchant;
+
+    bool fSubtractFeeFromAmount; // memory only
+};
+
 /** Interface to Bitcoin wallet from Qt view code. */
 class WalletModel : public QObject
 {
@@ -140,6 +158,7 @@ public:
     TransactionTableModel *getTransactionTableModel();
     RecentRequestsTableModel *getRecentRequestsTableModel();
 
+    std::set<CAsset> getAssetTypes() const;
     EncryptionStatus getEncryptionStatus() const;
 
     // Check address for validity
@@ -230,6 +249,7 @@ private:
 
     // Cache some values to be able to detect changes
     interfaces::WalletBalances m_cached_balances;
+    std::set<CAsset> cached_asset_types;
     EncryptionStatus cachedEncryptionStatus;
     int cachedNumBlocks;
 
@@ -243,6 +263,9 @@ Q_SIGNALS:
     // Signal that balance in wallet changed
     void balanceChanged(const interfaces::WalletBalances& balances);
 
+    // Signal that the set of possessed asset types changed
+    void assetTypesChanged();
+
     // Encryption status of wallet changed
     void encryptionStatusChanged();
 
@@ -255,7 +278,7 @@ Q_SIGNALS:
     void message(const QString &title, const QString &message, unsigned int style);
 
     // Coins sent: from wallet, to recipient, in (serialized) transaction:
-    void coinsSent(WalletModel* wallet, SendCoinsRecipient recipient, QByteArray transaction);
+    void coinsSent(WalletModel* wallet, SendAssetsRecipient recipient, QByteArray transaction);
 
     // Show progress dialog e.g. for rescan
     void showProgress(const QString &title, int nProgress);

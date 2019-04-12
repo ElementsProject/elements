@@ -14,6 +14,9 @@
 #include <QApplication>
 #include <QClipboard>
 
+#include <policy/policy.h>
+#include <chainparams.h>
+
 SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *parent) :
     QStackedWidget(parent),
     ui(new Ui::SendCoinsEntry),
@@ -42,6 +45,7 @@ SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *par
     // Connect signals
     connect(ui->payAmount, &BitcoinAmountField::valueChanged, this, &SendCoinsEntry::payAmountChanged);
     connect(ui->checkboxSubtractFeeFromAmount, &QCheckBox::toggled, this, &SendCoinsEntry::subtractFeeFromAmountChanged);
+    connect(ui->payAmount, &BitcoinAmountField::valueChanged, this, &SendCoinsEntry::payAmountChangedInternal);
     connect(ui->deleteButton, &QPushButton::clicked, this, &SendCoinsEntry::deleteClicked);
     connect(ui->deleteButton_is, &QPushButton::clicked, this, &SendCoinsEntry::deleteClicked);
     connect(ui->deleteButton_s, &QPushButton::clicked, this, &SendCoinsEntry::deleteClicked);
@@ -81,8 +85,10 @@ void SendCoinsEntry::setModel(WalletModel *_model)
 {
     this->model = _model;
 
-    if (_model && _model->getOptionsModel())
+    if (_model && _model->getOptionsModel()) {
         connect(_model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &SendCoinsEntry::updateDisplayUnit);
+        connect(_model, &WalletModel::assetTypesChanged, this, &SendCoinsEntry::updateAssetTypes);
+    }
 
     clear();
 }
@@ -107,7 +113,19 @@ void SendCoinsEntry::clear()
     ui->payAmount_s->clear();
 
     // update the display unit, to not use the default ("BTC")
+    updateAssetTypes();
     updateDisplayUnit();
+}
+
+void SendCoinsEntry::payAmountChangedInternal()
+{
+    const auto send_assets = ui->payAmount->fullValue();
+    if (send_assets.first == Params().GetConsensus().pegged_asset) {
+        ui->checkboxSubtractFeeFromAmount->setEnabled(true);
+    } else {
+        ui->checkboxSubtractFeeFromAmount->setCheckState(Qt::Unchecked);
+        ui->checkboxSubtractFeeFromAmount->setEnabled(false);
+    }
 }
 
 void SendCoinsEntry::checkSubtractFeeFromAmount()
@@ -149,14 +167,15 @@ bool SendCoinsEntry::validate(interfaces::Node& node)
     }
 
     // Sending a zero amount is invalid
-    if (ui->payAmount->value(0) <= 0)
+    const auto send_assets = ui->payAmount->fullValue();
+    if (send_assets.second <= 0)
     {
         ui->payAmount->setValid(false);
         retval = false;
     }
 
     // Reject dust outputs:
-    if (retval && GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
+    if (retval && send_assets.first == ::policyAsset && GUIUtil::isDust(node, ui->payTo->text(), ui->payAmount->value())) {
         ui->payAmount->setValid(false);
         retval = false;
     }
@@ -164,7 +183,7 @@ bool SendCoinsEntry::validate(interfaces::Node& node)
     return retval;
 }
 
-SendCoinsRecipient SendCoinsEntry::getValue()
+SendAssetsRecipient SendCoinsEntry::getValue()
 {
     // Payment request
     if (recipient.paymentRequest.IsInitialized())
@@ -173,7 +192,7 @@ SendCoinsRecipient SendCoinsEntry::getValue()
     // Normal payment
     recipient.address = ui->payTo->text();
     recipient.label = ui->addAsLabel->text();
-    recipient.amount = ui->payAmount->value();
+    std::tie(recipient.asset, recipient.asset_amount) = ui->payAmount->fullValue();
     recipient.message = ui->messageTextLabel->text();
     recipient.fSubtractFeeFromAmount = (ui->checkboxSubtractFeeFromAmount->checkState() == Qt::Checked);
 
@@ -192,7 +211,7 @@ QWidget *SendCoinsEntry::setupTabChain(QWidget *prev)
     return ui->deleteButton;
 }
 
-void SendCoinsEntry::setValue(const SendCoinsRecipient &value)
+void SendCoinsEntry::setValue(const SendAssetsRecipient &value)
 {
     recipient = value;
 
@@ -202,7 +221,7 @@ void SendCoinsEntry::setValue(const SendCoinsRecipient &value)
         {
             ui->payTo_is->setText(recipient.address);
             ui->memoTextLabel_is->setText(recipient.message);
-            ui->payAmount_is->setValue(recipient.amount);
+            ui->payAmount_is->setFullValue(recipient.asset, recipient.asset_amount);
             ui->payAmount_is->setReadOnly(true);
             setCurrentWidget(ui->SendCoins_UnauthenticatedPaymentRequest);
         }
@@ -210,7 +229,7 @@ void SendCoinsEntry::setValue(const SendCoinsRecipient &value)
         {
             ui->payTo_s->setText(recipient.authenticatedMerchant);
             ui->memoTextLabel_s->setText(recipient.message);
-            ui->payAmount_s->setValue(recipient.amount);
+            ui->payAmount_s->setFullValue(recipient.asset, recipient.asset_amount);
             ui->payAmount_s->setReadOnly(true);
             setCurrentWidget(ui->SendCoins_AuthenticatedPaymentRequest);
         }
@@ -226,7 +245,7 @@ void SendCoinsEntry::setValue(const SendCoinsRecipient &value)
         ui->payTo->setText(recipient.address); // this may set a label from addressbook
         if (!recipient.label.isEmpty()) // if a label had been set from the addressbook, don't overwrite with an empty label
             ui->addAsLabel->setText(recipient.label);
-        ui->payAmount->setValue(recipient.amount);
+        ui->payAmount->setFullValue(recipient.asset, recipient.asset_amount);
     }
 }
 
@@ -249,6 +268,13 @@ bool SendCoinsEntry::isClear()
 void SendCoinsEntry::setFocus()
 {
     ui->payTo->setFocus();
+}
+
+void SendCoinsEntry::updateAssetTypes()
+{
+    if (model) {
+        ui->payAmount->setAllowedAssets(model->getAssetTypes());
+    }
 }
 
 void SendCoinsEntry::updateDisplayUnit()

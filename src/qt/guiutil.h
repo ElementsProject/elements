@@ -7,6 +7,8 @@
 
 #include <amount.h>
 #include <fs.h>
+#include <qt/bitcoinunits.h>
+#include <asset.h>
 
 #include <QEvent>
 #include <QHeaderView>
@@ -186,6 +188,15 @@ namespace GUIUtil
 
     /* Convert OS specific boost path to QString through UTF-8 */
     QString boostPathToQString(const fs::path &path);
+
+    /* Format an amount of assets in a user-friendly style */
+    QString formatAssetAmount(const CAsset&, const CAmount&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, bool include_asset_name = true);
+
+    /* Format one or more asset+amounts in a user-friendly style */
+    QString formatMultiAssetAmount(const CAmountMap&, int bitcoin_unit, BitcoinUnits::SeparatorStyle, QString line_separator);
+
+    /* Parse an amount of a given asset from text */
+    bool parseAssetAmount(const CAsset&, const QString& text, int bitcoin_unit, CAmount *val_out);
 
     /* Convert seconds into a QString with days, hours, mins, secs */
     QString formatDurationStr(int secs);
