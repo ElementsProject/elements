@@ -109,6 +109,7 @@ class FedPegTest(BitcoinTestFramework):
                 extra_args.extend([
                     '-parentpubkeyprefix=111',
                     '-parentscriptprefix=196',
+                    "-parent_bech32_hrp=ert",
                     '-con_parent_chain_signblockscript=51',
                     '-con_parent_pegged_asset=%s' % parent_pegged_asset,
                 ])
