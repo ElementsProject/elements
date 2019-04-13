@@ -5717,6 +5717,8 @@ UniValue issueasset(const JSONRPCRequest& request)
         throw std::runtime_error(
             "issueasset assetamount tokenamount ( blind )\n"
             "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
+            "For more fine-grained control such as non-empty contract-hashes to commit\n"
+            "to an issuance policy, see `rawissueasset` RPC call.\n"
             "\nArguments:\n"
             "1. \"assetamount\"           (numeric or string, required) Amount of asset to generate.\n"
             "2. \"tokenamount\"           (numeric or string, required) Amount of reissuance tokens to generate. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance.\n"
@@ -5807,6 +5809,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
         throw std::runtime_error(
             "reissueasset \"asset\" assetamount\n"
             "\nCreate more of an already issued asset. Must have reissuance token in wallet to do so. Reissuing does not affect your reissuance token balance, only asset.\n"
+            "For more fine-grained control such as reissuing from a multi-signature address cold wallet, see `rawreissueasset` RPC call.\n"
             "\nArguments:\n"
             "1. \"asset\"                 (string, required) The asset you want to re-issue. The corresponding token must be in your wallet.\n"
             "2. \"assetamount\"           (numeric or string, required) Amount of additional asset to generate.\n"
