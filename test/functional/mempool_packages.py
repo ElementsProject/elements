@@ -8,12 +8,11 @@ from decimal import Decimal
 
 from test_framework.messages import COIN
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, satoshi_round, sync_blocks, sync_mempools
+from test_framework.util import assert_equal, assert_raises_rpc_error, satoshi_round, sync_blocks, sync_mempools, assert_greater_than
 import time
 
 MAX_ANCESTORS = 25
 MAX_DESCENDANTS = 25
-
 class MempoolPackagesTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
@@ -58,10 +57,17 @@ class MempoolPackagesTest(BitcoinTestFramework):
 
         # Mine some blocks and have them mature.
         self.nodes[0].generate(101)
-        utxo = self.nodes[0].listunspent(10)
-        txid = utxo[0]['txid']
-        vout = utxo[0]['vout']
-        value = utxo[0]['amount']
+        utxos = []
+        for utxo in self.nodes[0].listunspent(10):
+            # Skip change/fees we scooped up
+            if utxo['amount'] != Decimal(50):
+                continue
+            utxos.append(utxo)
+        assert_greater_than(len(utxos), 1)
+
+        txid = utxos[0]['txid']
+        vout = utxos[0]['vout']
+        value = utxos[0]['amount']
 
         fee = Decimal("0.0001")
         # MAX_ANCESTORS transactions off a confirmed tx should be fine
@@ -208,9 +214,9 @@ class MempoolPackagesTest(BitcoinTestFramework):
         # TODO: test ancestor size limits
 
         # Now test descendant chain limits
-        txid = utxo[1]['txid']
-        value = utxo[1]['amount']
-        vout = utxo[1]['vout']
+        txid = utxos[1]['txid']
+        value = utxos[1]['amount']
+        vout = utxos[1]['vout']
 
         transaction_package = []
         tx_children = []
