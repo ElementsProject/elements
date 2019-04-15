@@ -131,7 +131,16 @@ class RequestsTest(BitcoinTestFramework):
     assert_equal(self.nodes[1].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05"), [])
     assert_equal(requests, [])
 
-    # try send spend transaction
+    #test stopping and restarting to make sure list is reloaded
+    self.stop_node(1)
+    self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+    assert_equal(2, len(self.nodes[1].getrequests()))
+    assert_equal(self.nodes[1].getrequests(genesis), self.nodes[0].getrequests(genesis))
+    assert_equal(self.nodes[1].getrequests(genesis2), self.nodes[0].getrequests(genesis2))
+    connect_nodes_bi(self.nodes, 0, 1)
+    self.sync_all()
+
+    # try send spend transcation
     inputs = {"txid": txid, "vout": 0, "sequence": 4294967294}
     addr = self.nodes[1].getnewaddress()
     outputs = {addr: unspent[0]["amount"]}
@@ -142,8 +151,9 @@ class RequestsTest(BitcoinTestFramework):
 
     # make request 1 inactive
     self.nodes[0].generate(10)
+    self.sync_all()
     requests = self.nodes[0].getrequests()
-    assert_equal(requests, len(self.nodes[1].getrequests()))
+    assert_equal(requests, self.nodes[1].getrequests())
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -174,7 +184,7 @@ class RequestsTest(BitcoinTestFramework):
     signedTxSpend = self.nodes[1].signrawtransaction(txSpend)
     txidSpend = self.nodes[1].sendrawtransaction(signedTxSpend["hex"])
 
-    # try spend second transcation
+    # try spend second transaction
     inputs2 = {"txid": txid2, "vout": 0, "sequence": 4294967294}
     addr2 = self.nodes[1].getnewaddress()
     outputs2 = {addr2: unspent[1]["amount"]}

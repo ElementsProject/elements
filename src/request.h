@@ -18,11 +18,11 @@ class CBid {};
 /** Class for service requests */
 class CRequest {
 public:
-    int32_t nNumTickets;
-    int32_t nDecayConst;
-    int32_t nFeePercentage;
-    int32_t nStartBlockHeight;
-    int32_t nEndBlockHeight;
+    uint32_t nNumTickets;
+    uint32_t nDecayConst;
+    uint32_t nFeePercentage;
+    uint32_t nStartBlockHeight;
+    uint32_t nEndBlockHeight;
     uint256 hashGenesis;
 
     // removed until CBid class is finalized

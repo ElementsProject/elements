@@ -36,7 +36,11 @@ public:
     base::size_type size();
 
     // Load request list for utxo set
-    bool Load(CCoinsView *view);
+    bool Load(CCoinsView *view, uint32_t nHeight);
+
+    // Remove any expired requests
+    void RemoveExpired(uint32_t nHeight);
+
 
 protected:
     boost::recursive_mutex _mtx;

@@ -1007,11 +1007,11 @@ UniValue requestToJSON(const CRequest &request)
 {
     UniValue item(UniValue::VOBJ);
     item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
-    item.push_back(Pair("startBlockHeight", request.nStartBlockHeight));
-    item.push_back(Pair("numTickets", request.nNumTickets));
-    item.push_back(Pair("decayConst", request.nDecayConst));
-    item.push_back(Pair("feePercentage", request.nFeePercentage));
-    item.push_back(Pair("endBlockHeight", request.nEndBlockHeight));
+    item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
+    item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
+    item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
+    item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
+    item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
     return item;
 }
 
@@ -1075,7 +1075,7 @@ UniValue getrequests(const JSONRPCRequest& request)
                 txnouttype whichType;
                 if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
                     auto request = CRequest::FromSolutions(vSolutions);
-                    if (request.nEndBlockHeight >= chainActive.Height()) { // check request active
+                    if ((int32_t)request.nEndBlockHeight >= chainActive.Height()) { // check request active
                         if (!fGenesisCheck || (request.hashGenesis == hash)) {
                             auto item = requestToJSON(request);
                             item.push_back(Pair("txid", key.ToString()));

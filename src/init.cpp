@@ -1687,9 +1687,10 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     if(chainActive.Height() > 1) {
-        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
-        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
-        if(fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
+        if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
+        if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
+        if (fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
+        if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
     }
 
     // ********************************************************* Step 11: start node

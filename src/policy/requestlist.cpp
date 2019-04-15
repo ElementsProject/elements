@@ -42,7 +42,7 @@ void CRequestList::add(const uint256 &txid, CRequest *req)
 }
 
 /** Load request list from utxo set */
-bool CRequestList::Load(CCoinsView *view)
+bool CRequestList::Load(CCoinsView *view, uint32_t nHeight)
 {
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
     while (pcursor->Valid()) {
@@ -57,7 +57,9 @@ bool CRequestList::Load(CCoinsView *view)
                 if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions)
                 && whichType == TX_LOCKED_MULTISIG) {
                     auto request = CRequest::FromSolutions(vSolutions);
-                    add(key, &request);
+                    if ((int32_t)request.nEndBlockHeight >= nHeight) {
+                        add(key, &request);
+                    }
                 }
             }
         } else {
@@ -66,4 +68,18 @@ bool CRequestList::Load(CCoinsView *view)
         pcursor->Next();
     }
     return true;
+}
+
+/** Remove any expired requests */
+void CRequestList::RemoveExpired(uint32_t nHeight)
+{
+    for (auto it = this->begin(); it != this->cend();)
+    {
+        if (it->second.nEndBlockHeight < nHeight) {
+            it = base::erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
 }
