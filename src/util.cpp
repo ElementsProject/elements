@@ -81,8 +81,14 @@
 // Application startup time (used for uptime calculation)
 const int64_t nStartupTime = GetTime();
 
+
+#ifdef LIQUID
+const char * const BITCOIN_CONF_FILENAME = "liquid.conf";
+const char * const BITCOIN_PID_FILENAME = "liquid.pid";
+#else
 const char * const BITCOIN_CONF_FILENAME = "elements.conf";
 const char * const BITCOIN_PID_FILENAME = "elementsd.pid";
+#endif
 
 ArgsManager gArgs;
 
