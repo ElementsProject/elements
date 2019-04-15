@@ -704,6 +704,33 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
     fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
 }
 
+#ifdef LIQUID
+fs::path GetDefaultDataDir()
+{
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Liquid
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Liquid
+    // Mac: ~/Library/Application Support/Liquid
+    // Unix: ~/.liquid
+#ifdef WIN32
+    // Windows
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Liquid";
+#else
+    fs::path pathRet;
+    char* pszHome = getenv("HOME");
+    if (pszHome == nullptr || strlen(pszHome) == 0)
+        pathRet = fs::path("/");
+    else
+        pathRet = fs::path(pszHome);
+#ifdef MAC_OSX
+    // Mac
+    return pathRet / "Library/Application Support/Liquid";
+#else
+    // Unix
+    return pathRet / ".liquid";
+#endif
+#endif
+}
+#else
 fs::path GetDefaultDataDir()
 {
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\Bitcoin
@@ -729,6 +756,7 @@ fs::path GetDefaultDataDir()
 #endif
 #endif
 }
+#endif
 
 static fs::path g_blocks_path_cached;
 static fs::path g_blocks_path_cache_net_specific;
