@@ -381,6 +381,21 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
+bool UpdateRequestList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+{
+    if (tx.IsCoinBase() || tx.vout.size() != 1)
+        return false;
+
+    txnouttype whichType;
+    vector<vector<unsigned char>> vSolutions;
+    if (Solver(tx.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
+        auto request = CRequest::FromSolutions(vSolutions);
+        requestList.add(tx.GetHash(), &request);
+        return true;
+    }
+    return false;
+}
+
 bool UpdateAssetMap(const CTransaction& tx)
 {
     if(!tx.vin[0].assetIssuance.IsNull()){

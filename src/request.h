@@ -5,6 +5,11 @@
 #ifndef OCEAN_REQUEST_H
 #define OCEAN_REQUEST_H
 
+#include "version.h"
+#include "streams.h"
+#include "uint256.h"
+#include "script/script.h"
+
 using namespace std;
 
 /** Class for service request winning bids */
@@ -19,9 +24,12 @@ public:
     int32_t nStartBlockHeight;
     int32_t nEndBlockHeight;
     uint256 hashGenesis;
-    set<CBid> vBids;
 
-    static CRequest FromSolutions(const vector<vector<unsigned char>> &vSolutions) {
+    // removed until CBid class is finalized
+    //set<CBid> vBids;
+
+    static CRequest FromSolutions(const vector<vector<unsigned char>> &vSolutions)
+    {
         CRequest request;
         request.nEndBlockHeight = CScriptNum(vSolutions[0], true).getint();
         char pubInt;

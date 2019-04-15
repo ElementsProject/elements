@@ -2,9 +2,9 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
-# Test for the guardnode system
+# Test for the request covalence system
 # TODO: add more tests as work on this progresses
-class GuardnodeTest(BitcoinTestFramework):
+class RequestsTest(BitcoinTestFramework):
   def __init__(self):
     super().__init__()
     self.setup_clean_chain = True
@@ -12,6 +12,7 @@ class GuardnodeTest(BitcoinTestFramework):
     self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000",
     "-permissioncoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac",
     "-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac"] for i in range(2)]
+    self.extra_args[1].append("-requestlist=1")
 
   def setup_network(self, split=False):
     self.nodes = start_nodes(self.num_nodes, self.options.tmpdir,
@@ -196,4 +197,4 @@ class GuardnodeTest(BitcoinTestFramework):
     return
 
 if __name__ == '__main__':
-  GuardnodeTest().main()
+  RequestsTest().main()
