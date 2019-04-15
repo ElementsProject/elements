@@ -1003,6 +1003,18 @@ UniValue gettxoutsetinfo(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue requestToJSON(const CRequest &request)
+{
+    UniValue item(UniValue::VOBJ);
+    item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
+    item.push_back(Pair("startBlockHeight", request.nStartBlockHeight));
+    item.push_back(Pair("numTickets", request.nNumTickets));
+    item.push_back(Pair("decayConst", request.nDecayConst));
+    item.push_back(Pair("feePercentage", request.nFeePercentage));
+    item.push_back(Pair("endBlockHeight", request.nEndBlockHeight));
+    return item;
+}
+
 UniValue getrequests(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() > 1)
@@ -1037,10 +1049,21 @@ UniValue getrequests(const JSONRPCRequest& request)
         hash.SetHex(request.params[0].get_str());
     }
 
+    UniValue ret(UniValue::VARR);
+
+    if (fRequestList) {
+        for (auto it = requestList.begin(); it != requestList.end(); ++it) {
+            if (!fGenesisCheck || (it->second.hashGenesis == hash)) {
+                auto item = requestToJSON(it->second);
+                item.push_back(Pair("txid", it->first.ToString()));
+                ret.push_back(item);
+            }
+        }
+        return ret;
+    }
+
     FlushStateToDisk();
     std::unique_ptr<CCoinsViewCursor> pcursor(static_cast<CCoinsView*>(pcoinsTip)->Cursor());
-
-    UniValue ret(UniValue::VARR);
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
         uint256 key;
@@ -1053,14 +1076,8 @@ UniValue getrequests(const JSONRPCRequest& request)
                 if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
                     auto request = CRequest::FromSolutions(vSolutions);
                     if (request.nEndBlockHeight >= chainActive.Height()) { // check request active
-                        UniValue item(UniValue::VOBJ);
                         if (!fGenesisCheck || (request.hashGenesis == hash)) {
-                            item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
-                            item.push_back(Pair("startBlockHeight", request.nStartBlockHeight));
-                            item.push_back(Pair("numTickets", request.nNumTickets));
-                            item.push_back(Pair("decayConst", request.nDecayConst));
-                            item.push_back(Pair("feePercentage", request.nFeePercentage));
-                            item.push_back(Pair("endBlockHeight", request.nEndBlockHeight));
+                            auto item = requestToJSON(request);
                             item.push_back(Pair("txid", key.ToString()));
                             ret.push_back(item);
                         }

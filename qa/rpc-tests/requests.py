@@ -87,6 +87,7 @@ class RequestsTest(BitcoinTestFramework):
 
     # test get request method with/without genesis hash parameter
     requests = self.nodes[0].getrequests()
+    assert_equal(2, len(self.nodes[1].getrequests()))
     assert_equal(2, len(requests))
     for req in requests:
         if txid == req['txid']:
@@ -101,6 +102,7 @@ class RequestsTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis)
+    assert_equal(self.nodes[1].getrequests(genesis), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid == req['txid']:
@@ -113,6 +115,7 @@ class RequestsTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis2)
+    assert_equal(self.nodes[1].getrequests(genesis2), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -125,6 +128,7 @@ class RequestsTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05")
+    assert_equal(self.nodes[1].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05"), [])
     assert_equal(requests, [])
 
     # try send spend transaction
@@ -139,6 +143,7 @@ class RequestsTest(BitcoinTestFramework):
     # make request 1 inactive
     self.nodes[0].generate(10)
     requests = self.nodes[0].getrequests()
+    assert_equal(requests, len(self.nodes[1].getrequests()))
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -151,6 +156,7 @@ class RequestsTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis2)
+    assert_equal(self.nodes[1].getrequests(genesis2), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -183,6 +189,7 @@ class RequestsTest(BitcoinTestFramework):
     self.sync_all()
 
     assert_equal([], self.nodes[0].getrequests())
+    assert_equal([], self.nodes[1].getrequests())
     assert(self.nodes[1].getbalance()["PERMISSION"] == 1000)
 
     # send second transaction

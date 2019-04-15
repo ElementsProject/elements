@@ -4,6 +4,7 @@
 
 #include "requestlist.h"
 #include "policy/policy.h"
+#include "util.h"
 
 CRequestList::CRequestList(){;}
 CRequestList::~CRequestList(){;}
@@ -64,5 +65,5 @@ bool CRequestList::Load(CCoinsView *view)
         }
         pcursor->Next();
     }
-    return;
+    return true;
 }

@@ -222,6 +222,7 @@ extern bool fRequireRequestListCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;
 extern bool fRecordInflation;
+extern bool fRequestList;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;

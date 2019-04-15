@@ -1107,7 +1107,7 @@ bool AppInitParameterInteraction()
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
-    fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
+    fRequestList = GetBoolArg("-requestlist", DEFAULT_REQUEST_LIST);
     fIsBareMultisigStd = GetBoolArg("-permitbaremultisig", DEFAULT_PERMIT_BAREMULTISIG);
     //Acceptance of data in OP_RETURN
     fAcceptDatacarrier = GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
