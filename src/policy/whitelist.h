@@ -23,13 +23,13 @@ public:
 
 	bool Load(CCoinsView *view);
 
-	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
+	bool add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
 		const CBitcoinAddress* kycAddress);
-	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
+	bool add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
 
-	void add_derived(const std::string& sAddress, const std::string& sPubKey, 
+	bool add_derived(const std::string& sAddress, const std::string& sPubKey, 
 		const std::string& sKYCAddress);
-	void add_derived(const std::string& sAddress, const std::string& sKey);
+	bool add_derived(const std::string& sAddress, const std::string& sKey);
 
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);

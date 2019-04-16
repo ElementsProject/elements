@@ -47,8 +47,7 @@ bool CRegisterAddressScript::Append(const CPubKey& pubKey){
 
   	CPubKey tweakedPubKey(pubKey);
     if (!contract.IsNull())
-    	
-    tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+    	tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     CKeyID keyID=tweakedPubKey.GetID();
     assert(Consensus::CheckValidTweakedAddress(keyID, pubKey));
     

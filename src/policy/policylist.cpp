@@ -41,10 +41,9 @@ CPolicyList::base::size_type CPolicyList::size(){
 }
 
 //Add to the sorted list
-bool CPolicyList::add_sorted(CKeyID* id){
+void CPolicyList::add_sorted(CKeyID* id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  base::insert(*id);
-  return find(id);
+  base::insert(*id).second;
 }
 
 //Swap the contents of this list for another list.
