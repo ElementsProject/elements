@@ -161,6 +161,11 @@ script: |
     ${WRAP_DIR}/dmg dmg "${OSX_VOLNAME}.dmg" ${OUTDIR}/${DISTNAME}-osx-unsigned.dmg
 
     cd installed
+    mv ${DISTNAME}/bin/elements-qt ${DISTNAME}/bin/liquid-qt
+    mv ${DISTNAME}/bin/elements-cli ${DISTNAME}/bin/liquid-cli
+    mv ${DISTNAME}/bin/elementsd ${DISTNAME}/bin/liquidd
+    mv ${DISTNAME}/bin/elements-tx ${DISTNAME}/bin/liquid-tx
+
     find ${DISTNAME} | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-${i}.tar.gz
     cd ../../
   done

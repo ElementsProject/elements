@@ -166,6 +166,10 @@ script: |
     rename 's/-setup\.exe$/-setup-unsigned.exe/' *-setup.exe
     cp -f elements-*setup*.exe $OUTDIR/
     cd installed
+    mv ${DISTNAME}/bin/elements-qt.exe ${DISTNAME}/bin/liquid-qt.exe
+    mv ${DISTNAME}/bin/elements-cli.exe ${DISTNAME}/bin/liquid-cli.exe
+    mv ${DISTNAME}/bin/elementsd.exe ${DISTNAME}/bin/liquidd.exe
+    mv ${DISTNAME}/bin/elements-tx.exe ${DISTNAME}/bin/liquid-tx.exe
     find ${DISTNAME}/bin -type f -executable -exec ${i}-objcopy --only-keep-debug {} {}.dbg \; -exec ${i}-strip -s {} \; -exec ${i}-objcopy --add-gnu-debuglink={}.dbg {} \;
     find ${DISTNAME} -not -name "*.dbg"  -type f | sort | zip -X@ ${OUTDIR}/${DISTNAME}-${i}.zip
     find ${DISTNAME} -name "*.dbg"  -type f | sort | zip -X@ ${OUTDIR}/${DISTNAME}-${i}-debug.zip

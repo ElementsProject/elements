@@ -186,6 +186,10 @@ script: |
     find . -name "lib*.la" -delete
     find . -name "lib*.a" -delete
     rm -rf ${DISTNAME}/lib/pkgconfig
+    mv ${DISTNAME}/bin/elements-qt ${DISTNAME}/bin/liquid-qt
+    mv ${DISTNAME}/bin/elements-cli ${DISTNAME}/bin/liquid-cli
+    mv ${DISTNAME}/bin/elementsd ${DISTNAME}/bin/liquidd
+    mv ${DISTNAME}/bin/elements-tx ${DISTNAME}/bin/liquid-tx
     find ${DISTNAME}/bin -type f -executable -exec ../contrib/devtools/split-debug.sh {} {} {}.dbg \;
     find ${DISTNAME}/lib -type f -exec ../contrib/devtools/split-debug.sh {} {} {}.dbg \;
     cp ../doc/README.md ${DISTNAME}/
