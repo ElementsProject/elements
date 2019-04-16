@@ -44,10 +44,6 @@ class CPolicyList : private std::set<CKeyID>
   //Update from transaction
   virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
- enum Errc{
-    INVALID_ADDRESS_OR_KEY,
-    INVALID_KEY_DERIVATION
-  };
 
  protected:
 	boost::recursive_mutex _mtx;
