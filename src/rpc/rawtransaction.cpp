@@ -2264,6 +2264,53 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue computeissuanceasset(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
+        throw std::runtime_error(
+            "computeissuanceasset prevout_hash prevout_n ( contract_hash blinded )\n"
+            "\nComputes asset id from previous transaction information as well as the contract hash.\n"
+            "\nArguments:\n"
+            "1. \"prevout_hash\"        (string, required) Transaction prevout hash for issuance input.\n"
+            "2. \"prevout_n\"           (numeric, required) Transaction prevout index for issaunce input.\n"
+            "3. \"contract_hash\"       (string, optional, default=00..00) Contract hash that is put into issuance definition. Must be 32 bytes worth in hex string form."
+            "4. \"blinded\"             (bool, optional, default=true) Whether or not the issuance is blinded. Only effects `token` derivation.\n"
+            "\nResult:\n"
+            "  {                           (json object)\n"
+            "    \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
+            "    \"asset\":\"<asset>\",    (string) Asset type for issuance if known.\n"
+            "    \"token\":\"<token>\",    (string) Token type for issuance.\n"
+            "  }\n"
+        );
+
+        uint256 prevout_hash = ParseHashV(request.params[0], "prevout_hash");
+
+        int32_t prevout_n = request.params[1].get_int();
+
+        // Check for optional contract to hash into definition
+        uint256 contract_hash;
+        if (!request.params[2].isNull()) {
+            contract_hash = ParseHashV(request.params[2], "contract_hash");
+        }
+
+        const bool blind_issuance = request.params[3].isNull() ? true : request.params[3].get_bool();
+
+        uint256 entropy;
+        CAsset asset;
+        CAsset token;
+        COutPoint prevout;
+        prevout.hash = prevout_hash;
+        prevout.n = prevout_n;
+        GenerateAssetEntropy(entropy, prevout, contract_hash);
+        CalculateAsset(asset, entropy);
+        CalculateReissuanceToken(token, entropy, blind_issuance);
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("entropy", entropy.GetHex());
+        obj.pushKV("asset", asset.GetHex());
+        obj.pushKV("token", token.GetHex());
+        return obj;
+}
+
 
 // clang-format off
 static const CRPCCommand commands[] =
@@ -2289,6 +2336,7 @@ static const CRPCCommand commands[] =
     { "blockchain",         "verifytxoutproof",             &verifytxoutproof,          {"proof"} },
     { "rawtransactions",    "rawissueasset",                &rawissueasset,             {"transaction", "issuances"}},
     { "rawtransactions",    "rawreissueasset",              &rawreissueasset,           {"transaction", "reissuances"}},
+    { "rawtransactions",    "computeissuanceasset",         &computeissuanceasset,      {"prevout_hash", "prevout_n", "contract_hash", "blinded"}},
 };
 // clang-format on
 
