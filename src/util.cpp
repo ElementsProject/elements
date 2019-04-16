@@ -864,9 +864,9 @@ std::string GetFileFromDataDir(const char* fileName)
     return fileStr;
 }
 
-std::string GetContract()
+std::string GetContract(const std::string& network)
 {
-    const auto contractPath = CONTRACT_FILE_PATH + BaseParams().DataDir() + "/latest.txt";
+    const auto contractPath = CONTRACT_FILE_PATH + (network != "" ? network : BaseParams().DataDir()) + "/latest.txt";
     return GetFileFromDataDir(contractPath.c_str());
 }
 

@@ -155,6 +155,18 @@ bool CKYCFile::read(){
                        continue;
                     }
 
+                    //Check the key tweaking
+                    CKeyID addressKeyId;
+                    if(address.GetKeyID(addressKeyId)){
+                        if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
+                            _decryptedStream << line << ": invalid key tweaking\n";
+                            continue;
+                        }else{
+                            _decryptedStream << line << ": invalid keyid\n";
+                        }
+                    }
+
+
                     //Addresses valid, write to map
                     _addressKeys.push_back(pubKey);
                     _decryptedStream << line << "\n";

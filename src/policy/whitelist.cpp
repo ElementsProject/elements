@@ -115,7 +115,11 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
  // }
 
   //insert new address into sorted CWhiteList vector
-  add_sorted(&keyId);
+  if(!add_sorted(&keyId)){
+    throw std::system_error(
+    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
+            std::string(__func__) + ": failed to add key to whitelist.");
+  }
 
   //Add to the ID map
   _kycMap[keyId]=kycKeyId;
@@ -299,8 +303,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CECIES decryptor;
   std::vector<unsigned char> data;
   data.resize(encryptedData.size());
-  decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey);
-    
+  if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey)){
+    throw std::invalid_argument(std::string(std::string(__func__) + ": unable to decrypt KYC file."));   
+  }
   //Interpret the data
   //First 20 bytes: keyID 
   std::vector<unsigned char>::const_iterator itData2 = data.begin();
@@ -320,6 +325,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     if(!bEnd){
       CBitcoinAddress addrNew;
       std::vector<unsigned char> addrChars(itData1,itData2);
+      std::string addrCharsStr(addrChars.begin(), addrChars.end());
       addrNew.Set(CKeyID(uint160(addrChars)));  
       itData1=itData2;
       for(unsigned int i=0; i<pubKeySize; ++i){
@@ -328,6 +334,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
           break;
         }
       }
+      std::string addrStr=addrNew.ToString();
       if(!bEnd){
         std::vector<unsigned char> pubKeyData(itData1, itData2);
         itData1=itData2;

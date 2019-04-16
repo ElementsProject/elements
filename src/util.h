@@ -129,7 +129,7 @@ void OpenAuditLog();
 void ShrinkDebugFile();
 void runCommand(const std::string& strCommand);
 std::string GetFileFromDataDir(const char* fileName);
-std::string GetContract();
+std::string GetContract(const std::string& newtork="");
 uint256 GetContractHash(const std::string& network = "");
 uint256 GetMappingHash();
 

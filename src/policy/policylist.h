@@ -38,7 +38,7 @@ class CPolicyList : private std::set<CKeyID>
   using base::end;
 
   //This will be made prive int CWhitelist.
-  virtual void add_sorted(CKeyID* keyId);
+  virtual bool add_sorted(CKeyID* keyId);
   void swap(CPolicyList* l_new);
 
   //Update from transaction
