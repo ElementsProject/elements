@@ -1829,9 +1829,7 @@ bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
     tmpPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
 
   if (tmpPubKey.GetID() != keyID)
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
-          std::string(__func__) + std::string(": invalid key derivation when tweaking key with contract hash"));
+    return false;
 return true;
 }
 
