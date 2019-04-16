@@ -2723,7 +2723,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
         }
         if(fRequireWhitelistCheck || fScanWhitelist){
-            if(!addressWhitelist.RegisterAddress(tx, view)){
+           if(!addressWhitelist.RegisterAddress(tx, view)){
                 if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
                     addressWhitelist.Update(tx,view);
                 }

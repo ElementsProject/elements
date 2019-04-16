@@ -76,32 +76,29 @@ bool CWhiteList::Load(CCoinsView *view)
 
 
 
-bool CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
+void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  return CWhiteList::add_derived(address, pubKey, nullptr);
+  CWhiteList::add_derived(address, pubKey, nullptr);
 }
 
-bool CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
+void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
   const CBitcoinAddress* kycAddress){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if (!pubKey.IsFullyValid()) return false;
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-          std::string(std::string(__func__) +  ": invalid public key"));
+  if (!pubKey.IsFullyValid()) 
+    throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid public key"));
 
     //Will throw an error if address is not a valid derived address.
   CKeyID keyId;
   if (!address.GetKeyID(keyId))
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-          std::string(__func__) + ": invalid key id");
-
+      throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid key id"));
+   
   CKeyID kycKeyId;
   if(kycAddress){
     if (!kycAddress->GetKeyID(kycKeyId))
-      throw std::system_error(
-			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
-            std::string(__func__) + ": invalid key id (kyc address)");
+      throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid key id (kyc address)"));
   }
 
   if(!Consensus::CheckValidTweakedAddress(keyId, pubKey)) return;
@@ -127,12 +124,12 @@ bool CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
     _tweakedPubKeyMap[keyId]=tweakedPubKey;
 }
 
-bool CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
+void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  return add_derived(addressIn, key, std::string(""));
+  add_derived(addressIn, key, std::string(""));
 }
 
-bool CWhiteList::add_derived(const std::string& sAddress, const std::string& sPubKey, 
+void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPubKey, 
   const std::string& sKYCAddress){
    boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
     CBitcoinAddress address;
@@ -154,7 +151,6 @@ bool CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   }
   add_derived(address, pubKey, kycAddress);
   delete kycAddress;
-  return true;
 }
 
 #ifdef ENABLE_WALLET
@@ -339,8 +335,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         CBitcoinAddress addr(kycKey);
         try{
           add_derived(addrNew, pubKeyNew, &addr);
-        } catch (std::system_error e){
-          if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) return false;
+        } catch (std::invalid_argument e){
+          LogPrintf(std::string(e.what()) + "\n");
+          continue;
         } 
         bSuccess=true;
       }
