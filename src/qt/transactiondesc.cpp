@@ -172,8 +172,9 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
             // Debit
             //
             auto mine = wtx.txout_is_mine.begin();
-            for (const CTxOut& txout : wtx.tx->vout)
+            for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i)
             {
+                const CTxOut& txout = wtx.tx->vout[i];
                 // Ignore change
                 isminetype toSelf = *(mine++);
                 if ((toSelf == ISMINE_SPENDABLE) && (fAllFromMe == ISMINE_SPENDABLE))
@@ -199,9 +200,9 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                     }
                 }
 
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -txout.nValue.GetAmount()) + "<br>";
+                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wtx.txout_amounts[i]) + "<br>";
                 if(toSelf)
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, txout.nValue.GetAmount()) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wtx.txout_amounts[i]) + "<br>";
             }
 
             if (fAllToMe)
@@ -281,7 +282,7 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
     //
     // Debug view
     //
-    if (node.getLogCategories() != BCLog::NONE)
+    if (node.getLogCategories() != BCLog::NONE && !g_con_elementsmode)
     {
         strHTML += "<hr><br>" + tr("Debug information") + "<br><br>";
         for (const CTxIn& txin : wtx.tx->vin)
