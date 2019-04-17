@@ -43,13 +43,14 @@ public:
     {
         LOCK2(cs_main, m_wallet.cs_wallet);
         CValidationState state;
-        if (!m_wallet.CommitTransaction(m_tx, std::move(value_map), std::move(order_form), m_keys, g_connman.get(), state)) {
+        if (!m_wallet.CommitTransaction(m_tx, std::move(value_map), std::move(order_form), m_keys, g_connman.get(), state, g_con_elementsmode ? &m_blind_details : nullptr)) {
             reject_reason = state.GetRejectReason();
             return false;
         }
         return true;
     }
 
+    BlindDetails m_blind_details;
     CTransactionRef m_tx;
     CWallet& m_wallet;
     std::vector<std::unique_ptr<CReserveKey>> m_keys;
@@ -249,12 +250,11 @@ public:
                 pending->m_keys.emplace_back(new CReserveKey(&m_wallet));
             }
         }
-        BlindDetails blind_details;
         if (!m_wallet.CreateTransaction(recipients, pending->m_tx, pending->m_keys, fee, change_pos,
-                fail_reason, coin_control, sign, g_con_elementsmode ? &blind_details : nullptr)) {
+                fail_reason, coin_control, sign, g_con_elementsmode ? &pending->m_blind_details : nullptr)) {
             return {};
         }
-        out_amounts = blind_details.o_amounts;
+        out_amounts = pending->m_blind_details.o_amounts;
         return std::move(pending);
     }
     bool transactionCanBeAbandoned(const uint256& txid) override { return m_wallet.TransactionCanBeAbandoned(txid); }
