@@ -84,39 +84,30 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubK
 void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
   const CBitcoinAddress* kycAddress){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if (!pubKey.IsFullyValid())
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-          std::string(std::string(__func__) +  ": invalid public key"));
+  if (!pubKey.IsFullyValid()) 
+    throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid public key"));
 
     //Will throw an error if address is not a valid derived address.
   CKeyID keyId;
   if (!address.GetKeyID(keyId))
-    throw std::system_error(
-          std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-          std::string(__func__) + ": invalid key id");
-
+      throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid key id"));
+   
   CKeyID kycKeyId;
   if(kycAddress){
     if (!kycAddress->GetKeyID(kycKeyId))
-      throw std::system_error(
-			    std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
-            std::string(__func__) + ": invalid key id (kyc address)");
+      throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid key id (kyc address)"));
   }
 
-  if(!Consensus::CheckValidTweakedAddress(keyId, pubKey)) return;
-
-  //Check the KYC key is whitelisted
-  //if(!find_kyc(kycKeyId)){
-  //  throw std::system_error(
-  //        std::error_code(CPolicyList::Errc::INVALID_ADDRESS_OR_KEY,std::system_category()),
-  //          std::string(__func__) + ": the KYC key is not currently whitelisted.");
-  //  return;
- // }
+  if(!Consensus::CheckValidTweakedAddress(keyId, pubKey))
+     throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": address does not derive from public key when tweaked with contract hash"));
 
   //insert new address into sorted CWhiteList vector
   add_sorted(&keyId);
-
+  
   //Add to the ID map
   _kycMap[keyId]=kycKeyId;
   //Used for decryption
@@ -299,8 +290,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CECIES decryptor;
   std::vector<unsigned char> data;
   data.resize(encryptedData.size());
-  decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey);
-    
+  if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey)){
+    return false;   
+  }
   //Interpret the data
   //First 20 bytes: keyID 
   std::vector<unsigned char>::const_iterator itData2 = data.begin();
@@ -320,6 +312,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     if(!bEnd){
       CBitcoinAddress addrNew;
       std::vector<unsigned char> addrChars(itData1,itData2);
+      std::string addrCharsStr(addrChars.begin(), addrChars.end());
       addrNew.Set(CKeyID(uint160(addrChars)));  
       itData1=itData2;
       for(unsigned int i=0; i<pubKeySize; ++i){
@@ -328,6 +321,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
           break;
         }
       }
+      std::string addrStr=addrNew.ToString();
       if(!bEnd){
         std::vector<unsigned char> pubKeyData(itData1, itData2);
         itData1=itData2;
@@ -335,8 +329,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         CBitcoinAddress addr(kycKey);
         try{
           add_derived(addrNew, pubKeyNew, &addr);
-        } catch (std::system_error e){
-          if(e.code().value() != CPolicyList::Errc::INVALID_ADDRESS_OR_KEY) return false;
+        } catch (std::invalid_argument e){
+          LogPrintf(std::string(e.what()) + "\n");
+          continue;
         } 
         bSuccess=true;
       }
