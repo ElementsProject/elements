@@ -1,44 +1,42 @@
 ---
-name: "elements-osx-0.18"
+name: "elements-win-0.18"
 enable_cache: true
 suites:
 - "bionic"
 architectures:
 - "amd64"
 packages:
-- "ca-certificates"
 - "curl"
 - "g++"
 - "git"
 - "icnsutils"
+- "imagemagick"
+- "librsvg2-bin"
 - "pkg-config"
 - "autoconf"
-- "librsvg2-bin"
-- "libtiff-tools"
 - "libtool"
 - "automake"
 - "faketime"
 - "bsdmainutils"
-- "cmake"
-- "imagemagick"
-- "libcap-dev"
-- "libz-dev"
-- "libbz2-dev"
+- "mingw-w64"
+- "g++-mingw-w64"
+- "nsis"
+- "zip"
+- "ca-certificates"
 - "python"
-- "python-dev"
-- "python-setuptools"
-- "fonts-tuffy"
+- "rename"
 remotes:
 - "url": "https://github.com/ElementsProject/elements.git"
   "dir": "elements"
-files:
-- "MacOSX10.11.sdk.tar.gz"
+files: []
 script: |
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-apple-darwin14"
-  CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests GENISOIMAGE=$WRAP_DIR/genisoimage"
-  FAKETIME_HOST_PROGS=""
-  FAKETIME_PROGS="ar ranlib date dmg genisoimage"
+  HOSTS="i686-w64-mingw32 x86_64-w64-mingw32"
+  CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests --enable-liquid"
+  FAKETIME_HOST_PROGS="ar ranlib nm windres strip objcopy"
+  FAKETIME_PROGS="date makensis zip"
+  HOST_CFLAGS="-O2 -g"
+  HOST_CXXFLAGS="-O2 -g"
 
   export QT_RCC_TEST=1
   export QT_RCC_SOURCE_DATE_OVERRIDE=1
@@ -52,8 +50,6 @@ script: |
     export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
     mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
   fi
-
-  export ZERO_AR_DATE=1
 
   ls librsvg*.deb || wget http://mirrors.kernel.org/ubuntu/pool/main/libr/librsvg/librsvg2-2_2.40.13-3_amd64.deb
   dpkg -x librsvg*.deb new-rsvg
@@ -83,18 +79,39 @@ script: |
   done
   }
 
+  function create_per-host_linker_wrapper {
+  # This is only needed for trusty, as the mingw linker leaks a few bytes of
+  # heap, causing non-determinism. See discussion in https://github.com/bitcoin/bitcoin/pull/6900
+  for i in $HOSTS; do
+    mkdir -p ${WRAP_DIR}/${i}
+    for prog in collect2; do
+        echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}/${prog}
+        REAL=$(${i}-gcc -print-prog-name=${prog})
+        echo "export MALLOC_PERTURB_=255" >> ${WRAP_DIR}/${i}/${prog}
+        echo "${REAL} \$@" >> $WRAP_DIR/${i}/${prog}
+        chmod +x ${WRAP_DIR}/${i}/${prog}
+    done
+    for prog in gcc g++; do
+        echo '#!/usr/bin/env bash' > ${WRAP_DIR}/${i}-${prog}
+        echo "REAL=\`which -a ${i}-${prog}-posix | grep -v ${WRAP_DIR}/${i}-${prog} | head -1\`" >> ${WRAP_DIR}/${i}-${prog}
+        echo 'export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1' >> ${WRAP_DIR}/${i}-${prog}
+        echo "export FAKETIME=\"$1\"" >> ${WRAP_DIR}/${i}-${prog}
+        echo "export COMPILER_PATH=${WRAP_DIR}/${i}" >> ${WRAP_DIR}/${i}-${prog}
+        echo "\$REAL \$@" >> $WRAP_DIR/${i}-${prog}
+        chmod +x ${WRAP_DIR}/${i}-${prog}
+    done
+  done
+  }
+
   # Faketime for depends so intermediate results are comparable
   export PATH_orig=${PATH}
   create_global_faketime_wrappers "2000-01-01 12:00:00"
   create_per-host_faketime_wrappers "2000-01-01 12:00:00"
+  create_per-host_linker_wrapper "2000-01-01 12:00:00"
   export PATH=${WRAP_DIR}:${PATH}
 
   cd elements
   BASEPREFIX=`pwd`/depends
-
-  mkdir -p ${BASEPREFIX}/SDKs
-  tar -C ${BASEPREFIX}/SDKs -xf ${BUILD_DIR}/MacOSX10.11.sdk.tar.gz
-
   # Build dependencies for each host
   for i in $HOSTS; do
     make ${MAKEOPTS} -C ${BASEPREFIX} HOST="${i}"
@@ -104,6 +121,7 @@ script: |
   export PATH=${PATH_orig}
   create_global_faketime_wrappers "${REFERENCE_DATETIME}"
   create_per-host_faketime_wrappers "${REFERENCE_DATETIME}"
+  create_per-host_linker_wrapper "${REFERENCE_DATETIME}"
   export PATH=${WRAP_DIR}:${PATH}
 
   # Create the release tarball using (arbitrarily) the first host
@@ -118,6 +136,8 @@ script: |
   pushd temp
   tar xf ../$SOURCEDIST
   find elements-* | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ../$SOURCEDIST
+  mkdir -p $OUTDIR/src
+  cp ../$SOURCEDIST $OUTDIR/src
   popd
 
   # Workaround for tarball not building with the bare tag version (prep)
@@ -138,33 +158,32 @@ script: |
     mkdir src/obj
     cp ../src/obj/build.h src/obj/
 
-    CONFIG_SITE=${BASEPREFIX}/${i}/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking ${CONFIGFLAGS}
+    CONFIG_SITE=${BASEPREFIX}/${i}/share/config.site ./configure --prefix=/ --disable-ccache --disable-maintainer-mode --disable-dependency-tracking ${CONFIGFLAGS} CFLAGS="${HOST_CFLAGS}" CXXFLAGS="${HOST_CXXFLAGS}"
     make ${MAKEOPTS}
-    make install-strip DESTDIR=${INSTALLPATH}
-
-    make osx_volname
-    make deploydir
-    OSX_VOLNAME="$(cat osx_volname)"
-    mkdir -p unsigned-app-${i}
-    cp osx_volname unsigned-app-${i}/
-    cp contrib/macdeploy/detached-sig-apply.sh unsigned-app-${i}
-    cp contrib/macdeploy/detached-sig-create.sh unsigned-app-${i}
-    cp ${BASEPREFIX}/${i}/native/bin/dmg ${BASEPREFIX}/${i}/native/bin/genisoimage unsigned-app-${i}
-    cp ${BASEPREFIX}/${i}/native/bin/${i}-codesign_allocate unsigned-app-${i}/codesign_allocate
-    cp ${BASEPREFIX}/${i}/native/bin/${i}-pagestuff unsigned-app-${i}/pagestuff
-    mv dist unsigned-app-${i}
-    pushd unsigned-app-${i}
-    find . | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-osx-unsigned.tar.gz
-    popd
-
+    make ${MAKEOPTS} -C src check-security
     make deploy
-    ${WRAP_DIR}/dmg dmg "${OSX_VOLNAME}.dmg" ${OUTDIR}/${DISTNAME}-osx-unsigned.dmg
-
+    make install DESTDIR=${INSTALLPATH}
+    rename 's/-setup\.exe$/-setup-unsigned.exe/' *-setup.exe
+    cp -f elements-*setup*.exe $OUTDIR/
     cd installed
 
-    find ${DISTNAME} | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-${i}.tar.gz
+    mv ${DISTNAME}/bin/elements-qt.exe ${DISTNAME}/bin/liquid-qt.exe
+    mv ${DISTNAME}/bin/elements-cli.exe ${DISTNAME}/bin/liquid-cli.exe
+    mv ${DISTNAME}/bin/elementsd.exe ${DISTNAME}/bin/liquidd.exe
+    mv ${DISTNAME}/bin/elements-tx.exe ${DISTNAME}/bin/liquid-tx.exe
+
+    find ${DISTNAME}/bin -type f -executable -exec ${i}-objcopy --only-keep-debug {} {}.dbg \; -exec ${i}-strip -s {} \; -exec ${i}-objcopy --add-gnu-debuglink={}.dbg {} \;
+    find ${DISTNAME} -not -name "*.dbg"  -type f | sort | zip -X@ ${OUTDIR}/${DISTNAME}-${i}.zip
+    find ${DISTNAME} -name "*.dbg"  -type f | sort | zip -X@ ${OUTDIR}/${DISTNAME}-${i}-debug.zip
     cd ../../
+    rm -rf distsrc-${i}
   done
-  mkdir -p $OUTDIR/src
-  mv $SOURCEDIST $OUTDIR/src
-  mv ${OUTDIR}/${DISTNAME}-x86_64-*.tar.gz ${OUTDIR}/${DISTNAME}-osx64.tar.gz
+  cp -rf contrib/windeploy $BUILD_DIR
+  cd $BUILD_DIR/windeploy
+  mkdir unsigned
+  cp $OUTDIR/elements-*setup-unsigned.exe unsigned/
+  find . | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-win-unsigned.tar.gz
+  mv ${OUTDIR}/${DISTNAME}-x86_64-*-debug.zip ${OUTDIR}/${DISTNAME}-win64-debug.zip
+  mv ${OUTDIR}/${DISTNAME}-i686-*-debug.zip ${OUTDIR}/${DISTNAME}-win32-debug.zip
+  mv ${OUTDIR}/${DISTNAME}-x86_64-*.zip ${OUTDIR}/${DISTNAME}-win64.zip
+  mv ${OUTDIR}/${DISTNAME}-i686-*.zip ${OUTDIR}/${DISTNAME}-win32.zip

@@ -32,9 +32,7 @@ files: []
 script: |
   WRAP_DIR=$HOME/wrapped
   HOSTS="i686-w64-mingw32 x86_64-w64-mingw32"
-  #LIQUID BUILDS: Replace next line with following
   CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests"
-  #CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests --enable-liquid"
   FAKETIME_HOST_PROGS="ar ranlib nm windres strip objcopy"
   FAKETIME_PROGS="date makensis zip"
   HOST_CFLAGS="-O2 -g"
@@ -168,12 +166,6 @@ script: |
     rename 's/-setup\.exe$/-setup-unsigned.exe/' *-setup.exe
     cp -f elements-*setup*.exe $OUTDIR/
     cd installed
-
-    # LIQUID: Uncomment next few lines
-    #mv ${DISTNAME}/bin/elements-qt.exe ${DISTNAME}/bin/liquid-qt.exe
-    #mv ${DISTNAME}/bin/elements-cli.exe ${DISTNAME}/bin/liquid-cli.exe
-    #mv ${DISTNAME}/bin/elementsd.exe ${DISTNAME}/bin/liquidd.exe
-    #mv ${DISTNAME}/bin/elements-tx.exe ${DISTNAME}/bin/liquid-tx.exe
 
     find ${DISTNAME}/bin -type f -executable -exec ${i}-objcopy --only-keep-debug {} {}.dbg \; -exec ${i}-strip -s {} \; -exec ${i}-objcopy --add-gnu-debuglink={}.dbg {} \;
     find ${DISTNAME} -not -name "*.dbg"  -type f | sort | zip -X@ ${OUTDIR}/${DISTNAME}-${i}.zip
