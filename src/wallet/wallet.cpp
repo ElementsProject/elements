@@ -3498,6 +3498,37 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
             }
         }
 
+        // Print blinded transaction info before we possibly blow it away when !sign.
+        if (blind_details) {
+            std::string summary = "CreateTransaction created blinded transaction:\nIN: ";
+            for (unsigned int i = 0; i < selected_coins.size(); ++i) {
+                if (i > 0) {
+                    summary += "    ";
+                }
+                summary += strprintf("#%d: %s [%s] (%s [%s])\n", i,
+                    selected_coins[i].value,
+                    selected_coins[i].txout.nValue.IsExplicit() ? "explicit" : "blinded",
+                    selected_coins[i].asset.GetHex(),
+                    selected_coins[i].txout.nAsset.IsExplicit() ? "explicit" : "blinded"
+                );
+            }
+            summary += "OUT: ";
+            for (unsigned int i = 0; i < txNew.vout.size(); ++i) {
+                if (i > 0) {
+                    summary += "     ";
+                }
+                CTxOut unblinded = blind_details->tx_unblinded_unsigned.vout[i];
+                summary += strprintf("#%d: %s%s [%s] (%s [%s])\n", i,
+                    txNew.vout[i].IsFee() ? "[fee] " : "",
+                    unblinded.nValue.GetAmount(),
+                    txNew.vout[i].nValue.IsExplicit() ? "explicit" : "blinded",
+                    unblinded.nAsset.GetAsset().GetHex(),
+                    txNew.vout[i].nAsset.IsExplicit() ? "explicit" : "blinded"
+                );
+            }
+            WalletLogPrintf(summary+"\n");
+        }
+
         if (sign)
         {
             int nIn = 0;
@@ -3535,37 +3566,6 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         {
             strFailReason = _("Transaction too large");
             return false;
-        }
-
-        // Print unblinded transaction overview.
-        if (blind_details) {
-            std::string summary = "CreateTransaction created blinded transaction:\nIN: ";
-            for (unsigned int i = 0; i < selected_coins.size(); ++i) {
-                if (i > 0) {
-                    summary += "    ";
-                }
-                summary += strprintf("#%d: %s [%s] (%s [%s])\n", i,
-                    selected_coins[i].value,
-                    selected_coins[i].txout.nValue.IsExplicit() ? "explicit" : "blinded",
-                    selected_coins[i].asset.GetHex(),
-                    selected_coins[i].txout.nAsset.IsExplicit() ? "explicit" : "blinded"
-                );
-            }
-            summary += "OUT: ";
-            for (unsigned int i = 0; i < tx->vout.size(); ++i) {
-                if (i > 0) {
-                    summary += "     ";
-                }
-                CTxOut unblinded = blind_details->tx_unblinded_unsigned.vout[i];
-                summary += strprintf("#%d: %s%s [%s] (%s [%s])\n", i,
-                    tx->vout[i].IsFee() ? "[fee] " : "",
-                    unblinded.nValue.GetAmount(),
-                    tx->vout[i].nValue.IsExplicit() ? "explicit" : "blinded",
-                    unblinded.nAsset.GetAsset().GetHex(),
-                    tx->vout[i].nAsset.IsExplicit() ? "explicit" : "blinded"
-                );
-            }
-            WalletLogPrintf(summary+"\n");
         }
     }
 
