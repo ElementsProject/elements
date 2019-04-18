@@ -575,10 +575,13 @@ void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_b
             } else {
                 output_pubkeys.push_back(CPubKey());
             }
+        } else {
+            output_pubkeys.push_back(CPubKey());
         }
         // No way to unblind anything, just fill out
         output_value_blinds.push_back(uint256());
         output_asset_blinds.push_back(uint256());
     }
+    assert(output_pubkeys.size() == tx.vout.size());
     // We cannot unwind issuance inputs because there is no nonce placeholder for pubkeys
 }
