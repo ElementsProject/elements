@@ -36,7 +36,7 @@ files:
 script: |
   WRAP_DIR=$HOME/wrapped
   HOSTS="x86_64-apple-darwin14"
-  CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests GENISOIMAGE=$WRAP_DIR/genisoimage"
+  CONFIGFLAGS="--enable-reduce-exports --disable-bench --disable-gui-tests --enable-liquid GENISOIMAGE=$WRAP_DIR/genisoimage"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="ar ranlib date dmg genisoimage"
 
@@ -161,6 +161,11 @@ script: |
     ${WRAP_DIR}/dmg dmg "${OSX_VOLNAME}.dmg" ${OUTDIR}/${DISTNAME}-osx-unsigned.dmg
 
     cd installed
+
+    mv ${DISTNAME}/bin/elements-qt ${DISTNAME}/bin/liquid-qt
+    mv ${DISTNAME}/bin/elements-cli ${DISTNAME}/bin/liquid-cli
+    mv ${DISTNAME}/bin/elementsd ${DISTNAME}/bin/liquidd
+    mv ${DISTNAME}/bin/elements-tx ${DISTNAME}/bin/liquid-tx
 
     find ${DISTNAME} | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-${i}.tar.gz
     cd ../../

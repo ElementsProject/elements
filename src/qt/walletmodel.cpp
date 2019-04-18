@@ -51,7 +51,7 @@ WalletModel::WalletModel(std::unique_ptr<interfaces::Wallet> wallet, interfaces:
     cachedNumBlocks(0)
 {
     fHaveWatchOnly = m_wallet->haveWatchOnly();
-    fForceCheckBalanceChanged = false;
+    fForceCheckBalanceChanged = true;
 
     addressTableModel = new AddressTableModel(this);
     transactionTableModel = new TransactionTableModel(platformStyle, this);
@@ -236,9 +236,10 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::vector<CAmount> out_amounts;
         newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, out_amounts, strFailReason);
         transaction.setTransactionFee(nFeeRequired);
-        if (fSubtractFeeFromAmount && newTx)
+        if (fSubtractFeeFromAmount && newTx) {
             assert(out_amounts.size() == newTx->get().vout.size());
             transaction.reassignAmounts(out_amounts, nChangePosRet);
+        }
 
         if(!newTx)
         {

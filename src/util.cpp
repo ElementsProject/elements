@@ -81,8 +81,14 @@
 // Application startup time (used for uptime calculation)
 const int64_t nStartupTime = GetTime();
 
+
+#ifdef LIQUID
+const char * const BITCOIN_CONF_FILENAME = "liquid.conf";
+const char * const BITCOIN_PID_FILENAME = "liquid.pid";
+#else
 const char * const BITCOIN_CONF_FILENAME = "elements.conf";
 const char * const BITCOIN_PID_FILENAME = "elementsd.pid";
+#endif
 
 ArgsManager gArgs;
 
@@ -704,6 +710,33 @@ void PrintExceptionContinue(const std::exception* pex, const char* pszThread)
     fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
 }
 
+#ifdef LIQUID
+fs::path GetDefaultDataDir()
+{
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Liquid
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Liquid
+    // Mac: ~/Library/Application Support/Liquid
+    // Unix: ~/.liquid
+#ifdef WIN32
+    // Windows
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "Liquid";
+#else
+    fs::path pathRet;
+    char* pszHome = getenv("HOME");
+    if (pszHome == nullptr || strlen(pszHome) == 0)
+        pathRet = fs::path("/");
+    else
+        pathRet = fs::path(pszHome);
+#ifdef MAC_OSX
+    // Mac
+    return pathRet / "Library/Application Support/Liquid";
+#else
+    // Unix
+    return pathRet / ".liquid";
+#endif
+#endif
+}
+#else
 fs::path GetDefaultDataDir()
 {
     // Windows < Vista: C:\Documents and Settings\Username\Application Data\Bitcoin
@@ -729,6 +762,7 @@ fs::path GetDefaultDataDir()
 #endif
 #endif
 }
+#endif
 
 static fs::path g_blocks_path_cached;
 static fs::path g_blocks_path_cache_net_specific;
@@ -980,7 +1014,12 @@ std::string ArgsManager::GetChainName() const
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
-    return GetArg("-chain", "elementsregtest");
+
+    std::string default_chain = "elementsregtest";
+#ifdef LIQUID
+    default_chain = "liquidv1";
+#endif
+    return GetArg("-chain", default_chain);
 }
 
 #ifndef WIN32
