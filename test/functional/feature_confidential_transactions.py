@@ -281,6 +281,29 @@ class CTTest (BitcoinTestFramework):
         signed = self.nodes[0].signrawtransactionwithwallet(blinded2)
         self.nodes[0].sendrawtransaction(signed["hex"])
 
+        # Aside: Check all outputs after fundraw are properly marked for blinding
+        fund_decode = self.nodes[0].decoderawtransaction(funded["hex"])
+        for output in fund_decode["vout"][:-1]:
+            assert "asset" in output
+            assert "value" in output
+            assert output["scriptPubKey"]["type"] != "fee"
+            assert output["commitmentnonce_fully_valid"]
+        assert fund_decode["vout"][-1]["scriptPubKey"]["type"] == "fee"
+        assert not fund_decode["vout"][-1]["commitmentnonce_fully_valid"]
+
+        # Also check that all fundraw outputs marked for blinding are blinded later
+        for blind_tx in [blinded, blinded2]:
+            blind_decode = self.nodes[0].decoderawtransaction(blind_tx)
+            for output in blind_decode["vout"][:-1]:
+                assert "asset" not in output
+                assert "value" not in output
+                assert output["scriptPubKey"]["type"] != "fee"
+                assert output["commitmentnonce_fully_valid"]
+            assert blind_decode["vout"][-1]["scriptPubKey"]["type"] == "fee"
+            assert "asset" in blind_decode["vout"][-1]
+            assert "value" in blind_decode["vout"][-1]
+            assert not blind_decode["vout"][-1]["commitmentnonce_fully_valid"]
+
         # Check createblindedaddress functionality
         blinded_addr = self.nodes[0].getnewaddress()
         validated_addr = self.nodes[0].validateaddress(blinded_addr)
