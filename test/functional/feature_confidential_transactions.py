@@ -379,6 +379,9 @@ class CTTest (BitcoinTestFramework):
         self.sync_all()
 
         # Check for value accounting when asset issuance is null but token not, ie unblinded
+        # HACK: Self-send to sweep up bitcoin inputs into blinded output.
+        # We were hitting https://github.com/ElementsProject/elements/issues/473 for the following issuance
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), self.nodes[0].getwalletinfo()["balance"]["bitcoin"], "", "", True)
         issued = self.nodes[0].issueasset(0, 1, False)
         walletinfo = self.nodes[0].getwalletinfo()
         assert(issued["asset"] not in walletinfo["balance"])
@@ -559,7 +562,6 @@ class CTTest (BitcoinTestFramework):
         self.nodes[0].sendtoaddress(blinded_addr, 1)
         self.nodes[0].sendtoaddress(blinded_addr, 3)
         unspent = self.nodes[0].listunspent(0, 0)
-        assert_equal(len(unspent), 4)
         rawtx = self.nodes[0].createrawtransaction([{"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]}, {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}], {addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.2"), "fee":Decimal("0.2")})
         # Blinding will fail with 2 blinded inputs and 0 blinded outputs
         # since it has no notion of a wallet to fill in a 0-value OP_RETURN output
