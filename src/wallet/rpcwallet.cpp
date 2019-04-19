@@ -5189,16 +5189,16 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     CPubKey newKey;
     if (!pwallet->GetKeyFromPool(newKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    PKHash pkhash(newKey);
+    WitnessV0KeyHash wpkhash(newKey.GetID());
 
-    pwallet->SetAddressBook(pkhash, "", "receive");
+    pwallet->SetAddressBook(wpkhash, "", "receive");
 
     // One peg-in input, one wallet output and one fee output
     CMutableTransaction mtx;
     mtx.vin.push_back(CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0));
     // mark as peg-in input
     mtx.vin[0].m_is_pegin = true;
-    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(pkhash)));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
     // Construct pegin proof
