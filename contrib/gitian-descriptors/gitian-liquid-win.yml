@@ -1,5 +1,5 @@
 ---
-name: "elements-win-0.18"
+name: "liquid-win-0.18"
 enable_cache: true
 suites:
 - "bionic"
@@ -129,7 +129,10 @@ script: |
   CONFIG_SITE=${BASEPREFIX}/`echo "${HOSTS}" | awk '{print $1;}'`/share/config.site ./configure --prefix=/
   make dist
   SOURCEDIST=`echo elements-*.tar.gz`
+  LIQUIDSOURCEDIST=`echo elements-*.tar.gz`
+  LIQUIDSOURCEDIST=`echo ${LIQUIDSOURCEDIST} | sed 's/elements/liquid/'`
   DISTNAME=`echo ${SOURCEDIST} | sed 's/.tar.*//'`
+  DISTNAME=`echo ${DISTNAME} | sed 's/elements/liquid/'`
 
   # Correct tar file order
   mkdir -p temp

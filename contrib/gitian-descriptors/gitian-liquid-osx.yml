@@ -1,5 +1,5 @@
 ---
-name: "elements-osx-0.18"
+name: "liquid-osx-0.18"
 enable_cache: true
 suites:
 - "bionic"
@@ -111,7 +111,10 @@ script: |
   CONFIG_SITE=${BASEPREFIX}/`echo "${HOSTS}" | awk '{print $1;}'`/share/config.site ./configure --prefix=/
   make dist
   SOURCEDIST=`echo elements-*.tar.gz`
+  LIQUIDSOURCEDIST=`echo elements-*.tar.gz`
+  LIQUIDSOURCEDIST=`echo ${LIQUIDSOURCEDIST} | sed 's/elements/liquid/'`
   DISTNAME=`echo ${SOURCEDIST} | sed 's/.tar.*//'`
+  DISTNAME=`echo ${DISTNAME} | sed 's/elements/liquid/'`
 
   # Correct tar file order
   mkdir -p temp
@@ -172,4 +175,5 @@ script: |
   done
   mkdir -p $OUTDIR/src
   mv $SOURCEDIST $OUTDIR/src
+  mv $OUTDIR/src/$SOURCEDIST $OUTDIR/src/$LIQUIDSOURCEDIST
   mv ${OUTDIR}/${DISTNAME}-x86_64-*.tar.gz ${OUTDIR}/${DISTNAME}-osx64.tar.gz
