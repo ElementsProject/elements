@@ -3166,15 +3166,17 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         }
 
                         std::vector<CTxOut>::iterator position = txNew.vout.begin()+vChangePosInOut[assetChange.first];
-                        txNew.vout.insert(position, newTxOut);
-                        CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
                         if (blind_details) {
+                            CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
                             blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], blind_pub);
                             assert(blind_pub.IsFullyValid());
                             blind_details->num_to_blind++;
                             blind_details->change_to_blind++;
                             blind_details->only_change_pos = vChangePosInOut[assetChange.first];
+                            // Place the blinding pubkey here in case of fundraw calls
+                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
                         }
+                        txNew.vout.insert(position, newTxOut);
                     }
                 }
                 // Set the correct nChangePosInOut for output.  Should be policyAsset's position.
