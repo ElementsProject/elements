@@ -35,62 +35,89 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
-bool UnblindConfidentialPair(const CKey &key, const CConfidentialValue& confValue, const CConfidentialAsset& confAsset, const CConfidentialNonce& nNonce, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
+bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce& nonce_commitment, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
 {
-    if (!key.IsValid() || vchRangeproof.size() == 0) {
+    if (!blinding_key.IsValid() || vchRangeproof.size() == 0) {
         return false;
     }
-    CPubKey ephemeral_key(nNonce.vchCommitment);
-    if (nNonce.vchCommitment.size() > 0 && !ephemeral_key.IsValid()) {
+    CPubKey ephemeral_key(nonce_commitment.vchCommitment);
+    if (nonce_commitment.vchCommitment.size() > 0 && !ephemeral_key.IsFullyValid()) {
         return false;
     }
 
     // ECDH or not depending on if nonce commitment is non-empty
     uint256 nonce;
-    bool fBlankNonce = false;
-    if (nNonce.vchCommitment.size() > 0) {
-        nonce = key.ECDH(ephemeral_key);
+    bool blank_nonce = false;
+    if (nonce_commitment.vchCommitment.size() > 0) {
+        nonce = blinding_key.ECDH(ephemeral_key);
         CSHA256().Write(nonce.begin(), 32).Finalize(nonce.begin());
     } else {
         // Use blinding key directly, and don't commit to a scriptpubkey
-        fBlankNonce = true;
-        nonce = uint256(std::vector<unsigned char>(key.begin(), key.end()));
+        // This is used for issuance inputs.
+        blank_nonce = true;
+        nonce = uint256(std::vector<unsigned char>(blinding_key.begin(), blinding_key.end()));
     }
-    unsigned char msg[4096];
+
+    // API-prescribed sidechannel maximum size, though we only use 64 bytes
+    unsigned char msg[4096] = {0};
+    // 32 bytes of asset type, 32 bytes of asset blinding factor in sidechannel
     size_t msg_size = 64;
+
+    // If value is unblinded, we don't support unblinding just the asset
+    if (!conf_value.IsCommitment()) {
+        return false;
+    }
+
+    // Valid asset commitment?
+    secp256k1_generator observed_gen;
+    if (conf_asset.IsCommitment()) {
+        if (secp256k1_generator_parse(secp256k1_blind_context, &observed_gen, &conf_asset.vchCommitment[0]) != 1)
+            return false;
+    } else if (conf_asset.IsExplicit()) {
+        if (secp256k1_generator_generate(secp256k1_blind_context, &observed_gen, conf_asset.GetAsset().begin()) != 1)
+            return false;
+    }
+
+    // Valid value commitment?
+    secp256k1_pedersen_commitment value_commit;
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) != 1) {
+        return false;
+    }
+
+    // Rewind rangeproof
     uint64_t min_value, max_value, amount;
-    secp256k1_pedersen_commitment commit;
-    if (!confValue.IsCommitment()) {
+    if (!secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &value_commit, &vchRangeproof[0], vchRangeproof.size(), (committedScript.size() && !blank_nonce)? &committedScript.front(): NULL, blank_nonce ? 0 : committedScript.size(), &observed_gen)) {
         return false;
     }
 
-    secp256k1_generator gen;
-    if (confAsset.IsCommitment()) {
-        if (secp256k1_generator_parse(secp256k1_blind_context, &gen, &confAsset.vchCommitment[0]) != 1)
-            return false;
-    }
-    else if (confAsset.IsExplicit()) {
-        if (secp256k1_generator_generate(secp256k1_blind_context, &gen, confAsset.GetAsset().begin()) != 1)
-            return false;
+    // Value sidechannel must be a transaction-valid amount (should be belt-and-suspenders check)
+    if (amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount)) {
+        return false;
     }
 
-    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &commit, &confValue.vchCommitment[0]) != 1)
-        return false;
-    int res = secp256k1_rangeproof_rewind(secp256k1_blind_context, blinding_factor_out.begin(), &amount, msg, &msg_size, nonce.begin(), &min_value, &max_value, &commit, &vchRangeproof[0], vchRangeproof.size(), (committedScript.size() && !fBlankNonce)? &committedScript.front(): NULL, fBlankNonce ? 0 : committedScript.size(), &gen);
-    secp256k1_generator recoveredGen;
+    // Convenience pointers to starting point of each recovered 32 byte message
+    unsigned char *asset_type = msg;
+    unsigned char *asset_blinder = msg+32;
 
-    if (!res || amount > (uint64_t)MAX_MONEY || !MoneyRange((CAmount)amount) || msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recoveredGen, msg+32, msg+64) != 1 || !memcmp(&gen, &recoveredGen, 33)) {
-        amount_out = 0;
-        blinding_factor_out = uint256();
-        asset_out.SetNull();
-        asset_blinding_factor_out = uint256();
+    // Asset sidechannel of asset type + asset blinder
+    secp256k1_generator recalculated_gen;
+    if (msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recalculated_gen, asset_type, asset_blinder) != 1) {
         return false;
-    } else {
-        amount_out = (CAmount)amount;
-        asset_out = CAsset(std::vector<unsigned char>(msg, msg+32));
-        asset_blinding_factor_out = uint256(std::vector<unsigned char>(msg+32, msg+64));
-        return true;
     }
+
+    // Serialize both generators then compare
+    unsigned char observed_generator[33];
+    unsigned char derived_generator[33];
+    secp256k1_generator_serialize(secp256k1_blind_context, observed_generator, &observed_gen);
+    secp256k1_generator_serialize(secp256k1_blind_context, derived_generator, &recalculated_gen);
+    if (memcmp(observed_generator, derived_generator, sizeof(observed_generator))) {
+        return false;
+    }
+
+    amount_out = (CAmount)amount;
+    asset_out = CAsset(std::vector<unsigned char>(asset_type, asset_type+32));
+    asset_blinding_factor_out = uint256(std::vector<unsigned char>(asset_blinder, asset_blinder+32));
+    return true;
 }
 
 // Create surjection proof
