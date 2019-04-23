@@ -29,5 +29,18 @@ BOOST_AUTO_TEST_CASE(blech32_polymod_sanity)
     BOOST_CHECK_EQUAL(plm1, plm2);
 }
 
+BOOST_AUTO_TEST_CASE(blech32_checksum)
+{
+    std::vector<unsigned char> vector{7,2,3,4,5,6,7,8,9,234,123,213,16};
+    std::vector<unsigned char> b32;
+    ConvertBits<8, 5, true>([&](unsigned char c) { b32.push_back(c); }, vector.begin(), vector.end());
+    std::vector<unsigned char> cs = CreateChecksum("lq", b32);
+
+    std::vector<unsigned char> expected_cs{22,13,13,5,4,4,23,7,28,21,30,12};
+    for (size_t i = 0; i < expected_cs.size(); i++) {
+        BOOST_CHECK_EQUAL(expected_cs[i], cs[i]);
+    }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
