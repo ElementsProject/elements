@@ -2,7 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bech32.cpp>
+#include <bech32.h>
 #include <test/test_bitcoin.h>
 
 #include <boost/test/unit_test.hpp>
@@ -73,13 +73,13 @@ BOOST_AUTO_TEST_CASE(bech32_polymod_sanity)
 
     std::vector<unsigned char> base32;
     ConvertBits<8, 5, true>([&](unsigned char c) { base32.push_back(c); }, data.begin(), data.end());
-    uint64_t plm1 = PolyMod(base32);
+    uint64_t plm1 = bech32::PolyMod(base32);
 
     // Now add 1023 zeros.
     for (auto i = 0; i < 1023; i++) {
         base32.push_back(0);
     }
-    uint64_t plm2 = PolyMod(base32);
+    uint64_t plm2 = bech32::PolyMod(base32);
 
     BOOST_CHECK_EQUAL(plm1, plm2);
 }

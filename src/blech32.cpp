@@ -11,7 +11,7 @@
  * TODO: Update comments
  */
 
-namespace
+namespace blech32
 {
 
 typedef std::vector<uint8_t> data;
@@ -144,11 +144,6 @@ data CreateChecksum(const std::string& hrp, const data& values)
     }
     return ret;
 }
-
-} // namespace
-
-namespace blech32
-{
 
 /** Encode a Blech32 string. */
 std::string Encode(const std::string& hrp, const data& values) {

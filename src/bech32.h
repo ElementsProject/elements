@@ -25,6 +25,9 @@ std::string Encode(const std::string& hrp, const std::vector<uint8_t>& values);
 /** Decode a Bech32 string. Returns (hrp, data). Empty hrp means failure. */
 std::pair<std::string, std::vector<uint8_t>> Decode(const std::string& str);
 
+/// Exported for testing.
+uint32_t PolyMod(const std::vector<uint8_t>& v);
+
 } // namespace bech32
 
 #endif // BITCOIN_BECH32_H
