@@ -11,7 +11,7 @@
  * TODO: Update comments
  */
 
-namespace
+namespace blech32
 {
 
 typedef std::vector<uint8_t> data;
@@ -41,7 +41,7 @@ data Cat(data x, const data& y)
 /** This function will compute what 6 5-bit values to XOR into the last 6 input values, in order to
  *  make the checksum 0. These 6 values are packed together in a single 30-bit integer. The higher
  *  bits correspond to earlier values. */
-uint32_t PolyMod(const data& v)
+uint64_t PolyMod(const data& v)
 {
     // The input is interpreted as a list of coefficients of a polynomial over F = GF(32), with an
     // implicit 1 in front. If the input is [v0,v1,v2,v3,v4], that polynomial is v(x) =
@@ -136,7 +136,7 @@ data CreateChecksum(const std::string& hrp, const data& values)
 {
     data enc = Cat(ExpandHRP(hrp), values);
     enc.resize(enc.size() + 12); // ELEMENTS: Append 6->12 zeroes
-    uint32_t mod = PolyMod(enc) ^ 1; // Determine what to XOR into those 6 zeroes.
+    uint64_t mod = PolyMod(enc) ^ 1; // Determine what to XOR into those 6 zeroes.
     data ret(12); // ELEMENTS: 6->12
     for (size_t i = 0; i < 12; ++i) { // ELEMENTS: 6->12
         // Convert the 5-bit groups in mod to checksum values.
@@ -144,11 +144,6 @@ data CreateChecksum(const std::string& hrp, const data& values)
     }
     return ret;
 }
-
-} // namespace
-
-namespace blech32
-{
 
 /** Encode a Blech32 string. */
 std::string Encode(const std::string& hrp, const data& values) {

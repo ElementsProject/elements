@@ -4,7 +4,7 @@
 
 #include <bech32.h>
 
-namespace
+namespace bech32
 {
 
 typedef std::vector<uint8_t> data;
@@ -137,11 +137,6 @@ data CreateChecksum(const std::string& hrp, const data& values)
     }
     return ret;
 }
-
-} // namespace
-
-namespace bech32
-{
 
 /** Encode a Bech32 string. */
 std::string Encode(const std::string& hrp, const data& values) {
