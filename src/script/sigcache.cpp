@@ -186,9 +186,9 @@ bool CachingSurjectionProofChecker::VerifySurjectionProof(secp256k1_surjectionpr
 {
     // Serialize objects
     std::vector<unsigned char> vchproof;
-    size_t proof_len = 0;
-    vchproof.resize(secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof));
-    secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, &vchproof[0], &proof_len, &proof);
+    size_t proof_len = secp256k1_surjectionproof_serialized_size(secp256k1_ctx_verify_amounts, &proof);
+    vchproof.resize(proof_len);
+    assert(secp256k1_surjectionproof_serialize(secp256k1_ctx_verify_amounts, vchproof.data(), &proof_len, &proof) == 1);
 
     std::vector<unsigned char> tagCommit;
     tagCommit.resize(33);
