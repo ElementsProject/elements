@@ -213,7 +213,7 @@ bool CScript::IsPegoutScript(uint256& genesis_hash, CScript& pegout_scriptpubkey
         return false;
     }
 
-    if (!GetOp(pc, opcode, data) || data.size() != 32 ) {
+    if (!GetOp(pc, opcode, data) || data.size() != 32 || opcode != 0x20) {
         return false;
     }
     genesis_hash = uint256(data);
