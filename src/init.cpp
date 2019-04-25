@@ -391,7 +391,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-port=<port>", strprintf(_("Listen for connections on <port> (default: %u)"), defaultChainParams->GetDefaultPort()));
     strUsage += HelpMessageOpt("-proxy=<ip:port>", _("Connect through SOCKS5 proxy"));
     strUsage += HelpMessageOpt("-proxyrandomize", strprintf(_("Randomize credentials for every proxy connection. This enables Tor stream isolation (default: %u)"), DEFAULT_PROXYRANDOMIZE));
-    strUsage += HelpMessageOpt("-requestlist", strprintf(_("TODO: Add Message ..."), DEFAULT_REQUESTLIST_CHECK));
+    strUsage += HelpMessageOpt("-requestlist", strprintf(_("Store the list of service requests"), DEFAULT_REQUEST_LIST));
     strUsage += HelpMessageOpt("-rpcserialversion", strprintf(_("Sets the serialization of raw transaction or block hex returned in non-verbose mode, non-segwit(0) or segwit(1) (default: %d)"), DEFAULT_RPC_SERIALIZE_VERSION));
     strUsage += HelpMessageOpt("-seednode=<ip>", _("Connect to a node to retrieve peer addresses, and disconnect"));
     strUsage += HelpMessageOpt("-timeout=<n>", strprintf(_("Specify connection timeout in milliseconds (minimum: 1, default: %d)"), DEFAULT_CONNECT_TIMEOUT));
@@ -1107,7 +1107,7 @@ bool AppInitParameterInteraction()
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
-    fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
+    fRequestList = GetBoolArg("-requestlist", DEFAULT_REQUEST_LIST);
     fIsBareMultisigStd = GetBoolArg("-permitbaremultisig", DEFAULT_PERMIT_BAREMULTISIG);
     //Acceptance of data in OP_RETURN
     fAcceptDatacarrier = GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
@@ -1687,9 +1687,10 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     if(chainActive.Height() > 1) {
-        if(fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
-        if(fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
-        if(fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
+        if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
+        if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
+        if (fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
+        if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
     }
 
     // ********************************************************* Step 11: start node

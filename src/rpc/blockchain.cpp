@@ -22,6 +22,7 @@
 #include "utilstrencodings.h"
 #include "hash.h"
 #include "ecies.h"
+#include "request.h"
 
 #include <fstream>
 
@@ -1002,6 +1003,18 @@ UniValue gettxoutsetinfo(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue requestToJSON(const CRequest &request)
+{
+    UniValue item(UniValue::VOBJ);
+    item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
+    item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
+    item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
+    item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
+    item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
+    item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
+    return item;
+}
+
 UniValue getrequests(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() > 1)
@@ -1036,10 +1049,21 @@ UniValue getrequests(const JSONRPCRequest& request)
         hash.SetHex(request.params[0].get_str());
     }
 
+    UniValue ret(UniValue::VARR);
+
+    if (fRequestList) {
+        for (auto it = requestList.begin(); it != requestList.end(); ++it) {
+            if (!fGenesisCheck || (it->second.hashGenesis == hash)) {
+                auto item = requestToJSON(it->second);
+                item.push_back(Pair("txid", it->first.ToString()));
+                ret.push_back(item);
+            }
+        }
+        return ret;
+    }
+
     FlushStateToDisk();
     std::unique_ptr<CCoinsViewCursor> pcursor(static_cast<CCoinsView*>(pcoinsTip)->Cursor());
-
-    UniValue ret(UniValue::VARR);
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
         uint256 key;
@@ -1048,34 +1072,12 @@ UniValue getrequests(const JSONRPCRequest& request)
             if (coins.vout.size() == 1 && !coins.IsCoinBase() &&
             coins.vout[0].nAsset.IsExplicit() && coins.vout[0].nAsset.GetAsset() == permissionAsset) {
                 vector<vector<unsigned char>> vSolutions;
-                if (SolverRequests(coins.vout[0].scriptPubKey, vSolutions)) {
-                    int endBlockHeight = CScriptNum(vSolutions[0], true).getint();
-                    if (endBlockHeight >= chainActive.Height()) { // check request active
-                        UniValue item(UniValue::VOBJ);
-                        // get genesis from output 3
-                        char pubInt;
-                        uint256 genesisHash;
-                        CDataStream output3(vSolutions[3], SER_NETWORK, PROTOCOL_VERSION);
-                        output3 >> pubInt;
-                        output3 >> genesisHash;
-                        if (!fGenesisCheck || (genesisHash == hash)) {
-                            item.push_back(Pair("genesisBlock", genesisHash.GetHex()));
-                            // get remaining request data from output 4
-                            CDataStream output4(vSolutions[4], SER_NETWORK, PROTOCOL_VERSION);
-                            int val;
-                            output4 >> pubInt;
-                            output4 >> val;
-                            item.push_back(Pair("startBlockHeight", val));
-                            output4 >> val;
-                            item.push_back(Pair("numTickets", val));
-                            output4 >> val;
-                            item.push_back(Pair("decayConst", val));
-                            output4 >> val;
-                            item.push_back(Pair("feePercentage", val));
-
-                            // get end block height from output 0
-                            item.push_back(Pair("endBlockHeight", endBlockHeight));
-
+                txnouttype whichType;
+                if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
+                    auto request = CRequest::FromSolutions(vSolutions);
+                    if ((int32_t)request.nEndBlockHeight >= chainActive.Height()) { // check request active
+                        if (!fGenesisCheck || (request.hashGenesis == hash)) {
+                            auto item = requestToJSON(request);
                             item.push_back(Pair("txid", key.ToString()));
                             ret.push_back(item);
                         }

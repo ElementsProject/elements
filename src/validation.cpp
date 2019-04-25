@@ -87,9 +87,9 @@ bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
 bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
-bool fRequireRequestListCheck = DEFAULT_REQUESTLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
 bool fRecordInflation = DEFAULT_RECORD_INFLATION;
+bool fRequestList = DEFAULT_REQUEST_LIST;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
@@ -104,6 +104,7 @@ CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 CWhiteList addressWhitelist;
 CPolicyList addressBurnlist;
 CPolicyList addressFreezelist;
+CRequestList requestList;
 
 CTxMemPool mempool(::minRelayTxFee);
 
@@ -2732,7 +2733,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             UpdateAssetMap(tx);
             UpdateFreezeHistory(tx,chainActive.Height()+1);
         }
-        
+
+        if (fRequestList) {
+            if(tx.vout[0].nAsset.GetAsset() == permissionAsset) UpdateRequestList(tx,view);
+        }
+
         // GetTransactionSigOpCost counts 3 types of sigops:
         // * legacy (always)
         // * p2sh (when P2SH enabled in flags and excludes coinbase)
@@ -2769,6 +2774,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!MoneyRange(mapFees))
             return state.DoS(100, error("ConnectBlock(): total block reward overflowed"), REJECT_INVALID, "bad-blockreward-outofrange");
 
+    }
+
+    if (fRequestList) {
+        requestList.RemoveExpired(chainActive.Height() + 1);
     }
 
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;

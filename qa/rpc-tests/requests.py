@@ -2,9 +2,9 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
-# Test for the guardnode system
+# Test for the request covalence system
 # TODO: add more tests as work on this progresses
-class GuardnodeTest(BitcoinTestFramework):
+class RequestsTest(BitcoinTestFramework):
   def __init__(self):
     super().__init__()
     self.setup_clean_chain = True
@@ -12,6 +12,7 @@ class GuardnodeTest(BitcoinTestFramework):
     self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000",
     "-permissioncoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac",
     "-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac"] for i in range(2)]
+    self.extra_args[1].append("-requestlist=1")
 
   def setup_network(self, split=False):
     self.nodes = start_nodes(self.num_nodes, self.options.tmpdir,
@@ -86,6 +87,7 @@ class GuardnodeTest(BitcoinTestFramework):
 
     # test get request method with/without genesis hash parameter
     requests = self.nodes[0].getrequests()
+    assert_equal(2, len(self.nodes[1].getrequests()))
     assert_equal(2, len(requests))
     for req in requests:
         if txid == req['txid']:
@@ -100,6 +102,7 @@ class GuardnodeTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis)
+    assert_equal(self.nodes[1].getrequests(genesis), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid == req['txid']:
@@ -112,6 +115,7 @@ class GuardnodeTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis2)
+    assert_equal(self.nodes[1].getrequests(genesis2), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -124,20 +128,32 @@ class GuardnodeTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05")
+    assert_equal(self.nodes[1].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05"), [])
     assert_equal(requests, [])
 
-    # try send spend transaction
+    #test stopping and restarting to make sure list is reloaded
+    self.stop_node(1)
+    self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+    assert_equal(2, len(self.nodes[1].getrequests()))
+    assert_equal(self.nodes[1].getrequests(genesis), self.nodes[0].getrequests(genesis))
+    assert_equal(self.nodes[1].getrequests(genesis2), self.nodes[0].getrequests(genesis2))
+    connect_nodes_bi(self.nodes, 0, 1)
+    self.sync_all()
+
+    # try send spend transcation
     inputs = {"txid": txid, "vout": 0, "sequence": 4294967294}
-    fee = Decimal('0.0001')
     addr = self.nodes[1].getnewaddress()
-    outputs = {addr: unspent[0]["amount"] - fee, "fee": fee}
-    txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount())
+    outputs = {addr: unspent[0]["amount"]}
+    assets = {addr: unspent[0]["asset"]}
+    txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount(), assets)
     signedTxSpend = self.nodes[1].signrawtransaction(txSpend)
     assert_equal(signedTxSpend["errors"][0]["error"], "Locktime requirement not satisfied")
 
     # make request 1 inactive
     self.nodes[0].generate(10)
+    self.sync_all()
     requests = self.nodes[0].getrequests()
+    assert_equal(requests, self.nodes[1].getrequests())
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -150,6 +166,7 @@ class GuardnodeTest(BitcoinTestFramework):
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis2)
+    assert_equal(self.nodes[1].getrequests(genesis2), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
@@ -162,27 +179,39 @@ class GuardnodeTest(BitcoinTestFramework):
         else:
             assert(False)
 
-    # make request 2 inactive
-    self.nodes[0].generate(10)
-    assert_equal([], self.nodes[0].getrequests())
+    # spend previously locked transaction
+    txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount(), assets)
+    signedTxSpend = self.nodes[1].signrawtransaction(txSpend)
+    txidSpend = self.nodes[1].sendrawtransaction(signedTxSpend["hex"])
 
-    # # generate more blocks and try again
-    # # CLTV signing not supported in bitcoin
-    # txraw = self.nodes[1].getrawtransaction(txid, 1)
-    # txSpend2 = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount())
-    # signedTxSpend2 = self.nodes[1].signrawtransaction(txSpend2,
-    #     [{
-    #         "txid": txid,
-    #         "vout": 0,
-    #         "scriptPubKey": txraw["vout"][0]["scriptPubKey"]["hex"],
-    #         "amount": unspent[0]["amount"]
-    #     }],
-    #     [priv])
-    # print(signedTxSpend2)
-    # print(self.nodes[1].decoderawtransaction(signedTxSpend2["hex"]))
-    # assert_equal(signedTxSpend2["errors"][0]["error"], "")
+    # try spend second transaction
+    inputs2 = {"txid": txid2, "vout": 0, "sequence": 4294967294}
+    addr2 = self.nodes[1].getnewaddress()
+    outputs2 = {addr2: unspent[1]["amount"]}
+    assets2 = {addr2: unspent[1]["asset"]}
+    txSpend2 = self.nodes[1].createrawtransaction([inputs2], outputs2, self.nodes[1].getblockcount(), assets2)
+    signedTxSpend2 = self.nodes[1].signrawtransaction(txSpend2)
+    assert_equal(signedTxSpend2["errors"][0]["error"], "Locktime requirement not satisfied")
+
+    # make request 2 inactive
+    self.sync_all()
+    self.nodes[0].generate(10)
+    self.sync_all()
+
+    assert_equal([], self.nodes[0].getrequests())
+    assert_equal([], self.nodes[1].getrequests())
+    assert(self.nodes[1].getbalance()["PERMISSION"] == 1000)
+
+    # send second transaction
+    txSpend2 = self.nodes[1].createrawtransaction([inputs2], outputs2, self.nodes[1].getblockcount(), assets2)
+    signedTxSpend2 = self.nodes[1].signrawtransaction(txSpend2)
+    txidSpend2 = self.nodes[1].sendrawtransaction(signedTxSpend2["hex"])
+
+    self.sync_all()
+    self.nodes[0].generate(1)
+    assert(self.nodes[1].getbalance()["PERMISSION"] == 2000)
 
     return
 
 if __name__ == '__main__':
-  GuardnodeTest().main()
+  RequestsTest().main()

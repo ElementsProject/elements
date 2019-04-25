@@ -50,6 +50,14 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
             return false;
         if (m < 1 || m > n)
             return false;
+    } else if (whichType == TX_LOCKED_MULTISIG) {
+        unsigned char m = (*(vSolutions.begin() + 1))[0];
+        unsigned char n = vSolutions.back()[0];
+        // Support up to x-of-3 multisig txns as standard
+        if (n < 1 || n > 3)
+            return false;
+        if (m < 1 || m > n)
+            return false;
     } else if (whichType == TX_NULL_DATA &&
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
           return false;
@@ -89,7 +97,7 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
             reason = "scriptpubkey";
             return false;
         }
-        if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
+        if ((whichType == TX_MULTISIG || whichType == TX_LOCKED_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
         } else if (txout.nAsset.IsExplicit() && txout.IsDust(dustRelayFee)) {
@@ -390,6 +398,21 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         }
     }
     return true;
+}
+
+bool UpdateRequestList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+{
+    if (tx.IsCoinBase() || tx.vout.size() != 1)
+        return false;
+
+    txnouttype whichType;
+    vector<vector<unsigned char>> vSolutions;
+    if (Solver(tx.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
+        auto request = CRequest::FromSolutions(vSolutions);
+        requestList.add(tx.GetHash(), &request);
+        return true;
+    }
+    return false;
 }
 
 bool UpdateAssetMap(const CTransaction& tx)
