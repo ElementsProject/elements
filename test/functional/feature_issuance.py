@@ -297,25 +297,48 @@ class IssuanceTest(BitcoinTestFramework):
         id_set = set()
 
         # First issue an asset with no argument
-        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]["hex"]
-        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx["hex"])
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
 
+        # Recompute details minimal helper API
+        computed_asset = self.nodes[0].computeissuanceasset(decode_tx["vin"][0]["txid"], 0)
+        assert_equal(computed_asset["entropy"], issued_tx["entropy"])
+        assert_equal(computed_asset["asset"], issued_tx["asset"])
+        assert_equal(computed_asset["token"], issued_tx["token"])
+
         # Again with 00..00 argument, which match the no-argument case
-        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"00"*32}])[0]["hex"]
-        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"00"*32}])[0]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx["hex"])
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 1)
 
+        # Test optional blind arg
+        computed_asset = self.nodes[0].computeissuanceasset(decode_tx["vin"][0]["txid"], 0, "00"*32, True)
+        assert_equal(computed_asset["entropy"], issued_tx["entropy"])
+        assert_equal(computed_asset["asset"], issued_tx["asset"])
+        assert_equal(computed_asset["token"], issued_tx["token"])
+
         # Random contract string should again differ
-        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeef"*8}])[0]["hex"]
-        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeef"*8}])[0]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx["hex"])
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 2)
-        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeee"*8}])[0]["hex"]
-        decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
+        issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeee"*8}])[0]
+        decode_tx = self.nodes[0].decoderawtransaction(issued_tx["hex"])
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 3)
+
+        computed_asset = self.nodes[0].computeissuanceasset(decode_tx["vin"][0]["txid"], 0, "deadbeee"*8)
+        assert_equal(computed_asset["entropy"], issued_tx["entropy"])
+        assert_equal(computed_asset["asset"], issued_tx["asset"])
+        assert_equal(computed_asset["token"], issued_tx["token"])
+
+        # Only change blind arg to false, token should mistmatch
+        unblind_computed = self.nodes[0].computeissuanceasset(decode_tx["vin"][0]["txid"], 0, "deadbeee"*8, False)
+        assert_equal(computed_asset["entropy"], issued_tx["entropy"])
+        assert_equal(computed_asset["asset"], issued_tx["asset"])
+        assert computed_asset["token"] != issued_tx["token"]
 
         # Finally, append an issuance on top of an already-"issued" raw tx
         # Same contract, different utxo being spent results in new asset type
