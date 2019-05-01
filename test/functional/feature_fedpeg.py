@@ -173,6 +173,7 @@ class FedPegTest(BitcoinTestFramework):
 
         addrs = sidechain.getpeginaddress()
         addr = addrs["mainchain_address"]
+        assert_equal(sidechain.decodescript(addrs["claim_script"])["type"], "witness_v0_keyhash")
         txid1 = parent.sendtoaddress(addr, 24)
         # 10+2 confirms required to get into mempool and confirm
         parent.generate(1)
