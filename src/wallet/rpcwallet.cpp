@@ -5116,7 +5116,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     if (txHashes.size() != 1 || txHashes[0] != txBTC.GetHash())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The txoutproof must contain bitcoinTx and only bitcoinTx");
 
-    CScript witnessProgScript;
+    CScript witness_script;
     unsigned int nOut = txBTC.vout.size();
     if (request.params.size() > 2) {
         const std::string claim_script = request.params[2].get_str();
@@ -5125,26 +5125,19 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         }
         // If given manually, no need for it to be a witness script
         std::vector<unsigned char> witnessBytes(ParseHex(claim_script));
-        witnessProgScript = CScript(witnessBytes.begin(), witnessBytes.end());
-        nOut = GetPeginTxnOutputIndex(txBTC, witnessProgScript);
+        witness_script = CScript(witnessBytes.begin(), witnessBytes.end());
+        nOut = GetPeginTxnOutputIndex(txBTC, witness_script);
         if (nOut == txBTC.vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
         }
     }
     else {
-        // Look through address book for pegin contract value by extracting the unlderlying witness program from p2sh-p2wpkh
+        // Look for known wpkh address in wallet
         for (std::map<CTxDestination, CAddressBookData>::const_iterator iter = pwallet->mapAddressBook.begin(); iter != pwallet->mapAddressBook.end(); ++iter) {
-            CTxDestination sidechainAddress(CTxDestination(iter->first));
-            CScript witnessProgramScript = GetScriptForWitness(GetScriptForDestination(sidechainAddress));
-            int version;
-            std::vector<unsigned char> witnessProgram;
-            // Only process witness v0 programs
-            if (!witnessProgramScript.IsWitnessProgram(version, witnessProgram) || version != 0) {
-                continue;
-            }
-            nOut = GetPeginTxnOutputIndex(txBTC, witnessProgramScript);
+            CScript dest_script = GetScriptForDestination(iter->first);
+            nOut = GetPeginTxnOutputIndex(txBTC, dest_script);
             if (nOut != txBTC.vout.size()) {
-                witnessProgScript = witnessProgramScript;
+                witness_script = dest_script;
                 break;
             }
         }
@@ -5152,12 +5145,12 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     if (nOut == txBTC.vout.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
     }
-    assert(witnessProgScript != CScript());
+    assert(witness_script != CScript());
 
     int version = -1;
-    std::vector<unsigned char> witnessProgram;
-    if (!witnessProgScript.IsWitnessProgram(version, witnessProgram)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a witness program.");
+    std::vector<unsigned char> witness_program;
+    if (!witness_script.IsWitnessProgram(version, witness_program) || version != 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a v0 witness program.");
     }
 
     CAmount value = 0;
@@ -5207,7 +5200,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     stack.push_back(value_bytes);
     stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
     stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
-    stack.push_back(std::vector<unsigned char>(witnessProgScript.begin(), witnessProgScript.end()));
+    stack.push_back(std::vector<unsigned char>(witness_script.begin(), witness_script.end()));
     stack.push_back(txData);
     stack.push_back(txOutProofData);
 
