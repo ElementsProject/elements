@@ -74,9 +74,6 @@ class FullBlockTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [[]]
 
-    def skip_test_if_missing_module(self):
-        self.skip_if_no_wallet()
-
     def run_test(self):
         node = self.nodes[0]  # convenience reference to the node
 
@@ -838,7 +835,7 @@ class FullBlockTest(BitcoinTestFramework):
         tx.vout.append(CTxOut(b64a.vtx[1].vout[0].nValue.getAmount() - 0)) # fee
         b64a = self.update_block("64a", [tx])
         assert_equal(len(b64a.serialize()), MAX_BLOCK_BASE_SIZE + 8)
-        self.sync_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize(): iostream error')
+        self.sync_blocks([b64a], success=False, reject_reason='non-canonical ReadCompactSize()')
 
         # bitcoind doesn't disconnect us for sending a bloated block, but if we subsequently
         # resend the header message, it won't send us the getdata message again. Just

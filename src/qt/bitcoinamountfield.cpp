@@ -52,11 +52,21 @@ public:
 
     void fixup(QString &input) const
     {
-        bool valid = false;
-        CAmount val = parse(input, &valid);
+        bool valid;
+        CAmount val;
+
+        if (input.isEmpty() && !m_allow_empty) {
+            valid = true;
+            val = m_min_amount;
+        } else {
+            valid = false;
+            val = parse(input, &valid);
+        }
+
         if(valid)
         {
-            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::separatorAlways, false);
+            val = qBound(m_min_amount, val, m_max_amount);
+            input = GUIUtil::formatAssetAmount(current_asset, val, false, currentUnit, BitcoinUnits::separatorAlways, false);
             lineEdit()->setText(input);
         }
     }
@@ -84,6 +94,20 @@ public:
         setValue(value.first, value.second);
     }
 
+    void SetAllowEmpty(bool allow)
+    {
+        m_allow_empty = allow;
+    }
+
+    void SetMinValue(const CAmount& value)
+    {
+        m_min_amount = value;
+    }
+
+    void SetMaxValue(const CAmount& value)
+    {
+        m_max_amount = value;
+    }
 
     void stepBy(int steps)
     {
@@ -99,6 +123,7 @@ public:
         }
         val.second = val.second + steps * singleStep;
         val.second = qMax(val.second, CAmount(0));
+        val.second = qBound(m_min_amount, val.second, m_max_amount);
         // FIXME: Add this back in when assets can have > MAX_MONEY
         // if (val.first == Params().GetConsensus().pegged_asset)
         {
@@ -184,9 +209,12 @@ public:
 
 private:
     CAsset current_asset;
-    int currentUnit;
-    CAmount singleStep;
+    int currentUnit{BitcoinUnits::BTC};
+    CAmount singleStep{CAmount(100000)}; // satoshis
     mutable QSize cachedMinimumSizeHint;
+    bool m_allow_empty{true};
+    CAmount m_min_amount{CAmount(0)};
+    CAmount m_max_amount{BitcoinUnits::maxMoney()};
 
     /**
      * Parse a string into a number of base monetary units and
@@ -237,10 +265,10 @@ protected:
         const std::pair<CAsset, CAmount> val = value(&valid);
         if(valid)
         {
-            if (val.second > 0) {
+            if (val.second > m_min_amount) {
                 rv |= StepDownEnabled;
             }
-            if (val.second < BitcoinUnits::maxMoney() || val.first != Params().GetConsensus().pegged_asset) {
+            if (val.second < m_max_amount || val.first != Params().GetConsensus().pegged_asset) {
                 rv |= StepUpEnabled;
             }
         }
@@ -359,6 +387,21 @@ void BitcoinAmountField::setValue(const CAmount& value)
 {
     amount->setValue(Params().GetConsensus().pegged_asset, value);
     setDisplayUnit(amount->currentPeggedUnit());
+}
+
+void BitcoinAmountField::SetAllowEmpty(bool allow)
+{
+    amount->SetAllowEmpty(allow);
+}
+
+void BitcoinAmountField::SetMinValue(const CAmount& value)
+{
+    amount->SetMinValue(value);
+}
+
+void BitcoinAmountField::SetMaxValue(const CAmount& value)
+{
+    amount->SetMaxValue(value);
 }
 
 void BitcoinAmountField::setReadOnly(bool fReadOnly)

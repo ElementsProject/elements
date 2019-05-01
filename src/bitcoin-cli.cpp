@@ -12,11 +12,12 @@
 #include <fs.h>
 #include <rpc/client.h>
 #include <rpc/protocol.h>
-#include <util.h>
-#include <utilstrencodings.h>
+#include <util/system.h>
+#include <util/strencodings.h>
 
 #include <memory>
 #include <stdio.h>
+#include <tuple>
 
 #include <event2/buffer.h>
 #include <event2/keyvalq_struct.h>
@@ -137,11 +138,6 @@ static int AppInitRPC(int argc, char* argv[])
         SelectBaseParams(gArgs.GetChainName());
     } catch (const std::exception& e) {
         fprintf(stderr, "Error: %s\n", e.what());
-        return EXIT_FAILURE;
-    }
-    if (gArgs.GetBoolArg("-rpcssl", false))
-    {
-        fprintf(stderr, "Error: SSL mode for RPC (-rpcssl) is no longer supported.\n");
         return EXIT_FAILURE;
     }
     return CONTINUE_EXECUTION;
@@ -516,6 +512,10 @@ static int CommandLineRPC(int argc, char *argv[])
 
 int main(int argc, char* argv[])
 {
+#ifdef WIN32
+    util::WinCmdLineArgs winArgs;
+    std::tie(argc, argv) = winArgs.get();
+#endif
     SetupEnvironment();
     if (!SetupNetworking()) {
         fprintf(stderr, "Error: Initializing networking failed\n");

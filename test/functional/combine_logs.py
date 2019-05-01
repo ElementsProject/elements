@@ -26,10 +26,6 @@ def main():
     parser.add_argument('--chain', dest='chain', help='selected chain in the tests (default: regtest2)', default='regtest2')
     args, unknown_args = parser.parse_known_args()
 
-    if args.color and os.name != 'posix':
-        print("Color output requires posix terminal colors.")
-        sys.exit(1)
-
     if args.html and args.color:
         print("Only one out of --color or --html should be specified")
         sys.exit(1)

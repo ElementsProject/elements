@@ -7,8 +7,8 @@
  * Server/client environment: argument handling, config file parsing,
  * thread wrappers, startup time
  */
-#ifndef BITCOIN_UTIL_H
-#define BITCOIN_UTIL_H
+#ifndef BITCOIN_UTIL_SYSTEM_H
+#define BITCOIN_UTIL_SYSTEM_H
 
 #if defined(HAVE_CONFIG_H)
 #include <config/bitcoin-config.h>
@@ -19,8 +19,8 @@
 #include <logging.h>
 #include <sync.h>
 #include <tinyformat.h>
-#include <utilmemory.h>
-#include <utiltime.h>
+#include <util/memory.h>
+#include <util/time.h>
 
 #include <atomic>
 #include <exception>
@@ -29,6 +29,7 @@
 #include <stdint.h>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <boost/thread/condition_variable.hpp> // for boost::thread_interrupted
@@ -348,7 +349,7 @@ std::string CopyrightHolders(const std::string& strPrefix);
  * @return The return value of sched_setschedule(), or 1 on systems without
  * sched_setschedule().
  */
-int ScheduleBatchPriority(void);
+int ScheduleBatchPriority();
 
 namespace util {
 
@@ -362,6 +363,21 @@ inline void insert(std::set<TsetT>& dst, const Tsrc& src) {
     dst.insert(src.begin(), src.end());
 }
 
+#ifdef WIN32
+class WinCmdLineArgs
+{
+public:
+    WinCmdLineArgs();
+    ~WinCmdLineArgs();
+    std::pair<int, char**> get();
+
+private:
+    int argc;
+    char** argv;
+    std::vector<std::string> args;
+};
+#endif
+
 } // namespace util
 
-#endif // BITCOIN_UTIL_H
+#endif // BITCOIN_UTIL_SYSTEM_H

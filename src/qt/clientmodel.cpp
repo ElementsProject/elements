@@ -20,7 +20,7 @@
 #include <netbase.h>
 #include <txmempool.h>
 #include <ui_interface.h>
-#include <util.h>
+#include <util/system.h>
 #include <warnings.h>
 
 #include <stdint.h>
@@ -175,6 +175,11 @@ QString ClientModel::formatClientStartupTime() const
 QString ClientModel::dataDir() const
 {
     return GUIUtil::boostPathToQString(GetDataDir());
+}
+
+QString ClientModel::blocksDir() const
+{
+    return GUIUtil::boostPathToQString(GetBlocksDir());
 }
 
 void ClientModel::updateBanlist()

@@ -6,8 +6,8 @@
 #include <chainparamsbase.h>
 
 #include <tinyformat.h>
-#include <util.h>
-#include <utilmemory.h>
+#include <util/system.h>
+#include <util/memory.h>
 
 #include <assert.h>
 
@@ -24,6 +24,9 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", true, OptionsCategory::CHAINPARAMS);
+
+    //
+    // ELEMENTS
     gArgs.AddArg("-con_mandatorycoinbase", "All non-zero valued coinbase outputs must go to this scriptPubKey, if set.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_connect_coinbase", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::ELEMENTS);
@@ -44,6 +47,8 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: true)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-pak", "Entries in the PAK list. Order of entries matter.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", false, OptionsCategory::ELEMENTS);
+    // END ELEMENTS
+    //
 }
 
 static std::unique_ptr<CBaseChainParams> globalChainBaseParams;

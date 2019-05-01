@@ -12,8 +12,8 @@
 #include <coins.h>
 #include <pegins.h>
 #include <tinyformat.h>
-#include <util.h>
-#include <utilstrencodings.h>
+#include <util/system.h>
+#include <util/strencodings.h>
 #include <chainparams.h> // Peg-out enforcement
 
 // ELEMENTS:
