@@ -4503,33 +4503,34 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
             + HelpExampleRpc("getpeginaddress", "")
         );
 
-    //Creates new address for receiving unlocked utxos
-    JSONRPCRequest req;
-    CTxDestination address = DecodeDestination(getnewaddress(req).get_str());
-
-    Witnessifier w(pwallet);
-    bool ret = boost::apply_visitor(w, address);
-    if (!ret) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Public key or redeemscript not known to wallet, or the key is uncompressed");
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
     }
 
-    pwallet->SetAddressBook(w.result, "", "receive");
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
 
-    CScript destScript = GetScriptForDestination(address);
-    CScript witProg = GetScriptForWitness(destScript);
+    // Use native witness destination
+    CTxDestination dest = GetDestinationForKey(newKey, OutputType::BECH32);
+
+    pwallet->SetAddressBook(dest, "", "receive");
+
+    CScript dest_script = GetScriptForDestination(dest);
 
     // Also add raw scripts to index to recognize later.
-    pwallet->AddCScript(witProg);
-    pwallet->AddCScript(destScript);
+    pwallet->AddCScript(dest_script);
 
-    //Call contracthashtool, get deposit address on mainchain.
-    CTxDestination destAddr(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
+    // Get P2CH deposit address on mainchain.
+    CTxDestination mainchain_dest(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, dest_script))));
 
-    UniValue fundinginfo(UniValue::VOBJ);
+    UniValue ret(UniValue::VOBJ);
 
-    fundinginfo.pushKV("mainchain_address", EncodeParentDestination(destAddr));
-    fundinginfo.pushKV("claim_script", HexStr(witProg));
-    return fundinginfo;
+    ret.pushKV("mainchain_address", EncodeParentDestination(mainchain_dest));
+    ret.pushKV("claim_script", HexStr(dest_script));
+    return ret;
 }
 
 //! Derive BIP32 tweak from master xpub to child pubkey.
