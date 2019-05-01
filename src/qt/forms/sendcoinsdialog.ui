@@ -888,7 +888,6 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 satoshis p
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLabel" name="labelMinFeeWarning">
                   <widget class="QLabel" name="labelCustomFeeWarning">
                    <property name="enabled">
                     <bool>true</bool>

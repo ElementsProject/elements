@@ -66,7 +66,7 @@ public:
         if(valid)
         {
             val = qBound(m_min_amount, val, m_max_amount);
-            input = GUIUtil::formatAssetAmount(current_asset, val, false, currentUnit, BitcoinUnits::separatorAlways, false);
+            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::separatorAlways, false);
             lineEdit()->setText(input);
         }
     }

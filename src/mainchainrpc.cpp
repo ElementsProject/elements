@@ -1,8 +1,8 @@
 #include <mainchainrpc.h>
 
 #include <chainparamsbase.h>
-#include <util.h>
-#include <utilstrencodings.h>
+#include <util/system.h>
+#include <util/strencodings.h>
 #include <rpc/protocol.h>
 
 #include <support/events.h>

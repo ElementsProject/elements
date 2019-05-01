@@ -914,7 +914,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
             CScriptID redeem_id(redeemScript);
 
             // Check that the redeemScript and scriptPubKey match
-            if (GetScriptForDestination(redeem_id) != script) {
+            if (GetScriptForDestination(ScriptHash(redeem_id)) != script) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "The redeemScript does not match the scriptPubKey");
             }
 
@@ -1281,7 +1281,8 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
             "}\n"
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (pwallet->offline_counter == -1) {
         throw JSONRPCError(RPC_MISC_ERROR, "This wallet has not been initialized for PAK-enforced peg-outs.");
@@ -1336,7 +1337,8 @@ UniValue importblindingkey(const JSONRPCRequest& request)
             + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     CTxDestination dest = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(dest)) {
@@ -1390,7 +1392,8 @@ UniValue importmasterblindingkey(const JSONRPCRequest& request)
             + HelpExampleCli("importmasterblindingkey", "<hexkey>")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!IsHex(request.params[0].get_str())) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid hexadecimal for key");
@@ -1434,7 +1437,8 @@ UniValue importissuanceblindingkey(const JSONRPCRequest& request)
             + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!request.params[0].isStr() || !IsHex(request.params[0].get_str()) || request.params[0].get_str().size() != 64) {
         throw JSONRPCError(RPC_TYPE_ERROR, "First argument must be a txid string");
@@ -1508,8 +1512,8 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
             + HelpExampleCli("dumpblindingkey", "\"my address\"")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
-
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     CTxDestination dest = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(dest)) {
@@ -1550,7 +1554,8 @@ UniValue dumpmasterblindingkey(const JSONRPCRequest& request)
             + HelpExampleCli("dumpmasterblindingkey", "")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!pwallet->blinding_derivation_key.IsNull()) {
         return HexStr(pwallet->blinding_derivation_key);
@@ -1581,7 +1586,8 @@ UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
             + HelpExampleCli("dumpissuanceblindingkey", "\"<txid>\", 0")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!request.params[0].isStr() || !IsHex(request.params[0].get_str()) || request.params[0].get_str().size() != 64) {
         throw JSONRPCError(RPC_TYPE_ERROR, "First argument must be a txid string");

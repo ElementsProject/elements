@@ -19,7 +19,7 @@
 #include <script/interpreter.h>
 #include <script/standard.h>
 #include <streams.h>
-#include <util.h>
+#include <util/system.h>
 
 //
 // ELEMENTS

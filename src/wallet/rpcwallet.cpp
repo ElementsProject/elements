@@ -4757,7 +4757,8 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
             + HelpExampleRpc("initpegoutwallet", "sh(wpkh(tpubDAY5hwtonH4NE8zY46ZMFf6B6F3fqMis7cwfNihXXpAg6XzBZNoHAdAzAZx2peoU8nTWFqvUncXwJ9qgE5VxcnUKxdut8F6mptVmKjfiwDQ/0/*))")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     // Check that network cares about PAK
     if (!Params().GetEnforcePak()) {
@@ -4909,7 +4910,8 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
             + HelpExampleRpc("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\" 0.1")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -4941,7 +4943,7 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
 
     return (*tx).GetHash().GetHex();
 
@@ -5017,7 +5019,8 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
             + HelpExampleRpc("sendtomainchain", "\"\" 0.1")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     EnsureWalletIsUnlocked(pwallet);
 
@@ -5183,7 +5186,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
 
     pwallet->SetOfflineCounter(counter+1);
 
@@ -5248,7 +5251,8 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!IsHex(request.params[0].get_str()) || !IsHex(request.params[1].get_str())) {
         throw JSONRPCError(RPC_TYPE_ERROR, "the first two arguments must be hex strings");
@@ -5467,7 +5471,8 @@ UniValue claimpegin(const JSONRPCRequest& request)
     CTransactionRef tx_ref;
     CMutableTransaction mtx;
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (IsInitialBlockDownload()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Peg-ins cannot be completed during initial sync or reindexing.");
@@ -5819,7 +5824,7 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
     return result;
 }
 
-static CTransactionRef SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, CWallet* pwallet)
+static CTransactionRef SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, interfaces::Chain::Lock& locked_chain, CWallet* pwallet)
 {
     CAsset reissue_token = issuance_details->reissuance_token;
     CAmount curBalance = pwallet->GetBalance()[reissue_token];
@@ -5860,7 +5865,7 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     CCoinControl dummy_control;
     BlindDetails blind_details;
     CTransactionRef tx_ref(MakeTransactionRef());
-    if (!pwallet->CreateTransaction(vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, &blind_details, issuance_details)) {
+    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, &blind_details, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
@@ -5905,7 +5910,8 @@ UniValue issueasset(const JSONRPCRequest& request)
             + HelpExampleRpc("issueasset", "10, 0")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     CAmount nAmount = AmountFromValue(request.params[0]);
     CAmount nTokens = AmountFromValue(request.params[1]);
@@ -5946,7 +5952,7 @@ UniValue issueasset(const JSONRPCRequest& request)
     CAsset dummyasset;
     IssuanceDetails issuance_details;
     issuance_details.blind_issuance = blind_issuances;
-    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, *locked_chain, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
     CAsset asset;
@@ -5992,7 +5998,8 @@ UniValue reissueasset(const JSONRPCRequest& request)
             + HelpExampleRpc("reissueasset", "<asset>, 0")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     std::string assetstr = request.params[0].get_str();
     CAsset asset = GetAssetFromString(assetstr);
@@ -6042,7 +6049,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
     CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 
     // Attempt a send.
-    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
+    CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, *locked_chain, pwallet);
     assert(!tx_ref->vin.empty());
 
     UniValue obj(UniValue::VOBJ);
@@ -6094,7 +6101,8 @@ UniValue listissuances(const JSONRPCRequest& request)
             + HelpExampleRpc("listissuances", "<asset>")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     std::string assetstr;
     CAsset asset_filter;
@@ -6177,7 +6185,8 @@ UniValue destroyamount(const JSONRPCRequest& request)
             + HelpExampleRpc("destroyamount", "\"bitcoin\" 100 \"destroy assets\"")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     std::string strasset = request.params[0].get_str();
     CAsset asset = GetAssetFromString(strasset);
@@ -6197,7 +6206,7 @@ UniValue destroyamount(const JSONRPCRequest& request)
     NullData nulldata;
     CTxDestination address(nulldata);
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, asset, false, no_coin_control, std::move(mapValue), true);
+    CTransactionRef tx = SendMoney(*locked_chain, pwallet, address, nAmount, asset, false, no_coin_control, std::move(mapValue), true);
 
     return tx->GetHash().GetHex();
 }
@@ -6226,7 +6235,8 @@ UniValue generatepegoutproof(const JSONRPCRequest& request)
             + HelpExampleRpc("generatepegoutproof", "\"cQtNrRngdc4RJ9CkuTVKVLyxPFsijiTJySob24xCdKXGohdFhXML\" \"02c611095119e3dc96db428a0e190a3e142237bcd2efa4fb358257497885af3ab6\" \"0390695fff5535780df1e04c1f6c10e7c0a399fa56cfce34bf8108d0a9bc7a437b\"")
             );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!IsHex(request.params[1].get_str()))
         throw JSONRPCError(RPC_TYPE_ERROR, "btcpubkey must be hex string");
@@ -6327,7 +6337,8 @@ UniValue getpegoutkeys(const JSONRPCRequest& request)
             + HelpExampleRpc("getpegoutkeys", "\"5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF\", \"0389275d512326f7016e014d8625f709c01f23bd0dc16522bf9845a9ee1ef6cbf9\"")
         );
 
-    LOCK2(cs_main, pwallet->cs_wallet);
+    auto locked_chain = pwallet->chain().lock();
+    LOCK(pwallet->cs_wallet);
 
     if (!request.params[1].isStr() || !IsHex(request.params[1].get_str()) || request.params[1].get_str().size() != 66) {
         throw JSONRPCError(RPC_TYPE_ERROR, "offlinepubkey must be hex string of size 66");

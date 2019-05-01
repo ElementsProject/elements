@@ -125,7 +125,7 @@ public Q_SLOTS:
 
 #ifdef ENABLE_BIP70
     // Submit Payment message to a merchant, get back PaymentACK:
-    void fetchPaymentACK(WalletModel* walletModel, const SendCoinsRecipient& recipient, QByteArray transaction);
+    void fetchPaymentACK(WalletModel* walletModel, const SendAssetsRecipient& recipient, QByteArray transaction);
 #endif
 
 private Q_SLOTS:

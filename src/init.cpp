@@ -45,7 +45,7 @@
 #include <ui_interface.h>
 #include <util/system.h>
 #include <util/moneystr.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 #include <validation.h>
 #include <validationinterface.h>
 #include <warnings.h>

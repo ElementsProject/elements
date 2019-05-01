@@ -524,8 +524,6 @@ public:
     /** Pass this transaction to the mempool. Fails if absolute fee exceeds absurd fee. */
     bool AcceptToMemoryPool(interfaces::Chain::Lock& locked_chain, const CAmount& nAbsurdFee, CValidationState& state);
 
-    std::set<uint256> GetConflicts() const;
-
     // ELEMENTS:
 
 private:

@@ -8,7 +8,7 @@
 #include <serialize.h>
 #include <span.h>
 #include <uint256.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 
 extern bool g_con_elementsmode;
 
