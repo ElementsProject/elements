@@ -292,7 +292,7 @@ def initialize_datadir(dirname, n):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    with open(os.path.join(datadir, "bitcoin.conf"), 'w', encoding='utf8') as f:
+    with open(os.path.join(datadir, "elements.conf"), 'w', encoding='utf8') as f:
         f.write("regtest=1\n")
         f.write("[regtest]\n")
         f.write("port=" + str(p2p_port(n)) + "\n")
@@ -302,6 +302,26 @@ def initialize_datadir(dirname, n):
         f.write("discover=0\n")
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
+        # Elements:
+        f.write("con_blocksubsidy=5000000000\n")
+        f.write("con_connect_coinbase=0\n")
+        f.write("con_has_parent_chain=0\n")
+        f.write("parentgenesisblockhash=0\n")
+        f.write("anyonecanspendaremine=0\n")
+        f.write("con_blockheightinheader=0\n")
+        f.write("con_elementsmode=0\n")
+        f.write("con_signed_blocks=0\n")
+        f.write("multi_data_permitted=0\n")
+        f.write("walletrbf=0\n") # Default is 1 in Elements
+        f.write("con_bip34height=100000000\n")
+        f.write("con_bip65height=1351\n")
+        f.write("con_bip66height=1251\n")
+        f.write("con_genesis_style=bitcoin\n")
+        f.write("con_csv_deploy_start=0\n") # Default is -1 (always active)
+        f.write("blindedaddresses=0\n")
+        f.write("pubkeyprefix=111\n")
+        f.write("scriptprefix=196\n")
+        f.write("bech32_hrp=bcrt\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
@@ -310,15 +330,15 @@ def get_datadir_path(dirname, n):
     return os.path.join(dirname, "node" + str(n))
 
 def append_config(datadir, options):
-    with open(os.path.join(datadir, "bitcoin.conf"), 'a', encoding='utf8') as f:
+    with open(os.path.join(datadir, "elements.conf"), 'a', encoding='utf8') as f:
         for option in options:
             f.write(option + "\n")
 
 def get_auth_cookie(datadir):
     user = None
     password = None
-    if os.path.isfile(os.path.join(datadir, "bitcoin.conf")):
-        with open(os.path.join(datadir, "bitcoin.conf"), 'r', encoding='utf8') as f:
+    if os.path.isfile(os.path.join(datadir, "elements.conf")):
+        with open(os.path.join(datadir, "elements.conf"), 'r', encoding='utf8') as f:
             for line in f:
                 if line.startswith("rpcuser="):
                     assert user is None  # Ensure that there is only one rpcuser line
