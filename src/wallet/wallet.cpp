@@ -3122,7 +3122,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
             mapScriptChange.clear();
             if (coin_control.destChange.size() > 0) {
-                for (const std::pair<CAsset, CTxDestination>& dest : coin_control.destChange) {
+                for (const auto& dest : coin_control.destChange) {
                     // No need to test we cover all assets.  We produce error for that later.
                     mapScriptChange[dest.first] = std::pair<int, CScript>(-1, GetScriptForDestination(dest.second));
                 }
@@ -3662,7 +3662,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         }
 
         // Release any change keys that we didn't use.
-        for (const std::pair<CAsset, std::pair<int, CScript>>& it : mapScriptChange) {
+        for (const auto& it : mapScriptChange) {
             int index = it.second.first;
             if (index < 0) {
                 continue;
