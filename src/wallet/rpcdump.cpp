@@ -965,7 +965,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         }
 
         // (P2SH-)P2PK/P2PKH/P2WPKH
-        if (dest.type() == typeid(CKeyID) || dest.type() == typeid(WitnessV0KeyHash)) {
+        if (dest.type() == typeid(PKHash) || dest.type() == typeid(WitnessV0KeyHash)) {
             if (!allow_p2wpkh && dest.type() == typeid(WitnessV0KeyHash)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "P2WPKH cannot be embedded in P2WSH");
             }
