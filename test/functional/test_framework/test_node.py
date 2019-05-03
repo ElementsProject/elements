@@ -129,7 +129,6 @@ class TestNode():
         if self.deterministic_priv_key is not None:
             self.log.debug("Custom deterministic_priv_key: {}".format(self.deterministic_priv_key))
             return self.deterministic_priv_key
-        assert(self.chain == "elementsregtest")
 
         return PRIV_KEYS[self.index]
 

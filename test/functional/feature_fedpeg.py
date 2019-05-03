@@ -73,13 +73,15 @@ class FedPegTest(BitcoinTestFramework):
                     "-anyonecanspendaremine",
                     "-signblockscript=51", # OP_TRUE
                     '-con_blocksubsidy=5000000000',
-                    "-pubkeyprefix=111",
-                    "-scriptprefix=196",
                 ])
 
             self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary, chain_in_args=[not self.options.parent_bitcoin])
             self.start_node(n)
             print("Node {} started".format(n))
+        # set hard-coded mining keys for non-Elements chains
+        if self.options.parent_bitcoin:
+            self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
+            self.nodes[1].set_deterministic_priv_key('2N19ZHF3nEzBXzkaZ3N5sVBJXQ8jZ7Udpg5', 'cRnDSw1JsjmYYEN6xxQvf5pqMENsRE584z6MdWfJ7v85c4ciitkk')
 
         connect_nodes_bi(self.nodes, 0, 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
@@ -106,15 +108,16 @@ class FedPegTest(BitcoinTestFramework):
                 '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
                 '-parentpubkeyprefix=111',
                 '-parentscriptprefix=196',
+                '-parent_bech32_hrp=bcrt',
                 # Turn of consistency checks that can cause assert when parent node stops
                 # and a peg-in transaction fails this belt-and-suspenders check.
                 '-checkmempool=0',
             ]
             if not self.options.parent_bitcoin:
                 extra_args.extend([
-                    '-parentpubkeyprefix=111',
-                    '-parentscriptprefix=196',
-                    "-parent_bech32_hrp=ert",
+                    '-parentpubkeyprefix=235',
+                    '-parentscriptprefix=75',
+                    '-parent_bech32_hrp=ert',
                     '-con_parent_chain_signblockscript=51',
                     '-con_parent_pegged_asset=%s' % parent_pegged_asset,
                 ])
@@ -167,9 +170,12 @@ class FedPegTest(BitcoinTestFramework):
         #parent2 = self.nodes[1]
         sidechain = self.nodes[2]
         sidechain2 = self.nodes[3]
+        for node in self.nodes:
+            node.importprivkey(privkey=node.get_deterministic_priv_key().key, label="mining")
 
         parent.generate(101)
         sidechain.generate(101)
+        self.log.info("sidechain info: {}".format(sidechain.getsidechaininfo()))
 
         addrs = sidechain.getpeginaddress()
         addr = addrs["mainchain_address"]

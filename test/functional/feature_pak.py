@@ -52,6 +52,11 @@ class PAKTest (BitcoinTestFramework):
         self.skip_if_no_wallet()
 
     def run_test(self):
+        for node in self.nodes:
+            addr = node.getnewaddress()
+            unconf = node.validateaddress(addr)["unconfidential"]
+            privkey = node.dumpprivkey(addr)
+            node.set_deterministic_priv_key(unconf, privkey)
 
         # Give novalidate 50 BTC
         self.nodes[i_novalidate].generate(101)
@@ -328,9 +333,6 @@ class PAKTest (BitcoinTestFramework):
         assert_raises_rpc_error(-8, "bitcoin_descriptor is not of any type supported: pkh(<xpub>), sh(wpkh(<xpub>)), wpkh(<xpub>), or <xpub>.", self.nodes[i_pak1].initpegoutwallet, "pk(tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B/0/*)")
 
         assert_raises_rpc_error(-8, "bitcoin_descriptor must be a ranged descriptor.", self.nodes[i_pak1].initpegoutwallet, "pkh(tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B)")
-
-        # key origins aren't supported in 0.17
-        assert_raises_rpc_error(-8, "bitcoin_descriptor is not a valid descriptor string.", self.nodes[i_pak1].initpegoutwallet, "pkh([d34db33f/44'/0'/0']tpubD6NzVbkrYhZ4WaWSyoBvQwbpLkojyoTZPRsgXELWz3Popb3qkjcJyJUGLnL4qHHoQvao8ESaAstxYSnhyswJ76uZPStJRJCTKvosUCJZL5B/1/*)")
 
         # Peg out with each new type, check that destination script matches
         wpkh_desc = "wpkh("+xpub+"/0/*)"
