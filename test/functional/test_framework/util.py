@@ -23,7 +23,7 @@ from io import BytesIO
 
 logger = logging.getLogger("TestFramework.utils")
 
-BITCOIN_ASSET = "e08fa5a62d79b9e3f5f476743a5535512f0f44444533275a2adc5fe8476a2eac"
+BITCOIN_ASSET = "b2e15d0d7a0c94e4e2ce0fe6e8691b9e451377f6e46e8045a86f7c4b5d4f0f23"
 BITCOIN_ASSET_BYTES = bytearray.fromhex(BITCOIN_ASSET)
 BITCOIN_ASSET_BYTES.reverse()
 BITCOIN_ASSET_OUT = b"\x01"+BITCOIN_ASSET_BYTES
@@ -330,9 +330,9 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip66height=1251\n")
         f.write("con_csv_deploy_start=0\n") # Enhance tests if removing this line
         f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
-        f.write("pubkeyprefix=111\n")
-        f.write("scriptprefix=196\n")
-        f.write("bech32_hrp=bcrt\n")
+        #f.write("pubkeyprefix=111\n")
+        #f.write("scriptprefix=196\n")
+        #f.write("bech32_hrp=bcrt\n")
         os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir

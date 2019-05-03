@@ -300,6 +300,8 @@ OUTPOINT_PEGIN_FLAG = (1 << 30)
 OUTPOINT_INDEX_MASK = 0x3fffffff
 
 class CAssetIssuance():
+    __slots__ = ("assetBlindingNonce", "assetEntropy", "nAmount", "nInflationKeys")
+
     def __init__(self):
         self.assetBlindingNonce = 0
         self.assetEntropy = 0
@@ -329,7 +331,7 @@ class CAssetIssuance():
         return "CAssetIssuance(assetBlindingNonce=%064x assetEntropy=%064x nAmount=%s nInflationKeys=%s)" % (self.assetBlindingNonce, self.assetEntropy, self.nAmount.vchCommitment, self.nInflationKeys.vchCommitment)
 
 class CTxIn:
-    __slots__ = ("nSequence", "prevout", "scriptSig")
+    __slots__ = ("nSequence", "prevout", "scriptSig", "m_is_pegin", "assetIssuance")
 
     def __init__(self, outpoint=None, scriptSig=b"", nSequence=0):
         if outpoint is None:
@@ -385,7 +387,9 @@ class CTxIn:
             % (repr(self.prevout), bytes_to_hex_str(self.scriptSig),
                self.nSequence, self.m_is_pegin, self.assetIssuance)
 
-class CTxOutAsset(object):
+class CTxOutAsset:
+    __slots__ = ("vchCommitment")
+
     def __init__(self, vchCommitment=b"\x00"):
         self.vchCommitment = vchCommitment
 
@@ -418,7 +422,8 @@ class CTxOutAsset(object):
     def __repr__(self):
         return "CTxOutAsset(vchCommitment=%s)" % self.vchCommitment
 
-class CTxOutValue(object):
+class CTxOutValue:
+    __slots__ = ("vchCommitment")
 
     def __init__(self, value=None):
         self.setNull()
@@ -469,7 +474,9 @@ class CTxOutValue(object):
     def __repr__(self):
         return "CTxOutValue(vchCommitment=%s)" % self.vchCommitment
 
-class CTxOutNonce(object):
+class CTxOutNonce:
+    __slots__ = ("vchCommitment")
+
     def __init__(self, vchCommitment=b"\x00"):
         self.vchCommitment = vchCommitment
 
@@ -499,7 +506,7 @@ class CTxOutNonce(object):
 
 
 class CTxOut():
-    __slots__ = ("nValue", "scriptPubKey")
+    __slots__ = ("nValue", "scriptPubKey", "nAsset", "nNonce")
 
     def __init__(self, nValue=CTxOutValue(), scriptPubKey=b'', nAsset=CTxOutAsset(BITCOIN_ASSET_OUT), nNonce=CTxOutNonce()):
         self.nAsset = nAsset
@@ -559,7 +566,8 @@ class CScriptWitness:
 
 
 class CTxInWitness:
-    __slots__ = ("scriptWitness",)
+    __slots__ = ("scriptWitness", "vchIssuanceAmountRangeproof",
+                 "vchInflationKeysRangeproof", "peginWitness")
 
     def __init__(self):
         self.vchIssuanceAmountRangeproof = b''
@@ -601,7 +609,9 @@ class CTxInWitness:
             and self.scriptWitness.is_null()
 
 
-class CTxOutWitness(object):
+class CTxOutWitness:
+    __slots__ = ("vchSurjectionproof", "vchRangeproof")
+
     def __init__(self):
         self.vchSurjectionproof = b''
         self.vchRangeproof = b''
@@ -632,7 +642,7 @@ class CTxOutWitness(object):
 
 
 class CTxWitness:
-    __slots__ = ("vtxinwit",)
+    __slots__ = ("vtxinwit", "vtxoutwit")
 
     def __init__(self):
         self.vtxinwit = []
@@ -793,7 +803,9 @@ class CTransaction:
             % (self.nVersion, repr(self.vin), repr(self.vout), repr(self.wit), self.nLockTime)
 
 
-class CProof(object):
+class CProof:
+    __slots__ = ("challenge", "solution")
+
     # Default allows OP_TRUE blocks
     def __init__(self, challenge=bytearray.fromhex('51'), solution=b""):
         self.challenge = challenge
@@ -824,7 +836,7 @@ class CProof(object):
 
 class CBlockHeader:
     __slots__ = ("hash", "hashMerkleRoot", "hashPrevBlock", "nBits", "nNonce",
-                 "nTime", "nVersion", "sha256")
+                 "nTime", "nVersion", "sha256", "block_height", "proof")
 
     def __init__(self, header=None):
         if header is None:

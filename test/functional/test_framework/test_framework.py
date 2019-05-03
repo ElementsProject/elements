@@ -89,7 +89,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
     def __init__(self):
         """Sets test framework defaults. Do not override this method. Instead, override the set_test_params() method"""
-        self.chain = 'regtest2'
+        self.chain = 'elementsregtest'
         self.setup_clean_chain = False
         self.nodes = []
         self.network_thread = None
