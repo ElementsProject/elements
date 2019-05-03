@@ -185,6 +185,9 @@ script: |
   cd $BUILD_DIR/windeploy
   mkdir unsigned
   cp $OUTDIR/elements-*setup-unsigned.exe unsigned/
+  cd unsigned
+  rename 's/elements-/liquid-/s' *-setup-unsigned.exe
+  cd ..
   find . | sort | tar --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-win-unsigned.tar.gz
   mv ${OUTDIR}/${DISTNAME}-x86_64-*-debug.zip ${OUTDIR}/${DISTNAME}-win64-debug.zip
   mv ${OUTDIR}/${DISTNAME}-i686-*-debug.zip ${OUTDIR}/${DISTNAME}-win32-debug.zip
