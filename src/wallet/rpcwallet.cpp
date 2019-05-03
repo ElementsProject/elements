@@ -4503,33 +4503,34 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
             + HelpExampleRpc("getpeginaddress", "")
         );
 
-    //Creates new address for receiving unlocked utxos
-    JSONRPCRequest req;
-    CTxDestination address = DecodeDestination(getnewaddress(req).get_str());
-
-    Witnessifier w(pwallet);
-    bool ret = boost::apply_visitor(w, address);
-    if (!ret) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Public key or redeemscript not known to wallet, or the key is uncompressed");
+    if (!pwallet->IsLocked()) {
+        pwallet->TopUpKeyPool();
     }
 
-    pwallet->SetAddressBook(w.result, "", "receive");
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwallet->GetKeyFromPool(newKey)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
 
-    CScript destScript = GetScriptForDestination(address);
-    CScript witProg = GetScriptForWitness(destScript);
+    // Use native witness destination
+    CTxDestination dest = GetDestinationForKey(newKey, OutputType::BECH32);
+
+    pwallet->SetAddressBook(dest, "", "receive");
+
+    CScript dest_script = GetScriptForDestination(dest);
 
     // Also add raw scripts to index to recognize later.
-    pwallet->AddCScript(witProg);
-    pwallet->AddCScript(destScript);
+    pwallet->AddCScript(dest_script);
 
-    //Call contracthashtool, get deposit address on mainchain.
-    CTxDestination destAddr(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
+    // Get P2CH deposit address on mainchain.
+    CTxDestination mainchain_dest(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, dest_script))));
 
-    UniValue fundinginfo(UniValue::VOBJ);
+    UniValue ret(UniValue::VOBJ);
 
-    fundinginfo.pushKV("mainchain_address", EncodeParentDestination(destAddr));
-    fundinginfo.pushKV("claim_script", HexStr(witProg));
-    return fundinginfo;
+    ret.pushKV("mainchain_address", EncodeParentDestination(mainchain_dest));
+    ret.pushKV("claim_script", HexStr(dest_script));
+    return ret;
 }
 
 //! Derive BIP32 tweak from master xpub to child pubkey.
@@ -5116,7 +5117,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     if (txHashes.size() != 1 || txHashes[0] != txBTC.GetHash())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The txoutproof must contain bitcoinTx and only bitcoinTx");
 
-    CScript witnessProgScript;
+    CScript witness_script;
     unsigned int nOut = txBTC.vout.size();
     if (request.params.size() > 2) {
         const std::string claim_script = request.params[2].get_str();
@@ -5125,26 +5126,19 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         }
         // If given manually, no need for it to be a witness script
         std::vector<unsigned char> witnessBytes(ParseHex(claim_script));
-        witnessProgScript = CScript(witnessBytes.begin(), witnessBytes.end());
-        nOut = GetPeginTxnOutputIndex(txBTC, witnessProgScript);
+        witness_script = CScript(witnessBytes.begin(), witnessBytes.end());
+        nOut = GetPeginTxnOutputIndex(txBTC, witness_script);
         if (nOut == txBTC.vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
         }
     }
     else {
-        // Look through address book for pegin contract value by extracting the unlderlying witness program from p2sh-p2wpkh
+        // Look for known wpkh address in wallet
         for (std::map<CTxDestination, CAddressBookData>::const_iterator iter = pwallet->mapAddressBook.begin(); iter != pwallet->mapAddressBook.end(); ++iter) {
-            CTxDestination sidechainAddress(CTxDestination(iter->first));
-            CScript witnessProgramScript = GetScriptForWitness(GetScriptForDestination(sidechainAddress));
-            int version;
-            std::vector<unsigned char> witnessProgram;
-            // Only process witness v0 programs
-            if (!witnessProgramScript.IsWitnessProgram(version, witnessProgram) || version != 0) {
-                continue;
-            }
-            nOut = GetPeginTxnOutputIndex(txBTC, witnessProgramScript);
+            CScript dest_script = GetScriptForDestination(iter->first);
+            nOut = GetPeginTxnOutputIndex(txBTC, dest_script);
             if (nOut != txBTC.vout.size()) {
-                witnessProgScript = witnessProgramScript;
+                witness_script = dest_script;
                 break;
             }
         }
@@ -5152,12 +5146,12 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     if (nOut == txBTC.vout.size()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
     }
-    assert(witnessProgScript != CScript());
+    assert(witness_script != CScript());
 
     int version = -1;
-    std::vector<unsigned char> witnessProgram;
-    if (!witnessProgScript.IsWitnessProgram(version, witnessProgram)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a witness program.");
+    std::vector<unsigned char> witness_program;
+    if (!witness_script.IsWitnessProgram(version, witness_program) || version != 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a v0 witness program.");
     }
 
     CAmount value = 0;
@@ -5207,7 +5201,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     stack.push_back(value_bytes);
     stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
     stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
-    stack.push_back(std::vector<unsigned char>(witnessProgScript.begin(), witnessProgScript.end()));
+    stack.push_back(std::vector<unsigned char>(witness_script.begin(), witness_script.end()));
     stack.push_back(txData);
     stack.push_back(txOutProofData);
 
