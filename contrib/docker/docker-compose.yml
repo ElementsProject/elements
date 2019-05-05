@@ -16,6 +16,7 @@ services:
         -txindex=1
         -listen=1
         -regtest=0
+        -chain=ocean_main
         -initialfreecoins=50000000000000
         -connect=testnet.commerceblock.com:7043
         -signblockscript=532103356190524d52d7e94e1bd43e8f23778e585a4fe1f275e65a06fa5ceedb67d2f3210285d502cd9cf478febdef738cd65c5298e269bb16130019a46e1461c69dcd2df8210249e0b8da5ff162e61c04330747e4bef5b3cbc219e2453c0981b78c087140411a2103d9b1ea4e5658a67adc5c2aa2a11d497ecf4fd777b9bf41b7e9cd50fa82edd3ae2102168cfd5f962d37a6e938f147a65b8e6e309d50e0fd3a73ef1facdad1b513cec655ae
