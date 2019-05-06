@@ -5161,7 +5161,8 @@ bool MainchainRPCCheck(const bool init)
                 if (!error.isNull()) {
                     // On the first call, it's possible to node is still in
                     // warmup; in that case, just wait and retry.
-                    if (error["code"].get_int() == RPC_IN_WARMUP) {
+                    // If this is not the initial call, just report failure.
+                    if (init && error["code"].get_int() == RPC_IN_WARMUP) {
                         MilliSleep(1000);
                         continue;
                     }
