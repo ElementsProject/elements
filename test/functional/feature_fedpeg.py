@@ -225,6 +225,9 @@ class FedPegTest(BitcoinTestFramework):
         sample_pegin_witness = sample_pegin_struct.wit.vtxinwit[0].peginWitness
 
         pegtxid1 = sidechain.claimpegin(raw, proof)
+        # Make sure it can't get accepted twice.
+        pegtxid2 = sidechain.claimpegin(raw, proof)
+        assert(pegtxid2 not in sidechain.getrawmempool())
 
         # Will invalidate the block that confirms this transaction later
         self.sync_all(self.node_groups)
@@ -261,6 +264,13 @@ class FedPegTest(BitcoinTestFramework):
         sidechain.reconsiderblock(blockhash[0])
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 6:
             raise Exception("Peg-in should be back to 6 confirms.")
+
+        # Make sure it can't get accepted twice.
+        pegtxid2 = sidechain.claimpegin(raw, proof)
+        assert(pegtxid2 not in sidechain.getrawmempool())
+        sidechain.generate(7)
+        if sidechain.gettransaction(pegtxid2)["confirmations"] > 0:
+            raise Exception("Pegin should not be able to get confirmed")
 
         # Do multiple claims in mempool
         n_claims = 6

@@ -681,10 +681,27 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // do all inputs exist?
-        for (const CTxIn& txin : tx.vin) {
+        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            const CTxIn& txin = tx.vin[i];
+
             // ELEMENTS:
-            // Don't look for coins that only exist in parent chain
+            // For pegin inputs check whether the pegins have already been claimed before.
+            // This only checks the UTXO set for already claimed pegins. For mempool conflicts,
+            // we rely on the GetConflictTx check done above.
             if (txin.m_is_pegin) {
+                // Quick sanity check on witness first.
+                if (tx.witness.vtxinwit.size() <= i ||
+                        tx.witness.vtxinwit[i].m_pegin_witness.stack.size() < 6 ||
+                        uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]).IsNull() ||
+                        tx.vin[i].prevout.hash.IsNull()) {
+                    return state.Invalid(false, REJECT_INVALID, "pegin-no-witness");
+                }
+
+                std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), tx.vin[i].prevout);
+                // This assumes non-null prevout and genesis block hash
+                if (view.IsPeginSpent(pegin)) {
+                    return state.Invalid(false, REJECT_INVALID, "pegin-already-claimed");
+                }
                 continue;
             }
 
