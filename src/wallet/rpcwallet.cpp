@@ -5209,7 +5209,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     // We re-check depth before returning with more descriptive result
     std::string err;
     if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout, err, false)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Constructed peg-in witness is invalid: %s", err));
     }
 
     // Put input witness in transaction
