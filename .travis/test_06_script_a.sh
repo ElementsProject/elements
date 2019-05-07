@@ -71,7 +71,7 @@ fi
 
 if [ "$RUN_FEDPEG_BITCOIND_TEST" = "true" ]; then
     BEGIN_FOLD fedpeg-bitcoind-test
-    BITCOIND_VERSION=0.17.1
+    BITCOIND_VERSION=0.18.0
     BITCOIND_ARCH=x86_64-linux-gnu
     DOCKER_EXEC curl -O https://bitcoincore.org/bin/bitcoin-core-$BITCOIND_VERSION/bitcoin-$BITCOIND_VERSION-$BITCOIND_ARCH.tar.gz
     DOCKER_EXEC tar -zxf bitcoin-$BITCOIND_VERSION-$BITCOIND_ARCH.tar.gz

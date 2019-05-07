@@ -39,7 +39,11 @@ SendAssetsRecipient::SendAssetsRecipient(SendCoinsRecipient r) :
     asset(Params().GetConsensus().pegged_asset),
     asset_amount(r.amount),
     message(r.message),
+#ifdef ENABLE_BIP70
     paymentRequest(r.paymentRequest),
+#else
+    sPaymentRequest(r.sPaymentRequest),
+#endif
     authenticatedMerchant(r.authenticatedMerchant),
     fSubtractFeeFromAmount(r.fSubtractFeeFromAmount)
 {

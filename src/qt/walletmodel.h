@@ -133,7 +133,14 @@ public:
     CAmount asset_amount;
     QString message;
 
+#ifdef ENABLE_BIP70
+    // If from a payment request, paymentRequest.IsInitialized() will be true
     PaymentRequestPlus paymentRequest;
+#else
+    // If building with BIP70 is disabled, keep the payment request around as
+    // serialized string to ensure load/store is lossless
+    std::string sPaymentRequest;
+#endif
     QString authenticatedMerchant;
 
     bool fSubtractFeeFromAmount; // memory only
