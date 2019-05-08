@@ -58,7 +58,12 @@ Once synched, block count should be the same as in: https://cbtexplorer.com
 
 ### Data persistence
 
-`mkdir ~/ocean_full_node`
+```
+cd ~
+mkdir ~/ocean_full_node
+git clone https://github.com/commerceblock/ocean.git
+cp -R ocean/doc/terms-and-conditions ~/ocean_full_node/
+```
 
 edit: docker-compose.yml, adding:
 ```

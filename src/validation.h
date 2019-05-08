@@ -23,6 +23,7 @@
 #include "util.h"
 #include "policy/whitelist.h"
 #include "policy/policylist.h"
+#include "policy/requestlist.h"
 
 #include <algorithm>
 #include <exception>
@@ -139,8 +140,8 @@ static const bool DEFAULT_SCAN_WHITELIST = false;
 static const bool DEFAULT_BLOCK_ISSUANCE = false;
 static const bool DEFAULT_BURNLIST_CHECK = false;
 static const bool DEFAULT_FREEZELIST_CHECK = false;
-static const bool DEFAULT_REQUESTLIST_CHECK = false;
 static const bool DEFAULT_RECORD_INFLATION = false;
+static const bool DEFAULT_REQUEST_LIST = false;
 
 /** Default for -permitbaremultisig */
 static const bool DEFAULT_PERMIT_BAREMULTISIG = true;
@@ -169,6 +170,8 @@ extern CWhiteList addressWhitelist;
 extern CPolicyList addressFreezelist;
 //burnlist address list
 extern CPolicyList addressBurnlist;
+//request list
+extern CRequestList requestList;
 
 struct IssuanceData
 {
@@ -219,6 +222,7 @@ extern bool fRequireRequestListCheck;
 extern bool fEnableBurnlistCheck;
 extern bool fblockissuancetx;
 extern bool fRecordInflation;
+extern bool fRequestList;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
@@ -441,7 +445,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState& state, bool fChe
 namespace Consensus {
 
 /**
-* Check wether the bitcoin address is derived from the public key via key tweaking 
+* Check wether the bitcoin address is derived from the public key via key tweaking
 * using the hash contract of the chain active tip.
 */
 bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey);

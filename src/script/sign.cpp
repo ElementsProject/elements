@@ -83,7 +83,7 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     case TX_NONSTANDARD:
     case TX_NULL_DATA:
         return false;
-    case TX_REGISTERADDRESS: 
+    case TX_REGISTERADDRESS:
         return false;
     case TX_PUBKEY:
         keyID = CPubKey(vSolutions[0]).GetID();
@@ -109,6 +109,13 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
     case TX_MULTISIG:
         ret.push_back(valtype()); // workaround CHECKMULTISIG bug
         return (SignN(vSolutions, creator, scriptPubKey, ret, sigversion));
+
+    case TX_LOCKED_MULTISIG: {
+        ret.push_back(valtype()); // workaround CHECKMULTISIG bug
+        // remove first solution result (locktime)
+        vector<valtype> vSolutionsLocked(vSolutions.begin() + 1, vSolutions.end());
+        return (SignN(vSolutionsLocked, creator, scriptPubKey, ret, sigversion));
+    }
 
     case TX_TRUE:
         return true;
@@ -358,6 +365,10 @@ static Stacks CombineSignatures(const CScript& scriptPubKey, const BaseSignature
         }
     case TX_MULTISIG:
         return Stacks(CombineMultisig(scriptPubKey, checker, vSolutions, sigs1.script, sigs2.script, sigversion));
+    case TX_LOCKED_MULTISIG: {
+        vector<valtype> vSolutionsLocked(vSolutions.begin() + 1, vSolutions.end());
+        return Stacks(CombineMultisig(scriptPubKey, checker, vSolutionsLocked, sigs1.script, sigs2.script, sigversion));
+    }
     case TX_WITNESS_V0_SCRIPTHASH:
         if (sigs1.witness.empty() || sigs1.witness.back().empty())
             return sigs2;

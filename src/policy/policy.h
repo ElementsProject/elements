@@ -163,6 +163,10 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
     */
 bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
+
+/** Update the request list with the input transaction */
+bool UpdateRequestList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
     //function to scan the UTXO set for freezelist addresses
 bool LoadFreezeList(CCoinsView *view);
 

@@ -572,7 +572,7 @@ static inline void createrawrequesttx_output(CMutableTransaction& rawTx,
 
     rawTx.vout.push_back(
         CTxOut(asset, amount,
-            CScript() << endBlockHeight.get_int() << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+            CScript() << CScriptNum(endBlockHeight.get_int()) << OP_CHECKLOCKTIMEVERIFY << OP_DROP
                       << CScript::EncodeOP_N(1)
                       << ToByteVector(targetPubKey)
                       << ToByteVector(datapubkey2)

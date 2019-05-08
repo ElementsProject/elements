@@ -126,9 +126,11 @@ BITCOIN_CORE_H = \
   policy/policylist.h \
   policy/whitelist.h \
   policy/kycfile.h \
+  policy/requestlist.h \
   pow.h \
   protocol.h \
   random.h \
+  request.h \
   reverselock.h \
   rpc/client.h \
   rpc/protocol.h \
@@ -205,6 +207,7 @@ libbitcoin_server_a_SOURCES = \
   policy/policy.cpp \
   policy/policylist.cpp \
   policy/whitelist.cpp \
+  policy/requestlist.cpp \
   pow.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
