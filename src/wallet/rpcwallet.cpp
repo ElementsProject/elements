@@ -5209,7 +5209,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     // We re-check depth before returning with more descriptive result
     std::string err;
     if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout, err, false)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Constructed peg-in witness is invalid: %s", err));
     }
 
     // Put input witness in transaction
@@ -5315,6 +5315,15 @@ UniValue claimpegin(const JSONRPCRequest& request)
 
     if (!DecodeHexTx(mtx, result["hex"].get_str(), false, true)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
+    CValidationState acceptState;
+    bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx), nullptr /* pfMissingInputs */,
+                            nullptr /* plTxnReplaced */, false /* bypass_limits */, maxTxFee, true /* test_accept */);
+    if (!accepted) {
+        std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(acceptState));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
     // Send it

@@ -12,11 +12,17 @@ from test_framework.util import (
     p2p_port,
     assert_raises_rpc_error,
     assert_equal,
+    bytes_to_hex_str,
 )
+from test_framework import util
 from test_framework.messages import (
+    CBlock,
     CTransaction,
     CTxInWitness,
     FromHex,
+)
+from test_framework.blocktools import (
+    add_witness_commitment,
 )
 from decimal import Decimal
 
@@ -167,6 +173,7 @@ class FedPegTest(BitcoinTestFramework):
         #parent2 = self.nodes[1]
         sidechain = self.nodes[2]
         sidechain2 = self.nodes[3]
+        util.node_fastmerkle = sidechain
 
         parent.generate(101)
         sidechain.generate(101)
@@ -214,6 +221,22 @@ class FedPegTest(BitcoinTestFramework):
 
         # 12 confirms allows in mempool
         parent.generate(1)
+
+        # Make sure that a tx with a duplicate pegin claim input gets rejected.
+        raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
+        raw_pegin = FromHex(CTransaction(), raw_pegin)
+        raw_pegin.vin.append(raw_pegin.vin[0]) # duplicate the pegin input
+        raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin.serialize().hex())["hex"]
+        assert_raises_rpc_error(-26, "bad-txns-inputs-duplicate", sidechain.sendrawtransaction, raw_pegin)
+        # Also try including this tx in a block manually and submitting it.
+        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
+        doublespendblock.vtx.append(FromHex(CTransaction(), raw_pegin))
+        doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
+        add_witness_commitment(doublespendblock)
+        doublespendblock.solve()
+        block_hex = bytes_to_hex_str(doublespendblock.serialize(True))
+        assert_raises_rpc_error(-25, "bad-txns-inputs-duplicate", sidechain.testproposedblock, block_hex, True)
+
         # Should succeed via wallet lookup for address match, and when given
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
         signed_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)
@@ -225,6 +248,9 @@ class FedPegTest(BitcoinTestFramework):
         sample_pegin_witness = sample_pegin_struct.wit.vtxinwit[0].peginWitness
 
         pegtxid1 = sidechain.claimpegin(raw, proof)
+        # Make sure a second pegin claim does not get accepted in the mempool when
+        # another mempool tx already claims that pegin.
+        assert_raises_rpc_error(-4, "txn-mempool-conflict", sidechain.claimpegin, raw, proof)
 
         # Will invalidate the block that confirms this transaction later
         self.sync_all(self.node_groups)
@@ -254,6 +280,21 @@ class FedPegTest(BitcoinTestFramework):
         sidechain.invalidateblock(blockhash[0])
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 0:
             raise Exception("Peg-in didn't unconfirm after invalidateblock call.")
+
+        # Create duplicate claim, put it in block along with current one in mempool
+        # to test duplicate-in-block claims between two txs that are in the same block.
+        raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
+        raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)["hex"]
+        raw_pegin = FromHex(CTransaction(), raw_pegin)
+        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
+        assert(len(doublespendblock.vtx) == 2) # coinbase and pegin
+        doublespendblock.vtx.append(raw_pegin)
+        doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
+        add_witness_commitment(doublespendblock)
+        doublespendblock.solve()
+        block_hex = bytes_to_hex_str(doublespendblock.serialize(True))
+        assert_raises_rpc_error(-25, "bad-txns-double-pegin", sidechain.testproposedblock, block_hex, True)
+
         # Re-enters block
         sidechain.generate(1)
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 1:
@@ -261,6 +302,19 @@ class FedPegTest(BitcoinTestFramework):
         sidechain.reconsiderblock(blockhash[0])
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 6:
             raise Exception("Peg-in should be back to 6 confirms.")
+
+        # Now the pegin is already claimed in a confirmed tx.
+        # In that case, a duplicate claim should (1) not be accepted in the mempool
+        # and (2) not be accepted in a block.
+        assert_raises_rpc_error(-4, "pegin-already-claimed", sidechain.claimpegin, raw, proof)
+        # For case (2), manually craft a block and include the tx.
+        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
+        doublespendblock.vtx.append(raw_pegin)
+        doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
+        add_witness_commitment(doublespendblock)
+        doublespendblock.solve()
+        block_hex = bytes_to_hex_str(doublespendblock.serialize(True))
+        assert_raises_rpc_error(-25, "bad-txns-double-pegin", sidechain.testproposedblock, block_hex, True)
 
         # Do multiple claims in mempool
         n_claims = 6
