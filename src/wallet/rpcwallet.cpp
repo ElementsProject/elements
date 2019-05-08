@@ -5317,6 +5317,15 @@ UniValue claimpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
 
+    // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
+    CValidationState acceptState;
+    bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx), nullptr /* pfMissingInputs */,
+                            nullptr /* plTxnReplaced */, false /* bypass_limits */, maxTxFee, true /* test_accept */);
+    if (!accepted) {
+        std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(acceptState));
+        throw JSONRPCError(RPC_WALLET_ERROR, strError);
+    }
+
     // Send it
     CValidationState state;
     mapValue_t mapValue;
