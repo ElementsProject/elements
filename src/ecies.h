@@ -49,6 +49,10 @@ private:
 
 	void check(const CKey& privKey, const CPubKey& pubKey);
 
+  virtual std::string Encode(const uCharVec& vch);
+
+  virtual bool Decode(const std::string strIn, uCharVec& decoded);
+
 	//Use the electrum wallet default "magic" string
 	const uCharVec _magic{'B','I','E','1'};
 };

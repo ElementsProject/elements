@@ -34,7 +34,7 @@ bool COnboardingScript::Finalize(CScript& script,
                     const CKey& kycPrivKey){
 
    	_encrypted.clear();
-    CECIES encryptor;
+    CECIES_hex encryptor;
     encryptor.Encrypt(_encrypted, _payload, onboardPubKey, kycPrivKey);
 
     //Onboarding keys    	
