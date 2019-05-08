@@ -17,4 +17,5 @@ std::string CECIES_hex::Encode(const uCharVec& vch){
 bool CECIES_hex::Decode(const std::string strIn, uCharVec& decoded){
 	if(!IsHex(strIn)) return false;
 	decoded=ParseHex(strIn);
+	return true;
 }

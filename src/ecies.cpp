@@ -41,7 +41,7 @@ std::string CECIES::Encode(const uCharVec& vch){
 bool CECIES::Decode(const std::string strIn, uCharVec& decoded){
 	bool bInvalid;
 	decoded=DecodeBase64(strIn.c_str(), &bInvalid);
-	if (bInvalid) return false;
+	return !bInvalid;
 }
 	
 //Encryption: generate ephmeral private key, and include it's public key in the header.
@@ -120,7 +120,6 @@ bool CECIES::Decrypt(uCharVec& m,
 				const CPubKey& pubKey){
 
 	std::string sem(em.begin(), em.end());
-	bool bInvalid;
 	uCharVec decoded;
 	if(!Decode(sem, decoded)) return false;
 	if(!CheckMagic(decoded)) return false;
