@@ -12,11 +12,17 @@ from test_framework.util import (
     p2p_port,
     assert_raises_rpc_error,
     assert_equal,
+    bytes_to_hex_str,
 )
+from test_framework import util
 from test_framework.messages import (
+    CBlock,
     CTransaction,
     CTxInWitness,
     FromHex,
+)
+from test_framework.blocktools import (
+    add_witness_commitment,
 )
 from decimal import Decimal
 
@@ -226,8 +232,11 @@ class FedPegTest(BitcoinTestFramework):
 
         pegtxid1 = sidechain.claimpegin(raw, proof)
         # Make sure it can't get accepted twice.
-        pegtxid2 = sidechain.claimpegin(raw, proof)
-        assert(pegtxid2 not in sidechain.getrawmempool())
+        try:
+            sidechain.claimpegin(raw, proof)
+            raise Exception("double spending claimpegin should not be accepted")
+        except JSONRPCException as e:
+            assert("txn-mempool-conflict" in e.error["message"])
 
         # Will invalidate the block that confirms this transaction later
         self.sync_all(self.node_groups)
@@ -266,11 +275,26 @@ class FedPegTest(BitcoinTestFramework):
             raise Exception("Peg-in should be back to 6 confirms.")
 
         # Make sure it can't get accepted twice.
-        pegtxid2 = sidechain.claimpegin(raw, proof)
-        assert(pegtxid2 not in sidechain.getrawmempool())
-        sidechain.generate(7)
-        if sidechain.gettransaction(pegtxid2)["confirmations"] > 0:
-            raise Exception("Pegin should not be able to get confirmed")
+        try:
+            sidechain.claimpegin(raw, proof)
+            raise Exception("double spending claimpegin should not be accepted")
+        except JSONRPCException as e:
+            assert("pegin-already-claimed" in e.error["message"])
+        # Also check it won't be accepted in a block.
+        raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
+        raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)["hex"]
+        raw_pegin = FromHex(CTransaction(), raw_pegin)
+        doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
+        doublespendblock.vtx.append(raw_pegin)
+        util.node_fastmerkle = sidechain
+        doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
+        add_witness_commitment(doublespendblock)
+        doublespendblock.solve()
+        try:
+            sidechain.testproposedblock(bytes_to_hex_str(doublespendblock.serialize(True)), True)
+            raise Exception("block should not be accepted")
+        except JSONRPCException as e:
+            assert("bad-txns-double-pegin" in e.error["message"])
 
         # Do multiple claims in mempool
         n_claims = 6
