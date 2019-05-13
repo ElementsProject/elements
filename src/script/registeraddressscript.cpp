@@ -21,7 +21,7 @@ CRegisterAddressScript::~CRegisterAddressScript(){
 //Encrypt the payload, buid the script and return it.
 bool CRegisterAddressScript::Finalize(CScript& script, const CPubKey& ePubKey, const CKey& ePrivKey){
     _encrypted.clear();
-    CECIES encryptor;
+    CECIES_hex encryptor;
     encryptor.Encrypt(_encrypted, _payload, ePubKey, ePrivKey);
 //    _encrypted.insert(_encrypted.begin(),_payload.begin(), _payload.end());
     //Prepend the initialization vector used in the encryption

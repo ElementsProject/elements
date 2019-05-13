@@ -21,7 +21,6 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
-#include "ecies.h"
 #include "request.h"
 
 #include <fstream>
