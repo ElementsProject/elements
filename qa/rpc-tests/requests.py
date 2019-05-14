@@ -3,7 +3,6 @@ from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
 # Test for the request covalence system
-# TODO: add more tests as work on this progresses
 class RequestsTest(BitcoinTestFramework):
   def __init__(self):
     super().__init__()
@@ -41,9 +40,9 @@ class RequestsTest(BitcoinTestFramework):
     unspent = self.nodes[1].listunspent(1, 9999999, [], True, "CBT")
     genesis = "867da0e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05"
     genesis2 = "967da0e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05"
-    inputs = {"txid": unspent[0]["txid"], "vout": unspent[0]["vout"], "asset": unspent[0]["asset"]}
+    inputs = {"txid": unspent[0]["txid"], "vout": unspent[0]["vout"]}
     outputs = {"decayConst": 10, "endBlockHeight": 20000, "fee": 1, "genesisBlockHash": genesis,
-    "startBlockHeight": 10000, "tickets": 10, "value": unspent[0]["amount"], "pubkey": pubkey}
+    "startBlockHeight": 10000, "tickets": 10, "startPrice": 5, "value": unspent[0]["amount"], "pubkey": pubkey}
 
     # catch errror - missing pubkey from outputs
     try:
@@ -55,10 +54,10 @@ class RequestsTest(BitcoinTestFramework):
 
     # create new raw request transaction with missing details
     unspent = self.nodes[1].listunspent(1, 9999999, [], True, "PERMISSION")
-    inputs = {"txid": unspent[0]["txid"], "vout": unspent[0]["vout"], "asset": unspent[0]["asset"]}
-    inputs2 = {"txid": unspent[1]["txid"], "vout": unspent[1]["vout"], "asset": unspent[1]["asset"]}
+    inputs = {"txid": unspent[0]["txid"], "vout": unspent[0]["vout"]}
+    inputs2 = {"txid": unspent[1]["txid"], "vout": unspent[1]["vout"]}
     outputs = {"decayConst": 10, "endBlockHeight": 20000, "fee": 1, "genesisBlockHash": genesis,
-    "startBlockHeight": 10000, "tickets": 10, "value": unspent[0]["amount"]}
+    "startBlockHeight": 10000, "tickets": 10, "startPrice": 5, "value": unspent[0]["amount"]}
 
     # catch errror - missing pubkey from outputs
     try:
@@ -68,9 +67,9 @@ class RequestsTest(BitcoinTestFramework):
 
     # re create transaction again and add pubkey
     outputs = {"decayConst": 10, "endBlockHeight": 105, "fee": 1, "genesisBlockHash": genesis,
-    "startBlockHeight": 100, "tickets": 10, "value": unspent[0]["amount"], "pubkey": pubkey}
+    "startBlockHeight": 100, "tickets": 10, "startPrice": 5, "value": unspent[0]["amount"], "pubkey": pubkey}
     outputs2 = {"decayConst": 5, "endBlockHeight": 120, "fee": 3, "genesisBlockHash": genesis2,
-    "startBlockHeight": 105, "tickets": 5, "value": unspent[1]["amount"], "pubkey": pubkey}
+    "startBlockHeight": 105, "tickets": 5, "startPrice": 5, "value": unspent[1]["amount"], "pubkey": pubkey}
 
     # send transaction
     tx = self.nodes[1].createrawrequesttx(inputs, outputs)
@@ -97,6 +96,9 @@ class RequestsTest(BitcoinTestFramework):
             assert_equal(req['decayConst'], 10)
             assert_equal(req['feePercentage'], 1)
             assert_equal(req['startBlockHeight'], 100)
+            assert_equal(req['confirmedBlockHeight'], 103)
+            assert_equal(req['startPrice'], 5)
+            assert(float(req['auctionPrice']) == 5)
         elif txid2 == req['txid']:
             assert(True)
         else:
@@ -112,6 +114,9 @@ class RequestsTest(BitcoinTestFramework):
             assert_equal(req['decayConst'], 10)
             assert_equal(req['feePercentage'], 1)
             assert_equal(req['startBlockHeight'], 100)
+            assert_equal(req['confirmedBlockHeight'], 103)
+            assert_equal(req['startPrice'], 5)
+            assert(float(req['auctionPrice']) == 5)
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis2)
@@ -125,6 +130,9 @@ class RequestsTest(BitcoinTestFramework):
             assert_equal(req['decayConst'], 5)
             assert_equal(req['feePercentage'], 3)
             assert_equal(req['startBlockHeight'], 105)
+            assert_equal(req['confirmedBlockHeight'], 103)
+            assert_equal(req['startPrice'], 5)
+            assert_equal(req['auctionPrice'], 5)
         else:
             assert(False)
     requests = self.nodes[0].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05")
@@ -163,6 +171,9 @@ class RequestsTest(BitcoinTestFramework):
             assert_equal(req['decayConst'], 5)
             assert_equal(req['feePercentage'], 3)
             assert_equal(req['startBlockHeight'], 105)
+            assert_equal(req['confirmedBlockHeight'], 103)
+            assert_equal(req['startPrice'], 5)
+            assert(float(req['auctionPrice']) == 0.26066350)
         else:
             assert(False)
     requests = self.nodes[0].getrequests(genesis2)
@@ -176,6 +187,9 @@ class RequestsTest(BitcoinTestFramework):
             assert_equal(req['decayConst'], 5)
             assert_equal(req['feePercentage'], 3)
             assert_equal(req['startBlockHeight'], 105)
+            assert_equal(req['confirmedBlockHeight'], 103)
+            assert_equal(req['startPrice'], 5)
+            assert(float(req['auctionPrice']) == 0.26066350)
         else:
             assert(False)
 
@@ -209,6 +223,7 @@ class RequestsTest(BitcoinTestFramework):
 
     self.sync_all()
     self.nodes[0].generate(1)
+    self.sync_all()
     assert(self.nodes[1].getbalance()["PERMISSION"] == 2000)
 
     return
