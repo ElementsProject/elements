@@ -25,7 +25,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_mandatorycoinbase", "All non-zero valued coinbase outputs must go to this scriptPubKey, if set.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block.", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block, in satoshis.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_connect_coinbase", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_elementsmode", "Use Elements-like instead of Core-like witness encoding.  This is required for CA/CT. (default: true)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_blockheightinheader", "Whether the chain includes the block height directly in the header, for easier validation of block height in low-resource environments. (default: true)", false, OptionsCategory::CHAINPARAMS);
