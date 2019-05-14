@@ -1034,7 +1034,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
             "  \"complete\": true|false (numeric) If block is complete \n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("combineblocksigs", "<hex> [\"signature1\", \"signature2\", ...]")
+            + HelpExampleCli("combineblocksigs", "<hex> '[{\"pubkey\":\"hex\",\"sig\":\"hex\"}, ...]'")
         );
 
     if (!g_signed_blocks) {

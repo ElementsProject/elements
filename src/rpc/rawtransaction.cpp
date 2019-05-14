@@ -10,7 +10,6 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <keystore.h>
 #include <init.h>
 #include <key_io.h>
 #include <keystore.h>
@@ -35,7 +34,6 @@
 #include <confidential_validation.h>
 #include <blind.h>
 #include <issuance.h>
-#include <rpc/util.h>
 
 #include <future>
 #include <stdint.h>
@@ -1844,13 +1842,13 @@ UniValue converttopsbt(const JSONRPCRequest& request)
 
     // Remove all scriptSigs and scriptWitnesses from inputs
     for (CTxIn& input : tx.vin) {
-        if ((!input.scriptSig.empty()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+        if (!input.scriptSig.empty() && !permitsigdata) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs");
         }
         input.scriptSig.clear();
     }
     for (CTxInWitness& witness: tx.witness.vtxinwit) {
-        if ((!witness.scriptWitness.IsNull()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+        if (!witness.scriptWitness.IsNull() && !permitsigdata) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptWitnesses");
         }
     }
