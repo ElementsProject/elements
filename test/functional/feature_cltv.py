@@ -58,7 +58,7 @@ def cltv_validate(node, tx, height):
 class BIP65Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
-        self.extra_args = [['-whitelist=127.0.0.1', '-par=1']]  # Use only one script thread to get the exact reject reason for testing
+        self.extra_args = [['-whitelist=127.0.0.1', '-par=1', "-con_bip65height="+str(CLTV_HEIGHT)]]  # Use only one script thread to get the exact reject reason for testing
         self.setup_clean_chain = True
 
     def skip_test_if_missing_module(self):

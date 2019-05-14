@@ -14,12 +14,16 @@ class ScantxoutsetTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
+        # ELEMENTS: use bitcoin regtest prefixes to avoid having to rewrite the entire test
+        self.extra_args = [["-pubkeyprefix=111", "-scriptprefix=196", "-secretprefix=239", "-extpubkeyprefix=043587CF", "-extprvkeyprefix=04358394", "-bech32_hrp=bcrt"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
     def run_test(self):
         self.log.info("Mining blocks...")
+        self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
+        self.nodes[0].importprivkey("cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ")
         self.nodes[0].generate(110)
 
         addr_P2SH_SEGWIT = self.nodes[0].getnewaddress("", "p2sh-segwit")
@@ -55,7 +59,7 @@ class ScantxoutsetTest(BitcoinTestFramework):
         self.start_node(0)
         self.nodes[0].generate(110)
 
-        self.restart_node(0, ['-nowallet'])
+        self.restart_node(0, self.extra_args[0] + ['-nowallet'])
         self.log.info("Test if we have found the non HD unspent outputs.")
         assert_equal(self.nodes[0].scantxoutset("start", [ "pkh(" + pubk1 + ")", "pkh(" + pubk2 + ")", "pkh(" + pubk3 + ")"])['total_unblinded_bitcoin_amount'], Decimal("0.002"))
         assert_equal(self.nodes[0].scantxoutset("start", [ "wpkh(" + pubk1 + ")", "wpkh(" + pubk2 + ")", "wpkh(" + pubk3 + ")"])['total_unblinded_bitcoin_amount'], Decimal("0.004"))

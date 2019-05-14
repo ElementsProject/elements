@@ -60,14 +60,14 @@ def read_dump(file_name, addrs, script_addrs, hd_master_addr_old):
                 # count key types
                 for addrObj in addrs:
                     if addrObj['unconfidential'] == addr.split(",")[0] and addrObj['hdkeypath'] == keypath and keytype == "label=":
-                        # a labeled entry in the wallet should contain both a native address
-                        # and the p2sh-p2wpkh address that was added at wallet setup
-                        if len(addr.split(",")) == 2:
-                            addr_list = addr.split(",")
-                            # the entry should be of the first key in the wallet
-                            assert_equal(addrs[0]['unconfidential'], addr_list[0])
-                            witness_addr_ret = addr_list[1]
-                        found_addr += 1
+                        if addr.startswith('2'):
+                            # P2PKH address
+                            found_legacy_addr += 1
+                        elif addr.startswith('X'):
+                            # P2SH-segwit address
+                            found_p2sh_segwit_addr += 1
+                        elif addr.startswith('ert1'):
+                            found_bech32_addr += 1
                         break
                     elif keytype == "change=1":
                         found_addr_chg += 1

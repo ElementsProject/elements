@@ -487,9 +487,11 @@ class WalletTest(BitcoinTestFramework):
 
         # Test getaddressinfo on external address. Note that these addresses are taken from disablewallet.py
         assert_raises_rpc_error(-5, "Invalid address", self.nodes[0].getaddressinfo, "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy")
-        address_info = self.nodes[0].getaddressinfo("mneYUmWYsuk7kySiURxCi3AGxrAqZxLgPZ")
-        assert_equal(address_info['address'], "mneYUmWYsuk7kySiURxCi3AGxrAqZxLgPZ")
-        assert_equal(address_info["scriptPubKey"], "76a9144e3854046c7bd1594ac904e4793b6a45b36dea0988ac")
+        address_info = self.nodes[0].getaddressinfo("CTEuA2rzWUDTGt6jFwmAtGtWWqtRgP7NwY4qbGGyht8QpgLvpQmbRHtzeF1yTV1rmJ9GiHhJoqnrbUYT")
+        assert_equal(address_info['address'], "CTEuA2rzWUDTGt6jFwmAtGtWWqtRgP7NwY4qbGGyht8QpgLvpQmbRHtzeF1yTV1rmJ9GiHhJoqnrbUYT")
+        assert_equal(address_info["scriptPubKey"], "76a914dc389a2145ec3cd4fe37bd6a11653456168cfa2c88ac")
+        assert_equal(address_info["unconfidential"], "2duWArW67wndmA6p39zcfUBGY1Sj3W1d3Y7")
+        assert_equal(address_info["confidential_key"], "035dc1faefe93fc64f3cb65f7caefe3897f2cc98a6f67e8aec2763f8ae2c9299e3")
         assert not address_info["ismine"]
         assert not address_info["iswatchonly"]
         assert not address_info["isscript"]
@@ -500,7 +502,7 @@ class WalletTest(BitcoinTestFramework):
         destination = self.nodes[1].getnewaddress()
         txid = self.nodes[0].sendtoaddress(destination, 0.123)
         tx = self.nodes[0].decoderawtransaction(self.nodes[0].getrawtransaction(txid))
-        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"]]
+        output_addresses = [vout['scriptPubKey']['addresses'][0] for vout in tx["vout"] if vout["scriptPubKey"]["type"] != "fee"]
         assert len(output_addresses) > 1
         for address in output_addresses:
             ischange = self.nodes[0].getaddressinfo(address)['ischange']

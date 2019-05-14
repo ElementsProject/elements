@@ -12,7 +12,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
-        self.extra_args = [["-deprecatedrpc=signrawtransaction"]]
+        self.extra_args = [["-deprecatedrpc=signrawtransaction", "-pubkeyprefix=111", "-scriptprefix=196", "-secretprefix=239", "-extpubkeyprefix=043587CF", "-extprvkeyprefix=04358394", "-bech32_hrp=bcrt"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -49,7 +49,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         """Test correct error reporting when trying to sign a locked output"""
         self.nodes[0].encryptwallet("password")
 
-        rawTx = '020000000156b958f78e3f24e0b2f4e4db1255426b0902027cb37e3ddadb52e37c3557dddb0000000000ffffffff01c0a6b929010000001600149a2ee8c77140a053f36018ac8124a6ececc1668a00000000'
+        rawTx = '02000000000156b958f78e3f24e0b2f4e4db1255426b0902027cb37e3ddadb52e37c3557dddb0000000000ffffffff0101230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2010000000129b9a6c0001600149a2ee8c77140a053f36018ac8124a6ececc1668a00000000'
 
         assert_raises_rpc_error(-13, "Please enter the wallet passphrase with walletpassphrase first", self.nodes[0].signrawtransactionwithwallet, rawTx)
 

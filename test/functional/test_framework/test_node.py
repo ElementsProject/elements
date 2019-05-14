@@ -114,15 +114,15 @@ class TestNode():
         AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
         PRIV_KEYS = [
             # address , privkey
-            AddressKeyPair('XLk5KrNPcrDQgX2VLZoWcarPhAdWiaT2kj', 'cUefCfa8BubvB647rZkJZx693KxHV6SYCnixB63GnDbAfeayrTZn'),
-            AddressKeyPair('XNE8xf6DVprZ7uKeTF5D6fU2UV3JXgidky', 'cSV5h5frESA7GP1E7qUFFLr5GuJTqWH6sfvWhqhUk6viimDjGfhA'),
-            AddressKeyPair('XX8fKzSef3pfhYn57UMUHVqF3i2ADEduKP', 'cPWfJTmzWJUD9evKEzTF8x7rjXRxnZcaPAjBYBck8yxiLgthUEFm'),
-            AddressKeyPair('XM98ggwbX6JZv4baocdAg17Srvep8aUw5J', 'cUPkzzKWSTqTAtYanCJXC8e6LkLaxaqagcxAvbdJj7bN6rhfyJCS'),
-            AddressKeyPair('XKbMRzP9735q3aQBne8KUSoXeopjVDsA4Q', 'cQVhmMSGoMSYTLPkQkqSpskosHwx8N7EZeFKJcJgfruPjiw8Q7tV'),
-            AddressKeyPair('XD8eGQh8ihNzpTLrqErCJMFdm5W3yjrqyw', 'cQn4GB4xHcAwzAEsFfDUqvGGa6t4hpqxtrjAzj3T7UfYWdhzyEjg'),
-            AddressKeyPair('XZzJC9V6tgP4G4dciz4McK9CHFYGA98hJ3', 'cUyxqmWmFGTFkd1H9AR4CJ9QpRKDC7nVEirSe79xMJ8MTv8rJAiT'),
-            AddressKeyPair('XFPZFwRmVVW8LmmQoqUu81ynS3WHEbN11t', 'cMjyVk6QF2ffE7FrWM19jSNCs7VLdmdYQEDZ2BVfwXs8QCHmJ44c'),
-            AddressKeyPair('XZY7RA4gkBErWUey3egGois93D11mA6zWj', 'cVXrhqnTc519sK8A1jsR1Zm7oBqDRbwkx7GMT3KZ78Dbv6e9vZef'),
+            AddressKeyPair('2doncj41FX6LahE2aspuLuQcnmgrLtfvvma', 'cQ1PxVTn5J3qCzUqXzpNeHiPVxZcwwaJkFmZcokescXwmHWAdBoe'),
+            AddressKeyPair('2dv4oTKjmi3TF6dRq2TmasMdNtTeuqHNcPb', 'cRuGzyZjb5zQQg1TbAiGK1UJBuK1UQHaFf4DXBUcPZNZ3WomNoxW'),
+            AddressKeyPair('2drNifUyWj5D8UPrAJtuQjUyPSUYpE4gb7E', 'cSYxv1JKDNrSKnm2fzNj1uFUkr7HqTQHvU8PCAZ1mWNwYB5LwZVu'),
+            AddressKeyPair('2dwTDXu4QLFG61upW7wkRLbkUxDRYuRmnAd', 'cQLvSojQFLkikwuzhSkKPv9REWpCDNhvGiG5hjutYPQj4HT8GnJy'),
+            AddressKeyPair('2doqDLuXpHx3x6Bd9bBAWxRzzKZCXTbSCWE', 'cNkbdkyQ9RX3Yrp4oFACs4p4iiyBxoC3pL7zioGKSzmvyLbiR4Rm'),
+            AddressKeyPair('2dktmJxjtpKEftBKFaGBUCW7wsUEBGeuoSi', 'cSCCVU7iUXMNnqrHPeVxHEgG48TsyNwd3FAsS2hjTYKdTSNDXJXV'),
+            AddressKeyPair('2dxjmBn21SQjhffXzzi1hz5nKA4quM7jtsT', 'cVpzWr59KE7DsWaSJkySSPSvkrr6huUsjYBF3wcwCMhW4cEPNmU1'),
+            AddressKeyPair('2dpFhgNeWqm7LVbvZo29bvXPEzwWTVfzVSY', 'cRPF2Kfm21BWf3GPHMKGGMQN1a6sNJPGsyYSz8VWQhsoVUr42q4r'),
+            AddressKeyPair('2df8FzAJJtPcHsvXYRh4BTmnhSUUVE5zNhE', 'cU9yBKyGyRNBpzSmVavoh9szgaFUjKbPG9P3CPtycXAxmdwnKxiL'),
         ]
 
         # ELEMENTS: this allows overriding the default for parent nodes in fedpeg test

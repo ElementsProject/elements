@@ -269,10 +269,10 @@ class SegWitTest(BitcoinTestFramework):
         ]
 
         # Import a compressed key and an uncompressed key, generate some multisig addresses
-        self.nodes[0].importprivkey("92e6XLo5jVAVwrQKPNTs93oQco8f8sDNBcpv73Dsrs397fQtFQn")
-        uncompressed_spendable_address = ["mvozP4UwyGD2mGZU4D2eMvMLPB9WkMmMQu"]
-        self.nodes[0].importprivkey("cNC8eQ5dg3mFAVePDX4ddmPYpPbw41r9bm2jd1nLJT77e6RrzTRR")
-        compressed_spendable_address = ["mmWQubrDomqpgSYekvsU7HWEVjLFHAakLe"]
+        self.nodes[0].importprivkey("92SMa2mHdcWeSRxYL3n2mcv6vyxmvmQ326fpiDffnHwu1bbF6rB")
+        uncompressed_spendable_address = ["2drVNrQ6G7UhTrV5hHzBnh1wPQ4P1SYwEYm"]
+        self.nodes[0].importprivkey("cW6dVxPDzWUbs16ExyD6NkLDBtqwCB82o99PT95oYprGQ6Ao11YK")
+        compressed_spendable_address = ["2dmiAZsM5F4TS1PCUKW2t3UYw6FupXPUmRS"]
         assert not self.nodes[0].getaddressinfo(uncompressed_spendable_address[0])['iscompressed']
         assert self.nodes[0].getaddressinfo(compressed_spendable_address[0])['iscompressed']
 
@@ -436,10 +436,10 @@ class SegWitTest(BitcoinTestFramework):
 
         # Repeat some tests. This time we don't add witness scripts with importaddress
         # Import a compressed key and an uncompressed key, generate some multisig addresses
-        self.nodes[0].importprivkey("927pw6RW8ZekycnXqBQ2JS5nPyo1yRfGNN8oq74HeddWSpafDJH")
-        uncompressed_spendable_address = ["mguN2vNSCEUh6rJaXoAVwY3YZwZvEmf5xi"]
-        self.nodes[0].importprivkey("cMcrXaaUC48ZKpcyydfFo8PxHAjpsYLhdsp6nmtB3E2ER9UUHWnw")
-        compressed_spendable_address = ["n1UNmpmbVUJ9ytXYXiurmGPQ3TRrXqPWKL"]
+        self.nodes[0].importprivkey("91oxj3Pfsh9gwHMVf2f9jQviNwcUWhk6ik1prHYLcG8qxtD6ois")
+        uncompressed_spendable_address = ["2dmXP31eCGJmej1TXJozZtQoCS4ccNHw33D"]
+        self.nodes[0].importprivkey("cVf3aYYKKSJZZ6v17jgqkBpGfLjhcZg3cUnqpbghwdX1QVStrN63")
+        compressed_spendable_address = ["2doZfDfrmngfWw3tWz9Z8MpNvHFPhDjzGaQ"]
 
         self.nodes[0].importpubkey(pubkeys[5])
         compressed_solvable_address = [key_to_p2pkh(pubkeys[5])]
@@ -518,12 +518,12 @@ class SegWitTest(BitcoinTestFramework):
                 scriptPubKey = "00203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a"
                 # original btc tx:
                 # 01000000000100e1f505000000002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000
-                transaction = "0100000000000101ac2e6a47e85fdc2a5a27334544440f2f5135553a7476f4f5e3b9792da6a58fe0010000000005f5e100002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000"
+                transaction = "0100000000000101230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2010000000005f5e100002200203a59f3f56b713fdcf5d1a57357f02c44342cbf306ffe0c4741046837bf90561a00000000"
             else:
                 scriptPubKey = "a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d87"
                 # original btc tx:
                 # 01000000000100e1f5050000000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000
-                transaction = "0100000000000101ac2e6a47e85fdc2a5a27334544440f2f5135553a7476f4f5e3b9792da6a58fe0010000000005f5e1000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000"
+                transaction = "0100000000000101230f4f5d4b7c6fa845806ee4f67713459e1b69e8e60fcee2e4940c7a0d5de1b2010000000005f5e1000017a9142f8c469c2f0084c48e11f998ffbe7efa7549f26d8700000000"
 
             self.nodes[1].importaddress(scriptPubKey, "", False)
             rawtxfund = self.nodes[1].fundrawtransaction(transaction)['hex']
