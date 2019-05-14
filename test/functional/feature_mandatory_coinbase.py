@@ -14,7 +14,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 
 mandatory_privkey = "cQ2nfMkghhdEgRQwcfJmTb6XSenfLRmngpLmWuEBAJnepnKMfznH"
 mandatory_address = "XP3bwB9jSxt58frSa3cJismgGL3F57ukUy"
-mandatory_pubkey = "024f0c5cdb8f31d7395bcc83f6adc46f292f6555eca2d24dfa581c3b0845778b2b"
+#mandatory_pubkey = "024f0c5cdb8f31d7395bcc83f6adc46f292f6555eca2d24dfa581c3b0845778b2b"
 mandatory_script = "a914804b9fd9d6939c2e960b7aa31124a5d532f4e59c87"
 
 def b2x(b):

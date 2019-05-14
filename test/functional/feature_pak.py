@@ -65,7 +65,7 @@ class PAKTest (BitcoinTestFramework):
         # This function tests the result of the getpakinfo RPC.
         # *_pak is either False (undefined paklist), "reject" or a list of
         # (online, offline) tuples
-        def test_pak(node, config_pak, block_pak, validate):
+        def test_pak(node, config_pak, block_pak):
             getpakinfo = node.getpakinfo()
 
             def compare(actual, expected):
@@ -85,11 +85,11 @@ class PAKTest (BitcoinTestFramework):
             compare(getpakinfo['block_paklist'], block_pak)
 
         # In the beginning the blockchain paklist is "reject"
-        test_pak(self.nodes[i_novalidate], pak1, "reject", False)
-        test_pak(self.nodes[i_undefined], False, "reject", True)
-        test_pak(self.nodes[i_pak1], pak1, "reject", True)
-        test_pak(self.nodes[i_pak2], pak2, "reject", True)
-        test_pak(self.nodes[i_reject], "reject", "reject", True)
+        test_pak(self.nodes[i_novalidate], pak1, "reject")
+        test_pak(self.nodes[i_undefined], False, "reject")
+        test_pak(self.nodes[i_pak1], pak1, "reject")
+        test_pak(self.nodes[i_pak2], pak2, "reject")
+        test_pak(self.nodes[i_reject], "reject", "reject")
 
         # i_novalidate creates block without a commitment
         block_proposal = self.nodes[i_novalidate].getnewblockhex()
@@ -121,11 +121,11 @@ class PAKTest (BitcoinTestFramework):
         # Submit block with commitment to pak1 and check each node's state.
         self.nodes[i_undefined].submitblock(block_proposal)
         self.sync_all()
-        test_pak(self.nodes[i_novalidate], pak1, pak1, False)
-        test_pak(self.nodes[i_undefined], False, pak1, True)
-        test_pak(self.nodes[i_pak1], pak1, pak1, True)
-        test_pak(self.nodes[i_pak2], pak2, pak1, True)
-        test_pak(self.nodes[i_reject], "reject", pak1, True)
+        test_pak(self.nodes[i_novalidate], pak1, pak1)
+        test_pak(self.nodes[i_undefined], False, pak1)
+        test_pak(self.nodes[i_pak1], pak1, pak1)
+        test_pak(self.nodes[i_pak2], pak2, pak1)
+        test_pak(self.nodes[i_reject], "reject", pak1)
         # Check that another block by i_pak1 (without a commitment) is valid to
         # i_pak1 but invalid to i_pak2 and i_reject
         block_proposal = self.nodes[i_undefined].getnewblockhex()
@@ -150,11 +150,11 @@ class PAKTest (BitcoinTestFramework):
         # Submit "reject" block and check state.
         self.nodes[i_undefined].submitblock(block_proposal)
         self.sync_all()
-        test_pak(self.nodes[i_novalidate], pak1, "reject", False)
-        test_pak(self.nodes[i_undefined], False, "reject", True)
-        test_pak(self.nodes[i_pak1], pak1, "reject", True)
-        test_pak(self.nodes[i_pak2], pak2, "reject", True)
-        test_pak(self.nodes[i_reject], "reject", "reject", True)
+        test_pak(self.nodes[i_novalidate], pak1, "reject")
+        test_pak(self.nodes[i_undefined], False, "reject")
+        test_pak(self.nodes[i_pak1], pak1, "reject")
+        test_pak(self.nodes[i_pak2], pak2, "reject")
+        test_pak(self.nodes[i_reject], "reject", "reject")
         # Check that another block by i_reject (without a commitment) is valid to i_reject.
         block_proposal = self.nodes[i_reject].getnewblockhex()
         assert_equal(self.nodes[i_reject].testproposedblock(block_proposal), None)
@@ -182,7 +182,7 @@ class PAKTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes,3,4)
 
         # Check current state of i_pak1
-        test_pak(self.nodes[i_pak1], pak2, "reject", True)
+        test_pak(self.nodes[i_pak1], pak2, "reject")
         # Create a new block with i_pak1 which should have a commitment to pak2
         # and check that it's correctly rejected or accepted.
         block_proposal = self.nodes[i_pak1].getnewblockhex()
@@ -196,11 +196,11 @@ class PAKTest (BitcoinTestFramework):
         # Submit block with commitment to pak2 and check state.
         self.nodes[i_pak1].submitblock(block_proposal)
         self.sync_all()
-        test_pak(self.nodes[i_novalidate], "reject", pak2, False)
-        test_pak(self.nodes[i_undefined], False, pak2, True)
-        test_pak(self.nodes[i_pak1], pak2, pak2, True)
-        test_pak(self.nodes[i_pak2], pak2, pak2, True)
-        test_pak(self.nodes[i_reject], "reject", pak2, True)
+        test_pak(self.nodes[i_novalidate], "reject", pak2)
+        test_pak(self.nodes[i_undefined], False, pak2)
+        test_pak(self.nodes[i_pak1], pak2, pak2)
+        test_pak(self.nodes[i_pak2], pak2, pak2)
+        test_pak(self.nodes[i_reject], "reject", pak2)
 
         # Reset PAK conf arguments to start to test mempool acceptance and wallet
 

@@ -414,10 +414,10 @@ class CTxOutAsset:
         r += self.vchCommitment
         return r
 
-    def setToAsset(self, val):
-        if len(val) != 32:
-            raise 'invalid asset hash (expected 32 bytes got %d)' % len(val)
-        self.vchCommitment = b'\x01' + val
+    #def setToAsset(self, val):
+    #    if len(val) != 32:
+    #        raise 'invalid asset hash (expected 32 bytes got %d)' % len(val)
+    #    self.vchCommitment = b'\x01' + val
 
     def __repr__(self):
         return "CTxOutAsset(vchCommitment=%s)" % self.vchCommitment
