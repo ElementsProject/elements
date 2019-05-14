@@ -187,7 +187,7 @@ class FedPegTest(BitcoinTestFramework):
         time.sleep(2)
         proof = parent.gettxoutproof([txid1])
 
-        raw = parent.getrawtransaction(txid1)
+        raw = parent.gettransaction(txid1)["hex"]
 
         print("Attempting peg-ins")
         # First attempt fails the consensus check but gives useful result
@@ -330,7 +330,7 @@ class FedPegTest(BitcoinTestFramework):
             txid = parent.sendtoaddress(addrs["mainchain_address"], 1)
             parent.generate(1)
             proof = parent.gettxoutproof([txid])
-            raw = parent.getrawtransaction(txid)
+            raw = parent.gettransaction(txid)["hex"]
             if i % 2 == 0:
                 parent.generate(11)
                 pegtxs += [sidechain.claimpegin(raw, proof)]
@@ -411,7 +411,7 @@ class FedPegTest(BitcoinTestFramework):
         txid = parent.sendtoaddress(addr, 1)
         parent.generate(12)
         proof = parent.gettxoutproof([txid])
-        raw = parent.getrawtransaction(txid)
+        raw = parent.gettransaction(txid)["hex"]
         sidechain.claimpegin(raw, proof) # stuck peg
         sidechain.generate(1)
         print("Waiting to ensure block is being rejected by sidechain2")
