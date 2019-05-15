@@ -1249,10 +1249,10 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
       return state.DoS(0, false, REJECT_NONSTANDARD, "bad-txns-too-many-sigops", false,
     strprintf("%d", nSigOpsCost));
     CAmount mempoolRejectFee = pool.GetMinFee(GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000).GetFee(nSize);
-    if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee && tx.vin[0].assetIssuance.IsNull() && !IsAllBurn(tx) && !IsPolicy(tx) && !IsRedemption(tx))
+    if (mempoolRejectFee > 0 && nModifiedFees < mempoolRejectFee && tx.vin[0].assetIssuance.IsNull() && !IsAllBurn(tx) && !IsPolicy(tx) && !IsRedemption(tx) && !IsSpendCoinbase(tx,view))
       return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "mempool min fee not met", false, strprintf("%d < %d for asset %s", nFees, mempoolRejectFee, feeAsset.GetHex()));
     // No transactions are allowed below minRelayTxFee except from disconnected blocks
-    if (fLimitFree && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && tx.vin[0].assetIssuance.IsNull() && !IsAllBurn(tx) && !IsPolicy(tx) && !IsRedemption(tx))
+    if (fLimitFree && nModifiedFees < ::minRelayTxFee.GetFee(nSize) && tx.vin[0].assetIssuance.IsNull() && !IsAllBurn(tx) && !IsPolicy(tx) && !IsRedemption(tx) && !IsSpendCoinbase(tx,view))
       return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "min relay fee not met");
     if (nAbsurdFee && nFees > nAbsurdFee)
       return state.Invalid(false, REJECT_HIGHFEE, "absurdly-high-fee",

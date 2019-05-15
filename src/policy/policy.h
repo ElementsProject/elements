@@ -98,6 +98,10 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
      */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
     /**
+     * Is the transaction spending from a coinbase
+     */
+bool IsSpendCoinbase(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+    /**
      * Check if all transactions outputs are OP_RETURN
      */
 bool IsAllBurn(const CTransaction& tx);
