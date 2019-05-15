@@ -2510,6 +2510,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const CoinEli
 
 bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet, const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const
 {
+    AssertLockHeld(cs_wallet); // mapWallet
     std::vector<COutput> vCoins(vAvailableCoins);
 
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
@@ -2684,6 +2685,11 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
         coinControl.Select(txin.prevout);
     }
 
+    // Acquire the locks to prevent races to the new locked unspents between the
+    // CreateTransaction call and LockCoin calls (when lockUnspents is true).
+    auto locked_chain = chain().lock();
+    LOCK(cs_wallet);
+
     // Also account for the assets in the preset inputs.
     std::vector<COutPoint> vPresetInputs;
     coinControl.ListSelected(vPresetInputs);
@@ -2699,11 +2705,6 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     for (size_t i = 0; i < setAssets.size(); ++i) {
         vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
     }
-
-    // Acquire the locks to prevent races to the new locked unspents between the
-    // CreateTransaction call and LockCoin calls (when lockUnspents is true).
-    auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
 
     CTransactionRef tx_new;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;

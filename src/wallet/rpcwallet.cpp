@@ -5493,6 +5493,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
 
     // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
     CValidationState acceptState;
+    LockAnnotation lock(::cs_main); //TODO(stevenroose) replace with locked_chain later
     bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx), nullptr /* pfMissingInputs */,
                             nullptr /* plTxnReplaced */, false /* bypass_limits */, maxTxFee, true /* test_accept */);
     if (!accepted) {
