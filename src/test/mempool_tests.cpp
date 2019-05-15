@@ -445,7 +445,6 @@ BOOST_AUTO_TEST_CASE(PeginSpentTest)
     tx.vin.resize(1);
     tx.vout.resize(1);
     tx.vout[0].nValue = 0;
-    const uint256 tx1Hash(tx.GetHash());
     pool.addUnchecked(entry.PeginsSpent(setPeginsSpent).FromTx(tx));
     BOOST_CHECK(pool.mapPeginsSpentToTxid.empty());
 
