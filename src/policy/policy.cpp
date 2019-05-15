@@ -409,19 +409,65 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
-bool UpdateRequestList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
+bool GetRequest(const CTxOut &out, uint256 hash, uint32_t nConfirmedHeight, CRequest &request)
 {
-    if (tx.IsCoinBase() || tx.vout.size() != 1)
-        return false;
-
-    txnouttype whichType;
     vector<vector<unsigned char>> vSolutions;
-    if (Solver(tx.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
-        auto request = CRequest::FromSolutions(vSolutions);
-        requestList.add(tx.GetHash(), &request);
+    txnouttype whichType;
+    if (Solver(out.scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
+        request = CRequest::FromSolutions(vSolutions, nConfirmedHeight);
         return true;
     }
     return false;
+}
+
+bool IsValidRequest(const CRequest &request, uint32_t nHeight)
+{
+    return request.nEndBlockHeight > nHeight;
+}
+
+bool UpdateRequestList(const CTransaction& tx, uint32_t nHeight)
+{
+    if (tx.IsCoinBase() || tx.vout.size() != 1)
+        return false;
+    // confirmed height will be the next height
+    return requestList.LoadRequest(tx.vout[0], tx.GetHash(), nHeight, nHeight + 1);
+}
+
+bool GetRequestBid(const vector<CTxOut> &outs, uint256 hash, uint32_t nConfirmedHeight, CBid &bid)
+{
+    txnouttype whichType;
+    vector<vector<unsigned char>> vSolutions;
+    for (const auto &out : outs) {
+        if (out.nAsset.IsExplicit() && !IsPolicy(out.nAsset.GetAsset())
+        && Solver(out.scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
+            bid = CBid::FromSolutions(vSolutions, out.nValue.GetAmount(), nConfirmedHeight);
+            bid.SetBidHash(hash);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool IsValidRequestBid(const CRequest &request, const CBid &bid)
+{
+    // amount less than current auction price
+    if (bid.nStakePrice < request.GetAuctionPrice(bid.nConfirmedBlockHeight))
+        return false;
+    // stake lock expires before request end
+    if (request.nEndBlockHeight > bid.nLockBlockHeight)
+        return false;
+    // auction finished
+    if (request.nStartBlockHeight <= bid.nConfirmedBlockHeight)
+        return false;
+
+    return true;
+}
+
+bool UpdateRequestBidList(const CTransaction& tx, uint32_t nHeight)
+{
+    if (tx.IsCoinBase() || tx.vout.size() <= 1)
+        return false;
+    return requestList.LoadBid(tx.vout, tx.GetHash(), nHeight + 1);
 }
 
 bool UpdateAssetMap(const CTransaction& tx)

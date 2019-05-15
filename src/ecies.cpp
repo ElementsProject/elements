@@ -33,6 +33,16 @@ bool CECIES::CheckMagic(const uCharVec& encryptedMessage) const{
 	uCharVec magic(encryptedMessage.begin(), encryptedMessage.begin() + _magic.size());
 	return (magic == _magic);
 }
+
+std::string CECIES::Encode(const uCharVec& vch){
+	return EncodeBase64(&vch[0], vch.size());
+}
+
+bool CECIES::Decode(const std::string strIn, uCharVec& decoded){
+	bool bInvalid;
+	decoded=DecodeBase64(strIn.c_str(), &bInvalid);
+	return !bInvalid;
+}
 	
 //Encryption: generate ephmeral private key, and include it's public key in the header.
 //Generate a dhared secret using the ephemeral private key and the recipient's public key.
@@ -92,7 +102,7 @@ bool CECIES::Encrypt(uCharVec& em,
 	//Message: payload + MAC
 	msg.insert(msg.end(),std::begin(mac), std::end(mac));
 	//Base64 encode
-	std::string strEncoded=EncodeBase64(&msg[0], msg.size());
+	std::string strEncoded=Encode(msg);
 	em=uCharVec(strEncoded.begin(), strEncoded.end());
 	return true;
 }
@@ -110,9 +120,8 @@ bool CECIES::Decrypt(uCharVec& m,
 				const CPubKey& pubKey){
 
 	std::string sem(em.begin(), em.end());
-	bool bInvalid;
-	uCharVec decoded=DecodeBase64(sem.c_str(), &bInvalid);
-	if(bInvalid) return false;
+	uCharVec decoded;
+	if(!Decode(sem, decoded)) return false;
 	if(!CheckMagic(decoded)) return false;
 	uCharVec ciphertext;
 

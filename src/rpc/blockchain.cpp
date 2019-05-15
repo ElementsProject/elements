@@ -21,7 +21,6 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
-#include "ecies.h"
 #include "request.h"
 
 #include <fstream>
@@ -1007,12 +1006,124 @@ UniValue requestToJSON(const CRequest &request)
 {
     UniValue item(UniValue::VOBJ);
     item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
+    item.push_back(Pair("confirmedBlockHeight", (int32_t)request.nConfirmedBlockHeight));
     item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
     item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
     item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
     item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
     item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
+    item.push_back(Pair("startPrice", ValueFromAmount(request.nStartPrice)));
+    item.push_back(Pair("auctionPrice", ValueFromAmount(request.GetAuctionPrice(chainActive.Height()))));
     return item;
+}
+
+UniValue bidToJSON(const CBid &bid)
+{
+    UniValue item(UniValue::VOBJ);
+    item.push_back(Pair("txid", bid.hashBid.ToString()));
+    item.push_back(Pair("feePubKey", HexStr(bid.feePubKey)));
+    return item;
+}
+
+UniValue getrequestbids(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "getrequestbids ( \"requesthash\" ) \n"
+            "Returns an object containing the bids for the specified request.\n"
+            "\nArguments:\n"
+            "1. \"requesthash\"   (string, optional) The request transaction hash\n"
+            "\nResult:\n"
+            "[\n"
+            " {\n"
+            "   \"genesisBlock\": \"hash\",     (string) Client genesis for request\n"
+            "   \"startBlockHeight\": n,   (numeric) Request start height\n"
+            "   \"numTickets\": n,      (numeric) The number of guardnodes required\n"
+            "   \"decayConst\": n,            (numeric) Decay constant for auction\n"
+            "   \"feePercentage\": n,  (numeric) Fee percentage\n"
+            "   \"startPrice\": n,  (numeric) Auction starting price\n"
+            "   \"auctionPrice\": n,  (numeric) Auction current price\n"
+            "   \"endBlockHeight\": n,   (numeric) Request end height\n"
+            "   \"txid\": \"hash\",   (string) The request transaction hash\n"
+            "   \"bids\": [         (array of objects) List of bid transactions\n"
+            "       {\n"
+            "           \"hash\",\n"
+            "           \"feePubKey\",\n"
+            "       },\n"
+            "   ]\n"
+            " },\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getrequestbids", "123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05")
+            + HelpExampleRpc("getrequestbids", "123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05")
+    );
+
+    uint256 hash(uint256S(request.params[0].get_str()));
+    UniValue ret(UniValue::VOBJ);
+    UniValue retBids(UniValue::VARR);
+
+    if (fRequestList) {
+        for (auto it = requestList.begin(); it != requestList.end(); ++it) {
+            if (it->first == hash) {
+                ret = requestToJSON(it->second);
+                ret.push_back(Pair("txid", it->first.ToString()));
+                for (const auto &bid : it->second.sBids) {
+                    retBids.push_back(bidToJSON(bid));
+                }
+            }
+        }
+    } else {
+        FlushStateToDisk();
+        std::unique_ptr<CCoinsViewCursor> pcursor(static_cast<CCoinsView*>(pcoinsTip)->Cursor());
+        CRequest req;
+        auto nHeight = (uint32_t)chainActive.Height();
+        while (pcursor->Valid()) {
+            boost::this_thread::interruption_point();
+            uint256 key;
+            CCoins coins;
+            if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
+                 if (key == hash) { // request unspent
+                    if (GetRequest(coins.vout[0], key, coins.nHeight, req)) {
+                        if (IsValidRequest(req, nHeight)) {
+                            ret = requestToJSON(req);
+                            ret.push_back(Pair("txid", key.ToString()));
+                        }
+                    }
+                }
+            } else {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
+            }
+            pcursor->Next();
+        }
+        std::unique_ptr<CCoinsViewCursor> pcursor2(static_cast<CCoinsView*>(pcoinsTip)->Cursor());
+        while (pcursor2->Valid()) {
+            boost::this_thread::interruption_point();
+            uint256 key;
+            CCoins coins;
+            if (pcursor2->GetKey(key) && pcursor2->GetValue(coins)) {
+                if (coins.vout.size() > 1) { // bid transactions
+                    CBid bid;
+                    if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
+                        if (IsValidRequestBid(req, bid)) {
+                            req.AddBid(bid);
+                        }
+                    }
+                }
+            } else {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
+            }
+            pcursor2->Next();
+        }
+        for (const auto &bid : req.sBids) {
+            retBids.push_back(bidToJSON(bid));
+        }
+    }
+
+    if (ret.size() > 0) {
+        ret.push_back(Pair("bids", retBids));
+        return ret;
+    }
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No such request transaction");
 }
 
 UniValue getrequests(const JSONRPCRequest& request)
@@ -1031,7 +1142,10 @@ UniValue getrequests(const JSONRPCRequest& request)
             "   \"numTickets\": n,      (numeric) The number of guardnodes required\n"
             "   \"decayConst\": n,            (numeric) Decay constant for auction\n"
             "   \"feePercentage\": n,  (numeric) Fee percentage\n"
+            "   \"startPrice\": n,  (numeric) Auction starting price\n"
+            "   \"auctionPrice\": n,  (numeric) Auction current price\n"
             "   \"endBlockHeight\": n,   (numeric) Request end height\n"
+            "   \"confirmedBlockHeight\": n,   (numeric) Block height Request was confirmed\n"
             "   \"txid\": \"hash\",   (string) The request transaction hash\n"
             " },\n"
             "]\n"
@@ -1059,35 +1173,32 @@ UniValue getrequests(const JSONRPCRequest& request)
                 ret.push_back(item);
             }
         }
-        return ret;
-    }
-
-    FlushStateToDisk();
-    std::unique_ptr<CCoinsViewCursor> pcursor(static_cast<CCoinsView*>(pcoinsTip)->Cursor());
-    while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
-        uint256 key;
-        CCoins coins;
-        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
-            if (coins.vout.size() == 1 && !coins.IsCoinBase() &&
-            coins.vout[0].nAsset.IsExplicit() && coins.vout[0].nAsset.GetAsset() == permissionAsset) {
-                vector<vector<unsigned char>> vSolutions;
-                txnouttype whichType;
-                if (Solver(coins.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_LOCKED_MULTISIG) {
-                    auto request = CRequest::FromSolutions(vSolutions);
-                    if ((int32_t)request.nEndBlockHeight >= chainActive.Height()) { // check request active
-                        if (!fGenesisCheck || (request.hashGenesis == hash)) {
-                            auto item = requestToJSON(request);
-                            item.push_back(Pair("txid", key.ToString()));
-                            ret.push_back(item);
+    } else {
+        FlushStateToDisk();
+        std::unique_ptr<CCoinsViewCursor> pcursor(static_cast<CCoinsView*>(pcoinsTip)->Cursor());
+        while (pcursor->Valid()) {
+            boost::this_thread::interruption_point();
+            uint256 key;
+            CCoins coins;
+            if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
+                if (coins.vout.size() == 1 && !coins.IsCoinBase()
+                && coins.vout[0].nAsset.IsExplicit() && coins.vout[0].nAsset.GetAsset() == permissionAsset) {
+                    CRequest req;
+                    if (GetRequest(coins.vout[0], key, coins.nHeight, req)) {
+                        if (IsValidRequest(req, (uint32_t)chainActive.Height())) {
+                            if (!fGenesisCheck || (req.hashGenesis == hash)) {
+                                auto item = requestToJSON(req);
+                                item.push_back(Pair("txid", key.ToString()));
+                                ret.push_back(item);
+                            }
                         }
                     }
                 }
+            } else {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
             }
-        } else {
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
+            pcursor->Next();
         }
-        pcursor->Next();
     }
     return ret;
 }
@@ -2483,7 +2594,8 @@ static const CRPCCommand commands[] =
         {"blockchain", "gettxout", &gettxout, true, {"txid", "n", "include_mempool"}},
         {"blockchain", "gettxoutsetinfo", &gettxoutsetinfo, true, {}},
         {"blockchain", "getutxoassetinfo", &getutxoassetinfo, true, {}},
-        {"blockchain", "getrequests", &getrequests, true, {}},
+        {"blockchain", "getrequests", &getrequests, true, {"genesis_hash"}},
+        {"blockchain", "getrequestbids", &getrequestbids, true, {"request_hash"}},
         {"blockchain", "getfreezehistory", &getfreezehistory, true, {"height"}},
         {"blockchain", "pruneblockchain", &pruneblockchain, true, {"height"}},
         {"blockchain", "verifychain", &verifychain, true, {"checklevel", "nblocks"}},

@@ -9,7 +9,6 @@
 #include "script/script.h"
 #include "util.h"
 #include "utilstrencodings.h"
-#include "ecies.h"
 #include "crypto/common.h"
 #include "validation.h"
 
