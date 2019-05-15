@@ -587,7 +587,9 @@ def check_script_list(*, src_dir, fail_on_warn):
         print("%sWARNING!%s The following scripts are not being run: %s. Check the test lists in test_runner.py." % (BOLD[1], BOLD[0], str(missed_tests)))
         if fail_on_warn:
             # On travis this warning is an error to prevent merging incomplete commits into master
-            sys.exit(1)
+            # ELEMENTS: we disable some tests, so this should not fail
+            pass
+            #sys.exit(1)
 
 
 class RPCCoverage():
