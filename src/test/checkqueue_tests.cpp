@@ -161,6 +161,9 @@ static void Correct_Queue_range(std::vector<size_t> range)
         CCheckQueueControl<FakeCheckCheckCompletion> control(small_queue.get());
         while (total) {
             vChecks.resize(std::min(total, (size_t) InsecureRandRange(10)));
+            for (size_t i = 0; i < vChecks.size(); ++i) {
+                vChecks[i] = new FakeCheckCheckCompletion();
+            }
             total -= vChecks.size();
             control.Add(vChecks);
         }
