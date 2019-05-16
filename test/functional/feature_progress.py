@@ -28,7 +28,6 @@ class ProgressTest(BitcoinTestFramework):
 
     def setup_network(self):
         self.setup_nodes()
-        self.is_network_split = True
         self.starttime = int(time.time())
 
     def setmocktime(self, ntime):

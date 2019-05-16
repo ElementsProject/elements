@@ -12,10 +12,10 @@ from test_framework.script import CScript, OP_RETURN
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
-mandatory_privkey = "cNaQCDwmmh4dS9LzCgVtyy1e1xjCJ21GUDHe9K98nzb689JvinGV"
-mandatory_address = "n3NkSZqoPMCQN5FENxUBw4qVATbytH6FDK"
-mandatory_pubkey = "02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f"
-mandatory_script = "76a914efc58b838b3153174bf3d1677b7213353a4dccfd88ac"
+mandatory_privkey = "cQ2nfMkghhdEgRQwcfJmTb6XSenfLRmngpLmWuEBAJnepnKMfznH"
+mandatory_address = "XP3bwB9jSxt58frSa3cJismgGL3F57ukUy"
+#mandatory_pubkey = "024f0c5cdb8f31d7395bcc83f6adc46f292f6555eca2d24dfa581c3b0845778b2b"
+mandatory_script = "a914804b9fd9d6939c2e960b7aa31124a5d532f4e59c87"
 
 def b2x(b):
     return b2a_hex(b).decode('ascii')

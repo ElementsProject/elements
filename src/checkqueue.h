@@ -113,8 +113,10 @@ private:
             }
             // execute work
             for (T* check : vChecks) {
-                if (fOk)
+                assert(check);
+                if (fOk) {
                     fOk = (*check)();
+                }
                 delete check;
             }
             vChecks.clear();

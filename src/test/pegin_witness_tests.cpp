@@ -13,11 +13,11 @@
 #include <policy/policy.h>
 #include <script/script.h>
 #include <script/script_error.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 #include <validation.h>
 #include <streams.h>
 #include <test/test_bitcoin.h>
-#include <util.h>
+#include <util/system.h>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>

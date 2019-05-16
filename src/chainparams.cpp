@@ -10,8 +10,8 @@
 #include <issuance.h>
 #include <primitives/transaction.h>
 #include <tinyformat.h>
-#include <util.h>
-#include <utilstrencodings.h>
+#include <util/system.h>
+#include <util/strencodings.h>
 #include <crypto/sha256.h>
 #include <versionbitsinfo.h>
 

@@ -5,8 +5,8 @@
 #include <wallet/coinselection.h>
 #include <wallet/wallet.h>
 
-#include <util.h>
-#include <utilmoneystr.h>
+#include <util/system.h>
+#include <util/moneystr.h>
 
 #include <boost/optional.hpp>
 

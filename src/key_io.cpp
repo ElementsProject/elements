@@ -9,7 +9,7 @@
 #include <blech32.h>
 #include <chainparams.h>
 #include <script/script.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 
 #include <boost/variant/apply_visitor.hpp>
 #include <boost/variant/static_visitor.hpp>

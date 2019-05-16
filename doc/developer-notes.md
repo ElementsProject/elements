@@ -69,7 +69,7 @@ tool to clean up patches automatically before submission.
 - **Symbol naming conventions**. These are preferred in new code, but are not
 required when doing so would need changes to significant pieces of existing
 code.
-  - Variable and namespace names are all lowercase, and may use `_` to
+  - Variable (including function arguments) and namespace names are all lowercase, and may use `_` to
     separate words (snake_case).
     - Class member variables have a `m_` prefix.
     - Global variables have a `g_` prefix.
@@ -439,6 +439,11 @@ General C++
 
   - *Rationale*: This avoids memory and resource leaks, and ensures exception safety
 
+- Use `MakeUnique()` to construct objects owned by `unique_ptr`s
+
+  - *Rationale*: `MakeUnique` is concise and ensures exception safety in complex expressions.
+    `MakeUnique` is a temporary project local implementation of `std::make_unique` (C++14).
+
 C++ data structures
 --------------------
 
@@ -700,10 +705,10 @@ Current subtrees include:
   - Upstream at https://github.com/google/leveldb ; Maintained by Google, but
     open important PRs to Core to avoid delay.
   - **Note**: Follow the instructions in [Upgrading LevelDB](#upgrading-leveldb) when
-    merging upstream changes to the leveldb subtree.
+    merging upstream changes to the LevelDB subtree.
 
 - src/libsecp256k1
-  - Upstream at https://github.com/bitcoin-core/secp256k1/ ; actively maintaned by Core contributors.
+  - Upstream at https://github.com/bitcoin-core/secp256k1/ ; actively maintained by Core contributors.
 
 - src/crypto/ctaes
   - Upstream at https://github.com/bitcoin-core/ctaes ; actively maintained by Core contributors.

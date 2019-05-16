@@ -2,6 +2,10 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#if defined(HAVE_CONFIG_H)
+#include <config/bitcoin-config.h>
+#endif
+
 #include <qt/sendcoinsdialog.h>
 #include <qt/forms/ui_sendcoinsdialog.h>
 
@@ -116,13 +120,11 @@ SendCoinsDialog::SendCoinsDialog(const PlatformStyle *_platformStyle, QWidget *p
         settings.setValue("nSmartFeeSliderPosition", 0);
     if (!settings.contains("nTransactionFee"))
         settings.setValue("nTransactionFee", (qint64)DEFAULT_PAY_TX_FEE);
-    if (!settings.contains("fPayOnlyMinFee"))
-        settings.setValue("fPayOnlyMinFee", false);
     ui->groupFee->setId(ui->radioSmartFee, 0);
     ui->groupFee->setId(ui->radioCustomFee, 1);
     ui->groupFee->button((int)std::max(0, std::min(1, settings.value("nFeeRadio").toInt())))->setChecked(true);
+    ui->customFee->SetAllowEmpty(false);
     ui->customFee->setValue(settings.value("nTransactionFee").toLongLong());
-    ui->checkBoxMinimumFee->setChecked(settings.value("fPayOnlyMinFee").toBool());
     minimizeFeeSection(settings.value("fFeeSectionMinimized").toBool());
 }
 
@@ -171,14 +173,15 @@ void SendCoinsDialog::setModel(WalletModel *_model)
         connect(ui->groupFee, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), this, &SendCoinsDialog::updateFeeSectionControls);
         connect(ui->groupFee, static_cast<void (QButtonGroup::*)(int)>(&QButtonGroup::buttonClicked), this, &SendCoinsDialog::coinControlUpdateLabels);
         connect(ui->customFee, &BitcoinAmountField::valueChanged, this, &SendCoinsDialog::coinControlUpdateLabels);
-        connect(ui->checkBoxMinimumFee, &QCheckBox::stateChanged, this, &SendCoinsDialog::setMinimumFee);
-        connect(ui->checkBoxMinimumFee, &QCheckBox::stateChanged, this, &SendCoinsDialog::updateFeeSectionControls);
-        connect(ui->checkBoxMinimumFee, &QCheckBox::stateChanged, this, &SendCoinsDialog::coinControlUpdateLabels);
         connect(ui->optInRBF, &QCheckBox::stateChanged, this, &SendCoinsDialog::updateSmartFeeLabel);
         connect(ui->optInRBF, &QCheckBox::stateChanged, this, &SendCoinsDialog::coinControlUpdateLabels);
-        ui->customFee->setSingleStep(model->wallet().getRequiredFee(1000));
+        CAmount requiredFee = model->wallet().getRequiredFee(1000);
+        ui->customFee->SetMinValue(requiredFee);
+        if (ui->customFee->value() < requiredFee) {
+            ui->customFee->setValue(requiredFee);
+        }
+        ui->customFee->setSingleStep(requiredFee);
         updateFeeSectionControls();
-        updateMinFeeLabel();
         updateSmartFeeLabel();
 
         // set default rbf checkbox state
@@ -207,7 +210,6 @@ SendCoinsDialog::~SendCoinsDialog()
     settings.setValue("nFeeRadio", ui->groupFee->checkedId());
     settings.setValue("nConfTarget", getConfTargetForIndex(ui->confTargetSelector->currentIndex()));
     settings.setValue("nTransactionFee", (qint64)ui->customFee->value());
-    settings.setValue("fPayOnlyMinFee", ui->checkBoxMinimumFee->isChecked());
 
     delete ui;
 }
@@ -292,7 +294,9 @@ void SendCoinsDialog::on_sendButton_clicked()
         QString recipientElement;
         recipientElement = "<br />";
 
+#ifdef ENABLE_BIP70
         if (!rcp.paymentRequest.IsInitialized()) // normal payment
+#endif
         {
             if(rcp.label.length() > 0) // label with address
             {
@@ -304,6 +308,7 @@ void SendCoinsDialog::on_sendButton_clicked()
                 recipientElement.append(tr("%1 to %2").arg(amount, address));
             }
         }
+#ifdef ENABLE_BIP70
         else if(!rcp.authenticatedMerchant.isEmpty()) // authenticated payment request
         {
             recipientElement.append(tr("%1 to %2").arg(amount, GUIUtil::HtmlEscape(rcp.authenticatedMerchant)));
@@ -312,6 +317,7 @@ void SendCoinsDialog::on_sendButton_clicked()
         {
             recipientElement.append(tr("%1 to %2").arg(amount, address));
         }
+#endif
 
         formatted.append(recipientElement);
     }
@@ -541,7 +547,6 @@ void SendCoinsDialog::updateDisplayUnit()
 {
     setBalance(model->wallet().getBalances());
     ui->customFee->setDisplayUnit(model->getOptionsModel()->getDisplayUnit());
-    updateMinFeeLabel();
     updateSmartFeeLabel();
 }
 
@@ -641,11 +646,6 @@ void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
     }
 }
 
-void SendCoinsDialog::setMinimumFee()
-{
-    ui->customFee->setValue(model->wallet().getRequiredFee(1000));
-}
-
 void SendCoinsDialog::updateFeeSectionControls()
 {
     ui->confTargetSelector      ->setEnabled(ui->radioSmartFee->isChecked());
@@ -653,10 +653,9 @@ void SendCoinsDialog::updateFeeSectionControls()
     ui->labelSmartFee2          ->setEnabled(ui->radioSmartFee->isChecked());
     ui->labelSmartFee3          ->setEnabled(ui->radioSmartFee->isChecked());
     ui->labelFeeEstimation      ->setEnabled(ui->radioSmartFee->isChecked());
-    ui->checkBoxMinimumFee      ->setEnabled(ui->radioCustomFee->isChecked());
-    ui->labelMinFeeWarning      ->setEnabled(ui->radioCustomFee->isChecked());
-    ui->labelCustomPerKilobyte  ->setEnabled(ui->radioCustomFee->isChecked() && !ui->checkBoxMinimumFee->isChecked());
-    ui->customFee               ->setEnabled(ui->radioCustomFee->isChecked() && !ui->checkBoxMinimumFee->isChecked());
+    ui->labelCustomFeeWarning   ->setEnabled(ui->radioCustomFee->isChecked());
+    ui->labelCustomPerKilobyte  ->setEnabled(ui->radioCustomFee->isChecked());
+    ui->customFee               ->setEnabled(ui->radioCustomFee->isChecked());
 }
 
 void SendCoinsDialog::updateFeeMinimizedLabel()
@@ -669,14 +668,6 @@ void SendCoinsDialog::updateFeeMinimizedLabel()
     else {
         ui->labelFeeMinimized->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), ui->customFee->value()) + "/kB");
     }
-}
-
-void SendCoinsDialog::updateMinFeeLabel()
-{
-    if (model && model->getOptionsModel())
-        ui->checkBoxMinimumFee->setText(tr("Pay only the required fee of %1").arg(
-            BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), model->wallet().getRequiredFee(1000)) + "/kB")
-        );
 }
 
 void SendCoinsDialog::updateCoinControlState(CCoinControl& ctrl)

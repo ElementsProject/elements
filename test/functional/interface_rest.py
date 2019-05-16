@@ -77,7 +77,7 @@ class RESTTest (BitcoinTestFramework):
         self.log.info("Mine blocks and send Bitcoin to node 1")
 
         # Random address so node1's balance doesn't increase
-        not_related_address = "2MxqoHEdNQTyYeX1mHcbrrpzgojbosTpCvJ"
+        not_related_address = "AzpwmwsobbCZY5CYswuvy2HXP1CQ4pJ8kcQmJomYvF8eP9wKRHpn48HSyGQKpoEE7FjRjvLrhKvuHChW"
 
         self.nodes[0].generate(1)
         self.sync_all()

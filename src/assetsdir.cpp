@@ -6,7 +6,7 @@
 #include <chainparams.h>
 
 #include <tinyformat.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>

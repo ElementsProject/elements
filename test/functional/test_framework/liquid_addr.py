@@ -13,7 +13,7 @@ def blech32_polymod(values):
     chk = 1
     for value in values:
         top = chk >> 55 # 25->55
-        chk = ((chk & 0x7fffffffffffff) << 5) ^^ value # 0x1ffffff->0x7fffffffffffff
+        chk = ((chk & 0x7fffffffffffff) << 5) ^ value # 0x1ffffff->0x7fffffffffffff
         for i in range(5):
             chk ^= generator[i] if ((top >> i) & 1) else 0
     return chk
@@ -32,7 +32,7 @@ def blech32_verify_checksum(hrp, data):
 def blech32_create_checksum(hrp, data):
     """Compute the checksum values given HRP and data."""
     values = blech32_hrp_expand(hrp) + data
-    polymod = blech32_polymod(values + [0]*12) ^^ 1 # 6->12
+    polymod = blech32_polymod(values + [0]*12) ^ 1 # 6->12
     return [(polymod >> 5 * (11 - i)) & 31 for i in range(12)]
 #                            ^ 5                          ^ 6
 

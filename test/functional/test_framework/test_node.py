@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import time
 import urllib.parse
+import collections
 
 from .authproxy import JSONRPCException
 from .util import (
@@ -100,21 +101,55 @@ class TestNode():
 
         self.p2ps = []
 
+        # ELEMENTS:
+        self.deterministic_priv_key = None
+
+    def set_deterministic_priv_key(self, address, privkey):
+        AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
+        self.deterministic_priv_key = AddressKeyPair(address, privkey)
+
     def get_deterministic_priv_key(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
+
+        AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
         PRIV_KEYS = [
             # address , privkey
-            ('mjTkW3DjgyZck4KbiRusZsqTgaYTxdSz6z', 'cVpF924EspNh8KjYsfhgY96mmxvT6DgdWiTYMtMjuM74hJaU5psW'),
-            ('msX6jQXvxiNhx3Q62PKeLPrhrqZQdSimTg', 'cUxsWyKyZ9MAQTaAhUQWJmBbSvHMwSmuv59KgxQV7oZQU3PXN3KE'),
-            ('mnonCMyH9TmAsSj3M59DsbH8H63U3RKoFP', 'cTrh7dkEAeJd6b3MRX9bZK8eRmNqVCMH3LSUkE3dSFDyzjU38QxK'),
-            ('mqJupas8Dt2uestQDvV2NH3RU8uZh2dqQR', 'cVuKKa7gbehEQvVq717hYcbE9Dqmq7KEBKqWgWrYBa2CKKrhtRim'),
-            ('msYac7Rvd5ywm6pEmkjyxhbCDKqWsVeYws', 'cQDCBuKcjanpXDpCqacNSjYfxeQj8G6CAtH1Dsk3cXyqLNC4RPuh'),
-            ('n2rnuUnwLgXqf9kk2kjvVm8R5BZK1yxQBi', 'cQakmfPSLSqKHyMFGwAqKHgWUiofJCagVGhiB4KCainaeCSxeyYq'),
-            ('myzuPxRwsf3vvGzEuzPfK9Nf2RfwauwYe6', 'cQMpDLJwA8DBe9NcQbdoSb1BhmFxVjWD5gRyrLZCtpuF9Zi3a9RK'),
-            ('mumwTaMtbxEPUswmLBBN3vM9oGRtGBrys8', 'cSXmRKXVcoouhNNVpcNKFfxsTsToY5pvB9DVsFksF1ENunTzRKsy'),
-            ('mpV7aGShMkJCZgbW7F6iZgrvuPHjZjH9qg', 'cSoXt6tm3pqy43UMabY6eUTmR3eSUYFtB2iNQDGgb3VUnRsQys2k'),
+            AddressKeyPair('2doncj41FX6LahE2aspuLuQcnmgrLtfvvma', 'cQ1PxVTn5J3qCzUqXzpNeHiPVxZcwwaJkFmZcokescXwmHWAdBoe'),
+            AddressKeyPair('2dv4oTKjmi3TF6dRq2TmasMdNtTeuqHNcPb', 'cRuGzyZjb5zQQg1TbAiGK1UJBuK1UQHaFf4DXBUcPZNZ3WomNoxW'),
+            AddressKeyPair('2drNifUyWj5D8UPrAJtuQjUyPSUYpE4gb7E', 'cSYxv1JKDNrSKnm2fzNj1uFUkr7HqTQHvU8PCAZ1mWNwYB5LwZVu'),
+            AddressKeyPair('2dwTDXu4QLFG61upW7wkRLbkUxDRYuRmnAd', 'cQLvSojQFLkikwuzhSkKPv9REWpCDNhvGiG5hjutYPQj4HT8GnJy'),
+            AddressKeyPair('2doqDLuXpHx3x6Bd9bBAWxRzzKZCXTbSCWE', 'cNkbdkyQ9RX3Yrp4oFACs4p4iiyBxoC3pL7zioGKSzmvyLbiR4Rm'),
+            AddressKeyPair('2dktmJxjtpKEftBKFaGBUCW7wsUEBGeuoSi', 'cSCCVU7iUXMNnqrHPeVxHEgG48TsyNwd3FAsS2hjTYKdTSNDXJXV'),
+            AddressKeyPair('2dxjmBn21SQjhffXzzi1hz5nKA4quM7jtsT', 'cVpzWr59KE7DsWaSJkySSPSvkrr6huUsjYBF3wcwCMhW4cEPNmU1'),
+            AddressKeyPair('2dpFhgNeWqm7LVbvZo29bvXPEzwWTVfzVSY', 'cRPF2Kfm21BWf3GPHMKGGMQN1a6sNJPGsyYSz8VWQhsoVUr42q4r'),
+            AddressKeyPair('2df8FzAJJtPcHsvXYRh4BTmnhSUUVE5zNhE', 'cU9yBKyGyRNBpzSmVavoh9szgaFUjKbPG9P3CPtycXAxmdwnKxiL'),
         ]
+
+        # ELEMENTS: this allows overriding the default for parent nodes in fedpeg test
+        if self.deterministic_priv_key is not None:
+            self.log.debug("Custom deterministic_priv_key: {}".format(self.deterministic_priv_key))
+            return self.deterministic_priv_key
+
         return PRIV_KEYS[self.index]
+
+    def get_mem_rss(self):
+        """Get the memory usage (RSS) per `ps`.
+
+        Returns None if `ps` is unavailable.
+        """
+        assert self.running
+
+        try:
+            return int(subprocess.check_output(
+                ["ps", "h", "-o", "rss", "{}".format(self.process.pid)],
+                stderr=subprocess.DEVNULL).split()[-1])
+
+        # Avoid failing on platforms where ps isn't installed.
+        #
+        # We could later use something like `psutils` to work across platforms.
+        except (FileNotFoundError, subprocess.SubprocessError):
+            self.log.exception("Unable to get memory usage")
+            return None
 
     def _node_msg(self, msg: str) -> str:
         """Return a modified msg that identifies this node by its index as a debugging aid."""
@@ -188,13 +223,19 @@ class TestNode():
                 if e.errno != errno.ECONNREFUSED:  # Port not yet open?
                     raise  # unknown IO error
             except JSONRPCException as e:  # Initialization phase
-                if e.error['code'] != -28:  # RPC in warmup?
+                # -28 RPC in warmup
+                # -342 Service unavailable, RPC server started but is shutting down due to error
+                if e.error['code'] != -28 and e.error['code'] != -342:
                     raise  # unknown JSON RPC exception
             except ValueError as e:  # cookie file not found and no rpcuser or rpcassword. bitcoind still starting
                 if "No RPC credentials" not in str(e):
                     raise
             time.sleep(1.0 / poll_per_s)
         self._raise_assertion_error("Unable to connect to bitcoind")
+
+    def generate(self, nblocks, maxtries=1000000):
+        self.log.debug("TestNode.generate() dispatches `generate` call to `generatetoaddress`")
+        return self.generatetoaddress(nblocks=nblocks, address=self.get_deterministic_priv_key().address, maxtries=maxtries)
 
     def get_wallet_rpc(self, wallet_name):
         if self.use_cli:
@@ -251,7 +292,7 @@ class TestNode():
 
     @contextlib.contextmanager
     def assert_debug_log(self, expected_msgs):
-        debug_log = os.path.join(self.datadir, 'regtest2', 'debug.log')
+        debug_log = os.path.join(self.datadir, self.chain, 'debug.log')
         with open(debug_log, encoding='utf-8') as dl:
             dl.seek(0, 2)
             prev_size = dl.tell()
@@ -265,6 +306,29 @@ class TestNode():
             for expected_msg in expected_msgs:
                 if re.search(re.escape(expected_msg), log, flags=re.MULTILINE) is None:
                     self._raise_assertion_error('Expected message "{}" does not partially match log:\n\n{}\n\n'.format(expected_msg, print_log))
+
+    @contextlib.contextmanager
+    def assert_memory_usage_stable(self, perc_increase_allowed=0.03):
+        """Context manager that allows the user to assert that a node's memory usage (RSS)
+        hasn't increased beyond some threshold percentage.
+        """
+        before_memory_usage = self.get_mem_rss()
+
+        yield
+
+        after_memory_usage = self.get_mem_rss()
+
+        if not (before_memory_usage and after_memory_usage):
+            self.log.warning("Unable to detect memory usage (RSS) - skipping memory check.")
+            return
+
+        perc_increase_memory_usage = (after_memory_usage / before_memory_usage) - 1
+
+        if perc_increase_memory_usage > perc_increase_allowed:
+            self._raise_assertion_error(
+                "Memory usage increased over threshold of {:.3f}% from {} to {} ({:.3f}%)".format(
+                    perc_increase_allowed * 100, before_memory_usage, after_memory_usage,
+                    perc_increase_memory_usage * 100))
 
     def assert_start_raises_init_error(self, extra_args=None, expected_msg=None, match=ErrorMatch.FULL_TEXT, *args, **kwargs):
         """Attempt to start the node and expect it to raise an error.
