@@ -664,6 +664,7 @@ struct CoinSelectionParams
 
 struct IssuanceDetails {
     bool issuing = false;
+    uint256 contract_hash;
 
     bool blind_issuance = true;
     CAsset reissuance_asset;

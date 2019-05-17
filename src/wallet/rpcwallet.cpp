@@ -5824,7 +5824,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
         throw std::runtime_error(
             "issueasset assetamount tokenamount ( blind )\n"
             "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
@@ -5834,6 +5834,7 @@ UniValue issueasset(const JSONRPCRequest& request)
             "1. \"assetamount\"           (numeric or string, required) Amount of asset to generate.\n"
             "2. \"tokenamount\"           (numeric or string, required) Amount of reissuance tokens to generate. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance.\n"
             "3. \"blind\"                 (bool, optional, default=true) Whether to blind the issuances.\n"
+            "4. \"contract_hash\"         (string, optional) 32-byte string to have asset id commit to.\n"
             "\nResult:\n"
             "{                        (json object)\n"
             "  \"txid\":\"<txid>\",   (string) Transaction id for issuance.\n"
@@ -5841,6 +5842,7 @@ UniValue issueasset(const JSONRPCRequest& request)
             "  \"entropy\":\"<entropy>\", (string) Entropy of the asset type.\n"
             "  \"asset\":\"<asset>\", (string) Asset type for issuance.\n"
             "  \"token\":\"<token>\", (string) Token type for issuance.\n"
+            "  \"contract_hash\":<hex> (string) If no `contract_hash` was given as an argument, this will be the SHA256 image of a newly generated public key from your wallet. Can be used to prove authorship of issuance after the fact.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("issueasset", "10 0")
@@ -5885,9 +5887,18 @@ UniValue issueasset(const JSONRPCRequest& request)
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
 
-    uint256 dummyentropy;
-    CAsset dummyasset;
     IssuanceDetails issuance_details;
+
+    if (!request.params[3].isNull()) {
+        issuance_details.contract_hash = ParseHashV(request.params[3], "contract_hash");
+    } else {
+        // Finally get contract hash key
+        if (!pwallet->GetKeyFromPool(newKey)) {
+                throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        }
+        issuance_details.contract_hash = newKey.GetHash();
+    }
+
     issuance_details.blind_issuance = blind_issuances;
     CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, *locked_chain, pwallet);
 
@@ -5895,7 +5906,7 @@ UniValue issueasset(const JSONRPCRequest& request)
     CAsset asset;
     CAsset token;
     assert(!tx_ref->vin.empty());
-    GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, uint256());
+    GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, issuance_details.contract_hash);
     CalculateAsset(asset, issuance_details.entropy);
     CalculateReissuanceToken(token, issuance_details.entropy, blind_issuances);
 
@@ -5905,6 +5916,7 @@ UniValue issueasset(const JSONRPCRequest& request)
     ret.pushKV("entropy", issuance_details.entropy.GetHex());
     ret.pushKV("asset", asset.GetHex());
     ret.pushKV("token", token.GetHex());
+    ret.pushKV("contract_hash", issuance_details.contract_hash.GetHex());
     return ret;
 }
 
