@@ -212,10 +212,10 @@ public:
         }
         return result;
     }
-    void learnRelatedScripts(const CPubKey& key, OutputType type) override { m_wallet.LearnRelatedScripts(key, type); }
+    void learnRelatedScripts(const CPubKey& key, OutputType type) override { m_wallet->LearnRelatedScripts(key, type); }
     CPubKey getBlindingPubKey(const CScript& script) override
     {
-        return m_wallet.GetBlindingPubKey(script);
+        return m_wallet->GetBlindingPubKey(script);
     }
     bool addDestData(const CTxDestination& dest, const std::string& key, const std::string& value) override
     {
@@ -272,10 +272,10 @@ public:
         std::set<CAsset> assets_seen;
         for (const auto& rec : recipients) {
             if (assets_seen.insert(rec.asset).second) {
-                pending->m_keys.emplace_back(new CReserveKey(&m_wallet));
+                pending->m_keys.emplace_back(new CReserveKey(&*m_wallet));
             }
         }
-        if (!m_wallet->CreateTransaction(*locked_chain, recipients, pending->m_tx, pending->m_key, fee, change_pos,
+        if (!m_wallet->CreateTransaction(*locked_chain, recipients, pending->m_tx, pending->m_keys, fee, change_pos,
                 fail_reason, coin_control, sign)) {
             return {};
         }

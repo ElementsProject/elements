@@ -213,7 +213,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
     }
 
     if (!fVerbose) {
-        return EncodeHexTx(*tx, RPCSerializationFlags());
+        return EncodeHexTx(CTransaction(*tx), RPCSerializationFlags());
     }
 
     UniValue result(UniValue::VOBJ);
@@ -580,8 +580,8 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                     {"output_assets", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "A json object of addresses to the assets (label or hex ID) used to pay them. (default: bitcoin)",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMMITED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
-                            {"fee", RPCArg::Type::STR, RPCArg::Optional::OMMITED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
+                            {"fee", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
                         },
                         },
                 },
@@ -608,7 +608,7 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
 
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3], request.params[4]);
 
-    return EncodeHexTx(CTransaction(rawTx));
+    return EncodeHexTx(CTransaction(rawTx), RPCSerializationFlags());
 }
 
 static UniValue decoderawtransaction(const JSONRPCRequest& request)
@@ -865,7 +865,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         UpdateTransaction(mergedTx, i, sigdata);
     }
 
-    return EncodeHexTx(CTransaction(mergedTx));
+    return EncodeHexTx(CTransaction(mergedTx), RPCSerializationFlags());
 }
 
 UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType)
@@ -1029,7 +1029,7 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
     bool fComplete = vErrors.empty();
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
+    result.pushKV("hex", EncodeHexTx(CTransaction(mtx), RPCSerializationFlags()));
     result.pushKV("complete", fComplete);
     if (!vErrors.empty()) {
         result.pushKV("errors", vErrors);
@@ -1708,8 +1708,8 @@ UniValue createpsbt(const JSONRPCRequest& request)
                             "                             Allows this transaction to be replaced by a transaction with higher fees. If provided, it is an error if explicit sequence numbers are incompatible."},
                     {"output_assets", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "A json object of addresses to the assets (label or hex ID) used to pay them. (default: bitcoin)",
                         {
-                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMMITED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
-                            {"fee", RPCArg::Type::STR, RPCArg::Optional::OMMITED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
+                            {"address", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
+                            {"fee", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "A key-value pair. The key (string) is the bitcoin address, the value is the asset label or asset ID."},
                         },
                         },
                 },
@@ -1944,7 +1944,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
 
     if (num_pubkeys == 0 && n_blinded_ins == 0) {
         // Vacuous, just return the transaction
-        return EncodeHexTx(tx);
+        return EncodeHexTx(CTransaction(tx), RPCSerializationFlags());
     } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
         // No notion of wallet, cannot complete this blinding without passed-in pubkey
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
@@ -1952,7 +1952,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         if (fIgnoreBlindFail) {
             // Just get rid of the ECDH key in the nonce field and return
             tx.vout[keyIndex].nNonce.SetNull();
-            return EncodeHexTx(tx);
+            return EncodeHexTx(CTransaction(tx), RPCSerializationFlags());
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
         }
@@ -1965,7 +1965,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
     }
 
-    return EncodeHexTx(tx);
+    return EncodeHexTx(CTransaction(tx), RPCSerializationFlags());
 }
 
 struct RawIssuanceDetails
@@ -2189,7 +2189,7 @@ UniValue rawissueasset(const JSONRPCRequest& request)
 
         UniValue obj(UniValue::VOBJ);
         if (issuances_til_now == issuances.size()) {
-            obj.pushKV("hex", EncodeHexTx(mtx, RPCSerializationFlags()));
+            obj.pushKV("hex", EncodeHexTx(CTransaction(mtx), RPCSerializationFlags()));
         }
         obj.pushKV("vin", details.input_index);
         obj.pushKV("entropy", details.entropy.GetHex());
@@ -2287,7 +2287,7 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
     }
 
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("hex", EncodeHexTx(mtx, RPCSerializationFlags()));
+    ret.pushKV("hex", EncodeHexTx(CTransaction(mtx), RPCSerializationFlags()));
     return ret;
 }
 
@@ -2485,7 +2485,7 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
     bool all_final = true;
     bool only_missing_sigs = true;
     bool only_missing_final = false;
-    CAmount in_amt = 0;
+    CAmountMap in_amts;
     for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
         PSBTInput& input = psbtx.inputs[i];
         UniValue input_univ(UniValue::VOBJ);
@@ -2494,7 +2494,8 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
         // Check for a UTXO
         CTxOut utxo;
         if (psbtx.GetInputUTXO(utxo, i)) {
-            in_amt += utxo.nValue;
+            //TODO(gwillen) do PSBT inputs always have explicit assets & amounts?
+            in_amts[utxo.nAsset.GetAsset()] += utxo.nValue.GetAmount();
             input_univ.pushKV("has_utxo", true);
         } else {
             input_univ.pushKV("has_utxo", false);
@@ -2564,14 +2565,15 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
     }
     if (calc_fee) {
         // Get the output amount
-        CAmount out_amt = std::accumulate(psbtx.tx->vout.begin(), psbtx.tx->vout.end(), 0,
-            [](int a, const CTxOut& b) {
-                return a += b.nValue;
+        CAmountMap out_amts = std::accumulate(psbtx.tx->vout.begin(), psbtx.tx->vout.end(), CAmountMap(),
+            [](CAmountMap map, const CTxOut& b) {
+                map[b.nAsset.GetAsset()] += b.nValue.GetAmount();
+                return map;
             }
         );
 
         // Get the fee
-        CAmount fee = in_amt - out_amt;
+        CAmountMap fee = in_amts - out_amts;
 
         // Estimate the size
         CMutableTransaction mtx(*psbtx.tx);
@@ -2583,7 +2585,7 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
             PSBTInput& input = psbtx.inputs[i];
             if (SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, 1, nullptr, true)) {
                 mtx.vin[i].scriptSig = input.final_script_sig;
-                mtx.vin[i].scriptWitness = input.final_script_witness;
+                mtx.witness.vtxinwit[i].scriptWitness = input.final_script_witness;
 
                 Coin newcoin;
                 if (!psbtx.GetInputUTXO(newcoin.out, i)) {
@@ -2603,10 +2605,10 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
             size_t size = GetVirtualTransactionSize(ctx, GetTransactionSigOpCost(ctx, view, STANDARD_SCRIPT_VERIFY_FLAGS));
             result.pushKV("estimated_vsize", (int)size);
             // Estimate fee rate
-            CFeeRate feerate(fee, size);
+            CFeeRate feerate(fee[::policyAsset], size);
             result.pushKV("estimated_feerate", feerate.ToString());
         }
-        result.pushKV("fee", ValueFromAmount(fee));
+        result.pushKV("fee", AmountMapToUniv(fee, ""));
 
         if (only_missing_sigs) {
             result.pushKV("next", "signer");

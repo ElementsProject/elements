@@ -1704,7 +1704,7 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, 
         // implies that we can sign for every input.
         return -1;
     }
-    return GetVirtualTransactionInputSize(txn, 0, 0);
+    return GetVirtualTransactionInputSize(CTransaction(txn), 0, 0);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
@@ -3680,12 +3680,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 reserveKeys[index]->ReturnKey();
             }
         }
-
-        //TODO(stevenroose) check if this shuffling doesn't break things
-        // Shuffle selected coins and fill in final vin
-        txNew.vin.clear();
-        std::vector<CInputCoin> selected_coins(setCoins.begin(), setCoins.end());
-        Shuffle(selected_coins.begin(), selected_coins.end(), FastRandomContext());
 
         // Note how the sequence number is set to non-maxint so that
         // the nLockTime set above actually works.

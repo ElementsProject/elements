@@ -417,17 +417,17 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
             "       \"UNSET\"\n"
             "       \"ECONOMICAL\"\n"
             "       \"CONSERVATIVE\""},
-                    {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex asset id or asset label for balance."
-                    {"assetlabel", RPCArg::Type::BOOL, /* default */ true, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."
+                    {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex asset id or asset label for balance."},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
                 },
                 RPCResult{
             "\"txid\"                  (string) The transaction id.\n"
                 },
                 RPCExamples{
                     HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
-            + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
-            + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
-            + HelpExampleRpc("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
+                    + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
+                    + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
+                    + HelpExampleRpc("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
                 },
             }.ToString());
 
@@ -932,7 +932,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "A key-value pair where the key is the address used and the value is an asset label or hex asset ID."},
                         },
                     },
-                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ true, "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
                 },
                  RPCResult{
             "\"txid\"                   (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
@@ -1239,7 +1239,7 @@ public:
 
 struct tallyitem
 {
-    CAmountMap nAmount;
+    CAmountMap mapAmount;
     int nConf{std::numeric_limits<int>::max()};
     std::vector<uint256> txids;
     bool fIsWatchonly{false};
@@ -5422,7 +5422,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     mtx.witness.vtxinwit.push_back(txinwit);
 
     // Estimate fee for transaction, decrement fee output(including witness data)
-    unsigned int nBytes = GetVirtualTransactionSize(mtx) +
+    unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
         (1+1+72+1+33/WITNESS_SCALE_FACTOR);
     CCoinControl coin_control;
     CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, mempool, ::feeEstimator, nullptr);
@@ -5433,7 +5433,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     UniValue ret(UniValue::VOBJ);
 
     // Return hex
-    std::string strHex = EncodeHexTx(mtx, RPCSerializationFlags());
+    std::string strHex = EncodeHexTx(CTransaction(mtx), RPCSerializationFlags());
     ret.pushKV("hex", strHex);
 
     // Additional block lee-way to avoid bitcoin block races
@@ -5792,7 +5792,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
 
     if (num_pubkeys == 0 && n_blinded_ins == 0) {
         // Vacuous, just return the transaction
-        return EncodeHexTx(tx);
+        return EncodeHexTx(CTransaction(tx));
     } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
         // Blinded inputs need to balanced with something to be valid, make a dummy.
         CTxOut newTxOut(tx.vout.back().nAsset.GetAsset(), 0, CScript() << OP_RETURN);
@@ -5803,7 +5803,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         if (ignore_blind_fail) {
             // Just get rid of the ECDH key in the nonce field and return
             tx.vout[key_index].nNonce.SetNull();
-            return EncodeHexTx(tx);
+            return EncodeHexTx(CTransaction(tx));
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
         }
@@ -5815,7 +5815,7 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
     }
 
-    return EncodeHexTx(tx);
+    return EncodeHexTx(CTransaction(tx));
 }
 
 static UniValue unblindrawtransaction(const JSONRPCRequest& request)
@@ -5855,7 +5855,7 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
     FillBlinds(pwallet, tx, output_value_blinds, output_asset_blinds, output_pubkeys, asset_keys, token_keys);
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("hex", EncodeHexTx(tx));
+    result.pushKV("hex", EncodeHexTx(CTransaction(tx)));
     return result;
 }
 

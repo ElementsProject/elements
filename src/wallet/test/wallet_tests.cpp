@@ -58,7 +58,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
         BOOST_CHECK(result.last_failed_block.IsNull());
         BOOST_CHECK(result.last_scanned_block.IsNull());
         BOOST_CHECK(!result.last_scanned_height);
-        BOOST_CHECK_EQUAL(wallet.GetImmatureBalance(), 0);
+        BOOST_CHECK_EQUAL(wallet.GetImmatureBalance()[CAsset()], 0);
     }
 
     // Verify ScanForWalletTransactions picks up transactions in both the old
@@ -110,7 +110,7 @@ BOOST_FIXTURE_TEST_CASE(scan_for_wallet_transactions, TestChain100Setup)
         BOOST_CHECK_EQUAL(result.last_failed_block, newTip->GetBlockHash());
         BOOST_CHECK(result.last_scanned_block.IsNull());
         BOOST_CHECK(!result.last_scanned_height);
-        BOOST_CHECK_EQUAL(wallet.GetImmatureBalance(), 0);
+        BOOST_CHECK_EQUAL(wallet.GetImmatureBalance()[CAsset()], 0);
     }
 }
 
@@ -492,9 +492,10 @@ static size_t CalculateNestedKeyhashInputSize(bool use_max_sig)
         assert(false);
     }
 
-    CTxIn tx_in;
-    UpdateInput(tx_in, sig_data);
-    return (size_t)GetVirtualTransactionInputSize(tx_in);
+    CMutableTransaction tx;
+    tx.vin.resize(1);
+    UpdateTransaction(tx, 0, sig_data);
+    return (size_t)GetVirtualTransactionInputSize(CTransaction(tx), 0);
 }
 
 BOOST_FIXTURE_TEST_CASE(dummy_input_size_test, TestChain100Setup)

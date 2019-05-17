@@ -128,7 +128,7 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     if (g_con_elementsmode && nFeeOutput == -1) {
         CMutableTransaction with_fee_output = CMutableTransaction{*wtx.tx};
         with_fee_output.vout.push_back(CTxOut(::policyAsset, 0, CScript()));
-        txSize = GetVirtualTransactionSize(with_fee_output);
+        txSize = GetVirtualTransactionSize(CTransaction(with_fee_output));
     }
     const int64_t maxNewTxSize = CalculateMaximumSignedTxSize(*wtx.tx, wallet);
     if (maxNewTxSize < 0) {

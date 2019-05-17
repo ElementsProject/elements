@@ -341,7 +341,8 @@ void BitcoinApplication::initializeResult(bool success)
         if (paymentServer) {
             paymentServer->setOptionsModel(optionsModel);
 #ifdef ENABLE_BIP70
-            connect(m_wallet_controller, &WalletController::coinsSent, paymentServer, &PaymentServer::fetchPaymentACK);
+            //TODO(stevenroose) fix
+            //connect(m_wallet_controller, &WalletController::coinsSent, paymentServer, &PaymentServer::fetchPaymentACK);
 #endif
         }
 #endif

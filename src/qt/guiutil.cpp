@@ -89,7 +89,9 @@ static std::string DummyAddress(const CChainParams &params)
     CPubKey dummy_key(dummydata);
     ScriptHash script_dest(uint160(), dummy_key);
     std::string dest_str = EncodeDestination(script_dest);
-    DecodeBase58(dest_str, sourcedata);
+    if (!DecodeBase58(dest_str, sourcedata)) {
+        return "";
+    }
     for(int i=0; i<256; ++i) { // Try every trailing byte
         std::string s = EncodeBase58(sourcedata.data(), sourcedata.data() + sourcedata.size());
         if (!IsValidDestinationString(s)) {

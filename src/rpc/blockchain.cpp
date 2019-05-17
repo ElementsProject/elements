@@ -1363,7 +1363,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         obj.pushKV("difficulty",            (double)GetDifficulty(tip));
     }
     obj.pushKV("mediantime",            (int64_t)tip->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip));
+    obj.pushKV("verificationprogress",  GuessVerificationProgress(tip, Params().GetConsensus().nPowTargetSpacing));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
     if (!g_signed_blocks) {
         obj.pushKV("chainwork",             tip->nChainWork.GetHex());
@@ -2342,14 +2342,14 @@ UniValue scantxoutset(const JSONRPCRequest& request)
                 const Coin& coin = it.second;
                 const CTxOut& txo = coin.out;
                 input_txos.push_back(txo);
-                total_in += txo.nValue;
+                total_in += txo.nValue.GetAmount();
 
                 UniValue unspent(UniValue::VOBJ);
                 unspent.pushKV("txid", outpoint.hash.GetHex());
                 unspent.pushKV("vout", (int32_t)outpoint.n);
                 unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
                 unspent.pushKV("desc", descriptors[txo.scriptPubKey]);
-                unspent.pushKV("amount", ValueFromAmount(txo.nValue));
+                unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
                 unspent.pushKV("height", (int32_t)coin.nHeight);
 
                 unspents.push_back(unspent);

@@ -652,17 +652,17 @@ UniValue importwallet(const JSONRPCRequest& request)
             assert(key.VerifyPubKey(pubkey));
             CKeyID keyid = pubkey.GetID();
             if (pwallet->HaveKey(keyid)) {
-                pwallet->WalletLogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(keyid));
+                pwallet->WalletLogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(PKHash(keyid)));
                 continue;
             }
-            pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(keyid));
+            pwallet->WalletLogPrintf("Importing %s...\n", EncodeDestination(PKHash(keyid)));
             if (!pwallet->AddKeyPubKey(key, pubkey)) {
                 fGood = false;
                 continue;
             }
             pwallet->mapKeyMetadata[keyid].nCreateTime = time;
             if (has_label)
-                pwallet->SetAddressBook(keyid, label, "receive");
+                pwallet->SetAddressBook(PKHash(keyid), label, "receive");
             nTimeBegin = std::min(nTimeBegin, time);
             progress++;
         }
@@ -1260,7 +1260,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) && !privkey_map.empty()) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Cannot import private keys to a wallet with private keys disabled");
         }
-        if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) && !blinding_privkey.empty()) {
+        if (pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) && !str_blinding_key.empty()) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Cannot import blinding keys to a wallet with private keys disabled");
         }
 

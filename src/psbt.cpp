@@ -304,7 +304,7 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
     result = *psbtx.tx;
     for (unsigned int i = 0; i < result.vin.size(); ++i) {
         result.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
-        result.vin[i].scriptWitness = psbtx.inputs[i].final_script_witness;
+        result.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
     }
     return true;
 }
