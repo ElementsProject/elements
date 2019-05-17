@@ -48,16 +48,18 @@ static const int MAX_URI_LENGTH = 255;
 
 #define QAPP_ORG_NAME "Bitcoin"
 #define QAPP_ORG_DOMAIN "bitcoin.org"
-#if LIQUID
-#define QAPP_APP_NAME_DEFAULT "Liquid-Qt"
-#else
-#define QAPP_APP_NAME_DEFAULT "Elements-Qt"
-#endif
 
 #if LIQUID
+#define QAPP_APP_NAME_DEFAULT "Liquid-Qt"
 #define QAPP_APP_NAME_TESTNET "Liquid-Qt-testnet"
+#define QAPP_APP_NAME_REGTEST "Liquid-Qt-regtest"
 #else
+#define QAPP_APP_NAME_DEFAULT "Elements-Qt"
 #define QAPP_APP_NAME_TESTNET "Elements-Qt-testnet"
+#define QAPP_APP_NAME_REGTEST "Elements-Qt-regtest"
 #endif
+
+/* One gigabyte (GB) in bytes */
+static constexpr uint64_t GB_BYTES{1000000000};
 
 #endif // BITCOIN_QT_GUICONSTANTS_H

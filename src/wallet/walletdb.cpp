@@ -57,9 +57,14 @@ bool WalletBatch::EraseTx(uint256 hash)
     return EraseIC(std::make_pair(std::string("tx"), hash));
 }
 
+bool WalletBatch::WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubkey, const bool overwrite)
+{
+    return WriteIC(std::make_pair(std::string("keymeta"), pubkey), meta, overwrite);
+}
+
 bool WalletBatch::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta)
 {
-    if (!WriteIC(std::make_pair(std::string("keymeta"), vchPubKey), keyMeta, false)) {
+    if (!WriteKeyMetadata(keyMeta, vchPubKey, false)) {
         return false;
     }
 
@@ -76,7 +81,7 @@ bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,
                                 const std::vector<unsigned char>& vchCryptedSecret,
                                 const CKeyMetadata &keyMeta)
 {
-    if (!WriteIC(std::make_pair(std::string("keymeta"), vchPubKey), keyMeta)) {
+    if (!WriteKeyMetadata(keyMeta, vchPubKey, true)) {
         return false;
     }
 
@@ -184,21 +189,17 @@ bool WalletBatch::WriteSpecificBlindingKey(const uint160& scriptid, const uint25
 
 class CWalletScanState {
 public:
-    unsigned int nKeys;
-    unsigned int nCKeys;
-    unsigned int nWatchKeys;
-    unsigned int nKeyMeta;
-    unsigned int m_unknown_records;
-    bool fIsEncrypted;
-    bool fAnyUnordered;
-    int nFileVersion;
+    unsigned int nKeys{0};
+    unsigned int nCKeys{0};
+    unsigned int nWatchKeys{0};
+    unsigned int nKeyMeta{0};
+    unsigned int m_unknown_records{0};
+    bool fIsEncrypted{false};
+    bool fAnyUnordered{false};
+    int nFileVersion{0};
     std::vector<uint256> vWalletUpgrade;
 
     CWalletScanState() {
-        nKeys = nCKeys = nWatchKeys = nKeyMeta = m_unknown_records = 0;
-        fIsEncrypted = false;
-        fAnyUnordered = false;
-        nFileVersion = 0;
     }
 };
 
@@ -617,6 +618,14 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
 
     if (wss.fAnyUnordered)
         result = pwallet->ReorderTransactions();
+
+    // Upgrade all of the wallet keymetadata to have the hd master key id
+    // This operation is not atomic, but if it fails, updated entries are still backwards compatible with older software
+    try {
+        pwallet->UpgradeKeyMetadata();
+    } catch (...) {
+        result = DBErrors::CORRUPT;
+    }
 
     return result;
 }

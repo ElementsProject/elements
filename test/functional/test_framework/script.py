@@ -388,20 +388,19 @@ class CScriptNum:
 
     @staticmethod
     def decode(vch):
+        result = 0
         # We assume valid push_size and minimal encoding
         value = vch[1:]
-        # Mask for all but the highest result bit
-        num_mask = (2**(len(value)*8) - 1) >> 1
         if len(value) == 0:
-            return 0
-        else :
-            result = 0
-            for i in range(len(value)):
-                result |= int(value[i]) << 8*i
-            if value[-1] >= 0x80:
-                result &= num_mask
-                result *= -1
             return result
+        for i, byte in enumerate(value):
+            result |= int(byte) << 8*i
+        if value[-1] >= 0x80:
+            # Mask for all but the highest result bit
+            num_mask = (2**(len(value)*8) - 1) >> 1
+            result &= num_mask
+            result *= -1
+        return result
 
 class CScript(bytes):
     """Serialized script
@@ -450,6 +449,10 @@ class CScript(bytes):
     def join(self, iterable):
         # join makes no sense for a CScript()
         raise NotImplementedError
+
+    # Python 3.4 compatibility
+    def hex(self):
+        return hexlify(self).decode('ascii')
 
     def __new__(cls, value=b''):
         if isinstance(value, bytes) or isinstance(value, bytearray):

@@ -17,10 +17,10 @@ static const struct {
     const int iconColorHueShift;
     const int iconColorSaturationReduction;
 } network_styles[] = {
-    {"main", QAPP_APP_NAME_DEFAULT, 0, 0},
-    {"test", QAPP_APP_NAME_TESTNET, 70, 30},
+    {"main", QAPP_APP_NAME_DEFAULT, 0, 0, ""},
+    {"test", QAPP_APP_NAME_TESTNET, 70, 30, QT_TRANSLATE_NOOP("SplashScreen", "[testnet]")},
     {"liquidv1", "Liquid-Qt-liquidv1", 0, 0},
-    {"regtest", QAPP_APP_NAME_TESTNET, 160, 30}
+    {"regtest", QAPP_APP_NAME_REGTEST, 160, 30, "[regtest]"}
 };
 static const unsigned network_styles_count = sizeof(network_styles)/sizeof(*network_styles);
 
@@ -92,5 +92,5 @@ const NetworkStyle* NetworkStyle::instantiate(const std::string& networkId)
                     titleAddText.c_str());
         }
     }
-    return new NetworkStyle(strprintf("%s-%s", QAPP_APP_NAME_DEFAULT, networkId).c_str(), 250, 30, titleAddText.c_str());
+    return nullptr;
 }

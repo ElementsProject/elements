@@ -17,9 +17,10 @@ UniValue getzmqnotifications(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0) {
         throw std::runtime_error(
-            "getzmqnotifications\n"
-            "\nReturns information about the active ZeroMQ notifications.\n"
-            "\nResult:\n"
+            RPCHelpMan{"getzmqnotifications",
+                "\nReturns information about the active ZeroMQ notifications.\n",
+                {},
+                RPCResult{
             "[\n"
             "  {                        (json object)\n"
             "    \"type\": \"pubhashtx\",   (string) Type of notification\n"
@@ -28,10 +29,12 @@ UniValue getzmqnotifications(const JSONRPCRequest& request)
             "  },\n"
             "  ...\n"
             "]\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getzmqnotifications", "")
+                },
+                RPCExamples{
+                    HelpExampleCli("getzmqnotifications", "")
             + HelpExampleRpc("getzmqnotifications", "")
-        );
+                },
+            }.ToString());
     }
 
     UniValue result(UniValue::VARR);

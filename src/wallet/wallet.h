@@ -36,8 +36,8 @@
 #include <vector>
 
 //! Responsible for reading and validating the -wallet arguments and verifying the wallet database.
-//  This function will perform salvage on the wallet if requested, as long as only one wallet is
-//  being loaded (WalletParameterInteraction forbids -salvagewallet, -zapwallettxes or -upgradewallet with multiwallet).
+//! This function will perform salvage on the wallet if requested, as long as only one wallet is
+//! being loaded (WalletParameterInteraction forbids -salvagewallet, -zapwallettxes or -upgradewallet with multiwallet).
 bool VerifyWallets(interfaces::Chain& chain, const std::vector<std::string>& wallet_files);
 
 //! Load wallet databases.
@@ -55,11 +55,19 @@ void StopWallets();
 //! Close all wallets.
 void UnloadWallets();
 
+//! Explicitly unload and delete the wallet.
+//! Blocks the current thread after signaling the unload intent so that all
+//! wallet clients release the wallet.
+//! Note that, when blocking is not required, the wallet is implicitly unloaded
+//! by the shared pointer deleter.
+void UnloadWallet(std::shared_ptr<CWallet>&& wallet);
+
 bool AddWallet(const std::shared_ptr<CWallet>& wallet);
 bool RemoveWallet(const std::shared_ptr<CWallet>& wallet);
 bool HasWallets();
 std::vector<std::shared_ptr<CWallet>> GetWallets();
 std::shared_ptr<CWallet> GetWallet(const std::string& name);
+std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocation& location, std::string& error, std::string& warning);
 
 //! Default for -keypool
 static const unsigned int DEFAULT_KEYPOOL_SIZE = 1000;
@@ -86,7 +94,9 @@ static const bool DEFAULT_WALLET_RBF = true;
 static const bool DEFAULT_WALLETBROADCAST = true;
 static const bool DEFAULT_DISABLE_WALLET = false;
 
-class CBlockIndex;
+//! Pre-calculated constants for input size estimation in *virtual size*
+static constexpr size_t DUMMY_NESTED_P2WPKH_INPUT_SIZE = 91;
+
 class CCoinControl;
 class COutput;
 class CReserveKey;
@@ -126,11 +136,26 @@ enum WalletFlags : uint64_t {
     // wallet flags in the upper section (> 1 << 31) will lead to not opening the wallet if flag is unknown
     // unknown wallet flags in the lower section <= (1 << 31) will be tolerated
 
+    // Indicates that the metadata has already been upgraded to contain key origins
+    WALLET_FLAG_KEY_ORIGIN_METADATA = (1ULL << 1),
+
     // will enforce the rule that the wallet can't contain any private keys (only watch-only/pubkeys)
     WALLET_FLAG_DISABLE_PRIVATE_KEYS = (1ULL << 32),
+
+    //! Flag set when a wallet contains no HD seed and no private keys, scripts,
+    //! addresses, and other watch only things, and is therefore "blank."
+    //!
+    //! The only function this flag serves is to distinguish a blank wallet from
+    //! a newly created wallet when the wallet database is loaded, to avoid
+    //! initialization that should only happen on first run.
+    //!
+    //! This flag is also a mandatory flag to prevent previous versions of
+    //! bitcoin from opening the wallet, thinking it was newly created, and
+    //! then improperly reinitializing it.
+    WALLET_FLAG_BLANK_WALLET = (1ULL << 33),
 };
 
-static constexpr uint64_t g_known_wallet_flags = WALLET_FLAG_DISABLE_PRIVATE_KEYS;
+static constexpr uint64_t g_known_wallet_flags = WALLET_FLAG_DISABLE_PRIVATE_KEYS | WALLET_FLAG_BLANK_WALLET | WALLET_FLAG_KEY_ORIGIN_METADATA;
 
 /** A key pool entry */
 class CKeyPool
@@ -283,7 +308,7 @@ public:
         READWRITE(nIndex);
     }
 
-    void SetMerkleBranch(const CBlockIndex* pIndex, int posInBlock);
+    void SetMerkleBranch(const uint256& block_hash, int posInBlock);
 
     /**
      * Return depth of transaction in blockchain:
@@ -631,8 +656,8 @@ public:
     int64_t nTimeCreated;
     int64_t nTimeExpires;
     std::string strComment;
-    //! todo: add something to note what created it (user, getnewaddress, change)
-    //!   maybe should have a map<string, string> property map
+    // todo: add something to note what created it (user, getnewaddress, change)
+    //   maybe should have a map<string, string> property map
 
     explicit CWalletKey(int64_t nExpires=0);
 
@@ -744,7 +769,7 @@ private:
      * Abandoned state should probably be more carefully tracked via different
      * posInBlock signals or by checking mempool presence when necessary.
      */
-    bool AddToWalletIfInvolvingMe(const CTransactionRef& tx, const CBlockIndex* pIndex, int posInBlock, bool fUpdate) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddToWalletIfInvolvingMe(const CTransactionRef& tx, const uint256& block_hash, int posInBlock, bool fUpdate) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* Mark a transaction (and its in-wallet descendants) as conflicting with a particular block. */
     void MarkConflicted(const uint256& hashBlock, const uint256& hashTx);
@@ -755,8 +780,8 @@ private:
     void SyncMetaData(std::pair<TxSpends::iterator, TxSpends::iterator>) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* Used by TransactionAddedToMemorypool/BlockConnected/Disconnected/ScanForWalletTransactions.
-     * Should be called with pindexBlock and posInBlock if this is for a transaction that is included in a block. */
-    void SyncTransaction(const CTransactionRef& tx, const CBlockIndex *pindex = nullptr, int posInBlock = 0, bool update_tx = true) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+     * Should be called with non-zero block_hash and posInBlock if this is for a transaction that is included in a block. */
+    void SyncTransaction(const CTransactionRef& tx, const uint256& block_hash, int posInBlock = 0, bool update_tx = true) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /* the HD chain data model (external chain counters) */
     CHDChain hdChain;
@@ -800,10 +825,8 @@ private:
      * Note that this is *not* how far we've processed, we may need some rescan
      * to have seen all transactions in the chain, but is only used to track
      * live BlockConnected callbacks.
-     *
-     * Protected by cs_main (see BlockUntilSyncedToCurrentChain)
      */
-    const CBlockIndex* m_last_block_processed = nullptr;
+    uint256 m_last_block_processed;
 
 public:
     /*
@@ -843,6 +866,8 @@ public:
     // Map from Script ID to key metadata (for watch-only keys).
     std::map<CScriptID, CKeyMetadata> m_script_metadata GUARDED_BY(cs_wallet);
 
+    bool WriteKeyMetadata(const CKeyMetadata& meta, const CPubKey& pubkey, bool overwrite);
+
     typedef std::map<unsigned int, CMasterKey> MasterKeyMap;
     MasterKeyMap mapMasterKeys;
     unsigned int nMasterKeyMaxID = 0;
@@ -854,6 +879,8 @@ public:
 
     ~CWallet()
     {
+        // Should not have slots connected at this point.
+        assert(NotifyUnload.empty());
         delete encrypted_batch;
         encrypted_batch = nullptr;
     }
@@ -866,7 +893,7 @@ public:
     int64_t nOrderPosNext GUARDED_BY(cs_wallet) = 0;
     uint64_t nAccountingEntryNumber = 0;
 
-    std::map<CTxDestination, CAddressBookData> mapAddressBook;
+    std::map<CTxDestination, CAddressBookData> mapAddressBook GUARDED_BY(cs_wallet);
 
     std::set<COutPoint> setLockedCoins GUARDED_BY(cs_wallet);
 
@@ -952,6 +979,8 @@ public:
     //! Load metadata (used by LoadWallet)
     void LoadKeyMetadata(const CKeyID& keyID, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void LoadScriptMetadata(const CScriptID& script_id, const CKeyMetadata &metadata) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    //! Upgrade stored CKeyMetadata objects to store key origin info as KeyOriginInfo
+    void UpgradeKeyMetadata() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     bool LoadMinVersion(int nVersion) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet) { AssertLockHeld(cs_wallet); nWalletVersion = nVersion; nWalletMaxVersion = std::max(nWalletMaxVersion, nVersion); return true; }
     void UpdateTimeFirstKey(int64_t nCreateTime) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -964,15 +993,15 @@ public:
     bool LoadCScript(const CScript& redeemScript);
 
     //! Adds a destination data tuple to the store, and saves it to disk
-    bool AddDestData(const CTxDestination &dest, const std::string &key, const std::string &value);
+    bool AddDestData(const CTxDestination& dest, const std::string& key, const std::string& value) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Erases a destination data tuple in the store and on disk
-    bool EraseDestData(const CTxDestination &dest, const std::string &key);
+    bool EraseDestData(const CTxDestination& dest, const std::string& key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a destination data tuple to the store, without saving it to disk
-    void LoadDestData(const CTxDestination &dest, const std::string &key, const std::string &value);
+    void LoadDestData(const CTxDestination& dest, const std::string& key, const std::string& value) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Look up a destination data tuple in the store, return true if found false otherwise
-    bool GetDestData(const CTxDestination &dest, const std::string &key, std::string *value) const;
+    bool GetDestData(const CTxDestination& dest, const std::string& key, std::string* value) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Get all destination values matching a prefix.
-    std::vector<std::string> GetDestValues(const std::string& prefix) const;
+    std::vector<std::string> GetDestValues(const std::string& prefix) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     //! Adds a watch-only address to the store, and saves it to disk.
     bool AddWatchOnly(const CScript& dest, int64_t nCreateTime) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -983,7 +1012,7 @@ public:
     //! Holds a timestamp at which point the wallet is scheduled (externally) to be relocked. Caller must arrange for actual relocking to occur via Lock().
     int64_t nRelockTime = 0;
 
-    bool Unlock(const SecureString& strWalletPassphrase);
+    bool Unlock(const SecureString& strWalletPassphrase, bool accept_no_keys = false);
     bool ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase, const SecureString& strNewWalletPassphrase);
     bool EncryptWallet(const SecureString& strWalletPassphrase);
 
@@ -1004,7 +1033,23 @@ public:
     void BlockConnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex *pindex, const std::vector<CTransactionRef>& vtxConflicted) override;
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock) override;
     int64_t RescanFromTime(int64_t startTime, const WalletRescanReserver& reserver, bool update);
-    CBlockIndex* ScanForWalletTransactions(CBlockIndex* pindexStart, CBlockIndex* pindexStop, const WalletRescanReserver& reserver, bool fUpdate = false);
+
+    struct ScanResult {
+        enum { SUCCESS, FAILURE, USER_ABORT } status = SUCCESS;
+
+        //! Hash and height of most recent block that was successfully scanned.
+        //! Unset if no blocks were scanned due to read errors or the chain
+        //! being empty.
+        uint256 last_scanned_block;
+        Optional<int> last_scanned_height;
+
+        //! Height of the most recent block that could not be scanned due to
+        //! read errors or pruning. Will be set if status is FAILURE, unset if
+        //! status is SUCCESS, and may or may not be set if status is
+        //! USER_ABORT.
+        uint256 last_failed_block;
+    };
+    ScanResult ScanForWalletTransactions(const uint256& first_block, const uint256& last_block, const WalletRescanReserver& reserver, bool fUpdate);
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
     void ReacceptWalletTransactions();
     void ResendWalletTransactions(int64_t nBestBlockTime, CConnman* connman) override EXCLUSIVE_LOCKS_REQUIRED(cs_main);
@@ -1064,6 +1109,8 @@ public:
     bool NewKeyPool();
     size_t KeypoolCountExternalKeys() EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool TopUpKeyPool(unsigned int kpSize = 0);
+    void AddKeypoolPubkey(const CPubKey& pubkey, const bool internal);
+    void AddKeypoolPubkeyWithDB(const CPubKey& pubkey, const bool internal, WalletBatch& batch);
 
     /**
      * Reserves a key from the keypool and sets nIndex to its index
@@ -1129,7 +1176,7 @@ public:
 
     bool DelAddressBook(const CTxDestination& address);
 
-    const std::string& GetLabelName(const CScript& scriptPubKey) const;
+    const std::string& GetLabelName(const CScript& scriptPubKey) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     void GetScriptForMining(std::shared_ptr<CReserveScript> &script);
 
@@ -1182,6 +1229,9 @@ public:
     /** Watch-only address added */
     boost::signals2::signal<void (bool fHaveWatchOnly)> NotifyWatchonlyChanged;
 
+    /** Keypool has new keys */
+    boost::signals2::signal<void ()> NotifyCanGetAddressesChanged;
+
     /** Inquire whether this wallet broadcasts transactions. */
     bool GetBroadcastTransactions() const { return fBroadcastTransactions; }
     /** Set whether this wallet broadcasts transactions. */
@@ -1216,6 +1266,12 @@ public:
 
     /* Returns true if HD is enabled */
     bool IsHDEnabled() const;
+
+    /* Returns true if the wallet can generate new keys */
+    bool CanGenerateKeys();
+
+    /* Returns true if the wallet can give out new addresses. This means it has keys in the keypool or can generate new keys */
+    bool CanGetAddresses(bool internal = false);
 
     /* Generates a new HD seed (will not be activated) */
     CPubKey GenerateNewSeed();
@@ -1254,6 +1310,9 @@ public:
     /** set a single wallet flag */
     void SetWalletFlag(uint64_t flags);
 
+    /** Unsets a single wallet flag */
+    void UnsetWalletFlag(uint64_t flag);
+
     /** check if a certain wallet flag is set */
     bool IsWalletFlagSet(uint64_t flag);
 
@@ -1276,7 +1335,12 @@ public:
     /** Implement lookup of key origin information through wallet key metadata. */
     bool GetKeyOrigin(const CKeyID& keyid, KeyOriginInfo& info) const override;
 
+    /** Add a KeyOriginInfo to the wallet */
+    bool AddKeyOrigin(const CPubKey& pubkey, const KeyOriginInfo& info);
+
+    // 
     // ELEMENTS
+
     //! Setters for online/offline pubkey pairs for PAK
     bool SetOnlinePubKey(const CPubKey& online_key_in);
     bool SetOfflineCounter(int counter);
@@ -1296,6 +1360,9 @@ public:
 
     /// Returns a map of entropy to the respective pair of reissuance token and issuance asset.
     std::map<uint256, std::pair<CAsset, CAsset> > GetReissuanceTokenTypes() const;
+
+    // END ELEMENTS
+    //
 };
 
 /** A key allocated from the key pool. */
@@ -1303,18 +1370,16 @@ class CReserveKey final : public CReserveScript
 {
 protected:
     CWallet* pwallet;
-    int64_t nIndex;
+    int64_t nIndex{-1};
     CPubKey vchPubKey;
-    bool fInternal;
+    bool fInternal{false};
+
 public:
     explicit CReserveKey(CWallet* pwalletIn)
     {
-        nIndex = -1;
         pwallet = pwalletIn;
-        fInternal = false;
     }
 
-    CReserveKey() = default;
     CReserveKey(const CReserveKey&) = delete;
     CReserveKey& operator=(const CReserveKey&) = delete;
     // ELEMENTS:

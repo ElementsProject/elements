@@ -21,14 +21,18 @@
 #include <codecvt>
 #endif
 
+#ifdef USE_POLL
+#include <poll.h>
+#endif
+
 #if !defined(MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
 #endif
 
 // Settings
-static proxyType proxyInfo[NET_MAX];
-static proxyType nameProxy;
 static CCriticalSection cs_proxyInfos;
+static proxyType proxyInfo[NET_MAX] GUARDED_BY(cs_proxyInfos);
+static proxyType nameProxy GUARDED_BY(cs_proxyInfos);
 int nConnectTimeout = DEFAULT_CONNECT_TIMEOUT;
 bool fNameLookup = DEFAULT_NAME_LOOKUP;
 
@@ -76,11 +80,7 @@ bool static LookupIntern(const char *pszName, std::vector<CNetAddr>& vIP, unsign
     aiHint.ai_socktype = SOCK_STREAM;
     aiHint.ai_protocol = IPPROTO_TCP;
     aiHint.ai_family = AF_UNSPEC;
-#ifdef WIN32
-    aiHint.ai_flags = fAllowLookup ? 0 : AI_NUMERICHOST;
-#else
     aiHint.ai_flags = fAllowLookup ? AI_ADDRCONFIG : AI_NUMERICHOST;
-#endif
     struct addrinfo *aiRes = nullptr;
     int nErr = getaddrinfo(pszName, nullptr, &aiHint, &aiRes);
     if (nErr)
@@ -264,11 +264,19 @@ static IntrRecvError InterruptibleRecv(uint8_t* data, size_t len, int timeout, c
                 if (!IsSelectableSocket(hSocket)) {
                     return IntrRecvError::NetworkError;
                 }
-                struct timeval tval = MillisToTimeval(std::min(endTime - curTime, maxWait));
+                int timeout_ms = std::min(endTime - curTime, maxWait);
+#ifdef USE_POLL
+                struct pollfd pollfd = {};
+                pollfd.fd = hSocket;
+                pollfd.events = POLLIN | POLLOUT;
+                int nRet = poll(&pollfd, 1, timeout_ms);
+#else
+                struct timeval tval = MillisToTimeval(timeout_ms);
                 fd_set fdset;
                 FD_ZERO(&fdset);
                 FD_SET(hSocket, &fdset);
                 int nRet = select(hSocket + 1, &fdset, nullptr, nullptr, &tval);
+#endif
                 if (nRet == SOCKET_ERROR) {
                     return IntrRecvError::NetworkError;
                 }
@@ -499,11 +507,18 @@ bool ConnectSocketDirectly(const CService &addrConnect, const SOCKET& hSocket, i
         // WSAEINVAL is here because some legacy version of winsock uses it
         if (nErr == WSAEINPROGRESS || nErr == WSAEWOULDBLOCK || nErr == WSAEINVAL)
         {
+#ifdef USE_POLL
+            struct pollfd pollfd = {};
+            pollfd.fd = hSocket;
+            pollfd.events = POLLIN | POLLOUT;
+            int nRet = poll(&pollfd, 1, nTimeout);
+#else
             struct timeval timeout = MillisToTimeval(nTimeout);
             fd_set fdset;
             FD_ZERO(&fdset);
             FD_SET(hSocket, &fdset);
             int nRet = select(hSocket + 1, nullptr, &fdset, nullptr, &timeout);
+#endif
             if (nRet == 0)
             {
                 LogPrint(BCLog::NET, "connection to %s timeout\n", addrConnect.ToString());

@@ -1,5 +1,4 @@
-sudo: required
-dist: trusty
+dist: xenial
 os: linux
 language: minimal
 cache:
@@ -16,6 +15,7 @@ env:
     - MAKEJOBS=-j3
     - RUN_UNIT_TESTS=true
     - RUN_FUNCTIONAL_TESTS=true
+    - RUN_FUZZ_TESTS=false
     - DOCKER_NAME_TAG=ubuntu:18.04
     - BOOST_TEST_RANDOM=1$TRAVIS_BUILD_ID
     - CCACHE_SIZE=100M
@@ -34,27 +34,29 @@ install:
 before_script:
   - set -o errexit; source .travis/test_05_before_script.sh
 script:
-  - if [ $SECONDS -gt 1200 ]; then set +o errexit; echo "Travis early exit to cache current state"; false; else set -o errexit; source .travis/test_06_script.sh; fi
+  - if [ $SECONDS -gt 1200 ]; then set +o errexit; echo "Travis early exit to cache current state"; false; else set -o errexit; source .travis/test_06_script_a.sh; fi
+  - if [ $SECONDS -gt 1800 ]; then set +o errexit; echo "Travis early exit to cache current state"; false; else set -o errexit; source .travis/test_06_script_b.sh; fi
 after_script:
   - echo $TRAVIS_COMMIT_RANGE
   - echo $TRAVIS_COMMIT_LOG
 jobs:
   include:
-# lint stage
+
     - stage: lint
+      name: 'lint'
       env:
-      sudo: false
       cache: false
       language: python
-      python: '3.6'
+      python: '3.4' # Oldest supported version according to doc/dependencies.md
       install:
         - set -o errexit; source .travis/lint_04_install.sh
       before_script:
         - set -o errexit; source .travis/lint_05_before_script.sh
       script:
         - set -o errexit; source .travis/lint_06_script.sh
-# ARM
+
     - stage: test
+      name: 'ARM  [GOAL: install]  [no unit or functional tests]'
       env: >-
         HOST=arm-linux-gnueabihf
         PACKAGES="python3 g++-arm-linux-gnueabihf"
@@ -64,8 +66,9 @@ jobs:
         # -Wno-psabi is to disable ABI warnings: "note: parameter passing for argument of type ... changed in GCC 7.1"
         # This could be removed once the ABI change warning does not show up by default
         BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports CXXFLAGS=-Wno-psabi"
-# Win32
+
     - stage: test
+      name: 'Win32  [GOAL: deploy]  [no gui or functional tests]'
       env: >-
         HOST=i686-w64-mingw32
         DPKG_ADD_ARCH="i386"
@@ -75,18 +78,21 @@ jobs:
         RUN_UNIT_TESTS=false # secp-zkp times out Travis, get 32-bit build in upstream?
 # Win64
     - stage: test
+      name: 'Win64  [GOAL: deploy]  [no gui or functional tests]'
       env: >-
         HOST=x86_64-w64-mingw32
         PACKAGES="python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64"
+        RUN_FUNCTIONAL_TESTS=false
         GOAL="deploy"
         BITCOIN_CONFIG="--enable-reduce-exports --disable-gui-tests"
-# 32-bit + dash
+
     - stage: test
+      name: '32-bit + dash  [GOAL: install]  [GUI: no BIP70]'
       env: >-
         HOST=i686-pc-linux-gnu
         PACKAGES="g++-multilib python3-zmq"
         GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++"
+        BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --disable-bip70 --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++"
         CONFIG_SHELL="/bin/dash"
         RUN_UNIT_TESTS=false # secp-zkp times out Travis, get 32-bit build in upstream?
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests
@@ -100,6 +106,7 @@ jobs:
         RUN_FUNCTIONAL_TESTS=false
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no unit tests
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [uses qt5 dev package instead of depends Qt to speed up build and avoid timeout]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
@@ -109,15 +116,17 @@ jobs:
         RUN_UNIT_TESTS=false
 # x86_64 Linux (xenial, no depends, only system libs)
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no depends, only system libs, sanitizers: thread (TSan), no wallet]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         DOCKER_NAME_TAG=ubuntu:16.04
-        PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
+        PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
         NO_DEPENDS=1
         GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER"
-# x86_64 Linux (no depends, only system libs, sanitizers: undefined (UBSAN) + integer)
+        BITCOIN_CONFIG="--enable-zmq --disable-wallet --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=thread --disable-hardening --disable-asm CC=clang CXX=clang++"
+
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no depends, only system libs, sanitizers: address/leak (ASan + LSan) + undefined (UBSan) + integer]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
@@ -126,14 +135,16 @@ jobs:
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=integer,undefined CC=clang CXX=clang++"
 # x86_64 Linux, No wallet, no QT(build timing out with for some reason)
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no wallet]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3"
         DEP_OPTS="NO_WALLET=1 NO_QT=1"
         GOAL="install"
         BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
-# Cross-Mac
+
     - stage: test
+      name: 'macOS 10.10  [GOAL: deploy] [no functional tests]'
       env: >-
         HOST=x86_64-apple-darwin14
         PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
