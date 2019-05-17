@@ -224,6 +224,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     bOnboard=false;
   }
 
+  CPubKey decryptPubKey; //Default key
+
   if(bOnboard){
     //Onboarding must be done using the whitelist asset 
     if(!IsWhitelistAssetOnly(tx)) return false;
@@ -235,6 +237,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     }
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
+    decryptPubKey = inputPubKey;
   } else {
     it1=bytes.begin(); //Reset iterator
     kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
@@ -273,24 +276,20 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::string sKYCAddr = kycAddr.ToString();
 
   // Get the KYC private key from the wallet.
-  CPubKey* decryptPubKey;
   CKey decryptPrivKey;
   if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
     //Non-whitelisting node
     if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)) return false;  
-    decryptPubKey=&kycPubKey;
-  } else{
-    //Whitelisting node
-    decryptPubKey=&inputPubKey;
-  }
-  
+    decryptPubKey=kycPubKey;
+  }  
+
   bool bSuccess=false;
 
   //Decrypt
   CECIES_hex decryptor;
   std::vector<unsigned char> data;
   data.resize(encryptedData.size());
-  if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey)){
+  if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, decryptPubKey)){
     return false;   
   }
   //Interpret the data
