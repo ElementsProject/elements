@@ -3287,21 +3287,24 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         break;
                 }
 
-                CAmount nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
-                if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
-                    nFeeNeeded = coinControl->nMinimumTotalFee;
-                }
-                if (coinControl && coinControl->fOverrideFeeRate)
-                    nFeeNeeded = coinControl->nFeeRate.GetFee(nBytes);
+                CAmount nFeeNeeded;
+                if(!IsAllPolicy(txUnblindedAndUnsigned)){
+                    nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
+                    if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
+                        nFeeNeeded = coinControl->nMinimumTotalFee;
+                    }
+                    if (coinControl && coinControl->fOverrideFeeRate)
+                        nFeeNeeded = coinControl->nFeeRate.GetFee(nBytes);
 
-                // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
-                // because we must be at the maximum allowed fee, if this is not a policy Tx
-                if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
-                {
-                    if(!IsAllPolicy(txUnblindedAndUnsigned)){
+                    // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
+                    // because we must be at the maximum allowed fee, if this is not a policy Tx
+                    if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
+                    {
                         strFailReason = _("Transaction too large for fee policy");
                         return false;
                     }
+                } else {
+                    nFeeNeeded = 0;
                 }
 
                 if (nFeeRet >= nFeeNeeded) {
