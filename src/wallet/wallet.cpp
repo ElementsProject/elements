@@ -2854,7 +2854,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, coinControl);
 
-            IsPolicy(feeAsset) ? nFeeRet = 0 : nFeeRet = 1;
+            nFeeRet = 1;
             // Start with tiny non-zero or zero fee for issuance entropy and loop until there is enough fee
             while (true)
             {
@@ -3048,7 +3048,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 }
 
                 // Add fee output
-                if (nFeeRet >= 0) {
+                if (nFeeRet > 0) {
                     CTxOut fee(feeAsset, nFeeRet, CScript());
                     assert(fee.IsFee());
                     txNew.vout.push_back(fee);
