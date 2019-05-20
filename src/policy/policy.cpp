@@ -108,15 +108,6 @@ bool IsStandardTx(const CTransaction& tx, std::string& reason)
     return true;
 }
 
-bool IsSpendCoinbase(CTransaction const &tx, CCoinsViewCache const &mapInputs) {
-  //loop over all inputs - if any is a coinbase, then return true
-  for (uint32_t itr = 0; itr < tx.vin.size(); ++itr) {
-    const CCoins* coins = mapInputs.AccessCoins(tx.vin[itr].prevout.hash);
-    if(coins->IsCoinBase()) return true;
-  }
-  return false;
-}
-
 bool IsAllBurn(const CTransaction &tx) {
   txnouttype whichType;
   vector<vector<uint8_t>> vSolutions;
