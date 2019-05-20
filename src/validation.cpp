@@ -2735,7 +2735,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
 
         if (fRequestList) {
-            if(tx.vout[0].nAsset.GetAsset() == permissionAsset) UpdateRequestList(tx,view);
+            if(tx.vout[0].nAsset.GetAsset() == permissionAsset) UpdateRequestList(tx,chainActive.Height());
+            else UpdateRequestBidList(tx,chainActive.Height());
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:

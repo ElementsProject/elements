@@ -9,6 +9,7 @@
 #include "consensus/consensus.h"
 #include "script/interpreter.h"
 #include "script/standard.h"
+#include "request.h"
 
 #include <string>
 #include <vector>
@@ -92,99 +93,114 @@ static const unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS = LOCKTIME_VERIFY_SEQUE
                                                            LOCKTIME_MEDIAN_TIME_PAST;
 
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
-    /**
-     * Check for standard transaction types
-     * @return True if all outputs (scriptPubKeys) use only standard transaction forms
-     */
+/**
+ * Check for standard transaction types
+ * @return True if all outputs (scriptPubKeys) use only standard transaction forms
+ */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
     /**
      * Check if all transactions outputs are OP_RETURN
      */
 bool IsAllBurn(const CTransaction& tx);
-    /**
-     * Check if any transaction outputs are null with non-zero amounts
-     */
+/**
+ * Check if any transaction outputs are null with non-zero amounts
+ */
 bool IsAnyBurn(const CTransaction& tx);
-    /**
-     * Check if an asset is of a policy asset type
-     */
+/**
+ * Check if an asset is of a policy asset type
+ */
 bool IsPolicy(const CAsset& asset);
 
-    /**
-     * Check if a transaction has outputs that are all of whitelistAsset type
-     */
+/**
+ * Check if a transaction has outputs that are all of whitelistAsset type
+ */
 bool IsWhitelistAssetOnly(CTransaction const &tx);
 
-    /**
-     * Check if a transaction has outputs what are of a policy asset type
-     */
+/**
+ * Check if a transaction has outputs what are of a policy asset type
+ */
 bool IsPolicy(const CTransaction& tx);
 
-    /**
-     * Check if all outputs of a transaction are of a policy asset type
-     */
+/**
+ * Check if all outputs of a transaction are of a policy asset type
+ */
 bool IsAllPolicy(const CTransaction& tx);
 
-    /**
-     * Check all type and whitelist status of outputs of tx
-     * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database
-     */
+/**
+ * Check all type and whitelist status of outputs of tx
+ * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database
+ */
 bool IsWhitelisted(const CTransaction& tx);
-    /**
-     * Function to determine if transaction is a redemption transaction (i.e. has a null address output)
-     */
+/**
+ * Function to determine if transaction is a redemption transaction (i.e. has a null address output)
+ */
 bool IsRedemption(CTransaction const &tx);
-    /**
-     * Function to determine if all P2PKH outputs of a transaction are on the freezelist
-     */
+/**
+ * Function to determine if all P2PKH outputs of a transaction are on the freezelist
+ */
 bool IsRedemptionListed(CTransaction const &tx);
-    /**
-     * Burn transactions can only be one-input-one-output
-     * The input address must be on the burnlist
-     */
+/**
+ * Burn transactions can only be one-input-one-output
+ * The input address must be on the burnlist
+ */
 bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-    /**
-    * Check all inputs and determine if public keys are on the freezelist
-    * Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are present in the freezelist
-    */
+/**
+* Check all inputs and determine if public keys are on the freezelist
+* Return true if all inputs of tx are type TX_PUBKEYHASH and all PUBKEYs are present in the freezelist
+*/
 bool IsFreezelisted(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-    /**
-    * Update the freezelist with the input tx encoding
-    * if the tx has an encoded address in its outputs, these are added to the freezelist
-    * if the tx has encoded addresses in its inputs, these are removed from the freezelist
-    */
+/**
+* Update the freezelist with the input tx encoding
+* if the tx has an encoded address in its outputs, these are added to the freezelist
+* if the tx has encoded addresses in its inputs, these are removed from the freezelist
+*/
 bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-    /**
-    * Update the burnlist with the input tx encoding
-    * if the tx has an encoded address in its outputs, these are added to the burnlist
-    * if the tx has encoded addresses in its inputs, these are removed from the burnlist
-    */
+/**
+* Update the burnlist with the input tx encoding
+* if the tx has an encoded address in its outputs, these are added to the burnlist
+* if the tx has encoded addresses in its inputs, these are removed from the burnlist
+*/
 bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 
-/** Update the request list with the input transaction */
-bool UpdateRequestList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+/** Check if Request is valid */
+bool IsValidRequest(const CRequest &request, uint32_t nHeight);
 
-    //function to scan the UTXO set for freezelist addresses
+/** Check if Request Bid is valid */
+bool IsValidRequestBid(const CRequest &request, const CBid &bid);
+
+/** Get Request from a transaction */
+bool GetRequest(const CTxOut &out, uint256 hash, uint32_t nConfirmedHeight, CRequest &request);
+
+/** Get Request Bid from a transaction */
+bool GetRequestBid(const vector<CTxOut> &outs, uint256 hash, uint32_t nConfirmedHeight, CBid &bid);
+
+/** Update the request list with the input transaction */
+bool UpdateRequestList(const CTransaction& tx, uint32_t nHeight);
+
+/** Update the request bid list with the input transaction */
+bool UpdateRequestBidList(const CTransaction& tx, uint32_t nHeight);
+
+//function to scan the UTXO set for freezelist addresses
 bool LoadFreezeList(CCoinsView *view);
 
-    //function to scane the UTXO set for burnlist addresses
+//function to scane the UTXO set for burnlist addresses
 bool LoadBurnList(CCoinsView *view);
 
-    //function to add new issuance data (token and entropy) to the asset map
+//function to add new issuance data (token and entropy) to the asset map
 bool UpdateAssetMap(const CTransaction& tx);
 
-    //function to track the history of frozen outputs
+//function to track the history of frozen outputs
 void UpdateFreezeHistory(const CTransaction& tx, uint32_t bheight);
 
 bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-    /**
-     * Check if the transaction is over standard P2WSH resources limit:
-     * 3600bytes witnessScript size, 80bytes per witness stack element, 100 witness stack ocean
-     * These limits are adequate for multi-signature up to n-of-100 using OP_CHECKSIG, OP_ADD, and OP_EQUAL,
-     */
+/**
+ * Check if the transaction is over standard P2WSH resources limit:
+ * 3600bytes witnessScript size, 80bytes per witness stack element, 100 witness stack ocean
+ * These limits are adequate for multi-signature up to n-of-100 using OP_CHECKSIG, OP_ADD, and OP_EQUAL,
+ */
 bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
 void AddToWhitelist(const std::vector<std::string> address_key);

@@ -7,7 +7,7 @@
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
-#include "ecies.h"
+#include "ecies_hex.h"
 #include "policy/policy.h"
 
 CWhiteList::CWhiteList(){
@@ -287,7 +287,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   bool bSuccess=false;
 
   //Decrypt
-  CECIES decryptor;
+  CECIES_hex decryptor;
   std::vector<unsigned char> data;
   data.resize(encryptedData.size());
   if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, *decryptPubKey)){

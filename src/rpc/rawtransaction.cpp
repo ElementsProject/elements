@@ -456,17 +456,6 @@ UniValue verifytxoutproof(const JSONRPCRequest& request)
 #define ERROR_TICKETS_VALUE "Invalid parameter, tickets must be positive"
 #define ERROR_VOUT "Invalid parameter, missing vout key"
 #define ERROR_VOUT_VALUE "Invalid parameter, vout must be positive"
-// @brief Key for Dictionary.
-#define KEY_PUBKEY "pubkey"
-#define KEY_DECAY_CONST "decayConst"
-#define KEY_END_BLOCK_HEIGHT "endBlockHeight"
-#define KEY_FEE "fee"
-#define KEY_GENESIS "genesisBlockHash"
-#define KEY_START_BLOCK_HEIGHT "startBlockHeight"
-#define KEY_TICKETS "tickets"
-#define KEY_TXID "txid"
-#define KEY_VOUT "vout"
-#define KEY_VALUE "value"
 // @brief Set in MACRO to simplify readability.
 #define VALUE_OBJ UniValue::VOBJ
 // @fn createrawrequesttx_runtime_error
@@ -484,12 +473,13 @@ Arguments:
 
 2. "outputs"                (object, required) a json object with outputs.
 {
-  "address": xxxx,          (string, required)
+  "pubkey": xxxx,           (string, required)
   "decayConst": n,          (numeric, required)
   "endBlockHeight": n,      (numeric, required)
   "fee": n,                 (numeric, required)
   "genesisBlockHash": xxxx, (string, required)
   "startBlockHeight": n,    (numeric, required)
+  "startPrice": n,          (numeric, required)
   "tickets": n,             (numeric, required)
   "value": n.               (numeric, required)
 }
@@ -505,8 +495,8 @@ Examples:
 static inline void createrawrequesttx_input(CMutableTransaction &rawTx,
                                             UniValue const &input) {
     uint32_t nOutput;
-    uint256 txid = ParseHashO(input, KEY_TXID);
-    UniValue const& vout = find_value(input, KEY_VOUT);
+    uint256 txid = ParseHashO(input, "txid");
+    UniValue const& vout = find_value(input, "vout");
     if (!vout.isNum())
         throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_VOUT);
     if ((nOutput = vout.get_int()) < 0)
@@ -520,7 +510,7 @@ static inline void createrawrequesttx_output(CMutableTransaction& rawTx,
                                             UniValue const& output)
 {
     // get target public key first
-    const UniValue& pkey = output[KEY_PUBKEY];
+    const UniValue& pkey = output["pubkey"];
     if (!IsHex(pkey.getValStr()))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey must be a hex string");
     std::vector<unsigned char> datapubkey(ParseHex(pkey.getValStr()));
@@ -530,16 +520,17 @@ static inline void createrawrequesttx_output(CMutableTransaction& rawTx,
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey is not a valid public key");
 
     // get genesis for request
-    uint256 genesisBlockHash = ParseHashO(output, KEY_GENESIS);
+    uint256 genesisBlockHash = ParseHashO(output, "genesisBlockHash");
     CDataStream datapubkey2(SER_NETWORK, PROTOCOL_VERSION);
     datapubkey2 << (char)2; // pubkey prefix
     datapubkey2 << genesisBlockHash;
 
     // get the rest request info
-    UniValue const& decayConst = output[KEY_DECAY_CONST];
-    UniValue const& fee = output[KEY_FEE];
-    UniValue const& startBlockHeight = output[KEY_START_BLOCK_HEIGHT];
-    UniValue const& ticket = output[KEY_TICKETS];
+    UniValue const& decayConst = output["decayConst"];
+    UniValue const& fee = output["fee"];
+    UniValue const& startBlockHeight = output["startBlockHeight"];
+    UniValue const& ticket = output["tickets"];
+    UniValue const& startPrice = output["startPrice"];
     if (!decayConst.isNum())
         throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_DECAY_CONST);
     if (!fee.isNum())
@@ -561,10 +552,11 @@ static inline void createrawrequesttx_output(CMutableTransaction& rawTx,
     datapubkey3 << ticket.get_int();
     datapubkey3 << decayConst.get_int();
     datapubkey3 << fee.get_int();
+    datapubkey3 << AmountFromValue(startPrice);
     datapubkey3.resize(33);
 
     // get lock time block height
-    UniValue const& endBlockHeight = find_value(output, KEY_END_BLOCK_HEIGHT);
+    UniValue const& endBlockHeight = find_value(output, "endBlockHeight");
     if (!endBlockHeight.isNum())
         throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_END_BLOCK_HEIGHT);
     if (endBlockHeight.get_int() < 0)
@@ -593,8 +585,139 @@ UniValue createrawrequesttx(JSONRPCRequest const &request) {
 
     CAsset asset = CAsset(permissionAsset);
     UniValue output = request.params[1].get_obj();
-    CAmount nAmount = AmountFromValue(find_value(output, KEY_VALUE));
+    CAmount nAmount = AmountFromValue(find_value(output, "value"));
     createrawrequesttx_output(rawTx, asset, nAmount, output);
+
+    return EncodeHexTx(rawTx);
+}
+
+// @fn createrawbidtx_runtime_error
+// @brief
+// @return string
+static string createrawbidtx_runtime_error(void) {
+  return R"(createrawbidtx
+Arguments:
+
+1. "inputs"                 (object, required) A json array of json objects.
+[
+  {
+    "txid": xxxx,             (string, required) The transaction id.
+    "vout": n,                (numeric, required) The output number.
+    "asset": "string"         (string, required) The asset of the input, as a tag string or a hex value"
+  },
+]
+
+2. "outputs"                (object, required) a json object with outputs.
+{
+  "pubkey": xxxx,           (string, required)  Target stake pubkey
+  "value": n,               (numeric, required) Staked value locked in target pubkey
+  "change": n,              (numeric, optional) Change value of transaction
+  "changeAddress": "string" (string, optional) Change address of transaction
+  "fee": n,                 (numeric, required) Fee value of transaction
+  "endBlockHeight": n,      (numeric, required) Service end height
+  "requestTxid": xxxx,      (string, required) Request txid for providing services
+  "feePubkey": xxxx,        (string, required) Pubkey to pay fees in the client service chain
+}
+
+Result:
+transaction                 (string) hex string of the transaction
+
+Examples:
+  ...
+)";
+}
+
+static inline void createrawbidtx_input(CMutableTransaction &rawTx,
+                                            UniValue const &inputs) {
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        const auto &inputObj = inputs[i].get_obj();
+        uint32_t nOutput;
+        uint256 txid = ParseHashO(inputObj, "txid");
+        UniValue const& vout = find_value(inputObj, "vout");
+        if (!vout.isNum())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+        if ((nOutput = vout.get_int()) < 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+        rawTx.vin.push_back(CTxIn(COutPoint(txid, nOutput), CScript(), UINT_MAX - 1));
+    }
+}
+
+static inline void createrawbidtx_output(CMutableTransaction& rawTx,
+                                            CAsset const& asset,
+                                            UniValue const& output)
+{
+    // get target public key first
+    const UniValue& pkey = output["pubkey"];
+    if (!IsHex(pkey.getValStr()))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey must be a hex string");
+    std::vector<unsigned char> datapubkey(ParseHex(pkey.getValStr()));
+    CPubKey targetPubKey(datapubkey.begin(), datapubkey.end());
+    if (!targetPubKey.IsFullyValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pubkey is not a valid public key");
+
+    // get request txid
+    uint256 requestTxid = ParseHashO(output, "requestTxid");
+    CDataStream datapubkey2(SER_NETWORK, PROTOCOL_VERSION);
+    datapubkey2 << (char)2; // pubkey prefix
+    datapubkey2 << requestTxid;
+
+    // get the fee pubkey
+    const UniValue& feePkey = output["feePubkey"];
+    if (!IsHex(feePkey.getValStr()))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Fee Pubkey must be a hex string");
+    std::vector<unsigned char> datapubkey3(ParseHex(feePkey.getValStr()));
+    CPubKey feePubKey(datapubkey3.begin(), datapubkey3.end());
+    if (!feePubKey.IsFullyValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Fee Pubkey is not a valid public key");
+
+    // get lock time block height
+    UniValue const& endBlockHeight = find_value(output, "endBlockHeight");
+    if (!endBlockHeight.isNum())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_END_BLOCK_HEIGHT);
+    if (endBlockHeight.get_int() < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_END_BLOCK_HEIGHT_VALUE);
+
+    CAmount amount = AmountFromValue(find_value(output, "value"));
+    rawTx.vout.push_back(
+        CTxOut(asset, amount,
+            CScript() << CScriptNum(endBlockHeight.get_int()) << OP_CHECKLOCKTIMEVERIFY << OP_DROP
+                      << CScript::EncodeOP_N(1)
+                      << ToByteVector(targetPubKey)
+                      << ToByteVector(datapubkey2)
+                      << ToByteVector(feePubKey)
+                      << CScript::EncodeOP_N(3) << OP_CHECKMULTISIG));
+};
+
+UniValue createrawbidtx(JSONRPCRequest const &request) {
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(createrawbidtx_runtime_error());
+
+    RPCTypeCheck(request.params, {UniValue::VARR, UniValue::VOBJ}, true);
+
+    UniValue inputs = request.params[0].get_array();
+    CMutableTransaction rawTx;
+    rawTx.nLockTime = chainActive.Height();
+    createrawbidtx_input(rawTx, inputs);
+
+    CAsset asset = CAsset(ParseHashO(inputs[0].get_obj(), "asset"));
+    UniValue output = request.params[1].get_obj();
+    createrawbidtx_output(rawTx, asset, output);
+
+    const UniValue &change = find_value(output, "change");
+    const UniValue &changeAddr = find_value(output, "changeAddress");
+    if (!change.isNull() && !changeAddr.isNull()) {
+        const auto &nChange = AmountFromValue(change);
+        CBitcoinAddress address(changeAddr.get_str());
+        if (!address.IsValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ")+changeAddr.get_str());
+        CScript scriptPubKey = GetScriptForDestination(address.Get());
+        CTxOut out(asset, nChange, scriptPubKey);
+        rawTx.vout.push_back(out);
+    }
+
+    CAmount nFee = AmountFromValue(find_value(output, "fee"));
+    CTxOut out(asset, nFee, CScript());
+    rawTx.vout.push_back(out);
 
     return EncodeHexTx(rawTx);
 }
@@ -1791,7 +1914,8 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "getrawtransaction",      &getrawtransaction,      true,  {"txid","verbose"} },
     { "rawtransactions",    "createrawtransaction",   &createrawtransaction,   true,  {"inputs","outputs","locktime","output_assets"} },
     { "rawtransactions",    "createrawpolicytx",      &createrawpolicytx,      true,  {"inputs","outputs","locktime","asset"} },
-    { "rawtransactions",    "createrawrequesttx",     &createrawrequesttx,     false,  {"txid","outputs"} },
+    { "rawtransactions",    "createrawrequesttx",     &createrawrequesttx,     true,  {"inputs","outputs"} },
+    { "rawtransactions",    "createrawbidtx",         &createrawbidtx,         true,  {"inputs","outputs"} },
     { "rawtransactions",    "decoderawtransaction",   &decoderawtransaction,   true,  {"hexstring"} },
     { "rawtransactions",    "decodescript",           &decodescript,           true,  {"hexstring"} },
     { "rawtransactions",    "sendrawtransaction",     &sendrawtransaction,     false, {"hexstring","allowhighfees"} },
