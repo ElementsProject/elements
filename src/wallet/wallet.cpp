@@ -3048,7 +3048,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 }
 
                 // Add fee output
-                if (nFeeRet > 0) {
+                if (nFeeRet >= 0) {
                     CTxOut fee(feeAsset, nFeeRet, CScript());
                     assert(fee.IsFee());
                     txNew.vout.push_back(fee);
