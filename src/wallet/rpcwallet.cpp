@@ -5741,6 +5741,10 @@ UniValue issueasset(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwallet->cs_wallet);
 
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Issuance can only be done on elements-style chains. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
+
     CAmount nAmount = AmountFromValue(request.params[0]);
     CAmount nTokens = AmountFromValue(request.params[1]);
     if (nAmount == 0 && nTokens == 0) {
@@ -5827,6 +5831,10 @@ UniValue reissueasset(const JSONRPCRequest& request)
         );
 
     LOCK2(cs_main, pwallet->cs_wallet);
+
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Issuance can only be done on elements-style chains. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
 
     std::string assetstr = request.params[0].get_str();
     CAsset asset = GetAssetFromString(assetstr);
