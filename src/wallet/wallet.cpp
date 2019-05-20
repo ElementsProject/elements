@@ -2854,7 +2854,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, coinControl);
 
-            nFeeRet = 1;
+	    nFeeRet = 1;
             // Start with tiny non-zero or zero fee for issuance entropy and loop until there is enough fee
             while (true)
             {
@@ -3288,7 +3288,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 }
 
                 CAmount nFeeNeeded;
-                if(!IsAllPolicy(txUnblindedAndUnsigned)){
+                if(!IsWhitelistAsset(feeAsset)){
                     nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
                     if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
                         nFeeNeeded = coinControl->nMinimumTotalFee;
@@ -3300,8 +3300,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     // because we must be at the maximum allowed fee, if this is not a policy Tx
                     if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
                     {
-                        strFailReason = _("Transaction too large for fee policy");
-                        return false;
+		      if(!IsAllPolicy(txUnblindedAndUnsigned)){
+			strFailReason = _("Transaction too large for fee policy");
+			return false;
+		      }
                     }
                 } else {
                     nFeeNeeded = 0;
