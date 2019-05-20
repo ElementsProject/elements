@@ -98,9 +98,9 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
  * @return True if all outputs (scriptPubKeys) use only standard transaction forms
  */
 bool IsStandardTx(const CTransaction& tx, std::string& reason);
-/**
- * Check if all transactions outputs are OP_RETURN
- */
+    /**
+     * Check if all transactions outputs are OP_RETURN
+     */
 bool IsAllBurn(const CTransaction& tx);
 /**
  * Check if any transaction outputs are null with non-zero amounts
