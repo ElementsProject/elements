@@ -192,6 +192,9 @@ bool IsPolicy(const CAsset& asset){
 bool IsWhitelisted(CTransaction const &tx) {
   CKeyID keyId;
   txnouttype whichType;
+
+  uint160 frzInt;
+  frzInt.SetHex("0x0000000000000000000000000000000000000000");
   for (CTxOut const &txout : tx.vout) {
     vector<vector<uint8_t>> vSolutions;
     if (!Solver(txout.scriptPubKey, whichType, vSolutions))
@@ -211,7 +214,7 @@ bool IsWhitelisted(CTransaction const &tx) {
     keyId = CKeyID(uint160(vSolutions[0]));
     // Search in whitelist for the presence of each output address.
     // If one is not found, return false.
-    if (!addressWhitelist.is_whitelisted(keyId))
+    if (!addressWhitelist.is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
       return false;
   }
   return true;
