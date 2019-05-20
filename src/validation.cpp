@@ -2650,7 +2650,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     // ELEMENTS: We also eject now-invalid peg-outs based on block transition if not config list set
     // If config is set, this means all peg-outs have been filtered for that list already and other
     // functionaries aren't matching your list. Operator should restart with no list or new matching list.
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, setPeginsSpent, (paklist && !g_paklist_config));
+    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, (paklist && !g_paklist_config));
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);
