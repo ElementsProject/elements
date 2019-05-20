@@ -134,11 +134,16 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
+        balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         self.nodes[0].onboarduser(kycfile)
+
         os.remove(kycfile)
 
         self.nodes[0].generate(101)
         self.sync_all()
+        balance_2=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
+        #Make sure the onboard transaction fee was zero
+        assert((balance_1-balance_2) == 0)
 
         node1addr=self.nodes[1].getnewaddress()
         iswl=self.nodes[0].querywhitelist(node1addr)
