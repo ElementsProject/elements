@@ -11,7 +11,7 @@ BITCOIND=${BITCOIND:-$BINDIR/elementsd}
 BITCOINCLI=${BITCOINCLI:-$BINDIR/elements-cli}
 BITCOINTX=${BITCOINTX:-$BINDIR/elements-tx}
 WALLET_TOOL=${WALLET_TOOL:-$BINDIR/elements-wallet}
-BITCOINQT=${BITCOINQT:-$BINDIR/qt/bitcoin-qt}
+BITCOINQT=${BITCOINQT:-$BINDIR/qt/elements-qt}
 
 [ ! -x $BITCOIND ] && echo "$BITCOIND not found or not executable." && exit 1
 

@@ -20,7 +20,7 @@ Elements Core RPC client version v0.17.0.1\-dirty
 .HP
 \-?
 .IP
-This help message
+Print this help message and exit
 .HP
 \fB\-conf=\fR<file>
 .IP
@@ -77,7 +77,9 @@ Wait for RPC server to start
 \fB\-rpcwallet=\fR<walletname>
 .IP
 Send RPC for non\-default wallet on RPC server (needs to exactly match
-corresponding \fB\-wallet\fR option passed to the daemon)
+corresponding \fB\-wallet\fR option passed to the daemon). This changes
+the RPC endpoint used, e.g.
+http://127.0.0.1:8332/wallet/<walletname>
 .HP
 \fB\-stdin\fR
 .IP
@@ -153,7 +155,8 @@ Elements Options:
 .HP
 \fB\-con_blocksubsidy\fR
 .IP
-Defines the amount of block subsidy to start with, at genesis block.
+Defines the amount of block subsidy to start with, at genesis block, in
+satoshis.
 .HP
 \fB\-con_connect_coinbase\fR
 .IP
