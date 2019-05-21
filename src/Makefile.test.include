@@ -146,11 +146,12 @@ endif
 if ENABLE_WALLET
 BITCOIN_TESTS += \
   wallet/test/db_tests.cpp \
-  wallet/test/psbt_wallet_tests.cpp \
   wallet/test/wallet_tests.cpp \
   wallet/test/wallet_crypto_tests.cpp \
   wallet/test/coinselector_tests.cpp \
   wallet/test/init_tests.cpp
+# ELEMENTS: disable PSBT test
+#  wallet/test/psbt_wallet_tests.cpp
 
 BITCOIN_TEST_SUITE += \
   wallet/test/wallet_test_fixture.cpp \
