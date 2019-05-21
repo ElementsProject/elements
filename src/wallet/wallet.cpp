@@ -2854,8 +2854,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, coinControl);
 
-            nFeeRet = 1;
-            // Start with tiny non-zero fee for issuance entropy and loop until there is enough fee
+	    nFeeRet = 1;
+            // Start with tiny non-zero or zero fee for issuance entropy and loop until there is enough fee
             while (true)
             {
                 nChangePosInOut = nChangePosRequest;
@@ -3287,21 +3287,26 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         break;
                 }
 
-                CAmount nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
-                if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
-                    nFeeNeeded = coinControl->nMinimumTotalFee;
-                }
-                if (coinControl && coinControl->fOverrideFeeRate)
-                    nFeeNeeded = coinControl->nFeeRate.GetFee(nBytes);
-
-                // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
-                // because we must be at the maximum allowed fee, if this is not a policy Tx
-                if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
-                {
-                    if(!IsAllPolicy(txUnblindedAndUnsigned)){
-                        strFailReason = _("Transaction too large for fee policy");
-                        return false;
+                CAmount nFeeNeeded;
+                if(!IsWhitelistAsset(feeAsset)){
+                    nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
+                    if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
+                        nFeeNeeded = coinControl->nMinimumTotalFee;
                     }
+                    if (coinControl && coinControl->fOverrideFeeRate)
+                        nFeeNeeded = coinControl->nFeeRate.GetFee(nBytes);
+
+                    // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
+                    // because we must be at the maximum allowed fee, if this is not a policy Tx
+                    if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
+                    {
+		      if(!IsAllPolicy(txUnblindedAndUnsigned)){
+			strFailReason = _("Transaction too large for fee policy");
+			return false;
+		      }
+                    }
+                } else {
+                    nFeeNeeded = 0;
                 }
 
                 if (nFeeRet >= nFeeNeeded) {

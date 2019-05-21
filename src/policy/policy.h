@@ -116,6 +116,8 @@ bool IsPolicy(const CAsset& asset);
  */
 bool IsWhitelistAssetOnly(CTransaction const &tx);
 
+bool IsWhitelistAsset(CAsset const &asset);
+
 /**
  * Check if a transaction has outputs what are of a policy asset type
  */

@@ -157,9 +157,13 @@ bool IsAllPolicy(CTransaction const &tx) {
 
 bool IsWhitelistAssetOnly(CTransaction const &tx){
   for (CTxOut const &txout : tx.vout)
-        if (txout.nAsset.GetAsset() != whitelistAsset)
+        if (!IsWhitelistAsset(txout.nAsset.GetAsset()))
             return false;
   return true;
+}
+
+bool IsWhitelistAsset(CAsset const &asset){
+  return (asset == whitelistAsset);
 }
 
 bool IsPolicy(const CAsset& asset){
