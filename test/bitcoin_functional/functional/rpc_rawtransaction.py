@@ -74,7 +74,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "createrawtransaction", self.nodes[0].createrawtransaction, [])
 
         # Test `createrawtransaction` invalid extra parameters
-        assert_raises_rpc_error(-1, "createrawtransaction", self.nodes[0].createrawtransaction, [], {}, 0, False, 'foo')
+        # ELEMENTS:
+        #assert_raises_rpc_error(-1, "createrawtransaction", self.nodes[0].createrawtransaction, [], {}, 0, False, 'foo')
 
         # Test `createrawtransaction` invalid `inputs`
         txid = '1d1d4e24ed99057e84c3f80fd8fbec79ed9e1acee37da269356ecea000000000'

@@ -3132,7 +3132,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
             }
 
             if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID hash(GetScriptForDestination(address));
+                const CScriptID& hash = CScriptID(boost::get<ScriptHash>(address));
                 CScript redeemScript;
                 if (pwallet->GetCScript(hash, redeemScript)) {
                     entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));

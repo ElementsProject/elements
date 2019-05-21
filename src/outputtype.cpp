@@ -113,7 +113,7 @@ CTxDestination AddAndGetDestinationForScript(CKeyStore& keystore, const CScript&
         if (type == OutputType::BECH32) {
             return witdest;
         } else {
-            return ScriptHash(CScriptID(witprog));
+            return ScriptHash(witprog);
         }
     }
     default: assert(false);

@@ -23,12 +23,14 @@ class FilelockTest(BitcoinTestFramework):
         self.log.info("Using datadir {}".format(datadir))
 
         self.log.info("Check that we can't start a second bitcoind instance using the same datadir")
-        expected_msg = "Error: Cannot obtain a lock on data directory {}. Bitcoin Core is probably already running.".format(datadir)
+        # ELEMENTS: s/Bitcoin/Elements/
+        expected_msg = "Error: Cannot obtain a lock on data directory {}. Elements Core is probably already running.".format(datadir)
         self.nodes[1].assert_start_raises_init_error(extra_args=['-datadir={}'.format(self.nodes[0].datadir), '-noserver'], expected_msg=expected_msg)
 
         if self.is_wallet_compiled():
             wallet_dir = os.path.join(datadir, 'wallets')
-            self.log.info("Check that we can't start a second bitcoind instance using the same wallet")
+            # ELEMENTS: s/bitcoind/daemon/
+            self.log.info("Check that we can't start a second daemon instance using the same wallet")
             expected_msg = "Error: Error initializing wallet database environment"
             self.nodes[1].assert_start_raises_init_error(extra_args=['-walletdir={}'.format(wallet_dir), '-noserver'], expected_msg=expected_msg, match=ErrorMatch.PARTIAL_REGEX)
 

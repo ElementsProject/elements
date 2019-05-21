@@ -121,8 +121,8 @@ BASE_SCRIPTS = [
     'wallet_createwallet.py --usecli',
     'interface_http.py',
     'interface_rpc.py',
-    'rpc_psbt.py',
     # ELEMENTS:
+    #'rpc_psbt.py',
     #'rpc_users.py',
     'feature_proxy.py',
     'rpc_signrawtransaction.py',
