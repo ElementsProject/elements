@@ -84,7 +84,7 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
                 high_fee_tx = x
 
         # Something high-fee should have been mined!
-        assert(high_fee_tx != None)
+        assert(high_fee_tx is not None)
 
         # Add a prioritisation before a tx is in the mempool (de-prioritising a
         # high-fee transaction so that it's now low fee).
@@ -142,10 +142,10 @@ class PrioritiseTransactionTest(BitcoinTestFramework):
         # getblocktemplate to (eventually) return a new block.
         mock_time = int(time.time())
         self.nodes[0].setmocktime(mock_time)
-        template = self.nodes[0].getblocktemplate()
+        template = self.nodes[0].getblocktemplate({'rules': ['segwit']})
         self.nodes[0].prioritisetransaction(txid=tx_id, fee_delta=-int(self.relayfee*COIN))
         self.nodes[0].setmocktime(mock_time+10)
-        new_template = self.nodes[0].getblocktemplate()
+        new_template = self.nodes[0].getblocktemplate({'rules': ['segwit']})
 
         assert(template != new_template)
 
