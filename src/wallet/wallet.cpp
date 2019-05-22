@@ -1459,20 +1459,6 @@ CAmountMap CWallet::GetCredit(const CWalletTx& wtx, const isminefilter& filter) 
     return nCredit;
 }
 
-CAmountMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
-{
-    assert(false && "CWallet::GetCredit(const CTransaction&, const isminefilter&): this method should not be used anymore");
-
-    CAmountMap nCredit;
-    for (const CTxOut& txout : tx.vout)
-    {
-        nCredit += GetCredit(txout, filter);
-        if (!MoneyRange(nCredit))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
-    }
-    return nCredit;
-}
-
 CAmountMap CWallet::GetChange(const CWalletTx& wtx) const {
     CAmountMap nChange;
     for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
