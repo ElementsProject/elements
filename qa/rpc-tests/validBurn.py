@@ -56,12 +56,15 @@ def test_validBurn_1(node):
   burntx = node.createrawburn(sendtx, str(n), issue["asset"], '10')
   signtx = node.signrawtransaction(burntx["hex"])
 
-  txid = node.testmempoolaccept(signtx["hex"])
-  print(txid)
 
-  if txid["allowed"] == 0:
+  try:
+    newtx_send = node.sendrawtransaction(signtx["hex"])
+  except JSONRPCException as e:
+    assert("freezelist-burn-no-burnlist" in e.error['message'])
     return True
+
   return False
+
 #===============================================================================
 # Test 2 :
 #===============================================================================
@@ -77,7 +80,7 @@ def test_validBurn_2(node):
   # Create Address
   #=============================================================================
   addr0 = "2dZRkPX3hrPtuBrmMkbGtxTxsuYYgAaFrXZ" # Addr Null
-  addr1 = "2dwjJKzmgQqZFcHuA4xpmHXpSMUUUUx3Uvp"
+  addr1 = node.getnewaddress()
   #=============================================================================
   # Add address to FreezeList
   #=============================================================================
@@ -118,11 +121,13 @@ def test_validBurn_2(node):
   burntx = node.createrawburn(sendtx, str(n), issue["asset"], '10')
   signtx = node.signrawtransaction(burntx["hex"])
 
-  txid = node.testmempoolaccept(signtx["hex"])
-  print(txid)
-
-  if txid["allowed"] == 0:
+  try:
+    newtx_send = node.sendrawtransaction(signtx["hex"])
+  except JSONRPCException as e:
+    print(e)
+    assert("freezelist-burn-no-burnlist" in e.error['message'])
     return False
+
   return True
 
 #===============================================================================
@@ -139,6 +144,14 @@ def test_validBurn_3(node):
 
   burntx = node.createrawburn(issue["txid"], str(n), issue["asset"], '10')
   signtx = node.signrawtransaction(burntx["hex"])
+
+  try:
+    newtx_send = node.sendrawtransaction(signtx["hex"])
+  except JSONRPCException as e:
+    assert("burn-tx-not-burnlisted" in e.error['message'])
+    return True
+
+  return False
 
   txid = node.testmempoolaccept(signtx["hex"])
 
