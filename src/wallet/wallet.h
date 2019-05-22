@@ -1076,7 +1076,6 @@ public:
     CAmountMap GetDebit(const CTransaction& tx, const isminefilter& filter) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
-    CAmountMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmountMap GetChange(const CTransaction& tx) const;
 
     // ELEMENTS:
