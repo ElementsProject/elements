@@ -2371,6 +2371,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
                 unspent.pushKV("txid", outpoint.hash.GetHex());
                 unspent.pushKV("vout", (int32_t)outpoint.n);
                 unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
+                unspent.pushKV("desc", descriptors[txo.scriptPubKey]);
                 if (txo.nValue.IsExplicit()) {
                     unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
                 } else {

@@ -23,7 +23,7 @@ def b2x(b):
 def assert_template(node, block, expect, rehash=True):
     if rehash:
         block.hashMerkleRoot = block.calc_merkle_root()
-    rsp = node.getblocktemplate({'data': b2x(block.serialize()), 'mode': 'proposal'})
+    rsp = node.getblocktemplate({'data': b2x(block.serialize()), 'mode': 'proposal', 'rules': 'segwit'})
     assert_equal(rsp, expect)
 
 class MandatoryCoinbaseTest(BitcoinTestFramework):
@@ -51,7 +51,7 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
 
         # Have non-mandatory node make a template
         self.sync_all()
-        tmpl = node1.getblocktemplate()
+        tmpl = node1.getblocktemplate({'rules': ['segwit']})
 
         # We make a block with OP_TRUE coinbase output that will fail on node0
         coinbase_tx = create_coinbase(height=int(tmpl["height"]))
@@ -86,7 +86,7 @@ class MandatoryCoinbaseTest(BitcoinTestFramework):
         #
         # Also test that coinbases can't have fees.
         self.sync_all()
-        tmpl = node1.getblocktemplate()
+        tmpl = node1.getblocktemplate({'rules': ['segwit']})
         coinbase_tx = create_coinbase(height=int(tmpl["height"]))
         # sequence numbers must not be max for nLockTime to have effect
         coinbase_tx.vin[0].nSequence = 2 ** 32 - 2

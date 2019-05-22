@@ -99,7 +99,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         coin = coins.pop()  # Pick a random coin(base) to spend
         raw_tx_final = node.signrawtransactionwithwallet(node.createrawtransaction(
             inputs=[{'txid': coin['txid'], 'vout': coin['vout'], "sequence": 0xffffffff}],  # SEQUENCE_FINAL
-            outputs=[{node.getnewaddress(): 0.025}],
+            outputs=[{node.getnewaddress(): 0.025}, {"fee": coin["amount"]-Decimal("0.025")}],
             locktime=node.getblockcount() + 2000,  # Can be anything
         ))['hex']
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_final)))

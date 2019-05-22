@@ -47,7 +47,7 @@ class BadTxTemplate:
 
     def __init__(self, *, spend_tx=None, spend_block=None):
         self.spend_tx = spend_block.vtx[0] if spend_block else spend_tx
-        self.spend_avail = sum(o.nValue for o in self.spend_tx.vout)
+        self.spend_avail = sum(o.nValue.getAmount() for o in self.spend_tx.vout)
         self.valid_txin = CTxIn(COutPoint(self.spend_tx.sha256, 0), b"", 0xffffffff)
 
     @abc.abstractmethod
@@ -78,17 +78,19 @@ class InputMissing(BadTxTemplate):
         return tx
 
 
-class SizeTooSmall(BadTxTemplate):
-    reject_reason = "tx-size-small"
-    expect_disconnect = False
-    valid_in_block = True
-
-    def get_tx(self):
-        tx = CTransaction()
-        tx.vin.append(self.valid_txin)
-        tx.vout.append(CTxOut(0, sc.CScript([sc.OP_TRUE])))
-        tx.calc_sha256()
-        return tx
+# ELEMENTS: disabled because we don't want to increase the minimal tx size and 
+# the value and asset size crosses the minimum value
+#class SizeTooSmall(BadTxTemplate):
+#    reject_reason = "tx-size-small"
+#    expect_disconnect = False
+#    valid_in_block = True
+#
+#    def get_tx(self):
+#        tx = CTransaction()
+#        tx.vin.append(self.valid_txin)
+#        tx.vout.append(CTxOut(0, sc.CScript([sc.OP_TRUE])))
+#        tx.calc_sha256()
+#        return tx
 
 
 class BadInputOutpointIndex(BadTxTemplate):
@@ -135,7 +137,8 @@ class NonexistentInput(BadTxTemplate):
 
 
 class SpendTooMuch(BadTxTemplate):
-    reject_reason = 'bad-txns-in-belowout'
+    reject_reason = 'bad-txns-in-ne-out'
+    block_reject_reason = 'block-validation-failed'
     expect_disconnect = True
 
     def get_tx(self):
@@ -159,7 +162,7 @@ class InvalidOPIFConstruction(BadTxTemplate):
     def get_tx(self):
         return create_tx_with_script(
             self.spend_tx, 0, script_sig=b'\x64' * 35,
-            amount=(self.spend_avail // 2))
+            amount=self.spend_avail)
 
 
 class TooManySigops(BadTxTemplate):
@@ -172,7 +175,7 @@ class TooManySigops(BadTxTemplate):
         return create_tx_with_script(
             self.spend_tx, 0,
             script_pub_key=lotsa_checksigs,
-            amount=1)
+            amount=self.spend_avail)
 
 
 def iter_all_templates():

@@ -318,7 +318,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             numnode = len(self.nodes)
             self.nodes.append(TestNode(
                 numnode,
-                get_datadir_path(self.options.tmpdir, i),
+                get_datadir_path(self.options.tmpdir, numnode),
                 chain[i],
                 rpchost=rpchost,
                 timewait=self.rpc_timeout,

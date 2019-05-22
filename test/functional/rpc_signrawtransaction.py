@@ -171,6 +171,9 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert_equal(spending_tx_signed['complete'], True)
 
     def run_test(self):
+        self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
+        self.nodes[0].importprivkey("cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ")
+
         self.successful_signing_test()
         self.script_verification_error_test()
         self.witness_script_test()

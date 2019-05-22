@@ -91,8 +91,6 @@ class RESTTest (BitcoinTestFramework):
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
         self.sync_all()
 
-        assert_equal(self.nodes[1].getbalance()['bitcoin'], Decimal("0.1"))
-
         self.log.info("Test the /tx URI")
 
         json_obj = self.test_rest_request("/tx/{}".format(txid))
@@ -114,7 +112,7 @@ class RESTTest (BitcoinTestFramework):
         self.sync_all()
         bb_hash = self.nodes[0].getbestblockhash()
 
-        assert_equal(self.nodes[1].getbalance(), Decimal("0.1"))
+        assert_equal(self.nodes[1].getbalance()['bitcoin'], Decimal("0.1"))
 
         # Check chainTip response
         json_obj = self.test_rest_request("/getutxos/{}-{}".format(*spending))

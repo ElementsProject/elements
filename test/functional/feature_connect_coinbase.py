@@ -57,7 +57,7 @@ class ConnectGenesisTest(BitcoinTestFramework):
 
         # Issuance transaction is an OP_TRUE, so will be available to second node
         assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, issuance_tx)
-        self.nodes[1].getrawtransaction(issuance_tx)
+        self.nodes[1].getrawtransaction(issuance_tx, False, self.nodes[0].getblockhash(0))
 
 if __name__ == '__main__':
     ConnectGenesisTest().main()

@@ -888,11 +888,6 @@ void InitParameterInteraction()
     for (const auto& arg : gArgs.GetUnsuitableSectionOnlyArgs()) {
         InitWarning(strprintf(_("Config setting for %s only applied on %s network when in [%s] section."), arg, network, network));
     }
-
-    // Warn if unrecognized section name are present in the config file.
-    for (const auto& section : gArgs.GetUnrecognizedSections()) {
-        InitWarning(strprintf(_("Section [%s] is not recognized."), section));
-    }
 }
 
 static std::string ResolveErrMsg(const char * const optname, const std::string& strBind)

@@ -716,7 +716,6 @@ class CTransaction:
             self.wit = CTxWitness()
         if flags > 1:
             raise TypeError('Extra witness flags:' + str(flags))
-        self.nLockTime = struct.unpack("<I", f.read(4))[0]
         self.sha256 = None
         self.hash = None
 
@@ -907,7 +906,7 @@ class CBlockHeader:
                time.ctime(self.nTime), self.block_height)
 
 BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
-assert_equal(BLOCK_HEADER_SIZE, 80)
+assert_equal(BLOCK_HEADER_SIZE, 79)
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)

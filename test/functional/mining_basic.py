@@ -52,7 +52,7 @@ class MiningTest(BitcoinTestFramework):
         mining_info = self.nodes[0].getmininginfo()
         assert_equal(mining_info['blocks'], 200)
         assert_equal(mining_info['currentblocktx'], 0)
-        assert_equal(mining_info['currentblockweight'], 4000)
+        assert_equal(mining_info['currentblockweight'], 4300)
         self.restart_node(0)
         connect_nodes_bi(self.nodes, 0, 1)
 
@@ -70,11 +70,8 @@ class MiningTest(BitcoinTestFramework):
         mining_info = node.getmininginfo()
         assert_equal(mining_info['blocks'], 200)
         assert_equal(mining_info['chain'], self.chain)
-        //TODO(stevenroose) this changed, should it be 0 or not included?
-        assert_equal(mining_info['currentblocktx'], 0)
-        assert_equal(mining_info['currentblockweight'], 0)
-        #assert 'currentblocktx' not in mining_info
-        #assert 'currentblockweight' not in mining_info
+        assert 'currentblocktx' not in mining_info
+        assert 'currentblockweight' not in mining_info
         assert_equal(mining_info['pooledtx'], 0)
 
         # Mine a block to leave initial block download
