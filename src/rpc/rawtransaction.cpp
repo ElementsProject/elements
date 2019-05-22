@@ -25,6 +25,8 @@
 #include "uint256.h"
 #include "utilstrencodings.h"
 #include "util.h"
+#include "global/common.h"
+#include "assetsdir.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
@@ -167,6 +169,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             } else if (issuance.nInflationKeys.IsCommitment()) {
                 issue.push_back(Pair("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment)));
             }
+            const std::string policyLabel = gAssetsDir.GetLabel(asset);
+            if (policyLabel != "") 
+            {
+                issue.push_back(Pair("assetlabel", policyLabel));
+            }
             in.push_back(Pair("issuance", issue));
         }
         in.push_back(Pair("sequence", (int64_t)txin.nSequence));
@@ -202,6 +209,11 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
             out.push_back(Pair("asset", asset.GetAsset().GetHex()));
         } else if (asset.IsCommitment()) {
             out.push_back(Pair("assetcommitment", HexStr(asset.vchCommitment)));
+        }
+        const std::string policyLabel = gAssetsDir.GetLabel(asset.GetAsset());
+        if (policyLabel != "") 
+        {
+            out.push_back(Pair("assetlabel", policyLabel));
         }
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
