@@ -94,7 +94,8 @@ class PolicyTransactionTest (BitcoinTestFramework):
         outp = {}
         outp[fundaddr] = 4999.999
         outp["fee"] = 0.001
-        fundtx = self.nodes[0].createrawtransaction(inputs,outp)
+        assets = {addr: paasset}
+        fundtx = self.nodes[0].createrawtransaction(inputs,outp,0,assets)
         fundtx_signed = self.nodes[0].signrawtransaction(fundtx)
         assert(fundtx_signed["complete"])
         fundtx_send = self.nodes[0].sendrawtransaction(fundtx_signed["hex"])
