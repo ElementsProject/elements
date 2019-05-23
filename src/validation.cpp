@@ -1193,11 +1193,11 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
     if(fEnableBurnlistCheck && !IsPolicy(tx) && IsAnyBurn(tx) && !test_accept)
         if(!IsBurnlisted(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "burn-tx-not-burnlisted");
-    // Accept only transactions that are asset issuances if they have a policyAsset input.
+    // Accept only transactions that are asset issuances if they have a issuanceAsset input.
     if (fblockissuancetx) {
       CAssetIssuance const &issuance = tx.vin[0].assetIssuance;
       if (!issuance.IsNull() && !issuance.IsReissuance()) {
-        CAsset pAsset(policyAsset);
+        CAsset pAsset(issuanceAsset);
         CTxOut const &prev = view.GetOutputFor(tx.vin[0]);
         CAsset asset;
         asset = prev.nAsset.GetAsset();

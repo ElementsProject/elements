@@ -534,6 +534,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-whitelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the whitelist. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-challengecoinsdestination", strprintf(_("The destination of the tokens for issuing guardnode challenges. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-permissioncoinsdestination", strprintf(_("The destination of the tokens for permitting request creation. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-issuancecoinsdestination", strprintf(_("The destination of the issued tokens. (default: %d)"), 0));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
@@ -1055,6 +1056,9 @@ bool AppInitParameterInteraction()
     }
     if (GetArg("-permissioncoinsdestination", "").size() > 0) {
         permissionAsset = CAsset(uint256S(chainparams.GetConsensus().permission_asset.GetHex()));
+    }
+    if (GetArg("-issuancecoinsdestination", "").size() > 0) {
+        issuanceAsset = CAsset(uint256S(chainparams.GetConsensus().issuance_asset.GetHex()));
     }
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:

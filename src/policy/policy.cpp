@@ -18,6 +18,7 @@ CAsset burnlistAsset;
 CAsset whitelistAsset;
 CAsset challengeAsset;
 CAsset permissionAsset;
+CAsset issuanceAsset;
 
 /**
      * Check transaction inputs to mitigate two
@@ -167,12 +168,12 @@ bool IsWhitelistAsset(CAsset const &asset){
 }
 
 bool IsPolicy(const CAsset& asset){
-    if (asset == policyAsset ||
-        asset == freezelistAsset ||
+    if (asset == freezelistAsset ||
         asset == burnlistAsset ||
         asset == whitelistAsset ||
         asset == challengeAsset ||
-        asset == permissionAsset)
+        asset == permissionAsset ||
+        asset == issuanceAsset)
         return true;
     return false;
 }

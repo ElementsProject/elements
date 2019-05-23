@@ -4168,7 +4168,7 @@ UniValue createrawissuance(const JSONRPCRequest& request)
   CalculateReissuanceToken(token, entropy, fBlindIssuances);
 
   //generate the outputs
-  CAsset pAsset(policyAsset);
+  CAsset pAsset(issuanceAsset);
   CTxOut txoutAsset(asset,nAmount,GetScriptForDestination(assetAddr.Get()));
   rawTx.vout.push_back(txoutAsset);
   CTxOut txoutToken(token,nTokens,GetScriptForDestination(tokenAddr.Get()));

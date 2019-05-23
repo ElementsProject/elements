@@ -65,6 +65,9 @@ void CAssetsDir::InitFromStrings(const std::vector<std::string>& assetsToInit)
     if (Params().GetConsensus().permission_asset != CAsset()) {
         Set(Params().GetConsensus().permission_asset, AssetMetadata("PERMISSION"));
     }
+    if (Params().GetConsensus().issuance_asset != CAsset()) {
+        Set(Params().GetConsensus().issuance_asset, AssetMetadata("ISSUANCE"));
+    }
 }
 
 CAsset CAssetsDir::GetAsset(const std::string& label) const

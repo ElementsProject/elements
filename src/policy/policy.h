@@ -31,6 +31,8 @@ extern CAsset whitelistAsset;
 extern CAsset challengeAsset;
 /** the asset for request permissions **/
 extern CAsset permissionAsset;
+/** the asset for issuance policy **/
+extern CAsset issuanceAsset;
 
 /** Default for -blockmaxsize, which controls the maximum size of block the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 1000000;
