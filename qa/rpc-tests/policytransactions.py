@@ -60,7 +60,7 @@ class PolicyTransactionTest (BitcoinTestFramework):
 
         for txid in genblock["tx"]:
             rawtx = self.nodes[0].getrawtransaction(txid,True)
-            if rawtx["vout"][0]["assetlabel"] == flscript:
+            if rawtx["vout"][0]["scriptPubKey"]["hex"] == flscript:
                 flasset = rawtx["vout"][0]["asset"]
                 fltxid = txid
                 flvalue = rawtx["vout"][0]["value"]
