@@ -210,10 +210,12 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         } else if (asset.IsCommitment()) {
             out.push_back(Pair("assetcommitment", HexStr(asset.vchCommitment)));
         }
-        const std::string policyLabel = gAssetsDir.GetLabel(asset.GetAsset());
-        if (policyLabel != "") 
-        {
-            out.push_back(Pair("assetlabel", policyLabel));
+        if (asset.IsExplicit()) {
+            std::string policyLabel = gAssetsDir.GetLabel(asset.GetAsset());
+            if (policyLabel != "") 
+            {
+                out.push_back(Pair("assetlabel", policyLabel));
+            }
         }
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
