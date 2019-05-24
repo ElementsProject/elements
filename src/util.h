@@ -45,6 +45,7 @@ public:
 extern const std::map<std::string, std::vector<std::string> >& mapMultiArgs;
 extern bool fDebug;
 extern bool fPrintToConsole;
+extern bool fPrintToAll;
 extern bool fPrintToDebugLog;
 extern bool fPrintToAuditLog;
 extern bool fLogTimestamps;

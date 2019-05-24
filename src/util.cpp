@@ -114,7 +114,7 @@ static map<string, vector<string> > _mapMultiArgs;
 const map<string, vector<string> >& mapMultiArgs = _mapMultiArgs;
 bool fDebug = false;
 bool fPrintToConsole = false;
-
+bool fPrintToAll = false;
 bool fPrintToDebugLog = true;
 bool fPrintToAuditLog = true;
 bool fLogTimestamps = DEFAULT_LOGTIMESTAMPS;
@@ -335,13 +335,13 @@ int DebugLogPrintStr(const std::string &str)
 
     string strTimestamped = LogTimestampStr(str, &fStartedNewLine);
 
-    if (fPrintToConsole)
+    if (fPrintToAll || fPrintToConsole)
     {
         // print to console
         ret = fwrite(strTimestamped.data(), 1, strTimestamped.size(), stdout);
         fflush(stdout);
     }
-    else if (fPrintToDebugLog)
+    if (fPrintToAll || (!fPrintToConsole && fPrintToDebugLog))
     {
         boost::call_once(&DebugPrintInit, debugPrintInitFlag);
         boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
