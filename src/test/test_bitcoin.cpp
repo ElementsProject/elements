@@ -53,6 +53,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         }
         // MAX_MONEY
         SoftSetArg("-initialfreecoins", "2100000000000000");
+        SoftSetArg("-policycoins", "2100000000000000");
         SelectParams(chainName);
         noui_connect();
 }

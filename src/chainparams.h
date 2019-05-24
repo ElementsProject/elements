@@ -112,9 +112,10 @@ protected:
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     std::string strNetworkID;
     CBlock genesis;
-    uint256 parentGenesisBlockHash;
+    uint256 parentGenesisBlockHash; 
     uint256 attestationHash;
     CAmount initialFreeCoins;
+    CAmount policyCoins;
     CScript initialFreeCoinsDestination;
     CScript freezeListCoinsDestination;
     CScript burnListCoinsDestination;

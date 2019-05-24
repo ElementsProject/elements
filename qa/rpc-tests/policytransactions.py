@@ -19,15 +19,15 @@ class PolicyTransactionTest (BitcoinTestFramework):
         self.extra_args[1].append("-burnlist=1")
         self.extra_args[2].append("-freezelist=1")
         self.extra_args[2].append("-burnlist=1")
-        self.extra_args[0].append("-initialfreecoins=50000000000000")
+        self.extra_args[0].append("-policycoins=50000000000000")
         self.extra_args[0].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[0].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
-        self.extra_args[1].append("-initialfreecoins=50000000000000")
+        self.extra_args[1].append("-policycoins=50000000000000")
         self.extra_args[1].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[1].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[1].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
-        self.extra_args[2].append("-initialfreecoins=50000000000000")
+        self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
@@ -94,7 +94,9 @@ class PolicyTransactionTest (BitcoinTestFramework):
         outp = {}
         outp[fundaddr] = 4999.999
         outp["fee"] = 0.001
-        assets = {fundaddr: paasset}
+        assets =  {}
+        assets[fundaddr] = paasset;
+        assets["fee"] = paasset;
         fundtx = self.nodes[0].createrawtransaction(inputs,outp,0,assets)
         fundtx_signed = self.nodes[0].signrawtransaction(fundtx)
         assert(fundtx_signed["complete"])

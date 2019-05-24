@@ -19,6 +19,15 @@ class WalletTest (BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 4
         self.extra_args = [['-usehd={:d}'.format(i%2==0)] for i in range(4)]
+        self.extra_args[0].append("-txindex")
+        self.extra_args[0].append("-policycoins=50000000000000")
+        self.extra_args[0].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
+        self.extra_args[1].append("-txindex")
+        self.extra_args[1].append("-policycoins=50000000000000")
+        self.extra_args[1].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
+        self.extra_args[2].append("-txindex")
+        self.extra_args[2].append("-policycoins=50000000000000")
+        self.extra_args[2].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
@@ -35,12 +44,28 @@ class WalletTest (BitcoinTestFramework):
         assert_equal(len(self.nodes[1].listunspent()), 100)
         assert_equal(len(self.nodes[2].listunspent()), 100)
 
+        self.nodes[2].importprivkey("cS29UJMQrpnee7UaUHo6NqJVpGr35TEqUDkKXStTnxSZCGUWavgE")
+        self.nodes[2].importprivkey("cND4nfH6g2SopoLk5isQ8qGqqZ5LmbK6YwJ1QnyoyMVBTs8bVNNd")
+        self.nodes[2].importprivkey("cTnxkovLhGbp7VRhMhGThYt8WDwviXgaVAD8DjaVa5G5DApwC6tF")
+
         walletinfo = self.nodes[0].getwalletinfo()
         assert_equal(walletinfo['balance']["CBT"], 21000000)
 
         print("Mining blocks...")
-        self.nodes[1].generate(101)
+        self.nodes[2].generate(101)
         self.sync_all()
+
+        asscript = "76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac";
+
+        genhash = self.nodes[2].getblockhash(0)
+        genblock = self.nodes[2].getblock(genhash)
+
+        for txid in genblock["tx"]:
+            rawtx = self.nodes[2].getrawtransaction(txid,True)
+            if rawtx["vout"][0]["scriptPubKey"]["hex"] == asscript:
+                asasset = rawtx["vout"][0]["asset"]
+                astxid = txid
+                asvalue = rawtx["vout"][0]["value"]
 
         assert_equal(self.nodes[0].getbalance("", 0, False, "CBT"), 21000000)
         assert_equal(self.nodes[1].getbalance("", 0, False, "CBT"), 21000000)
@@ -154,7 +179,7 @@ class WalletTest (BitcoinTestFramework):
         #create 2 of 3 multisig P2SH script and address                                 
         multisig = self.nodes[0].createmultisig(2,[val_addr_node1["pubkey"],val_addr_node2["pubkey"],val_addr_node3["pubkey"]])
         #send some policyasset to the P2SH address
-        pa_txid = self.nodes[2].sendtoaddress(multisig["address"],1)
+        pa_txid = self.nodes[2].sendtoaddress(multisig["address"],1,"","",False,asasset)
         self.nodes[1].generate(1)
         self.sync_all()
 
