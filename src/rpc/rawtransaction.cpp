@@ -107,6 +107,15 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
     entry.push_back(Pair("vsize", (int)::GetVirtualTransactionSize(tx)));
     entry.push_back(Pair("version", tx.nVersion));
     entry.push_back(Pair("locktime", (int64_t)tx.nLockTime));
+
+    CBlockIndex* pindex = NULL;
+    if (!hashBlock.IsNull()) {
+        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+        if (mi != mapBlockIndex.end() && (*mi).second) {
+            pindex = (*mi).second;
+        }
+    }
+
     UniValue vin(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
@@ -221,21 +230,53 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
         out.push_back(Pair("scriptPubKey", o));
+
+        if (asset.IsExplicit()) {
+            if (pindex != NULL) {
+                if (chainActive.Contains(pindex)) {
+                    vector<vector<unsigned char>> vSolutions;
+                    txnouttype whichType;
+                    bool solverRes = Solver(txout.scriptPubKey, whichType, vSolutions);
+                    bool isPolicy = IsPolicy(asset.GetAsset());
+                    if (solverRes && whichType == TX_LOCKED_MULTISIG && isPolicy == true) {
+                        CRequest request = CRequest::FromSolutions(vSolutions, pindex->nHeight);
+                        UniValue item(UniValue::VOBJ);
+                        item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
+                        item.push_back(Pair("confirmedBlockHeight", (int32_t)request.nConfirmedBlockHeight));
+                        item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
+                        item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
+                        item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
+                        item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
+                        item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
+                        item.push_back(Pair("startPrice", ValueFromAmount(request.nStartPrice)));
+                        item.push_back(Pair("auctionPrice", ValueFromAmount(request.GetAuctionPrice(chainActive.Height()))));
+                        out.push_back(Pair("request", item));
+                    }
+                    else if (solverRes && whichType == TX_LOCKED_MULTISIG && isPolicy == false) {
+                        CBid bid = CBid::FromSolutions(vSolutions, txout.nValue.GetAmount(), pindex->nHeight);
+                        UniValue item(UniValue::VOBJ);
+                        item.push_back(Pair("txid", bid.hashBid.ToString()));
+                        item.push_back(Pair("feePubKey", HexStr(bid.feePubKey)));
+                        out.push_back(Pair("bid", item));
+                    }
+                }
+            }
+        }
+
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
     if (!hashBlock.IsNull()) {
         entry.push_back(Pair("blockhash", hashBlock.GetHex()));
-        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-        if (mi != mapBlockIndex.end() && (*mi).second) {
-            CBlockIndex* pindex = (*mi).second;
+        if (pindex != NULL) {
             if (chainActive.Contains(pindex)) {
                 entry.push_back(Pair("confirmations", 1 + chainActive.Height() - pindex->nHeight));
                 entry.push_back(Pair("time", pindex->GetBlockTime()));
                 entry.push_back(Pair("blocktime", pindex->GetBlockTime()));
             }
-            else
+            else {
                 entry.push_back(Pair("confirmations", 0));
+            }
         }
     }
 }
