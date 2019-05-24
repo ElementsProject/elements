@@ -97,10 +97,11 @@ class OnboardTest (BitcoinTestFramework):
                 paasset = rawtx["vout"][0]["asset"]
                 patxid = txid
                 pavalue = rawtx["vout"][0]["value"]
-            if rawtx["vout"][0]["scriptPubKey"]["hex"] == wlscript:
-                wlasset = rawtx["vout"][0]["asset"]
-                wltxid = txid
-                wlvalue = rawtx["vout"][0]["value"]
+            if "assetlabel" in rawtx["vout"][0]:
+                if rawtx["vout"][0]["assetlabel"] == "WHITELIST":
+                    wlasset = rawtx["vout"][0]["asset"]
+                    wltxid = txid
+                    wlvalue = rawtx["vout"][0]["value"]
 
         #Whitelist node 0 addresses
         self.nodes[0].dumpderivedkeys("keys.main")

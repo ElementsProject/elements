@@ -60,18 +60,19 @@ class PolicyTransactionTest (BitcoinTestFramework):
 
         for txid in genblock["tx"]:
             rawtx = self.nodes[0].getrawtransaction(txid,True)
-            if rawtx["vout"][0]["scriptPubKey"]["hex"] == flscript:
-                flasset = rawtx["vout"][0]["asset"]
-                fltxid = txid
-                flvalue = rawtx["vout"][0]["value"]
-            if rawtx["vout"][0]["scriptPubKey"]["hex"] == blscript:
-                blasset = rawtx["vout"][0]["asset"]
-                bltxid = txid
-                blvalue = rawtx["vout"][0]["value"]
-            if rawtx["vout"][0]["scriptPubKey"]["hex"] == pascript:
-                paasset = rawtx["vout"][0]["asset"]
-                patxid = txid
-                pavalue = rawtx["vout"][0]["value"]
+            if "assetlabel" in rawtx["vout"][0]:
+                if rawtx["vout"][0]["assetlabel"] == "FREEZELIST":
+                    flasset = rawtx["vout"][0]["asset"]
+                    fltxid = txid
+                    flvalue = rawtx["vout"][0]["value"]
+                if rawtx["vout"][0]["assetlabel"] == "BURNLIST":
+                    blasset = rawtx["vout"][0]["asset"]
+                    bltxid = txid
+                    blvalue = rawtx["vout"][0]["value"]
+                if rawtx["vout"][0]["assetlabel"] == "ISSUANCE":
+                    paasset = rawtx["vout"][0]["asset"]
+                    patxid = txid
+                    pavalue = rawtx["vout"][0]["value"]
 
         #issue some non-policy asset
         assaddr = self.nodes[0].getnewaddress()

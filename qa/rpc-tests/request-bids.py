@@ -82,6 +82,18 @@ class RequestbidsTest(BitcoinTestFramework):
     assert_equal(pubkeyFee, request_bids['bids'][0]['feePubKey'])
     assert_equal(genesis, request_bids['genesisBlock'])
 
+
+    fulltr = self.nodes[1].getrawtransaction(txid, True)
+    foundBid = False
+    for tout in fulltr['vout']:
+        if "bid" in tout:
+            rawbid = tout["bid"]
+            if (rawbid['txid'] == request_bids['bids'][0]['txid']):
+                assert_equal(request_bids['bids'][0]['feePubKey'], rawbid['feePubKey'])
+                foundBid = True
+                break
+    assert(foundBid)
+
     #test stopping and restarting to make sure list is reloaded
     self.stop_node(1)
     self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
