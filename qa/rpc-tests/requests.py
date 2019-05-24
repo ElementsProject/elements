@@ -8,7 +8,7 @@ class RequestsTest(BitcoinTestFramework):
     super().__init__()
     self.setup_clean_chain = True
     self.num_nodes = 2
-    self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000",
+    self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000", "-policycoins=50000000000000",
     "-permissioncoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac",
     "-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac"] for i in range(2)]
     self.extra_args[1].append("-requestlist=1")

@@ -20,24 +20,30 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-burnlist=1")
         self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[0].append("-rescan=1")
-        self.extra_args[0].append("-initialfreecoins=50000000000000")
+        self.extra_args[0].append("-initialfreecoins=2100000000000000")
+        self.extra_args[0].append("-policycoins=50000000000000")
         self.extra_args[0].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
+        self.extra_args[0].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[0].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-rescan=1")
         self.extra_args[1].append("-pkhwhitelist-scan=1")
         self.extra_args[1].append("-keypool=100")
-        self.extra_args[1].append("-initialfreecoins=50000000000000")
+        self.extra_args[1].append("-initialfreecoins=2100000000000000")
+        self.extra_args[1].append("-policycoins=50000000000000")
         self.extra_args[1].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
+        self.extra_args[1].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[1].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[1].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[1].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[2].append("-rescan=1")
-        self.extra_args[1].append("-pkhwhitelist-scan=1")
+        self.extra_args[2].append("-pkhwhitelist-scan=1")
         self.extra_args[2].append("-keypool=100")
-        self.extra_args[2].append("-initialfreecoins=50000000000000")
+        self.extra_args[2].append("-initialfreecoins=2100000000000000")
+        self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
+        self.extra_args[2].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
@@ -153,13 +159,14 @@ class OnboardTest (BitcoinTestFramework):
         nwhitelisted=keypool
 
         #Send some tokens to node 1
-        ntosend=100.234
+        ntosend=10000.234
         self.nodes[0].sendtoaddress(node1addr, ntosend)
+        self.nodes[0].sendtoaddress(node1addr, ntosend, "", "", False, paasset)
 
         self.nodes[0].generate(101)
         self.sync_all()
 
-        bal1=self.nodes[1].getwalletinfo()["balance"]["CBT"]
+        bal1=self.nodes[1].getwalletinfo()["balance"]["ISSUANCE"]
 
         assert_equal(float(bal1),float(ntosend))
 
@@ -178,7 +185,7 @@ class OnboardTest (BitcoinTestFramework):
         # wl1file_2="wl1_2.dat"
         # self.nodes[1].dumpwhitelist(wl1file_2)
         # assert(filecmp.cmp(wlfile, wlfile_2))
-
+ 
         #Node 1 registers additional addresses to whitelist
         nadd=100
         self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")

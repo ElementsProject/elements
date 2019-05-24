@@ -39,17 +39,18 @@ class WalletTest (BitcoinTestFramework):
 
     def run_test (self):
 
+        self.nodes[2].importprivkey("cTnxkovLhGbp7VRhMhGThYt8WDwviXgaVAD8DjaVa5G5DApwC6tF")
+
         # Check that there's 100 UTXOs on each of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 100)
         assert_equal(len(self.nodes[1].listunspent()), 100)
-        assert_equal(len(self.nodes[2].listunspent()), 100)
+        assert_equal(len(self.nodes[2].listunspent()), 200)
 
-        self.nodes[2].importprivkey("cS29UJMQrpnee7UaUHo6NqJVpGr35TEqUDkKXStTnxSZCGUWavgE")
-        self.nodes[2].importprivkey("cND4nfH6g2SopoLk5isQ8qGqqZ5LmbK6YwJ1QnyoyMVBTs8bVNNd")
-        self.nodes[2].importprivkey("cTnxkovLhGbp7VRhMhGThYt8WDwviXgaVAD8DjaVa5G5DApwC6tF")
+        
 
-        walletinfo = self.nodes[0].getwalletinfo()
-        assert_equal(walletinfo['balance']["CBT"], 21000000)
+        walletinfo = self.nodes[2].getbalance()
+        assert_equal(walletinfo["CBT"], 21000000)
+        assert_equal(walletinfo["ISSUANCE"], 500000)
 
         print("Mining blocks...")
         self.nodes[2].generate(101)
@@ -62,10 +63,11 @@ class WalletTest (BitcoinTestFramework):
 
         for txid in genblock["tx"]:
             rawtx = self.nodes[2].getrawtransaction(txid,True)
-            if rawtx["vout"][0]["scriptPubKey"]["hex"] == asscript:
-                asasset = rawtx["vout"][0]["asset"]
-                astxid = txid
-                asvalue = rawtx["vout"][0]["value"]
+            if "assetlabel" in rawtx["vout"][0]:
+                if rawtx["vout"][0]["assetlabel"] == "ISSUANCE":
+                    asasset = rawtx["vout"][0]["asset"]
+                    astxid = txid
+                    asvalue = rawtx["vout"][0]["value"]
 
         assert_equal(self.nodes[0].getbalance("", 0, False, "CBT"), 21000000)
         assert_equal(self.nodes[1].getbalance("", 0, False, "CBT"), 21000000)
