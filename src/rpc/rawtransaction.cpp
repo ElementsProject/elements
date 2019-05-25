@@ -1821,476 +1821,6 @@ UniValue converttopsbt(const JSONRPCRequest& request)
     return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
 }
 
-UniValue rawblindrawtransaction(const JSONRPCRequest& request)
-{
-    if (request.fHelp || (request.params.size() < 5 || request.params.size() > 7))
-        throw std::runtime_error(
-            "rawblindrawtransaction \"hexstring\" [\"inputblinder\",...] [\"inputamount\",...] [\"inputasset\",...] [\"inputassetblinder\",...] ( totalblinder, ignoreblindfail )\n"
-            "\nConvert one or more outputs of a raw transaction into confidential ones.\n"
-            "Returns the hex-encoded raw transaction.\n"
-            "The input raw transaction cannot have already-blinded outputs.\n"
-            "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
-            "If an additional blinded output is required to make a balanced blinding, a 0-value unspendable output will be added. Since there is no access to the wallet the blinding pubkey from the last output with blinding key will be repeated.\n"
-            "You can not blind issuances with this call.\n"
-
-            "\nArguments:\n"
-            "1. \"hexstring\",          (string, required) A hex-encoded raw transaction.\n"
-            "2. [                       (array, required) An array with one entry per transaction input.\n"
-            "    \"inputamountblinder\" (string, required) A hex-encoded blinding factor, one for each input.\n"
-            "                           Blinding factors can be found in the \"blinder\" output of listunspent.\n"
-            "   ],\n"
-            "3. [                       (array, required) An array with one entry per transaction input.\n"
-            "   \"inputamount\"         (numeric, required) An amount for each input.\n"
-            "   ],\n"
-            "4. [                       (array, required) An array with one entry per transaction input.\n"
-            "   \"inputasset\"          (string, required) A hex-encoded asset id, one for each input.\n"
-            "   ],\n"
-            "5. [                       (array, required) An array with one entry per transaction input.\n"
-            "   \"inputassetblinder\"   (string, required) A hex-encoded asset blinding factor, one for each input.\n"
-            "   ],\n"
-            "6. \"totalblinder\"        (string, optional) Ignored for now.\n"
-            "7. \"ignoreblindfail\"\"   (bool, optional, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
-
-            "\nResult:\n"
-            "\"transaction\"              (string) hex string of the transaction\n"
-        );
-
-    std::vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
-    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
-    CMutableTransaction tx;
-    try {
-        ssData >> tx;
-    } catch (const std::exception &) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-    }
-
-    UniValue inputBlinds = request.params[1].get_array();
-    UniValue inputAmounts = request.params[2].get_array();
-    UniValue inputAssets = request.params[3].get_array();
-    UniValue inputAssetBlinds = request.params[4].get_array();
-
-    bool fIgnoreBlindFail = true;
-    if (!request.params[6].isNull()) {
-        fIgnoreBlindFail = request.params[6].get_bool();
-    }
-
-    int n_blinded_ins = 0;
-
-    if (inputBlinds.size() != tx.vin.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
-    }
-    if (inputAmounts.size() != tx.vin.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
-    }
-    if (inputAssets.size() != tx.vin.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input asset id for each input must be provided");
-    }
-    if (inputAssetBlinds.size() != tx.vin.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-            "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
-    }
-
-    std::vector<CAmount> input_amounts;
-    std::vector<uint256> input_blinds;
-    std::vector<uint256> input_asset_blinds;
-    std::vector<CAsset> input_assets;
-    std::vector<uint256> output_value_blinds;
-    std::vector<uint256> output_asset_blinds;
-    std::vector<CAsset> output_assets;
-    std::vector<CPubKey> output_pubkeys;
-    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
-        if (!inputBlinds[nIn].isStr())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of hex strings");
-        if (!inputAssetBlinds[nIn].isStr())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of hex strings");
-        if (!inputAssets[nIn].isStr())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset ids must be an array of hex strings");
-
-        std::string blind(inputBlinds[nIn].get_str());
-        std::string assetblind(inputAssetBlinds[nIn].get_str());
-        std::string asset(inputAssets[nIn].get_str());
-        if (!IsHex(blind) || blind.length() != 32*2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of 32-byte hex-encoded strings");
-        if (!IsHex(assetblind) || assetblind.length() != 32*2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
-        if (!IsHex(asset) || asset.length() != 32*2)
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
-
-        input_blinds.push_back(uint256S(blind));
-        input_asset_blinds.push_back(uint256S(assetblind));
-        input_assets.push_back(CAsset(uint256S(asset)));
-        input_amounts.push_back(AmountFromValue(inputAmounts[nIn]));
-
-        if (!input_blinds.back().IsNull()) {
-            n_blinded_ins++;
-        }
-    }
-
-    RawFillBlinds(tx, output_value_blinds, output_asset_blinds, output_pubkeys);
-
-    // How many are we trying to blind?
-    int num_pubkeys = 0;
-    unsigned int keyIndex = -1;
-    for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
-        const CPubKey& key = output_pubkeys[i];
-        if (key.IsValid()) {
-            num_pubkeys++;
-            keyIndex = i;
-        }
-    }
-
-    if (num_pubkeys == 0 && n_blinded_ins == 0) {
-        // Vacuous, just return the transaction
-        return EncodeHexTx(CTransaction(tx));
-    } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
-        // No notion of wallet, cannot complete this blinding without passed-in pubkey
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
-    } else if (n_blinded_ins == 0 && num_pubkeys == 1) {
-        if (fIgnoreBlindFail) {
-            // Just get rid of the ECDH key in the nonce field and return
-            tx.vout[keyIndex].nNonce.SetNull();
-            return EncodeHexTx(CTransaction(tx));
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
-        }
-    }
-
-    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx);
-    if (ret != num_pubkeys) {
-        // TODO Have more rich return values, communicating to user what has been blinded
-        // User may be ok not blinding something that for instance has no corresponding type on input
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
-    }
-
-    return EncodeHexTx(CTransaction(tx));
-}
-
-struct RawIssuanceDetails
-{
-    int input_index;
-    uint256 entropy;
-    CAsset asset;
-    CAsset token;
-};
-
-// Appends a single issuance to the first input that doesn't have one, and includes
-// a single output per asset type in shuffled positions.
-void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const std::string& asset_address_str, const std::string& token_address_str, const bool blind_issuance, const uint256& contract_hash)
-{
-
-    CTxDestination asset_address(DecodeDestination(asset_address_str));
-    CTxDestination token_address(DecodeDestination(token_address_str));
-    CScript asset_destination = GetScriptForDestination(asset_address);
-    CScript token_destination = GetScriptForDestination(token_address);
-
-    // Find an input with no issuance field
-    size_t issuance_input_index = 0;
-    for (; issuance_input_index < mtx.vin.size(); issuance_input_index++) {
-        if (mtx.vin[issuance_input_index].assetIssuance.IsNull()) {
-            break;
-        }
-    }
-    // Can't add another one, exit
-    if (issuance_input_index == mtx.vin.size()) {
-        issuance_details.input_index = -1;
-        return;
-    }
-
-    uint256 entropy;
-    CAsset asset;
-    CAsset token;
-    GenerateAssetEntropy(entropy, mtx.vin[issuance_input_index].prevout, contract_hash);
-    CalculateAsset(asset, entropy);
-    CalculateReissuanceToken(token, entropy, blind_issuance);
-
-    issuance_details.input_index = issuance_input_index;
-    issuance_details.entropy = entropy;
-    issuance_details.asset = asset;
-    issuance_details.token = token;
-
-    mtx.vin[issuance_input_index].assetIssuance.assetEntropy = contract_hash;
-
-    // Place assets into randomly placed output slots, just insert in place
-    // -1 due to fee output being at the end no matter what.
-    int asset_place = GetRandInt(mtx.vout.size()-1);
-    int token_place = GetRandInt(mtx.vout.size()); // Don't bias insertion
-
-    CTxOut asset_out(asset, asset_amount, asset_destination);
-    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
-    if (IsBlindDestination(asset_address)) {
-        CPubKey asset_blind = GetDestinationBlindingKey(asset_address);
-        asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
-    }
-    // Explicit 0 is represented by a null value, don't set to non-null in that case
-    if (blind_issuance || asset_amount != 0) {
-        mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
-    }
-    // Don't make zero value output(impossible by consensus)
-    if (asset_amount > 0) {
-        mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
-    }
-
-    CTxOut token_out(token, token_amount, token_destination);
-    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
-    if (IsBlindDestination(token_address)) {
-        CPubKey token_blind = GetDestinationBlindingKey(token_address);
-        token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
-    }
-    // Explicit 0 is represented by a null value, don't set to non-null in that case
-    if (blind_issuance || token_amount != 0) {
-        mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
-    }
-    // Don't make zero value output(impossible by consensus)
-    if (token_amount > 0) {
-        mtx.vout.insert(mtx.vout.begin()+token_place, token_out);
-    }
-}
-
-// Appends a single reissuance to the specified input if none exists,
-// and the corresponding output in a shuffled position. Errors otherwise.
-void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, const CAmount asset_amount, const std::string& asset_address_str, const uint256& asset_blinder, const uint256& entropy)
-{
-
-    CTxDestination asset_address(DecodeDestination(asset_address_str));
-    CScript asset_destination = GetScriptForDestination(asset_address);
-
-    // Check if issuance already exists, error if already exists
-    if ((size_t)issuance_input_index >= mtx.vin.size() || !mtx.vin[issuance_input_index].assetIssuance.IsNull()) {
-        issuance_input_index = -1;
-        return;
-    }
-
-    CAsset asset;
-    CalculateAsset(asset, entropy);
-
-    mtx.vin[issuance_input_index].assetIssuance.assetEntropy = entropy;
-    mtx.vin[issuance_input_index].assetIssuance.assetBlindingNonce = asset_blinder;
-    mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
-
-    // Place assets into randomly placed output slots, before change output, inserted in place
-    assert(mtx.vout.size() >= 1);
-    int asset_place = GetRandInt(mtx.vout.size()-1);
-
-    CTxOut asset_out(asset, asset_amount, asset_destination);
-    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
-    if (IsBlindDestination(asset_address)) {
-        CPubKey asset_blind = GetDestinationBlindingKey(asset_address);
-        asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
-    }
-    assert(asset_amount > 0);
-    mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
-    mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
-}
-
-UniValue rawissueasset(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() != 2)
-        throw std::runtime_error(
-            "rawissueasset transaction [{\"asset_amount\":x.xxx, \"asset_address\":\"address\", \"token_amount\":x.xxx, \"token_address\":\"address\", \"blind\":bool, ( \"contract_hash\":\"hash\" )}, ...]\n"
-            "\nCreate an asset by attaching issuances to transaction inputs. Returns the transaction hex. There must be as many inputs as issuances requested. The final transaction hex is the final version of the transaction appended to the last object in the array.\n"
-            "\nArguments:\n"
-            "1. \"transaction\"           (string, required) Transaction in hex in which to include an issuance input.\n"
-            "2. \"issuances\"              (list, required) List of issuances to create. Each issuance must have one non-zero amount. \n"
-            "[\n"
-            "   {\n"
-            "       \"asset_amount\":x.xxx (numeric or string, optional) Amount of asset to generate, if any.\n"
-            "       \"asset_address\":addr  (string, optional) Destination address of generated asset. Required if `asset_amount` given.\n"
-            "       \"token_amount\":x.xxx (numeric or string, optional) Amount of reissuance token to generate, if any.\n"
-            "       \"token_address\":addr  (string, optional) Destination address of generated reissuance tokens. Required if `token_amount` given.\n"
-            "       \"blind\":bool          (bool, optional, default=true) Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."
-            "       \"contract_hash\":str   (string, optional, default=00..00) Contract hash that is put into issuance definition. Must be 32 bytes worth in hex string form. This will affect the asset id."
-            "   }\n"
-            "   ...\n"
-            "]\n"
-            "\nResult:\n"
-            "[                           (json array) Results of issuances, in the order of `issuances` argument\n"
-            "  {                           (json object)\n"
-            "    \"hex\":<hex>,            (string) The transaction with issuances appended. Only appended to final index in returned array.\n"
-            "    \"vin\":\"n\",            (numeric) The input position of the issuance in the transaction.\n"
-            "    \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
-            "    \"asset\":\"<asset>\",    (string) Asset type for issuance if known.\n"
-            "    \"token\":\"<token>\",    (string) Token type for issuance.\n"
-            "  },\n"
-            "  ...\n"
-            "]"
-        );
-
-    CMutableTransaction mtx;
-
-    if (!DecodeHexTx(mtx, request.params[0].get_str()))
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-
-    UniValue issuances = request.params[1].get_array();
-
-    std::string asset_address_str = "";
-    std::string token_address_str = "";
-
-    UniValue ret(UniValue::VARR);
-
-    // Count issuances, only append hex to final one
-    unsigned int issuances_til_now = 0;
-
-    for (unsigned int idx = 0; idx < issuances.size(); idx++) {
-        const UniValue& issuance = issuances[idx];
-        const UniValue& issuance_o = issuance.get_obj();
-
-        CAmount asset_amount = 0;
-        const UniValue& asset_amount_uni = issuance_o["asset_amount"];
-        if (asset_amount_uni.isNum()) {
-            asset_amount = AmountFromValue(asset_amount_uni);
-            if (asset_amount <= 0) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, asset_amount must be positive");
-            }
-            const UniValue& asset_address_uni = issuance_o["asset_address"];
-            if (!asset_address_uni.isStr()) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding asset_address");
-            }
-            asset_address_str = asset_address_uni.get_str();
-        }
-
-        CAmount token_amount = 0;
-        const UniValue& token_amount_uni = issuance_o["token_amount"];
-        if (token_amount_uni.isNum()) {
-            token_amount = AmountFromValue(token_amount_uni);
-            if (token_amount <= 0) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, token_amount must be positive");
-            }
-            const UniValue& token_address_uni = issuance_o["token_address"];
-            if (!token_address_uni.isStr()) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding token_address");
-            }
-            token_address_str = token_address_uni.get_str();
-        }
-        if (asset_amount == 0 && token_amount == 0) {
-            throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
-        }
-
-        // If we have issuances, check if reissuance tokens will be generated via blinding path
-        const UniValue blind_uni = issuance_o["blind"];
-        const bool blind_issuance = !blind_uni.isBool() || blind_uni.get_bool();
-
-        // Check for optional contract to hash into definition
-        uint256 contract_hash;
-        if (!issuance_o["contract_hash"].isNull()) {
-            contract_hash = ParseHashV(issuance_o["contract_hash"], "contract_hash");
-        }
-
-        RawIssuanceDetails details;
-
-        issueasset_base(mtx, details, asset_amount, token_amount, asset_address_str, token_address_str, blind_issuance, contract_hash);
-        if (details.input_index == -1) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find enough blank inputs for listed issuances.");
-        }
-
-        issuances_til_now++;
-
-        UniValue obj(UniValue::VOBJ);
-        if (issuances_til_now == issuances.size()) {
-            obj.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
-        }
-        obj.pushKV("vin", details.input_index);
-        obj.pushKV("entropy", details.entropy.GetHex());
-        obj.pushKV("asset", details.asset.GetHex());
-        obj.pushKV("token", details.token.GetHex());
-
-        ret.push_back(obj);
-    }
-
-    return ret;
-}
-
-UniValue rawreissueasset(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() != 2)
-        throw std::runtime_error(
-            "rawreissueasset transaction {\"vin\":\"n\", \"asset_amount\":x.xxx, \"asset_address\":\"address\", \"asset_blinder\":<hex>, \"entropy\":<hex>, ( \"contract_hash\":<hex> )}\n"
-            "\nRe-issue an asset by attaching pseudo-inputs to transaction inputs, revealing the underlying reissuance token of the input. Returns the transaction hex.\n"
-            "\nArguments:\n"
-            "1. \"transaction\"           (string, required) Transaction in hex in which to include an issuance input.\n"
-            "2. \"reissuances\"              (list, required) List of re-issuances to create. Each issuance must have one non-zero amount.\n"
-            "[\n"
-            "   {\n"
-            "       \"input_index\":\"n\",            (numeric, required) The input position of the reissuance in the transaction.\n"
-            "       \"asset_amount\":x.xxx, (numeric or string, required) Amount of asset to generate, if any.\n"
-            "       \"asset_address\":addr,  (string, required) Destination address of generated asset. Required if `asset_amount` given.\n"
-            "       \"asset_blinder\":<hex>, (string, required) The blinding factor of the reissuance token output being spent.\n"
-            "       \"entropy\":<hex>,  (string, required) The `entropy` returned during initial issuance for the asset being reissued."
-            "   }\n"
-            "\nResult:\n"
-            "{                             (json object)\n"
-            "    \"hex\":<hex>,            (string) The transaction with reissuances appended.\n"
-            "}\n"
-        );
-
-    CMutableTransaction mtx;
-
-    if (!DecodeHexTx(mtx, request.params[0].get_str()))
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
-
-    if (mtx.vout.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have at least one output.");
-    }
-
-    UniValue issuances = request.params[1].get_array();
-
-    unsigned int num_issuances = 0;
-
-    for (unsigned int idx = 0; idx < issuances.size(); idx++) {
-        const UniValue& issuance = issuances[idx];
-        const UniValue& issuance_o = issuance.get_obj();
-
-        CAmount asset_amount = 0;
-        const UniValue& asset_amount_uni = issuance_o["asset_amount"];
-        if (asset_amount_uni.isNum()) {
-            asset_amount = AmountFromValue(asset_amount_uni);
-            if (asset_amount <= 0) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, asset_amount must be positive");
-            }
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Asset amount must be given for each reissuance.");
-        }
-
-        const UniValue& asset_address_uni = issuance_o["asset_address"];
-        if (!asset_address_uni.isStr()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Reissuance missing asset_address");
-        }
-        std::string asset_address_str = asset_address_uni.get_str();
-
-        int input_index = -1;
-        const UniValue& input_index_o = issuance_o["input_index"];
-        if (input_index_o.isNum()) {
-            input_index = input_index_o.get_int();
-            if (input_index < 0) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must be non-negative.");
-            }
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Input indexes for all reissuances are required.");
-        }
-
-        uint256 asset_blinder = ParseHashV(issuance_o["asset_blinder"], "asset_blinder");
-
-        uint256 entropy = ParseHashV(issuance_o["entropy"], "entropy");
-
-        reissueasset_base(mtx, input_index, asset_amount, asset_address_str, asset_blinder, entropy);
-        if (input_index == -1) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Selected transaction input already has issuance data.");
-        }
-
-        num_issuances++;
-    }
-
-    if (num_issuances != issuances.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find enough blank inputs for listed issuances.");
-    }
-
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
-    return ret;
-}
-
 UniValue utxoupdatepsbt(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1) {
@@ -2624,6 +2154,503 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
     }
     return result;
 }
+
+//
+// ELEMENTS:
+
+UniValue rawblindrawtransaction(const JSONRPCRequest& request)
+{
+    if (request.fHelp || (request.params.size() < 5 || request.params.size() > 7))
+        throw std::runtime_error(
+            RPCHelpMan{"rawblindrawtransaction",
+                "\nConvert one or more outputs of a raw transaction into confidential ones.\n"
+                "Returns the hex-encoded raw transaction.\n"
+                "The input raw transaction cannot have already-blinded outputs.\n"
+                "The output keys used can be specified by using a confidential address in createrawtransaction.\n"
+                "If an additional blinded output is required to make a balanced blinding, a 0-value unspendable output will be added. Since there is no access to the wallet the blinding pubkey from the last output with blinding key will be repeated.\n"
+                "You can not blind issuances with this call.\n",
+                {
+                    {"hexstring", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded raw transaction."},
+                    {"inputamountblinders", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array with one entry per transaction input.",
+                        {
+                            {"inputamountblinder", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded blinding factor, one for each input."
+            "                           Blinding factors can be found in the \"blinder\" output of listunspent."},
+                        }
+                    },
+                    {"inputamounts", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array with one entry per transaction input.",
+                        {
+                            {"inputamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "An amount for each input."},
+                        }
+                    },
+                    {"inputassets", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array with one entry per transaction input.",
+                        {
+                            {"inputasset", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded asset id, one for each input."},
+                        }
+                    },
+                    {"inputassetblinders", RPCArg::Type::ARR, RPCArg::Optional::NO, "An array with one entry per transaction input.",
+                        {
+                            {"inputassetblinder", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A hex-encoded asset blinding factor, one for each input."},
+                        }
+                    },
+                    {"totalblinder", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Ignored for now."},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                },
+                RPCResult{
+            "\"transaction\"              (string) hex string of the transaction\n"
+                },
+                RPCExamples{""},
+            }.ToString());
+
+    std::vector<unsigned char> txData(ParseHexV(request.params[0], "argument 1"));
+    CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
+    CMutableTransaction tx;
+    try {
+        ssData >> tx;
+    } catch (const std::exception &) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+    }
+
+    UniValue inputBlinds = request.params[1].get_array();
+    UniValue inputAmounts = request.params[2].get_array();
+    UniValue inputAssets = request.params[3].get_array();
+    UniValue inputAssetBlinds = request.params[4].get_array();
+
+    bool fIgnoreBlindFail = true;
+    if (!request.params[6].isNull()) {
+        fIgnoreBlindFail = request.params[6].get_bool();
+    }
+
+    int n_blinded_ins = 0;
+
+    if (inputBlinds.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+    }
+    if (inputAmounts.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input blind for each input must be provided");
+    }
+    if (inputAssets.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input asset id for each input must be provided");
+    }
+    if (inputAssetBlinds.size() != tx.vin.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+            "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
+    }
+
+    std::vector<CAmount> input_amounts;
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> input_asset_blinds;
+    std::vector<CAsset> input_assets;
+    std::vector<uint256> output_value_blinds;
+    std::vector<uint256> output_asset_blinds;
+    std::vector<CAsset> output_assets;
+    std::vector<CPubKey> output_pubkeys;
+    for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        if (!inputBlinds[nIn].isStr())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of hex strings");
+        if (!inputAssetBlinds[nIn].isStr())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of hex strings");
+        if (!inputAssets[nIn].isStr())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset ids must be an array of hex strings");
+
+        std::string blind(inputBlinds[nIn].get_str());
+        std::string assetblind(inputAssetBlinds[nIn].get_str());
+        std::string asset(inputAssets[nIn].get_str());
+        if (!IsHex(blind) || blind.length() != 32*2)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of 32-byte hex-encoded strings");
+        if (!IsHex(assetblind) || assetblind.length() != 32*2)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
+        if (!IsHex(asset) || asset.length() != 32*2)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "input asset blinds must be an array of 32-byte hex-encoded strings");
+
+        input_blinds.push_back(uint256S(blind));
+        input_asset_blinds.push_back(uint256S(assetblind));
+        input_assets.push_back(CAsset(uint256S(asset)));
+        input_amounts.push_back(AmountFromValue(inputAmounts[nIn]));
+
+        if (!input_blinds.back().IsNull()) {
+            n_blinded_ins++;
+        }
+    }
+
+    RawFillBlinds(tx, output_value_blinds, output_asset_blinds, output_pubkeys);
+
+    // How many are we trying to blind?
+    int num_pubkeys = 0;
+    unsigned int keyIndex = -1;
+    for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
+        const CPubKey& key = output_pubkeys[i];
+        if (key.IsValid()) {
+            num_pubkeys++;
+            keyIndex = i;
+        }
+    }
+
+    if (num_pubkeys == 0 && n_blinded_ins == 0) {
+        // Vacuous, just return the transaction
+        return EncodeHexTx(CTransaction(tx));
+    } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
+        // No notion of wallet, cannot complete this blinding without passed-in pubkey
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
+    } else if (n_blinded_ins == 0 && num_pubkeys == 1) {
+        if (fIgnoreBlindFail) {
+            // Just get rid of the ECDH key in the nonce field and return
+            tx.vout[keyIndex].nNonce.SetNull();
+            return EncodeHexTx(CTransaction(tx));
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
+        }
+    }
+
+    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx);
+    if (ret != num_pubkeys) {
+        // TODO Have more rich return values, communicating to user what has been blinded
+        // User may be ok not blinding something that for instance has no corresponding type on input
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
+    }
+
+    return EncodeHexTx(CTransaction(tx));
+}
+
+struct RawIssuanceDetails
+{
+    int input_index;
+    uint256 entropy;
+    CAsset asset;
+    CAsset token;
+};
+
+// Appends a single issuance to the first input that doesn't have one, and includes
+// a single output per asset type in shuffled positions.
+void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const std::string& asset_address_str, const std::string& token_address_str, const bool blind_issuance, const uint256& contract_hash)
+{
+
+    CTxDestination asset_address(DecodeDestination(asset_address_str));
+    CTxDestination token_address(DecodeDestination(token_address_str));
+    CScript asset_destination = GetScriptForDestination(asset_address);
+    CScript token_destination = GetScriptForDestination(token_address);
+
+    // Find an input with no issuance field
+    size_t issuance_input_index = 0;
+    for (; issuance_input_index < mtx.vin.size(); issuance_input_index++) {
+        if (mtx.vin[issuance_input_index].assetIssuance.IsNull()) {
+            break;
+        }
+    }
+    // Can't add another one, exit
+    if (issuance_input_index == mtx.vin.size()) {
+        issuance_details.input_index = -1;
+        return;
+    }
+
+    uint256 entropy;
+    CAsset asset;
+    CAsset token;
+    GenerateAssetEntropy(entropy, mtx.vin[issuance_input_index].prevout, contract_hash);
+    CalculateAsset(asset, entropy);
+    CalculateReissuanceToken(token, entropy, blind_issuance);
+
+    issuance_details.input_index = issuance_input_index;
+    issuance_details.entropy = entropy;
+    issuance_details.asset = asset;
+    issuance_details.token = token;
+
+    mtx.vin[issuance_input_index].assetIssuance.assetEntropy = contract_hash;
+
+    // Place assets into randomly placed output slots, just insert in place
+    // -1 due to fee output being at the end no matter what.
+    int asset_place = GetRandInt(mtx.vout.size()-1);
+    int token_place = GetRandInt(mtx.vout.size()); // Don't bias insertion
+
+    CTxOut asset_out(asset, asset_amount, asset_destination);
+    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
+    if (IsBlindDestination(asset_address)) {
+        CPubKey asset_blind = GetDestinationBlindingKey(asset_address);
+        asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
+    }
+    // Explicit 0 is represented by a null value, don't set to non-null in that case
+    if (blind_issuance || asset_amount != 0) {
+        mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
+    }
+    // Don't make zero value output(impossible by consensus)
+    if (asset_amount > 0) {
+        mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
+    }
+
+    CTxOut token_out(token, token_amount, token_destination);
+    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
+    if (IsBlindDestination(token_address)) {
+        CPubKey token_blind = GetDestinationBlindingKey(token_address);
+        token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
+    }
+    // Explicit 0 is represented by a null value, don't set to non-null in that case
+    if (blind_issuance || token_amount != 0) {
+        mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
+    }
+    // Don't make zero value output(impossible by consensus)
+    if (token_amount > 0) {
+        mtx.vout.insert(mtx.vout.begin()+token_place, token_out);
+    }
+}
+
+// Appends a single reissuance to the specified input if none exists,
+// and the corresponding output in a shuffled position. Errors otherwise.
+void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, const CAmount asset_amount, const std::string& asset_address_str, const uint256& asset_blinder, const uint256& entropy)
+{
+
+    CTxDestination asset_address(DecodeDestination(asset_address_str));
+    CScript asset_destination = GetScriptForDestination(asset_address);
+
+    // Check if issuance already exists, error if already exists
+    if ((size_t)issuance_input_index >= mtx.vin.size() || !mtx.vin[issuance_input_index].assetIssuance.IsNull()) {
+        issuance_input_index = -1;
+        return;
+    }
+
+    CAsset asset;
+    CalculateAsset(asset, entropy);
+
+    mtx.vin[issuance_input_index].assetIssuance.assetEntropy = entropy;
+    mtx.vin[issuance_input_index].assetIssuance.assetBlindingNonce = asset_blinder;
+    mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
+
+    // Place assets into randomly placed output slots, before change output, inserted in place
+    assert(mtx.vout.size() >= 1);
+    int asset_place = GetRandInt(mtx.vout.size()-1);
+
+    CTxOut asset_out(asset, asset_amount, asset_destination);
+    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
+    if (IsBlindDestination(asset_address)) {
+        CPubKey asset_blind = GetDestinationBlindingKey(asset_address);
+        asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
+    }
+    assert(asset_amount > 0);
+    mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
+    mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
+}
+
+UniValue rawissueasset(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            RPCHelpMan{"rawissueasset",
+                "\nCreate an asset by attaching issuances to transaction inputs. Returns the transaction hex. There must be as many inputs as issuances requested. The final transaction hex is the final version of the transaction appended to the last object in the array.\n",
+                {
+                    {"transaction", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Transaction in hex in which to include an issuance input."},
+                    {"issuances", RPCArg::Type::ARR, RPCArg::Optional::NO, "List of issuances to create. Each issuance must have one non-zero amount.",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                                {
+                                    {"asset_amount", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED_NAMED_ARG, "Amount of asset to generate, if any."},
+                                    {"asset_address", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Destination address of generated asset. Required if `asset_amount` given."},
+                                    {"token_amount", RPCArg::Type::AMOUNT, RPCArg::Optional::OMITTED_NAMED_ARG, "Amount of reissuance token to generate, if any."},
+                                    {"token_address", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Destination address of generated reissuance tokens. Required if `token_amount` given."},
+                                    {"blind", RPCArg::Type::BOOL, /* default */ "true", "Whether to mark the issuance input for blinding or not. Only affects issuances with re-issuance tokens."},
+                                    {"contract_hash", RPCArg::Type::STR_HEX, /* default */ "0000...0000", "Contract hash that is put into issuance definition. Must be 32 bytes worth in hex string form. This will affect the asset id."},
+                                }
+                            }
+                        }
+                    },
+                },
+                RPCResult{
+            "[                           (json array) Results of issuances, in the order of `issuances` argument\n"
+            "  {                           (json object)\n"
+            "    \"hex\":<hex>,            (string) The transaction with issuances appended. Only appended to final index in returned array.\n"
+            "    \"vin\":\"n\",            (numeric) The input position of the issuance in the transaction.\n"
+            "    \"entropy\":\"<entropy>\" (string) Entropy of the asset type.\n"
+            "    \"asset\":\"<asset>\",    (string) Asset type for issuance if known.\n"
+            "    \"token\":\"<token>\",    (string) Token type for issuance.\n"
+            "  },\n"
+            "  ...\n"
+            "]"
+                },
+                RPCExamples{""},
+            }.ToString());
+
+    CMutableTransaction mtx;
+
+    if (!DecodeHexTx(mtx, request.params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+
+    UniValue issuances = request.params[1].get_array();
+
+    std::string asset_address_str = "";
+    std::string token_address_str = "";
+
+    UniValue ret(UniValue::VARR);
+
+    // Count issuances, only append hex to final one
+    unsigned int issuances_til_now = 0;
+
+    for (unsigned int idx = 0; idx < issuances.size(); idx++) {
+        const UniValue& issuance = issuances[idx];
+        const UniValue& issuance_o = issuance.get_obj();
+
+        CAmount asset_amount = 0;
+        const UniValue& asset_amount_uni = issuance_o["asset_amount"];
+        if (asset_amount_uni.isNum()) {
+            asset_amount = AmountFromValue(asset_amount_uni);
+            if (asset_amount <= 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, asset_amount must be positive");
+            }
+            const UniValue& asset_address_uni = issuance_o["asset_address"];
+            if (!asset_address_uni.isStr()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding asset_address");
+            }
+            asset_address_str = asset_address_uni.get_str();
+        }
+
+        CAmount token_amount = 0;
+        const UniValue& token_amount_uni = issuance_o["token_amount"];
+        if (token_amount_uni.isNum()) {
+            token_amount = AmountFromValue(token_amount_uni);
+            if (token_amount <= 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, token_amount must be positive");
+            }
+            const UniValue& token_address_uni = issuance_o["token_address"];
+            if (!token_address_uni.isStr()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding token_address");
+            }
+            token_address_str = token_address_uni.get_str();
+        }
+        if (asset_amount == 0 && token_amount == 0) {
+            throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
+        }
+
+        // If we have issuances, check if reissuance tokens will be generated via blinding path
+        const UniValue blind_uni = issuance_o["blind"];
+        const bool blind_issuance = !blind_uni.isBool() || blind_uni.get_bool();
+
+        // Check for optional contract to hash into definition
+        uint256 contract_hash;
+        if (!issuance_o["contract_hash"].isNull()) {
+            contract_hash = ParseHashV(issuance_o["contract_hash"], "contract_hash");
+        }
+
+        RawIssuanceDetails details;
+
+        issueasset_base(mtx, details, asset_amount, token_amount, asset_address_str, token_address_str, blind_issuance, contract_hash);
+        if (details.input_index == -1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find enough blank inputs for listed issuances.");
+        }
+
+        issuances_til_now++;
+
+        UniValue obj(UniValue::VOBJ);
+        if (issuances_til_now == issuances.size()) {
+            obj.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
+        }
+        obj.pushKV("vin", details.input_index);
+        obj.pushKV("entropy", details.entropy.GetHex());
+        obj.pushKV("asset", details.asset.GetHex());
+        obj.pushKV("token", details.token.GetHex());
+
+        ret.push_back(obj);
+    }
+
+    return ret;
+}
+
+UniValue rawreissueasset(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw std::runtime_error(
+            RPCHelpMan{"rawreissueasset",
+                "\nRe-issue an asset by attaching pseudo-inputs to transaction inputs, revealing the underlying reissuance token of the input. Returns the transaction hex.\n",
+                {
+                    {"transaction", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Transaction in hex in which to include an issuance input."},
+                    {"reissuances", RPCArg::Type::ARR, RPCArg::Optional::NO, "List of re-issuances to create. Each issuance must have one non-zero amount.",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::NO, "",
+                                {
+                                    {"asset_amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of asset to generate, if any."},
+                                    {"asset_address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address of generated asset. Required if `asset_amount` given."},
+                                    {"input_index", RPCArg::Type::NUM, RPCArg::Optional::NO, "The input position of the reissuance in the transaction."},
+                                    {"asset_blinder", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding factor of the reissuance token output being spent."},
+                                    {"entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The `entropy` returned during initial issuance for the asset being reissued."},
+                                }
+                            }
+                        }
+                    },
+                },
+                RPCResult{
+            "{                             (json object)\n"
+            "    \"hex\":<hex>,            (string) The transaction with reissuances appended.\n"
+            "}\n"
+                },
+                RPCExamples{""},
+            }.ToString());
+
+    CMutableTransaction mtx;
+
+    if (!DecodeHexTx(mtx, request.params[0].get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+
+    if (mtx.vout.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have at least one output.");
+    }
+
+    UniValue issuances = request.params[1].get_array();
+
+    unsigned int num_issuances = 0;
+
+    for (unsigned int idx = 0; idx < issuances.size(); idx++) {
+        const UniValue& issuance = issuances[idx];
+        const UniValue& issuance_o = issuance.get_obj();
+
+        CAmount asset_amount = 0;
+        const UniValue& asset_amount_uni = issuance_o["asset_amount"];
+        if (asset_amount_uni.isNum()) {
+            asset_amount = AmountFromValue(asset_amount_uni);
+            if (asset_amount <= 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, asset_amount must be positive");
+            }
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Asset amount must be given for each reissuance.");
+        }
+
+        const UniValue& asset_address_uni = issuance_o["asset_address"];
+        if (!asset_address_uni.isStr()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Reissuance missing asset_address");
+        }
+        std::string asset_address_str = asset_address_uni.get_str();
+
+        int input_index = -1;
+        const UniValue& input_index_o = issuance_o["input_index"];
+        if (input_index_o.isNum()) {
+            input_index = input_index_o.get_int();
+            if (input_index < 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must be non-negative.");
+            }
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Input indexes for all reissuances are required.");
+        }
+
+        uint256 asset_blinder = ParseHashV(issuance_o["asset_blinder"], "asset_blinder");
+
+        uint256 entropy = ParseHashV(issuance_o["entropy"], "entropy");
+
+        reissueasset_base(mtx, input_index, asset_amount, asset_address_str, asset_blinder, entropy);
+        if (input_index == -1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Selected transaction input already has issuance data.");
+        }
+
+        num_issuances++;
+    }
+
+    if (num_issuances != issuances.size()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find enough blank inputs for listed issuances.");
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
+    return ret;
+}
+
+// END ELEMENTS
+//
 
 // clang-format off
 static const CRPCCommand commands[] =

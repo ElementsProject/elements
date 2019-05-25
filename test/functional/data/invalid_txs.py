@@ -78,7 +78,7 @@ class InputMissing(BadTxTemplate):
         return tx
 
 
-# ELEMENTS: disabled because we don't want to increase the minimal tx size and 
+# ELEMENTS: disabled because we don't want to increase the minimal tx size and
 # the value and asset size crosses the minimum value
 #class SizeTooSmall(BadTxTemplate):
 #    reject_reason = "tx-size-small"

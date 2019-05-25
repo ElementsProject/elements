@@ -556,7 +556,8 @@ class SegWitTest(BitcoinTestFramework):
 
     @subtest
     def test_getblocktemplate_before_lockin(self):
-        txid = int(self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1), 16)
+        #txid = int(self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1), 16)
+        int(self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1), 16)
 
         for node in [self.nodes[0], self.nodes[2]]:
             gbt_results = node.getblocktemplate({"rules": ["segwit"]})

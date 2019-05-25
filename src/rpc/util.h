@@ -59,7 +59,7 @@ struct RPCArg {
         /** Required arg */
         NO,
         /**
-         * Optinal arg that is a named argument and has a default value of
+         * Optional arg that is a named argument and has a default value of
          * `null`. When possible, the default value should be specified.
          */
         OMITTED_NAMED_ARG,

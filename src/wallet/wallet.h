@@ -1338,7 +1338,7 @@ public:
     /** Add a KeyOriginInfo to the wallet */
     bool AddKeyOrigin(const CPubKey& pubkey, const KeyOriginInfo& info);
 
-    // 
+    //
     // ELEMENTS
 
     //! Setters for online/offline pubkey pairs for PAK

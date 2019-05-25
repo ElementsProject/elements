@@ -2402,9 +2402,10 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
-            "getsidechaininfo\n"
-            "Returns an object containing various state info regarding sidechain functionality.\n"
-            "\nResult:\n"
+            RPCHelpMan{"getsidechaininfo",
+                "Returns an object containing various state info regarding sidechain functionality.\n",
+                {},
+                RPCResult{
             "{\n"
             "  \"fedpegscript\": \"xxxx\",         (string) The fedpegscript in hex\n"
             "  \"pegged_asset\" : \"xxxx\",        (string) Pegged asset type in hex\n"
@@ -2416,10 +2417,12 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
             "  \"parent_pegged_asset\": \"xxxx\",  (boolean) If the parent chain has Confidential Assets, the asset id of the pegged asset in that chain.\n"
             "  \"enforce_pak\": \"xxxx\",              (boolean) If peg-out authorization is being enforced.\n"
             "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getsidechaininfo", "")
-            + HelpExampleRpc("getsidechaininfo", "")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("getsidechaininfo", "")
+                    + HelpExampleRpc("getsidechaininfo", "")
+                },
+            }.ToString());
 
     LOCK(cs_main);
 

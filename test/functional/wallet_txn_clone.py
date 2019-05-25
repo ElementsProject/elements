@@ -14,7 +14,6 @@ from test_framework.util import (
     disconnect_nodes,
     sync_blocks,
 )
-from test_framework.messages import CTransaction, COIN
 
 class TxnMallTest(BitcoinTestFramework):
     def set_test_params(self):

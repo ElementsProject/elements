@@ -633,17 +633,19 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            "tweakfedpegscript \"claim_script\"\n"
-            "\nReturns a tweaked fedpegscript.\n"
-            "\nArguments:\n"
-            "1. \"claim_script\"         (string, required) Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress.\n"
-            "\nResult:\n"
+            RPCHelpMan{"tweakfedpegscript",
+                "\nReturns a tweaked fedpegscript.\n",
+                {
+                    {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress."},
+                },
+                RPCResult{
             "{\n"
                 "\"script\"           (string) The fedpegscript tweaked with claim_script\n"
                 "\"address\"          (string) The address corresponding to the tweaked fedpegscript\n"
             "}\n"
-        );
-
+                },
+                RPCExamples{""},
+            }.ToString());
 
     if (!IsHex(request.params[0].get_str())) {
         throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
@@ -685,17 +687,19 @@ UniValue getpakinfo(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
-            "getpakinfo\n"
-            "\nReturns relevant pegout authorization key (PAK) information about this node, both from command line arguments and blockchain data.\n"
-            "\nResult:\n"
+            RPCHelpMan{"getpakinfo",
+                "\nReturns relevant pegout authorization key (PAK) information about this node, both from command line arguments and blockchain data.\n",
+                {},
+                RPCResult{
             "{\n"
                 "\"config_paklist\"          (array) The PAK list loaded from beta.conf at startup\n"
                 "\"block_paklist\"           (array) The PAK list loaded from latest block commitment\n"
             "}\n"
-        );
+                },
+                RPCExamples{""},
+            }.ToString());
 
     LOCK(cs_main);
-
 
     UniValue paklist_value(UniValue::VOBJ);
     if (g_paklist_config) {
@@ -728,11 +732,16 @@ UniValue dumpassetlabels(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
-            "dumpassetlabels\n"
-            "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n"
-            + HelpExampleCli("dumpassetlabels", "" )
+            RPCHelpMan{"dumpassetlabels",
+                "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n",
+                {},
+                RPCResults{},
+                RPCExamples{
+                    HelpExampleCli("dumpassetlabels", "" )
             + HelpExampleRpc("dumpassetlabels", "" )
-        );
+                },
+            }.ToString());
+
     UniValue obj(UniValue::VOBJ);
     for (const auto& as : gAssetsDir.GetKnownAssets()) {
         obj.pushKV(gAssetsDir.GetLabel(as), as.GetHex());
@@ -780,22 +789,23 @@ public:
 UniValue createblindedaddress(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
-    {
         throw std::runtime_error(
-            "createblindedaddress address blinding_key\n"
-            "\nCreates a blinded address using the provided blinding key.\n"
-            "\nArguments:\n"
-            "1. \"address\"        (string, required) The unblinded address to be blinded.\n"
-            "2. \"blinding_key\"            (string, required) The blinding public key. This can be obtained for a given address using `validateaddress`.\n"
-            "\nResult:\n"
+            RPCHelpMan{"createblindedaddress",
+                "\nCreates a blinded address using the provided blinding key.\n",
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The unblinded address to be blinded."},
+                    {"blinding_key", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding public key. This can be obtained for a given address using `validateaddress`."},
+                },
+                RPCResult{
             "\"blinded_address\"   (string) The blinded address.\n"
-            "\nExamples:\n"
+                },
+                RPCExamples{
             "\nCreate a multisig address from 2 addresses\n"
             + HelpExampleCli("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16 ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d") +
             "\nAs a json rpc call\n"
             + HelpExampleRpc("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16, ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d")
-            );
-    }
+                },
+            }.ToString());
 
     CTxDestination address = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(address)) {

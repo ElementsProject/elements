@@ -984,19 +984,25 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
     return result;
 }
 
+//
+// ELEMENTS:
+
 UniValue getnewblockhex(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() > 1)
         throw std::runtime_error(
-            "getnewblockhex ( min_tx_age )\n"
-            "\nGets hex representation of a proposed, unmined new block\n"
-            "\nArguments:\n"
-            "1. min_tx_age    (numeric, optional, default=0) How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks.\n"
-            "\nResult\n"
+            RPCHelpMan{"getnewblockhex",
+                "\nGets hex representation of a proposed, unmined new block\n",
+                {
+                    {"min_tx_age", RPCArg::Type::NUM, /* default */ "0", "How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks."},
+                },
+                RPCResult{
             "blockhex      (hex) The block hex\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getnewblockhex", "")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("getnewblockhex", ""),
+                }
+            }.ToString());
 
     int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
     if (required_wait < 0) {
@@ -1026,26 +1032,31 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "combineblocksigs \"blockhex\" [\"signature\",...]\n"
-            "\nMerges signatures on a block proposal\n"
-            "\nArguments:\n"
-            "1. \"blockhex\"       (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"signatures\"     (string) A json array of pubkey/signature pairs\n"
-            "    [\n"
-            "        {\n"
-            "            \"pubkey\":\"hex\",      (string) The pubkey for the signature in hex\n"
-            "            \"sig\":\"hex\"   (string) A signature (in the form of a hex-encoded scriptSig)\n"
-            "             ,...\n"
-            "        },\n"
-            "    ]\n"
-            "\nResult\n"
+            RPCHelpMan{"combineblocksigs",
+                "\nMerges signatures on a block proposal\n",
+                {
+                    {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
+                    {"signatures", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of pubkey/signature pairs",
+                        {
+                            {"", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "",
+                                {
+                                    {"pubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The pubkey for the signature in hex"},
+                                    {"sig", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "A signature (in the form of a hex-encoded scriptSig)"},
+                                },
+                            },
+                        },
+                    },
+                },
+                RPCResult{
             "{\n"
             "  \"hex\": \"value\",      (string) The signed block\n"
             "  \"complete\": true|false (numeric) If block is complete \n"
-            "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("combineblocksigs", "<hex> '[{\"pubkey\":\"hex\",\"sig\":\"hex\"}, ...]'")
-        );
+            "}\n",
+                },
+                RPCExamples{
+                    HelpExampleCli("combineblocksigs", "<hex> '[{\"pubkey\":\"hex\",\"sig\":\"hex\"}, ...]'"),
+                },
+            }.ToString());
 
     if (!g_signed_blocks) {
         throw JSONRPCError(RPC_MISC_ERROR, "Signed blocks are not active for this network.");
@@ -1092,16 +1103,19 @@ UniValue getcompactsketch(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            "getcompactsketch block_hex\n"
-            "\nGets hex representation of a proposed compact block sketch.\n"
-            "It is consumed by `consumecompactsketch.`\n"
-            "Arguments:\n"
-            "1. \"block_hex\" (string, required), Hex serialized block proposal from `getnewblockhex`.\n"
-            "\nResult\n"
+            RPCHelpMan{"getcompactsketch block_hex",
+                "\nGets hex representation of a proposed compact block sketch.\n"
+                "It is consumed by `consumecompactsketch.`\n",
+                {
+                    {"block_hex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized block proposal from `getnewblockhex`."},
+                },
+                RPCResult{
             "sketch      (string) The block serialized block sketch in hex\n"
-            "\nExamples:\n"
-            + HelpExampleCli("getcompactsketch", "")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("getcompactsketch", ""),
+                }
+            }.ToString());
 
     CBlock block;
     std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
@@ -1120,23 +1134,26 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            "consumecompactsketch sketch\n"
-            "\nTakes hex representation of a proposed compact block sketch and fills it in\n"
-            "using mempool. Returns the block if complete, and a list\n"
-            "of missing transaction indices serialized as a native structure."
-            "NOTE: The latest instance of this call will have a partially filled block\n"
-            "cached in memory to be used in `consumegetblocktxn` to finalize the block.\n"
-            "Arguments:\n"
-            "1. \"sketch\" (string, required), Hex string of compact block sketch.\n"
-            "\nResult\n"
+            RPCHelpMan{"consumecompactsketch sketch",
+                "\nTakes hex representation of a proposed compact block sketch and fills it in\n"
+                "using mempool. Returns the block if complete, and a list\n"
+                "of missing transaction indices serialized as a native structure."
+                "NOTE: The latest instance of this call will have a partially filled block\n"
+                "cached in memory to be used in `consumegetblocktxn` to finalize the block.\n",
+                {
+                    {"sketch", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex string of compact block sketch."},
+                },
+                RPCResult{
             "{\n"
             "   blockhex            (hex) The filled block hex. Only returns when block is final\n"
             "   block_tx_req        (hex) The serialized structure of missing transaction indices, given to serving node\n"
             "   found_transactions  (hex) The serialized list of found transactions to be used in finalizecompactblock\n"
             "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("consumecompactsketch", "<sketch>")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("consumecompactsketch", "<sketch>"),
+                }
+            }.ToString());
 
     UniValue ret(UniValue::VOBJ);
 
@@ -1193,17 +1210,19 @@ UniValue consumegetblocktxn(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "consumegetblocktxn full_block block_tx_req\n"
-            "Consumes a transaction request for a compact block sketch."
-            "Arguments:\n"
-            "1. \"full_block\" (string, required), Hex serialied block that corresponds to the block request `block_tx_req`.\n"
-            "2. \"block_tx_req\" (string, required), Hex serialied BlockTransactionsRequest, aka getblocktxn network message.\n"
-            "\nResult\n"
+            RPCHelpMan{"consumegetblocktxn",
+                "Consumes a transaction request for a compact block sketch.",
+                {
+                    {"full_block", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied block that corresponds to the block request `block_tx_req`."},
+                    {"block_tx_req", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied BlockTransactionsRequest, aka getblocktxn network message."},
+                },
+                RPCResult{
             "block_transactions  (hex) The serialized list of found transactions aka BlockTransactions\n"
-            "\nExamples:\n"
-            + HelpExampleCli("consumegetblocktxn", "<block_tx_req>")
-        );
-
+                },
+                RPCExamples{
+                    HelpExampleCli("consumegetblocktxn", "<block_tx_req>")
+                }
+            }.ToString());
 
     CBlock block;
     std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
@@ -1235,17 +1254,20 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 3)
         throw std::runtime_error(
-            "finalizecompactblock compact_hex block_transactions found_transactions\n"
-            "Takes the two transaction lists, fills out the compact block and attempts to finalize it."
-            "Arguments:\n"
-            "1. \"compact_hex\" (string, required), Hex serialized compact block.\n"
-            "2. \"block_transactions\" (string, required), Hex serialized BlockTransactions, the response to getblocktxn.\n"
-            "3. \"found_transactions\" (string, required), Hex serialized list of transactions that were found in response to receiving a compact sketch in `consumecompactsketch`.\n"
-            "\nResult\n"
+            RPCHelpMan{"finalizecompactblock",
+                "Takes the two transaction lists, fills out the compact block and attempts to finalize it.",
+                {
+                    {"compact_hex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized compact block."},
+                    {"block_transactions", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized BlockTransactions, the response to getblocktxn."},
+                    {"found_transactions", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized list of transactions that were found in response to receiving a compact sketch in `consumecompactsketch`."},
+                },
+                RPCResult{
             "block             (hex) The serialized final block.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("finalizecompactblock", "<compact_hex> <block_transactions> <found_transactions>")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("finalizecompactblock", "<compact_hex> <block_transactions> <found_transactions>")
+                }
+            }.ToString());
 
     // Compact block
     std::vector<unsigned char> compact_block_bytes(ParseHex(request.params[0].get_str()));
@@ -1289,15 +1311,17 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
-            "testproposedblock \"blockhex\"\n"
-            "\nChecks a block proposal for validity, and that it extends chaintip\n"
-            "\nArguments:\n"
-            "1. \"blockhex\"    (string, required) The hex-encoded block from getnewblockhex\n"
-            "2. \"acceptnonstd\" (bool, optional) If set false, returns error if block contains non-standard transaction. Default is set via `-acceptnonstdtxn`. If PAK enforcement is set, block commitment mismatches with configuration PAK lists are rejected as well.\n"
-            "\nResult\n"
-            "\nExamples:\n"
-            + HelpExampleCli("testproposedblock", "<hex>")
-        );
+            RPCHelpMan{"testproposedblock",
+                "\nChecks a block proposal for validity, and that it extends chaintip\n",
+                {
+                    {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
+                    {"acceptnonstd", RPCArg::Type::BOOL, RPCArg::Optional::OMITTED_NAMED_ARG, "If set false, returns error if block contains non-standard transaction. Default is set via `-acceptnonstdtxn`. If PAK enforcement is set, block commitment mismatches with configuration PAK lists are rejected as well."},
+                },
+                RPCResults{},
+                RPCExamples{
+                    HelpExampleCli("testproposedblock", "<hex>")
+                }
+            }.ToString());
 
     CBlock block;
     if (!DecodeHexBlk(block, request.params[0].get_str()))
@@ -1356,6 +1380,9 @@ UniValue testproposedblock(const JSONRPCRequest& request)
 
     return NullUniValue;
 }
+
+// END ELEMENTS
+//
 
 // clang-format off
 

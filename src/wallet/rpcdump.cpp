@@ -1323,7 +1323,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
             if (!internal && IsValidDestination(dest)) {
                 pwallet->SetAddressBook(dest, label, "receive");
             }
-            
+
             // ELEMENTS:
             // If dest import is valid, import blinding key
             if (!str_blinding_key.empty() && !pwallet->AddSpecificBlindingKey(CScriptID(GetScriptForDestination(dest)), blinding_privkey)) {
@@ -1545,6 +1545,9 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
     return response;
 }
 
+//
+// ELEMENTS:
+
 UniValue getwalletpakinfo(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -1556,9 +1559,10 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
-            "getwalletpakinfo\n"
-            "\nReturns relevant pegout authorization key (PAK) information about this wallet. Throws an error if initpegoutwallet` has not been invoked on this wallet.\n"
-            "\nResult:\n"
+            RPCHelpMan{"getwalletpakinfo",
+                "\nReturns relevant pegout authorization key (PAK) information about this wallet. Throws an error if initpegoutwallet` has not been invoked on this wallet.\n",
+                {},
+                RPCResult{
             "{\n"
                 "\"bip32_counter\"  (string) The next index to be used by the wallet for `sendtomainchain`.\n"
                 "\"bitcoin_descriptor\"     (string) The Bitcoin script descriptor loaded in the wallet for pegouts.\n"
@@ -1566,7 +1570,9 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
                 "\"liquid_pak_address\" (string) The corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer.\n"
                 "\"address_lookahead\"(array)  The three next Bitcoin addresses the wallet will use for `sendtomainchain` based on the internal counter.\n"
             "}\n"
-        );
+                },
+                RPCExamples{""},
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1615,14 +1621,17 @@ UniValue importblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "importblindingkey \"address\" \"blindinghex\"\n"
-            "\nImports a private blinding key in hex for a CT address."
-            "\nArguments:\n"
-            "1. \"address\"          (string, required) The CT address\n"
-            "2. \"hexkey\"           (string, required) The blinding key in hex\n"
-            "\nExample:\n"
-            + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
-        );
+            RPCHelpMan{"importblindingkey",
+                "\nImports a private blinding key in hex for a CT address.",
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The CT address"},
+                    {"hexkey", RPCArg::Type::STR, RPCArg::Optional::NO, "The blinding key in hex"},
+                },
+                RPCResults{},
+                RPCExamples{
+                    HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
+                },
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1670,14 +1679,17 @@ UniValue importmasterblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            "importblindingkey \"address\" \"blindinghex\"\n"
-            "\nImports a master private blinding key in hex for a CT address."
-            "Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n"
-            "\nArguments:\n"
-            "1. \"hexkey\"           (string, required) The blinding key in hex\n"
-            "\nExample:\n"
-            + HelpExampleCli("importmasterblindingkey", "<hexkey>")
-        );
+            RPCHelpMan{"importblindingkey",
+                "\nImports a master private blinding key in hex for a CT address."
+                "Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n",
+                {
+                    {"hexkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding key in hex"},
+                },
+                RPCResults{},
+                RPCExamples{
+                    HelpExampleCli("importmasterblindingkey", "<hexkey>")
+                },
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1713,16 +1725,18 @@ UniValue importissuanceblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 3)
         throw std::runtime_error(
-            "importissuanceblindingkey \"txid\" vin \"blindingkey\"\n"
-            "\nImports a private blinding key in hex for an asset issuance."
-            "\nArguments:\n"
-
-            "1. \"txid\"          (string, required) The transaction id of the issuance\n"
-            "2. \"vin\"           (numeric, required) The input number of the issuance in the transaction.\n"
-            "3. \"blindingkey\"           (string, required) The blinding key in hex\n"
-            "\nExample:\n"
-            + HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
-        );
+            RPCHelpMan{"importissuanceblindingkey",
+                "\nImports a private blinding key in hex for an asset issuance.",
+                {
+                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id of the issuance"},
+                    {"vin", RPCArg::Type::NUM, RPCArg::Optional::NO, "The input number of the issuance in the transaction."},
+                    {"blindingkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding key in hex"},
+                },
+                RPCResults{},
+                RPCExamples{
+                    HelpExampleCli("importblindingkey", "\"my blinded CT address\" <blindinghex>")
+                },
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1789,15 +1803,18 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            "dumpblindingkey \"address\"\n"
-            "\nDumps the private blinding key for a CT address in hex."
-            "\nArguments:\n"
-            "1. \"address\"          (string, required) The CT address\n"
-            "\nResult:\n"
+            RPCHelpMan{"dumpblindingkey",
+                "\nDumps the private blinding key for a CT address in hex.",
+                {
+                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The CT address"},
+                },
+                RPCResult{
             "\"blindingkey\"      (string) The blinding key\n"
-            "\nExample:\n"
-            + HelpExampleCli("dumpblindingkey", "\"my address\"")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("dumpblindingkey", "\"my address\"")
+                },
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1833,13 +1850,16 @@ UniValue dumpmasterblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
-            "dumpmasterblindingkey\n"
-            "\nDumps the master private blinding key in hex."
-            "\nResult:\n"
+            RPCHelpMan{"dumpmasterblindingkey",
+                "\nDumps the master private blinding key in hex.",
+                {},
+                RPCResult{
             "\"blindingkey\"      (string) The master blinding key\n"
-            "\nExample:\n"
-            + HelpExampleCli("dumpmasterblindingkey", "")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("dumpmasterblindingkey", "")
+                },
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1862,16 +1882,19 @@ UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 2)
         throw std::runtime_error(
-            "dumpissuanceblindingkey \"txid\" vin\n"
-            "\nDumps the private blinding key for an asset issuance in wallet."
-            "\nArguments:\n"
-            "1. \"txid\"          (string, required) The transaction id of the issuance\n"
-            "2. \"vin\"           (numeric, required) The input number of the issuance in the transaction.\n"
-            "\nResult:\n"
+            RPCHelpMan{"dumpissuanceblindingkey",
+                "\nDumps the private blinding key for an asset issuance in wallet.",
+                {
+                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The transaction id of the issuance"},
+                    {"vin", RPCArg::Type::NUM, RPCArg::Optional::NO, "The input number of the issuance in the transaction."},
+                },
+                RPCResult{
             "\"blindingkey\"      (string) The blinding key\n"
-            "\nExample:\n"
-            + HelpExampleCli("dumpissuanceblindingkey", "\"<txid>\", 0")
-        );
+                },
+                RPCExamples{
+                    HelpExampleCli("dumpissuanceblindingkey", "\"<txid>\", 0")
+                },
+            }.ToString());
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -1914,3 +1937,7 @@ UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
     }
     throw JSONRPCError(RPC_WALLET_ERROR, "Transaction is unknown to wallet.");
 }
+
+// END ELEMENTS
+//
+
