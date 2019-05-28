@@ -254,6 +254,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                     }
                     else if (solverRes && whichType == TX_LOCKED_MULTISIG && isPolicy == false) {
                         CBid bid = CBid::FromSolutions(vSolutions, txout.nValue.GetAmount(), pindex->nHeight);
+                        bid.SetBidHash(tx.GetHash());
                         UniValue item(UniValue::VOBJ);
                         item.push_back(Pair("txid", bid.hashBid.ToString()));
                         item.push_back(Pair("feePubKey", HexStr(bid.feePubKey)));
