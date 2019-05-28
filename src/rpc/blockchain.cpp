@@ -1787,22 +1787,17 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The key file\n"
-            "2. \"kycaddress\"  (string, optional) The KYC address of the key file owner\n"
+            "2. \"kycpubkey\"  (string, optional) The hex-encoded KYC public key of the file owner\n"
             "\nExamples:\n"
             "\nDump the keys\n"
             + HelpExampleCli("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
             + HelpExampleRpc("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
 			);
 
-    std::string sKYCAddress="";
+    std::string sKYCPubKey="";
     if(request.params.size()==2){
-        sKYCAddress=request.params[1].get_str();
-        CBitcoinAddress addr;
-        if(addr.SetString(sKYCAddress)){
-            CKeyID id;
-            addr.GetKeyID(id);
-            addressWhitelist.whitelist_kyc(id);
-        }
+        sKYCPubKey=request.params[1].get_str();
+        addressWhitelist.whitelist_kyc(CPubKey(ParseHex(sKYCPubKey)).GetID());
     }
 
     std::ifstream file;
@@ -1824,7 +1819,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
+	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCPubKey);
     }
 
     file.close();

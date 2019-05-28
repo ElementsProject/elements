@@ -100,15 +100,16 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
 
 
   CPubKey newKYCPubKey;
+  CKeyID kycKeyID;
   if(kycPubKey != nullptr){
     if (!kycPubKey->IsFullyValid()) 
       throw std::invalid_argument(std::string(std::string(__func__) + 
         ": invalid KYC public key"));
 
     newKYCPubKey=CPubKey(kycPubKey->begin(), kycPubKey->end());
+    kycKeyID=newKYCPubKey.GetID();
   } 
 
-  CKeyID kycKeyID=newKYCPubKey.GetID();
 
   //insert new address into sorted CWhiteList vector
   add_sorted(&keyId);
@@ -140,8 +141,11 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   std::vector<unsigned char> pubKeyData(ParseHex(sPubKey));
   CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
 
-  std::vector<unsigned char> kycPubKeyData(ParseHex(sPubKey));
-  CPubKey* kycPubKey = new CPubKey(kycPubKeyData.begin(), pubKeyData.end());
+  CPubKey* kycPubKey = nullptr;
+  if(sKYCPubKey.size() > 0){
+    std::vector<unsigned char> kycPubKeyData(ParseHex(sKYCPubKey));
+    kycPubKey = new CPubKey(kycPubKeyData.begin(), pubKeyData.end());
+  }
 
   add_derived(address, pubKey, kycPubKey);
   delete kycPubKey;
