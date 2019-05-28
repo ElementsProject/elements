@@ -208,6 +208,37 @@ UniValue getnewaddress(const JSONRPCRequest& request)
         CBitcoinAddress(keyID).ToString();
 }
 
+UniValue getkycpubkey(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "getkycpubkey ( \"address\" )\n"
+            "\nReturns the kyc public key associated with an address.\n"
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The address to look up the KYC public key for.\n"
+            "\nResult:\n"
+            "\"kycpubkey\"    (string) The KYC public key.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getkycpubkey", "2dxig5syTVt6SvMjjBFJVGdSj4o8TVsixYK")
+            + HelpExampleRpc("getkycpubkey", "2dxig5syTVt6SvMjjBFJVGdSj4o8TVsixYK")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+
+    CBitcoinAddress address(request.params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+
+
+    CKeyID kycKeyID;
+    if(!addressWhitelist.LookupKYCKey(address.GetKeyID(), kycKeyID)){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: KYC public key not found. Either the address has never been whitelisted, or this node's wallet does not possess the address or KYC private keys.")
+    }
+}
+
 
 CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
 {

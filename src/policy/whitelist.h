@@ -24,11 +24,11 @@ public:
 	bool Load(CCoinsView *view);
 
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
-		const CBitcoinAddress* kycAddress);
+		const CPubKey* kycPubKey);
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
 
 	void add_derived(const std::string& sAddress, const std::string& sPubKey, 
-		const std::string& sKYCAddress);
+		const std::string& sKYCPubKey);
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
 
@@ -76,8 +76,8 @@ private:
 	using CPolicyList::add_sorted;
 
 	using CPolicyList::find;
-	//A map of address to idPubKey
-	std::map<CKeyID, CKeyID> _kycMap;
+	//A map of address to kycPubKey
+	std::map<CKeyID, CPubKey> _kycMap;
 	//A map of address to tweaked public key
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//Whitelisted KYC keys

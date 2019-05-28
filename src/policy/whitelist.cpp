@@ -82,7 +82,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubK
 }
 
 void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
-  const CBitcoinAddress* kycAddress){
+  const CPubKey* kycPubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if (!pubKey.IsFullyValid()) 
     throw std::invalid_argument(std::string(std::string(__func__) + 
@@ -94,11 +94,10 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
    
-  CKeyID kycKeyId;
-  if(kycAddress){
-    if (!kycAddress->GetKeyID(kycKeyId))
+  if(kycPubKey){
+    if (!kycPubKey.IsFullyValid()) 
       throw std::invalid_argument(std::string(std::string(__func__) + 
-      ": invalid key id (kyc address)"));
+        ": invalid KYC public key"));
   }
 
   if(!Consensus::CheckValidTweakedAddress(keyId, pubKey))
@@ -109,7 +108,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
   add_sorted(&keyId);
   
   //Add to the ID map
-  _kycMap[keyId]=kycKeyId;
+  _kycMap[keyId]=kycPubKey;
   //Used for decryption
   CPubKey tweakedPubKey(pubKey);
    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
@@ -325,9 +324,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         std::vector<unsigned char> pubKeyData(itData1, itData2);
         itData1=itData2;
         CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
-        CBitcoinAddress addr(kycKey);
         try{
-          add_derived(addrNew, pubKeyNew, &addr);
+          add_derived(addrNew, pubKeyNew, &pubKeyNew);
         } catch (std::invalid_argument e){
           LogPrintf(std::string(e.what()) + "\n");
           continue;
