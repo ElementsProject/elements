@@ -98,6 +98,30 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
     }
 }
 
+
+UniValue requestToJSON(const CRequest &request)
+{
+    UniValue item(UniValue::VOBJ);
+    item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
+    item.push_back(Pair("confirmedBlockHeight", (int32_t)request.nConfirmedBlockHeight));
+    item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
+    item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
+    item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
+    item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
+    item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
+    item.push_back(Pair("startPrice", ValueFromAmount(request.nStartPrice)));
+    item.push_back(Pair("auctionPrice", ValueFromAmount(request.GetAuctionPrice(chainActive.Height()))));
+    return item;
+}
+
+UniValue bidToJSON(const CBid &bid)
+{
+    UniValue item(UniValue::VOBJ);
+    item.push_back(Pair("txid", bid.hashBid.ToString()));
+    item.push_back(Pair("feePubKey", HexStr(bid.feePubKey)));
+    return item;
+}
+
 void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
 {
     entry.push_back(Pair("txid", tx.GetHash().GetHex()));
@@ -179,8 +203,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                 issue.push_back(Pair("tokenamountcommitment", HexStr(issuance.nInflationKeys.vchCommitment)));
             }
             const std::string policyLabel = gAssetsDir.GetLabel(asset);
-            if (policyLabel != "") 
-            {
+            if (policyLabel != "") {
                 issue.push_back(Pair("assetlabel", policyLabel));
             }
             in.push_back(Pair("issuance", issue));
@@ -221,8 +244,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         }
         if (asset.IsExplicit()) {
             std::string policyLabel = gAssetsDir.GetLabel(asset.GetAsset());
-            if (policyLabel != "") 
-            {
+            if (policyLabel != "") {
                 out.push_back(Pair("assetlabel", policyLabel));
             }
         }
@@ -237,27 +259,16 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
                     vector<vector<unsigned char>> vSolutions;
                     txnouttype whichType;
                     bool solverRes = Solver(txout.scriptPubKey, whichType, vSolutions);
-                    bool isPolicy = IsPolicy(asset.GetAsset());
-                    if (solverRes && whichType == TX_LOCKED_MULTISIG && isPolicy == true) {
+                    bool isPermission = IsPermissionAsset(asset.GetAsset());
+                    if (solverRes && whichType == TX_LOCKED_MULTISIG && isPermission == true) {
                         CRequest request = CRequest::FromSolutions(vSolutions, pindex->nHeight);
-                        UniValue item(UniValue::VOBJ);
-                        item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
-                        item.push_back(Pair("confirmedBlockHeight", (int32_t)request.nConfirmedBlockHeight));
-                        item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
-                        item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
-                        item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
-                        item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
-                        item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
-                        item.push_back(Pair("startPrice", ValueFromAmount(request.nStartPrice)));
-                        item.push_back(Pair("auctionPrice", ValueFromAmount(request.GetAuctionPrice(chainActive.Height()))));
+                        auto item = requestToJSON(request);
                         out.push_back(Pair("request", item));
                     }
-                    else if (solverRes && whichType == TX_LOCKED_MULTISIG && isPolicy == false) {
+                    else if (solverRes && whichType == TX_LOCKED_MULTISIG && isPermission == false) {
                         CBid bid = CBid::FromSolutions(vSolutions, txout.nValue.GetAmount(), pindex->nHeight);
                         bid.SetBidHash(tx.GetHash());
-                        UniValue item(UniValue::VOBJ);
-                        item.push_back(Pair("txid", bid.hashBid.ToString()));
-                        item.push_back(Pair("feePubKey", HexStr(bid.feePubKey)));
+                        auto item = bidToJSON(bid);
                         out.push_back(Pair("bid", item));
                     }
                 }

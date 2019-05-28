@@ -167,6 +167,10 @@ bool IsWhitelistAsset(CAsset const &asset){
   return (asset == whitelistAsset);
 }
 
+bool IsPermissionAsset(CAsset const &asset){
+  return (asset == permissionAsset);
+}
+
 bool IsPolicy(const CAsset& asset){
     if (asset == freezelistAsset ||
         asset == burnlistAsset ||

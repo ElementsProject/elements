@@ -121,6 +121,11 @@ bool IsWhitelistAssetOnly(CTransaction const &tx);
 bool IsWhitelistAsset(CAsset const &asset);
 
 /**
+ * Check if an asset is of permission type
+ */
+bool IsPermissionAsset(CAsset const &asset);
+
+/**
  * Check if a transaction has outputs what are of a policy asset type
  */
 bool IsPolicy(const CTransaction& tx);
