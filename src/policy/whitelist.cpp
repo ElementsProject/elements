@@ -95,7 +95,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
       ": invalid key id"));
    
   if(kycPubKey){
-    if (!kycPubKey.IsFullyValid()) 
+    if (!kycPubKey->IsFullyValid()) 
       throw std::invalid_argument(std::string(std::string(__func__) + 
         ": invalid KYC public key"));
   }
@@ -108,7 +108,10 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
   add_sorted(&keyId);
   
   //Add to the ID map
-  _kycMap[keyId]=kycPubKey;
+  CKeyID kycKeyID=kycPubKey->GetID();;
+  _kycMap[keyId]=kycKeyID;
+  _kycPubkeyMap[kycKeyID]=CPubKey(kycPubKey->begin(), kycPubKey->end());
+
   //Used for decryption
   CPubKey tweakedPubKey(pubKey);
    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
@@ -123,7 +126,7 @@ void CWhiteList::add_derived(const std::string& addressIn, const std::string& ke
 }
 
 void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPubKey, 
-  const std::string& sKYCAddress){
+  const std::string& sKYCPubKey){
    boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
     CBitcoinAddress address;
   if (!address.SetString(sAddress))
@@ -133,17 +136,11 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   std::vector<unsigned char> pubKeyData(ParseHex(sPubKey));
   CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
 
-  CBitcoinAddress* kycAddress;
-  if(sKYCAddress.size() == 0) {
-    kycAddress = nullptr;
-  } else {
-    kycAddress = new CBitcoinAddress();
-     if (!kycAddress->SetString(sKYCAddress))
-     throw std::invalid_argument(std::string(std::string(__func__) + 
-      ": invalid Bitcoin address (kyc key): ") + sKYCAddress);
-  }
-  add_derived(address, pubKey, kycAddress);
-  delete kycAddress;
+  std::vector<unsigned char> kycPubKeyData(ParseHex(sPubKey));
+  CPubKey* kycPubKey = new CPubKey(kycPubKeyData.begin(), pubKeyData.end());
+
+  add_derived(address, pubKey, kycPubKey);
+  delete kycPubKey;
 }
 
 #ifdef ENABLE_WALLET
@@ -347,6 +344,19 @@ bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
   if(search != _kycMap.end()){
     kycKeyFound = search->second;
     return true;
+  }
+  return false;
+}
+
+bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  CKeyID kycKeyID;
+  if(LookupKYCKey(keyId, kycKeyID)){
+    auto search = _kycPubkeyMap.find(kycKeyID);
+    if(search != _kycPubkeyMap.end()){
+      kycPubkeyFound = search->second;
+      return true;
+    }
   }
   return false;
 }

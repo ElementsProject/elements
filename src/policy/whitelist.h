@@ -53,6 +53,8 @@ public:
 
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
 
+  	bool LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound);
+
 	bool find_kyc_whitelisted(const CKeyID& keyId);
 
 	void blacklist_kyc(const CKeyID& keyId);
@@ -77,13 +79,16 @@ private:
 
 	using CPolicyList::find;
 	//A map of address to kycPubKey
-	std::map<CKeyID, CPubKey> _kycMap;
+	std::map<CKeyID, CKeyID> _kycMap;
 	//A map of address to tweaked public key
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//Whitelisted KYC keys
 	std::map<CKeyID, CWhiteList::status> _kycStatusMap;
 	//Map user onboard key to KYC pub key
 	std::map<CKeyID, CPubKey> _onboardMap;
+
+	//Map KYC key ID to public key
+	std::map<CKeyID, CPubKey> _kycPubkeyMap;
 
 	//KYC pub keys not yet assigned to any user
 	std::queue<CPubKey> _kycUnassignedQueue;

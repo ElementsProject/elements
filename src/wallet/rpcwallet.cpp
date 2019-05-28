@@ -233,10 +233,17 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
 
-    CKeyID kycKeyID;
-    if(!addressWhitelist.LookupKYCKey(address.GetKeyID(), kycKeyID)){
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: KYC public key not found. Either the address has never been whitelisted, or this node's wallet does not possess the address or KYC private keys.")
-    }
+    CPubKey kycPubKey;
+    CKeyID addr;
+    if(!address.GetKeyID(addr))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
+
+    if(!addressWhitelist.LookupKYCKey(addr, kycPubKey))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: KYC public key not found. Either the address has never been whitelisted, or this node's wallet does not possess the address or KYC private keys.");
+
+    UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
+
+    return ret;
 }
 
 
