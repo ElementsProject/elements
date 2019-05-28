@@ -70,10 +70,6 @@ static void SetupBitcoinTxArgs()
     gArgs.AddArg("set=NAME:JSON-STRING", "Set register NAME to given JSON-STRING", false, OptionsCategory::REGISTER_COMMANDS);
 
     gArgs.AddArg("-serialization=TYPE", "Sets the serialization of transactions. ELEMENTS or BITCOIN are the two valid options.", false, OptionsCategory::REGISTER_COMMANDS);
-
-    // Hidden
-    gArgs.AddArg("-h", "", false, OptionsCategory::HIDDEN);
-    gArgs.AddArg("-help", "", false, OptionsCategory::HIDDEN);
 }
 
 //
