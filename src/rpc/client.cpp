@@ -104,6 +104,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createrawbidtx", 1, "outputs" },
     { "createrawpolicytx", 0, "inputs" },
     { "createrawpolicytx", 1, "outputs" },
+    { "createkycpubkeytx", 0, "nkeys" },
     { "dumpissuanceblindingkey", 1, "vin" },
     { "importissuanceblindingkey", 1, "vin" },
     { "createrawtransaction", 2, "locktime" },

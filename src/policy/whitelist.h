@@ -49,6 +49,11 @@ public:
   	bool get_unassigned_kyc(CPubKey& pubKey);
   	//Get the next key without removing it
   	bool peek_unassigned_kyc(CPubKey& pubKey);
+
+  	int64_t get_n_unassigned_kyc_pubkeys() const{
+  		return _kycUnassignedQueue.size();
+  	}
+
   	void add_unassigned_kyc(const CPubKey& pubKey);
 
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);

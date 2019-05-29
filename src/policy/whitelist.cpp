@@ -144,7 +144,7 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   CPubKey* kycPubKey = nullptr;
   if(sKYCPubKey.size() > 0){
     std::vector<unsigned char> kycPubKeyData(ParseHex(sKYCPubKey));
-    kycPubKey = new CPubKey(kycPubKeyData.begin(), pubKeyData.end());
+    kycPubKey = new CPubKey(kycPubKeyData.begin(), kycPubKeyData.end());
   }
 
   add_derived(address, pubKey, kycPubKey);
