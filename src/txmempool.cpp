@@ -403,13 +403,6 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
     vTxHashes.emplace_back(tx.GetWitnessHash(), newit);
     newit->vTxHashesIdx = vTxHashes.size() - 1;
-
-    // ELEMENTS:
-    typedef std::pair<uint256, COutPoint> PeginPair;
-    for(const PeginPair& it : entry.setPeginsSpent) {
-        std::pair<std::map<std::pair<uint256, COutPoint>, uint256>::iterator, bool> ret = mapPeginsSpentToTxid.insert(std::make_pair(it, tx.GetHash()));
-        assert(ret.second);
-    }
 }
 
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
@@ -418,12 +411,6 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     const uint256 hash = it->GetTx().GetHash();
     for (const CTxIn& txin : it->GetTx().vin)
         mapNextTx.erase(txin.prevout);
-
-    // ELEMENTS:
-    typedef std::pair<uint256, COutPoint> PeginPair;
-    for (const PeginPair& it2 : it->setPeginsSpent) {
-        mapPeginsSpentToTxid.erase(it2);
-    }
 
     if (vTxHashes.size() > 1) {
         vTxHashes[it->vTxHashesIdx] = std::move(vTxHashes.back());
@@ -561,7 +548,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, const std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, bool pak_transition)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, bool pak_transition)
 {
     LOCK(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -587,22 +574,6 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         ClearPrioritisation(tx->GetHash());
     }
 
-    // ELEMENTS:
-    // Eject any conflicting pegins
-    for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setPeginsSpent.begin(); it != setPeginsSpent.end(); it++) {
-        std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it2 = mapPeginsSpentToTxid.find(*it);
-        if (it2 != mapPeginsSpentToTxid.end()) {
-            uint256 tx_id = it2->second;
-            txiter txit = mapTx.find(tx_id);
-            assert(txit != mapTx.end());
-            const CTransaction& tx = txit->GetTx();
-            setEntries stage;
-            stage.insert(txit);
-            RemoveStaged(stage, true);
-            removeRecursive(tx, MemPoolRemovalReason::CONFLICT);
-            ClearPrioritisation(tx_id);
-        }
-    }
     // Eject any newly-invalid peg-outs based on changing block commitment
     const CChainParams& chainparams = Params();
     if (pak_transition && chainparams.GetEnforcePak()) {
@@ -786,10 +757,6 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     for (std::set<std::pair<uint256, COutPoint> >::const_iterator it = setGlobalPeginsSpent.begin(); it != setGlobalPeginsSpent.end(); it++) {
         assert(!pcoins->IsPeginSpent(*it));
     }
-    for (std::map<std::pair<uint256, COutPoint>, uint256>::const_iterator it = mapPeginsSpentToTxid.begin(); it != mapPeginsSpentToTxid.end(); it++) {
-        assert(setGlobalPeginsSpent.erase(it->first));
-    }
-    assert(setGlobalPeginsSpent.size() == 0);
     // END ELEMENTS
     //
 
@@ -988,7 +955,7 @@ bool CCoinsViewMemPool::GetCoin(const COutPoint &outpoint, Coin &coin) const {
 
 // ELEMENTS:
 bool CCoinsViewMemPool::IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const {
-    return mempool.mapPeginsSpentToTxid.count(outpoint) || base->IsPeginSpent(outpoint);
+    return base->IsPeginSpent(outpoint);
 }
 
 size_t CTxMemPool::DynamicMemoryUsage() const {
