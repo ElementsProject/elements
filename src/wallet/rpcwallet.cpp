@@ -212,12 +212,12 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() != 1)
+    if (request.fHelp || request.params.size() > 1)
         throw runtime_error(
             "getkycpubkey ( \"address\" )\n"
-            "\nReturns the kyc public key associated with an address.\n"
+            "\nReturns the kyc public key associated with this wallet, or an address if supplied.\n"
             "\nArguments:\n"
-            "1. \"address\"        (string, required) The address to look up the KYC public key for.\n"
+            "1. \"address\"        (string, optional) The address to look up the KYC public key for.\n"
             "\nResult:\n"
             "\"kycpubkey\"    (string) The KYC public key.\n"
             "\nExamples:\n"
@@ -227,19 +227,27 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    CPubKey kycPubKey;
+
+    if(request.params.size()==0){
+        kycPubKey=pwalletMain->GetKYCPubKey();
+        if(kycPubKey == CPubKey())
+            throw JSONRPCError(RPC_WALLET_ERROR, "KYC public key not found");
+        UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
+        return ret;
+    }
 
     CBitcoinAddress address(request.params[0].get_str());
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
-
-    CPubKey kycPubKey;
+    
     CKeyID addr;
     if(!address.GetKeyID(addr))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
 
     if(!addressWhitelist.LookupKYCKey(addr, kycPubKey))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: KYC public key not found. Either the address has never been whitelisted, or this node's wallet does not possess the address or KYC private keys.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not found");
 
     UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
 
@@ -4745,6 +4753,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getbalance",               &getbalance,               false,  {"account","minconf","include_watchonly"} },
     { "wallet",             "getderivedkeys",           &getderivedkeys,           true,   {} },
     { "wallet",             "getnewaddress",            &getnewaddress,            true,   {"account"} },
+    { "wallet",             "getkycpubkey",             &getkycpubkey,             true,   {"address"} },
     { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,      true,   {} },
     { "wallet",             "getpeginaddress",          &getpeginaddress,          false,  {} },
     { "wallet",             "getreceivedbyaccount",     &getreceivedbyaccount,     false,  {"account","minconf"} },

@@ -330,7 +330,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         itData1=itData2;
         CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
         try{
-          add_derived(addrNew, pubKeyNew, &pubKeyNew);
+          add_derived(addrNew, pubKeyNew, &kycPubKey);
         } catch (std::invalid_argument e){
           LogPrintf(std::string(e.what()) + "\n");
           continue;
