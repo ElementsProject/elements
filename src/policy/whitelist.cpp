@@ -53,12 +53,12 @@ bool CWhiteList::Load(CCoinsView *view)
                       CKeyID id=kycPubKey.GetID();
                       if(find_kyc_blacklisted(id)){
                         LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                        whitelist_kyc(id);
+                        whitelist_kyc(id, &key);
                       } else if(find_kyc_whitelisted(id)){
                         return false;
                       } else {
                         LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                        whitelist_kyc(id);
+                        whitelist_kyc(id, &key);
                         add_unassigned_kyc(kycPubKey);
                       }
                       return true;
@@ -66,12 +66,12 @@ bool CWhiteList::Load(CCoinsView *view)
                 }
               }
             }
-    } else {
-      return error("%s: unable to read value", __func__);
-    }
+      } else {
+        return error("%s: unable to read value", __func__);
+      }
     pcursor->Next();
     }
-    return true;
+  return true;
 }
 
 
@@ -409,6 +409,7 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
             
             CKeyID id=kycPubKey.GetID();
+            uint256 txid=tx.GetHash();
             blacklist_kyc(id);
             LogPrintf("POLICY: moved KYC pubkey from whitelist to blacklist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             return true;
@@ -441,12 +442,14 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             CKeyID id=kycPubKey.GetID();
             if(find_kyc_blacklisted(id)){
               LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              whitelist_kyc(id);
+              uint256 txid=tx.GetHash();
+              whitelist_kyc(id, &txid);
             } else if(find_kyc_whitelisted(id)){
               return false;
             } else {
               LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              whitelist_kyc(id);
+              uint256 txid=tx.GetHash();
+              whitelist_kyc(id, &txid);
               add_unassigned_kyc(kycPubKey);
             }
             return true;
@@ -455,14 +458,34 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
     return false;
 }
 
+//hashTx = tx->GetHash();){
+
 void CWhiteList::blacklist_kyc(const CKeyID& keyId){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::black);
+  _kycPubkeyTXMap.erase(_kycPubkeyTXMap.find(keyId));
 }
 
-void CWhiteList::whitelist_kyc(const CKeyID& keyId){
+void CWhiteList::whitelist_kyc(const CKeyID& keyId, const uint256* hashTx){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::white);
+  if(hashTx)
+    _kycPubkeyTXMap[keyId]=*hashTx;
+}
+
+bool CWhiteList::get_hashtx(const CKeyID& keyId, uint256& hashTx){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  auto it = _kycPubkeyTXMap.find(keyId);
+  if (it == _kycPubkeyTXMap.end()) return false;
+  hashTx = it->second;
+  return true;
+}
+
+bool CWhiteList::get_hashtx(const CPubKey& pubKey, uint256& hashTx){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  if(!pubKey.IsFullyValid())
+    return false;
+  return get_hashtx(pubKey.GetID(), hashTx);
 }
 
 bool CWhiteList::set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){

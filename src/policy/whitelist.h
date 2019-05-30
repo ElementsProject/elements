@@ -64,7 +64,11 @@ public:
 
 	void blacklist_kyc(const CKeyID& keyId);
 
-	void whitelist_kyc(const CKeyID& keyId);
+	void whitelist_kyc(const CKeyID& keyId, const uint256* hashTx=nullptr);
+
+	bool get_hashtx(const CKeyID& kycPubKeyId, uint256& hashTx);
+
+	bool get_hashtx(const CPubKey& kycPubKey, uint256& hashTx);
 
 	// My ending addresses - added to whitelist by me in a add to whitelist transaction waiting to be included in a block
 	void add_my_pending(const CKeyID& keyId);
@@ -94,6 +98,9 @@ private:
 
 	//Map KYC key ID to public key
 	std::map<CKeyID, CPubKey> _kycPubkeyMap;
+
+	//Map KYC key ID to its latest policy transaction (required for blacklisting)
+	std::map<CKeyID, uint256> _kycPubkeyTXMap;
 
 	//KYC pub keys not yet assigned to any user
 	std::queue<CPubKey> _kycUnassignedQueue;
