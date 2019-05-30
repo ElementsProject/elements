@@ -8,6 +8,7 @@
 #include <map>
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
+#include "univalue.h"
 #endif
 #include <queue>
 
@@ -25,12 +26,25 @@ public:
 
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
 		const CBitcoinAddress* kycAddress);
+
+	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
+		const int32_t nMultisig);
+
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
+
+	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
+  		const CBitcoinAddress* kycAddress, const int32_t nMultisig);
 
 	void add_derived(const std::string& sAddress, const std::string& sPubKey, 
 		const std::string& sKYCAddress);
+
+	void add_derived(const std::string& addressIn, const UniValue& keys, 
+		const int32_t nMultisig);
+
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
+	void add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
+  		const std::string& sKYCAddress, const int32_t nMultisig);
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 

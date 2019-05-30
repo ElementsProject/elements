@@ -1834,6 +1834,43 @@ bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
 return true;
 }
 
+extern CScript _createmultisig_redeemScript(const UniValue& params);
+
+//Used for multisig P2SH checking that has been created with tweaked addresses
+bool CheckValidTweakedAddress(const  CKeyID& keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
+
+    std::vector<CPubKey> tweakedPubKeys = pubKeys;
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+
+    if (!contract.IsNull()){
+        for (int it = 0; it < tweakedPubKeys.size(); ++it){
+            tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
+        }
+    }
+
+    UniValue params(UniValue::VOBJ);
+    params.push_back(Pair("nrequired", nMultisig));
+    UniValue keys(UniValue::VOBJ);
+    for (int twCnt = 0; twCnt < tweakedPubKeys.size(); ++twCnt){
+        keys.push_back(Pair("key", HexStr(tweakedPubKeys[twCnt].begin(), tweakedPubKeys[twCnt].end())));
+    }
+    params.push_back(Pair("keys", keys));
+
+    CScript inner = _createmultisig_redeemScript(params);
+    CScriptID innerID(inner);
+    CBitcoinAddress address(innerID);
+
+    //Will throw an error if address is not a valid derived address.
+    CKeyID multiKeyId;
+    if (!address.GetKeyID(multiKeyId))
+        return false;
+
+    if (multiKeyId != keyID)
+        return false;
+
+    return true;
+}
+
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
 {
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier

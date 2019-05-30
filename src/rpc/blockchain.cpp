@@ -1758,6 +1758,45 @@ try{
   return NullUniValue;
 }
 
+UniValue addmultitowhitelist(const JSONRPCRequest& request)
+{
+    unsigned int nparams=request.params.size();
+    if (request.fHelp || nparams < 3 || nparams > 4)
+        throw runtime_error(
+            "addtowhitelist \"tweakedaddress\" \"basepubkeys\" \"nmultisig\" \"kycpubkey\"\n"
+            "\nAttempts to add an address (tweaked multisig address) to the node mempool whitelist.\n"
+            "The address is checked that it has been tweaked with the contract hash for every pubkey.\n"
+            "\nArguments:\n"
+            "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
+            "2. \"basepubkeys\"     (array, required) A json array of ordered hex encoded of the compressed base (un-tweaked) public keys that were used in the multisig\n\n"
+            "    [\n"
+            "      {\n"
+            "        \"basepubkey\":\"id\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
+            "      } \n"
+            "      ,...\n"
+            "    ]\n"
+            "3. \"nmultisig\"     (numeric, optional) Number of required signatures for a multisig transaction (n of M)\n"
+            "4. \"kycaddress\"    (string, optional) Base58 KYC address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("addtowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" \"1\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("addtowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" \"1\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+                        );
+    if (request.params[1].isNull())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 2 must be non-null");
+    try{
+        if(nparams == 3){
+            addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_array(), request.params[2].get_int());
+        } else {
+            addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_array(),
+            request.params[3].get_str(), request.params[2].get_int());
+        }
+    } catch(std::invalid_argument e){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
+    }
+
+    return NullUniValue;
+}
+
 UniValue readwhitelist(const JSONRPCRequest& request)
 {
   if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)

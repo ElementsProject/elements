@@ -451,6 +451,12 @@ namespace Consensus {
 bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey);
 
 /**
+* Check whether the script address is derived from the public keys via key tweaking
+* using the hash contract of the chain active tip.
+*/
+bool CheckValidTweakedAddress(const  CKeyID& keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig);
+
+/**
  * Check whether all inputs of this transaction are valid (no double spends and amounts)
  * This does not modify the UTXO set. This does not check scripts and sigs.
  * Preconditions: tx.IsCoinBase() is false.
