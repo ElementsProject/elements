@@ -20,7 +20,7 @@ class AssetdirTests(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
-        [["-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_coinbase=1", "-con_blocksubsidy=0"]]
+        [["-initialfreecoins=2100000000000000", "-anyonecanspendaremine=1", "-con_connect_genesis_outputs=1", "-con_blocksubsidy=0"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()

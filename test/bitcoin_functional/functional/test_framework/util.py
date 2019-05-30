@@ -304,7 +304,7 @@ def initialize_datadir(dirname, n):
         f.write("printtoconsole=0\n")
         # Elements:
         f.write("con_blocksubsidy=5000000000\n")
-        f.write("con_connect_coinbase=0\n")
+        f.write("con_connect_genesis_outputs=0\n")
         f.write("con_has_parent_chain=0\n")
         f.write("parentgenesisblockhash=0\n")
         f.write("anyonecanspendaremine=0\n")
