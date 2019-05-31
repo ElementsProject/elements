@@ -100,6 +100,9 @@ struct Params {
     CScript signblockscript;
     uint32_t max_block_signature_size;
     // g_signed_blocks - Whether blocks are signed or not, get around circular dep
+    // Set positive to avoid division by 0
+    // for non-dynafed chains and unit tests
+    uint32_t dynamic_epoch_length = std::numeric_limits<uint32_t>::max();
     // Used to seed the extension space for first dynamic blocks
     std::vector<std::vector<unsigned char>> first_extension_space;
 };
