@@ -4725,12 +4725,13 @@ UniValue signblock(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() != 1)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             RPCHelpMan{"signblock",
-                "\nSigns a block proposal, checking that it would be accepted first. Errors if it cannot sign the block.\n",
+                "\nSigns a block proposal, checking that it would be accepted first. Errors if it cannot sign the block. Note that this call adds the witnessScript to your wallet for signing purposes! This function is intended for QA and testing.\n",
                 {
                     {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded witness script. Required for dynamic federation blocks. Argument is \"\" when the block is P2WPKH."},
                 },
                 RPCResult{
             "[\n"
@@ -4776,7 +4777,20 @@ UniValue signblock(const JSONRPCRequest& request)
 
     // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
     SignatureData block_sigs;
-    GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs);
+    if (block.m_dyna_params.IsNull()) {
+        GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs);
+    } else {
+        if (request.params[1].isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Signing dynamic blocks requires the witnessScript argument");
+        }
+        std::vector<unsigned char> witness_bytes(ParseHex(request.params[1].get_str()));
+        // Note that we're adding the signblockscript to the wallet so it can actually
+        // satisfy witness program scriptpubkeys
+        if (!witness_bytes.empty()) {
+            pwallet->AddCScript(CScript(witness_bytes.begin(), witness_bytes.end()));
+        }
+        GenericSignScript(*pwallet, block.GetBlockHeader(), block.m_dyna_params.m_current.m_signblockscript, block_sigs);
+    }
 
     // Error if sig data didn't "grow"
     if (!block_sigs.complete && block_sigs.signatures.empty()) {
@@ -4837,8 +4851,9 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     // Also add raw scripts to index to recognize later.
     pwallet->AddCScript(dest_script);
 
-    // Get P2CH deposit address on mainchain.
-    CTxDestination mainchain_dest(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, dest_script))));
+    // Get P2CH deposit address on mainchain from most recent fedpegscript.
+    const std::vector<CScript>& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    CTxDestination mainchain_dest(ScriptHash(GetScriptForWitness(calculate_contract(fedpegscripts.front(), dest_script))));
 
     UniValue ret(UniValue::VOBJ);
 
@@ -5425,7 +5440,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     T_tx txBTC(*txBTCRef);
 
     std::vector<unsigned char> txOutProofData = ParseHex(request.params[1].get_str());
-    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     try {
         ssTxOutProof >> merkleBlock;
     }
@@ -6691,7 +6706,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpblindingkey",                  &dumpblindingkey,               {"address"}},
     { "wallet",             "dumpmasterblindingkey",            &dumpmasterblindingkey,         {}},
     { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey,       {"txid", "vin"}},
-    { "wallet",             "signblock",                        &signblock,                     {"blockhex"}},
+    { "wallet",             "signblock",                        &signblock,                     {"blockhex", "witnessScript"}},
     { "wallet",             "listissuances",                    &listissuances,                 {"asset"}},
     { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},

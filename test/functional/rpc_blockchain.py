@@ -75,8 +75,12 @@ class BlockchainTest(BitcoinTestFramework):
             'bip9_softforks',
             'blocks',
             'chain',
+            'current_signblock_asm',
+            'current_signblock_hex',
+            'extension_space',
             'headers',
             'initialblockdownload',
+            'max_block_witness',
             'mediantime',
             'pruned',
             'signblock_asm',
@@ -104,6 +108,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         self.restart_node(0, ['-stopatheight=207'])
         res = self.nodes[0].getblockchaininfo()
+
         # should have exact keys
         assert_equal(sorted(res.keys()), keys)
 
