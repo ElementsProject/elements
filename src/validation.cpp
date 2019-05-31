@@ -3503,9 +3503,9 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
-    // Check proof of work if necessary
+    // Check proof of work target or non-dynamic signblockscript if necessary
     const Consensus::Params& consensusParams = params.GetConsensus();
-    if (!CheckChallenge(block, *pindexPrev, consensusParams))
+    if (!IsDynaFedEnabled(pindexPrev, consensusParams) && !CheckChallenge(block, *pindexPrev, consensusParams))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work");
 
     // Check against checkpoints
