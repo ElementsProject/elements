@@ -603,6 +603,8 @@ struct CScriptWitness
     void SetNull() { stack.clear(); stack.shrink_to_fit(); }
 
     std::string ToString() const;
+
+    uint32_t GetSerializedSize() const;
 };
 
 class CReserveScript
