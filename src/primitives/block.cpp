@@ -40,3 +40,29 @@ std::string CBlock::ToString() const
     }
     return s.str();
 }
+
+uint256 ConsensusParamEntry::CalculateRoot() const
+{
+    if (IsNull()) {
+        return uint256();
+    }
+
+    std::vector<uint256> leaves;
+    leaves.push_back(SerializeHash(m_signblockscript, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(m_sbs_wit_limit, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(m_fedpegscript, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(m_extension_space, SER_GETHASH, 0));
+    return ComputeFastMerkleRoot(leaves);
+}
+
+uint256 DynaFedParams::CalculateRoot() const
+{
+    if (IsNull()) {
+        return uint256();
+    }
+
+    std::vector<uint256> leaves;
+    leaves.push_back(m_current.CalculateRoot());
+    leaves.push_back(m_proposed.CalculateRoot());
+    return ComputeFastMerkleRoot(leaves);
+}
