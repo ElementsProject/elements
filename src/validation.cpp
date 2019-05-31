@@ -2652,10 +2652,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    // ELEMENTS: We also eject now-invalid peg-outs based on block transition if not config list set
-    // If config is set, this means all peg-outs have been filtered for that list already and other
-    // functionaries aren't matching your list. Operator should restart with no list or new matching list.
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, (paklist && !g_paklist_config));
+    // ELEMENTS: We also eject peg-outs with now-invalid PAK proofs
+    // as well as peg-in inputs during transitional periods.
+    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, pindexNew);
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update chainActive & related variables.
     chainActive.SetTip(pindexNew);
