@@ -25,12 +25,20 @@
 #include <util/system.h>
 #include <validationinterface.h>
 
-// ELEMENTS
-#include <block_proof.h> // ResetProof, ResetChallenge
 
 #include <algorithm>
 #include <queue>
 #include <utility>
+
+void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
+{
+    block.proof.challenge = indexLast.proof.challenge;
+}
+
+void ResetProof(CBlockHeader& block)
+{
+    block.proof.solution.clear();
+}
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -161,7 +169,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         // Pad block weight by block proof fields (including upper-bound of signature)
         nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
         nBlockWeight += chainparams.GetConsensus().max_block_signature_size * WITNESS_SCALE_FACTOR;
-        // Reset block proof
         ResetProof(*pblock);
         ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
     }
