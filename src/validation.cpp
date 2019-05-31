@@ -699,6 +699,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
         }
 
+        // Used when checking peg-ins
+        std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), chainparams.GetConsensus(), true /* nextblock_validation */);
+
         // do all inputs exist?
         for (unsigned int i = 0; i < tx.vin.size(); i++) {
             const CTxIn& txin = tx.vin[i];
@@ -711,7 +714,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // Peg-in witness is required, check here without validating existence in parent chain
                 std::string err_msg = "no peg-in witness attached";
                 if (tx.witness.vtxinwit.size() != tx.vin.size() ||
-                        !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err_msg, false)) {
+                        !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, tx.vin[i].prevout, err_msg, false)) {
                     return state.Invalid(false, REJECT_INVALID, "pegin-no-witness", err_msg);
                 }
 
@@ -757,7 +760,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.DoS(0, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmountMap fee_map;
-        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), fee_map, setPeginsSpent, NULL, true, true)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -1631,7 +1634,7 @@ static bool AbortNode(CValidationState& state, const std::string& strMessage, co
  * @param out The out point that corresponds to the tx input.
  * @return A DisconnectResult as an int
  */
-int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness)
+int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness, const std::vector<CScript>& fedpegscripts)
 {
     bool fClean = true;
 
@@ -1663,7 +1666,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, cons
         view.AddCoin(out, std::move(undo), !fClean);
     } else {
         std::string err;
-        if (!IsValidPeginWitness(pegin_witness, txin.prevout, err, false)) {
+        if (!IsValidPeginWitness(pegin_witness, fedpegscripts, txin.prevout, err, false)) {
             fClean = fClean && error("%s: peg-in occurred without proof", __func__);
         } else {
             std::pair<uint256, COutPoint> outpoint = std::make_pair(uint256(pegin_witness.stack[2]), txin.prevout);
@@ -1725,6 +1728,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // restore inputs
+        const std::vector<CScript> fedpegscripts = GetValidFedpegScripts(pindex, Params().GetConsensus(), false /* nextblock_validation */);
         if (i > 0) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
@@ -1734,7 +1738,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
                 const COutPoint &out = tx.vin[j].prevout;
                 const CScriptWitness& pegin_wit = tx.witness.vtxinwit.size() > j ? tx.witness.vtxinwit[j].m_pegin_witness : CScriptWitness();
-                int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out, tx.vin[j], pegin_wit);
+                int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out, tx.vin[j], pegin_wit, fedpegscripts);
                 if (res == DISCONNECT_FAILED) return DISCONNECT_FAILED;
                 fClean = fClean && res != DISCONNECT_UNCLEAN;
             }
@@ -2140,6 +2144,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Used when ConnectBlock() results are unneeded for mempool ejection
     std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
 
+    // Used when checking peg-ins
+    std::vector<CScript> fedpegscripts = GetValidFedpegScripts(pindex, chainparams.GetConsensus(), false /* nextblock_validation */);
+
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
         const CTransaction &tx = *(block.vtx[i]);
@@ -2152,7 +2159,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, fee_map,
                         setPeginsSpent == NULL ? setPeginsSpentDummy : *setPeginsSpent,
-                        nScriptCheckThreads ? &vChecks : NULL, fCacheResults, fScriptChecks)) {
+                        nScriptCheckThreads ? &vChecks : NULL, fCacheResults, fScriptChecks, fedpegscripts)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
             control.Add(vChecks);

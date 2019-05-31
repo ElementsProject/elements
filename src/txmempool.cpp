@@ -603,7 +603,8 @@ static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCa
     CValidationState state;
     CAmountMap fee_map;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true);
+    std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);
 
