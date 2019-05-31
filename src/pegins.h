@@ -23,7 +23,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 // Constructs unblinded output to be used in amount and scriptpubkey checks during pegin
 CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
 
-/* Belt-and-suspenders-only matching against telescoped multisig used on Liquid v1:
+/* Consensus-critical. Matching against telescoped multisig used on Liquid v1:
  * Pseudo-structure:
  * Check number of elements on stack
  * If enough for federation multisig, push all multisig args onto stack except OP_CMS
