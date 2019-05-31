@@ -5198,10 +5198,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
         subtract_fee = request.params[2].get_bool();
     }
 
-    CPAKList paklist = g_paklist_blockchain;
-    if (g_paklist_config) {
-        paklist = *g_paklist_config;
-    }
+    CPAKList paklist = GetActivePAKList(chainActive.Tip(), Params().GetConsensus());
     if (paklist.IsReject()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pegout freeze is under effect to aid a pak transition to a new list. Please consult the network operator.");
     }
@@ -5339,8 +5336,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     CTxDestination address(nulldata);
     assert(GetScriptForDestination(nulldata).IsPegoutScript(genesisBlockHash));
 
-    txnouttype txntype;
-    if (!IsStandard(GetScriptForDestination(nulldata), txntype)) {
+    if (!ScriptHasValidPAKProof(GetScriptForDestination(nulldata), Params().ParentGenesisBlockHash(), paklist)) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Resulting scriptPubKey is non-standard. Ensure pak=reject is not set");
     }
 
@@ -6482,10 +6478,7 @@ UniValue generatepegoutproof(const JSONRPCRequest& request)
     if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &onlinepubkey_secp, &onlinepubkeybytes[0], onlinepubkeybytes.size()))
         throw JSONRPCError(RPC_WALLET_ERROR, "Invalid online pubkey");
 
-    CPAKList paklist = g_paklist_blockchain;
-    if (g_paklist_config) {
-        paklist = *g_paklist_config;
-    }
+    CPAKList paklist = GetActivePAKList(chainActive.Tip(), Params().GetConsensus());
     if (paklist.IsReject()) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Pegout freeze is under effect to aid a pak transition to a new list. Please consult the network operator.");
     }

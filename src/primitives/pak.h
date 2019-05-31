@@ -59,7 +59,7 @@ public:
  ** given the PAK list. Two pushes after regular pegout script:
  ** <full_pubkey> <proof>
  **/
-bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash);
+bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash, const CPAKList& paklist);
 
 CPAKList GetActivePAKList(const CBlockIndex* pblockindex, const Consensus::Params& params);
 
