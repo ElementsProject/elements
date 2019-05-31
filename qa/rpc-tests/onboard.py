@@ -189,7 +189,7 @@ class OnboardTest (BitcoinTestFramework):
  
         #Node 1 registers additional addresses to whitelist
         nadd=100
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
         time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
@@ -199,6 +199,7 @@ class OnboardTest (BitcoinTestFramework):
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
         assert_equal(nlines2-nlines1, nadd)
+
 
 
         self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
@@ -213,6 +214,30 @@ class OnboardTest (BitcoinTestFramework):
         nlines3=self.linecount(wl1file_3)
         assert_equal(nlines3-nlines2, 3*nadd)
 
+
+        clientAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        clientAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        clientAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        clientAddress4=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        print("Creating a p2sh address for whitelisting")
+        multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
+        wl1file="wl1.dat"
+        self.nodes[1].dumpwhitelist(wl1file)
+        print("Adding the created p2sh to the whitelist\n")
+        self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        wl1file_2="wl1_2.dat"
+        self.nodes[1].dumpwhitelist(wl1file_2)
+        nlines1=self.linecount(wl1file)
+        nlines2=self.linecount(wl1file_2)
+        assert_equal(nlines1+1,nlines2)
+        iswl=self.nodes[1].querywhitelist(multiAddress1['address'])
+        assert(iswl)
+
+        multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['derivedpubkey']])
+        self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress4['derivedpubkey']],2,kycaddr)
+        iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
+        #assert(iswl==False)
+        print(clientAddress1)
 
         #Blacklist node 1
         wltx_decoded=self.nodes[1].decoderawtransaction(wltx)

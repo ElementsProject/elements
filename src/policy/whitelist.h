@@ -57,7 +57,7 @@ public:
 
   	virtual void clear();
 
-  	bool is_whitelisted(const CKeyID& keyId);
+  	bool is_whitelisted(const CTxDestination keyId);
 
   	//Get a kyc key from the _kycUnassignedQueue. Removes the element from the queue.
   	bool get_unassigned_kyc(CPubKey& pubKey);
@@ -65,7 +65,7 @@ public:
   	bool peek_unassigned_kyc(CPubKey& pubKey);
   	void add_unassigned_kyc(const CPubKey& pubKey);
 
-  	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
+  	bool LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound);
 
 	bool find_kyc_whitelisted(const CKeyID& keyId);
 
@@ -91,7 +91,7 @@ private:
 
 	using CPolicyList::find;
 	//A map of address to idPubKey
-	std::map<CKeyID, CKeyID> _kycMap;
+	std::map<CTxDestination, CKeyID> _kycMap;
 	//A map of address to tweaked public key
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//Whitelisted KYC keys

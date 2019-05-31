@@ -16,9 +16,9 @@
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/thread/mutex.hpp>
 
-class CPolicyList : private std::set<CKeyID>
+class CPolicyList : private std::set<CTxDestination>
 {
-  using base = std::set<CKeyID>;
+  using base = std::set<CTxDestination>;
   using baseIter = base::iterator;
 
  public:
@@ -26,9 +26,9 @@ class CPolicyList : private std::set<CKeyID>
   virtual ~CPolicyList();
   void lock(){_mtx.lock();}
   void unlock(){_mtx.unlock();}
-  bool find(const CKeyID* id);
+  bool find(const CTxDestination id);
   virtual void clear();
-  baseIter remove(CKeyID* id);
+  baseIter remove(CTxDestination id);
   //virtual CKeyID at(base::size_type pos);
   virtual base::size_type size();
   void delete_address(std::string addressIn);
@@ -38,7 +38,7 @@ class CPolicyList : private std::set<CKeyID>
   using base::end;
 
   //This will be made prive int CWhitelist.
-  virtual void add_sorted(CKeyID* keyId);
+  void add_sorted(CTxDestination keyId);
   void swap(CPolicyList* l_new);
 
   //Update from transaction

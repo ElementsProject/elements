@@ -93,8 +93,9 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
       ": invalid public key"));
 
     //Will throw an error if address is not a valid derived address.
-  CKeyID keyId;
-  if (!address.GetKeyID(keyId))
+  CTxDestination keyId;
+  keyId = address.Get();
+  if (boost::get<CNoDestination>(&keyId))
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
    
@@ -110,7 +111,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
       ": address does not derive from public key when tweaked with contract hash"));
 
   //insert new address into sorted CWhiteList vector
-  add_sorted(&keyId);
+  add_sorted(keyId);
   
   //Add to the ID map
   _kycMap[keyId]=kycKeyId;
@@ -119,7 +120,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
   if (!contract.IsNull())
     tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-    _tweakedPubKeyMap[keyId]=tweakedPubKey;
+    _tweakedPubKeyMap[boost::get<CKeyID>(keyId)]=tweakedPubKey;
 }
 
 void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
@@ -133,8 +134,9 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<C
   }
   
   //Will throw an error if address is not a valid derived address.
-  CKeyID keyId;
-  if (!address.GetKeyID(keyId))
+  CTxDestination keyId;
+  keyId = address.Get();
+  if (boost::get<CNoDestination>(&keyId))
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
    
@@ -150,7 +152,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<C
       ": address does not derive from public keys when tweaked with contract hash"));
 
   //insert new address into sorted CWhiteList vector
-  add_sorted(&keyId);
+  add_sorted(keyId);
   
   //Add to the ID map
   _kycMap[keyId]=kycKeyId;
@@ -417,7 +419,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   #endif //#ifdef ENABLE_WALLET
 }
 
-bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
+bool CWhiteList::LookupKYCKey(const CTxDestination address, CKeyID& kycKeyFound){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   auto search = _kycMap.find(address);
   if(search != _kycMap.end()){
@@ -580,9 +582,9 @@ void CWhiteList::clear(){
   CPolicyList::clear();
 }
 
-bool CWhiteList::is_whitelisted(const CKeyID& keyId){
+bool CWhiteList::is_whitelisted(const CTxDestination keyId){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if(!find(&keyId)) return false;
+  if(!find(keyId)) return false;
   if(_kycMap[keyId] == CKeyID()) return true;
   if(!find_kyc_whitelisted(_kycMap[keyId])) return false;
   return true;

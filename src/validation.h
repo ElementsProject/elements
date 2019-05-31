@@ -448,13 +448,13 @@ namespace Consensus {
 * Check wether the bitcoin address is derived from the public key via key tweaking
 * using the hash contract of the chain active tip.
 */
-bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey);
+bool CheckValidTweakedAddress(const CTxDestination keyID, const CPubKey& pubKey);
 
 /**
 * Check whether the script address is derived from the public keys via key tweaking
 * using the hash contract of the chain active tip.
 */
-bool CheckValidTweakedAddress(const  CKeyID& keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig);
+bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends and amounts)

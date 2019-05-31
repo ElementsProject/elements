@@ -1821,7 +1821,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
-bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
+bool CheckValidTweakedAddress(const CTxDestination keyID, const CPubKey& pubKey){
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
   CPubKey tmpPubKey = pubKey;
@@ -1829,15 +1829,14 @@ bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
   if (!contract.IsNull())
     tmpPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
 
-  if (tmpPubKey.GetID() != keyID)
+  if (tmpPubKey.GetID() != boost::get<CKeyID>(keyID))
     return false;
+  
 return true;
 }
 
-extern CScript _createmultisig_redeemScript(const UniValue& params);
-
 //Used for multisig P2SH checking that has been created with tweaked addresses
-bool CheckValidTweakedAddress(const  CKeyID& keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
+bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
 
     std::vector<CPubKey> tweakedPubKeys = pubKeys;
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
@@ -1848,21 +1847,14 @@ bool CheckValidTweakedAddress(const  CKeyID& keyID, const std::vector<CPubKey>& 
         }
     }
 
-    UniValue params(UniValue::VOBJ);
-    params.push_back(Pair("nrequired", nMultisig));
-    UniValue keys(UniValue::VOBJ);
-    for (int twCnt = 0; twCnt < tweakedPubKeys.size(); ++twCnt){
-        keys.push_back(Pair("key", HexStr(tweakedPubKeys[twCnt].begin(), tweakedPubKeys[twCnt].end())));
-    }
-    params.push_back(Pair("keys", keys));
-
-    CScript inner = _createmultisig_redeemScript(params);
+    CScript inner = GetScriptForMultisig((int)nMultisig, tweakedPubKeys);
     CScriptID innerID(inner);
     CBitcoinAddress address(innerID);
 
     //Will throw an error if address is not a valid derived address.
-    CKeyID multiKeyId;
-    if (!address.GetKeyID(multiKeyId))
+    CTxDestination multiKeyId;
+    multiKeyId = address.Get();
+    if (boost::get<CNoDestination>(&multiKeyId))
         return false;
 
     if (multiKeyId != keyID)
