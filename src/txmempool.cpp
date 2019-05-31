@@ -18,6 +18,7 @@
 #include <util/moneystr.h>
 #include <util/time.h>
 #include <chainparams.h> // removeForBlock paklist transition
+#include <pegins.h>
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
@@ -548,7 +549,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, bool pak_transition)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, const CBlockIndex* p_block_index_new)
 {
     LOCK(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -572,6 +573,40 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         }
         removeConflicts(*tx);
         ClearPrioritisation(tx->GetHash());
+    }
+
+    // Eject transactions that are invalid for *following* block due to transition
+    // We check every epoch_length blocks due to peg-ins expiring an epoch after
+    // being changed
+    if (p_block_index_new) {
+        const CChainParams& chainparams = Params();
+        uint32_t epoch_length = chainparams.GetConsensus().dynamic_epoch_length;
+        if ((p_block_index_new->nHeight+1) % epoch_length == 0) {
+            CPAKList enforced_paklist = GetActivePAKList(p_block_index_new, chainparams.GetConsensus());
+            std::vector<CTransactionRef> tx_to_remove;
+            for (const auto& entry : mapTx) {
+                const CTransaction& tx = entry.GetTx();
+                if (chainparams.GetEnforcePak() && !IsPAKValidTx(tx, enforced_paklist)) {
+                    tx_to_remove.push_back(MakeTransactionRef(tx));
+                    continue;
+                }
+
+                std::vector<CScript> fedpegscripts = GetValidFedpegScripts(p_block_index_new, chainparams.GetConsensus(), true /* nextblock_validation */);
+                for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+                    const CTxIn& in = tx.vin[nIn];
+                    std::string err;
+                    if (in.m_is_pegin && (!tx.HasWitness() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, fedpegscripts, in.prevout, err, true /* check_depth */))) {
+                        tx_to_remove.push_back(MakeTransactionRef(tx));
+                        break;
+                    }
+                }
+            }
+            for (auto& tx : tx_to_remove) {
+                const uint256 tx_id = tx->GetHash();
+                removeRecursive(*tx, MemPoolRemovalReason::BLOCK);
+                ClearPrioritisation(tx_id);
+            }
+        }
     }
 
     lastRollingFeeUpdate = GetTime();
