@@ -182,29 +182,66 @@ public:
     uint32_t block_height;
     uint32_t nBits;
     uint32_t nNonce;
+    // Only used pre-dynamic federation
     CProof proof;
+    // Dynamic federation: Subsumes the proof field
+    DynaFedParams m_dyna_params;
+    CScriptWitness m_signblock_witness;
 
     CBlockHeader()
     {
         SetNull();
     }
 
+    // HF bit to detect dynamic federation blocks
+    static const uint32_t HF_MASK = 1 << 31;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(this->nVersion);
-        READWRITE(hashPrevBlock);
-        READWRITE(hashMerkleRoot);
-        READWRITE(nTime);
-        if (g_con_blockheightinheader) {
-            READWRITE(block_height);
-        }
-        if (g_signed_blocks) {
-            READWRITE(proof);
+        const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
+
+        // Detect dynamic federation block serialization using "HF bit",
+        // or the signed bit which is invalid in Bitcoin
+        bool is_dyna = false;
+        int32_t nVersion;
+        if (ser_action.ForRead()) {
+            READWRITE(nVersion);
+            is_dyna = nVersion < 0;
+            this->nVersion = ~HF_MASK & nVersion;
         } else {
-            READWRITE(nBits);
-            READWRITE(nNonce);
+            nVersion = this->nVersion;
+            if (!m_dyna_params.IsNull()) {
+                nVersion |= HF_MASK;
+                is_dyna = true;
+            }
+            READWRITE(nVersion);
+        }
+
+        if (is_dyna) {
+            READWRITE(hashPrevBlock);
+            READWRITE(hashMerkleRoot);
+            READWRITE(nTime);
+            READWRITE(block_height);
+            READWRITE(m_dyna_params);
+            // We do not serialize witness for hashes, or weight calculation
+            if (!(s.GetType() & SER_GETHASH) && fAllowWitness) {
+                READWRITE(m_signblock_witness.stack);
+            }
+        } else {
+            READWRITE(hashPrevBlock);
+            READWRITE(hashMerkleRoot);
+            READWRITE(nTime);
+            if (g_con_blockheightinheader) {
+                READWRITE(block_height);
+            }
+            if (g_signed_blocks) {
+                READWRITE(proof);
+            } else {
+                READWRITE(nBits);
+                READWRITE(nNonce);
+            }
         }
     }
 
@@ -223,7 +260,7 @@ public:
     bool IsNull() const
     {
         if (g_signed_blocks) {
-            return proof.IsNull();
+            return proof.IsNull() && m_dyna_params.IsNull();
         } else {
             return (nBits == 0);
         }
@@ -284,6 +321,7 @@ public:
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         block.proof          = proof;
+        block.m_dyna_params  = m_dyna_params;
         return block;
     }
 
