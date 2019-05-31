@@ -74,7 +74,7 @@ BASE_SCRIPTS = [
     'feature_block_subsidy.py',
     'feature_connect_genesis_outputs.py',
     'feature_block_v4.py',
-    #TODO re-enable 'feature_pak.py',
+    'feature_pak.py',
     'feature_blocksign.py',
     'rpc_calcfastmerkleroot.py',
     'feature_txwitness.py',
@@ -85,6 +85,7 @@ BASE_SCRIPTS = [
     'feature_assetsdir.py',
     'feature_initial_reissuance_token.py',
     'feature_progress.py',
+    'feature_dynafed.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py',
     'wallet_backup.py',

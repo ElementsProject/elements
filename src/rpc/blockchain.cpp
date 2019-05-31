@@ -33,6 +33,8 @@
 #include <validationinterface.h>
 #include <versionbitsinfo.h>
 #include <warnings.h>
+#include <pegins.h>
+#include <dynafed.h>
 
 #include <assert.h>
 #include <stdint.h>
@@ -79,6 +81,29 @@ double GetDifficulty(const CBlockIndex* blockindex)
     return dDiff;
 }
 
+UniValue paramEntryToJSON(const ConsensusParamEntry& entry)
+{
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("signblockscript", HexStr(entry.m_signblockscript));
+    result.pushKV("max_block_witness", (uint64_t)entry.m_sbs_wit_limit);
+    result.pushKV("fedpegscript", HexStr(entry.m_fedpegscript));
+    UniValue result_extension(UniValue::VARR);
+    for (auto& item : entry.m_extension_space) {
+        result_extension.push_back(HexStr(item));
+    }
+    result.pushKV("extension_space", result_extension);
+    return result;
+}
+
+UniValue dynaParamsToJSON(const DynaFedParams& d_params)
+{
+    AssertLockHeld(cs_main);
+    UniValue ret(UniValue::VOBJ);
+    ret.pushKV("current", paramEntryToJSON(d_params.m_current));
+    ret.pushKV("proposed", paramEntryToJSON(d_params.m_proposed));
+    return ret;
+}
+
 static int ComputeNextBlockAndDepth(const CBlockIndex* tip, const CBlockIndex* blockindex, const CBlockIndex*& next)
 {
     next = tip->GetAncestor(blockindex->nHeight + 1);
@@ -110,6 +135,9 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
     } else {
         result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
         result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+        if (!blockindex->d_params.IsNull()) {
+            result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->d_params));
+        }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
     if (blockindex->pprev)
@@ -154,9 +182,13 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         result.pushKV("difficulty", GetDifficulty(blockindex));
         result.pushKV("chainwork", blockindex->nChainWork.GetHex());
     } else {
-        result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
-        result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
-        result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
+        if (block.m_dyna_params.IsNull()) {
+            result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
+            result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
+            result.pushKV("signblock_challenge", HexStr(blockindex->proof.challenge));
+        } else {
+            result.pushKV("dynamic_parameters", dynaParamsToJSON(block.m_dyna_params));
+        }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);
 
@@ -771,6 +803,24 @@ static UniValue getblockheader(const JSONRPCRequest& request)
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
             "  \"signblock_witness_asm\" : \"xxxx\", (string) ASM of sign block witness data.\n"
             "  \"signblock_witness_hex\" : \"xxxx\", (string) Hex of sign block witness data.\n"
+            "  \"dynamic_parameters\" :           (obj) Dynamic federation parameters in the block, if any.\n"
+            "    {\n"
+            "        \"current\" :                (obj) enforced dynamic federation parameters. Do note that only the signblockscript is published for each block, while others are published only at epoch start.\n"
+            "            {\n"
+            "                \"signblockscript\" : \"xxxx\", (string) signblock script in hex\n"
+            "                \"max_block_witness\" : x, (numeric) Maximum serialized size of the block witness stack\n"
+            "                \"fedpegscript\" : \"xxxx\", (string) fedpegscript in hex\n"
+            "                \"extension_space\" :        (array) Array of hex-encoded strings\n"
+            "                    [\n"
+            "                        xxxx,\n"
+            "                        ...\n"
+            "                    ]\n"
+            "            }\n"
+            "        \"proposed\" :               (obj) Proposed paramaters. Uninforced. Must be published in full.\n"
+            "            {\n"
+            "                ...                  same entries as current\n"
+            "            }\n"
+            "    }\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\",      (string) The hash of the next block\n"
             "}\n"
@@ -873,6 +923,24 @@ static UniValue getblock(const JSONRPCRequest& request)
             "  \"nTx\" : n,             (numeric) The number of transactions in the block.\n"
             "  \"signblock_witness_asm\" : \"xxxx\", (string) ASM of sign block witness data.\n"
             "  \"signblock_witness_hex\" : \"xxxx\", (string) Hex of sign block witness data.\n"
+            "  \"dynamic_parameters\" :           (obj) Dynamic federation parameters in the block, if any.\n"
+            "    {\n"
+            "        \"current\" :                (obj) enforced dynamic federation parameters. Do note that only the signblockscript is published for each block, while others are published only at epoch start.\n"
+            "            {\n"
+            "                \"signblockscript\" : \"xxxx\", (string) signblock script in hex\n"
+            "                \"max_block_witness\" : x, (numeric) Maximum serialized size of the block witness stack\n"
+            "                \"fedpegscript\" : \"xxxx\", (string) fedpegscript in hex\n"
+            "                \"extension_space\" :        (array) Array of hex-encoded strings\n"
+            "                    [\n"
+            "                        xxxx,\n"
+            "                        ...\n"
+            "                    ]\n"
+            "            }\n"
+            "        \"proposed\" :               (obj) Proposed paramaters. Uninforced. Must be published in full.\n"
+            "            {\n"
+            "                ...                  same entries as current\n"
+            "            }\n"
+            "    }\n"
             "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
             "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
             "}\n"
@@ -1310,8 +1378,14 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"chainwork\": \"xxxx\"           (string) total amount of work in active chain, in hexadecimal\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
             "  \"pruned\": xx,                 (boolean) if the blocks are subject to pruning\n"
-            "  \"signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data.\n"
-            "  \"signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data.\n"
+            "  \"signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data from genesis block.\n"
+            "  \"signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data from genesis block.\n"
+            "  \"current_signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data enforced on the next block.\n"
+            "  \"current_signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data enforced on the next block.\n"
+            "  \"max_block_witness\" : xx,     (numeric) maximum sized block witness serialized size for the next block.\n"
+            "  \"epoch_length\" : xx,          (numeric) Length of dynamic federations epoch, or signaling period\n"
+            "  \"epoch_age\" : xx,             (numeric) number of blocks into a dynamic federation epoch chain tip is. This number is between 0 to epoch_length-1\n"
+            "  \"extension_space\" : [\"xxxx\", ...], (array) Array of extension fields in dynamic blockheader\n"
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
             "  \"automatic_pruning\": xx,      (boolean) whether automatic pruning is enabled (only present if pruning is enabled)\n"
             "  \"prune_target_size\": xxxxxx,  (numeric) the target size used by pruning (only present if automatic pruning is enabled)\n"
@@ -1374,6 +1448,28 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
         CScript sign_block_script = chainparams.GetConsensus().signblockscript;
         obj.pushKV("signblock_asm", ScriptToAsmStr(sign_block_script));
         obj.pushKV("signblock_hex", HexStr(sign_block_script));
+        if (!IsDynaFedEnabled(chainActive.Tip(), chainparams.GetConsensus())) {
+            obj.pushKV("current_signblock_asm", ScriptToAsmStr(sign_block_script));
+            obj.pushKV("current_signblock_hex", HexStr(sign_block_script));
+            obj.pushKV("max_block_witness", (uint64_t)chainparams.GetConsensus().max_block_signature_size);
+            UniValue arr(UniValue::VARR);
+            for (const auto& extension : chainparams.GetConsensus().first_extension_space) {
+                arr.push_back(HexStr(extension));
+            }
+            obj.pushKV("extension_space", arr);
+        } else {
+            const ConsensusParamEntry entry = ComputeNextBlockFullCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
+            obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
+            obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
+            obj.pushKV("max_block_witness", (uint64_t)entry.m_sbs_wit_limit);
+            UniValue arr(UniValue::VARR);
+            for (const auto& extension : entry.m_extension_space) {
+                arr.push_back(HexStr(extension));
+            }
+            obj.pushKV("extension_space", arr);
+            obj.pushKV("epoch_length", (uint64_t)chainparams.GetConsensus().dynamic_epoch_length);
+            obj.pushKV("epoch_age", (uint64_t)(chainActive.Tip()->nHeight % chainparams.GetConsensus().dynamic_epoch_length));
+        }
     }
 
     if (fPruneMode) {
@@ -2407,7 +2503,12 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
                 {},
                 RPCResult{
             "{\n"
-            "  \"fedpegscript\": \"xxxx\",         (string) The fedpegscript in hex\n"
+            "  \"fedpegscript\": \"xxxx\",         (string) The fedpegscript in hex from genesis block\n"
+            "  \"current_fedpegscripts\":          (array) The currently-enforced fedpegscripts in hex. Peg-ins for any entries on this list are honored by consensus and policy. Oldest first. Two total entries are possible.\n"
+            "    [\n"
+            "      \"xxxx\",                       (string) Hex-encoded active fedpegscript\n"
+            "      ...\n"
+            "    ]\n"
             "  \"pegged_asset\" : \"xxxx\",        (string) Pegged asset type in hex\n"
             "  \"min_peg_diff\" : \"xxxx\",        (string) The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure.\n"
             "  \"parent_blockhash\" : \"xxxx\",    (string) The parent genesis blockhash as source of pegged-in funds.\n"
@@ -2432,6 +2533,13 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript.begin(), consensus.fedpegScript.end()));
+    // We use mempool_validation as true to show what is enforced for *next* block
+    std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), consensus, true /* nextblock_validation */);
+    UniValue fedpeg_entries(UniValue::VARR);
+    for (const auto& script : fedpegscripts) {
+        fedpeg_entries.push_back(HexStr(script));
+    }
+    obj.pushKV("current_fedpegscripts", fedpeg_entries);
     obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());
     obj.pushKV("parent_blockhash", parent_blockhash.GetHex());

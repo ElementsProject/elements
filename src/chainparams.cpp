@@ -605,6 +605,10 @@ class CCustomParams : public CRegTestParams {
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = args.GetArg("-con_csv_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+
     }
 
     void SetGenesisBlock() {
