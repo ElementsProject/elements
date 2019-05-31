@@ -618,6 +618,11 @@ class CCustomParams : public CRegTestParams {
             if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
                 AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
+        } else if (consensus.genesis_style == "dynamic") {
+            // Liquid v2 HF, from genesis. Upgrading networks still use "elements".
+            // TODO fill out genesis block with special commitments including epoch
+            // length in nTime
+            throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
         } else {
             throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
         }
