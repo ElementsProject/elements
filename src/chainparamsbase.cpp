@@ -42,11 +42,11 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-con_parentpowlimit", "The proof-of-work limit value for the parent chain.", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_parent_chain_signblockscript", "Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])", false, OptionsCategory::CHAINPARAMS);
 
-    gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation, and miner to include PAK commitments when configured. Can not be set when acceptnonstdtx is set to true.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-pak", "Entries in the PAK list. Order of entries matter.", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-fedpegscript", "The script for the federated peg enforce from genesis block. This script may stop being enforced once dynamic federations activates.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation before dynamic federations, and consensus enforcement after.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: -enforce_pak)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_dyna_deploy_start", "Starting height for Dynamic Federations deployment. Once active, signblockscript becomes a BIP141 WSH scriptPubKey of the original signblockscript. All other dynamic parameters stay constant.(default: -1, which means ACTIVE from genesis)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-dynamic_epoch_length", "Per-chain parameter that sets how many blocks dynamic federation voting and enforcement are in effect for.", false, OptionsCategory::ELEMENTS);
     // END ELEMENTS
     //
