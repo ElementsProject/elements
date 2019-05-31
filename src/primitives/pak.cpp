@@ -92,18 +92,11 @@ void CPAKList::ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, s
 
 // Proof follows the OP_RETURN <genesis_block_hash> <destination_scriptpubkey>
 // in multiple pushes: <full_pubkey> <proof>
-bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash)
+bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash, const CPAKList& paklist)
 {
     assert(script.IsPegoutScript(genesis_hash));
 
-    CPAKList paklist;
-    if (g_paklist_config) {
-        paklist = *g_paklist_config;
-    } else {
-        paklist = g_paklist_blockchain;
-    }
-
-    if (paklist.IsReject() || paklist.IsEmpty()) {
+    if (paklist.IsReject()) {
         return false;
     }
 
