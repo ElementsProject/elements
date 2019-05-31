@@ -43,6 +43,7 @@
 
 // ELEMENTS
 #include <block_proof.h> // CheckChallenge, CheckProof
+#include <dynafed.h>
 
 #include <future>
 #include <sstream>
@@ -3458,6 +3459,36 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
 // ELEMENTS
 
 
+static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationState& state, const CChainParams& params, const CBlockIndex* pindexPrev)
+{
+    // When not active, it's a NOP
+    if (!IsDynaFedEnabled(pindexPrev, params.GetConsensus())) {
+        return true;
+    }
+
+    const DynaFedParams& d_params = block.m_dyna_params;
+
+    // Dynamic blocks must at least publish current signblockscript in full
+    if (d_params.m_current.IsNull()) {
+        return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block headers must have non-empty current signblockscript field");
+    }
+
+    // Make sure extension bits aren't active, reserved for future HF
+    uint32_t reserved_mask = (1<<23) | (1<<24) | (1<<25) | (1<<26);
+    if ((block.nVersion & reserved_mask) != 0) {
+        return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header has unknown HF extension bits set");
+    }
+
+    const ConsensusParamEntry expected_current_params = ComputeNextBlockCurrentParameters(pindexPrev, params.GetConsensus());
+
+    if (expected_current_params != d_params.m_current) {
+        return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header's current parameters do not match expected");
+    }
+
+    return true;
+}
+
+
 /** Context-dependent validity checks.
  *  By "context", we mean only the previous block headers, but not the UTXO
  *  set; UTXO-related validity checks are done in ConnectBlock().
@@ -3507,6 +3538,12 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
        (block.nVersion < 4 && nHeight >= consensusParams.BIP65Height))
             return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-version(0x%08x)", block.nVersion),
                                  strprintf("rejected nVersion=0x%08x block", block.nVersion));
+
+    // check for dynamic federations activation, then ensuring block header version
+    // bits are set. These bits drive serialization of the header.
+    if (!ContextualCheckDynaFedHeader(block, state, params, pindexPrev)) {
+        return false;
+    }
 
     return true;
 }
