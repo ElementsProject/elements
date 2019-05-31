@@ -835,9 +835,101 @@ class CProof:
         return "CProof(challenge=%s solution=%s)" \
             % (self.challenge, self.solution)
 
+class ConsensusParamEntry:
+    __slots__ = ("m_serialize_type", "m_signblockscript", "m_sbs_wit_limit", "m_fedpegscript", "m_extension_space")
+
+    # Constructor args will define serialization type:
+    # null = 0
+    # signblock-related fields = 1, required for m_current on non-epoch-starts
+    # all fields = 2, required for epoch starts
+    def __init__(self, m_signblockscript=b"", m_sbs_wit_limit=0, m_fedpegscript=b"", m_extension_space=[]):
+        self.m_signblockscript = m_signblockscript
+        self.m_sbs_wit_limit = m_sbs_wit_limit
+        self.m_fedpegscript = m_fedpegscript
+        self.m_extension_space = m_extension_space
+        if self.is_null():
+            self.m_serialize_type = 0
+        elif m_fedpegscript==b"" and m_extension_space == []:
+            self.m_serialize_type = 1
+        else:
+            self.m_serialize_type = 2
+
+    def set_null(self):
+        self.m_signblockscript = b""
+        self.m_sbs_wit_limit = 0
+        self.m_fedpegscript = b""
+        self.m_extension_space = []
+        self.m_serialize_type = 0
+
+    def is_null(self):
+        return self.m_signblockscript == b"" and self.m_sbs_wit_limit == 0 and \
+                self.m_fedpegscript == b"" and self.m_extension_space == []
+
+    def serialize(self):
+        r = b""
+        r += struct.pack("B", self.m_serialize_type)
+        if self.m_serialize_type == 1:
+            r += ser_string(self.m_signblockscript)
+            r += struct.pack("<I", self.m_sbs_wit_limit)
+        elif self.m_serialize_type == 2:
+            r += ser_string(self.m_signblockscript)
+            r += struct.pack("<I", self.m_sbs_wit_limit)
+            r += ser_string(self.m_fedpegscript)
+            r += ser_string_vector(self.m_extension_space)
+        elif self.m_serialize_type > 2:
+            raise Exception("Invalid serialization type for ConsensusParamEntry")
+        return r
+
+    def deserialize(self, f):
+        self.m_serialize_type = struct.unpack("B", f.read(1))[0]
+        if self.m_serialize_type == 1:
+            self.m_signblockscript = deser_string(f)
+            self.m_sbs_wit_limit = struct.unpack("<I", f.read(4))[0]
+        elif self.m_serialize_type == 2:
+            self.m_signblockscript = deser_string(f)
+            self.m_sbs_wit_limit = struct.unpack("<I", f.read(4))[0]
+            self.m_fedpegscript = deser_string(f)
+            self.m_extension_space = deser_string_vector(f)
+
+    def __repr__(self):
+        return "ConsensusParamEntry(m_signblockscript=%s m_fedpegscript=%s m_extension_space=%s)" \
+                % (self.m_signblockscript, self.m_fedpegscript, self.m_extension_space)
+
+class DynaFedParams:
+    __slots__ = ("m_current", "m_proposed")
+
+    def __init__(self, m_current=ConsensusParamEntry(), m_proposed=ConsensusParamEntry()):
+        self.m_current = m_current
+        self.m_proposed = m_proposed
+
+    def set_null(self):
+        self.m_current.set_null()
+        self.m_proposed.set_null()
+
+    def is_null(self):
+        return self.m_current.is_null() and self.m_proposed.is_null()
+
+    def serialize(self):
+        r = b""
+        r += self.m_current.serialize()
+        r += self.m_proposed.serialize()
+        return r
+
+    def deserialize(self, f):
+        self.m_current.deserialize(f)
+        self.m_proposed.deserialize(f)
+
+    def __repr__(self):
+        return "DynaFedParams(m_current=%s m_proposed=%s)" \
+                % (self.m_current, self.m_proposed)
+
+
+HEADER_HF_BIT = 1 << 31
+HEADER_HF_MASK = 0x7fffffff
 class CBlockHeader:
     __slots__ = ("hash", "hashMerkleRoot", "hashPrevBlock", "nBits", "nNonce",
-                 "nTime", "nVersion", "sha256", "block_height", "proof")
+                 "nTime", "nVersion", "sha256", "block_height", "proof", "m_dyna_params",
+                 "m_signblock_witness")
 
     def __init__(self, header=None):
         if header is None:
@@ -851,6 +943,8 @@ class CBlockHeader:
             self.proof = header.proof
             self.sha256 = header.sha256
             self.hash = header.hash
+            self.m_dyna_params = header.m_dyna_params
+            self.m_signblock_witness = header.m_signblock_witness
             self.calc_sha256()
 
     def set_null(self):
@@ -860,38 +954,69 @@ class CBlockHeader:
         self.nTime = 0
         self.block_height = 0
         self.proof = CProof()
+        self.m_dyna_params = DynaFedParams()
+        self.m_signblock_witness = CScriptWitness()
         self.sha256 = None
         self.hash = None
 
     def deserialize(self, f):
         self.nVersion = struct.unpack("<i", f.read(4))[0]
+        is_dyna = False
+
+        if self.nVersion < 0:
+            is_dyna = True
+            self.nVersion = HEADER_HF_MASK & self.nVersion
+
         self.hashPrevBlock = deser_uint256(f)
         self.hashMerkleRoot = deser_uint256(f)
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.block_height = struct.unpack("<I", f.read(4))[0]
-        self.proof.deserialize(f)
+        if is_dyna:
+            self.m_dyna_params.deserialize(f)
+            self.m_signblock_witness.stack = deser_string_vector(f)
+        else:
+            self.proof.deserialize(f)
         self.sha256 = None
         self.hash = None
 
     def serialize(self):
         r = b""
-        r += struct.pack("<i", self.nVersion)
+        nVersion = self.nVersion
+        is_dyna = False
+        if not self.m_dyna_params.is_null():
+            nVersion -= HEADER_HF_BIT
+            is_dyna = True
+
+        r += struct.pack("<i", nVersion)
         r += ser_uint256(self.hashPrevBlock)
         r += ser_uint256(self.hashMerkleRoot)
         r += struct.pack("<I", self.nTime)
         r += struct.pack("<I", self.block_height)
-        r += self.proof.serialize()
+        if is_dyna:
+            r += self.m_dyna_params.serialize()
+            r += ser_string_vector(self.m_signblock_witness.stack)
+        else:
+            r += self.proof.serialize()
         return r
 
     def calc_sha256(self):
         if self.sha256 is None:
+            nVersion = self.nVersion
+            is_dyna = False
+            if not self.m_dyna_params.is_null():
+                nVersion -= HEADER_HF_BIT
+                is_dyna = True
+
             r = b""
-            r += struct.pack("<i", self.nVersion)
+            r += struct.pack("<i", nVersion)
             r += ser_uint256(self.hashPrevBlock)
             r += ser_uint256(self.hashMerkleRoot)
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.block_height)
-            r += self.proof.serialize_for_hash()
+            if is_dyna:
+                r += self.m_dyna_params.serialize()
+            else:
+                r += self.proof.serialize_for_hash()
             self.sha256 = uint256_from_str(hash256(r))
             self.hash = encode(hash256(r)[::-1], 'hex_codec').decode('ascii')
 
@@ -976,9 +1101,9 @@ class CBlock(CBlockHeader):
 #            self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s vtx=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s vtx=%s m_dyna_params=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), repr(self.vtx))
+               time.ctime(self.nTime), repr(self.vtx), self.m_dyna_params)
 
 
 class PrefilledTransaction:
