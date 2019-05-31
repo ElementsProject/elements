@@ -188,7 +188,7 @@ static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, 
     try {
         std::vector<uint256> tx_hashes;
         std::vector<unsigned int> tx_indices;
-        CDataStream merkle_block_stream(merkle_block_raw, SER_NETWORK, PROTOCOL_VERSION);
+        CDataStream merkle_block_stream(merkle_block_raw, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
         merkle_block_stream >> merkle_block;
         block_hash = merkle_block.header.GetHash();
 
