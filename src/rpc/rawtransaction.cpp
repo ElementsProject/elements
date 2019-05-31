@@ -754,7 +754,7 @@ static UniValue decodescript(const JSONRPCRequest& request)
         r.pushKV("p2sh", EncodeDestination(ScriptHash(CScriptID(script))));
         // P2SH and witness programs cannot be wrapped in P2WSH, if this script
         // is a witness program, don't return addresses for a segwit programs.
-        if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard") {
+        if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard" || type.get_str() == "true") {
             std::vector<std::vector<unsigned char>> solutions_data;
             txnouttype which_type = Solver(script, solutions_data);
             // Uncompressed pubkeys cannot be used with segwit checksigs.
