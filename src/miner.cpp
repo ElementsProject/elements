@@ -25,6 +25,7 @@
 #include <util/system.h>
 #include <validationinterface.h>
 
+#include <dynafed.h>
 
 #include <algorithm>
 #include <queue>
@@ -101,7 +102,7 @@ void BlockAssembler::resetBlock()
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age, ConsensusParamEntry* proposed_entry)
 {
     assert(min_tx_age >= 0);
     int64_t nTimeStart = GetTimeMicros();
@@ -165,7 +166,16 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
-    if (g_signed_blocks) {
+    if (IsDynaFedEnabled(pindexPrev, chainparams.GetConsensus())) {
+        ConsensusParamEntry current_params = ComputeNextBlockCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
+        DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : ConsensusParamEntry());
+        pblock->m_dyna_params = block_params;
+        nBlockWeight += ::GetSerializeSize(block_params, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
+        nBlockWeight += current_params.m_sbs_wit_limit; // Note witness discount
+        assert(pblock->proof.IsNull());
+
+    } else if (g_signed_blocks) {
+        // Old style signed blocks
         // Pad block weight by block proof fields (including upper-bound of signature)
         nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
         nBlockWeight += chainparams.GetConsensus().max_block_signature_size * WITNESS_SCALE_FACTOR;
