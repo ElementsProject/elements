@@ -141,7 +141,7 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
 }
 
 template<typename T>
-static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script)
+static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script, const std::vector<CScript>& fedpegscripts)
 {
     try {
         CDataStream pegtx_stream(tx_data, SER_NETWORK, PROTOCOL_VERSION);
@@ -172,14 +172,16 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
     }
 
     // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
-    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
-    CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
-    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(ScriptHash(CScriptID(witness_output))) << OP_EQUAL);
-    if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
-        return false;
+    // We support multiple scripts as a grace period for peg-in users
+    for (const auto& fedpegscript : fedpegscripts) {
+        CScript tweaked_fedpegscript = calculate_contract(fedpegscript, claim_script);
+        CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
+        CScript expected_script(CScript() << OP_HASH160 << ToByteVector(ScriptHash(CScriptID(witness_output))) << OP_EQUAL);
+        if (pegtx->vout[prevout.n].scriptPubKey == expected_script) {
+            return true;
+        }
     }
-
-    return true;
+    return false;
 }
 
 template<typename T>
@@ -226,7 +228,7 @@ bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::P
     return true;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<CScript>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
     // 0) Return false if !consensus.has_parent_chain
     if (!Params().GetConsensus().has_parent_chain) {
         err_msg = "Parent chain is not enabled on this network.";
@@ -304,7 +306,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         }
 
         Sidechain::Bitcoin::CTransactionRef pegtx;
-        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script, fedpegscripts)) {
             err_msg = "Peg-in tx is invalid.";
             return false;
         }
@@ -323,7 +325,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         }
 
         CTransactionRef pegtx;
-        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script, fedpegscripts)) {
             err_msg = "Peg-in tx is invalid.";
             return false;
         }

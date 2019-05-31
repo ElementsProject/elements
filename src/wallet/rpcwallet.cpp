@@ -5371,15 +5371,16 @@ extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
 template<typename T_tx>
-unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram)
+unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram, const std::vector<CScript>& fedpegscripts)
 {
-    unsigned int nOut = 0;
-    //Call contracthashtool
-    CScript mainchain_script = GetScriptForDestination(ScriptHash(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witnessProgram))));
-    for (; nOut < txn.vout.size(); nOut++)
-        if (txn.vout[nOut].scriptPubKey == mainchain_script)
-            break;
-    return nOut;
+    for (auto const& fedpegscript : fedpegscripts) {
+        CScript mainchain_script = GetScriptForDestination(ScriptHash(GetScriptForWitness(calculate_contract(fedpegscript, witnessProgram))));
+        for (unsigned int nOut = 0; nOut < txn.vout.size(); nOut++)
+            if (txn.vout[nOut].scriptPubKey == mainchain_script) {
+                return nOut;
+            }
+        }
+    return txn.vout.size();
 }
 
 template<typename T_tx_ref, typename T_tx, typename T_merkle_block>
@@ -5451,6 +5452,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     CScript witness_script;
     unsigned int nOut = txBTC.vout.size();
+    const std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
     if (request.params.size() > 2) {
         const std::string claim_script = request.params[2].get_str();
         if (!IsHex(claim_script)) {
@@ -5459,7 +5461,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         // If given manually, no need for it to be a witness script
         std::vector<unsigned char> witnessBytes(ParseHex(claim_script));
         witness_script = CScript(witnessBytes.begin(), witnessBytes.end());
-        nOut = GetPeginTxnOutputIndex(txBTC, witness_script);
+        nOut = GetPeginTxnOutputIndex(txBTC, witness_script, fedpegscripts);
         if (nOut == txBTC.vout.size()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
         }
@@ -5468,7 +5470,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         // Look for known wpkh address in wallet
         for (std::map<CTxDestination, CAddressBookData>::const_iterator iter = pwallet->mapAddressBook.begin(); iter != pwallet->mapAddressBook.end(); ++iter) {
             CScript dest_script = GetScriptForDestination(iter->first);
-            nOut = GetPeginTxnOutputIndex(txBTC, dest_script);
+            nOut = GetPeginTxnOutputIndex(txBTC, dest_script, fedpegscripts);
             if (nOut != txBTC.vout.size()) {
                 witness_script = dest_script;
                 break;
@@ -5545,7 +5547,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     // Peg-in witness isn't valid, even though the block header is(without depth check)
     // We re-check depth before returning with more descriptive result
     std::string err;
-    if (!IsValidPeginWitness(pegin_witness, mtx.vin[0].prevout, err, false)) {
+    if (!IsValidPeginWitness(pegin_witness, fedpegscripts, mtx.vin[0].prevout, err, false)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Constructed peg-in witness is invalid: %s", err));
     }
 

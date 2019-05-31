@@ -243,7 +243,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<CScript>& fedpegscripts)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -258,7 +258,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
         if (tx.vin[i].m_is_pegin) {
             // Check existence and validity of pegin witness
             std::string err;
-            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, prevout, err, true)) {
+            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, prevout, err, true)) {
                 return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", false, err);
             }
             std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
