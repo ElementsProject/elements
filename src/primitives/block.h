@@ -52,6 +52,116 @@ public:
     std::string ToString() const;
 };
 
+
+class ConsensusParamEntry
+{
+public:
+    unsigned char m_serialize_type; // Determines how it is serialized, defaults to null
+    CScript m_signblockscript;
+    uint32_t m_sbs_wit_limit; // Max block signature witness serialized size
+    CScript m_fedpegscript;
+    // No consensus meaning to the particular bytes, currently we interpret as PAK keys, details in pak.h
+    std::vector<std::vector<unsigned char>> m_extension_space;
+
+    // Each constructor sets its own serialization type implicitly based on which
+    // arguments are given
+    ConsensusParamEntry() { m_sbs_wit_limit = 0; m_serialize_type = 0; };
+    ConsensusParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in) : m_signblockscript(signblockscript_in), m_sbs_wit_limit(sbs_wit_limit_in) { m_serialize_type = 1; };
+    ConsensusParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_sbs_wit_limit(sbs_wit_limit_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(m_serialize_type);
+        switch(m_serialize_type) {
+            case 0:
+                /* Null entry, used to signal "no vote" proposal */
+                break;
+            case 1:
+                READWRITE(m_signblockscript);
+                READWRITE(m_sbs_wit_limit);
+                break;
+            case 2:
+                READWRITE(m_signblockscript);
+                READWRITE(m_sbs_wit_limit);
+                READWRITE(m_fedpegscript);
+                READWRITE(m_extension_space);
+                break;
+            default:
+                throw std::ios_base::failure("Invalid consensus parameter entry type");
+        }
+    }
+
+    uint256 CalculateRoot() const;
+
+    bool IsNull() const
+    {
+        return m_serialize_type == 0 &&
+            m_signblockscript.empty() &&
+            m_sbs_wit_limit == 0 &&
+            m_fedpegscript.empty() &&
+            m_extension_space.empty();
+
+    }
+
+    void SetNull()
+    {
+        m_serialize_type = 0;
+        m_signblockscript = CScript();
+        m_sbs_wit_limit = 0;
+        m_fedpegscript = CScript();
+        m_extension_space.clear();
+    }
+
+    bool operator==(const ConsensusParamEntry &other) const
+    {
+        return m_serialize_type == other.m_serialize_type &&
+            m_signblockscript == other.m_signblockscript &&
+            m_sbs_wit_limit == other.m_sbs_wit_limit &&
+            m_fedpegscript == other.m_fedpegscript &&
+            m_extension_space == other.m_extension_space;
+    }
+    bool operator!=(const ConsensusParamEntry &other) const
+    {
+        return !(*this == other);
+    }
+};
+
+class DynaFedParams
+{
+public:
+
+    // Currently enforced by network, not all fields may be known
+    ConsensusParamEntry m_current;
+    // Proposed rules for next epoch
+    ConsensusParamEntry m_proposed;
+
+    DynaFedParams() {};
+    DynaFedParams(const ConsensusParamEntry& current, const ConsensusParamEntry& proposed)  : m_current(current), m_proposed(proposed) {};
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action) {
+        READWRITE(m_current);
+        READWRITE(m_proposed);
+    }
+
+    uint256 CalculateRoot() const;
+
+    bool IsNull() const
+    {
+        return m_current.IsNull() && m_proposed.IsNull();
+    }
+
+    void SetNull()
+    {
+        m_current.SetNull();
+        m_proposed.SetNull();
+    }
+};
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
