@@ -608,6 +608,13 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     if (fRequireStandard && !IsStandardTx(tx, reason))
         return state.DoS(0, false, REJECT_NONSTANDARD, reason);
 
+    // And now do PAK checks. Filtered by next blocks' enforced list
+    if (chainparams.GetEnforcePak()) {
+        if (!IsPAKValidTx(tx, GetActivePAKList(chainActive.Tip(), chainparams.GetConsensus()))) {
+            return state.DoS(0, false, REJECT_NONSTANDARD, "invalid-pegout-proof");
+        }
+    }
+
     // Do not work on transactions that are too small.
     // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
@@ -2117,6 +2124,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // ELEMENTS:
+
+    // Enforce PAK post-dynafed
+    if (chainparams.GetEnforcePak() && !block.m_dyna_params.IsNull()) {
+        // GetActivePAKList computes for the following block, so use previous index
+        CPAKList paklist = GetActivePAKList(pindex->pprev, chainparams.GetConsensus());
+        for (const auto& tx : block.vtx) {
+            if (!IsPAKValidTx(*tx, paklist)) {
+                return state.DoS(100, error("ConnectBlock(): Bad PAK transaction"), REJECT_INVALID, "bad-pak-tx");
+            }
+        }
+    }
+
     // Used when ConnectBlock() results are unneeded for mempool ejection
     std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
 
