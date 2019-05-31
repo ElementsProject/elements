@@ -20,6 +20,7 @@
 #include <script/standard.h>
 #include <streams.h>
 #include <util/system.h>
+#include <dynafed.h>
 
 //
 // ELEMENTS
@@ -442,4 +443,45 @@ bool MatchLiquidWatchman(const CScript& script)
     }
     // No more pushes
     return (it == script.end());
+}
+
+std::vector<CScript> GetValidFedpegScripts(const CBlockIndex* pblockindex, const Consensus::Params& params, bool nextblock_validation)
+{
+    assert(pblockindex);
+
+    std::vector<CScript> fedpegscripts;
+
+    const int32_t epoch_length = params.dynamic_epoch_length;
+    const int32_t epoch_age = pblockindex->nHeight % epoch_length;
+    const int32_t epoch_start_height = pblockindex->nHeight - epoch_age;
+
+    // In mempool and general "enforced next block" RPC we need to look ahead one block
+    // to see if we're on a boundary. If so, put that epoch's fedpegscript in place
+    if (nextblock_validation && epoch_age == epoch_length - 1) {
+        fedpegscripts.push_back(ComputeNextBlockFullCurrentParameters(pblockindex, params).m_fedpegscript);
+    }
+
+    // Next we walk backwards up to two epoch start blocks
+    const CBlockIndex* p_current_epoch_start = pblockindex->GetAncestor(epoch_start_height);
+    const CBlockIndex* p_prev_epoch_start = pblockindex->GetAncestor(epoch_start_height-epoch_length);
+
+    if (p_current_epoch_start) {
+        if (!p_current_epoch_start->d_params.IsNull()) {
+            fedpegscripts.push_back(p_current_epoch_start->d_params.m_current.m_fedpegscript);
+        } else {
+            fedpegscripts.push_back(params.fedpegScript);
+        }
+    }
+
+    if (p_prev_epoch_start) {
+        if (!p_prev_epoch_start->d_params.IsNull()) {
+            fedpegscripts.push_back(p_prev_epoch_start->d_params.m_current.m_fedpegscript);
+        } else {
+            fedpegscripts.push_back(params.fedpegScript);
+        }
+    }
+
+    // Only return up to the latest two of three possible fedpegscripts, which are enforced
+    fedpegscripts.resize(std::min((int)fedpegscripts.size(), 2));
+    return fedpegscripts;
 }
