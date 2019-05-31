@@ -40,6 +40,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.extra_args = [[
             '-txindex',
             '-acceptnonstdtxn=0',  # Try to mimic main-net
+            '-multi_data_permitted=1', # Elements test
         ]] * self.num_nodes
 
     def skip_test_if_missing_module(self):

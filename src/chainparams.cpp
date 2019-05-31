@@ -561,7 +561,7 @@ class CCustomParams : public CRegTestParams {
         enforce_pak = args.GetBoolArg("-enforce_pak", false);
 
         // Allow multiple op_return outputs by relay policy
-        multi_data_permitted = args.GetBoolArg("-multi_data_permitted", true);
+        multi_data_permitted = args.GetBoolArg("-multi_data_permitted", enforce_pak);
 
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
