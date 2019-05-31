@@ -157,6 +157,8 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
         nSigOps += GetP2SHSigOpCount(tx, inputs) * WITNESS_SCALE_FACTOR;
     }
 
+    // N.B. Peg-in signatures are always counted against witness sigops,
+    // even if the prevout scriptpubkey isn't.
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
         CTxOut prevout;
