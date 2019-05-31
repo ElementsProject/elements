@@ -47,6 +47,7 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-pak", "Entries in the PAK list. Order of entries matter.", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: -enforce_pak)", false, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-dynamic_epoch_length", "Per-chain parameter that sets how many blocks dynamic federation voting and enforcement are in effect for.", false, OptionsCategory::ELEMENTS);
     // END ELEMENTS
     //
 }
