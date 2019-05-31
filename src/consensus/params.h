@@ -99,6 +99,8 @@ struct Params {
     CScript signblockscript;
     uint32_t max_block_signature_size;
     // g_signed_blocks - Whether blocks are signed or not, get around circular dep
+    // Used to seed the extension space for first dynamic blocks
+    std::vector<std::vector<unsigned char>> first_extension_space;
 };
 } // namespace Consensus
 

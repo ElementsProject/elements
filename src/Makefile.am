@@ -134,6 +134,7 @@ BITCOIN_CORE_H = \
   core_io.h \
   core_memusage.h \
   cuckoocache.h \
+  dynafed.h \
   fs.h \
   httprpc.h \
   httpserver.h \
@@ -401,10 +402,13 @@ libbitcoin_consensus_a_SOURCES = \
   arith_uint256.cpp \
   arith_uint256.h \
   asset.cpp \
+  chain.h \
+  chain.cpp \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
   consensus/validation.h \
+  dynafed.cpp \
   hash.cpp \
   hash.h \
   prevector.h \
@@ -433,6 +437,8 @@ libbitcoin_consensus_a_SOURCES = \
   script/script.h \
   script/script_error.cpp \
   script/script_error.h \
+  script/standard.h \
+  script/standard.cpp \
   serialize.h \
   span.h \
   tinyformat.h \
