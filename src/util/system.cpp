@@ -44,11 +44,6 @@
 #pragma warning(disable:4717)
 #endif
 
-#ifdef _WIN32_WINNT
-#undef _WIN32_WINNT
-#endif
-#define _WIN32_WINNT 0x0501
-
 #ifdef _WIN32_IE
 #undef _WIN32_IE
 #endif
@@ -73,15 +68,10 @@
 #include <malloc.h>
 #endif
 
-#include <boost/thread.hpp>
-#include <openssl/crypto.h>
-#include <openssl/rand.h>
-#include <openssl/conf.h>
 #include <thread>
 
 // Application startup time (used for uptime calculation)
 const int64_t nStartupTime = GetTime();
-
 
 #ifdef LIQUID
 const char * const BITCOIN_CONF_FILENAME = "liquid.conf";
@@ -92,54 +82,6 @@ const char * const BITCOIN_PID_FILENAME = "elementsd.pid";
 #endif
 
 ArgsManager gArgs;
-
-/** Init OpenSSL library multithreading support */
-static std::unique_ptr<CCriticalSection[]> ppmutexOpenSSL;
-void locking_callback(int mode, int i, const char* file, int line) NO_THREAD_SAFETY_ANALYSIS
-{
-    if (mode & CRYPTO_LOCK) {
-        ENTER_CRITICAL_SECTION(ppmutexOpenSSL[i]);
-    } else {
-        LEAVE_CRITICAL_SECTION(ppmutexOpenSSL[i]);
-    }
-}
-
-// Singleton for wrapping OpenSSL setup/teardown.
-class CInit
-{
-public:
-    CInit()
-    {
-        // Init OpenSSL library multithreading support
-        ppmutexOpenSSL.reset(new CCriticalSection[CRYPTO_num_locks()]);
-        CRYPTO_set_locking_callback(locking_callback);
-
-        // OpenSSL can optionally load a config file which lists optional loadable modules and engines.
-        // We don't use them so we don't require the config. However some of our libs may call functions
-        // which attempt to load the config file, possibly resulting in an exit() or crash if it is missing
-        // or corrupt. Explicitly tell OpenSSL not to try to load the file. The result for our libs will be
-        // that the config appears to have been loaded and there are no modules/engines available.
-        OPENSSL_no_config();
-
-#ifdef WIN32
-        // Seed OpenSSL PRNG with current contents of the screen
-        RAND_screen();
-#endif
-
-        // Seed OpenSSL PRNG with performance counter
-        RandAddSeed();
-    }
-    ~CInit()
-    {
-        // Securely erase the memory used by the PRNG
-        RAND_cleanup();
-        // Shutdown OpenSSL library multithreading support
-        CRYPTO_set_locking_callback(nullptr);
-        // Clear the set of locks now to maintain symmetry with the constructor.
-        ppmutexOpenSSL.reset();
-    }
-}
-instance_of_cinit;
 
 /** A map that contains all the currently held directory locks. After
  * successful locking, these will be held here until the global destructor
@@ -172,6 +114,12 @@ bool LockDirectory(const fs::path& directory, const std::string lockfile_name, b
         dir_locks.emplace(pathLockFile.string(), std::move(lock));
     }
     return true;
+}
+
+void UnlockDirectory(const fs::path& directory, const std::string& lockfile_name)
+{
+    std::lock_guard<std::mutex> lock(cs_dir_locks);
+    dir_locks.erase((directory / lockfile_name).string());
 }
 
 void ReleaseDirectoryLocks()
@@ -378,15 +326,17 @@ ArgsManager::ArgsManager() :
     // nothing to do
 }
 
-void ArgsManager::WarnForSectionOnlyArgs()
+const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
 {
+    std::set<std::string> unsuitables;
+
     LOCK(cs_args);
 
     // if there's no section selected, don't worry
-    if (m_network.empty()) return;
+    if (m_network.empty()) return std::set<std::string> {};
 
     // if it's okay to use the default section for this network, don't worry
-    if (m_network == CBaseChainParams::MAIN) return;
+    if (m_network == CBaseChainParams::MAIN) return std::set<std::string> {};
 
     for (const auto& arg : m_network_only_args) {
         std::pair<bool, std::string> found_result;
@@ -404,8 +354,28 @@ void ArgsManager::WarnForSectionOnlyArgs()
         if (!found_result.first) continue;
 
         // otherwise, issue a warning
-        LogPrintf("Warning: Config setting for %s only applied on %s network when in [%s] section.\n", arg, m_network, m_network);
+        unsuitables.insert(arg);
     }
+    return unsuitables;
+}
+
+
+const std::set<std::string> ArgsManager::GetUnrecognizedSections() const
+{
+    // Section names to be recognized in the config file.
+    static const std::set<std::string> available_sections{
+        CBaseChainParams::REGTEST,
+        CBaseChainParams::TESTNET,
+        CBaseChainParams::MAIN
+    };
+    std::set<std::string> diff;
+
+    LOCK(cs_args);
+    std::set_difference(
+        m_config_sections.begin(), m_config_sections.end(),
+        available_sections.begin(), available_sections.end(),
+        std::inserter(diff, diff.end()));
+    return diff;
 }
 
 void ArgsManager::SelectConfigNetwork(const std::string& network)
@@ -428,7 +398,7 @@ bool ArgsManager::ParseParameters(int argc, const char* const argv[], std::strin
             key.erase(is_index);
         }
 #ifdef WIN32
-        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        std::transform(key.begin(), key.end(), key.begin(), ToLower);
         if (key[0] == '/')
             key[0] = '-';
 #endif
@@ -673,6 +643,12 @@ bool HelpRequested(const ArgsManager& args)
     return args.IsArgSet("-?") || args.IsArgSet("-h") || args.IsArgSet("-help") || args.IsArgSet("-help-debug");
 }
 
+void SetupHelpOptions(ArgsManager& args)
+{
+    args.AddArg("-?", "Print this help message and exit", false, OptionsCategory::OPTIONS);
+    args.AddHiddenArgs({"-h", "-help"});
+}
+
 static const int screenWidth = 79;
 static const int optIndent = 2;
 static const int msgIndent = 7;
@@ -765,18 +741,17 @@ fs::path GetDefaultDataDir()
 }
 #endif
 
-static fs::path g_blocks_path_cached;
 static fs::path g_blocks_path_cache_net_specific;
 static fs::path pathCached;
 static fs::path pathCachedNetSpecific;
 static CCriticalSection csPathCached;
 
-const fs::path &GetBlocksDir(bool fNetSpecific)
+const fs::path &GetBlocksDir()
 {
 
     LOCK(csPathCached);
 
-    fs::path &path = fNetSpecific ? g_blocks_path_cache_net_specific : g_blocks_path_cached;
+    fs::path &path = g_blocks_path_cache_net_specific;
 
     // This can be called during exceptions by LogPrintf(), so we cache the
     // value so we don't have to do memory allocations after that.
@@ -792,9 +767,8 @@ const fs::path &GetBlocksDir(bool fNetSpecific)
     } else {
         path = GetDataDir(false);
     }
-    if (fNetSpecific)
-        path /= BaseParams().DataDir();
 
+    path /= BaseParams().DataDir();
     path /= "blocks";
     fs::create_directories(path);
     return path;
@@ -838,7 +812,6 @@ void ClearDatadirCache()
 
     pathCached = fs::path();
     pathCachedNetSpecific = fs::path();
-    g_blocks_path_cached = fs::path();
     g_blocks_path_cache_net_specific = fs::path();
 }
 
@@ -857,7 +830,7 @@ static std::string TrimString(const std::string& str, const std::string& pattern
     return str.substr(front, end - front + 1);
 }
 
-static bool GetConfigOptions(std::istream& stream, std::string& error, std::vector<std::pair<std::string, std::string>> &options)
+static bool GetConfigOptions(std::istream& stream, std::string& error, std::vector<std::pair<std::string, std::string>>& options, std::set<std::string>& sections)
 {
     std::string str, prefix;
     std::string::size_type pos;
@@ -872,18 +845,23 @@ static bool GetConfigOptions(std::istream& stream, std::string& error, std::vect
         str = TrimString(str, pattern);
         if (!str.empty()) {
             if (*str.begin() == '[' && *str.rbegin() == ']') {
-                prefix = str.substr(1, str.size() - 2) + '.';
+                const std::string section = str.substr(1, str.size() - 2);
+                sections.insert(section);
+                prefix = section + '.';
             } else if (*str.begin() == '-') {
                 error = strprintf("parse error on line %i: %s, options in configuration file must be specified without leading -", linenr, str);
                 return false;
             } else if ((pos = str.find('=')) != std::string::npos) {
                 std::string name = prefix + TrimString(str.substr(0, pos), pattern);
                 std::string value = TrimString(str.substr(pos + 1), pattern);
-                if (used_hash && name == "rpcpassword") {
+                if (used_hash && name.find("rpcpassword") != std::string::npos) {
                     error = strprintf("parse error on line %i, using # in rpcpassword can be ambiguous and should be avoided", linenr);
                     return false;
                 }
                 options.emplace_back(name, value);
+                if ((pos = name.rfind('.')) != std::string::npos) {
+                    sections.insert(name.substr(0, pos));
+                }
             } else {
                 error = strprintf("parse error on line %i: %s", linenr, str);
                 if (str.size() >= 2 && str.substr(0, 2) == "no") {
@@ -901,7 +879,8 @@ bool ArgsManager::ReadConfigStream(std::istream& stream, std::string& error, boo
 {
     LOCK(cs_args);
     std::vector<std::pair<std::string, std::string>> options;
-    if (!GetConfigOptions(stream, error, options)) {
+    m_config_sections.clear();
+    if (!GetConfigOptions(stream, error, options, m_config_sections)) {
         return false;
     }
     for (const std::pair<std::string, std::string>& option : options) {
@@ -1028,23 +1007,6 @@ std::string ArgsManager::GetChainName() const
 #endif
     return GetArg("-chain", default_chain);
 }
-
-#ifndef WIN32
-fs::path GetPidFile()
-{
-    return AbsPathForConfigVal(fs::path(gArgs.GetArg("-pid", BITCOIN_PID_FILENAME)));
-}
-
-void CreatePidFile(const fs::path &path, pid_t pid)
-{
-    FILE* file = fsbridge::fopen(path, "w");
-    if (file)
-    {
-        fprintf(file, "%d\n", pid);
-        fclose(file);
-    }
-}
-#endif
 
 bool RenameOver(fs::path src, fs::path dest)
 {
@@ -1310,7 +1272,7 @@ fs::path AbsPathForConfigVal(const fs::path& path, bool net_specific)
 int ScheduleBatchPriority()
 {
 #ifdef SCHED_BATCH
-    const static sched_param param{0};
+    const static sched_param param{};
     if (int ret = pthread_setschedparam(pthread_self(), SCHED_BATCH, &param)) {
         LogPrintf("Failed to pthread_setschedparam: %s\n", strerror(errno));
         return ret;

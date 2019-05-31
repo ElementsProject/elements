@@ -5,6 +5,7 @@ src/elements
 src/elementsd
 src/elements-cli
 src/elements-tx
+src/elements-wallet
 src/test/test_bitcoin
 src/test/test_bitcoin_fuzzy
 src/qt/test/test_bitcoin-qt

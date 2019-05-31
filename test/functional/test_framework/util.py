@@ -325,7 +325,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_connect_coinbase=0\n")
         f.write("anyonecanspendaremine=0\n")
         f.write("walletrbf=0\n") # Default is 1 in Elements
-        f.write("con_bip34height=100000000\n")
+        f.write("con_bip34height=500\n")
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
         f.write("con_csv_deploy_start=0\n") # Enhance tests if removing this line
@@ -354,7 +354,7 @@ def get_auth_cookie(datadir, chain):
                 if line.startswith("rpcpassword="):
                     assert password is None  # Ensure that there is only one rpcpassword line
                     password = line.split("=")[1].strip("\n")
-    if os.path.isfile(os.path.join(datadir, chain, ".cookie")):
+    if os.path.isfile(os.path.join(datadir, chain, ".cookie")) and os.access(os.path.join(datadir, chain, ".cookie"), os.R_OK):
         with open(os.path.join(datadir, chain, ".cookie"), 'r', encoding="ascii") as f:
             userpass = f.read()
             split_userpass = userpass.split(':')
@@ -438,12 +438,12 @@ def sync_mempools(rpc_connections, *, wait=1, timeout=60, flush_scheduler=True):
 # Transaction/Block functions
 #############################
 
-def find_output(node, txid, amount):
+def find_output(node, txid, amount, *, blockhash=None):
     """
     Return index to output of txid with value amount
     Raises exception if there is none.
     """
-    txdata = node.getrawtransaction(txid, 1)
+    txdata = node.getrawtransaction(txid, 1, blockhash)
     for i in range(len(txdata["vout"])):
         if txdata["vout"][i]["value"] == amount:
             return i

@@ -9,14 +9,12 @@
 #ifndef BITCOIN_UTIL_STRENCODINGS_H
 #define BITCOIN_UTIL_STRENCODINGS_H
 
-#include <stdint.h>
+#include <attributes.h>
+
+#include <cstdint>
 #include <string>
 #include <vector>
 
-#define BEGIN(a)            ((char*)&(a))
-#define END(a)              ((char*)&((&(a))[1]))
-#define UBEGIN(a)           ((unsigned char*)&(a))
-#define UEND(a)             ((unsigned char*)&((&(a))[1]))
 #define ARRAYLEN(array)     (sizeof(array)/sizeof((array)[0]))
 
 /** Used by SanitizeString() */
@@ -46,12 +44,12 @@ bool IsHex(const std::string& str);
 * Return true if the string is a hex number, optionally prefixed with "0x"
 */
 bool IsHexNumber(const std::string& str);
-std::vector<unsigned char> DecodeBase64(const char* p, bool* pfInvalid = nullptr);
-std::string DecodeBase64(const std::string& str);
+std::vector<unsigned char> DecodeBase64(const char* p, bool* pf_invalid = nullptr);
+std::string DecodeBase64(const std::string& str, bool* pf_invalid = nullptr);
 std::string EncodeBase64(const unsigned char* pch, size_t len);
 std::string EncodeBase64(const std::string& str);
-std::vector<unsigned char> DecodeBase32(const char* p, bool* pfInvalid = nullptr);
-std::string DecodeBase32(const std::string& str);
+std::vector<unsigned char> DecodeBase32(const char* p, bool* pf_invalid = nullptr);
+std::string DecodeBase32(const std::string& str, bool* pf_invalid = nullptr);
 std::string EncodeBase32(const unsigned char* pch, size_t len);
 std::string EncodeBase32(const std::string& str);
 
@@ -92,35 +90,35 @@ constexpr inline bool IsSpace(char c) noexcept {
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseInt32(const std::string& str, int32_t *out);
+NODISCARD bool ParseInt32(const std::string& str, int32_t *out);
 
 /**
  * Convert string to signed 64-bit integer with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseInt64(const std::string& str, int64_t *out);
+NODISCARD bool ParseInt64(const std::string& str, int64_t *out);
 
 /**
  * Convert decimal string to unsigned 32-bit integer with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseUInt32(const std::string& str, uint32_t *out);
+NODISCARD bool ParseUInt32(const std::string& str, uint32_t *out);
 
 /**
  * Convert decimal string to unsigned 64-bit integer with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid integer,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseUInt64(const std::string& str, uint64_t *out);
+NODISCARD bool ParseUInt64(const std::string& str, uint64_t *out);
 
 /**
  * Convert string to double with strict parse error feedback.
  * @returns true if the entire string could be parsed as valid double,
  *   false if not the entire string could be parsed or when overflow or underflow occurred.
  */
-bool ParseDouble(const std::string& str, double *out);
+NODISCARD bool ParseDouble(const std::string& str, double *out);
 
 template<typename T>
 std::string HexStr(const T itbegin, const T itend, bool fSpaces=false)
@@ -173,7 +171,7 @@ bool TimingResistantEqual(const T& a, const T& b)
  * @returns true on success, false on error.
  * @note The result must be in the range (-10^18,10^18), otherwise an overflow error will trigger.
  */
-bool ParseFixedPoint(const std::string &val, int decimals, int64_t *amount_out);
+NODISCARD bool ParseFixedPoint(const std::string &val, int decimals, int64_t *amount_out);
 
 /** Convert from one power-of-2 number base to another. */
 template<int frombits, int tobits, bool pad, typename O, typename I>
@@ -199,9 +197,6 @@ bool ConvertBits(const O& outfn, I it, I end) {
     return true;
 }
 
-/** Parse an HD keypaths like "m/7/0'/2000". */
-bool ParseHDKeypath(const std::string& keypath_str, std::vector<uint32_t>& keypath);
-
 /**
  * Converts the given character to its lowercase equivalent.
  * This function is locale independent. It only converts uppercase
@@ -210,7 +205,7 @@ bool ParseHDKeypath(const std::string& keypath_str, std::vector<uint32_t>& keypa
  * @return          the lowercase equivalent of c; or the argument
  *                  if no conversion is possible.
  */
-constexpr unsigned char ToLower(unsigned char c)
+constexpr char ToLower(char c)
 {
     return (c >= 'A' && c <= 'Z' ? (c - 'A') + 'a' : c);
 }
@@ -231,7 +226,7 @@ void Downcase(std::string& str);
  * @return          the uppercase equivalent of c; or the argument
  *                  if no conversion is possible.
  */
-constexpr unsigned char ToUpper(unsigned char c)
+constexpr char ToUpper(char c)
 {
     return (c >= 'a' && c <= 'z' ? (c - 'a') + 'A' : c);
 }

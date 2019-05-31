@@ -567,7 +567,7 @@ class CTTest (BitcoinTestFramework):
         stx = self.nodes[0].signrawtransactionwithwallet(stx2['hex'])
         txid = self.nodes[2].sendrawtransaction(stx['hex'])
         self.nodes[2].generate(1)
-        assert self.nodes[2].getrawtransaction(txid, 1)['confirmations'] == 1
+        assert self.nodes[2].gettransaction(txid)['confirmations'] == 1
         self.sync_all()
 
         # Check that the sent asset has reached its destination

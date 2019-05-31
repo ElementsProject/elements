@@ -14,7 +14,9 @@
 #include <config/bitcoin-config.h>
 #endif
 
+#include <attributes.h>
 #include <compat.h>
+#include <compat/assumptions.h>
 #include <fs.h>
 #include <logging.h>
 #include <sync.h>
@@ -38,7 +40,6 @@
 int64_t GetStartupTime();
 
 extern const char * const BITCOIN_CONF_FILENAME;
-extern const char * const BITCOIN_PID_FILENAME;
 
 /** Translate a message to the native language of the user. */
 const extern std::function<std::string(const char*)> G_TRANSLATION_FUN;
@@ -69,6 +70,7 @@ int RaiseFileDescriptorLimit(int nMinFD);
 void AllocateFileRange(FILE *file, unsigned int offset, unsigned int length);
 bool RenameOver(fs::path src, fs::path dest);
 bool LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only=false);
+void UnlockDirectory(const fs::path& directory, const std::string& lockfile_name);
 bool DirIsWritable(const fs::path& directory);
 
 /** Release all directory locks. This is used for unit testing only, at runtime
@@ -78,14 +80,11 @@ void ReleaseDirectoryLocks();
 
 bool TryCreateDirectories(const fs::path& p);
 fs::path GetDefaultDataDir();
-const fs::path &GetBlocksDir(bool fNetSpecific = true);
+// The blocks directory is always net specific.
+const fs::path &GetBlocksDir();
 const fs::path &GetDataDir(bool fNetSpecific = true);
 void ClearDatadirCache();
 fs::path GetConfigFile(const std::string& confPath);
-#ifndef WIN32
-fs::path GetPidFile();
-void CreatePidFile(const fs::path &path, pid_t pid);
-#endif
 #ifdef WIN32
 fs::path GetSpecialFolderPath(int nFolder, bool fCreate = true);
 #endif
@@ -149,8 +148,9 @@ protected:
     std::string m_network GUARDED_BY(cs_args);
     std::set<std::string> m_network_only_args GUARDED_BY(cs_args);
     std::map<OptionsCategory, std::map<std::string, Arg>> m_available_args GUARDED_BY(cs_args);
+    std::set<std::string> m_config_sections GUARDED_BY(cs_args);
 
-    bool ReadConfigStream(std::istream& stream, std::string& error, bool ignore_invalid_keys = false);
+    NODISCARD bool ReadConfigStream(std::istream& stream, std::string& error, bool ignore_invalid_keys = false);
 
 public:
     ArgsManager();
@@ -160,8 +160,8 @@ public:
      */
     void SelectConfigNetwork(const std::string& network);
 
-    bool ParseParameters(int argc, const char* const argv[], std::string& error);
-    bool ReadConfigFiles(std::string& error, bool ignore_invalid_keys = false);
+    NODISCARD bool ParseParameters(int argc, const char* const argv[], std::string& error);
+    NODISCARD bool ReadConfigFiles(std::string& error, bool ignore_invalid_keys = false);
 
     /**
      * Log warnings for options in m_section_only_args when
@@ -169,7 +169,12 @@ public:
      * on the command line or in a network-specific section in the
      * config file.
      */
-    void WarnForSectionOnlyArgs();
+    const std::set<std::string> GetUnsuitableSectionOnlyArgs() const;
+
+    /**
+     * Log warnings for unrecognized section names in the config file.
+     */
+    const std::set<std::string> GetUnrecognizedSections() const;
 
     /**
      * Return a vector of strings of the given argument
@@ -286,6 +291,9 @@ extern ArgsManager gArgs;
  * @return true if help has been requested via a command-line arg
  */
 bool HelpRequested(const ArgsManager& args);
+
+/** Add help options to the args manager */
+void SetupHelpOptions(ArgsManager& args);
 
 /**
  * Format a string to be used as group of options in help messages

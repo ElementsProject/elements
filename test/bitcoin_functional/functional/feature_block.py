@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2015-2018 The Bitcoin Core developers
+# Copyright (c) 2015-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test block processing."""
@@ -7,7 +7,13 @@ import copy
 import struct
 import time
 
-from test_framework.blocktools import create_block, create_coinbase, create_tx_with_script, get_legacy_sigopcount_block
+from test_framework.blocktools import (
+    create_block,
+    create_coinbase,
+    create_tx_with_script,
+    get_legacy_sigopcount_block,
+    MAX_BLOCK_SIGOPS,
+)
 from test_framework.key import CECKey
 from test_framework.messages import (
     CBlock,
@@ -45,8 +51,7 @@ from test_framework.script import (
 )
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal
-
-MAX_BLOCK_SIGOPS = 20000
+from data import invalid_txs
 
 #  Use this class for tests that require behavior other than normal "mininode" behavior.
 #  For now, it is used to serialize a bloated varint (b64).
@@ -95,16 +100,21 @@ class FullBlockTest(BitcoinTestFramework):
         self.save_spendable_output()
         self.sync_blocks([b0])
 
+        # These constants chosen specifically to trigger an immature coinbase spend
+        # at a certain time below.
+        NUM_BUFFER_BLOCKS_TO_GENERATE = 99
+        NUM_OUTPUTS_TO_COLLECT = 33
+
         # Allow the block to mature
         blocks = []
-        for i in range(99):
-            blocks.append(self.next_block(5000 + i))
+        for i in range(NUM_BUFFER_BLOCKS_TO_GENERATE):
+            blocks.append(self.next_block("maturitybuffer.{}".format(i)))
             self.save_spendable_output()
         self.sync_blocks(blocks)
 
         # collect spendable outputs now to avoid cluttering the code later on
         out = []
-        for i in range(33):
+        for i in range(NUM_OUTPUTS_TO_COLLECT):
             out.append(self.get_spendable_output())
 
         # Start by building a couple of blocks on top (which output is spent is
@@ -116,7 +126,48 @@ class FullBlockTest(BitcoinTestFramework):
         b2 = self.next_block(2, spend=out[1])
         self.save_spendable_output()
 
-        self.sync_blocks([b1, b2])
+        self.sync_blocks([b1, b2], timeout=4)
+
+        # Select a txn with an output eligible for spending. This won't actually be spent,
+        # since we're testing submission of a series of blocks with invalid txns.
+        attempt_spend_tx = out[2]
+
+        # Submit blocks for rejection, each of which contains a single transaction
+        # (aside from coinbase) which should be considered invalid.
+        for TxTemplate in invalid_txs.iter_all_templates():
+            template = TxTemplate(spend_tx=attempt_spend_tx)
+
+            if template.valid_in_block:
+                continue
+
+            self.log.info("Reject block with invalid tx: %s", TxTemplate.__name__)
+            blockname = "for_invalid.%s" % TxTemplate.__name__
+            badblock = self.next_block(blockname)
+            badtx = template.get_tx()
+            if TxTemplate != invalid_txs.InputMissing:
+                self.sign_tx(badtx, attempt_spend_tx)
+            else:
+                # Segwit is active in regtest at this point, so to deserialize a
+                # transaction without any inputs correctly, we set the outputs
+                # to an empty list. This is a hack, as the serialization of an
+                # empty list of outputs is deserialized as flags==0 and thus
+                # deserialization of the outputs is skipped.
+                # A policy check requires "loose" txs to be of a minimum size,
+                # so vtx is not set to be empty in the TxTemplate class and we
+                # only apply the workaround where txs are not "loose", i.e. in
+                # blocks.
+                #
+                # The workaround has the purpose that both sides calculate
+                # the same tx hash in the merkle tree
+                badtx.vout = []
+            badtx.rehash()
+            badblock = self.update_block(blockname, [badtx])
+            self.sync_blocks(
+                [badblock], success=False,
+                reject_reason=(template.block_reject_reason or template.reject_reason),
+                reconnect=True, timeout=2)
+
+            self.move_tip(2)
 
         # Fork like this:
         #
@@ -579,14 +630,14 @@ class FullBlockTest(BitcoinTestFramework):
         while b47.sha256 < target:
             b47.nNonce += 1
             b47.rehash()
-        self.sync_blocks([b47], False, request_block=False)
+        self.sync_blocks([b47], False, force_send=True, reject_reason='high-hash')
 
         self.log.info("Reject a block with a timestamp >2 hours in the future")
         self.move_tip(44)
         b48 = self.next_block(48, solve=False)
         b48.nTime = int(time.time()) + 60 * 60 * 3
         b48.solve()
-        self.sync_blocks([b48], False, request_block=False)
+        self.sync_blocks([b48], False, force_send=True, reject_reason='time-too-new')
 
         self.log.info("Reject a block with invalid merkle hash")
         self.move_tip(44)
@@ -600,7 +651,7 @@ class FullBlockTest(BitcoinTestFramework):
         b50 = self.next_block(50)
         b50.nBits = b50.nBits - 1
         b50.solve()
-        self.sync_blocks([b50], False, request_block=False, reconnect=True)
+        self.sync_blocks([b50], False, force_send=True, reject_reason='bad-diffbits', reconnect=True)
 
         self.log.info("Reject a block with two coinbase transactions")
         self.move_tip(44)
@@ -630,7 +681,7 @@ class FullBlockTest(BitcoinTestFramework):
         b54 = self.next_block(54, spend=out[15])
         b54.nTime = b35.nTime - 1
         b54.solve()
-        self.sync_blocks([b54], False, request_block=False)
+        self.sync_blocks([b54], False, force_send=True, reject_reason='time-too-old')
 
         # valid timestamp
         self.move_tip(53)
@@ -874,7 +925,7 @@ class FullBlockTest(BitcoinTestFramework):
         #                                                                                    \-> b67 (20)
         #
         #
-        self.log.info("Reject a block with a transaction double spending a transaction creted in the same block")
+        self.log.info("Reject a block with a transaction double spending a transaction created in the same block")
         self.move_tip(65)
         b67 = self.next_block(67)
         tx1 = self.create_and_sign_transaction(out[20], out[20].vout[0].nValue)
@@ -1078,11 +1129,11 @@ class FullBlockTest(BitcoinTestFramework):
 
         self.move_tip(77)
         b80 = self.next_block(80, spend=out[25])
-        self.sync_blocks([b80], False, request_block=False)
+        self.sync_blocks([b80], False, force_send=True)
         self.save_spendable_output()
 
         b81 = self.next_block(81, spend=out[26])
-        self.sync_blocks([b81], False, request_block=False)  # other chain is same length
+        self.sync_blocks([b81], False, force_send=True)  # other chain is same length
         self.save_spendable_output()
 
         b82 = self.next_block(82, spend=out[27])
@@ -1169,7 +1220,7 @@ class FullBlockTest(BitcoinTestFramework):
         blocks = []
         spend = out[32]
         for i in range(89, LARGE_REORG_SIZE + 89):
-            b = self.next_block(i, spend)
+            b = self.next_block(i, spend, version=4)
             tx = CTransaction()
             script_length = MAX_BLOCK_BASE_SIZE - len(b.serialize()) - 69
             script_output = CScript([b'\x00' * script_length])
@@ -1181,26 +1232,38 @@ class FullBlockTest(BitcoinTestFramework):
             self.save_spendable_output()
             spend = self.get_spendable_output()
 
-        self.sync_blocks(blocks, True, timeout=180)
+        self.sync_blocks(blocks, True, timeout=480)
         chain1_tip = i
 
         # now create alt chain of same length
         self.move_tip(88)
         blocks2 = []
         for i in range(89, LARGE_REORG_SIZE + 89):
-            blocks2.append(self.next_block("alt" + str(i)))
-        self.sync_blocks(blocks2, False, request_block=False)
+            blocks2.append(self.next_block("alt" + str(i), version=4))
+        self.sync_blocks(blocks2, False, force_send=True)
 
         # extend alt chain to trigger re-org
-        block = self.next_block("alt" + str(chain1_tip + 1))
-        self.sync_blocks([block], True, timeout=180)
+        block = self.next_block("alt" + str(chain1_tip + 1), version=4)
+        self.sync_blocks([block], True, timeout=480)
 
         # ... and re-org back to the first chain
         self.move_tip(chain1_tip)
-        block = self.next_block(chain1_tip + 1)
-        self.sync_blocks([block], False, request_block=False)
-        block = self.next_block(chain1_tip + 2)
-        self.sync_blocks([block], True, timeout=180)
+        block = self.next_block(chain1_tip + 1, version=4)
+        self.sync_blocks([block], False, force_send=True)
+        block = self.next_block(chain1_tip + 2, version=4)
+        self.sync_blocks([block], True, timeout=480)
+
+        self.log.info("Reject a block with an invalid block header version")
+        b_v1 = self.next_block('b_v1', version=1)
+        self.sync_blocks([b_v1], success=False, force_send=True, reject_reason='bad-version(0x00000001)')
+
+        self.move_tip(chain1_tip + 2)
+        b_cb34 = self.next_block('b_cb34', version=4)
+        b_cb34.vtx[0].vin[0].scriptSig = b_cb34.vtx[0].vin[0].scriptSig[:-1]
+        b_cb34.vtx[0].rehash()
+        b_cb34.hashMerkleRoot = b_cb34.calc_merkle_root()
+        b_cb34.solve()
+        self.sync_blocks([b_cb34], success=False, reject_reason='bad-cb-height', reconnect=True)
 
     # Helper methods
     ################
@@ -1229,7 +1292,7 @@ class FullBlockTest(BitcoinTestFramework):
         tx.rehash()
         return tx
 
-    def next_block(self, number, spend=None, additional_coinbase_value=0, script=CScript([OP_TRUE]), solve=True):
+    def next_block(self, number, spend=None, additional_coinbase_value=0, script=CScript([OP_TRUE]), solve=True, *, version=1):
         if self.tip is None:
             base_block_hash = self.genesis_hash
             block_time = int(time.time()) + 1
@@ -1242,11 +1305,11 @@ class FullBlockTest(BitcoinTestFramework):
         coinbase.vout[0].nValue += additional_coinbase_value
         coinbase.rehash()
         if spend is None:
-            block = create_block(base_block_hash, coinbase, block_time)
+            block = create_block(base_block_hash, coinbase, block_time, version=version)
         else:
             coinbase.vout[0].nValue += spend.vout[0].nValue - 1  # all but one satoshi to fees
             coinbase.rehash()
-            block = create_block(base_block_hash, coinbase, block_time)
+            block = create_block(base_block_hash, coinbase, block_time, version=version)
             tx = self.create_tx(spend, 0, 1, script)  # spend 1 satoshi
             self.sign_tx(tx, spend)
             self.add_transactions_to_block(block, [tx])
@@ -1288,7 +1351,7 @@ class FullBlockTest(BitcoinTestFramework):
         self.blocks[block_number] = block
         return block
 
-    def bootstrap_p2p(self):
+    def bootstrap_p2p(self, timeout=10):
         """Add a P2P connection to the node.
 
         Helper to connect and wait for version handshake."""
@@ -1299,24 +1362,25 @@ class FullBlockTest(BitcoinTestFramework):
         # an INV for the next block and receive two getheaders - one for the
         # IBD and one for the INV. We'd respond to both and could get
         # unexpectedly disconnected if the DoS score for that error is 50.
-        self.nodes[0].p2p.wait_for_getheaders(timeout=5)
+        self.nodes[0].p2p.wait_for_getheaders(timeout=timeout)
 
-    def reconnect_p2p(self):
+    def reconnect_p2p(self, timeout=60):
         """Tear down and bootstrap the P2P connection to the node.
 
         The node gets disconnected several times in this test. This helper
         method reconnects the p2p and restarts the network thread."""
         self.nodes[0].disconnect_p2ps()
-        self.bootstrap_p2p()
+        self.bootstrap_p2p(timeout=timeout)
 
-    def sync_blocks(self, blocks, success=True, reject_reason=None, request_block=True, reconnect=False, timeout=60):
+    def sync_blocks(self, blocks, success=True, reject_reason=None, force_send=False, reconnect=False, timeout=60):
         """Sends blocks to test node. Syncs and verifies that tip has advanced to most recent block.
 
         Call with success = False if the tip shouldn't advance to the most recent block."""
-        self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_reason=reject_reason, request_block=request_block, timeout=timeout, expect_disconnect=reconnect)
+        self.nodes[0].p2p.send_blocks_and_test(blocks, self.nodes[0], success=success, reject_reason=reject_reason, force_send=force_send, timeout=timeout, expect_disconnect=reconnect)
 
         if reconnect:
-            self.reconnect_p2p()
+            self.reconnect_p2p(timeout=timeout)
+
 
 if __name__ == '__main__':
     FullBlockTest().main()

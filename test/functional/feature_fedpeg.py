@@ -54,7 +54,7 @@ class FedPegTest(BitcoinTestFramework):
 
         self.nodes = []
         # Setup parent nodes
-        parent_chain = "parent" if not self.options.parent_bitcoin else "regtest"
+        parent_chain = "elementsregtest" if not self.options.parent_bitcoin else "regtest"
         parent_binary = [self.options.parent_binpath] if self.options.parent_binpath != "" else None
         for n in range(2):
             extra_args = [
@@ -76,9 +76,8 @@ class FedPegTest(BitcoinTestFramework):
                 extra_args.extend([
                     "-validatepegin=0",
                     "-initialfreecoins=0",
-                    "-anyonecanspendaremine",
+                    "-anyonecanspendaremine=1",
                     "-signblockscript=51", # OP_TRUE
-                    '-con_blocksubsidy=5000000000',
                 ])
 
             self.add_nodes(1, [extra_args], chain=[parent_chain], binary=parent_binary, chain_in_args=[not self.options.parent_bitcoin])
@@ -101,10 +100,8 @@ class FedPegTest(BitcoinTestFramework):
                 "-printtoconsole=0",
                 "-port="+str(p2p_port(2+n)),
                 "-rpcport="+str(rpc_port(2+n)),
-                '-parentgenesisblockhash=%s' % self.parentgenesisblockhash,
                 '-validatepegin=1',
                 '-fedpegscript=%s' % self.fedpeg_script,
-                '-anyonecanspendaremine=0',
                 '-minrelaytxfee=0',
                 '-blockmintxfee=0',
                 '-initialfreecoins=0',
@@ -112,6 +109,7 @@ class FedPegTest(BitcoinTestFramework):
                 '-mainchainrpchost=127.0.0.1',
                 '-mainchainrpcport=%s' % rpc_port(n),
                 '-recheckpeginblockinterval=15', # Long enough to allow failure and repair before timeout
+                '-parentgenesisblockhash=%s' % self.parentgenesisblockhash,
                 '-parentpubkeyprefix=111',
                 '-parentscriptprefix=196',
                 '-parent_bech32_hrp=bcrt',
@@ -142,7 +140,7 @@ class FedPegTest(BitcoinTestFramework):
                 datadir = get_datadir_path(self.options.tmpdir, n)
                 extra_args.append('-mainchainrpccookiefile='+datadir+"/" + parent_chain + "/.cookie")
 
-            self.add_nodes(1, [extra_args], chain=["sidechain"])
+            self.add_nodes(1, [extra_args], chain=["elementsregtest"])
             self.start_node(2+n)
             print("Node {} started".format(2+n))
 

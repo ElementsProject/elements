@@ -24,7 +24,7 @@
 SendCoinsEntry::SendCoinsEntry(const PlatformStyle *_platformStyle, QWidget *parent) :
     QStackedWidget(parent),
     ui(new Ui::SendCoinsEntry),
-    model(0),
+    model(nullptr),
     platformStyle(_platformStyle)
 {
     ui->setupUi(this);
@@ -173,7 +173,7 @@ bool SendCoinsEntry::validate(interfaces::Node& node)
     }
 
     // Sending a zero amount is invalid
-    const auto send_assets = ui->payAmount->fullValue();
+    const auto send_assets = ui->payAmount->fullValue(nullptr);
     if (send_assets.second <= 0)
     {
         ui->payAmount->setValid(false);

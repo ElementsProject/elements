@@ -29,12 +29,12 @@ class BitcoinAmountField: public QWidget
 
 public:
     explicit BitcoinAmountField(std::set<CAsset> allowed_assets, QWidget *parent = 0);
-    explicit BitcoinAmountField(QWidget *parent = 0);
+    explicit BitcoinAmountField(QWidget *parent = nullptr);
 
     std::pair<CAsset, CAmount> fullValue(bool *valid=0) const;
     void setFullValue(const CAsset& asset, const CAmount& value);
 
-    CAmount value(bool *value=0) const;
+    CAmount value(bool *value=nullptr) const;
     void setValue(const CAmount& value);
 
     /** If allow empty is set to false the field will be set to the minimum allowed value if left empty. **/

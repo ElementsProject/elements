@@ -38,6 +38,8 @@ def find_spendable_utxo(node, min_value):
 
     raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
 
+txs_mined = {} # txindex from txid to blockhash
+
 class SegWitTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
@@ -90,7 +92,7 @@ class SegWitTest(BitcoinTestFramework):
 
         self.log.info("Verify sigops are counted in GBT with pre-BIP141 rules before the fork")
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 1)
-        tmpl = self.nodes[0].getblocktemplate({})
+        tmpl = self.nodes[0].getblocktemplate({'rules': ['segwit']})
         assert(tmpl['sizelimit'] == 1000000)
         assert('weightlimit' not in tmpl)
         assert(tmpl['sigoplimit'] == 20000)
@@ -153,10 +155,10 @@ class SegWitTest(BitcoinTestFramework):
 
         self.log.info("Verify previous witness txs skipped for mining can now be mined")
         assert_equal(len(self.nodes[2].getrawmempool()), 4)
-        block = self.nodes[2].generate(1)  # block 432 (first block with new rules; 432 = 144 * 3)
+        blockhash = self.nodes[2].generate(1)[0]  # block 432 (first block with new rules; 432 = 144 * 3)
         sync_blocks(self.nodes)
         assert_equal(len(self.nodes[2].getrawmempool()), 0)
-        segwit_tx_list = self.nodes[2].getblock(block[0])["tx"]
+        segwit_tx_list = self.nodes[2].getblock(blockhash)["tx"]
         assert_equal(len(segwit_tx_list), 5)
 
         self.log.info("Verify default node can't accept txs with missing witness")
@@ -170,15 +172,16 @@ class SegWitTest(BitcoinTestFramework):
         self.fail_accept(self.nodes[0], "mandatory-script-verify-flag", p2sh_ids[NODE_0][WIT_V1][0], False, witness_script(True, self.pubkey[0]))
 
         self.log.info("Verify block and transaction serialization rpcs return differing serializations depending on rpc serialization flag")
-        assert(self.nodes[2].getblock(block[0], False) != self.nodes[0].getblock(block[0], False))
-        assert(self.nodes[1].getblock(block[0], False) == self.nodes[2].getblock(block[0], False))
-        for i in range(len(segwit_tx_list)):
-            tx = FromHex(CTransaction(), self.nodes[2].gettransaction(segwit_tx_list[i])["hex"])
-            assert(self.nodes[2].getrawtransaction(segwit_tx_list[i]) != self.nodes[0].getrawtransaction(segwit_tx_list[i]))
-            assert(self.nodes[1].getrawtransaction(segwit_tx_list[i], 0) == self.nodes[2].getrawtransaction(segwit_tx_list[i]))
-            assert(self.nodes[0].getrawtransaction(segwit_tx_list[i]) != self.nodes[2].gettransaction(segwit_tx_list[i])["hex"])
-            assert(self.nodes[1].getrawtransaction(segwit_tx_list[i]) == self.nodes[2].gettransaction(segwit_tx_list[i])["hex"])
-            assert(self.nodes[0].getrawtransaction(segwit_tx_list[i]) == bytes_to_hex_str(tx.serialize_without_witness()))
+        assert(self.nodes[2].getblock(blockhash, False) != self.nodes[0].getblock(blockhash, False))
+        assert(self.nodes[1].getblock(blockhash, False) == self.nodes[2].getblock(blockhash, False))
+
+        for tx_id in segwit_tx_list:
+            tx = FromHex(CTransaction(), self.nodes[2].gettransaction(tx_id)["hex"])
+            assert(self.nodes[2].getrawtransaction(tx_id, False, blockhash) != self.nodes[0].getrawtransaction(tx_id, False, blockhash))
+            assert(self.nodes[1].getrawtransaction(tx_id, False, blockhash) == self.nodes[2].getrawtransaction(tx_id, False, blockhash))
+            assert(self.nodes[0].getrawtransaction(tx_id, False, blockhash) != self.nodes[2].gettransaction(tx_id)["hex"])
+            assert(self.nodes[1].getrawtransaction(tx_id, False, blockhash) == self.nodes[2].gettransaction(tx_id)["hex"])
+            assert(self.nodes[0].getrawtransaction(tx_id, False, blockhash) == bytes_to_hex_str(tx.serialize_without_witness()))
 
         self.log.info("Verify witness txs without witness data are invalid after the fork")
         self.fail_accept(self.nodes[2], 'non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)', wit_ids[NODE_2][WIT_V0][2], sign=False)
@@ -232,15 +235,7 @@ class SegWitTest(BitcoinTestFramework):
         assert(tx.wit.is_null())
         assert(txid3 in self.nodes[0].getrawmempool())
 
-        # Now try calling getblocktemplate() without segwit support.
-        template = self.nodes[0].getblocktemplate()
-
-        # Check that tx1 is the only transaction of the 3 in the template.
-        template_txids = [t['txid'] for t in template['transactions']]
-        assert(txid2 not in template_txids and txid3 not in template_txids)
-        assert(txid1 in template_txids)
-
-        # Check that running with segwit support results in all 3 being included.
+        # Check that getblocktemplate includes all transactions.
         template = self.nodes[0].getblocktemplate({"rules": ["segwit"]})
         template_txids = [t['txid'] for t in template['transactions']]
         assert(txid1 in template_txids)
@@ -542,7 +537,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.rehash()
         signresults = self.nodes[0].signrawtransactionwithwallet(bytes_to_hex_str(tx.serialize_without_witness()))['hex']
         txid = self.nodes[0].sendrawtransaction(signresults, True)
-        self.nodes[0].generate(1)
+        txs_mined[txid] = self.nodes[0].generate(1)[0]
         sync_blocks(self.nodes)
         watchcount = 0
         spendcount = 0
@@ -585,7 +580,7 @@ class SegWitTest(BitcoinTestFramework):
         tx = CTransaction()
         for i in txids:
             txtmp = CTransaction()
-            txraw = self.nodes[0].getrawtransaction(i)
+            txraw = self.nodes[0].getrawtransaction(i, 0, txs_mined[i])
             f = BytesIO(hex_str_to_bytes(txraw))
             txtmp.deserialize(f)
             for j in range(len(txtmp.vout)):

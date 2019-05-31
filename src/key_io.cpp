@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2017 The Bitcoin Core developers
+// Copyright (c) 2014-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -271,7 +271,9 @@ CKey DecodeSecret(const std::string& str)
             key.Set(data.begin() + privkey_prefix.size(), data.begin() + privkey_prefix.size() + 32, compressed);
         }
     }
-    memory_cleanse(data.data(), data.size());
+    if (!data.empty()) {
+        memory_cleanse(data.data(), data.size());
+    }
     return key;
 }
 

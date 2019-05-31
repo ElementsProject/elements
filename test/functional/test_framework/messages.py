@@ -28,7 +28,7 @@ import struct
 import time
 
 from test_framework.siphash import siphash256
-from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot, BITCOIN_ASSET_OUT
+from test_framework.util import hex_str_to_bytes, bytes_to_hex_str, calcfastmerkleroot, BITCOIN_ASSET_OUT, assert_equal
 
 MIN_VERSION_SUPPORTED = 60001
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -712,9 +712,10 @@ class CTransaction:
             self.wit.vtxinwit = [CTxInWitness() for i in range(len(self.vin))]
             self.wit.vtxoutwit = [CTxOutWitness() for i in range(len(self.vout))]
             self.wit.deserialize(f)
+        else:
+            self.wit = CTxWitness()
         if flags > 1:
             raise TypeError('Extra witness flags:' + str(flags))
-
         self.sha256 = None
         self.hash = None
 
@@ -904,6 +905,8 @@ class CBlockHeader:
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
                time.ctime(self.nTime), self.block_height)
 
+BLOCK_HEADER_SIZE = len(CBlockHeader().serialize())
+assert_equal(BLOCK_HEADER_SIZE, 79)
 
 class CBlock(CBlockHeader):
     __slots__ = ("vtx",)
@@ -1078,7 +1081,7 @@ class HeaderAndShortIDs:
         self.prefilled_txn = []
         self.use_witness = False
 
-        if p2pheaders_and_shortids != None:
+        if p2pheaders_and_shortids is not None:
             self.header = p2pheaders_and_shortids.header
             self.nonce = p2pheaders_and_shortids.nonce
             self.shortids = p2pheaders_and_shortids.shortids
@@ -1136,7 +1139,7 @@ class BlockTransactionsRequest:
 
     def __init__(self, blockhash=0, indexes = None):
         self.blockhash = blockhash
-        self.indexes = indexes if indexes != None else []
+        self.indexes = indexes if indexes is not None else []
 
     def deserialize(self, f):
         self.blockhash = deser_uint256(f)
@@ -1177,7 +1180,7 @@ class BlockTransactions:
 
     def __init__(self, blockhash=0, transactions = None):
         self.blockhash = blockhash
-        self.transactions = transactions if transactions != None else []
+        self.transactions = transactions if transactions is not None else []
 
     def deserialize(self, f):
         self.blockhash = deser_uint256(f)
@@ -1366,7 +1369,7 @@ class msg_getdata:
     command = b"getdata"
 
     def __init__(self, inv=None):
-        self.inv = inv if inv != None else []
+        self.inv = inv if inv is not None else []
 
     def deserialize(self, f):
         self.inv = deser_vector(f, CInv)

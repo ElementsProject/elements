@@ -18,7 +18,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
 {
     CBlockPolicyEstimator feeEst;
     CTxMemPool mpool(&feeEst);
-    LOCK(mpool.cs);
+    LOCK2(cs_main, mpool.cs);
     TestMemPoolEntryHelper entry;
     CAmount basefee(2000);
     CAmount deltaFee(100);
@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     tx.vin[0].scriptSig = garbage;
     tx.vout.resize(1);
     tx.vout[0].nValue=0LL;
-    CFeeRate baseRate(basefee, GetVirtualTransactionSize(tx));
+    CFeeRate baseRate(basefee, GetVirtualTransactionSize(CTransaction(tx)));
 
     // Create a fake block
     std::vector<CTransactionRef> block;
