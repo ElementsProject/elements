@@ -1001,8 +1001,7 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
 
-    // TODO Have fedpegscript passed in optionally or perhaps always
-    const std::vector<CScript> fedpegscripts = {Params().GetConsensus().fedpegScript};
+    const std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
 
     // ELEMENTS:
     // Track an immature peg-in that's otherwise valid, give warning
