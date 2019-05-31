@@ -70,16 +70,8 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
 // Takes federation redeem script and adds HMAC_SHA256(pubkey, scriptPubKey) as a tweak to each pubkey
 CScript calculate_contract(const CScript& federation_script, const CScript& scriptPubKey) {
     CScript scriptDestination;
-    std::vector<std::vector<unsigned char> > solutions;
-    unsigned int required;
-    std::vector<std::vector<unsigned char>> keys;
+
     bool is_liquidv1_watchman = MatchLiquidWatchman(federation_script);
-    // Sanity check federation_script only to match 3 templates
-    if (!is_liquidv1_watchman &&
-            federation_script != CScript() << OP_TRUE &&
-            !MatchMultisig(federation_script, required, keys)) {
-        assert(false);
-    }
 
     CScript::const_iterator sdpc = federation_script.begin();
     std::vector<unsigned char> vch;
@@ -87,7 +79,8 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
     bool liquid_op_else_found = false;
     while (federation_script.GetOp(sdpc, opcodeTmp, vch))
     {
-        // For liquid watchman template, don't tweak emergency keys
+
+        // For liquidv1 initial watchman template, don't tweak emergency keys
         if (is_liquidv1_watchman && opcodeTmp == OP_ELSE) {
             liquid_op_else_found = true;
         }
