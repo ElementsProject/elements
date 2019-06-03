@@ -22,12 +22,14 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-rescan=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
+        self.extra_args[0].append("-regtest=0")
         self.extra_args[0].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-issuancecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[0].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-rescan=1")
+        self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist-scan=1")
         self.extra_args[1].append("-keypool=100")
         self.extra_args[1].append("-initialfreecoins=2100000000000000")
@@ -38,6 +40,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[1].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[1].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[2].append("-rescan=1")
+        self.extra_args[2].append("-regtest=0")
         self.extra_args[2].append("-pkhwhitelist-scan=1")
         self.extra_args[2].append("-keypool=100")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
@@ -223,6 +226,8 @@ class OnboardTest (BitcoinTestFramework):
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
         wl1file="wl1.dat"
         self.nodes[1].dumpwhitelist(wl1file)
+        print("Contract hash:")
+        print(self.nodes[1].getcontracthash())
         print("Adding the created p2sh to the whitelist\n")
         self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
         wl1file_2="wl1_2.dat"
@@ -233,11 +238,65 @@ class OnboardTest (BitcoinTestFramework):
         iswl=self.nodes[1].querywhitelist(multiAddress1['address'])
         assert(iswl)
 
-        multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['derivedpubkey']])
-        self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress4['derivedpubkey']],2,kycaddr)
-        iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
-        #assert(iswl==False)
-        print(clientAddress1)
+        if(clientAddress1['pubkey'] == clientAddress1['derivedpubkey']):
+            raise AssertionError("Pubkey and derived pubkey are the same for a new address. Either tweaking failed or the contract is not valid/existing.") 
+
+        print("P2SH Whitelisting has been successful!")
+        try:
+            multiAddress2=self.nodes[1].createmultisig(2,["asdasdasdasdasdas",clientAddress2['pubkey'],clientAddress4['pubkey']])
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("Invalid public key: asdasdasdasdasdas" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with an invalid first pubkey has been validated and accepted to the whitelist.")
+
+        try:
+            self.nodes[1].addmultitowhitelist("XKyFz4ezBfJPyeCuQNmDGZhF77m9PF1Jv2",[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("invalid Bitcoin address: XKyFz4ezBfJPyeCuQNmDGZhF77m9PF1Jv2" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with an invalid address has been validated and accepted to the whitelist.")
+
+        try:
+            multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['pubkey']])
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("add_derived: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with a different third pubkey has been validated and accepted to the whitelist.")
+
+        try:
+            multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['derivedpubkey']])
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("add_derived: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with an untweaked third pubkey has been validated and accepted to the whitelist.")
+
+        try:
+            multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey'],clientAddress4['pubkey']])
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("add_derived: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with more pubkeys in redeem script than rpc has been validated and accepted to the whitelist.")
+
+        try:
+            multiAddress2=self.nodes[1].createmultisig(4,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['pubkey']])
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("not enough keys supplied (got 3 keys, but need at least 4 to redeem)" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with n > m has been validated and accepted to the whitelist.")
+
+        try:
+            multiAddress2=self.nodes[1].createmultisig(0,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
+        except JSONRPCException as e:
+            assert("a multisignature address must require at least one key to redeem" in e.error['message'])
+        else:
+            raise AssertionError("P2SH multisig with n=0 has been validated and accepted to the whitelist.")
+
 
         #Blacklist node 1
         wltx_decoded=self.nodes[1].decoderawtransaction(wltx)
