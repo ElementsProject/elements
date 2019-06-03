@@ -194,6 +194,16 @@ def initialize_datadir(dirname, n):
         f.write("rpcport="+str(rpc_port(n))+"\n")
         f.write("listenonion=0\n")
         f.write("initialfreecoins=2100000000000000\n")
+        f.write("chain=ocean_test\n")
+    termsdir = os.path.join(datadir, "terms-and-conditions")
+    if not os.path.isdir(termsdir):
+        os.makedirs(termsdir)
+    testdir = os.path.join(termsdir, "ocean_test")
+    if not os.path.isdir(testdir):
+        os.makedirs(testdir)
+    with open(os.path.join(testdir, "latest.txt"), 'w', encoding='utf8') as f:
+        f.write("These are the terms and conditions\n")
+        f.write("Approve to use the CBT network\n")
     return datadir
 
 def rpc_auth_pair(n):
