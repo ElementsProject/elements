@@ -1838,6 +1838,7 @@ return true;
 //Used for multisig P2SH checking that has been created with tweaked addresses
 bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
 
+    CTxDestination destCopy = keyID;
     std::vector<CPubKey> tweakedPubKeys = pubKeys;
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
@@ -1857,7 +1858,7 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     if (boost::get<CNoDestination>(&multiKeyId))
         return false;
 
-    if (multiKeyId != keyID)
+    if (!(multiKeyId == destCopy))
         return false;
 
     return true;
