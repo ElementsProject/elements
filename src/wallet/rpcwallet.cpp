@@ -820,14 +820,15 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     if(!addressWhitelist.get_kycpubkey_outpoint(keyId, outPoint))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find kycpubkey registration transaction hash");
 
-    uint256 txid=outPoint.hash;
-    int nOut=outPoint.n;
+    //uint256 txid=outPoint.hash;
+    //int nOut=outPoint.n;
 
     //Spend the whitelist registration transaction to blacklist the kycpubkey
     CMutableTransaction rawTx;
     uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
     
-    rawTx.vin.push_back(CTxIn(outPoint, CScript(), nSequence));
+    CTxIn in = CTxIn(outPoint, CScript(), nSequence);
+    rawTx.vin.push_back(in);
 
     // Get the value and asset type of the input transaction
     JSONRPCRequest request2;
@@ -835,12 +836,6 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     varr.push_back(outPoint.hash.GetHex());
     request2.params = varr;
     UniValue result = getrawtransaction(request2);
-
-//    JSONRPCRequest request3;
-//    varr = UniValue(UniValue::VARR);
-//    varr.push_back(result);
-//    request3.params = varr;
-//    UniValue result = decoderawtransaction(request3);
 
     //Get output value
     CMutableTransaction inputTx;
@@ -853,9 +848,6 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     if (!IsWhitelistAsset(assetIn))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Input TX asset is not WHITELIST");    
 
-
-
-    
     //Pay full amount to a change address
     CScript scriptChange;
     // Reserve a new key pair from key pool
@@ -867,15 +859,9 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     if (!changeKey.GetReservedKey(vchPubKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         
-     rawTx.vout.push_back(
-            CTxOut(assetIn, 
-                    amountIn, 
-                GetScriptForDestination(vchPubKey.GetID())
-                )
-            );
-
-    // Fee
-    rawTx.vout.push_back(CTxOut(assetIn, AmountFromValue(0), CScript()));
+    CScript scrDest = GetScriptForDestination(vchPubKey.GetID());
+    CTxOut out(assetIn, amountIn, scrDest);
+    rawTx.vout.push_back(out);
 
     // Sign it
     JSONRPCRequest request3;
@@ -991,7 +977,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     rawTx.vin.push_back(*adminIn);
 
     CAmount changeAmount = adminValue;
-    CAmount amountPerOutput=AmountFromValue(0);
+    CAmount amountPerOutput=AmountFromValue(1);
 
     for(int64_t i=0; i<nKeysToAdd; i++){
         if (!pwalletMain->IsLocked())
