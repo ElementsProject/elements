@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "core_io.h"
 #include "amount.h"
 #include "assetsdir.h"
 #include "base58.h"
@@ -778,8 +779,16 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     }
 }
 
+extern UniValue getrawtransaction(const JSONRPCRequest& request);
+extern UniValue signrawtransaction(const JSONRPCRequest& request);
+extern UniValue sendrawtransaction(const JSONRPCRequest& request);
+
 UniValue blacklistkycpubkey(const JSONRPCRequest& request){
-    throw runtime_error(
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
             "blacklistkycpubkey \"kycpubkey\" \n"
             "\nArguments:\n"
 
@@ -790,7 +799,98 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
             + HelpExampleRpc("blacklistkycpubkey", "\"kycpubkey\"")
             );
 
+    LOCK2(cs_main, pwalletMain->cs_wallet);
 
+    EnsureWalletIsUnlocked();
+
+    std::vector<unsigned char> pubKeyData(ParseHex(request.params[0].get_str()));
+    CPubKey kycPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    if(!kycPubKey.IsFullyValid())
+         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+
+    CKeyID keyId = kycPubKey.GetID();
+
+    if(!addressWhitelist.find_kyc_whitelisted(keyId))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is unwhitelisted");
+
+
+    COutPoint outPoint;
+
+    if(!addressWhitelist.get_kycpubkey_outpoint(keyId, outPoint))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find kycpubkey registration transaction hash");
+
+    uint256 txid=outPoint.hash;
+    int nOut=outPoint.n;
+
+    //Spend the whitelist registration transaction to blacklist the kycpubkey
+    CMutableTransaction rawTx;
+    uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
+    
+    rawTx.vin.push_back(CTxIn(outPoint, CScript(), nSequence));
+
+    // Get the value and asset type of the input transaction
+    JSONRPCRequest request2;
+    UniValue varr(UniValue::VARR);
+    varr.push_back(outPoint.hash.GetHex());
+    request2.params = varr;
+    UniValue result = getrawtransaction(request2);
+
+//    JSONRPCRequest request3;
+//    varr = UniValue(UniValue::VARR);
+//    varr.push_back(result);
+//    request3.params = varr;
+//    UniValue result = decoderawtransaction(request3);
+
+    //Get output value
+    CMutableTransaction inputTx;
+    if (!DecodeHexTx(inputTx, result.get_str()))
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
+
+    CAmount amountIn=inputTx.vout[outPoint.n].nValue.GetAmount();
+    CAsset assetIn=inputTx.vout[outPoint.n].nAsset.GetAsset();
+
+    if (!IsWhitelistAsset(assetIn))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Input TX asset is not WHITELIST");    
+
+
+
+    
+    //Pay full amount to a change address
+    CScript scriptChange;
+    // Reserve a new key pair from key pool
+    CPubKey vchPubKey;
+
+    CReserveKey changeKey(pwalletMain);
+    if (!pwalletMain->IsLocked())
+            pwalletMain->TopUpKeyPool();
+    if (!changeKey.GetReservedKey(vchPubKey))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        
+     rawTx.vout.push_back(
+            CTxOut(assetIn, 
+                    amountIn, 
+                GetScriptForDestination(vchPubKey.GetID())
+                )
+            );
+
+    // Fee
+    rawTx.vout.push_back(CTxOut(assetIn, AmountFromValue(0), CScript()));
+
+    // Sign it
+    JSONRPCRequest request3;
+    UniValue varr2(UniValue::VARR);
+    std::string sHexTx=EncodeHexTx(rawTx);
+    varr2.push_back(sHexTx);
+    request3.params = varr2;
+    result = signrawtransaction(request3);
+
+    // Send it
+    JSONRPCRequest request4;
+    UniValue varr3(UniValue::VARR);
+    varr3.push_back(result["hex"]);
+    request4.params = varr3;
+    return sendrawtransaction(request4);
 }
 
 UniValue topupkycpubkeys(const JSONRPCRequest& request){
@@ -803,12 +903,13 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
             "Create a raw transaction to top up the number of available KYC public keys to \"nkeys\"\n"
             "\nArguments:\n"
 
-            "1. \"nkeys\"    (string, required) The required key pool size.\n"
+            "1. \"nkeys\"    (numeric, required) The required key pool size.\n"
            
             "\nExamples:\n"
             + HelpExampleCli("topupkycpubkeys", "\"nkeys\"")
             + HelpExampleRpc("topupkycpubkeys", "\"nkeys\"")
             );
+    }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -889,6 +990,8 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
         
     rawTx.vin.push_back(*adminIn);
 
+    CAmount changeAmount = adminValue;
+    CAmount amountPerOutput=AmountFromValue(0);
 
     for(int64_t i=0; i<nKeysToAdd; i++){
         if (!pwalletMain->IsLocked())
@@ -913,14 +1016,19 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
         pubkeys[0] = adminPubKey;
         pubkeys[1] = listData;
 
+
+
         //1 of 2 multisig
         rawTx.vout.push_back(
             CTxOut(wl_asset, 
-                AmountFromValue(0), 
+                amountPerOutput, 
                 GetScriptForMultisig(1, pubkeys)
                 )
             );
+        changeAmount = changeAmount - amountPerOutput;
     }
+
+
 
     //Construct the change output
     //adminValue
@@ -938,7 +1046,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     rawTx.vout.push_back(
             CTxOut(
                 wl_asset, 
-                adminValue, 
+                changeAmount, 
                 GetScriptForDestination(vchPubKey.GetID())
             )
         );
@@ -956,6 +1064,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     varr.push_back(result["hex"]);
     request3.params = varr;
     return sendrawtransaction(request3);
+    
 }
 
 UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
@@ -4078,9 +4187,6 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
 
     return wtxNew.GetHash().GetHex();
 }
-
-extern UniValue signrawtransaction(const JSONRPCRequest& request);
-extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
 unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn, const CScript& witnessProgram)
 {

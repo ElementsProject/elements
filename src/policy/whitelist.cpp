@@ -51,14 +51,15 @@ bool CWhiteList::Load(CCoinsView *view)
                       }
 
                       CKeyID id=kycPubKey.GetID();
+                      COutPoint outPoint(key, i);
                       if(find_kyc_blacklisted(id)){
                         LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                        whitelist_kyc(id, &key);
+                        whitelist_kyc(id, &outPoint);
                       } else if(find_kyc_whitelisted(id)){
                         return false;
                       } else {
                         LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                        whitelist_kyc(id, &key);
+                        whitelist_kyc(id, &outPoint);
                         add_unassigned_kyc(kycPubKey);
                       }
                       return true;
@@ -408,9 +409,14 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             std::reverse(vKycPub.begin()+3, vKycPub.end());
             CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
             
+            if (!kycPubKey.IsFullyValid()) {
+              LogPrintf("POLICY: not blacklisting invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+              return false;
+            }
+
             CKeyID id=kycPubKey.GetID();
-            uint256 txid=tx.GetHash();
             blacklist_kyc(id);
+
             LogPrintf("POLICY: moved KYC pubkey from whitelist to blacklist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             return true;
         }
@@ -442,14 +448,14 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             CKeyID id=kycPubKey.GetID();
             if(find_kyc_blacklisted(id)){
               LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              uint256 txid=tx.GetHash();
-              whitelist_kyc(id, &txid);
+              COutPoint outPoint(tx.GetHash(), i);
+              whitelist_kyc(id, &outPoint);
             } else if(find_kyc_whitelisted(id)){
               return false;
             } else {
               LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              uint256 txid=tx.GetHash();
-              whitelist_kyc(id, &txid);
+              COutPoint outPoint(tx.GetHash(), i);
+              whitelist_kyc(id, &outPoint);
               add_unassigned_kyc(kycPubKey);
             }
             return true;
@@ -463,29 +469,29 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
 void CWhiteList::blacklist_kyc(const CKeyID& keyId){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::black);
-  _kycPubkeyTXMap.erase(_kycPubkeyTXMap.find(keyId));
+  _kycPubkeyOutPointMap.erase(_kycPubkeyOutPointMap.find(keyId));
 }
 
-void CWhiteList::whitelist_kyc(const CKeyID& keyId, const uint256* hashTx){
+void CWhiteList::whitelist_kyc(const CKeyID& keyId, const COutPoint* outPoint){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::white);
-  if(hashTx)
-    _kycPubkeyTXMap[keyId]=*hashTx;
+  if(outPoint)
+    _kycPubkeyOutPointMap[keyId]=*outPoint;
 }
 
-bool CWhiteList::get_hashtx(const CKeyID& keyId, uint256& hashTx){
+bool CWhiteList::get_kycpubkey_outpoint(const CKeyID& keyId, COutPoint& outPoint){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  auto it = _kycPubkeyTXMap.find(keyId);
-  if (it == _kycPubkeyTXMap.end()) return false;
-  hashTx = it->second;
+  auto it = _kycPubkeyOutPointMap.find(keyId);
+  if (it == _kycPubkeyOutPointMap.end()) return false;
+  outPoint = it->second;
   return true;
 }
 
-bool CWhiteList::get_hashtx(const CPubKey& pubKey, uint256& hashTx){
+bool CWhiteList::get_kycpubkey_outpoint(const CPubKey& pubKey, COutPoint& outPoint){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(!pubKey.IsFullyValid())
     return false;
-  return get_hashtx(pubKey.GetID(), hashTx);
+  return get_kycpubkey_outpoint(pubKey.GetID(), outPoint);
 }
 
 bool CWhiteList::set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status){
