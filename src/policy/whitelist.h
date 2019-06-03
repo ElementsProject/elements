@@ -8,7 +8,7 @@
 #include <map>
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
-#include "univalue.h"
+#include "univalue/include/univalue.h"
 #endif
 #include <queue>
 
