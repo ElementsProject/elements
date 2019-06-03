@@ -184,9 +184,11 @@ void bench_field_inverse_var(void* arg) {
 void bench_field_sqrt(void* arg) {
     int i;
     bench_inv *data = (bench_inv*)arg;
+    secp256k1_fe t;
 
     for (i = 0; i < 20000; i++) {
-        secp256k1_fe_sqrt(&data->fe_x, &data->fe_x);
+        t = data->fe_x;
+        secp256k1_fe_sqrt(&data->fe_x, &t);
         secp256k1_fe_add(&data->fe_x, &data->fe_y);
     }
 }
@@ -251,7 +253,7 @@ void bench_wnaf_const(void* arg) {
     bench_inv *data = (bench_inv*)arg;
 
     for (i = 0; i < 20000; i++) {
-        secp256k1_wnaf_const(data->wnaf, data->scalar_x, WINDOW_A, 256);
+        secp256k1_wnaf_const(data->wnaf, &data->scalar_x, WINDOW_A, 256);
         secp256k1_scalar_add(&data->scalar_x, &data->scalar_x, &data->scalar_y);
     }
 }
