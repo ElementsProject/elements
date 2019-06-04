@@ -74,7 +74,7 @@ bool CWhiteList::Load(CCoinsView *view)
     return true;
 }
 
-
+#ifdef ENABLE_WALLET
 
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
@@ -222,8 +222,6 @@ void CWhiteList::add_derived(const std::string& sAddress, const UniValue& sPubKe
   delete kycAddress;
 }
 
-
-#ifdef ENABLE_WALLET
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CCoinsViewCache mapInputs(pcoinsTip);
