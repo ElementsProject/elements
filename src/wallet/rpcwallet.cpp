@@ -571,6 +571,32 @@ UniValue onboarduser(const JSONRPCRequest& request){
     return wtx.GetHash().GetHex();
 }
 
+//Register an P2SH multi address to the
+//whitelist via a OP_REGISTERADDRESS transaction.
+//Use "asset" to pay the transaction fee.
+static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset,
+    const CBitcoinAddress& address, const CPubKey& pubKey,
+    CWalletTx& wtxNew){
+
+    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
+    throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+
+    if (pwalletMain->GetBroadcastTransactions() && !g_connman)
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
+    //Get the addresses to be registered, or use the predefined script
+
+    CRegisterAddressScript* raScript = new CRegisterAddressScript("P2SH");
+
+    //TODO ADD MULTI ADDRESS SCRIPT POPULATION
+
+
+    FinalizeRegisterAddressTx(raScript);
+}
+
 //Register an unwhitelisted address from the keypool to the
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
@@ -627,6 +653,11 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg);
     }
 
+    FinalizeRegisterAddressTx(raScript);
+}
+
+static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript)
+{
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
 
@@ -765,6 +796,48 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
     int naddr=naddresses.get_int();
     SendAddNextToWhitelistTx(feeasset, naddr, kycPubKey, wtx);
+
+
+    //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(),
+    //    request.params[1].get_str(), wtx.GetHash().GetHex());
+
+    return wtx.GetHash().GetHex();
+}
+
+UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+        if (request.fHelp || request.params.size() <1 || request.params.size() >2 ) {
+        throw runtime_error(
+            "sendaddmultitowhitelisttx \n"
+            "\nRegister the passed p2sh multisig address using \"add to whitelist\" transaction.\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"multiaddress\"       (string, required) The p2sh multisig address to register.\n"
+            "2. \"feeasset\"           (string, optional) The asset type to use to pay the transaction fee.\n"
+            "\nResult:\n"
+            "\"txid\"                  (string) The transaction id.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendaddtowhitelisttx", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"CBT\"")
+        );
+    }
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+
+    CBitcoinAddress address(request.params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+
+    std::string sFeeAsset="CBT";
+    if(request.params.size() == 2)
+        sFeeAsset=request.params[1].get_str();
+    CAsset feeasset = GetAssetFromString(sFeeAsset);
+
+    CWalletTx wtx;
+    CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
+    SendAddNextMultiToWhitelistTx(feeasset, address, kycPubKey, wtx);
 
 
     //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(),
@@ -4740,6 +4813,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendmany",                 &sendmany,                 false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
     { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,     false,  {"naddresses", "feeasset"} },
+    { "wallet",             "sendaddmultitowhitelisttx",&sendaddmultitowhitelisttx,false,  {"multiaddress", "feeasset"} },
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {} },
