@@ -258,6 +258,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   unsigned int pubKeySize=33;
   unsigned int addrSize=20;
+  unsigned int nMultisigSize=2;
   unsigned int minPayloadSize=2;
 
   //Confirm data read from the TX_REGISTERADDRESS
@@ -589,17 +590,17 @@ bool CWhiteList::is_whitelisted(const CTxDestination keyId){
   return true;
 }
 
-void CWhiteList::add_my_pending(const CKeyID& id){
+void CWhiteList::add_my_pending(const CTxDestination id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _myPending.insert(id);
 }
 
-void CWhiteList::remove_my_pending(const CKeyID& id){
+void CWhiteList::remove_my_pending(const CTxDestination id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _myPending.erase(id);
 }
 
-bool CWhiteList::is_my_pending(const CKeyID& id){
+bool CWhiteList::is_my_pending(const CTxDestination id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return (_myPending.find(id) != _myPending.end());
 } 

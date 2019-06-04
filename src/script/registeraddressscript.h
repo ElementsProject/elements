@@ -15,8 +15,8 @@ enum RegisterAddressType { RA_PUBLICKEY, RA_MULTISIG, RA_ONBOARDING };
 
 class CRegisterAddressScript {
 public:
-	CRegisterAddressScript();
-	CRegisterAddressScript(const CRegisterAddressScript* script);
+	CRegisterAddressScript(RegisterAddressType type);
+	CRegisterAddressScript(const CRegisterAddressScript* script, RegisterAddressType type);
 	virtual ~CRegisterAddressScript();
 
 	//Encrypt the payload using the public, private key and build the script.
@@ -24,7 +24,7 @@ public:
 	virtual bool FinalizeUnencrypted(CScript& script);
 	bool Append(const CPubKey& key);
 	bool Append(const std::vector<CPubKey>& keys);
-	bool Append(unsigned int nMultisig, CBitcoinAddress& p2sh, std::vector<CPubKey>& keys);
+	bool Append(const int nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys);
 
 	virtual void clear(){_payload.clear(); _encrypted.clear(); ((CScript*)this)->clear();}
 

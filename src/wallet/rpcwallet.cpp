@@ -571,92 +571,7 @@ UniValue onboarduser(const JSONRPCRequest& request){
     return wtx.GetHash().GetHex();
 }
 
-//Register an P2SH multi address to the
-//whitelist via a OP_REGISTERADDRESS transaction.
-//Use "asset" to pay the transaction fee.
-static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset,
-    const CBitcoinAddress& address, const CPubKey& pubKey,
-    CWalletTx& wtxNew){
-
-    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
-    throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    EnsureWalletIsUnlocked();
-
-    if (pwalletMain->GetBroadcastTransactions() && !g_connman)
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
-
-    //Get the addresses to be registered, or use the predefined script
-
-    CRegisterAddressScript* raScript = new CRegisterAddressScript("P2SH");
-
-    //TODO ADD MULTI ADDRESS SCRIPT POPULATION
-
-
-    FinalizeRegisterAddressTx(raScript);
-}
-
-//Register an unwhitelisted address from the keypool to the
-//whitelist via a OP_REGISTERADDRESS transaction.
-//Use "asset" to pay the transaction fee.
-static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
-    const int nToRegister, const CPubKey& pubKey,
-    CWalletTx& wtxNew){
-
-    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    EnsureWalletIsUnlocked();
-
-    // Check the balance of the "from" address
-    map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
-
-    // Check amount
-    if (nToRegister <= 0 || nToRegister > 100)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid naddresses");
-
-    if (pwalletMain->GetBroadcastTransactions() && !g_connman)
-        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
-
-
-    //Get the addresses to be registered, or use the predefined script
-
-    CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_PUBLICKEY);
-
-    int nReg=0;
-
-    CBitcoinAddress addr;
-        // get the next registered base58check encoded tweaked public key and add it to the whitelist
-    std::set<CKeyID> setKeyPool;
-
-    //Get new addresses to register, topping up the key pool if necessary
-    while(nReg < nToRegister){
-        pwalletMain->GetAllReserveKeys(setKeyPool);
-        for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
-            const CKeyID &keyid = *it;
-            if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
-                continue;
-            addr.Set(keyid);
-            CKey key;
-            if (pwalletMain->GetKey(keyid, key)) { // verify exists
-                //keysToReg.push_back(key.GetPubKey());
-                if(raScript->Append(key.GetPubKey())){
-                    //if(keysToReg.size()>=nToRegister) break;
-                    addressWhitelist.add_my_pending(keyid);
-                    nReg++;
-                    if(nReg>=nToRegister) break;
-                }
-            }
-        }
-        pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg);
-    }
-
-    FinalizeRegisterAddressTx(raScript);
-}
-
-static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript)
+static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CAsset& feeAsset, const CPubKey& pubKey, CWalletTx& wtxNew)
 {
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
@@ -763,6 +678,116 @@ static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript)
     }
 }
 
+//Register an P2SH multi address to the
+//whitelist via a OP_REGISTERADDRESS transaction.
+//Use "asset" to pay the transaction fee.
+static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey& pubKey,
+    const CBitcoinAddress& address, const UniValue& sPubKeys, const int nMultisig,
+    CWalletTx& wtxNew){
+
+    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+
+    if (pwalletMain->GetBroadcastTransactions() && !g_connman)
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
+    //Get the addresses to be registered, or use the predefined script
+
+    CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_MULTISIG);
+
+    CTxDestination keyid = address.Get();
+    if (boost::get<CNoDestination>(&keyid))
+        throw std::invalid_argument(std::string(std::string(__func__) + 
+            ": invalid key id"));
+
+    if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This P2SH address is pending or has been whitelisted already");
+
+    std::vector<CPubKey> pubKeyVec;
+    for (int i = 0; i < sPubKeys.size(); ++i){
+        std::string parseStr = sPubKeys[i].get_str();
+        std::vector<unsigned char> pubKeyData(ParseHex(parseStr.c_str()));
+        CPubKey tpubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+
+        if (!tpubKey.IsFullyValid()) 
+            throw std::invalid_argument(std::string(std::string(__func__) + 
+                ": invalid public key"));
+
+        pubKeyVec.push_back(tpubKey);
+    }
+
+    if(raScript->Append(nMultisig, keyid, pubKeyVec)){
+        //if(keysToReg.size()>=nToRegister) break;
+        addressWhitelist.add_my_pending(keyid);
+    }
+    else
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The process of p2sh whitelisting transaction serialization with present parameters has failed");
+
+    FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+}
+
+//Register an unwhitelisted address from the keypool to the
+//whitelist via a OP_REGISTERADDRESS transaction.
+//Use "asset" to pay the transaction fee.
+static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
+    const int nToRegister, const CPubKey& pubKey,
+    CWalletTx& wtxNew){
+
+    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+
+    // Check the balance of the "from" address
+    map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
+
+    // Check amount
+    if (nToRegister <= 0 || nToRegister > 100)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid naddresses");
+
+    if (pwalletMain->GetBroadcastTransactions() && !g_connman)
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
+
+    //Get the addresses to be registered, or use the predefined script
+
+    CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_PUBLICKEY);
+
+    int nReg=0;
+
+    CBitcoinAddress addr;
+        // get the next registered base58check encoded tweaked public key and add it to the whitelist
+    std::set<CKeyID> setKeyPool;
+
+    //Get new addresses to register, topping up the key pool if necessary
+    while(nReg < nToRegister){
+        pwalletMain->GetAllReserveKeys(setKeyPool);
+        for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
+            const CKeyID &keyid = *it;
+            if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
+                continue;
+            addr.Set(keyid);
+            CKey key;
+            if (pwalletMain->GetKey(keyid, key)) { // verify exists
+                //keysToReg.push_back(key.GetPubKey());
+                if(raScript->Append(key.GetPubKey())){
+                    //if(keysToReg.size()>=nToRegister) break;
+                    addressWhitelist.add_my_pending(keyid);
+                    nReg++;
+                    if(nReg>=nToRegister) break;
+                }
+            }
+        }
+        pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg);
+    }
+
+    FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+}
+
 UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
@@ -808,20 +833,29 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-        if (request.fHelp || request.params.size() <1 || request.params.size() >2 ) {
+    if (request.fHelp || request.params.size() < 3 || request.params.size() > 4 ) {
         throw runtime_error(
-            "sendaddmultitowhitelisttx \n"
+            "sendaddmultitowhitelisttx \"tweakedaddress\" \"basepubkeys\" \"nmultisig\" \"feeasset\"\n"
             "\nRegister the passed p2sh multisig address using \"add to whitelist\" transaction.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
-            "1. \"multiaddress\"       (string, required) The p2sh multisig address to register.\n"
-            "2. \"feeasset\"           (string, optional) The asset type to use to pay the transaction fee.\n"
+            "1. \"tweakedaddress\"  (string, required) Base58 tweaked multisig address\n"
+            "2. \"basepubkeys\"     (array, required) A json array of ordered hex encoded of the compressed base (un-tweaked) public keys that were used in the multisig\n\n"
+            "    [\n"
+            "      \"basepubkey\":\"id\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
+            "      ,...\n"
+            "    ]\n"
+            "3. \"nmultisig\"     (numeric, required) Number of required signatures for a multisig transaction (n of M)\n"
+            "4. \"feeasset\"           (string, optional) The asset type to use to pay the transaction fee.\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendaddtowhitelisttx", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\", \"CBT\"")
+            + HelpExampleCli("sendaddtowhitelisttx", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"CBT\"")
         );
     }
+
+    if (request.params[1].isNull())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, argument 2 must be non-null");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
@@ -831,13 +865,13 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
     std::string sFeeAsset="CBT";
-    if(request.params.size() == 2)
-        sFeeAsset=request.params[1].get_str();
+    if(request.params.size() == 4)
+        sFeeAsset=request.params[3].get_str();
     CAsset feeasset = GetAssetFromString(sFeeAsset);
 
     CWalletTx wtx;
     CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
-    SendAddNextMultiToWhitelistTx(feeasset, address, kycPubKey, wtx);
+    SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), request.params[2].get_int(), wtx);
 
 
     //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(),

@@ -8,8 +8,8 @@
 #include "onboardingscript.h"
 
 
-COnboardingScript::COnboardingScript(){
-    whitelistType = RA_ONBOARDING;
+COnboardingScript::COnboardingScript(): 
+    CRegisterAddressScript(RA_ONBOARDING){
 }
 
 COnboardingScript::COnboardingScript(const COnboardingScript* script) : 

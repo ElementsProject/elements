@@ -74,11 +74,11 @@ public:
 	void whitelist_kyc(const CKeyID& keyId);
 
 	// My ending addresses - added to whitelist by me in a add to whitelist transaction waiting to be included in a block
-	void add_my_pending(const CKeyID& keyId);
+	void add_my_pending(const CTxDestination keyId);
 
-	void remove_my_pending(const CKeyID& keyId);
+	void remove_my_pending(const CTxDestination keyId);
 
-	bool is_my_pending(const CKeyID& keyId);
+	bool is_my_pending(const CTxDestination keyId);
 
 	unsigned int n_my_pending();
 
@@ -104,7 +104,7 @@ private:
 
 	std::stringstream _datastream;
 
-	std::set<CKeyID> _myPending;
+	std::set<CTxDestination> _myPending;
 
 	bool set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status);
 

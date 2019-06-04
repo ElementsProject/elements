@@ -1769,20 +1769,18 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
             "2. \"basepubkeys\"     (array, required) A json array of ordered hex encoded of the compressed base (un-tweaked) public keys that were used in the multisig\n\n"
             "    [\n"
-            "      {\n"
-            "        \"basepubkey\":\"id\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
-            "      } \n"
+            "      \"basepubkey\":\"id\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
             "      ,...\n"
             "    ]\n"
-            "3. \"nmultisig\"     (numeric, optional) Number of required signatures for a multisig transaction (n of M)\n"
+            "3. \"nmultisig\"     (numeric, required) Number of required signatures for a multisig transaction (n of M)\n"
             "4. \"kycaddress\"    (string, optional) Base58 KYC address\n"
             "\nExamples:\n"
-            + HelpExampleCli("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" \"1\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
-            + HelpExampleRpc("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" \"1\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleCli("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
                         );
 #ifdef ENABLE_WALLET
     if (request.params[1].isNull())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 2 must be non-null");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, argument 2 must be non-null");
     try{
         if(nparams == 3){
             addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_array(), request.params[2].get_int());
