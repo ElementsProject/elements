@@ -1744,7 +1744,6 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
             + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
             + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
                         );
-#ifdef ENABLE_WALLET
 try{
     if(nparams == 2){
         addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
@@ -1755,7 +1754,6 @@ try{
 } catch(std::invalid_argument e){
     throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
 }
-#endif //#ifdef ENABLE_WALLET
   return NullUniValue;
 }
 

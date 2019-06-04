@@ -74,15 +74,9 @@ bool CWhiteList::Load(CCoinsView *view)
     return true;
 }
 
-#ifdef ENABLE_WALLET
-
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CWhiteList::add_derived(address, pubKey, nullptr);
-}
-void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  CWhiteList::add_derived(address, pubKeys, nullptr, nMultisig);
 }
 
 void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
@@ -123,6 +117,42 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
     _tweakedPubKeyMap[boost::get<CKeyID>(keyId)]=tweakedPubKey;
 }
 
+void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  add_derived(addressIn, key, std::string(""));
+}
+
+void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPubKey, 
+  const std::string& sKYCAddress){
+   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+    CBitcoinAddress address;
+  if (!address.SetString(sAddress))
+    throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid Bitcoin address: ") + sAddress);
+  
+  std::vector<unsigned char> pubKeyData(ParseHex(sPubKey));
+  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+
+  CBitcoinAddress* kycAddress;
+  if(sKYCAddress.size() == 0) {
+    kycAddress = nullptr;
+  } else {
+    kycAddress = new CBitcoinAddress();
+     if (!kycAddress->SetString(sKYCAddress))
+     throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid Bitcoin address (kyc key): ") + sKYCAddress);
+  }
+  add_derived(address, pubKey, kycAddress);
+  delete kycAddress;
+}
+
+#ifdef ENABLE_WALLET
+
+void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  CWhiteList::add_derived(address, pubKeys, nullptr, nMultisig);
+}
+
 void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
   const CBitcoinAddress* kycAddress, const int32_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
@@ -158,38 +188,9 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<C
   _kycMap[keyId]=kycKeyId;
 }
 
-void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  add_derived(addressIn, key, std::string(""));
-}
-
 void CWhiteList::add_derived(const std::string& addressIn, const UniValue& keys, const int32_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   add_derived(addressIn, keys, std::string(""), nMultisig);
-}
-
-void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPubKey, 
-  const std::string& sKYCAddress){
-   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-    CBitcoinAddress address;
-  if (!address.SetString(sAddress))
-    throw std::invalid_argument(std::string(std::string(__func__) + 
-      ": invalid Bitcoin address: ") + sAddress);
-  
-  std::vector<unsigned char> pubKeyData(ParseHex(sPubKey));
-  CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-
-  CBitcoinAddress* kycAddress;
-  if(sKYCAddress.size() == 0) {
-    kycAddress = nullptr;
-  } else {
-    kycAddress = new CBitcoinAddress();
-     if (!kycAddress->SetString(sKYCAddress))
-     throw std::invalid_argument(std::string(std::string(__func__) + 
-      ": invalid Bitcoin address (kyc key): ") + sKYCAddress);
-  }
-  add_derived(address, pubKey, kycAddress);
-  delete kycAddress;
 }
 
 void CWhiteList::add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
