@@ -597,7 +597,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     //Get the addresses to be registered, or use the predefined script
 
-    CRegisterAddressScript* raScript = new CRegisterAddressScript();
+    CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_PUBLICKEY);
 
     int nReg=0;
 

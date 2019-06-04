@@ -10,12 +10,14 @@
 CRegisterAddressScript::CRegisterAddressScript(){
 }
 
-CRegisterAddressScript::CRegisterAddressScript(const CRegisterAddressScript* script){
+CRegisterAddressScript::CRegisterAddressScript(const CRegisterAddressScript* script, RegisterAddressType type){
     _payload = script->_payload;
     _encrypted = script->_encrypted;
+    whitelistType = type;
 }
 
-CRegisterAddressScript::~CRegisterAddressScript(){
+CRegisterAddressScript::~CRegisterAddressScript(RegisterAddressType type){
+    whitelistType = type;
 }
 
 //Encrypt the payload, buid the script and return it.
@@ -43,6 +45,9 @@ bool CRegisterAddressScript::FinalizeUnencrypted(CScript& script){
 }
 
 bool CRegisterAddressScript::Append(const CPubKey& pubKey){
+    if(whitelistType != RA_PUBLICKEY && whitelistType != RA_ONBOARDING)
+        return false;
+
 	uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
   	CPubKey tweakedPubKey(pubKey);
@@ -64,8 +69,38 @@ bool CRegisterAddressScript::Append(const CPubKey& pubKey){
 }
 
 bool CRegisterAddressScript::Append(const std::vector<CPubKey>& keys){
+    if(whitelistType != RA_PUBLICKEY && whitelistType != RA_ONBOARDING)
+        return false;
+
     for(CPubKey pubKey : keys){
       Append(pubKey);
+    }
+    return true;
+}
+
+bool CRegisterAddressScript::Append(unsigned int nMultisig, CBitcoinAddress& p2sh, std::vector<CPubKey>& keys){
+    if(whitelistType != RA_MULTISIG)
+        return false;
+    
+    CScriptID keyID=p2sh.GetID();
+    if (!(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
+        return false;
+    
+    std::vector<unsigned char> vnMultisigNew = ToByteVector(nMultisig);
+    _payload.insert(_payload.end(), 
+                    nMultisigNew.begin(), 
+                    nMultisigNew.end());
+
+    std::vector<unsigned char> vKeyIDNew = ToByteVector(p2sh);
+    _payload.insert(_payload.end(), 
+                    vKeyIDNew.begin(), 
+                    vKeyIDNew.end());
+
+    for(int i = 0; i < keys; ++i){
+        std::vector<unsigned char> vPubKeyNew; = ToByteVector(keys[i]);
+        _payload.insert(_payload.end(), 
+                vPubKeyNew.begin(), 
+                vPubKeyNew.end());
     }
     return true;
 }
