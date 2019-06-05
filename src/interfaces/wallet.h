@@ -215,7 +215,7 @@ public:
     virtual CAmountMap getDebit(const CTxIn& txin, isminefilter filter) = 0;
 
     //! Return credit amount if transaction input belongs to wallet.
-    virtual CAmountMap getCredit(const CTxOut& txout, isminefilter filter) = 0;
+    virtual CAmountMap getCredit(const CTransaction& tx, const size_t out_index, isminefilter filter) = 0;
 
     //! Return AvailableCoins + LockedCoins grouped by wallet address.
     //! (put change in one group with wallet address)

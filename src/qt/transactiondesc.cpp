@@ -136,8 +136,8 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         // Coinbase
         //
         CAmount nUnmatured = 0;
-        for (const CTxOut& txout : wtx.tx->vout)
-            nUnmatured += valueFor(wallet.getCredit(txout, ISMINE_ALL), ::policyAsset);
+        for (size_t nOut = 0; nOut < wtx.tx->vout.size(); nOut++)
+            nUnmatured += valueFor(wallet.getCredit(*(wtx.tx), nOut, ISMINE_ALL), ::policyAsset);
         strHTML += "<b>" + tr("Credit") + ":</b> ";
         if (status.is_in_main_chain)
             strHTML += BitcoinUnits::formatHtmlWithUnit(unit, nUnmatured)+ " (" + tr("matures in %n more block(s)", "", status.blocks_to_maturity) + ")";
@@ -233,9 +233,9 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
                 }
             }
             mine = wtx.txout_is_mine.begin();
-            for (const CTxOut& txout : wtx.tx->vout) {
+            for (size_t nOut = 0; nOut < wtx.tx->vout.size(); nOut++) {
                 if (*(mine++)) {
-                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, valueFor(wallet.getCredit(txout, ISMINE_ALL), ::policyAsset)) + "<br>";
+                    strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, valueFor(wallet.getCredit(*(wtx.tx), nOut, ISMINE_ALL), ::policyAsset)) + "<br>";
                 }
             }
         }
@@ -293,9 +293,12 @@ QString TransactionDesc::toHTML(interfaces::Node& node, interfaces::Wallet& wall
         for (const CTxIn& txin : wtx.tx->vin)
             if(wallet.txinIsMine(txin))
                 strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -valueFor(wallet.getDebit(txin, ISMINE_ALL), ::policyAsset)) + "<br>";
-        for (const CTxOut& txout : wtx.tx->vout)
-            if(wallet.txoutIsMine(txout))
-                strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, valueFor(wallet.getCredit(txout, ISMINE_ALL), ::policyAsset)) + "<br>";
+        for (size_t nOut = 0; nOut < wtx.tx->vout.size(); nOut++) {
+            const CTxOut& txout = wtx.tx->vout[nOut];
+            if(wallet.txoutIsMine(txout)) {
+                strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, valueFor(wallet.getCredit(*(wtx.tx), nOut, ISMINE_ALL), ::policyAsset)) + "<br>";
+            }
+        }
 
         strHTML += "<br><b>" + tr("Transaction") + ":</b><br>";
         strHTML += GUIUtil::HtmlEscape(wtx.tx->ToString(), true);
