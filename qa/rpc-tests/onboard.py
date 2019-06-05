@@ -223,27 +223,21 @@ class OnboardTest (BitcoinTestFramework):
         clientAddress4=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
 
         print("Creating a p2sh address for whitelisting")
-        multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
+        multiAddress2=self.nodes[1].createmultisig(2,[clientAddress2['pubkey'],clientAddress3['pubkey'],clientAddress4['pubkey']])
 
         print("Testing Multisig whitelisting registeraddress transaction")
-        multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,"CBT")
+        multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress2['address'],[clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey'],clientAddress4['derivedpubkey']],2,"CBT")
 
-        multiAddress11=self.nodes[1].createmultisig(2,[clientAddress2['pubkey'],clientAddress1['pubkey'],clientAddress3['pubkey']])
-
-        self.nodes[1].sendaddmultitowhitelisttx(multiAddress11['address'],[clientAddress2['derivedpubkey'],clientAddress1['derivedpubkey'],clientAddress3['derivedpubkey']],2,"CBT")
-
-        multiAddress12=self.nodes[1].createmultisig(2,[clientAddress3['pubkey'],clientAddress2['pubkey'],clientAddress1['pubkey']])
-
-        self.nodes[1].sendaddmultitowhitelisttx(multiAddress12['address'],[clientAddress3['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress1['derivedpubkey']],2,"CBT")
         time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
+        time.sleep(1)
         wl1file_4="wl1_4.dat"
         self.nodes[1].dumpwhitelist(wl1file_4)
         nlines4=self.linecount(wl1file_4)
-        rawmultitr=self.nodes[1].gettransaction(multitx)
-        print(rawmultitr)
-        #assert_equal(nlines3+3, nlines4)
+        assert_equal(nlines3+1, nlines4)
+
+        multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
         
         wl1file="wl1.dat"
         self.nodes[1].dumpwhitelist(wl1file)
