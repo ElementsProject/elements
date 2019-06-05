@@ -213,16 +213,23 @@ bool CScript::IsPegoutScript(uint256& genesis_hash, CScript& pegout_scriptpubkey
         return false;
     }
 
-    if (!GetOp(pc, opcode, data) || data.size() != 32 ) {
+    if (!GetOp(pc, opcode, data) || data.size() != 32 || opcode > OP_PUSHDATA4) {
         return false;
     }
     genesis_hash = uint256(data);
 
     // Read in parent chain destination scriptpubkey
-    if (!GetOp(pc, opcode, data) || data.size() == 0 ) {
+    if (!GetOp(pc, opcode, data) || opcode > OP_PUSHDATA4 ) {
         return false;
     }
     pegout_scriptpubkey = CScript(data.begin(), data.end());
+
+    // All extra opcodes must be pushes
+    while(GetOp(pc, opcode, data)) {
+        if (opcode > OP_PUSHDATA4) {
+            return false;
+        }
+    }
 
     return true;
 }
