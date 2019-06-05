@@ -820,11 +820,9 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     if(!addressWhitelist.get_kycpubkey_outpoint(keyId, outPoint))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find kycpubkey registration transaction hash");
 
-    //uint256 txid=outPoint.hash;
-    //int nOut=outPoint.n;
-
     //Spend the whitelist registration transaction to blacklist the kycpubkey
     CMutableTransaction rawTx;
+    rawTx.nLockTime=0;
     uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
     
     CTxIn in = CTxIn(outPoint, CScript(), nSequence);
@@ -848,20 +846,21 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     if (!IsWhitelistAsset(assetIn))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Input TX asset is not WHITELIST");    
 
-    //Pay full amount to a change address
-    CScript scriptChange;
-    // Reserve a new key pair from key pool
+    //Construct the change output
     CPubKey vchPubKey;
-
     CReserveKey changeKey(pwalletMain);
     if (!pwalletMain->IsLocked())
             pwalletMain->TopUpKeyPool();
     if (!changeKey.GetReservedKey(vchPubKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         
-    CScript scrDest = GetScriptForDestination(vchPubKey.GetID());
-    CTxOut out(assetIn, amountIn, scrDest);
-    rawTx.vout.push_back(out);
+    rawTx.vout.push_back(
+            CTxOut(
+                assetIn, 
+                amountIn, 
+                GetScriptForDestination(vchPubKey.GetID())
+            )
+        );
 
     // Sign it
     JSONRPCRequest request3;
@@ -869,12 +868,13 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     std::string sHexTx=EncodeHexTx(rawTx);
     varr2.push_back(sHexTx);
     request3.params = varr2;
-    result = signrawtransaction(request3);
+    UniValue result2 = signrawtransaction(request3);
+
 
     // Send it
     JSONRPCRequest request4;
     UniValue varr3(UniValue::VARR);
-    varr3.push_back(result["hex"]);
+    varr3.push_back(result2["hex"]);
     request4.params = varr3;
     return sendrawtransaction(request4);
 }
@@ -905,6 +905,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     CTxIn* adminIn = nullptr;
     
     CMutableTransaction rawTx;
+    rawTx.nLockTime=0;
 
     int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.get_n_unassigned_kyc_pubkeys();
 
@@ -953,20 +954,24 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
             continue;
         }
 
-        adminTxID=out.tx->GetHash();//.GetHex();
-        adminNOutput=out.i;
-
         CKeyID keyID;
         const auto& meta = pwalletMain->mapKeyMetadata;
+
         auto it = address.GetKeyID(keyID) ? meta.find(keyID) : meta.end();
         if (it == meta.end()) {
             it = meta.find(CScriptID(scriptPubKey));
-        }
+        } 
         //Copy the pubkey
         if (it != meta.end()) {
-            adminPubKey = CPubKey(it->second.derivedPubKey.begin(), it->second.derivedPubKey.end());
+            //Get nsequence
             uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
             adminIn = new CTxIn(COutPoint(out.tx->GetHash(), out.i), CScript(), nSequence);
+            //Generate a new pubkey if we cannot reuse the input pubkey
+            if(!pwalletMain->GetPubKey(keyID, adminPubKey)){
+                CReserveKey adminResKey(pwalletMain);
+                if (!adminResKey.GetReservedKey(adminPubKey))
+                    throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+            }
             break;
         }
     }
@@ -1017,9 +1022,6 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
 
     //Construct the change output
-    //adminValue
-    CScript scriptChange;
-    // Reserve a new key pair from key pool
     CPubKey vchPubKey;
 
     CReserveKey changeKey(pwalletMain);

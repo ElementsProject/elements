@@ -469,7 +469,7 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
 void CWhiteList::blacklist_kyc(const CKeyID& keyId){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   set_kyc_status(keyId, CWhiteList::status::black);
-  _kycPubkeyOutPointMap.erase(_kycPubkeyOutPointMap.find(keyId));
+  _kycPubkeyOutPointMap.erase(keyId);
 }
 
 void CWhiteList::whitelist_kyc(const CKeyID& keyId, const COutPoint* outPoint){
