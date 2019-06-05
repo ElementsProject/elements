@@ -258,7 +258,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   unsigned int pubKeySize=33;
   unsigned int addrSize=20;
-  unsigned int nMultisigSize=2;
+  unsigned int nMultisigSize=1;
   unsigned int minPayloadSize=2;
 
   //Confirm data read from the TX_REGISTERADDRESS
@@ -374,49 +374,148 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::vector<unsigned char>::const_iterator itData1 = itData2;
 
   std::vector<unsigned char>::const_iterator pend = data.end();
-  std::vector<unsigned char> vKeyID, vPubKey;
 
-  bool bEnd=false;
-  while(!bEnd){
-    for(unsigned int i=0; i<addrSize; ++i){
-      if(itData2++ == pend) {
-        bEnd=true;
-        break;
-      }
-    }
-    if(!bEnd){
-      CBitcoinAddress addrNew;
-      std::vector<unsigned char> addrChars(itData1,itData2);
-      std::string addrCharsStr(addrChars.begin(), addrChars.end());
-      addrNew.Set(CKeyID(uint160(addrChars)));  
-      itData1=itData2;
-      for(unsigned int i=0; i<pubKeySize; ++i){
-        if(itData2++ == pend){
+  bool isMultisig = IsRegisterAddressMulti(itData2, pend, nMultisigSize, addrSize, pubKeySize);
+
+  //REGISTERADDRESS for pubkeys
+  if(isMultisig == false){
+    bool bEnd=false;
+    while(!bEnd){
+      for(unsigned int i=0; i<addrSize; ++i){
+        if(itData2++ == pend) {
           bEnd=true;
           break;
         }
       }
-      std::string addrStr=addrNew.ToString();
       if(!bEnd){
-        std::vector<unsigned char> pubKeyData(itData1, itData2);
+        CBitcoinAddress addrNew;
+        std::vector<unsigned char> addrChars(itData1,itData2);
+        addrNew.Set(CKeyID(uint160(addrChars)));  
         itData1=itData2;
-        CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
-        CBitcoinAddress addr(kycKey);
-        try{
-          add_derived(addrNew, pubKeyNew, &addr);
-        } catch (std::invalid_argument e){
-          LogPrintf(std::string(e.what()) + "\n");
-          continue;
-        } 
-        bSuccess=true;
+        for(unsigned int i=0; i<pubKeySize; ++i){
+          if(itData2++ == pend){
+            bEnd=true;
+            break;
+          }
+        }
+        std::string addrStr=addrNew.ToString();
+        if(!bEnd){
+          std::vector<unsigned char> pubKeyData(itData1, itData2);
+          itData1=itData2;
+          CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+          try{
+            add_derived(addrNew, pubKeyNew, &kycAddr);
+          } catch (std::invalid_argument e){
+            LogPrintf(std::string(e.what()) + "\n");
+            continue;
+          } 
+          bSuccess=true;
+        }
       }
     }
+  }
+  //REGISTERADDRESS for MULTISIG
+  else{
+    itData2 += nMultisigSize;
+
+    int nMultisig = 0;
+    std::vector<unsigned char> nMultisigChars(itData1,itData2);
+
+    if(nMultisigSize != 1){
+      LogPrintf("Undefined behaviour, the nMultisigSize was set to a number other than 1. Changes may be necessary to accommodate the extra bytes.\n");
+      return false;
+    }
+
+    nMultisig = (int)nMultisigChars[0];
+
+    itData1 = itData2;
+
+    itData2 += addrSize;
+
+    CBitcoinAddress addrMultiNew;
+    std::vector<unsigned char> addrTestChars(itData1,itData2);
+    addrMultiNew.Set(CScriptID(uint160(addrTestChars)));
+
+    std::vector<CPubKey> vPubKeys;
+
+    itData1=itData2;
+
+    bool bEnd=false;
+    while(!bEnd){
+      for(unsigned int i=0; i<pubKeySize; ++i){
+        if(itData2++ == pend){
+          bEnd = true;
+          break;
+        }
+      }
+
+      if(!bEnd){
+        std::vector<unsigned char> pubKeyData(itData1, itData2);
+        CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+        itData1=itData2;
+        if(!pubKeyNew.IsFullyValid())
+          continue;
+        vPubKeys.push_back(pubKeyNew);
+      }
+    }
+
+    try{
+      add_derived(addrMultiNew, vPubKeys, &kycAddr, nMultisig);
+    } catch (std::invalid_argument e){
+      LogPrintf(std::string(e.what()) + "\n");
+      return false;
+    }
+
+    bSuccess = true;
   }
   return bSuccess;
   #else //#ifdef ENABLE_WALLET
     LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
       return false;
   #endif //#ifdef ENABLE_WALLET
+}
+
+bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start, const std::vector<unsigned char>::const_iterator vend,
+  const unsigned int nMultisigSize, const unsigned int addrSize, const unsigned int pubKeySize){
+
+  std::vector<unsigned char>::const_iterator point1 = start;
+  std::vector<unsigned char>::const_iterator point2 = start;
+
+  for(unsigned int i=0; i<nMultisigSize; ++i){
+    if(point2++ == vend) {
+      return false;
+    }
+  }
+
+  point1 = point2;
+
+  for(unsigned int i=0; i<addrSize; ++i){
+    if(point2++ == vend) {
+      return false;
+    }
+  }
+
+  CBitcoinAddress addrTestNew;
+  std::vector<unsigned char> addrTestChars(point1,point2);
+  addrTestNew.Set(CScriptID(uint160(addrTestChars)));
+
+  if(!addrTestNew.IsValid())
+    return false;
+
+  point1=point2;
+
+  for(unsigned int i=0; i<pubKeySize; ++i){
+    if(point2++ == vend){
+      return false;
+    }
+  }
+
+  std::vector<unsigned char> pubKeyData(point1, point2);
+  CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+  if(!pubKeyNew.IsFullyValid())
+    return false;
+
+  return true;
 }
 
 bool CWhiteList::LookupKYCKey(const CTxDestination address, CKeyID& kycKeyFound){

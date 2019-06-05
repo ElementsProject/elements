@@ -217,18 +217,39 @@ class OnboardTest (BitcoinTestFramework):
         nlines3=self.linecount(wl1file_3)
         assert_equal(nlines3-nlines2, 3*nadd)
 
-
         clientAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         clientAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         clientAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         clientAddress4=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+
         print("Creating a p2sh address for whitelisting")
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
+
+        print("Testing Multisig whitelisting registeraddress transaction")
+        multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,"CBT")
+
+        multiAddress11=self.nodes[1].createmultisig(2,[clientAddress2['pubkey'],clientAddress1['pubkey'],clientAddress3['pubkey']])
+
+        self.nodes[1].sendaddmultitowhitelisttx(multiAddress11['address'],[clientAddress2['derivedpubkey'],clientAddress1['derivedpubkey'],clientAddress3['derivedpubkey']],2,"CBT")
+
+        multiAddress12=self.nodes[1].createmultisig(2,[clientAddress3['pubkey'],clientAddress2['pubkey'],clientAddress1['pubkey']])
+
+        self.nodes[1].sendaddmultitowhitelisttx(multiAddress12['address'],[clientAddress3['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress1['derivedpubkey']],2,"CBT")
+        time.sleep(5)
+        self.nodes[0].generate(101)
+        self.sync_all()
+        wl1file_4="wl1_4.dat"
+        self.nodes[1].dumpwhitelist(wl1file_4)
+        nlines4=self.linecount(wl1file_4)
+        rawmultitr=self.nodes[1].gettransaction(multitx)
+        print(rawmultitr)
+        #assert_equal(nlines3+3, nlines4)
+        
         wl1file="wl1.dat"
         self.nodes[1].dumpwhitelist(wl1file)
         print("Contract hash:")
         print(self.nodes[1].getcontracthash())
-        print("Adding the created p2sh to the whitelist\n")
+        print("Adding the created p2sh to the whitelist via addmultitowhitelist rpc\n")
         self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
         wl1file_2="wl1_2.dat"
         self.nodes[1].dumpwhitelist(wl1file_2)

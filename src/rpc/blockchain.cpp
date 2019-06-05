@@ -1769,7 +1769,7 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
             "2. \"basepubkeys\"     (array, required) A json array of ordered hex encoded of the compressed base (un-tweaked) public keys that were used in the multisig\n\n"
             "    [\n"
-            "      \"basepubkey\":\"id\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
+            "      \"basepubkey\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
             "      ,...\n"
             "    ]\n"
             "3. \"nmultisig\"     (numeric, required) Number of required signatures for a multisig transaction (n of M)\n"

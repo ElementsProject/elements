@@ -842,7 +842,7 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked multisig address\n"
             "2. \"basepubkeys\"     (array, required) A json array of ordered hex encoded of the compressed base (un-tweaked) public keys that were used in the multisig\n\n"
             "    [\n"
-            "      \"basepubkey\":\"id\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
+            "      \"basepubkey\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
             "      ,...\n"
             "    ]\n"
             "3. \"nmultisig\"     (numeric, required) Number of required signatures for a multisig transaction (n of M)\n"
@@ -850,7 +850,7 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
-            + HelpExampleCli("sendaddtowhitelisttx", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"CBT\"")
+            + HelpExampleCli("sendaddmultitowhitelisttx", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"CBT\"")
         );
     }
 
@@ -4847,7 +4847,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "sendmany",                 &sendmany,                 false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
     { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
     { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,     false,  {"naddresses", "feeasset"} },
-    { "wallet",             "sendaddmultitowhitelisttx",&sendaddmultitowhitelisttx,false,  {"multiaddress", "feeasset"} },
+    { "wallet",             "sendaddmultitowhitelisttx",&sendaddmultitowhitelisttx,false,  {"tweakedaddress", "basepubkeys", "nmultisig", "feeasset"} },
     { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                true,   {} },

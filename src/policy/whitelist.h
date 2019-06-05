@@ -36,6 +36,9 @@ public:
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
+  	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend,
+  		const unsigned int nMultisigSize, const unsigned int addrSize, const unsigned int pubKeySize);
+
 #ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
 

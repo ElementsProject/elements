@@ -87,8 +87,9 @@ bool CRegisterAddressScript::Append(const int nMultisig, const CTxDestination ke
 
     CScriptID scriptKey = boost::get<CScriptID>(keyID);
     
-    std::string strNMultisig = itostr(nMultisig);
-    std::vector<unsigned char> vnMultisigNew(strNMultisig.begin(), strNMultisig.end());
+    unsigned char strNMultisig = (unsigned char)nMultisig;
+    std::vector<unsigned char> vnMultisigNew;
+    vnMultisigNew.push_back(strNMultisig);
     _payload.insert(_payload.end(), 
                     vnMultisigNew.begin(), 
                     vnMultisigNew.end());
