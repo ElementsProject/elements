@@ -16,8 +16,8 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         # First node doesn't connect coinbase output to db, second does
-        self.extra_args = [["-con_connect_coinbase=0", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN)],
-                           ["-con_connect_coinbase=1", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-anyonecanspendaremine=1']]
+        self.extra_args = [["-con_connect_genesis_outputs=0", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN)],
+                           ["-con_connect_genesis_outputs=1", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-anyonecanspendaremine=1']]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
