@@ -60,6 +60,8 @@ public:
 
   	bool LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound);
 
+  	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound);
+
 	bool find_kyc_whitelisted(const CKeyID& keyId);
 
 	void blacklist_kyc(const CKeyID& keyId);

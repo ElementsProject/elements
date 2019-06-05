@@ -262,7 +262,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       std::string sAddr = addr.ToString();
       // search in whitelist for the presence of keyid
       // add the associated kycKey to the set of kyc keys
-      if(LookupKYCKey(keyId, kycKey)){
+      if(LookupKYCKey(keyId, kycKey, kycPubKey)){
         if(find_kyc(kycKey)){ //Is user whitelisted?
           if(LookupTweakedPubKey(keyId, inputPubKey))
             inputPubKeys.insert(inputPubKey);
@@ -357,18 +357,23 @@ bool CWhiteList::LookupKYCKey(const CKeyID& address, CKeyID& kycKeyFound){
   return false;
 }
 
-bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound){
+bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubKeyFound){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CKeyID kycKeyID;
-  if(LookupKYCKey(keyId, kycKeyID)){
-    auto search = _kycPubkeyMap.find(kycKeyID);
+  return LookupKYCKey(keyId, kycKeyID, kycPubKeyFound);
+}
+
+bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
+  if(LookupKYCKey(keyId, kycKeyIdFound)){
+    auto search = _kycPubkeyMap.find(kycKeyIdFound);
     if(search != _kycPubkeyMap.end()){
-      kycPubkeyFound = search->second;
+      kycPubKeyFound = search->second;
       return true;
     }
   }
   return false;
 }
+
 
 bool CWhiteList::LookupTweakedPubKey(const CKeyID& address, CPubKey& pubKeyFound){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
