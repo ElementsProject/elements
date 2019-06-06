@@ -6,9 +6,9 @@
 
 #include "policylist.h"
 #include <map>
+#include "univalue/include/univalue.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
-#include "univalue/include/univalue.h"
 #endif
 #include <queue>
 
