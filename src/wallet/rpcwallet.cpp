@@ -812,7 +812,7 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     CKeyID keyId = kycPubKey.GetID();
 
     if(!addressWhitelist.find_kyc_whitelisted(keyId))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is unwhitelisted");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is not whitelisted");
 
 
     COutPoint outPoint;
@@ -879,27 +879,53 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     return sendrawtransaction(request4);
 }
 
-UniValue topupkycpubkeys(const JSONRPCRequest& request){
+
+UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() != 1) {
+    if (request.fHelp || request.params.size() > 1)
         throw runtime_error(
-            "topupkycpubkeys \"nkeys\" \n"
-            "Create a raw transaction to top up the number of available KYC public keys to \"nkeys\"\n"
+            "whitelistkycpubkey \"kycpubkey\" \n"
             "\nArguments:\n"
 
-            "1. \"nkeys\"    (numeric, required) The required key pool size.\n"
-           
+            "1. \"kycpubkeys\" (array, optional) The KYC public keys to be whitelisted. If not supplied, one will be selected from the wallet.\n"
+            "     [\n"
+            "        \"pubkey\", \n"
+            "        ...,\n"
+            "      ]\n"    
+        
             "\nExamples:\n"
-            + HelpExampleCli("topupkycpubkeys", "\"nkeys\"")
-            + HelpExampleRpc("topupkycpubkeys", "\"nkeys\"")
+            + HelpExampleCli("whitelistkycpubkey", "\"kycpubkey\"")
+            + HelpExampleRpc("whitelistkycpubkey", "\"kycpubkey\"")
             );
-    }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     EnsureWalletIsUnlocked();
+
+    CPubKey kycPubKey;
+
+    UniValue kycPubKeys(UniValue::VARR);
+    if(params.size()==1){
+        kycPubKeys = request.params[0].get_array();
+
+
+
+        std::vector<unsigned char> pubKeyData(ParseHex(request.params[0].get_str()));
+        kycPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+        if(!kycPubKey.IsFullyValid())
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+        CKeyID keyId = kycPubKey.GetID();
+
+        if(!addressWhitelist.find_kyc_blacklisted(keyId))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is not blacklisted");
+    } else {
+        if (!pwalletMain->GetKeyFromPool(kycPubKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    }
+
 
     //Get a suitable whitelist transaction input.
     CTxIn* adminIn = nullptr;
@@ -1052,6 +1078,32 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     varr.push_back(result["hex"]);
     request3.params = varr;
     return sendrawtransaction(request3);
+
+}
+
+UniValue topupkycpubkeys(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1) {
+        throw runtime_error(
+            "topupkycpubkeys \"nkeys\" \n"
+            "Create a raw transaction to top up the number of available KYC public keys to \"nkeys\"\n"
+            "\nArguments:\n"
+
+            "1. \"nkeys\"    (numeric, required) The required key pool size.\n"
+           
+            "\nExamples:\n"
+            + HelpExampleCli("topupkycpubkeys", "\"nkeys\"")
+            + HelpExampleRpc("topupkycpubkeys", "\"nkeys\"")
+            );
+    }
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    
     
 }
 

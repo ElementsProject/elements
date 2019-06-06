@@ -9,6 +9,8 @@
 #endif
 #include "ecies_hex.h"
 #include "policy/policy.h"
+#include <random>
+#include <algorithm>
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
@@ -110,6 +112,11 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
     newKYCPubKey=CPubKey(kycPubKey->begin(), kycPubKey->end());
     kycKeyID=newKYCPubKey.GetID();
   } 
+
+  //If the kycpubkey is not in the whitelist or the unassigned list then it has been blacklisted.
+  if(!is_kyc_whitelisted(kycKeyID) &! is_unassigned_kyc(newKYCPubKey) &! is_kyc_blacklisted(kycKeyID)){
+    blacklist_kyc(kycKeyID);
+  }
 
 
   //insert new address into sorted CWhiteList vector
@@ -364,10 +371,12 @@ bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubKeyFound){
 }
 
 bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
-  if(LookupKYCKey(keyId, kycKeyIdFound)){
+  CKeyId kycKeyId;
+  if(LookupKYCKey(keyId, kycKeyId)){
     auto search = _kycPubkeyMap.find(kycKeyIdFound);
     if(search != _kycPubkeyMap.end()){
       kycPubKeyFound = search->second;
+      kycKeyIdFound = kycKeyId;ß
       return true;
     }
   }
@@ -529,17 +538,23 @@ bool CWhiteList::find_kyc_blacklisted(const CKeyID& keyId){
 
 bool CWhiteList::get_unassigned_kyc(CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if(peek_unassigned_kyc(pubKey)){
-    _kycUnassignedQueue.pop();
-    return true;
+  CPubKey tmpPubKey;
+  if(peek_unassigned_kyc(tmpPubKey)){
+    auto it = _kycUnassignedSet.find(tmpPubKey);
+    if(it != _kycUnassignedSet.end()){
+      pubKey = tmpPubKey;
+      return true;
+    }
   }
   return false;
 }
 
 bool CWhiteList::peek_unassigned_kyc(CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if (_kycUnassignedQueue.empty()) return false;
-  pubKey = _kycUnassignedQueue.front();
+  if (_kycUnassignedSet.empty()) return false;
+  std::sample(_kycUnassignedSet.begin(), _kycUnassignedSet.end(), 
+              std::back_inserter(pubKey),
+              1, std::mt19937{std::random_device{}()});
   return true;
 }
 

@@ -50,8 +50,10 @@ public:
   	//Get the next key without removing it
   	bool peek_unassigned_kyc(CPubKey& pubKey);
 
+  	bool is_unassigned_kyc(const CPubKey& pubKey);
+
   	int64_t get_n_unassigned_kyc_pubkeys() const{
-  		return _kycUnassignedQueue.size();
+  		return _kycUnassignedSet.size();
   	}
 
   	void add_unassigned_kyc(const CPubKey& pubKey);
@@ -63,6 +65,8 @@ public:
   	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound);
 
 	bool find_kyc_whitelisted(const CKeyID& keyId);
+
+	bool find_kyc_blacklisted(const CKeyID& keyId);
 
 	void blacklist_kyc(const CKeyID& keyId);
 
@@ -105,7 +109,7 @@ private:
 	std::map<CKeyID, COutPoint> _kycPubkeyOutPointMap;
 
 	//KYC pub keys not yet assigned to any user
-	std::queue<CPubKey> _kycUnassignedQueue;
+	std::set<CPubKey> _kycUnassignedSet;
 
 	std::stringstream _datastream;
 
@@ -118,11 +122,7 @@ private:
 	// Returns true if if is whitelisted OR blackliosted
 	bool find_kyc(const CKeyID& keyId);
 
-	bool find_kyc_blacklisted(const CKeyID& keyId);
-
 	void synchronise(CWhiteList* wl_new);
-
-
 
   	//Lookup owner (idpubkey) of address
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
