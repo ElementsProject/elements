@@ -124,6 +124,14 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
 
   _kycMap[keyId]=kycKeyID;
 
+
+  CPubKey tweakedPubKey(pubKey);
+   uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  if (!contract.IsNull())
+    tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+  _tweakedPubKeyMap[keyId]=tweakedPubKey;
+
+
  //insert new address into sorted CWhiteList vector
   add_sorted(&keyId);
 }
@@ -366,12 +374,12 @@ bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubKeyFound){
 }
 
 bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
-  CKeyId kycKeyId;
+  CKeyID kycKeyId;
   if(LookupKYCKey(keyId, kycKeyId)){
     auto search = _kycPubkeyMap.find(kycKeyIdFound);
     if(search != _kycPubkeyMap.end()){
       kycPubKeyFound = search->second;
-      kycKeyIdFound = kycKeyId;ß
+      kycKeyIdFound = kycKeyId;
       return true;
     }
   }
@@ -556,7 +564,7 @@ bool CWhiteList::peek_unassigned_kyc(CPubKey& pubKey){
 
 bool CWhiteList::is_unassigned_kyc(const CKeyID& kycKeyID){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  auto it = _kycUnassignedSet.find(kycKey);
+  auto it = _kycUnassignedSet.find(kycKeyID);
   if (it == _kycUnassignedSet.end()) return false;
   return true;
 }

@@ -32,6 +32,7 @@ public:
 static const CRPCConvertParam vRPCConvertParams[] =
 {
     { "topupkycpubkeys", 0, "nkeys" },
+    { "whitelistkycpubkeys", 0, "kycpubkeys" },
     { "setmocktime", 0, "timestamp" },
     { "generate", 0, "nblocks" },
     { "generate", 1, "maxtries" },
