@@ -222,10 +222,10 @@ class OnboardTest (BitcoinTestFramework):
         clientAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         clientAddress4=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
 
-        print("Creating a p2sh address for whitelisting")
+        #Creating a p2sh address for whitelisting
         multiAddress2=self.nodes[1].createmultisig(2,[clientAddress2['pubkey'],clientAddress3['pubkey'],clientAddress4['pubkey']])
 
-        print("Testing Multisig whitelisting registeraddress transaction")
+        #Testing Multisig whitelisting registeraddress transaction
         multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress2['address'],[clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey'],clientAddress4['derivedpubkey']],2,"CBT")
 
         time.sleep(5)
@@ -241,9 +241,7 @@ class OnboardTest (BitcoinTestFramework):
         
         wl1file="wl1.dat"
         self.nodes[1].dumpwhitelist(wl1file)
-        print("Contract hash:")
-        print(self.nodes[1].getcontracthash())
-        print("Adding the created p2sh to the whitelist via addmultitowhitelist rpc\n")
+        #Adding the created p2sh to the whitelist via addmultitowhitelist rpc
         self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
         wl1file_2="wl1_2.dat"
         self.nodes[1].dumpwhitelist(wl1file_2)
@@ -255,8 +253,6 @@ class OnboardTest (BitcoinTestFramework):
 
         if(clientAddress1['pubkey'] == clientAddress1['derivedpubkey']):
             raise AssertionError("Pubkey and derived pubkey are the same for a new address. Either tweaking failed or the contract is not valid/existing.") 
-
-        print("P2SH Whitelisting has been successful!")
         try:
             multiAddress2=self.nodes[1].createmultisig(2,["asdasdasdasdasdas",clientAddress2['pubkey'],clientAddress4['pubkey']])
             self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)

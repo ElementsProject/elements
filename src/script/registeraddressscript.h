@@ -24,7 +24,7 @@ public:
 	virtual bool FinalizeUnencrypted(CScript& script);
 	bool Append(const CPubKey& key);
 	bool Append(const std::vector<CPubKey>& keys);
-	bool Append(const int nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys);
+	bool Append(const uint8_t nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys);
 	std::size_t getPayloadSize() { return _payload.size(); }
 
 	virtual void clear(){_payload.clear(); _encrypted.clear(); ((CScript*)this)->clear();}

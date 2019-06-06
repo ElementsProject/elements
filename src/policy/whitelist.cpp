@@ -146,15 +146,13 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   delete kycAddress;
 }
 
-#ifdef ENABLE_WALLET
-
-void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
+void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CWhiteList::add_derived(address, pubKeys, nullptr, nMultisig);
 }
 
 void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
-  const CBitcoinAddress* kycAddress, const int32_t nMultisig){
+  const CBitcoinAddress* kycAddress, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 
   for(int i = 0; i < pubKeys.size(); ++i) {
@@ -188,13 +186,13 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<C
   _kycMap[keyId]=kycKeyId;
 }
 
-void CWhiteList::add_derived(const std::string& addressIn, const UniValue& keys, const int32_t nMultisig){
+void CWhiteList::add_derived(const std::string& addressIn, const UniValue& keys, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   add_derived(addressIn, keys, std::string(""), nMultisig);
 }
 
 void CWhiteList::add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
-  const std::string& sKYCAddress, const int32_t nMultisig){
+  const std::string& sKYCAddress, const uint8_t nMultisig){
 
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CBitcoinAddress address;
@@ -223,6 +221,7 @@ void CWhiteList::add_derived(const std::string& sAddress, const UniValue& sPubKe
   delete kycAddress;
 }
 
+#ifdef ENABLE_WALLET
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CCoinsViewCache mapInputs(pcoinsTip);
@@ -256,13 +255,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     }
   }
 
-  unsigned int pubKeySize=33;
-  unsigned int addrSize=20;
-  unsigned int nMultisigSize=1;
-  unsigned int minPayloadSize=2;
-
   //Confirm data read from the TX_REGISTERADDRESS
-  unsigned int minDataSize=pubKeySize+addrSize+minPayloadSize;
+  unsigned int minDataSize=CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+addrSize+minPayloadSize;
   if(bytes.size()<minDataSize) return false;
 
 
@@ -279,14 +273,14 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
 
-  unsigned int minOnboardDataSize=2*pubKeySize+minPayloadSize;
+  unsigned int minOnboardDataSize=2*CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+minPayloadSize;
   std::vector<unsigned char>::const_iterator it1=bytes.begin();
-  std::vector<unsigned char>::const_iterator it2=it1+pubKeySize;
+  std::vector<unsigned char>::const_iterator it2=it1+CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
   if(bytes.size()>=minOnboardDataSize){
     kycPubKey = CPubKey(it1, it2);
     it1=it2;
-    it2+=pubKeySize;
+    it2+=CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
     userOnboardPubKey = CPubKey(it1, it2);
     it1=it2;
 
@@ -375,7 +369,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   std::vector<unsigned char>::const_iterator pend = data.end();
 
-  bool isMultisig = IsRegisterAddressMulti(itData2, pend, nMultisigSize, addrSize, pubKeySize);
+  bool isMultisig = IsRegisterAddressMulti(itData2, pend);
 
   //REGISTERADDRESS for pubkeys
   if(isMultisig == false){
@@ -392,7 +386,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
         std::vector<unsigned char> addrChars(itData1,itData2);
         addrNew.Set(CKeyID(uint160(addrChars)));  
         itData1=itData2;
-        for(unsigned int i=0; i<pubKeySize; ++i){
+        for(unsigned int i=0; i<CPubKey::COMPRESSED_PUBLIC_KEY_SIZE; ++i){
           if(itData2++ == pend){
             bEnd=true;
             break;
@@ -418,7 +412,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   else{
     itData2 += nMultisigSize;
 
-    int nMultisig = 0;
+    uint8_t nMultisig = 0;
     std::vector<unsigned char> nMultisigChars(itData1,itData2);
 
     if(nMultisigSize != 1){
@@ -426,7 +420,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       return false;
     }
 
-    nMultisig = (int)nMultisigChars[0];
+    nMultisig = (uint8_t)nMultisigChars[0];
 
     itData1 = itData2;
 
@@ -442,7 +436,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
     bool bEnd=false;
     while(!bEnd){
-      for(unsigned int i=0; i<pubKeySize; ++i){
+      for(unsigned int i=0; i<CPubKey::COMPRESSED_PUBLIC_KEY_SIZE; ++i){
         if(itData2++ == pend){
           bEnd = true;
           break;
@@ -475,8 +469,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   #endif //#ifdef ENABLE_WALLET
 }
 
-bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start, const std::vector<unsigned char>::const_iterator vend,
-  const unsigned int nMultisigSize, const unsigned int addrSize, const unsigned int pubKeySize){
+bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start, const std::vector<unsigned char>::const_iterator vend){
 
   std::vector<unsigned char>::const_iterator point1 = start;
   std::vector<unsigned char>::const_iterator point2 = start;
@@ -504,7 +497,7 @@ bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_
 
   point1=point2;
 
-  for(unsigned int i=0; i<pubKeySize; ++i){
+  for(unsigned int i=0; i<CPubKey::COMPRESSED_PUBLIC_KEY_SIZE; ++i){
     if(point2++ == vend){
       return false;
     }

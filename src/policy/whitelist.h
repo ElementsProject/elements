@@ -34,25 +34,26 @@ public:
 
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
+	void add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
+  		const std::string& sKYCAddress, const uint8_t nMultisig);
+
+	//Multisig whitelisting below
+
+	void add_derived(const std::string& addressIn, const UniValue& keys, 
+		const uint8_t nMultisig);
+
+	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
+  		const CBitcoinAddress* kycAddress, const uint8_t nMultisig);
+
+	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
+		const uint8_t nMultisig);
+
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-  	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend,
-  		const unsigned int nMultisigSize, const unsigned int addrSize, const unsigned int pubKeySize);
+  	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 
 #ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
-
-	void add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
-  		const std::string& sKYCAddress, const int32_t nMultisig);
-
-	void add_derived(const std::string& addressIn, const UniValue& keys, 
-		const int32_t nMultisig);
-
-	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
-  		const CBitcoinAddress* kycAddress, const int32_t nMultisig);
-
-	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
-		const int32_t nMultisig);
 #endif //#ifdef ENABLE_WALLET
 	
   	//Update from transaction
@@ -120,7 +121,9 @@ private:
 
 	void synchronise(CWhiteList* wl_new);
 
-
+  	const unsigned int addrSize=20;
+  	const unsigned int nMultisigSize=1;
+  	const unsigned int minPayloadSize=2;
 
   	//Lookup owner (idpubkey) of address
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);

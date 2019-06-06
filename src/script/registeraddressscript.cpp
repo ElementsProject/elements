@@ -78,7 +78,7 @@ bool CRegisterAddressScript::Append(const std::vector<CPubKey>& keys){
     return true;
 }
 
-bool CRegisterAddressScript::Append(const int nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys){
+bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys){
     if(whitelistType != RA_MULTISIG)
         return false;
 

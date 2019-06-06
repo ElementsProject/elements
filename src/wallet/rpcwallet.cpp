@@ -682,7 +682,7 @@ static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CA
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
 static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey& pubKey,
-    const CBitcoinAddress& address, const UniValue& sPubKeys, const int nMultisig,
+    const CBitcoinAddress& address, const UniValue& sPubKeys, const uint8_t nMultisig,
     CWalletTx& wtxNew){
 
     if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
@@ -864,6 +864,11 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
+    int nMultisig = request.params[2].get_int();
+
+    if (nMultisig > 255)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be larger than 255 (1 byte)");
+
     std::string sFeeAsset="CBT";
     if(request.params.size() == 4)
         sFeeAsset=request.params[3].get_str();
@@ -871,7 +876,7 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
 
     CWalletTx wtx;
     CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
-    SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), request.params[2].get_int(), wtx);
+    SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), (uint8_t)nMultisig, wtx);
 
 
     //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(),

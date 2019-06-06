@@ -1836,7 +1836,7 @@ return true;
 }
 
 //Used for multisig P2SH checking that has been created with tweaked addresses
-bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPubKey>& pubKeys, const int32_t nMultisig){
+bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPubKey>& pubKeys, const uint8_t nMultisig){
 
     CTxDestination destCopy = keyID;
     std::vector<CPubKey> tweakedPubKeys = pubKeys;
