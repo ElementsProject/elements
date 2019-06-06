@@ -9,8 +9,6 @@
 #endif
 #include "ecies_hex.h"
 #include "policy/policy.h"
-#include <random>
-#include <algorithm>
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
@@ -87,6 +85,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubK
 void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
   const CPubKey* kycPubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  
   if (!pubKey.IsFullyValid()) 
     throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid public key"));
@@ -101,36 +100,32 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
      throw std::invalid_argument(std::string(std::string(__func__) + 
       ": address does not derive from public key when tweaked with contract hash"));
 
-
-  CPubKey newKYCPubKey;
   CKeyID kycKeyID;
+
+  //Update kyc pub key maps one is supplied
   if(kycPubKey != nullptr){
     if (!kycPubKey->IsFullyValid()) 
       throw std::invalid_argument(std::string(std::string(__func__) + 
         ": invalid KYC public key"));
 
-    newKYCPubKey=CPubKey(kycPubKey->begin(), kycPubKey->end());
-    kycKeyID=newKYCPubKey.GetID();
-  } 
+    kycKeyID=kycPubKey->GetID();
 
-  //If the kycpubkey is not in the whitelist or the unassigned list then it has been blacklisted.
-  if(!is_kyc_whitelisted(kycKeyID) &! is_unassigned_kyc(newKYCPubKey) &! is_kyc_blacklisted(kycKeyID)){
-    blacklist_kyc(kycKeyID);
+    //If the kycpubkey is not in the whitelist, blacklist or the unassigned list then 
+    //it must have been blacklisted (the KYC pub key registration transaction hase been
+    //remvoved from the UTXO set and the blockchain has not been rescanned).
+    if(!find_kyc(kycKeyID) &! is_unassigned_kyc(kycKeyID)){
+      blacklist_kyc(kycKeyID);
+    }
+
+    _kycPubkeyMap[kycKeyID]= *kycPubKey;
+  } else {
+    _kycPubkeyMap[kycKeyID]=CPubKey();
   }
 
-
-  //insert new address into sorted CWhiteList vector
-  add_sorted(&keyId);
-
   _kycMap[keyId]=kycKeyID;
-  _kycPubkeyMap[kycKeyID]=newKYCPubKey;
 
-  //Used for decryption
-  CPubKey tweakedPubKey(pubKey);
-   uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-  if (!contract.IsNull())
-    tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-  _tweakedPubKeyMap[keyId]=tweakedPubKey;
+ //insert new address into sorted CWhiteList vector
+  add_sorted(&keyId);
 }
 
 void CWhiteList::add_derived(const std::string& addressIn, const std::string& key){
@@ -538,28 +533,37 @@ bool CWhiteList::find_kyc_blacklisted(const CKeyID& keyId){
 
 bool CWhiteList::get_unassigned_kyc(CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  CPubKey tmpPubKey;
-  if(peek_unassigned_kyc(tmpPubKey)){
-    auto it = _kycUnassignedSet.find(tmpPubKey);
+  if(peek_unassigned_kyc(pubKey)){
+    _kycUnassignedQueue.pop();
+    auto it = _kycUnassignedSet.find(pubKey.GetID());
     if(it != _kycUnassignedSet.end()){
-      pubKey = tmpPubKey;
-      return true;
+     _kycUnassignedSet.erase(it);
     }
+    //Move from "unassigned" to whitelisted in this node.
+    //Other nodes will be notified via the user onboard transaction.
+    whitelist_kyc(pubKey.GetID());
+    return true;
   }
   return false;
 }
 
 bool CWhiteList::peek_unassigned_kyc(CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if (_kycUnassignedSet.empty()) return false;
-  std::sample(_kycUnassignedSet.begin(), _kycUnassignedSet.end(), 
-              std::back_inserter(pubKey),
-              1, std::mt19937{std::random_device{}()});
+  if (_kycUnassignedQueue.empty()) return false;
+  pubKey = _kycUnassignedQueue.front();
+  return true;
+}
+
+bool CWhiteList::is_unassigned_kyc(const CKeyID& kycKeyID){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  auto it = _kycUnassignedSet.find(kycKey);
+  if (it == _kycUnassignedSet.end()) return false;
   return true;
 }
 
 void CWhiteList::add_unassigned_kyc(const CPubKey& id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  _kycUnassignedSet.insert(id.GetID());
   _kycUnassignedQueue.push(id);
 }
 
