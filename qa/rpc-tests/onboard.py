@@ -214,7 +214,8 @@ class OnboardTest (BitcoinTestFramework):
         assert_equal(nlines-nlines_bl,nwhitelisted)
 
         #Re-whitelist node1 wallet
-        self.nodes[0].whitelistkycpubkeys([kycpub1])
+        kycpubkeyarr=[kycpub1]
+        self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
 
         self.nodes[0].generate(101)
         self.sync_all()
