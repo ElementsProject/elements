@@ -198,7 +198,7 @@ void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::s
 void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::string line){
     if(vstr[0].length() == 0){
         _decryptedStream << line << ": invalid nmultisig\n";
-        return
+        return;
     }
 
     uint8_t nMultisig = std::stoi(vstr[0]);
