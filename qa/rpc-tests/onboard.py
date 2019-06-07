@@ -237,6 +237,9 @@ class OnboardTest (BitcoinTestFramework):
         nlines4=self.linecount(wl1file_4)
         assert_equal(nlines3+1, nlines4)
 
+        iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
+        assert(iswl)
+
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
         
         wl1file="wl1.dat"

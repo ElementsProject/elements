@@ -866,8 +866,8 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
 
     int nMultisig = request.params[2].get_int();
 
-    if (nMultisig > 255)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be larger than 255 (1 byte)");
+    if (nMultisig > MAX_P2SH_SIGOPS || nMultisig == 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be larger than 255 (1 byte) or 0");
 
     std::string sFeeAsset="CBT";
     if(request.params.size() == 4)
