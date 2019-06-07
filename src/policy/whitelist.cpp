@@ -481,7 +481,6 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
     return false;
 }
 
-//hashTx = tx->GetHash();){
 
 void CWhiteList::blacklist_kyc(const CKeyID& keyId){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
