@@ -34,11 +34,13 @@ A less obvious scheme is to have a participant sign an arbitrary message with
 the sum of her key `P` and the whitelisted key `W`. Such a signature with the key
 `P + W` proves knowledge of either (a) discrete logarithms of both `P` and `W`;
 or (b) neither. This makes directly attacking participants' signing schemes much
-harder, but allows an attacker to whitelist arbitrary "garbage" keys by computing
-`W` as the difference between an attacker-controlled key and `P`. For Bitcoin,
-the effect of garbage keys is to "burn" stolen coins, destroying them.
+harder, but allows an attacker to whitelist arbitrary "cancellation" keys by
+computing `W` as the difference between an attacker-controlled key and `P`.
+Because to spend the funds the attacker must produce a signature with `W`, the
+coins will be unspendable until attacker and the legitimate participant owning
+`P` cooperate.
 
-In an important sense, this "burning coins" attack is a good thing: it enables
+In an important sense, this "cancellation" attack is a good thing: it enables
 *offline delegation*. That is, the key `P` does not need to be available at the
 time of delegation. Instead, participants could choose `S = P + W`, sign with
 this to delegate, and only later compute the discrete logarithm of `W = P - S`.
@@ -47,7 +49,7 @@ the overall system security.
 
 #### Signing with Tweaked-Difference-of-Keys
 
-A modification of this scheme, which prevents this "garbage key" attack, is to
+A modification of this scheme, which prevents this "cancellation" attack, is to
 instead have participants sign some message with the key `P + H(W)W`, for `H`
 some random-oracle hash that maps group elements to scalars. This key, and its
 discrete logarithm, cannot be known until after `W` is chosen, so `W` cannot
@@ -60,8 +62,8 @@ delegation. However, we can get this back by introducing a new key, `P'`,
 and signing with the key `P + H(W + P')(W + P')`. This gives us the best
 of both worlds: `P'` does not need to be online to delegate, allowing it
 to be securely stored and preventing real-time attacks; `P` does need to
-be online, but its compromise only allows an attacker to whitelist "garbage
-keys", not attacker-controlled ones.
+be online, but its compromise only allows an attacker to whitelist keys he does
+not control alone.
 
 ### Our Scheme
 
@@ -78,8 +80,8 @@ knows:
 1. The discrete logarithms of all of `W`, `P_i` and `Q_i`; or
 2. The discrete logarithm of `P_i` but of *neither* `W` nor `Q_i`.
 In other words, compromise of the online key `P_i` allows an attacker to whitelist
-"garbage keys" for which nobody knows the discrete logarithm; to whitelist an
-attacker-controlled key, he must compromise both `P_i` and `Q_i`. This is difficult
+"cancellation keys" for which the attacker alone does not know the discrete logarithm;
+to whitelist an attacker-controlled key, he must compromise both `P_i` and `Q_i`. This is difficult
 because by design, only the sum `S = W + Q_i` is used when signing; then by choosing
 `S` freely, a participant can delegate without the secret key to `Q_i` ever being online.
 (Later, when she wants to actually use `W`, she will need to compute its key as the
