@@ -912,8 +912,6 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     CMutableTransaction rawTx;
     rawTx.nLockTime=0;
 
-    int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.get_n_unassigned_kyc_pubkeys();
-
     //1: Find a whitelist unspent tx (look for asset = whitelist in listunspent)
     //2: Get the address from the unspent output info
     //3: validateaddress and extract pubkey from result (admin pubkey)
@@ -1001,10 +999,15 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
     for (unsigned int idx = 0; idx < kycPubKeys.size(); idx++){
         const UniValue& item = kycPubKeys[idx];
-        const std::vector<unsigned char> pubKeyData=ParseHex(item.get_str());
-        const CPubKey pubKey(pubKeyData.begin(), pubKeyData.end());
-        if(!pubKey.IsFullyValid())
+        std::vector<unsigned char> pubKeyData=ParseHex(item.get_str());
+        
+        const CPubKey testKey(pubKeyData.begin(), pubKeyData.end());
+        if(!testKey.IsFullyValid())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+        //reverse the last 30 bytes so that this key cannot be used to spend the tx
+        std::reverse(pubKeyData.begin()+3, pubKeyData.end());
+        const CPubKey pubKey(pubKeyData.begin(), pubKeyData.end());
 
         pubkeys[1] = pubKey;
 
@@ -1078,24 +1081,23 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     if (!pwalletMain->IsLocked())
             pwalletMain->TopUpKeyPool();
 
-    int nkeys = request.params[0].get_int();
 
-    UniValue varr(UniValue::VARR);
+    int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.get_n_unassigned_kyc_pubkeys();
 
-    for(int i=0; i<nkeys; i++){
+    UniValue kycpubkeys(UniValue::VARR);
+
+    for(int i=0; i<nKeysToAdd; i++){
         CPubKey newKYCPubKey;
         if (!pwalletMain->GetKeyFromPool(newKYCPubKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         
         std::vector<unsigned char> datavec = ToByteVector(newKYCPubKey);
-        datavec.resize(33, 0);
-
-        //reverse the last 30 bytes so that this key cannot be used to spend the tx
-        std::reverse(datavec.begin()+3, datavec.end());
-
-        varr.push_back(HexStr(datavec.begin(), datavec.end()));
+        kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
     }
-    
+
+    UniValue varr(UniValue::VARR);
+    varr.push_back(kycpubkeys);
+
     JSONRPCRequest request2;
     request2.params = varr;
     return whitelistkycpubkeys(request2);

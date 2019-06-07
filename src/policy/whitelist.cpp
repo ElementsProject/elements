@@ -376,7 +376,7 @@ bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubKeyFound){
 bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
   CKeyID kycKeyId;
   if(LookupKYCKey(keyId, kycKeyId)){
-    auto search = _kycPubkeyMap.find(kycKeyIdFound);
+    auto search = _kycPubkeyMap.find(kycKeyId);
     if(search != _kycPubkeyMap.end()){
       kycPubKeyFound = search->second;
       kycKeyIdFound = kycKeyId;
@@ -542,14 +542,14 @@ bool CWhiteList::find_kyc_blacklisted(const CKeyID& keyId){
 bool CWhiteList::get_unassigned_kyc(CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(peek_unassigned_kyc(pubKey)){
+    //Move from "unassigned" to whitelisted in this node.
+    //Other nodes will be notified via the user onboard transaction.
+    whitelist_kyc(pubKey.GetID());
     _kycUnassignedQueue.pop();
     auto it = _kycUnassignedSet.find(pubKey.GetID());
     if(it != _kycUnassignedSet.end()){
      _kycUnassignedSet.erase(it);
     }
-    //Move from "unassigned" to whitelisted in this node.
-    //Other nodes will be notified via the user onboard transaction.
-    whitelist_kyc(pubKey.GetID());
     return true;
   }
   return false;
