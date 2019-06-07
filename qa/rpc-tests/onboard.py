@@ -168,7 +168,7 @@ class OnboardTest (BitcoinTestFramework):
  
         #Node 1 registers additional addresses to whitelist
         nadd=100
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        self.nodes[1].sendaddtowhitelisttx(nadd,"ISSUANCE")
         time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
@@ -180,9 +180,9 @@ class OnboardTest (BitcoinTestFramework):
         assert_equal(nlines2-nlines1, nadd)
 
 
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        self.nodes[1].sendaddtowhitelisttx(nadd,"ISSUANCE")
+        self.nodes[1].sendaddtowhitelisttx(nadd,"ISSUANCE")
+        self.nodes[1].sendaddtowhitelisttx(nadd,"ISSUANCE")
         time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
