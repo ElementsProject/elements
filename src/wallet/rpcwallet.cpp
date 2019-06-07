@@ -4491,7 +4491,14 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
         throw std::runtime_error(
             RPCHelpMan{"walletprocesspsbt",
                 "\nUpdate a PSBT with input information from our wallet and then sign inputs\n"
-                "that we can sign for." +
+                "that we can sign for.\n\n"
+                "NOTE: When working with Confidential Assets transactions, it is necessary to\n"
+                "blind the transaction after filling it in from the wallet and before signing\n"
+                "it. This RPC will fail when working with such transaction. Instead of using\n"
+                "this RPC, use the following sequence:\n"
+                " - walletfillpsbtdata\n"
+                " - blindpsbt\n"
+                " - walletsignpsbt\n" +
                     HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
