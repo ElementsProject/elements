@@ -8,7 +8,7 @@ class RequestbidsTest(BitcoinTestFramework):
     super().__init__()
     self.setup_clean_chain = True
     self.num_nodes = 2
-    self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000",
+    self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000", "-policycoins=50000000000000",
     "-permissioncoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac",
     "-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac"] for i in range(2)]
     self.extra_args[1].append("-requestlist=1")
@@ -81,6 +81,18 @@ class RequestbidsTest(BitcoinTestFramework):
     assert_equal(txid, request_bids['bids'][0]['txid'])
     assert_equal(pubkeyFee, request_bids['bids'][0]['feePubKey'])
     assert_equal(genesis, request_bids['genesisBlock'])
+
+
+    fulltr = self.nodes[1].getrawtransaction(txid, True)
+    foundBid = False
+    for tout in fulltr['vout']:
+        if "bid" in tout:
+            rawbid = tout["bid"]
+            if (rawbid['txid'] == request_bids['bids'][0]['txid']):
+                assert_equal(request_bids['bids'][0]['feePubKey'], rawbid['feePubKey'])
+                foundBid = True
+                break
+    assert(foundBid)
 
     #test stopping and restarting to make sure list is reloaded
     self.stop_node(1)

@@ -11,6 +11,7 @@
 #include "pubkey.h"
 #include "amount.h"
 #include "script/script.h"
+#include <cmath>
 
 using namespace std;
 

@@ -49,6 +49,8 @@ static std::condition_variable cond_blockchange;
 static CUpdatedBlock latestblock;
 
 extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
+extern UniValue requestToJSON(const CRequest &request);
+extern UniValue bidToJSON(const CBid &bid);
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
 
 double GetDifficulty(const CBlockIndex* blockindex)
@@ -1000,29 +1002,6 @@ UniValue gettxoutsetinfo(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
     }
     return ret;
-}
-
-UniValue requestToJSON(const CRequest &request)
-{
-    UniValue item(UniValue::VOBJ);
-    item.push_back(Pair("genesisBlock", request.hashGenesis.GetHex()));
-    item.push_back(Pair("confirmedBlockHeight", (int32_t)request.nConfirmedBlockHeight));
-    item.push_back(Pair("startBlockHeight", (int32_t)request.nStartBlockHeight));
-    item.push_back(Pair("numTickets", (int32_t)request.nNumTickets));
-    item.push_back(Pair("decayConst", (int32_t)request.nDecayConst));
-    item.push_back(Pair("feePercentage", (int32_t)request.nFeePercentage));
-    item.push_back(Pair("endBlockHeight", (int32_t)request.nEndBlockHeight));
-    item.push_back(Pair("startPrice", ValueFromAmount(request.nStartPrice)));
-    item.push_back(Pair("auctionPrice", ValueFromAmount(request.GetAuctionPrice(chainActive.Height()))));
-    return item;
-}
-
-UniValue bidToJSON(const CBid &bid)
-{
-    UniValue item(UniValue::VOBJ);
-    item.push_back(Pair("txid", bid.hashBid.ToString()));
-    item.push_back(Pair("feePubKey", HexStr(bid.feePubKey)));
-    return item;
 }
 
 UniValue getrequestbids(const JSONRPCRequest& request)

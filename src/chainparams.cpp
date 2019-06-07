@@ -149,12 +149,14 @@ protected:
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
+        policyCoins = GetArg("-policycoins", 0);
         initialFreeCoinsDestination = StrHexToScriptWithDefault(GetArg("-initialfreecoinsdestination", ""), CScript() << OP_TRUE);
         freezeListCoinsDestination = StrHexToScriptWithDefault(GetArg("-freezelistcoinsdestination", ""), CScript() << OP_RETURN);
         burnListCoinsDestination = StrHexToScriptWithDefault(GetArg("-burnlistcoinsdestination", ""), CScript() << OP_RETURN);
         whiteListCoinsDestination = StrHexToScriptWithDefault(GetArg("-whitelistcoinsdestination", ""), CScript() << OP_RETURN);
         challengeCoinsDestination = StrHexToScriptWithDefault(GetArg("-challengecoinsdestination", ""), CScript() << OP_RETURN);
         permissionCoinsDestination = StrHexToScriptWithDefault(GetArg("-permissioncoinsdestination", ""), CScript() << OP_RETURN);
+        issuanceCoinsDestination = StrHexToScriptWithDefault(GetArg("-issuancecoinsdestination", ""), CScript() << OP_RETURN);
         attestationHash = uint256S(GetArg("-attestationhash", ""));
 
         nDefaultPort = GetArg("-ndefaultport", 7042);
@@ -204,10 +206,13 @@ public:
         CalculateAsset(consensus.pegged_asset, entropy);
 
         genesis = CreateGenesisBlock(consensus, strNetworkID, 1514764800, genesisChallengeScript, 1);
+        int nOut = 0;
         if (initialFreeCoins != 0) {
-            AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);
+            AppendInitialIssuance(genesis, COutPoint(uint256(commit), nOut), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);
+            ++nOut;
+        }
 
-            int nOut = 1;
+        if (policyCoins != 0) {
             if(!freezeListCoinsDestination.IsUnspendable()) {
                 uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000010");
                 const COutPoint prevout = COutPoint(uint256(commit), nOut);
@@ -216,7 +221,7 @@ public:
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.freezelist_asset, entropy);
 
-                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, freezeListCoinsDestination);
+                AppendInitialIssuance(genesis, prevout, contract, 100, policyCoins/100, 0, 0, freezeListCoinsDestination);
             }
 
             if(!burnListCoinsDestination.IsUnspendable()) {
@@ -227,7 +232,7 @@ public:
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.burnlist_asset, entropy);
 
-                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, burnListCoinsDestination);
+                AppendInitialIssuance(genesis, prevout, contract, 100, policyCoins/100, 0, 0, burnListCoinsDestination);
             }
 
             if(!whiteListCoinsDestination.IsUnspendable()) {
@@ -238,7 +243,7 @@ public:
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.whitelist_asset, entropy);
 
-                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, whiteListCoinsDestination);
+                AppendInitialIssuance(genesis, prevout, contract, 100, policyCoins/100, 0, 0, whiteListCoinsDestination);
             }
 
             if(!challengeCoinsDestination.IsUnspendable()) {
@@ -249,7 +254,7 @@ public:
                 GenerateAssetEntropy(entropy,  prevout, contract);
                 CalculateAsset(consensus.challenge_asset, entropy);
 
-                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins/100, 0, 0, challengeCoinsDestination);
+                AppendInitialIssuance(genesis, prevout, contract, 100, policyCoins/100, 0, 0, challengeCoinsDestination);
             }
 
             if (!permissionCoinsDestination.IsUnspendable()) {
@@ -260,9 +265,21 @@ public:
                 GenerateAssetEntropy(entropy, prevout, contract);
                 CalculateAsset(consensus.permission_asset, entropy);
 
-                AppendInitialIssuance(genesis, prevout, contract, 100, initialFreeCoins / 100, 0, 0, permissionCoinsDestination);
+                AppendInitialIssuance(genesis, prevout, contract, 100, policyCoins / 100, 0, 0, permissionCoinsDestination);
+            }
+
+            if (!issuanceCoinsDestination.IsUnspendable()) {
+                uint256 contract = uint256S("0000000000000000000000000000000000000000000000000000000000000060");
+                const COutPoint prevout = COutPoint(uint256(commit), nOut);
+                ++nOut;
+
+                GenerateAssetEntropy(entropy, prevout, contract);
+                CalculateAsset(consensus.issuance_asset, entropy);
+
+                AppendInitialIssuance(genesis, prevout, contract, 100, policyCoins / 100, 0, 0, issuanceCoinsDestination);
             }
         }
+
         consensus.hashGenesisBlock = genesis.GetHash();
 
         vFixedSeeds.clear(); //!< Regtest mode doesn't have any fixed seeds.

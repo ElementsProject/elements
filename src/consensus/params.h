@@ -73,6 +73,7 @@ struct Params {
     CAsset whitelist_asset;
     CAsset challenge_asset;
     CAsset permission_asset;
+    CAsset issuance_asset;
 
     uint256 defaultAssumeValid;
     uint32_t pegin_min_depth;

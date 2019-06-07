@@ -8,7 +8,7 @@ class RequestsTest(BitcoinTestFramework):
     super().__init__()
     self.setup_clean_chain = True
     self.num_nodes = 2
-    self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000",
+    self.extra_args = [["-txindex=1 -initialfreecoins=50000000000000", "-policycoins=50000000000000",
     "-permissioncoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac",
     "-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac"] for i in range(2)]
     self.extra_args[1].append("-requestlist=1")
@@ -32,6 +32,19 @@ class RequestsTest(BitcoinTestFramework):
     self.nodes[0].generate(1)
     self.sync_all()
     assert(self.nodes[1].getbalance()["PERMISSION"] == 2000)
+
+    genhash = self.nodes[0].getblockhash(0)
+    genblock = self.nodes[0].getblock(genhash)
+    foundPermission = False
+
+    for txid in genblock["tx"]:
+        rawtx = self.nodes[0].getrawtransaction(txid,True)
+        if "assetlabel" in rawtx["vout"][0]:
+            if rawtx["vout"][0]["assetlabel"] == "PERMISSION":
+                foundPermission = True
+                break
+
+    assert(foundPermission)
 
     # test create request with incorrect asset
     addr = self.nodes[1].getnewaddress()
@@ -135,6 +148,29 @@ class RequestsTest(BitcoinTestFramework):
             assert_equal(req['auctionPrice'], 5)
         else:
             assert(False)
+
+    for req in requests:
+        if txid2 == req['txid']:
+            fulltr = self.nodes[0].getrawtransaction(req['txid'], True)
+            foundRequest = False
+            for tout in fulltr['vout']:
+                if "request" in tout:
+                    rawrequest = tout["request"]
+                    assert_equal(req['endBlockHeight'], rawrequest['endBlockHeight'])
+                    assert_equal(req['genesisBlock'], rawrequest['genesisBlock'])
+                    assert_equal(req['numTickets'], rawrequest['numTickets'])
+                    assert_equal(req['decayConst'], rawrequest['decayConst'])
+                    assert_equal(req['feePercentage'], rawrequest['feePercentage'])
+                    assert_equal(req['startBlockHeight'], rawrequest['startBlockHeight'])
+                    assert_equal(req['confirmedBlockHeight'], rawrequest['confirmedBlockHeight'])
+                    assert_equal(req['startPrice'], rawrequest['startPrice'])
+                    assert_equal(req['auctionPrice'], rawrequest['auctionPrice'])
+                    foundRequest = True
+                    break
+            assert(foundRequest)
+        else:
+            assert(False)    
+
     requests = self.nodes[0].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05")
     assert_equal(self.nodes[1].getrequests("123450e138b1014173844ee0e4d557ff8a2463b14fcaeab18f6a63aa7c7e1d05"), [])
     assert_equal(requests, [])

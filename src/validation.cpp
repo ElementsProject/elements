@@ -1193,11 +1193,11 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
     if(fEnableBurnlistCheck && !IsPolicy(tx) && IsAnyBurn(tx) && !test_accept)
         if(!IsBurnlisted(tx, view))
             return state.DoS(0, false, REJECT_NONSTANDARD, "burn-tx-not-burnlisted");
-    // Accept only transactions that are asset issuances if they have a policyAsset input.
+    // Accept only transactions that are asset issuances if they have a issuanceAsset input.
     if (fblockissuancetx) {
       CAssetIssuance const &issuance = tx.vin[0].assetIssuance;
       if (!issuance.IsNull() && !issuance.IsReissuance()) {
-        CAsset pAsset(policyAsset);
+        CAsset pAsset(issuanceAsset);
         CTxOut const &prev = view.GetOutputFor(tx.vin[0]);
         CAsset asset;
         asset = prev.nAsset.GetAsset();
@@ -2715,28 +2715,31 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
 
-        if(fRequireFreezelistCheck) {
-            if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) UpdateFreezeList(tx,view);
-        }
-        if(fEnableBurnlistCheck) {
-            if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
-        }
-        if(fRequireWhitelistCheck || fScanWhitelist){
-           if(!addressWhitelist.RegisterAddress(tx, view)){
+        //Don't update policy lists if this just a validity check.
+        if(!fJustCheck){
+            if(fRequireFreezelistCheck) {
+                if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) UpdateFreezeList(tx,view);
+            }
+            if(fEnableBurnlistCheck) {
+             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
+             }
+            if(fRequireWhitelistCheck || fScanWhitelist){
+            if(!addressWhitelist.RegisterAddress(tx, view)){
                 if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
                     addressWhitelist.Update(tx,view);
                 }
             }
-        }
+            }
 
-        if(fRecordInflation) {
-            UpdateAssetMap(tx);
-            UpdateFreezeHistory(tx,chainActive.Height()+1);
-        }
+            if(fRecordInflation) {
+                UpdateAssetMap(tx);
+                UpdateFreezeHistory(tx,chainActive.Height()+1);
+            }
 
-        if (fRequestList) {
-            if(tx.vout[0].nAsset.GetAsset() == permissionAsset) UpdateRequestList(tx,chainActive.Height());
-            else UpdateRequestBidList(tx,chainActive.Height());
+           if (fRequestList) {
+                if(tx.vout[0].nAsset.GetAsset() == permissionAsset) UpdateRequestList(tx,chainActive.Height());
+                else UpdateRequestBidList(tx,chainActive.Height());
+            }
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:
@@ -2777,7 +2780,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     }
 
-    if (fRequestList) {
+    if (fRequestList &! fJustCheck) {
         requestList.RemoveExpired(chainActive.Height() + 1);
     }
 

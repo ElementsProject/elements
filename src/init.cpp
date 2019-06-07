@@ -528,12 +528,14 @@ std::string HelpMessage(HelpMessageMode mode)
             " " + _(" This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
         strUsage += HelpMessageOpt("-initialfreecoins", strprintf(_("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-policycoins", strprintf(_("The amount of policy coins created in the genesis block. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-initialfreecoinsdestination", strprintf(_("The destination of the OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-freezelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the freezelist (default: %d)"), 0));
         strUsage += HelpMessageOpt("-burnlistcoinsdestination", strprintf(_("The destination of the tokens for controlling the burnlist. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-whitelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the whitelist. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-challengecoinsdestination", strprintf(_("The destination of the tokens for issuing guardnode challenges. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-permissioncoinsdestination", strprintf(_("The destination of the tokens for permitting request creation. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-issuancecoinsdestination", strprintf(_("The destination of the issued tokens. (default: %d)"), 0));
     }
     strUsage += HelpMessageOpt("-validatepegin", strprintf(_("Validate pegin claims. All functionaries must run this. (default: %u)"), DEFAULT_VALIDATE_PEGIN));
     strUsage += HelpMessageOpt("-mainchainrpchost=<addr>", strprintf("The address which the daemon will try to connect to validate peg-ins, if enabled. (default: cookie auth)"));
@@ -1055,6 +1057,9 @@ bool AppInitParameterInteraction()
     }
     if (GetArg("-permissioncoinsdestination", "").size() > 0) {
         permissionAsset = CAsset(uint256S(chainparams.GetConsensus().permission_asset.GetHex()));
+    }
+    if (GetArg("-issuancecoinsdestination", "").size() > 0) {
+        issuanceAsset = CAsset(uint256S(chainparams.GetConsensus().issuance_asset.GetHex()));
     }
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:
