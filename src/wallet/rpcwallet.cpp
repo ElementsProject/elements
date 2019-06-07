@@ -4372,6 +4372,9 @@ void AddKeypathToMap(const CWallet* pwallet, const CKeyID& keyID, std::map<CPubK
 
 UniValue walletfillpsbtdata(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
@@ -4422,6 +4425,9 @@ UniValue walletfillpsbtdata(const JSONRPCRequest& request)
 
 UniValue walletsignpsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
@@ -4486,6 +4492,9 @@ UniValue walletsignpsbt(const JSONRPCRequest& request)
 
 UniValue walletprocesspsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 
@@ -4555,6 +4564,9 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
 
 UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
     CWallet* const pwallet = wallet.get();
 

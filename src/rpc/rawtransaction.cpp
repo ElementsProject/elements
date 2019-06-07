@@ -1312,6 +1312,9 @@ static std::string WriteHDKeypath(std::vector<uint32_t>& keypath)
 
 UniValue blindpsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             RPCHelpMan{"blindpsbt",
@@ -1432,6 +1435,9 @@ UniValue blindpsbt(const JSONRPCRequest& request)
 
 UniValue decodepsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             RPCHelpMan{"decodepsbt",
@@ -1767,6 +1773,9 @@ UniValue decodepsbt(const JSONRPCRequest& request)
 
 UniValue combinepsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             RPCHelpMan{"combinepsbt",
@@ -1815,6 +1824,9 @@ UniValue combinepsbt(const JSONRPCRequest& request)
 
 UniValue finalizepsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             RPCHelpMan{"finalizepsbt",
@@ -1873,6 +1885,9 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
 
 UniValue createpsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 4)
         throw std::runtime_error(
             RPCHelpMan{"createpsbt",
@@ -1948,6 +1963,9 @@ UniValue createpsbt(const JSONRPCRequest& request)
 
 UniValue converttopsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             RPCHelpMan{"converttopsbt",
