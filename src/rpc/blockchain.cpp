@@ -1783,9 +1783,9 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, argument 2 must be non-null");
     try{
         if(nparams == 3){
-            addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_array(), request.params[2].get_int());
+            addressWhitelist.add_multisig_whitelist(request.params[0].get_str(), request.params[1].get_array(), request.params[2].get_int());
         } else {
-            addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_array(),
+            addressWhitelist.add_multisig_whitelist(request.params[0].get_str(), request.params[1].get_array(),
             request.params[3].get_str(), request.params[2].get_int());
         }
     } catch(std::invalid_argument e){

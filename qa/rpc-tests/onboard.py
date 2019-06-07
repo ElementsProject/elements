@@ -275,7 +275,7 @@ class OnboardTest (BitcoinTestFramework):
             multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['pubkey']])
             self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
         except JSONRPCException as e:
-            assert("add_derived: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
+            assert("add_multisig_whitelist: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
         else:
             raise AssertionError("P2SH multisig with a different third pubkey has been validated and accepted to the whitelist.")
 
@@ -283,7 +283,7 @@ class OnboardTest (BitcoinTestFramework):
             multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['derivedpubkey']])
             self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
         except JSONRPCException as e:
-            assert("add_derived: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
+            assert("add_multisig_whitelist: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
         else:
             raise AssertionError("P2SH multisig with an untweaked third pubkey has been validated and accepted to the whitelist.")
 
@@ -291,7 +291,7 @@ class OnboardTest (BitcoinTestFramework):
             multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey'],clientAddress4['pubkey']])
             self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
         except JSONRPCException as e:
-            assert("add_derived: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
+            assert("add_multisig_whitelist: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
         else:
             raise AssertionError("P2SH multisig with more pubkeys in redeem script than rpc has been validated and accepted to the whitelist.")
 

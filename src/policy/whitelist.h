@@ -34,21 +34,23 @@ public:
 
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
-	void add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
-  		const std::string& sKYCAddress, const uint8_t nMultisig);
-
 	//Multisig whitelisting below
 
-	void add_derived(const std::string& addressIn, const UniValue& keys, 
+	void add_multisig_whitelist(const std::string& sAddress, const UniValue& sPubKeys, 
+  		const std::string& sKYCAddress, const uint8_t nMultisig);
+
+	void add_multisig_whitelist(const std::string& addressIn, const UniValue& keys, 
 		const uint8_t nMultisig);
 
-	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
+	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
   		const CBitcoinAddress* kycAddress, const uint8_t nMultisig);
 
-	void add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
+	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
 		const uint8_t nMultisig);
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+  	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const CBitcoinAddress& kycAddr);
 
   	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 

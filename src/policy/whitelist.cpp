@@ -146,12 +146,12 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   delete kycAddress;
 }
 
-void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const uint8_t nMultisig){
+void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  CWhiteList::add_derived(address, pubKeys, nullptr, nMultisig);
+  CWhiteList::add_multisig_whitelist(address, pubKeys, nullptr, nMultisig);
 }
 
-void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
+void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
   const CBitcoinAddress* kycAddress, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 
@@ -186,12 +186,12 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const std::vector<C
   _kycMap[keyId]=kycKeyId;
 }
 
-void CWhiteList::add_derived(const std::string& addressIn, const UniValue& keys, const uint8_t nMultisig){
+void CWhiteList::add_multisig_whitelist(const std::string& addressIn, const UniValue& keys, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  add_derived(addressIn, keys, std::string(""), nMultisig);
+  add_multisig_whitelist(addressIn, keys, std::string(""), nMultisig);
 }
 
-void CWhiteList::add_derived(const std::string& sAddress, const UniValue& sPubKeys, 
+void CWhiteList::add_multisig_whitelist(const std::string& sAddress, const UniValue& sPubKeys, 
   const std::string& sKYCAddress, const uint8_t nMultisig){
 
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
@@ -217,7 +217,7 @@ void CWhiteList::add_derived(const std::string& sAddress, const UniValue& sPubKe
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid Bitcoin address (kyc key): ") + sKYCAddress);
   }
-  add_derived(address, pubKeyVec, kycAddress, nMultisig);
+  add_multisig_whitelist(address, pubKeyVec, kycAddress, nMultisig);
   delete kycAddress;
 }
 
@@ -353,8 +353,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     decryptPubKey=kycPubKey;
   }  
 
-  bool bSuccess=false;
-
   //Decrypt
   CECIES_hex decryptor;
   std::vector<unsigned char> data;
@@ -362,6 +360,17 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, decryptPubKey)){
     return false;   
   }
+
+  return RegisterDecryptedAddresses(data, kycAddr);
+
+  #else //#ifdef ENABLE_WALLET
+    LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
+      return false;
+  #endif //#ifdef ENABLE_WALLET
+}
+
+
+bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const CBitcoinAddress& kycAddr){
   //Interpret the data
   //First 20 bytes: keyID 
   std::vector<unsigned char>::const_iterator itData2 = data.begin();
@@ -370,6 +379,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::vector<unsigned char>::const_iterator pend = data.end();
 
   bool bEnd=false;
+  bool bSuccess=false;
 
   while(!bEnd){
     bool isMultisig = IsRegisterAddressMulti(itData1, pend);
@@ -433,7 +443,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
       if(nMultisigSize != 1){
         LogPrintf("Undefined behaviour, the nMultisigSize was set to a number other than 1. Changes may be necessary to accommodate the extra bytes.\n");
-        return false;
+        return bSuccess;
       }
 
       nMultisig = (uint8_t)nMultisigChars[0];
@@ -473,7 +483,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       }
 
       try{
-        add_derived(addrMultiNew, vPubKeys, &kycAddr, nMultisig);
+        add_multisig_whitelist(addrMultiNew, vPubKeys, &kycAddr, nMultisig);
       } catch (std::invalid_argument e){
         LogPrintf(std::string(e.what()) + "\n");
         return bSuccess;
@@ -482,13 +492,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       bSuccess = true;
     }
   }
-
   return bSuccess;
-  #else //#ifdef ENABLE_WALLET
-    LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
-      return false;
-  #endif //#ifdef ENABLE_WALLET
 }
+
 
 bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start, const std::vector<unsigned char>::const_iterator vend){
 
