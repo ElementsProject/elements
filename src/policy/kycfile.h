@@ -34,6 +34,9 @@ class CKYCFile{
 		std::vector<CPubKey> getAddressKeys() const {return _addressKeys;}
 		const CPubKey* getOnboardPubKey() const {return _onboardPubKey;}
 		const CPubKey* getOnboardUserPubKey() const {return _onboardUserPubKey;}
+
+		void parsePubkeyPair(const std::vector<std::string> vstr, const std::string line);
+		void parseMultisig(const std::vector<std::string> vstr, const std::string line);
 		
 		const std::stringstream& getStream() const {return _decryptedStream;}
 

@@ -140,98 +140,11 @@ bool CKYCFile::read(){
                     }
 
                     if (vstr.size() == 2){
-                        CBitcoinAddress address;
-                        if (!address.SetString(vstr[0])) {
-                            continue;
-                        }
-
-                        std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
-                        CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-                        if(!pubKey.IsFullyValid()){
-                            _decryptedStream << line << ": invalid public key\n";
-                            //throw
-                            // std::system_error(
-                            //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                            //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
-                           continue;
-                        }
-
-                        //Check the key tweaking
-                        CKeyID addressKeyId;
-                        if(address.GetKeyID(addressKeyId)){
-                            if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
-                                _decryptedStream << line << ": invalid key tweaking\n";
-                                continue;
-                            }
-                        }
-                        else{
-                            _decryptedStream << line << ": invalid keyid\n";
-                            continue;
-                        }
-
-
-                        //Addresses valid, write to map
-                        _addressKeys.push_back(pubKey);
-                        _decryptedStream << line << "\n";
+                        parsePubkeyPair(vstr,line);
                     }
                     //Current line is a multisig line if there are more than two elements
                     else{
-                        std::vector<unsigned char> tempMulti(vstr[0].begin(), vstr[0].end());
-                        uint8_t nMultisig = 0;
-
-                        if(tempMulti.size() > 0){
-                            nMultisig = (uint8_t)tempMulti[0];
-                        }
-                        else{
-                            _decryptedStream << line << ": invalid nmultisig\n";
-                            continue;
-                        }
-
-                        if(nMultisig < 1 || nMultisig > 255){
-                            _decryptedStream << line << ": invalid nmultisig size\n";
-                            continue;
-                        }
-                        
-                        CBitcoinAddress address;
-                        if (!address.SetString(vstr[1])) {
-                            continue;
-                        }
-
-                        bool shouldContinue = false;
-                        std::vector<CPubKey> pubKeys;
-                        for (unsigned int i = 2; i < vstr.size(); ++i){
-                            std::vector<unsigned char> pubKeyData(ParseHex(vstr[i]));
-                            CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-                            if(!pubKey.IsFullyValid()){
-                                _decryptedStream << line << ": invalid public key\n";
-                                shouldContinue = true;
-                                break;
-                            }
-                            pubKeys.push_back(pubKey);
-                        }
-
-                        if (shouldContinue == true)
-                            continue;
-
-                        //Check the key tweaking
-                        //Will throw an error if address is not a valid derived address.
-                        CTxDestination multiKeyId;
-                        multiKeyId = address.Get();
-                        if (!boost::get<CNoDestination>(&multiKeyId)){
-                            if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
-                                _decryptedStream << line << ": invalid key tweaking\n";
-                                continue;
-                            }
-                        }
-                        else{
-                            _decryptedStream << line << ": invalid keyid\n";
-                            continue;
-                        }
-
-
-                        //Multi Address is valid, write to map
-                        _multisigData.push_back(OnboardMultisig(nMultisig, multiKeyId, pubKeys));
-                        _decryptedStream << line << "\n";
+                        parseMultisig(vstr,line);
                     }
                 }
             }
@@ -245,7 +158,102 @@ bool CKYCFile::read(){
     return true;
 }
 
- bool CKYCFile::getOnboardingScript(CScript& script){
+void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::string line){
+    CBitcoinAddress address;
+    if (!address.SetString(vstr[0])) {
+        return;
+    }
+
+    std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
+    CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    if(!pubKey.IsFullyValid()){
+        _decryptedStream << line << ": invalid public key\n";
+        //throw
+        // std::system_error(
+        //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+        //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
+       return;
+    }
+
+    //Check the key tweaking
+    CKeyID addressKeyId;
+    if(address.GetKeyID(addressKeyId)){
+        if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
+            _decryptedStream << line << ": invalid key tweaking\n";
+            return;
+        }
+    }
+    else{
+        _decryptedStream << line << ": invalid keyid\n";
+        return;
+    }
+
+
+    //Addresses valid, write to map
+    _addressKeys.push_back(pubKey);
+    _decryptedStream << line << "\n";
+}
+
+void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::string line){
+    std::vector<unsigned char> tempMulti(vstr[0].begin(), vstr[0].end());
+    uint8_t nMultisig = 0;
+
+    if(tempMulti.size() > 0){
+        nMultisig = (uint8_t)tempMulti[0];
+    }
+    else{
+        _decryptedStream << line << ": invalid nmultisig\n";
+        return;
+    }
+
+    if(nMultisig < 1 || nMultisig > 255){
+        _decryptedStream << line << ": invalid nmultisig size\n";
+        return;
+    }
+    
+    CBitcoinAddress address;
+    if (!address.SetString(vstr[1])) {
+        return;
+    }
+
+    bool shouldReturn = false;
+    std::vector<CPubKey> pubKeys;
+    for (unsigned int i = 2; i < vstr.size(); ++i){
+        std::vector<unsigned char> pubKeyData(ParseHex(vstr[i]));
+        CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+        if(!pubKey.IsFullyValid()){
+            _decryptedStream << line << ": invalid public key\n";
+            shouldReturn = true;
+            break;
+        }
+        pubKeys.push_back(pubKey);
+    }
+
+    if (shouldReturn == true)
+        return;
+
+    //Check the key tweaking
+    //Will throw an error if address is not a valid derived address.
+    CTxDestination multiKeyId;
+    multiKeyId = address.Get();
+    if (!boost::get<CNoDestination>(&multiKeyId)){
+        if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
+            _decryptedStream << line << ": invalid key tweaking\n";
+            return;
+        }
+    }
+    else{
+        _decryptedStream << line << ": invalid keyid\n";
+        return;
+    }
+
+
+    //Multi Address is valid, write to map
+    _multisigData.push_back(OnboardMultisig(nMultisig, multiKeyId, pubKeys));
+    _decryptedStream << line << "\n";
+}
+
+bool CKYCFile::getOnboardingScript(CScript& script){
     COnboardingScript obScript;
 
     // Lookup the KYC public key assigned to the user from the whitelist
