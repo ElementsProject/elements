@@ -102,28 +102,7 @@ class OnboardTest (BitcoinTestFramework):
         os.remove("keys.main")
 
         #Register a KYC public key
-        policyaddr=self.nodes[0].getnewaddress()
-        assert(self.nodes[0].querywhitelist(policyaddr))
-        policypubkey=self.nodes[0].validateaddress(policyaddr)["pubkey"]
-        kycaddr=self.nodes[0].getnewaddress()
-        kycpubkey=self.nodes[0].validateaddress(kycaddr)["pubkey"]
-
-        inputs=[]
-        vin = {}
-        vin["txid"]= wltxid
-        vin["vout"]= 0
-        inputs.append(vin)
-        outputs = []
-        outp = {}
-        outp["pubkey"]=policypubkey
-        outp["value"]=wlvalue
-        outp["userkey"]=kycpubkey
-        outputs.append(outp)
-        wltx=self.nodes[0].createrawpolicytx(inputs, outputs, 0, wlasset)
-        wltx_signed=self.nodes[0].signrawtransaction(wltx)
-        assert(wltx_signed["complete"])
-        wltx_send = self.nodes[0].sendrawtransaction(wltx_signed["hex"])
-
+        self.nodes[0].topupkycpubkeys(100)
         self.nodes[0].generate(101)
         self.sync_all()
 
@@ -206,29 +185,13 @@ class OnboardTest (BitcoinTestFramework):
         assert_equal(nlines3-nlines2, 3*nadd)
 
 
-        #Blacklist node 1
-        wltx_decoded=self.nodes[1].decoderawtransaction(wltx)
-        wltx_send
-        wlvouts=wltx_decoded["vout"]
+        #Get kyc pubkey for node1 from node1 and node0
+        addr1=self.nodes[1].getnewaddress()
+        kycpub1=self.nodes[0].getkycpubkey(addr1)
+        assert_equal(kycpub1, self.nodes[1].getkycpubkey(addr1))
 
-        wlvout = list(filter(lambda x: x["scriptPubKey"]["type"] == "multisig", wlvouts))[0]
-        wlvoutn=wlvout["n"]
-        blvalue=wlvout["value"]
-
-        inputs=[]
-        vin = {}
-        vin["txid"]= wltx_send
-        vin["vout"]= wlvoutn
-        inputs.append(vin)
-        outputs = []
-        outp = {}
-        outp["pubkey"]=policypubkey
-        outp["value"]=blvalue
-        outputs.append(outp)
-        bltx=self.nodes[0].createrawpolicytx(inputs, outputs, 0, wlasset)
-        bltx_signed=self.nodes[0].signrawtransaction(bltx)
-        assert(bltx_signed["complete"])
-        bltx_send = self.nodes[0].sendrawtransaction(bltx_signed["hex"])
+        #Blacklist node1 wallet
+        self.nodes[0].blacklistkycpubkey(kycpub1)
 
         self.nodes[0].generate(101)
         self.sync_all()
@@ -241,6 +204,17 @@ class OnboardTest (BitcoinTestFramework):
         nlines_bl=self.linecount(wl1_bl_file)
 
         assert_equal(nlines-nlines_bl,nwhitelisted)
+
+        #Re-whitelist node1 wallet
+        self.nodes[0].whitelistkycpubkeys([kycpub1])
+
+        self.nodes[0].generate(101)
+        self.sync_all()
+
+        wl1file_rwl="wl1_rwl.dat"
+        self.nodes[1].dumpwhitelist(wl1file_rwl)
+        nlines_rwl=self.linecount(wl1file_rwl)
+        assert_equal(nlines_rwl, nlines)
 
         os.remove(wl1file)
         os.remove(wl1file_2)
