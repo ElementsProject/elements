@@ -59,6 +59,8 @@ class CKYCFile{
     	// The user address keys to be whitelisted
     	std::vector<CPubKey> _addressKeys; 
 
+    	std::vector<OnboardMultisig> _multisigData;
+
     	std::stringstream _decryptedStream;
 
     	std::string _filename;

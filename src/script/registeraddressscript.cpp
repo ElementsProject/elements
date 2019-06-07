@@ -73,13 +73,14 @@ bool CRegisterAddressScript::Append(const std::vector<CPubKey>& keys){
         return false;
 
     for(CPubKey pubKey : keys){
-      Append(pubKey);
+        if (!Append(pubKey))
+            return false;
     }
     return true;
 }
 
 bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys){
-    if(whitelistType != RA_MULTISIG)
+    if(whitelistType != RA_MULTISIG && whitelistType != RA_ONBOARDING)
         return false;
 
     if (!(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
@@ -104,6 +105,17 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
         _payload.insert(_payload.end(), 
                 vPubKeyNew.begin(), 
                 vPubKeyNew.end());
+    }
+    return true;
+}
+
+bool CRegisterAddressScript::Append(const std::vector<OnboardMultisig>& _data){
+    if(whitelistType != RA_MULTISIG && whitelistType != RA_ONBOARDING)
+        return false;
+
+    for(OnboardMultisig _multi : _data){
+        if (!Append(_multi.nMultisig, _multi.scriptID, _multi.pubKeys))
+            return false;
     }
     return true;
 }

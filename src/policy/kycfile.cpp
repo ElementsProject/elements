@@ -49,8 +49,7 @@ bool CKYCFile::read(){
 
     std::stringstream ss;
     ss.str("");
-    unsigned long nBytesToRead=0;
-    std::string encryptedData("");
+    unsigned long nBytesTotal=0;
     std::string data("");
 
     clear();
@@ -63,7 +62,7 @@ bool CKYCFile::read(){
         //Skip the header, footer
         std::string line;
         std::getline(_file, line);
-        if(ss.str().size() >= nBytesToRead){
+        if(ss.str().size() >= nBytesTotal){
            if (line.empty() || line[0] == '#'){
                 _decryptedStream << line << "\n";
                 continue;
@@ -75,7 +74,7 @@ bool CKYCFile::read(){
             _decryptedStream << line << "\n";
             std::vector<std::string> vstr;
             boost::split(vstr, line, boost::is_any_of(" "));
-            if (vstr.size() != 3)
+            if (vstr.size() < 3 || vstr.size() > 4)
                 throw std::system_error(
                     std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
                     std::string(std::string(__func__) +  ": invalid KYC file"));
@@ -102,19 +101,20 @@ bool CKYCFile::read(){
 
             std::stringstream ssNBytes;
             ssNBytes << vstr[2];
-            ssNBytes >> nBytesToRead;
+            ssNBytes >> nBytesTotal;
+
             continue;
         }
 
         //Read in encrypted data, decrypt and output to file
         ss << line;        
         unsigned long size = ss.str().size();
-        if(size > nBytesToRead){
+        if(size > nBytesTotal){
             throw std::system_error(
             std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
             std::string(std::string(__func__) +  ": invalid KYC file: encrypted data stream too long"));
         }
-        if(size == nBytesToRead){
+        if(size == nBytesTotal){
             if(data.size()==0){
                 std::string str=ss.str();
                 std::vector<unsigned char> vch(str.begin(), str.end());
@@ -124,7 +124,7 @@ bool CKYCFile::read(){
                         std::error_code(CKYCFile::Errc::ENCRYPTION_ERROR, std::system_category()),
                         std::string(std::string(__func__) +  ": KYC file decryption failed"));
         
-                std::string data(vdata.begin(), vdata.end());
+                data = std::string(vdata.begin(), vdata.end());
                 std::stringstream ss_data;
                 ss_data << data;
                 //Get the addresses
@@ -135,46 +135,109 @@ bool CKYCFile::read(){
                         continue;
                     }
                     boost::split(vstr, line, boost::is_any_of(" "));
-                    if (vstr.size() != 2){
+                    if (vstr.size() < 2){
                         continue;
                     }
 
-                    CBitcoinAddress address;
-                    if (!address.SetString(vstr[0])) {
-                        continue;
-                    }
-
-                    std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
-                    CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-                    if(!pubKey.IsFullyValid()){
-                        _decryptedStream << line << ": invalid public key\n";
-                        //throw
-                        // std::system_error(
-                        //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-                        //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
-                       continue;
-                    }
-
-                    //Check the key tweaking
-                    CKeyID addressKeyId;
-                    if(address.GetKeyID(addressKeyId)){
-                        if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
-                            _decryptedStream << line << ": invalid key tweaking\n";
+                    if (vstr.size() == 2){
+                        CBitcoinAddress address;
+                        if (!address.SetString(vstr[0])) {
                             continue;
-                        }else{
-                            _decryptedStream << line << ": invalid keyid\n";
                         }
+
+                        std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
+                        CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+                        if(!pubKey.IsFullyValid()){
+                            _decryptedStream << line << ": invalid public key\n";
+                            //throw
+                            // std::system_error(
+                            //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+                            //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
+                           continue;
+                        }
+
+                        //Check the key tweaking
+                        CKeyID addressKeyId;
+                        if(address.GetKeyID(addressKeyId)){
+                            if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
+                                _decryptedStream << line << ": invalid key tweaking\n";
+                                continue;
+                            }
+                        }
+                        else{
+                            _decryptedStream << line << ": invalid keyid\n";
+                            continue;
+                        }
+
+
+                        //Addresses valid, write to map
+                        _addressKeys.push_back(pubKey);
+                        _decryptedStream << line << "\n";
                     }
+                    //Current line is a multisig line if there are more than two elements
+                    else{
+                        std::vector<unsigned char> tempMulti(vstr[0].begin(), vstr[0].end());
+                        uint8_t nMultisig = 0;
+
+                        if(tempMulti.size() > 0){
+                            nMultisig = (uint8_t)tempMulti[0];
+                        }
+                        else{
+                            _decryptedStream << line << ": invalid nmultisig\n";
+                            continue;
+                        }
+
+                        if(nMultisig < 1 || nMultisig > 255){
+                            _decryptedStream << line << ": invalid nmultisig size\n";
+                            continue;
+                        }
+                        
+                        CBitcoinAddress address;
+                        if (!address.SetString(vstr[1])) {
+                            continue;
+                        }
+
+                        bool shouldContinue = false;
+                        std::vector<CPubKey> pubKeys;
+                        for (unsigned int i = 2; i < vstr.size(); ++i){
+                            std::vector<unsigned char> pubKeyData(ParseHex(vstr[i]));
+                            CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+                            if(!pubKey.IsFullyValid()){
+                                _decryptedStream << line << ": invalid public key\n";
+                                shouldContinue = true;
+                                break;
+                            }
+                            pubKeys.push_back(pubKey);
+                        }
+
+                        if (shouldContinue == true)
+                            continue;
+
+                        //Check the key tweaking
+                        //Will throw an error if address is not a valid derived address.
+                        CTxDestination multiKeyId;
+                        multiKeyId = address.Get();
+                        if (!boost::get<CNoDestination>(&multiKeyId)){
+                            if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
+                                _decryptedStream << line << ": invalid key tweaking\n";
+                                continue;
+                            }
+                        }
+                        else{
+                            _decryptedStream << line << ": invalid keyid\n";
+                            continue;
+                        }
 
 
-                    //Addresses valid, write to map
-                    _addressKeys.push_back(pubKey);
-                    _decryptedStream << line << "\n";
+                        //Multi Address is valid, write to map
+                        _multisigData.push_back(OnboardMultisig(nMultisig, multiKeyId, pubKeys));
+                        _decryptedStream << line << "\n";
+                    }
                 }
             }
         }
     }
-    if(ss.str().size() < nBytesToRead){
+    if(ss.str().size() < nBytesTotal){
          throw std::system_error(
                         std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
                         std::string(std::string(__func__) +  ": invalid KYC file: encrypted data stream too short"));
@@ -207,8 +270,12 @@ bool CKYCFile::read(){
         std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
         std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
     }
+    if(_addressKeys.size() != 0)
+        if(!obScript.Append(_addressKeys)) return false;
 
-    if(!obScript.Append(_addressKeys)) return false;
+    if(_multisigData.size() != 0)
+        if(!obScript.Append(_multisigData)) return false;
+
     if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;
     return true;
 }

@@ -11,6 +11,17 @@
 
 using ucvec=std::vector<unsigned char>;
 
+struct OnboardMultisig {
+    uint8_t nMultisig;
+    CTxDestination scriptID;
+    std::vector<CPubKey> pubKeys;
+    OnboardMultisig(uint8_t _nMultisig, CTxDestination _scriptID, std::vector<CPubKey> _pubKeys){
+    	nMultisig = _nMultisig;
+    	scriptID = _scriptID;
+    	pubKeys = _pubKeys;
+    }
+};
+
 enum RegisterAddressType { RA_PUBLICKEY, RA_MULTISIG, RA_ONBOARDING };
 
 class CRegisterAddressScript {
@@ -25,6 +36,7 @@ public:
 	bool Append(const CPubKey& key);
 	bool Append(const std::vector<CPubKey>& keys);
 	bool Append(const uint8_t nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys);
+	bool Append(const std::vector<OnboardMultisig>& _data);
 	std::size_t getPayloadSize() { return _payload.size(); }
 
 	virtual void clear(){_payload.clear(); _encrypted.clear(); ((CScript*)this)->clear();}
