@@ -187,6 +187,7 @@ class FedPegTest(BitcoinTestFramework):
         assert_equal(sidechain.decodescript(addrs["claim_script"])["type"], "witness_v0_keyhash")
         txid1 = parent.sendtoaddress(addr, 24)
         # 10+2 confirms required to get into mempool and confirm
+        assert_equal(sidechain.getsidechaininfo()["pegin_confirmation_depth"], 10)
         parent.generate(1)
         time.sleep(2)
         proof = parent.gettxoutproof([txid1])
