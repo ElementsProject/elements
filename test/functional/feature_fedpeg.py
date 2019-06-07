@@ -417,7 +417,7 @@ class FedPegTest(BitcoinTestFramework):
         proof = parent.gettxoutproof([txid])
         raw = parent.gettransaction(txid)["hex"]
         sidechain.claimpegin(raw, proof) # stuck peg
-        sidechain.generate(1)
+        sidechain.generatetoaddress(10, sidechain.getnewaddress())
         print("Waiting to ensure block is being rejected by sidechain2")
         time.sleep(5)
 
@@ -426,6 +426,16 @@ class FedPegTest(BitcoinTestFramework):
         print("Restarting parent2")
         self.start_node(1)
         connect_nodes_bi(self.nodes, 0, 1)
+
+        # We need to make more blockheaders to cause the faulty node to know the peer has a now-valid header chain
+        # TODO make this more robust via better test, or somehow improve p2p behavior
+        attempts_to_prod_node = 10
+        while sidechain.getblockcount() != sidechain2.getblockcount():
+            print("Failing to sync, trying again: " +str(sidechain.getblockcount()) +" vs "+str(sidechain2.getblockcount()))
+            sidechain.generate(1)
+            time.sleep(5)
+            assert attempts_to_prod_node != 0
+            attempts_to_prod_node -= 1
 
         # Don't make a block, race condition when pegin-invalid block
         # is awaiting further validation, nodes reject subsequent blocks
