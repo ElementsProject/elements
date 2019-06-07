@@ -17,6 +17,7 @@
 #include "core_io.h"
 #include "ecies.h"
 #include "policy/kycfile.h"
+#include "policy/policy.h"
 #include <fstream>
 #include <stdint.h>
 
@@ -720,6 +721,217 @@ UniValue getderivedkeys(const JSONRPCRequest& request)
     return ret;
 }
 
+UniValue createkycfile(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
+        throw runtime_error(
+            "createkycfile \"filename\" \"pubkeylist\" \"multisiglist\"\n"
+            "\nDumps all wallet tweaked public keys in an encrypted format (p2sh multisig not supported).\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The filename\n"
+            "2. \"pubkeylist\"        (array, required) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"address\":\"string\",    (string, required) The tweaked bitcoin address\n"
+            "         \"pubkey\":\"string\",         (string, required) The untweaked pubkey that the address was generated with\n"
+            "       } \n"
+            "       ,...\n"
+            "     ]\n"
+            "3. \"multisiglist\"      (array, required) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"nmultisig\":n,      (numeric, required) The number of required signatures in a multisig (n of M)\n"
+            "         \"pubkeys\"   (array, required) A json array of untweaked pubkeys in the correct order\n"
+            "           [\n"
+            "               \"pubkey\",            (string) One of the pubkeys that are used to whitelist a tweaked multisig address\n"
+            "               ,...\n"
+            "           ]\n"
+            "       } \n"
+            "       ,...\n"
+            "     ]\n"
+            "4. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption.\n"
+            "return:\n"
+            "User onboard public key."
+            "\nExamples:\n"
+            + HelpExampleCli("createkycfile", "\"test\" \"[{\\\"keyid\\\":\\\"Zzad77as76vc76v\\\",\\\"pubkey\\\":3uh7fa7Hgh7f7afabbfbnaha}]\" \"[{\\\"nmultisig\\\":\\\"1\\\",\\\"pubkeys\\\":[\\\"3uh7fa7Hgh7f7afabbfbnaha\\\", \\\"2uh7fa7Hgh7f7afabbfbnaha\\\"]}]\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("createkycfile", "\"test\" \"[{\\\"keyid\\\":\\\"Zzad77as76vc76v\\\",\\\"pubkey\\\":3uh7fa7Hgh7f7afabbfbnaha}]\" \"[{\\\"nmultisig\\\":\\\"1\\\",\\\"pubkeys\\\":[\\\"3uh7fa7Hgh7f7afabbfbnaha\\\", \\\"2uh7fa7Hgh7f7afabbfbnaha\\\"]}]\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CPubKey onboardPubKey;
+    if (request.params.size() == 4){
+        std::string sOnboardPubKey = request.params[3].get_str();
+        std::vector<unsigned char> pubKeyData(ParseHex(sOnboardPubKey));
+        onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    } else {
+        // Use one of the unassigned KYC public keys
+        if(!addressWhitelist.peek_unassigned_kyc(onboardPubKey))
+             throw JSONRPCError(RPC_INVALID_PARAMETER, "No unassigned KYC public keys available.");
+    }
+    pwalletMain->SetOnboardPubKey(onboardPubKey);
+
+
+    std::ofstream file;
+    file.open(request.params[0].get_str().c_str());
+    if (!file.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+
+    //std::set<CKeyID> setKeyPool;
+    //pwalletMain->GetAllReserveKeys(setKeyPool);
+
+    if (request.params[1].isNull() && request.params[2].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, arguments 2 and 3 can't both be null");
+
+    UniValue pubKeyList = request.params[1].get_array();
+    UniValue multisigList = request.params[2].get_array();
+
+    // produce output
+    file << strprintf("# Created KYC file made by Bitcoin %s\n", CLIENT_BUILD);
+    file << strprintf("# * Created on %s\n", EncodeDumpTime(GetTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", EncodeDumpTime(chainActive.Tip()->GetBlockTime()));
+    file << "\n";
+
+    // add the onboarding public key 
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
+    CKey onboardUserKey; 
+    pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
+    std::stringstream ss;
+
+    //Padding
+    ss.str("00000000000000000000000000000000");
+
+    // add the tweaked bitcoin address and untweaked pubkey hex to a stringstream
+    for(unsigned int i = 0; i < pubKeyList.size(); ++i) {
+        UniValue pubkeyObj = pubKeyList[i];
+
+        if (!pubkeyObj.exists("address") || !pubkeyObj.exists("pubkey"))
+            continue;
+
+        std::string addrStr = pubkeyObj["address"].getValStr();
+        std::string pubkeyStr = pubkeyObj["pubkey"].getValStr();
+
+        CBitcoinAddress addrNew;
+        if(!addrNew.SetString(addrStr))
+            continue;
+
+        std::vector<unsigned char> pubKeyData(ParseHex(pubkeyStr.c_str()));
+        CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+
+        if(!pubKey.IsFullyValid())
+            continue;
+
+        ss << strprintf("%s %s\n",
+                addrStr,
+                HexStr(pubKey.begin(), pubKey.end()));
+    }
+    
+    // add the base58check encoded tweaked script id, untweaked pubkey hex list and n of Multisig to a stringstream
+    for(unsigned int i = 0; i < multisigList.size(); ++i) {
+        UniValue multiObj = multisigList[i];
+
+        if (!multiObj.exists("nmultisig") || !multiObj.exists("pubkeys"))
+            continue;
+
+        UniValue const &nMultiObj = find_value(multiObj, "nmultisig");
+        if (!nMultiObj.isNum())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+        int nMultisig = nMultiObj.get_int();
+
+        if (nMultisig > MAX_P2SH_SIGOPS || nMultisig == 0)
+            continue;
+
+        UniValue pubkeyArr = multiObj["pubkeys"].get_array();
+
+        bool shouldContinue = false;
+        std::vector<CPubKey> pubKeyVec;
+        for (unsigned int j = 0; j < pubkeyArr.size(); ++j){
+            std::string parseStr = pubkeyArr[j].get_str();
+            std::vector<unsigned char> pubKeyData(ParseHex(parseStr.c_str()));
+            CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+            if(!pubKey.IsFullyValid()){
+                shouldContinue = true;
+                break;
+            }
+            pubKeyVec.push_back(pubKey);
+        }
+
+        if(shouldContinue)
+            continue;
+
+        std::vector<CPubKey> tweakedPubKeys = pubKeyVec;
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+
+        if (!contract.IsNull()){
+            for (unsigned int it = 0; it < tweakedPubKeys.size(); ++it){
+                tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
+            }
+        }
+
+        CScript inner = GetScriptForMultisig(nMultisig, tweakedPubKeys);
+        CScriptID innerID(inner);
+        CBitcoinAddress address(innerID);
+
+        //Will skip if address is not a valid tweaked address.
+        CTxDestination multiKeyId;
+        multiKeyId = address.Get();
+        if (boost::get<CNoDestination>(&multiKeyId))
+            continue;
+
+        ss << strprintf("%d %s",
+                nMultisig,
+                address.ToString());
+
+        for (unsigned int j = 0; j < pubKeyVec.size(); ++j){
+            ss << strprintf(" %s",
+                HexStr(pubKeyVec[j].begin(), pubKeyVec[j].end()));
+            if (j+1 == pubKeyVec.size())
+                ss << "\n";
+        }
+    }    
+
+    //Encrypt the above string
+    CECIES encryptor;
+    
+    std::string encrypted;
+    //Remove new line character from end of string
+
+    std::string sRaw=ss.str();
+    std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
+    std::vector<unsigned char> vEnc;
+
+    if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Encryption failed.");
+    
+
+    std::string sEnc(vEnc.begin(), vEnc.end());
+
+    //Append the initialization vector and encrypted keys
+    std::string sOnboardUserPubKey = HexStr(onboardUserPubKey.begin(), onboardUserPubKey.end());
+    file << strprintf("%s %s %d\n", HexStr(onboardPubKey.begin(), onboardPubKey.end()), 
+        sOnboardUserPubKey, sEnc.size());
+
+    file << sEnc << "\n";
+    file << "# End of dump\n";
+    file.close();
+
+    if(request.params.size() == 4){
+        AuditLogPrintf("%s : createkycfile %s %s\n", getUser(), request.params[0].get_str(), request.params[3].get_str());
+    } else {
+        AuditLogPrintf("%s : createkycfile %s\n", getUser(), request.params[0].get_str());
+    }
+
+    UniValue result = sOnboardUserPubKey;
+    return result;
+}
+
 UniValue dumpkycfile(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -728,7 +940,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw runtime_error(
             "dumpkycfile \"filename\"\n"
-            "\nDumps all wallet tweaked public keys in an encrypted format.\n"
+            "\nDumps all wallet tweaked public keys in an encrypted format (p2sh multisig not supported).\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The filename\n"
             "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption.\n"

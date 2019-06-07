@@ -4,6 +4,7 @@
 
 #include "kycfile.h"
 #include <boost/algorithm/string.hpp>
+#include "policy/policy.h"
 
 CKYCFile::CKYCFile(){
 
@@ -195,18 +196,14 @@ void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::s
 }
 
 void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::string line){
-    std::vector<unsigned char> tempMulti(vstr[0].begin(), vstr[0].end());
-    uint8_t nMultisig = 0;
-
-    if(tempMulti.size() > 0){
-        nMultisig = (uint8_t)tempMulti[0];
-    }
-    else{
+    if(vstr[0].length() == 0){
         _decryptedStream << line << ": invalid nmultisig\n";
-        return;
+        return
     }
 
-    if(nMultisig < 1 || nMultisig > 255){
+    uint8_t nMultisig = std::stoi(vstr[0]);
+
+    if(nMultisig < 1 || nMultisig > MAX_P2SH_SIGOPS){
         _decryptedStream << line << ": invalid nmultisig size\n";
         return;
     }

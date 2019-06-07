@@ -885,50 +885,6 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     return wtx.GetHash().GetHex();
 }
 
-UniValue addmultisigtowallet(const JSONRPCRequest& request){
-    if (!EnsureWalletIsAvailable(request.fHelp))
-        return NullUniValue;
-
-    if (request.fHelp || request.params.size() != 3) {
-        throw runtime_error(
-            "addmultisigtowallet \"tweakedaddress\" \"basepubkeys\" \"nmultisig\"\n"
-            "\nRegister the passed p2sh multisig address using \"add to whitelist\" transaction.\n"
-            + HelpRequiringPassphrase() +
-            "\nArguments:\n"
-            "1. \"tweakedaddress\"  (string, required) Base58 tweaked multisig address\n"
-            "2. \"basepubkeys\"     (array, required) A json array of ordered hex encoded of the compressed base (un-tweaked) public keys that were used in the multisig\n\n"
-            "    [\n"
-            "      \"basepubkey\", (string, required) Hex encoded of the compressed base (un-tweaked) public key that was used in the multisig\n\n"
-            "      ,...\n"
-            "    ]\n"
-            "3. \"nmultisig\"     (numeric, required) Number of required signatures for a multisig transaction (n of M)\n"
-            "\nResult:\n"
-            "\"txid\"                  (string) The transaction id.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("addmultisigtowallet", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1")
-        );
-    }
-
-    if (request.params[1].isNull())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, argument 2 must be non-null");
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    EnsureWalletIsUnlocked();
-
-    CBitcoinAddress address(request.params[0].get_str());
-    if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
-
-    int nMultisig = request.params[2].get_int();
-
-    if (nMultisig > 255)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be larger than 255 (1 byte)");
-
-    //SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), (uint8_t)nMultisig, wtx);
-
-    return NullUniValue;
-}
-
 UniValue sendtoaddress(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -4822,6 +4778,7 @@ extern UniValue importpubkey(const JSONRPCRequest& request);
 extern UniValue dumpwallet(const JSONRPCRequest& request);
 extern UniValue dumpderivedkeys(const JSONRPCRequest& request);
 extern UniValue dumpkycfile(const JSONRPCRequest& request);
+extern UniValue createkycfile(const JSONRPCRequest& request);
 extern UniValue readkycfile(const JSONRPCRequest& request);
 extern UniValue getderivedkeys(const JSONRPCRequest& request);
 extern UniValue validatederivedkeys(const JSONRPCRequest& request);
@@ -4843,6 +4800,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "addmultisigaddress",       &addmultisigaddress,       true,   {"nrequired","keys","account"} },
     { "wallet",             "addwitnessaddress",        &addwitnessaddress,        true,   {"address"} },
     { "wallet",             "backupwallet",             &backupwallet,             true,   {"destination"} },
+    { "wallet",             "createkycfile",            &createkycfile,            true,   {"filename","pubkeylist","multisiglist"} },
     { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true,   {} },
     { "wallet",             "dumpassetlabels",          &dumpassetlabels,          true,   {} },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true,   {"address"}  },
