@@ -1762,7 +1762,7 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
     unsigned int nparams=request.params.size();
     if (request.fHelp || nparams < 3 || nparams > 4)
         throw runtime_error(
-            "addmultitowhitelist \"tweakedaddress\" \"basepubkeys\" \"nmultisig\" \"kycpubkey\"\n"
+            "addmultitowhitelist \"tweakedaddress\" \"basepubkeys\" \"nmultisig\" \"kycaddress\"\n"
             "\nAttempts to add an address (tweaked multisig address) to the node mempool whitelist.\n"
             "The address is checked that it has been tweaked with the contract hash for every pubkey.\n"
             "\nArguments:\n"

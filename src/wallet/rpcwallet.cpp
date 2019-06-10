@@ -794,7 +794,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
 
         if (request.fHelp || request.params.size() <1 || request.params.size() >2 ) {
         throw runtime_error(
-            "sendaddtowhitelisttx \n"
+            "sendaddtowhitelisttx \"naddresses\"\n"
             "\nRegister the next unwhitelisted address in the keypool via a \"add to whitelist\" transaction.\n"
             + HelpRequiringPassphrase() +
             "\nArguments:\n"
