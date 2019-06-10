@@ -1775,8 +1775,8 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
             "3. \"nmultisig\"     (numeric, required) Number of required signatures for a multisig transaction (n of M)\n"
             "4. \"kycaddress\"    (string, optional) Base58 KYC address\n"
             "\nExamples:\n"
-            + HelpExampleCli("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
-            + HelpExampleRpc("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleCli("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"038f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\",\\\"028f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleRpc("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"038f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\",\\\"028f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
                         );
 #ifdef ENABLE_WALLET
     if (request.params[1].isNull())

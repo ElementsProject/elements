@@ -729,7 +729,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 3 || request.params.size() > 4)
         throw runtime_error(
             "createkycfile \"filename\" \"pubkeylist\" \"multisiglist\"\n"
-            "\nDumps all wallet tweaked public keys in an encrypted format (p2sh multisig not supported).\n"
+            "\nDumps all tweaked public keys and multisig addresses that have been passed as parameters in an encrypted format.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The filename\n"
             "2. \"pubkeylist\"        (array, required) A json array of json objects\n"
