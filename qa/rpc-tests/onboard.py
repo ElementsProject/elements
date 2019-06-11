@@ -79,6 +79,11 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
+        # issue some new asset (that is not the policy asset)
+        issue = self.nodes[0].issueasset('100.0','0', False)
+        self.nodes[0].generate(101)
+        self.sync_all()
+
         #find txouts for the freezelistasset and burnlistasset
         issuescript = "76a914b87ed64e2613422571747f5d968fff29a466e24e88ac"
         pascript = "76a914b87ed64e2613422571747f5d968fff29a466e24e88ac"
