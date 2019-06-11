@@ -500,9 +500,7 @@ bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_
     }
   }
 
-  uint8_t nMultisig = 0;
-  std::vector<unsigned char> nMultisigChars(point1,point2);
-  nMultisig = (uint8_t)nMultisigChars[0];
+  uint8_t nMultisig = (uint8_t)*start;
 
   if(nMultisig > MAX_P2SH_SIGOPS || nMultisig == 0)
     return false;
