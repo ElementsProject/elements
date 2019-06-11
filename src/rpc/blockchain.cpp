@@ -1791,8 +1791,9 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
     } catch(std::invalid_argument e){
          throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());
     }
+#else
+    throw JSONRPCError(RPC_WALLET_ERROR, "Wallet is not enabled! Whitelisting unsuccessful.");
 #endif //#ifdef ENABLE_WALLET
-
     return NullUniValue;
 }
 
