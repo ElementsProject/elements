@@ -629,7 +629,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
-    EnsureWalletIsUnlocked();
 
     // Check the balance of the "from" address
     map<CTxDestination, CAmount> balances = pwalletMain->GetAddressBalances();
@@ -723,11 +722,11 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
 
     //Create the script using the selected input address to encrypt it
-    CKey privKey;
-    // "From" address
-
     CKeyID fromKeyID;
     CKey key;
+
+    EnsureWalletIsUnlocked();
+
 
     for(auto coin : setCoins) {
         const CWalletTx* pcoin = coin.first;
@@ -862,6 +861,7 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
             )
         );
 
+
     // Sign it
     JSONRPCRequest request3;
     UniValue varr2(UniValue::VARR);
@@ -901,10 +901,6 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
             );
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    EnsureWalletIsUnlocked();
-
-   
 
     //Get a suitable whitelist transaction input.
     CTxIn* adminIn = nullptr;
@@ -1039,6 +1035,8 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
             )
         );
 
+    EnsureWalletIsUnlocked();
+
     // Sign it
     JSONRPCRequest request2;
     UniValue varr(UniValue::VARR);
@@ -1052,7 +1050,6 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     varr.push_back(result["hex"]);
     request3.params = varr;
     return sendrawtransaction(request3);
-
 }
 
 UniValue topupkycpubkeys(const JSONRPCRequest& request){
@@ -1075,31 +1072,31 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    EnsureWalletIsUnlocked();
-
-
-    if (!pwalletMain->IsLocked())
-            pwalletMain->TopUpKeyPool();
-
 
     int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.get_n_unassigned_kyc_pubkeys();
 
     UniValue kycpubkeys(UniValue::VARR);
-
-    for(int i=0; i<nKeysToAdd; i++){
-        CPubKey newKYCPubKey;
-        if (!pwalletMain->GetKeyFromPool(newKYCPubKey))
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         
-        std::vector<unsigned char> datavec = ToByteVector(newKYCPubKey);
+    for(int i=0; i<nKeysToAdd; i++){
+        CReserveKey kycKey(pwalletMain);
+        CPubKey kycPubKey;
+        if (!pwalletMain->IsLocked())
+            pwalletMain->TopUpKeyPool();
+        if (!kycKey.GetReservedKey(kycPubKey))
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+
+        std::vector<unsigned char> datavec = ToByteVector(kycPubKey);
         kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
     }
+
+    return 0;
 
     UniValue varr(UniValue::VARR);
     varr.push_back(kycpubkeys);
 
     JSONRPCRequest request2;
     request2.params = varr;
+    
     return whitelistkycpubkeys(request2);
 }
 
