@@ -85,8 +85,6 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
 
     if (!(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
         return false;
-
-    CScriptID scriptKey = boost::get<CScriptID>(keyID);
     
     unsigned char strNMultisig = (unsigned char)nMultisig;
     std::vector<unsigned char> vnMultisigNew;
@@ -95,16 +93,14 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
                     vnMultisigNew.begin(), 
                     vnMultisigNew.end());
 
-    std::vector<unsigned char> vKeyIDNew = ToByteVector(scriptKey);
     _payload.insert(_payload.end(), 
-                    vKeyIDNew.begin(), 
-                    vKeyIDNew.end());
+                    boost::get<CScriptID>(keyID).begin(), 
+                    boost::get<CScriptID>(keyID).end());
 
     for(int i = 0; i < keys.size(); ++i){
-        std::vector<unsigned char> vPubKeyNew = ToByteVector(keys[i]);
         _payload.insert(_payload.end(), 
-                vPubKeyNew.begin(), 
-                vPubKeyNew.end());
+                keys[i].begin(), 
+                keys[i].end());
     }
     return true;
 }

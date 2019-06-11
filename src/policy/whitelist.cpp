@@ -80,7 +80,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubK
 }
 
 void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pubKey, 
-  const CBitcoinAddress* kycAddress){
+  const std::unique_ptr<CBitcoinAddress>& kycAddress){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if (!pubKey.IsFullyValid()) 
     throw std::invalid_argument(std::string(std::string(__func__) + 
@@ -133,17 +133,15 @@ void CWhiteList::add_derived(const std::string& sAddress, const std::string& sPu
   std::vector<unsigned char> pubKeyData(ParseHex(sPubKey));
   CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
 
-  CBitcoinAddress* kycAddress;
+  std::unique_ptr<CBitcoinAddress> kycAddress(new CBitcoinAddress());
   if(sKYCAddress.size() == 0) {
     kycAddress = nullptr;
   } else {
-    kycAddress = new CBitcoinAddress();
      if (!kycAddress->SetString(sKYCAddress))
      throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid Bitcoin address (kyc key): ") + sKYCAddress);
   }
   add_derived(address, pubKey, kycAddress);
-  delete kycAddress;
 }
 
 void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, const uint8_t nMultisig){
@@ -152,7 +150,7 @@ void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const st
 }
 
 void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
-  const CBitcoinAddress* kycAddress, const uint8_t nMultisig){
+  const std::unique_ptr<CBitcoinAddress>& kycAddress, const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 
   for(int i = 0; i < pubKeys.size(); ++i) {
@@ -208,17 +206,15 @@ void CWhiteList::add_multisig_whitelist(const std::string& sAddress, const UniVa
     pubKeyVec.push_back(pubKey);
   }
 
-  CBitcoinAddress* kycAddress;
+  std::unique_ptr<CBitcoinAddress> kycAddress(new CBitcoinAddress());
   if(sKYCAddress.size() == 0) {
     kycAddress = nullptr;
   } else {
-    kycAddress = new CBitcoinAddress();
     if (!kycAddress->SetString(sKYCAddress))
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid Bitcoin address (kyc key): ") + sKYCAddress);
   }
   add_multisig_whitelist(address, pubKeyVec, kycAddress, nMultisig);
-  delete kycAddress;
 }
 
 #ifdef ENABLE_WALLET
@@ -342,8 +338,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   it2=bytes.end();
   std::vector<unsigned char> encryptedData(it1, it2);
   //Get the private key that is paired with kycKey
-  CBitcoinAddress kycAddr(kycKey);
-  std::string sKYCAddr = kycAddr.ToString();
+  std::unique_ptr<CBitcoinAddress> kycAddr(new CBitcoinAddress(kycKey));
 
   // Get the KYC private key from the wallet.
   CKey decryptPrivKey;
@@ -370,7 +365,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 }
 
 
-bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const CBitcoinAddress& kycAddr){
+bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CBitcoinAddress>& kycAddr){
   //Interpret the data
   //First 20 bytes: keyID 
   std::vector<unsigned char>::const_iterator itData2 = data.begin();
@@ -411,9 +406,8 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
           }
           std::string addrStr=addrNew.ToString();
           if(!fEnd){
-            std::vector<unsigned char> pubKeyData(itData1, itData2);
+            CPubKey pubKeyNew = CPubKey(itData1,itData2);
             itData1=itData2;
-            CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
             if(!pubKeyNew.IsFullyValid())
             {
               itData1 = itStart;
@@ -423,7 +417,7 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
               break;
             }
             try{
-              add_derived(addrNew, pubKeyNew, &kycAddr);
+              add_derived(addrNew, pubKeyNew, kycAddr);
             } catch (std::invalid_argument e){
               LogPrintf(std::string(e.what()) + "\n");
               return bSuccess;
@@ -471,8 +465,7 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
         }
 
         if(!fEnd){
-          std::vector<unsigned char> pubKeyData(itData1, itData2);
-          CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+          CPubKey pubKeyNew = CPubKey(itData1,itData2);
           if(!pubKeyNew.IsFullyValid()){
             itData2=itData1;
             break;
@@ -483,7 +476,7 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
       }
 
       try{
-        add_multisig_whitelist(addrMultiNew, vPubKeys, &kycAddr, nMultisig);
+        add_multisig_whitelist(addrMultiNew, vPubKeys, kycAddr, nMultisig);
       } catch (std::invalid_argument e){
         LogPrintf(std::string(e.what()) + "\n");
         return bSuccess;
@@ -537,8 +530,7 @@ bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_
     }
   }
 
-  std::vector<unsigned char> pubKeyData(point1, point2);
-  CPubKey pubKeyNew = CPubKey(pubKeyData.begin(),pubKeyData.end());
+  CPubKey pubKeyNew = CPubKey(point1,point2);
   if(!pubKeyNew.IsFullyValid())
     return false;
 

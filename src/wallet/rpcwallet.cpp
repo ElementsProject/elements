@@ -700,7 +700,7 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
 
     CTxDestination keyid = address.Get();
     if (boost::get<CNoDestination>(&keyid))
-        throw std::invalid_argument(std::string(std::string(__func__) + 
+        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) + 
             ": invalid key id"));
 
     if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
@@ -713,7 +713,7 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
         CPubKey tpubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
 
         if (!tpubKey.IsFullyValid()) 
-            throw std::invalid_argument(std::string(std::string(__func__) + 
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) + 
                 ": invalid public key"));
 
         pubKeyVec.push_back(tpubKey);
@@ -854,8 +854,8 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
         );
     }
 
-    if (request.params[1].isNull())
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, argument 2 must be non-null");
+    if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, required arguments must be non-null");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
@@ -877,10 +877,6 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     CWalletTx wtx;
     CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
     SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), (uint8_t)nMultisig, wtx);
-
-
-    //AuditLogPrintf("%s : sendaddtowhitelisttx %s %s txid:%s\n", getUser(), request.params[0].get_str(),
-    //    request.params[1].get_str(), wtx.GetHash().GetHex());
 
     return wtx.GetHash().GetHex();
 }

@@ -169,10 +169,6 @@ void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::s
     CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
     if(!pubKey.IsFullyValid()){
         _decryptedStream << line << ": invalid public key\n";
-        //throw
-        // std::system_error(
-        //std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
-        //std::string(std::string(__func__) +  ": invalid pub key in KYC file"));
        return;
     }
 
@@ -213,21 +209,16 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
         return;
     }
 
-    bool shouldReturn = false;
     std::vector<CPubKey> pubKeys;
     for (unsigned int i = 2; i < vstr.size(); ++i){
         std::vector<unsigned char> pubKeyData(ParseHex(vstr[i]));
         CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
         if(!pubKey.IsFullyValid()){
             _decryptedStream << line << ": invalid public key\n";
-            shouldReturn = true;
-            break;
+            return;
         }
         pubKeys.push_back(pubKey);
     }
-
-    if (shouldReturn == true)
-        return;
 
     //Check the key tweaking
     //Will throw an error if address is not a valid derived address.

@@ -25,7 +25,7 @@ public:
 	bool Load(CCoinsView *view);
 
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
-		const CBitcoinAddress* kycAddress);
+		const std::unique_ptr<CBitcoinAddress>& kycAddress);
 
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
 
@@ -43,14 +43,14 @@ public:
 		const uint8_t nMultisig);
 
 	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
-  		const CBitcoinAddress* kycAddress, const uint8_t nMultisig);
+  		const std::unique_ptr<CBitcoinAddress>& kycAddress, const uint8_t nMultisig);
 
 	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
 		const uint8_t nMultisig);
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
-  	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const CBitcoinAddress& kycAddr);
+  	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CBitcoinAddress>& kycAddr);
 
   	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 

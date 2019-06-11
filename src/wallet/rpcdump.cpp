@@ -832,6 +832,8 @@ UniValue createkycfile(const JSONRPCRequest& request)
                 addrStr,
                 HexStr(pubKey.begin(), pubKey.end()));
     }
+
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
     
     // add the base58check encoded tweaked script id, untweaked pubkey hex list and n of Multisig to a stringstream
     for(unsigned int i = 0; i < multisigList.size(); ++i) {
@@ -867,7 +869,6 @@ UniValue createkycfile(const JSONRPCRequest& request)
             continue;
 
         std::vector<CPubKey> tweakedPubKeys = pubKeyVec;
-        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
         if (!contract.IsNull()){
             for (unsigned int it = 0; it < tweakedPubKeys.size(); ++it){
