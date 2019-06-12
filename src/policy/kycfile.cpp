@@ -182,7 +182,7 @@ bool CKYCFile::read(){
     return true;
 }
 
- bool CKYCFile::getOnboardingScript(CScript& script){
+bool CKYCFile::getOnboardingScript(CScript& script){
     COnboardingScript obScript;
 
     // Lookup the KYC public key assigned to the user from the whitelist

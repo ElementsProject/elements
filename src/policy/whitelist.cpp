@@ -47,7 +47,6 @@ bool CWhiteList::Load(CCoinsView *view)
                       CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
                       if (!kycPubKey.IsFullyValid()) {
                         LogPrintf("POLICY: not adding invalid KYC pub key to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                        return false;
                       }
 
                       CKeyID id=kycPubKey.GetID();
@@ -56,13 +55,12 @@ bool CWhiteList::Load(CCoinsView *view)
                         LogPrintf("POLICY: moved KYC pub key from blacklist to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
                         whitelist_kyc(id, &outPoint);
                       } else if(find_kyc_whitelisted(id)){
-                        return false;
+                        continue;
                       } else {
                         LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
                         whitelist_kyc(id, &outPoint);
                         add_unassigned_kyc(kycPubKey);
                       }
-                      return true;
                     }
                 }
               }
@@ -428,14 +426,12 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             
             if (!kycPubKey.IsFullyValid()) {
               LogPrintf("POLICY: not blacklisting invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              return false;
             }
 
             CKeyID id=kycPubKey.GetID();
             blacklist_kyc(id);
 
             LogPrintf("POLICY: moved KYC pubkey from whitelist to blacklist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-            return true;
         }
     }
 
@@ -459,7 +455,6 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
             if (!kycPubKey.IsFullyValid()) {
               LogPrintf("POLICY: not adding invalid KYC pub key to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              return false;
             }
 
             CKeyID id=kycPubKey.GetID();
@@ -468,17 +463,16 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
               COutPoint outPoint(tx.GetHash(), i);
               whitelist_kyc(id, &outPoint);
             } else if(find_kyc_whitelisted(id)){
-              return false;
+              continue;
             } else {
               LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
               COutPoint outPoint(tx.GetHash(), i);
               whitelist_kyc(id, &outPoint);
               add_unassigned_kyc(kycPubKey);
             }
-            return true;
         }
     }
-    return false;
+    return true;
 }
 
 
