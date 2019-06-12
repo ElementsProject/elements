@@ -904,7 +904,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     kycPubKeys = request.params[0].get_array();
     int maxNKeys=100;
     if(kycPubKeys.size() > maxNKeys)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: too many items in input array");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: too many keys in input array");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 

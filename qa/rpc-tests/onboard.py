@@ -161,8 +161,6 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
-        print(self.nodes[0].getwalletinfo())
-        print(self.nodes[1].getwalletinfo())
         bal1=self.nodes[1].getwalletinfo()["balance"]["CBT"]
 
         assert_equal(float(bal1),float(ntosend))
