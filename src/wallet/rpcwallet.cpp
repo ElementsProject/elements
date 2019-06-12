@@ -5778,6 +5778,20 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     for (size_t nIn = 0; nIn < tx.vin.size(); ++nIn) {
         COutPoint prevout = tx.vin[nIn].prevout;
 
+        // Special handling for pegin inputs: no blinds and explicit amount/asset.
+        if (tx.vin[nIn].m_is_pegin) {
+            std::string err;
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, prevout, err, false)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
+            }
+            CTxOut pegin_output = GetPeginOutputFromWitness(tx.witness.vtxinwit[nIn].m_pegin_witness);
+            input_blinds.push_back(uint256());
+            input_asset_blinds.push_back(uint256());
+            input_assets.push_back(pegin_output.nAsset.GetAsset());
+            input_amounts.push_back(pegin_output.nValue.GetAmount());
+            continue;
+        }
+
         std::map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.find(prevout.hash);
         if (it == pwallet->mapWallet.end() || pwallet->IsMine(tx.vin[nIn]) == ISMINE_NO) {
             // For inputs we don't own, input assetcommitments for the surjection must be supplied.
