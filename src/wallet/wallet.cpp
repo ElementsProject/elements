@@ -2711,6 +2711,11 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
         }
     }
 
+    // Mark all un-returned change keys as used to reduce privacy loss
+    for (auto& changekey : vChangeKey) {
+        changekey->KeepKey();
+    }
+
     return true;
 }
 
