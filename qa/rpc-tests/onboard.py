@@ -118,13 +118,19 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].readwhitelist("keys.main")
         os.remove("keys.main")
 
+        #No kycpubkeys available
+        kycfile="kycfile.dat"
+        try:
+            userOnboardPubKey=self.nodes[1].dumpkycfile(kycfile)
+        except JSONRPCException as e:
+            assert("No unassigned KYC public keys available" in e.error['message'])
+
         #Register a KYC public key
         self.nodes[0].topupkycpubkeys(100)
         self.nodes[0].generate(101)
         self.sync_all()
 
         #Onboard node1
-        kycfile="kycfile.dat"
         userOnboardPubKey=self.nodes[1].dumpkycfile(kycfile)
 
         self.nodes[0].generate(101)
@@ -235,6 +241,23 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[1].dumpwhitelist(wl1file_rwl)
         nlines_rwl=self.linecount(wl1file_rwl)
         assert_equal(nlines_rwl, nlines)
+
+        maxpercall=100
+        #Whitelist more kycpubkeys
+        while len(kycpubkeyarr) < maxpercall:
+            kycpubkeyarr.append(kycpub1)
+
+        self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
+        self.nodes[0].generate(101)
+        self.sync_all()
+
+        #Test limit of nkeys per call
+        kycpubkeyarr.append(kycpub1)
+
+        try:
+            self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
+        except JSONRPCException as e:
+            assert("too many keys in input array" in e.error['message'])
 
         os.remove(wl1file)
         os.remove(wl1file_2)

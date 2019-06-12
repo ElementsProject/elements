@@ -900,6 +900,12 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
             + HelpExampleRpc("whitelistkycpubkey", "[\"kycpubkey1\",\"kycpubkey2\"]")
             );
 
+    UniValue kycPubKeys(UniValue::VARR);
+    kycPubKeys = request.params[0].get_array();
+    int maxNKeys=100;
+    if(kycPubKeys.size() > maxNKeys)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: too many items in input array");
+
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     //Get a suitable whitelist transaction input.
@@ -984,10 +990,6 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     CAmount amountPerOutput=AmountFromValue(1);
 
     CPubKey kycPubKey;
-
-    UniValue kycPubKeys(UniValue::VARR);
-    
-    kycPubKeys = request.params[0].get_array();
 
     std::vector<CPubKey> pubkeys;
     pubkeys.resize(2);
