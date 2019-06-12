@@ -206,9 +206,14 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
         label = LabelFromValue(request.params[0]);
 
     OutputType output_type = pwallet->m_default_address_type;
+    bool force_blind = false;
     if (!request.params[1].isNull()) {
         if (!ParseOutputType(request.params[1].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[1].get_str()));
+        }
+        // Special case for "blech32" when `-blindedaddresses=0` in the config.
+        if (request.params[1].get_str() == "blech32") {
+            force_blind = true;
         }
     }
 
@@ -223,7 +228,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode)) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) || force_blind) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
     }
@@ -270,9 +275,14 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     }
 
     OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
+    bool force_blind = false;
     if (!request.params[0].isNull()) {
         if (!ParseOutputType(request.params[0].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[0].get_str()));
+        }
+        // Special case for "blech32" when `-blindedaddresses=0` in the config.
+        if (request.params[0].get_str() == "blech32") {
+            force_blind = true;
         }
     }
 
@@ -285,7 +295,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     pwallet->LearnRelatedScripts(vchPubKey, output_type);
     CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
-    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode)) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) || force_blind) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(vchPubKey, output_type, blinding_pubkey);
     }
