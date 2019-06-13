@@ -157,26 +157,28 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
         nSigOps += GetP2SHSigOpCount(tx, inputs) * WITNESS_SCALE_FACTOR;
     }
 
-    // N.B. Peg-in signatures are always counted against witness sigops,
-    // even if the prevout scriptpubkey isn't.
+    // Note that we only count segwit sigops for peg-in inputs
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        CTxOut prevout;
+        CScript scriptPubKey;
         if (tx.vin[i].m_is_pegin) {
             std::string err;
-            // Make sure witness exists and is properly formatted
-            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err, false)) {
+            // Make sure witness exists and has enough peg-in witness fields for
+            // the claim_script
+            if (tx.witness.vtxinwit.size() != tx.vin.size() ||
+                    tx.witness.vtxinwit[i].m_pegin_witness.stack.size() < 4) {
                 continue;
             }
-            prevout = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
+            const auto pegin_witness = tx.witness.vtxinwit[i].m_pegin_witness;
+            scriptPubKey = CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
         } else {
             const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
             assert(!coin.IsSpent());
-            prevout = coin.out;
+            scriptPubKey = coin.out.scriptPubKey;
         }
 
         const CScriptWitness* pScriptWitness = tx.witness.vtxinwit.size() > i ? &tx.witness.vtxinwit[i].scriptWitness : NULL;
-        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, pScriptWitness, flags);
+        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, scriptPubKey, pScriptWitness, flags);
     }
     return nSigOps;
 }
