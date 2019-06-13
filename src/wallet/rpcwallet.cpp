@@ -987,6 +987,11 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
     CAsset wl_asset=Params().GetConsensus().whitelist_asset;
 
+    CAmount amountPerOutput=AmountFromValue(1);
+    CAmount spendAmount=amountPerOutput*kycPubKeys.size();
+    CAmount changeAmount = AmountFromValue(0);
+
+
     vector<COutput> vecOutputs;
     pwalletMain->AvailableCoins(vecOutputs, true, NULL, true);
     BOOST_FOREACH(const COutput& out, vecOutputs) {
@@ -1030,23 +1035,23 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
             //Get nsequence
             uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
             adminIn = new CTxIn(COutPoint(out.tx->GetHash(), out.i), CScript(), nSequence);
+            rawTx.vin.push_back(*adminIn);
+            changeAmount=changeAmount+adminValue;
             //Generate a new pubkey if we cannot reuse the input pubkey
             if(!pwalletMain->GetPubKey(keyID, adminPubKey)){
                 CReserveKey adminResKey(pwalletMain);
                 if (!adminResKey.GetReservedKey(adminPubKey))
                     throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
             }
-            break;
+            //Break if we have enough inputs
+            if(changeAmount > spendAmount)
+                break;
         }
     }
 
     if(!adminIn)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: wallet has no spendable whitelist asset.");
         
-    rawTx.vin.push_back(*adminIn);
-
-    CAmount changeAmount = adminValue;
-    CAmount amountPerOutput=1;
 
     CPubKey kycPubKey;
 
