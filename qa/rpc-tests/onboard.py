@@ -146,6 +146,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].topupkycpubkeys(100)
         self.nodes[0].generate(101)
         self.sync_all()
+        time.sleep(5)
 
         #Onboard node1
         kycfile=self.initfile("kycfile.dat")
@@ -153,8 +154,10 @@ class OnboardTest (BitcoinTestFramework):
 
         self.nodes[0].generate(101)
         self.sync_all()
+        time.sleep(5)
         
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
+        time.sleep(1)
         self.nodes[0].onboarduser(kycfile)
 
         self.nodes[0].generate(101)
