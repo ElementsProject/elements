@@ -12,9 +12,9 @@ void CPolicyList::delete_address(std::string addressIn){
     boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   }
 
-bool CPolicyList::find(const CKeyID* id){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);  
-  return(base::find(*id) != end());
+bool CPolicyList::find(const CTxDestination id){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx); 
+  return(base::find(id) != end());
 }
 
 void CPolicyList::clear(){
@@ -23,9 +23,9 @@ void CPolicyList::clear(){
 }
 
 //Erase ocean, and return the next valid iterator.
-CPolicyList::baseIter CPolicyList::remove(CKeyID* id){
+CPolicyList::baseIter CPolicyList::remove(CTxDestination id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  baseIter it = base::find(*id);
+  baseIter it = base::find(id);
   if(it == this->end()) return it;
   return base::erase(it);
 }
@@ -41,9 +41,9 @@ CPolicyList::base::size_type CPolicyList::size(){
 }
 
 //Add to the sorted list
-void CPolicyList::add_sorted(CKeyID* id){
+void CPolicyList::add_sorted(CTxDestination id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  base::insert(*id).second;
+  base::insert(id).second;
 }
 
 //Swap the contents of this list for another list.
@@ -80,7 +80,7 @@ bool CPolicyList::Update(const CTransaction& tx, const CCoinsViewCache& mapInput
 
             keyId = CKeyID(uint160(extracted_addr));
 
-            remove(&keyId);
+            remove(keyId);
         }
     }
 
@@ -105,7 +105,7 @@ bool CPolicyList::Update(const CTransaction& tx, const CCoinsViewCache& mapInput
 
             keyId = CKeyID(uint160(extracted_addr));
 
-            add_sorted(&keyId);
+            add_sorted(keyId);
         }
     }
     return true;

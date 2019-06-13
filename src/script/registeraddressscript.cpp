@@ -7,12 +7,14 @@
 #include "registeraddressscript.h"
 #include "util.h"
 
-CRegisterAddressScript::CRegisterAddressScript(){
+CRegisterAddressScript::CRegisterAddressScript(RegisterAddressType type){
+    whitelistType = type;
 }
 
-CRegisterAddressScript::CRegisterAddressScript(const CRegisterAddressScript* script){
+CRegisterAddressScript::CRegisterAddressScript(const CRegisterAddressScript* script, RegisterAddressType type){
     _payload = script->_payload;
     _encrypted = script->_encrypted;
+    whitelistType = type;
 }
 
 CRegisterAddressScript::~CRegisterAddressScript(){
@@ -43,6 +45,9 @@ bool CRegisterAddressScript::FinalizeUnencrypted(CScript& script){
 }
 
 bool CRegisterAddressScript::Append(const CPubKey& pubKey){
+    if(whitelistType != RA_PUBLICKEY && whitelistType != RA_ONBOARDING)
+        return false;
+
 	uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
   	CPubKey tweakedPubKey(pubKey);
@@ -64,8 +69,46 @@ bool CRegisterAddressScript::Append(const CPubKey& pubKey){
 }
 
 bool CRegisterAddressScript::Append(const std::vector<CPubKey>& keys){
+    if(whitelistType != RA_PUBLICKEY && whitelistType != RA_ONBOARDING)
+        return false;
+
     for(CPubKey pubKey : keys){
-      Append(pubKey);
+        if (!Append(pubKey))
+            return false;
+    }
+    return true;
+}
+
+bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestination keyID, const std::vector<CPubKey>& keys){
+    if(whitelistType != RA_MULTISIG && whitelistType != RA_ONBOARDING)
+        return false;
+
+    if (!(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
+        return false;
+    
+    _payload.insert(_payload.end(), 
+                    (unsigned char)nMultisig);
+
+    CScriptID scriptID = boost::get<CScriptID>(keyID);
+    _payload.insert(_payload.end(), 
+                    scriptID.begin(), 
+                    scriptID.end());
+
+    for(int i = 0; i < keys.size(); ++i){
+        _payload.insert(_payload.end(), 
+                keys[i].begin(), 
+                keys[i].end());
+    }
+    return true;
+}
+
+bool CRegisterAddressScript::Append(const std::vector<OnboardMultisig>& _data){
+    if(whitelistType != RA_MULTISIG && whitelistType != RA_ONBOARDING)
+        return false;
+
+    for(OnboardMultisig _multi : _data){
+        if (!Append(_multi.nMultisig, _multi.scriptID, _multi.pubKeys))
+            return false;
     }
     return true;
 }

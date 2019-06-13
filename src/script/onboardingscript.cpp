@@ -8,12 +8,12 @@
 #include "onboardingscript.h"
 
 
-COnboardingScript::COnboardingScript(){
-
+COnboardingScript::COnboardingScript(): 
+    CRegisterAddressScript(RA_ONBOARDING){
 }
 
 COnboardingScript::COnboardingScript(const COnboardingScript* script) : 
-	CRegisterAddressScript((CRegisterAddressScript*)script){
+	CRegisterAddressScript((CRegisterAddressScript*)script, RA_ONBOARDING){
 	_kycPubKey=script->_kycPubKey;
 	_userPubKey=script->_userPubKey;
 }
@@ -33,6 +33,8 @@ bool COnboardingScript::Finalize(CScript& script,
                     const CPubKey& onboardPubKey, 
                     const CKey& kycPrivKey){
 
+    if(whitelistType != RA_ONBOARDING)
+        return false;
    	_encrypted.clear();
     CECIES_hex encryptor;
     encryptor.Encrypt(_encrypted, _payload, onboardPubKey, kycPrivKey);
@@ -62,6 +64,8 @@ bool COnboardingScript::Finalize(CScript& script,
 }
 
 bool COnboardingScript::FinalizeUnencrypted(CScript& script){
+    if(whitelistType != RA_ONBOARDING)
+        return false;
   	 //Onboarding keys    	
     ucvec vPubKeyKYC = ToByteVector(_kycPubKey);
     _payload.insert(_payload.end(), 

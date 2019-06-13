@@ -6,6 +6,7 @@
 
 #include "policylist.h"
 #include <map>
+#include "univalue/include/univalue.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #endif
@@ -24,15 +25,34 @@ public:
 	bool Load(CCoinsView *view);
 
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
-		const CBitcoinAddress* kycAddress);
+		const std::unique_ptr<CBitcoinAddress>& kycAddress);
+
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey);
 
 	void add_derived(const std::string& sAddress, const std::string& sPubKey, 
 		const std::string& sKYCAddress);
+
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
+	//Multisig whitelisting below
+
+	void add_multisig_whitelist(const std::string& sAddress, const UniValue& sPubKeys, 
+  		const std::string& sKYCAddress, const uint8_t nMultisig);
+
+	void add_multisig_whitelist(const std::string& addressIn, const UniValue& keys, 
+		const uint8_t nMultisig);
+
+	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys, 
+  		const std::unique_ptr<CBitcoinAddress>& kycAddress, const uint8_t nMultisig);
+
+	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
+		const uint8_t nMultisig);
 
   	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
+
+  	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CBitcoinAddress>& kycAddr);
+
+  	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 
 #ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
@@ -43,7 +63,7 @@ public:
 
   	virtual void clear();
 
-  	bool is_whitelisted(const CKeyID& keyId);
+  	bool is_whitelisted(const CTxDestination keyId);
 
   	//Get a kyc key from the _kycUnassignedQueue. Removes the element from the queue.
   	bool get_unassigned_kyc(CPubKey& pubKey);
@@ -51,7 +71,7 @@ public:
   	bool peek_unassigned_kyc(CPubKey& pubKey);
   	void add_unassigned_kyc(const CPubKey& pubKey);
 
-  	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound);
+  	bool LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound);
 
 	bool find_kyc_whitelisted(const CKeyID& keyId);
 
@@ -60,11 +80,11 @@ public:
 	void whitelist_kyc(const CKeyID& keyId);
 
 	// My ending addresses - added to whitelist by me in a add to whitelist transaction waiting to be included in a block
-	void add_my_pending(const CKeyID& keyId);
+	void add_my_pending(const CTxDestination keyId);
 
-	void remove_my_pending(const CKeyID& keyId);
+	void remove_my_pending(const CTxDestination keyId);
 
-	bool is_my_pending(const CKeyID& keyId);
+	bool is_my_pending(const CTxDestination keyId);
 
 	unsigned int n_my_pending();
 
@@ -77,7 +97,7 @@ private:
 
 	using CPolicyList::find;
 	//A map of address to idPubKey
-	std::map<CKeyID, CKeyID> _kycMap;
+	std::map<CTxDestination, CKeyID> _kycMap;
 	//A map of address to tweaked public key
 	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//Whitelisted KYC keys
@@ -90,7 +110,7 @@ private:
 
 	std::stringstream _datastream;
 
-	std::set<CKeyID> _myPending;
+	std::set<CTxDestination> _myPending;
 
 	bool set_kyc_status(const CKeyID& keyId, const CWhiteList::status& status);
 
@@ -103,7 +123,9 @@ private:
 
 	void synchronise(CWhiteList* wl_new);
 
-
+  	const unsigned int addrSize=20;
+  	const unsigned int nMultisigSize=1;
+  	const unsigned int minPayloadSize=2;
 
   	//Lookup owner (idpubkey) of address
   	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
