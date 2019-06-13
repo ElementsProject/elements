@@ -50,6 +50,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
+        self.files=[]
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
@@ -65,6 +66,19 @@ class OnboardTest (BitcoinTestFramework):
             for nlines, l in enumerate(f):
                 pass
         return nlines
+
+    def initfile(self, filename):
+        self.files.append(filename)
+        self.removefileifexists(filename)
+        return filename
+
+    def removefileifexists(self, filename):
+        if(os.path.isfile(filename)):
+            os.remove(filename)
+
+    def cleanup_files(self):
+        for file in self.files:
+            self.removefileifexists(file)
 
     def run_test (self):
         keypool=1
@@ -107,9 +121,9 @@ class OnboardTest (BitcoinTestFramework):
                     wlvalue = rawtx["vout"][0]["value"]
 
         #Whitelist node 0 addresses
-        self.nodes[0].dumpderivedkeys("keys.main")
-        self.nodes[0].readwhitelist("keys.main")
-        os.remove("keys.main")
+        keys_main=self.initfile("keys.main")
+        self.nodes[0].dumpderivedkeys(keys_main)
+        self.nodes[0].readwhitelist(keys_main)
 
         #Register a KYC public key
         policyaddr=self.nodes[0].getnewaddress()
@@ -138,7 +152,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
 
         #Onboard node1
-        kycfile="kycfile.dat"
+        kycfile=self.initfile("kycfile.dat")
         userOnboardPubKey=self.nodes[1].dumpkycfile(kycfile)
 
         self.nodes[0].generate(101)
@@ -146,8 +160,6 @@ class OnboardTest (BitcoinTestFramework):
 
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         self.nodes[0].onboarduser(kycfile)
-
-        os.remove(kycfile)
 
         self.nodes[0].generate(101)
         self.sync_all()
@@ -175,7 +187,7 @@ class OnboardTest (BitcoinTestFramework):
         assert_equal(float(bal1),float(ntosend))
 
         #Restart the nodes. The whitelist will be restored. TODO
-        wl1file="wl1.dat"
+        wl1file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1file)
 
         # time.sleep(1)
@@ -197,7 +209,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
         nwhitelisted+=nadd
-        wl1file_2="wl1_2.dat"
+        wl1file_2=self.initfile("wl1_2.dat")
         self.nodes[1].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
@@ -212,7 +224,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
         nwhitelisted+=(3*nadd)
-        wl1file_3="wl1_3.dat"
+        wl1file_3=self.initfile("wl1_3.dat")
         self.nodes[1].dumpwhitelist(wl1file_3)
         nlines3=self.linecount(wl1file_3)
         assert_equal(nlines3-nlines2, 3*nadd)
@@ -232,7 +244,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
         time.sleep(1)
-        wl1file_4="wl1_4.dat"
+        wl1file_4=self.initfile("wl1_4.dat")
         self.nodes[1].dumpwhitelist(wl1file_4)
         nlines4=self.linecount(wl1file_4)
         assert_equal(nlines3+1, nlines4)
@@ -242,11 +254,11 @@ class OnboardTest (BitcoinTestFramework):
 
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
         
-        wl1file="wl1.dat"
+        wl1file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1file)
         #Adding the created p2sh to the whitelist via addmultitowhitelist rpc
         self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycaddr)
-        wl1file_2="wl1_2.dat"
+        wl1file_2=self.initfile("wl1_2.dat")
         self.nodes[1].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
@@ -339,7 +351,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
-        wl1_bl_file="wl1_bl.dat"
+        wl1_bl_file=self.initfile("wl1_bl.dat")
         self.nodes[1].dumpwhitelist(wl1_bl_file)
 
         #The whitelist should now be empty
@@ -348,10 +360,8 @@ class OnboardTest (BitcoinTestFramework):
 
         assert_equal(nlines-nlines_bl,nwhitelisted)
 
-        os.remove(wl1file)
-        os.remove(wl1file_2)
-        os.remove(wl1file_3)
-        os.remove(wl1_bl_file)
+        self.cleanup_files()
+
         return
 
 if __name__ == '__main__':
