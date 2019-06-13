@@ -75,7 +75,7 @@ bool CKYCFile::read(){
             _decryptedStream << line << "\n";
             std::vector<std::string> vstr;
             boost::split(vstr, line, boost::is_any_of(" "));
-            if (vstr.size() < 3 || vstr.size() > 4)
+            if (vstr.size() != 3)
                 throw std::system_error(
                     std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
                     std::string(std::string(__func__) +  ": invalid KYC file"));
