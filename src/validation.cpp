@@ -1821,7 +1821,7 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 }
 
 namespace Consensus {
-bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
+bool CheckValidTweakedAddress(const CTxDestination keyID, const CPubKey& pubKey){
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
   CPubKey tmpPubKey = pubKey;
@@ -1829,9 +1829,39 @@ bool CheckValidTweakedAddress(const  CKeyID& keyID, const CPubKey& pubKey){
   if (!contract.IsNull())
     tmpPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
 
-  if (tmpPubKey.GetID() != keyID)
+  if (tmpPubKey.GetID() != boost::get<CKeyID>(keyID))
     return false;
+  
 return true;
+}
+
+//Used for multisig P2SH checking that has been created with tweaked addresses
+bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPubKey>& pubKeys, const uint8_t nMultisig){
+
+    CTxDestination destCopy = keyID;
+    std::vector<CPubKey> tweakedPubKeys = pubKeys;
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+
+    if (!contract.IsNull()){
+        for (int it = 0; it < tweakedPubKeys.size(); ++it){
+            tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
+        }
+    }
+
+    CScript inner = GetScriptForMultisig((int)nMultisig, tweakedPubKeys);
+    CScriptID innerID(inner);
+    CBitcoinAddress address(innerID);
+
+    //Will throw an error if address is not a valid derived address.
+    CTxDestination multiKeyId;
+    multiKeyId = address.Get();
+    if (boost::get<CNoDestination>(&multiKeyId))
+        return false;
+
+    if (!(multiKeyId == destCopy))
+        return false;
+
+    return true;
 }
 
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, std::set<std::pair<uint256, COutPoint> >& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)

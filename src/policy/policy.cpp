@@ -263,7 +263,7 @@ bool IsRedemptionListed(CTransaction const &tx) {
     // Search in whitelist for the presence of each output address.
     // If one is not found, return false.
     if(uint160(vSolutions[0]).IsNull()) continue;
-    if (!addressFreezelist.find(&keyId))
+    if (!addressFreezelist.find(keyId))
       return false;
   }
   return true;
@@ -283,7 +283,7 @@ bool IsFreezelisted(CTransaction const &tx, CCoinsViewCache const &mapInputs) {
     if (whichType == TX_PUBKEYHASH) {
       CKeyID keyId = CKeyID(uint160(vSolutions[0]));
       // search in freezelist for the presence of keyid
-      if (!addressFreezelist.find(&keyId)) return false;
+      if (!addressFreezelist.find(keyId)) return false;
     } else if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS) {
       continue;
      } else {
@@ -307,7 +307,7 @@ bool IsBurnlisted(const CTransaction& tx, const CCoinsViewCache& mapInputs)
         CKeyID keyId;
         keyId = CKeyID(uint160(vSolutions[0]));
         // search in freezelist for the presence of keyid
-        if (addressBurnlist.find(&keyId)) return true;
+        if (addressBurnlist.find(keyId)) return true;
     }
   return false;
 }
@@ -334,7 +334,7 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first, last);
             keyId = CKeyID(uint160(extracted_addr));
-            addressFreezelist.remove(&keyId);
+            addressFreezelist.remove(keyId);
             LogPrintf("POLICY: removed address from freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -355,7 +355,7 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
             keyId = CKeyID(uint160(extracted_addr));
-            addressFreezelist.add_sorted(&keyId);
+            addressFreezelist.add_sorted(keyId);
             LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -384,7 +384,7 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
             keyId = CKeyID(uint160(extracted_addr));
-            addressBurnlist.remove(&keyId);
+            addressBurnlist.remove(keyId);
             LogPrintf("POLICY: removed address from burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -405,7 +405,7 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
             std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
             std::vector<unsigned char> extracted_addr(first,last);
             keyId = CKeyID(uint160(extracted_addr));
-            addressBurnlist.add_sorted(&keyId);
+            addressBurnlist.add_sorted(keyId);
             LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
         }
     }
@@ -583,7 +583,7 @@ bool LoadFreezeList(CCoinsView *view)
                         std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
                         std::vector<unsigned char> extracted_addr(first,last);
                         keyId = CKeyID(uint160(extracted_addr));
-                        addressFreezelist.add_sorted(&keyId);
+                        addressFreezelist.add_sorted(keyId);
                         LogPrintf("POLICY: added address to freeze-list "+CBitcoinAddress(keyId).ToString()+"\n");
                     }
                 }
@@ -636,7 +636,7 @@ bool LoadBurnList(CCoinsView *view)
                             std::vector<unsigned char>::const_iterator last = vSolutions[2].begin() + 33;
                             std::vector<unsigned char> extracted_addr(first,last);
                             keyId = CKeyID(uint160(extracted_addr));
-                            addressBurnlist.add_sorted(&keyId);
+                            addressBurnlist.add_sorted(keyId);
                             LogPrintf("POLICY: added address to burn-list "+CBitcoinAddress(keyId).ToString()+"\n");
                         }
                     }
