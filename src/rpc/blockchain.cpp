@@ -1738,11 +1738,11 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
             "The address is checked that it has been tweaked with the contract hash.\n"
             "\nArguments:\n"
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
-            "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
-            "3. \"kycaddress\"     (string, optional) Base58 KYC address\n"
+            "2. \"basepubkey\"     (string, required) Hex encoding of the compressed base (un-tweaked) public key\n"
+            "3. \"kycpubkey\"     (string, optional) Hex encoding of the compressed KYC public key\n"
             "\nExamples:\n"
-            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
-            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"02f812677f00dffac2cc76e179f0da97ce28ad01e7b69c49a9958be53fe92c00f1\"")
+            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02f812677f00dffac2cc76e179f0da97ce28ad01e7b69c49a9958be53fe92c00f1\"")
                         );
 try{
     if(nparams == 2){
@@ -1805,22 +1805,17 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The key file\n"
-            "2. \"kycaddress\"  (string, optional) The KYC address of the key file owner\n"
+            "2. \"kycpubkey\"  (string, optional) The hex-encoded KYC public key of the file owner\n"
             "\nExamples:\n"
             "\nDump the keys\n"
             + HelpExampleCli("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
             + HelpExampleRpc("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
 			);
 
-    std::string sKYCAddress="";
+    std::string sKYCPubKey="";
     if(request.params.size()==2){
-        sKYCAddress=request.params[1].get_str();
-        CBitcoinAddress addr;
-        if(addr.SetString(sKYCAddress)){
-            CKeyID id;
-            addr.GetKeyID(id);
-            addressWhitelist.whitelist_kyc(id);
-        }
+        sKYCPubKey=request.params[1].get_str();
+        addressWhitelist.whitelist_kyc(CPubKey(ParseHex(sKYCPubKey)).GetID());
     }
 
     std::ifstream file;
@@ -1842,7 +1837,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
+	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCPubKey);
     }
 
     file.close();
