@@ -925,7 +925,7 @@ class DynaFedParams:
 
 
 HEADER_HF_BIT = 1 << 31
-HEADER_HF_MASK = 0x7fffffff
+HEADER_DYNAFED_HF_MASK = 0x7fffffff
 class CBlockHeader:
     __slots__ = ("hash", "hashMerkleRoot", "hashPrevBlock", "nBits", "nNonce",
                  "nTime", "nVersion", "sha256", "block_height", "proof", "m_dyna_params",
@@ -965,7 +965,7 @@ class CBlockHeader:
 
         if self.nVersion < 0:
             is_dyna = True
-            self.nVersion = HEADER_HF_MASK & self.nVersion
+            self.nVersion = HEADER_DYNAFED_HF_MASK & self.nVersion
 
         self.hashPrevBlock = deser_uint256(f)
         self.hashMerkleRoot = deser_uint256(f)

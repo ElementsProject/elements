@@ -194,7 +194,7 @@ public:
     }
 
     // HF bit to detect dynamic federation blocks
-    static const uint32_t HF_MASK = 1 << 31;
+    static const uint32_t DYNAFED_HF_MASK = 1 << 31;
 
     ADD_SERIALIZE_METHODS;
 
@@ -209,11 +209,11 @@ public:
         if (ser_action.ForRead()) {
             READWRITE(nVersion);
             is_dyna = nVersion < 0;
-            this->nVersion = ~HF_MASK & nVersion;
+            this->nVersion = ~DYNAFED_HF_MASK & nVersion;
         } else {
             nVersion = this->nVersion;
             if (!m_dyna_params.IsNull()) {
-                nVersion |= HF_MASK;
+                nVersion |= DYNAFED_HF_MASK;
                 is_dyna = true;
             }
             READWRITE(nVersion);

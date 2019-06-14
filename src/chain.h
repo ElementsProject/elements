@@ -440,11 +440,11 @@ public:
         if (ser_action.ForRead()) {
             READWRITE(nVersion);
             is_dyna = nVersion < 0;
-            this->nVersion = ~CBlockHeader::HF_MASK & nVersion;
+            this->nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
         } else {
             nVersion = this->nVersion;
             if (!dynafed_params.IsNull()) {
-                nVersion |= CBlockHeader::HF_MASK;
+                nVersion |= CBlockHeader::DYNAFED_HF_MASK;
                 is_dyna = true;
             }
             READWRITE(nVersion);
