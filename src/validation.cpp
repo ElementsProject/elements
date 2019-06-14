@@ -2131,7 +2131,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // ELEMENTS:
 
     // Enforce PAK post-dynafed
-    if (chainparams.GetEnforcePak() && !block.m_dyna_params.IsNull()) {
+    if (chainparams.GetEnforcePak() && !block.m_dynafed_params.IsNull()) {
         // GetActivePAKList computes for the following block, so use previous index
         CPAKList paklist = GetActivePAKList(pindex->pprev, chainparams.GetConsensus());
         for (const auto& tx : block.vtx) {
@@ -3472,7 +3472,7 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
         return true;
     }
 
-    const DynaFedParams& dynafed_params = block.m_dyna_params;
+    const DynaFedParams& dynafed_params = block.m_dynafed_params;
 
     // Dynamic blocks must at least publish current signblockscript in full
     if (dynafed_params.m_current.IsNull()) {

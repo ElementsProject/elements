@@ -4782,7 +4782,7 @@ UniValue signblock(const JSONRPCRequest& request)
 
     // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
     SignatureData block_sigs;
-    if (block.m_dyna_params.IsNull()) {
+    if (block.m_dynafed_params.IsNull()) {
         GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs);
     } else {
         if (request.params[1].isNull()) {
@@ -4794,7 +4794,7 @@ UniValue signblock(const JSONRPCRequest& request)
         if (!witness_bytes.empty()) {
             pwallet->AddCScript(CScript(witness_bytes.begin(), witness_bytes.end()));
         }
-        GenericSignScript(*pwallet, block.GetBlockHeader(), block.m_dyna_params.m_current.m_signblockscript, block_sigs);
+        GenericSignScript(*pwallet, block.GetBlockHeader(), block.m_dynafed_params.m_current.m_signblockscript, block_sigs);
     }
 
     // Error if sig data didn't "grow"

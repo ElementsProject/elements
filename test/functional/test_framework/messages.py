@@ -928,7 +928,7 @@ HEADER_HF_BIT = 1 << 31
 HEADER_DYNAFED_HF_MASK = 0x7fffffff
 class CBlockHeader:
     __slots__ = ("hash", "hashMerkleRoot", "hashPrevBlock", "nBits", "nNonce",
-                 "nTime", "nVersion", "sha256", "block_height", "proof", "m_dyna_params",
+                 "nTime", "nVersion", "sha256", "block_height", "proof", "m_dynafed_params",
                  "m_signblock_witness")
 
     def __init__(self, header=None):
@@ -943,7 +943,7 @@ class CBlockHeader:
             self.proof = header.proof
             self.sha256 = header.sha256
             self.hash = header.hash
-            self.m_dyna_params = header.m_dyna_params
+            self.m_dynafed_params = header.m_dynafed_params
             self.m_signblock_witness = header.m_signblock_witness
             self.calc_sha256()
 
@@ -954,7 +954,7 @@ class CBlockHeader:
         self.nTime = 0
         self.block_height = 0
         self.proof = CProof()
-        self.m_dyna_params = DynaFedParams()
+        self.m_dynafed_params = DynaFedParams()
         self.m_signblock_witness = CScriptWitness()
         self.sha256 = None
         self.hash = None
@@ -972,7 +972,7 @@ class CBlockHeader:
         self.nTime = struct.unpack("<I", f.read(4))[0]
         self.block_height = struct.unpack("<I", f.read(4))[0]
         if is_dyna:
-            self.m_dyna_params.deserialize(f)
+            self.m_dynafed_params.deserialize(f)
             self.m_signblock_witness.stack = deser_string_vector(f)
         else:
             self.proof.deserialize(f)
@@ -983,7 +983,7 @@ class CBlockHeader:
         r = b""
         nVersion = self.nVersion
         is_dyna = False
-        if not self.m_dyna_params.is_null():
+        if not self.m_dynafed_params.is_null():
             nVersion -= HEADER_HF_BIT
             is_dyna = True
 
@@ -993,7 +993,7 @@ class CBlockHeader:
         r += struct.pack("<I", self.nTime)
         r += struct.pack("<I", self.block_height)
         if is_dyna:
-            r += self.m_dyna_params.serialize()
+            r += self.m_dynafed_params.serialize()
             r += ser_string_vector(self.m_signblock_witness.stack)
         else:
             r += self.proof.serialize()
@@ -1003,7 +1003,7 @@ class CBlockHeader:
         if self.sha256 is None:
             nVersion = self.nVersion
             is_dyna = False
-            if not self.m_dyna_params.is_null():
+            if not self.m_dynafed_params.is_null():
                 nVersion -= HEADER_HF_BIT
                 is_dyna = True
 
@@ -1014,7 +1014,7 @@ class CBlockHeader:
             r += struct.pack("<I", self.nTime)
             r += struct.pack("<I", self.block_height)
             if is_dyna:
-                r += self.m_dyna_params.serialize()
+                r += self.m_dynafed_params.serialize()
             else:
                 r += self.proof.serialize_for_hash()
             self.sha256 = uint256_from_str(hash256(r))
@@ -1101,9 +1101,9 @@ class CBlock(CBlockHeader):
 #            self.rehash()
 
     def __repr__(self):
-        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s vtx=%s m_dyna_params=%s)" \
+        return "CBlock(nVersion=%i hashPrevBlock=%064x hashMerkleRoot=%064x nTime=%s vtx=%s m_dynafed_params=%s)" \
             % (self.nVersion, self.hashPrevBlock, self.hashMerkleRoot,
-               time.ctime(self.nTime), repr(self.vtx), self.m_dyna_params)
+               time.ctime(self.nTime), repr(self.vtx), self.m_dynafed_params)
 
 
 class PrefilledTransaction:

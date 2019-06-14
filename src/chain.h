@@ -272,7 +272,7 @@ public:
         nBits          = block.nBits;
         nNonce         = block.nNonce;
         proof          = block.proof;
-        dynafed_params       = block.m_dyna_params;
+        dynafed_params       = block.m_dynafed_params;
         m_signblock_witness = block.m_signblock_witness;
     }
 
@@ -308,7 +308,7 @@ public:
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         block.proof          = proof;
-        block.m_dyna_params  = dynafed_params;
+        block.m_dynafed_params  = dynafed_params;
         block.m_signblock_witness = m_signblock_witness;
         return block;
     }
@@ -480,7 +480,7 @@ public:
         block.nBits           = nBits;
         block.nNonce          = nNonce;
         block.proof           = proof;
-        block.m_dyna_params   = dynafed_params;
+        block.m_dynafed_params   = dynafed_params;
         return block.GetHash();
     }
 
