@@ -1030,7 +1030,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
     }
 
     // Construct proposed parameter entry, if any
-    ConsensusParamEntry proposed;
+    DynaFedParamEntry proposed;
     if (!request.params[1].isNull()) {
         if (!IsDynaFedEnabled(chainActive.Tip(), Params().GetConsensus())) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Dynamic federations is not active on this network. Proposed parameters are not needed.");

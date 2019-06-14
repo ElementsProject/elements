@@ -102,7 +102,7 @@ void BlockAssembler::resetBlock()
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age, ConsensusParamEntry* proposed_entry)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age, DynaFedParamEntry* proposed_entry)
 {
     assert(min_tx_age >= 0);
     int64_t nTimeStart = GetTimeMicros();
@@ -151,8 +151,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
     if (IsDynaFedEnabled(pindexPrev, chainparams.GetConsensus())) {
-        ConsensusParamEntry current_params = ComputeNextBlockCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
-        DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : ConsensusParamEntry());
+        DynaFedParamEntry current_params = ComputeNextBlockCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
+        DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : DynaFedParamEntry());
         pblock->m_dyna_params = block_params;
         nBlockWeight += ::GetSerializeSize(block_params, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
         nBlockWeight += current_params.m_signblock_witness_limit; // Note witness discount
