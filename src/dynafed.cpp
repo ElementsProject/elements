@@ -89,7 +89,7 @@ ConsensusParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexP
     // Return appropriate format based on epoch age
     if (epoch_age > 0) {
         // TODO implement "prune" function to remove fields in place and change serialize type
-        return ConsensusParamEntry(entry.m_signblockscript, entry.m_sbs_wit_limit);
+        return ConsensusParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit);
     } else {
         return entry;
     }

@@ -51,7 +51,7 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
         if (dynafed_params.IsNull()) {
             return CheckProofGeneric(block, params.max_block_signature_size, params.signblockscript, block.proof.solution, CScriptWitness());
         } else {
-            return CheckProofGeneric(block, dynafed_params.m_current.m_sbs_wit_limit, dynafed_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
+            return CheckProofGeneric(block, dynafed_params.m_current.m_signblock_witness_limit, dynafed_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
         }
     } else {
         return CheckProofOfWork(block.GetHash(), block.nBits, params);

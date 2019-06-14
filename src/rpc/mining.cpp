@@ -1049,7 +1049,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
         if (max_sbs_wit < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "max_block_witness must be non-negative");
         }
-        proposed.m_sbs_wit_limit = max_sbs_wit;
+        proposed.m_signblock_witness_limit = max_sbs_wit;
 
         std::string fps_str = prop["fedpegscript"].get_str();
         if (!IsHex(fps_str)) {

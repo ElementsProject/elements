@@ -155,7 +155,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : ConsensusParamEntry());
         pblock->m_dyna_params = block_params;
         nBlockWeight += ::GetSerializeSize(block_params, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
-        nBlockWeight += current_params.m_sbs_wit_limit; // Note witness discount
+        nBlockWeight += current_params.m_signblock_witness_limit; // Note witness discount
         assert(pblock->proof.IsNull());
 
     } else if (g_signed_blocks) {

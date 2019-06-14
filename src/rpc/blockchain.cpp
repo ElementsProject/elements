@@ -85,7 +85,7 @@ UniValue paramEntryToJSON(const ConsensusParamEntry& entry)
 {
     UniValue result(UniValue::VOBJ);
     result.pushKV("signblockscript", HexStr(entry.m_signblockscript));
-    result.pushKV("max_block_witness", (uint64_t)entry.m_sbs_wit_limit);
+    result.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);
     result.pushKV("fedpegscript", HexStr(entry.m_fedpegscript));
     UniValue result_extension(UniValue::VARR);
     for (auto& item : entry.m_extension_space) {
@@ -1466,7 +1466,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             const ConsensusParamEntry entry = ComputeNextBlockFullCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
             obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
-            obj.pushKV("max_block_witness", (uint64_t)entry.m_sbs_wit_limit);
+            obj.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);
             UniValue arr(UniValue::VARR);
             for (const auto& extension : entry.m_extension_space) {
                 arr.push_back(HexStr(extension));
