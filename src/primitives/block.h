@@ -190,7 +190,7 @@ public:
     // Only used pre-dynamic federation
     CProof proof;
     // Dynamic federation: Subsumes the proof field
-    DynaFedParams m_dyna_params;
+    DynaFedParams m_dynafed_params;
     CScriptWitness m_signblock_witness;
 
     CBlockHeader()
@@ -217,7 +217,7 @@ public:
             this->nVersion = ~DYNAFED_HF_MASK & nVersion;
         } else {
             nVersion = this->nVersion;
-            if (!m_dyna_params.IsNull()) {
+            if (!m_dynafed_params.IsNull()) {
                 nVersion |= DYNAFED_HF_MASK;
                 is_dyna = true;
             }
@@ -229,7 +229,7 @@ public:
             READWRITE(hashMerkleRoot);
             READWRITE(nTime);
             READWRITE(block_height);
-            READWRITE(m_dyna_params);
+            READWRITE(m_dynafed_params);
             // We do not serialize witness for hashes, or weight calculation
             if (!(s.GetType() & SER_GETHASH) && fAllowWitness) {
                 READWRITE(m_signblock_witness.stack);
@@ -265,7 +265,7 @@ public:
     bool IsNull() const
     {
         if (g_signed_blocks) {
-            return proof.IsNull() && m_dyna_params.IsNull();
+            return proof.IsNull() && m_dynafed_params.IsNull();
         } else {
             return (nBits == 0);
         }
@@ -326,7 +326,7 @@ public:
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         block.proof          = proof;
-        block.m_dyna_params  = m_dyna_params;
+        block.m_dynafed_params  = m_dynafed_params;
         return block;
     }
 

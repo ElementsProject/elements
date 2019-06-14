@@ -144,7 +144,7 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
 
         // Fill out block witness if dynamic federation is enabled
         // since we are assuming WSH(OP_TRUE)
-        if (!pblock->m_dyna_params.IsNull()) {
+        if (!pblock->m_dynafed_params.IsNull()) {
             CScript op_true(OP_TRUE);
             pblock->m_signblock_witness.stack.push_back(std::vector<unsigned char>(op_true.begin(), op_true.end()));
         }
@@ -1083,7 +1083,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
 
     // If WSH(OP_TRUE) block, fill in witness
     CScript op_true(OP_TRUE);
-    if (pblocktemplate->block.m_dyna_params.m_current.m_signblockscript ==
+    if (pblocktemplate->block.m_dynafed_params.m_current.m_signblockscript ==
             GetScriptForDestination(WitnessV0ScriptHash(op_true))) {
         pblocktemplate->block.m_signblock_witness.stack.push_back(std::vector<unsigned char>(op_true.begin(), op_true.end()));
     }
@@ -1153,7 +1153,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         sig_data.signatures[pubkey.GetID()] = std::make_pair(pubkey, sig_bytes);
     }
 
-    if (!block.m_dyna_params.IsNull()) {
+    if (!block.m_dynafed_params.IsNull()) {
         if (request.params[2].isNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Signing dynamic blocks requires the witnessScript argument");
         }
@@ -1162,7 +1162,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
             keystore.AddCScript(CScript(witness_bytes.begin(), witness_bytes.end()));
         }
         // Finalizes the signatures, has no access to keys
-        ProduceSignature(keystore, signature_creator, block.m_dyna_params.m_current.m_signblockscript, sig_data, SCRIPT_NO_SIGHASH_BYTE);
+        ProduceSignature(keystore, signature_creator, block.m_dynafed_params.m_current.m_signblockscript, sig_data, SCRIPT_NO_SIGHASH_BYTE);
         block.m_signblock_witness = sig_data.scriptWitness;
     } else {
         // Finalizes the signatures, has no access to keys

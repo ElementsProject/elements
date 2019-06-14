@@ -47,7 +47,7 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
 bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 {
     if (g_signed_blocks) {
-        const DynaFedParams& dynafed_params = block.m_dyna_params;
+        const DynaFedParams& dynafed_params = block.m_dynafed_params;
         if (dynafed_params.IsNull()) {
             return CheckProofGeneric(block, params.max_block_signature_size, params.signblockscript, block.proof.solution, CScriptWitness());
         } else {
@@ -60,7 +60,7 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 
 bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params)
 {
-    const DynaFedParams& dynafed_params = block.m_dyna_params;
+    const DynaFedParams& dynafed_params = block.m_dynafed_params;
     if (dynafed_params.IsNull()) {
         return CheckProofGeneric(block, params.max_block_signature_size, params.parent_chain_signblockscript, block.proof.solution, CScriptWitness());
     } else {
