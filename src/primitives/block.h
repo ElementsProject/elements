@@ -52,7 +52,9 @@ public:
     std::string ToString() const;
 };
 
-
+/*
+ * Contains all the consensus parameters that can be voted for in dynamic federations
+ */
 class DynaFedParamEntry
 {
 public:
@@ -128,6 +130,9 @@ public:
     }
 };
 
+/*
+ * Encapsulation of the pair of dynamic federations parameters for "current" and "proposed"
+ */
 class DynaFedParams
 {
 public:
