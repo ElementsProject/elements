@@ -468,7 +468,7 @@ bool IsValidRequestBid(const CRequest &request, const CBid &bid)
 
 bool UpdateRequestBidList(const CTransaction& tx, uint32_t nHeight)
 {
-    if (tx.IsCoinBase() || tx.vout.size() <= 1)
+    if (tx.IsCoinBase() || tx.vout.size() == 1)
         return false;
     return requestList.LoadBid(tx.vout, tx.GetHash(), nHeight + 1);
 }

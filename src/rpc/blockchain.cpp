@@ -1080,12 +1080,10 @@ UniValue getrequestbids(const JSONRPCRequest& request)
             uint256 key;
             CCoins coins;
             if (pcursor2->GetKey(key) && pcursor2->GetValue(coins)) {
-                if (coins.vout.size() > 1) { // bid transactions
-                    CBid bid;
-                    if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
-                        if (IsValidRequestBid(req, bid)) {
-                            req.AddBid(bid);
-                        }
+                CBid bid;
+                if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
+                    if (IsValidRequestBid(req, bid)) {
+                        req.AddBid(bid);
                     }
                 }
             } else {
@@ -1867,7 +1865,7 @@ UniValue querywhitelist(const JSONRPCRequest& request)
   CTxDestination keyId;
   keyId = address.Get();
   if (boost::get<CNoDestination>(&keyId))
-      throw std::invalid_argument(std::string(std::string(__func__) + 
+      throw std::invalid_argument(std::string(std::string(__func__) +
       ": invalid key id"));
 
   return addressWhitelist.is_whitelisted(keyId);
@@ -1895,7 +1893,7 @@ UniValue removefromwhitelist(const JSONRPCRequest& request)
   CTxDestination keyId;
   keyId = address.Get();
   if (boost::get<CNoDestination>(&keyId))
-      throw std::invalid_argument(std::string(std::string(__func__) + 
+      throw std::invalid_argument(std::string(std::string(__func__) +
       ": invalid key id"));
 
   addressWhitelist.remove(keyId);
