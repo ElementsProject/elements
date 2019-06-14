@@ -222,7 +222,7 @@ public:
     uint32_t nNonce;
     CProof proof;
     // Dynamic federation fields
-    DynaFedParams d_params;
+    DynaFedParams dynafed_params;
     CScriptWitness m_signblock_witness;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
@@ -253,7 +253,7 @@ public:
         nBits          = 0;
         nNonce         = 0;
         proof.SetNull();
-        d_params.SetNull();
+        dynafed_params.SetNull();
         m_signblock_witness.SetNull();
     }
 
@@ -272,7 +272,7 @@ public:
         nBits          = block.nBits;
         nNonce         = block.nNonce;
         proof          = block.proof;
-        d_params       = block.m_dyna_params;
+        dynafed_params       = block.m_dyna_params;
         m_signblock_witness = block.m_signblock_witness;
     }
 
@@ -308,7 +308,7 @@ public:
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         block.proof          = proof;
-        block.m_dyna_params  = d_params;
+        block.m_dyna_params  = dynafed_params;
         block.m_signblock_witness = m_signblock_witness;
         return block;
     }
@@ -443,7 +443,7 @@ public:
             this->nVersion = ~CBlockHeader::HF_MASK & nVersion;
         } else {
             nVersion = this->nVersion;
-            if (!d_params.IsNull()) {
+            if (!dynafed_params.IsNull()) {
                 nVersion |= CBlockHeader::HF_MASK;
                 is_dyna = true;
             }
@@ -456,7 +456,7 @@ public:
         // For compatibility with elements 0.14 based chains
         if (g_signed_blocks) {
             if (is_dyna) {
-                READWRITE(d_params);
+                READWRITE(dynafed_params);
                 READWRITE(m_signblock_witness.stack);
             } else {
                 READWRITE(proof);
@@ -480,7 +480,7 @@ public:
         block.nBits           = nBits;
         block.nNonce          = nNonce;
         block.proof           = proof;
-        block.m_dyna_params   = d_params;
+        block.m_dyna_params   = dynafed_params;
         return block.GetHash();
     }
 

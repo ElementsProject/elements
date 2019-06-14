@@ -95,12 +95,12 @@ UniValue paramEntryToJSON(const ConsensusParamEntry& entry)
     return result;
 }
 
-UniValue dynaParamsToJSON(const DynaFedParams& d_params)
+UniValue dynaParamsToJSON(const DynaFedParams& dynafed_params)
 {
     AssertLockHeld(cs_main);
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("current", paramEntryToJSON(d_params.m_current));
-    ret.pushKV("proposed", paramEntryToJSON(d_params.m_proposed));
+    ret.pushKV("current", paramEntryToJSON(dynafed_params.m_current));
+    ret.pushKV("proposed", paramEntryToJSON(dynafed_params.m_proposed));
     return ret;
 }
 
@@ -135,8 +135,8 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
     } else {
         result.pushKV("signblock_witness_asm", ScriptToAsmStr(blockindex->proof.solution));
         result.pushKV("signblock_witness_hex", HexStr(blockindex->proof.solution));
-        if (!blockindex->d_params.IsNull()) {
-            result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->d_params));
+        if (!blockindex->dynafed_params.IsNull()) {
+            result.pushKV("dynamic_parameters", dynaParamsToJSON(blockindex->dynafed_params));
         }
     }
     result.pushKV("nTx", (uint64_t)blockindex->nTx);

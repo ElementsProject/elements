@@ -3466,10 +3466,10 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
         return true;
     }
 
-    const DynaFedParams& d_params = block.m_dyna_params;
+    const DynaFedParams& dynafed_params = block.m_dyna_params;
 
     // Dynamic blocks must at least publish current signblockscript in full
-    if (d_params.m_current.IsNull()) {
+    if (dynafed_params.m_current.IsNull()) {
         return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block headers must have non-empty current signblockscript field");
     }
 
@@ -3481,7 +3481,7 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
 
     const ConsensusParamEntry expected_current_params = ComputeNextBlockCurrentParameters(pindexPrev, params.GetConsensus());
 
-    if (expected_current_params != d_params.m_current) {
+    if (expected_current_params != dynafed_params.m_current) {
         return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header's current parameters do not match expected");
     }
 
