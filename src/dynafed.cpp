@@ -19,16 +19,10 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
         const uint256 proposal_root = proposal.CalculateRoot();
         vote_tally[proposal_root]++;
         // Short-circuit once 4/5 threshhold is reached
-        if (vote_tally[proposal_root] >=
+        if (!proposal_root.IsNull() && vote_tally[proposal_root] >=
                 (consensus.dynamic_epoch_length*4)/5) {
             winning_entry = proposal;
             return true;
-        }
-        // Also stop early if "no-vote" crosses 1/4
-        if (proposal_root.IsNull() &&
-                vote_tally[proposal_root] > consensus.dynamic_epoch_length/5) {
-            winning_entry.SetNull();
-            return false;
         }
     }
     winning_entry.SetNull();
