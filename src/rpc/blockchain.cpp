@@ -81,7 +81,7 @@ double GetDifficulty(const CBlockIndex* blockindex)
     return dDiff;
 }
 
-UniValue paramEntryToJSON(const ConsensusParamEntry& entry)
+UniValue paramEntryToJSON(const DynaFedParamEntry& entry)
 {
     UniValue result(UniValue::VOBJ);
     result.pushKV("signblockscript", HexStr(entry.m_signblockscript));
@@ -1458,7 +1458,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             }
             obj.pushKV("extension_space", arr);
         } else {
-            const ConsensusParamEntry entry = ComputeNextBlockFullCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
+            const DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(chainActive.Tip(), chainparams.GetConsensus());
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
             obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
             obj.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);

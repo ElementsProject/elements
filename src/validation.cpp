@@ -3485,7 +3485,7 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
         return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header has unknown HF extension bits set");
     }
 
-    const ConsensusParamEntry expected_current_params = ComputeNextBlockCurrentParameters(pindexPrev, params.GetConsensus());
+    const DynaFedParamEntry expected_current_params = ComputeNextBlockCurrentParameters(pindexPrev, params.GetConsensus());
 
     if (expected_current_params != dynafed_params.m_current) {
         return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header's current parameters do not match expected");

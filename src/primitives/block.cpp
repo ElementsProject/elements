@@ -41,7 +41,7 @@ std::string CBlock::ToString() const
     return s.str();
 }
 
-uint256 ConsensusParamEntry::CalculateRoot() const
+uint256 DynaFedParamEntry::CalculateRoot() const
 {
     if (IsNull()) {
         return uint256();

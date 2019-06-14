@@ -835,7 +835,7 @@ class CProof:
         return "CProof(challenge=%s solution=%s)" \
             % (self.challenge, self.solution)
 
-class ConsensusParamEntry:
+class DynaFedParamEntry:
     __slots__ = ("m_serialize_type", "m_signblockscript", "m_signblock_witness_limit", "m_fedpegscript", "m_extension_space")
 
     # Constructor args will define serialization type:
@@ -877,7 +877,7 @@ class ConsensusParamEntry:
             r += ser_string(self.m_fedpegscript)
             r += ser_string_vector(self.m_extension_space)
         elif self.m_serialize_type > 2:
-            raise Exception("Invalid serialization type for ConsensusParamEntry")
+            raise Exception("Invalid serialization type for DynaFedParamEntry")
         return r
 
     def deserialize(self, f):
@@ -892,13 +892,13 @@ class ConsensusParamEntry:
             self.m_extension_space = deser_string_vector(f)
 
     def __repr__(self):
-        return "ConsensusParamEntry(m_signblockscript=%s m_fedpegscript=%s m_extension_space=%s)" \
+        return "DynaFedParamEntry(m_signblockscript=%s m_fedpegscript=%s m_extension_space=%s)" \
                 % (self.m_signblockscript, self.m_fedpegscript, self.m_extension_space)
 
 class DynaFedParams:
     __slots__ = ("m_current", "m_proposed")
 
-    def __init__(self, m_current=ConsensusParamEntry(), m_proposed=ConsensusParamEntry()):
+    def __init__(self, m_current=DynaFedParamEntry(), m_proposed=DynaFedParamEntry()):
         self.m_current = m_current
         self.m_proposed = m_proposed
 

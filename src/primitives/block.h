@@ -53,7 +53,7 @@ public:
 };
 
 
-class ConsensusParamEntry
+class DynaFedParamEntry
 {
 public:
     unsigned char m_serialize_type; // Determines how it is serialized, defaults to null
@@ -65,9 +65,9 @@ public:
 
     // Each constructor sets its own serialization type implicitly based on which
     // arguments are given
-    ConsensusParamEntry() { m_signblock_witness_limit = 0; m_serialize_type = 0; };
-    ConsensusParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in) { m_serialize_type = 1; };
-    ConsensusParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
+    DynaFedParamEntry() { m_signblock_witness_limit = 0; m_serialize_type = 0; };
+    DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in) { m_serialize_type = 1; };
+    DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
 
     ADD_SERIALIZE_METHODS;
 
@@ -114,7 +114,7 @@ public:
         m_extension_space.clear();
     }
 
-    bool operator==(const ConsensusParamEntry &other) const
+    bool operator==(const DynaFedParamEntry &other) const
     {
         return m_serialize_type == other.m_serialize_type &&
             m_signblockscript == other.m_signblockscript &&
@@ -122,7 +122,7 @@ public:
             m_fedpegscript == other.m_fedpegscript &&
             m_extension_space == other.m_extension_space;
     }
-    bool operator!=(const ConsensusParamEntry &other) const
+    bool operator!=(const DynaFedParamEntry &other) const
     {
         return !(*this == other);
     }
@@ -133,12 +133,12 @@ class DynaFedParams
 public:
 
     // Currently enforced by network, not all fields may be known
-    ConsensusParamEntry m_current;
+    DynaFedParamEntry m_current;
     // Proposed rules for next epoch
-    ConsensusParamEntry m_proposed;
+    DynaFedParamEntry m_proposed;
 
     DynaFedParams() {};
-    DynaFedParams(const ConsensusParamEntry& current, const ConsensusParamEntry& proposed)  : m_current(current), m_proposed(proposed) {};
+    DynaFedParams(const DynaFedParamEntry& current, const DynaFedParamEntry& proposed)  : m_current(current), m_proposed(proposed) {};
 
     ADD_SERIALIZE_METHODS;
 
