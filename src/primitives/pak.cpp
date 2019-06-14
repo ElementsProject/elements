@@ -175,22 +175,17 @@ bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash, 
 
 CPAKList CreatePAKListFromExtensionSpace(const std::vector<std::vector<unsigned char>>& extension_space)
 {
+    CPAKList paklist;
     std::vector<std::vector<unsigned char>> offline_keys;
     std::vector<std::vector<unsigned char>> online_keys;
     for (const auto& entry : extension_space) {
-        // As soon as we find something that is possibly not 2 serialized pubkeys
-        // we stop looking. CPAKList::FromBytes does pubkey validation itself.
         if (entry.size() != 66) {
-            break;
+            return CPAKList();
         }
+        // Dumbly tries to extract two pubkeys, relies on FromBytes to parse/validate
         offline_keys.emplace_back(entry.begin(), entry.begin()+33);
         online_keys.emplace_back(entry.begin()+33, entry.end());
-        // Allow additional data, just ignore
-        if (offline_keys.size() == SECP256K1_WHITELIST_MAX_N_KEYS) {
-            break;
-        }
     }
-    CPAKList paklist;
     if (!CPAKList::FromBytes(paklist, offline_keys, online_keys)) {
         return CPAKList();
     }
