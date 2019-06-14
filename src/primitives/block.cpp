@@ -49,7 +49,7 @@ uint256 ConsensusParamEntry::CalculateRoot() const
 
     std::vector<uint256> leaves;
     leaves.push_back(SerializeHash(m_signblockscript, SER_GETHASH, 0));
-    leaves.push_back(SerializeHash(m_sbs_wit_limit, SER_GETHASH, 0));
+    leaves.push_back(SerializeHash(m_signblock_witness_limit, SER_GETHASH, 0));
     leaves.push_back(SerializeHash(m_fedpegscript, SER_GETHASH, 0));
     leaves.push_back(SerializeHash(m_extension_space, SER_GETHASH, 0));
     return ComputeFastMerkleRoot(leaves);
