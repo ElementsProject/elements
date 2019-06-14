@@ -468,16 +468,16 @@ std::vector<CScript> GetValidFedpegScripts(const CBlockIndex* pblockindex, const
     const CBlockIndex* p_prev_epoch_start = pblockindex->GetAncestor(epoch_start_height-epoch_length);
 
     if (p_current_epoch_start) {
-        if (!p_current_epoch_start->d_params.IsNull()) {
-            fedpegscripts.push_back(p_current_epoch_start->d_params.m_current.m_fedpegscript);
+        if (!p_current_epoch_start->dynafed_params.IsNull()) {
+            fedpegscripts.push_back(p_current_epoch_start->dynafed_params.m_current.m_fedpegscript);
         } else {
             fedpegscripts.push_back(params.fedpegScript);
         }
     }
 
     if (p_prev_epoch_start) {
-        if (!p_prev_epoch_start->d_params.IsNull()) {
-            fedpegscripts.push_back(p_prev_epoch_start->d_params.m_current.m_fedpegscript);
+        if (!p_prev_epoch_start->dynafed_params.IsNull()) {
+            fedpegscripts.push_back(p_prev_epoch_start->dynafed_params.m_current.m_fedpegscript);
         } else {
             fedpegscripts.push_back(params.fedpegScript);
         }

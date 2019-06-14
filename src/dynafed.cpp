@@ -15,7 +15,7 @@ bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consens
     for (int32_t height = next_height - 1; height >= (int32_t)(next_height - consensus.dynamic_epoch_length); --height) {
         const CBlockIndex* p_epoch_walk = pindexPrev->GetAncestor(height);
         assert(p_epoch_walk);
-        const ConsensusParamEntry& proposal = p_epoch_walk->d_params.m_proposed;
+        const ConsensusParamEntry& proposal = p_epoch_walk->dynafed_params.m_proposed;
         const uint256 proposal_root = proposal.CalculateRoot();
         vote_tally[proposal_root]++;
         // Short-circuit once 4/5 threshhold is reached
@@ -62,7 +62,7 @@ ConsensusParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pin
     // may be pre-dynafed params
     const CBlockIndex* p_epoch_start = pindexPrev->GetAncestor(epoch_start_height);
     assert(p_epoch_start);
-    if (p_epoch_start->d_params.IsNull()) {
+    if (p_epoch_start->dynafed_params.IsNull()) {
         // We need to construct the "full" current parameters of pre-dynafed
         // consensus
 
@@ -70,7 +70,7 @@ ConsensusParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pin
         CScript p2wsh_signblock_script = GetScriptForDestination(WitnessV0ScriptHash(p_epoch_start->proof.challenge));
         winning_proposal = ConsensusParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size+consensus.signblockscript.size(), consensus.fedpegScript, consensus.first_extension_space);
     } else {
-        winning_proposal = p_epoch_start->d_params.m_current;
+        winning_proposal = p_epoch_start->dynafed_params.m_current;
     }
     return winning_proposal;
 }

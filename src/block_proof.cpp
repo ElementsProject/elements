@@ -47,11 +47,11 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
 bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 {
     if (g_signed_blocks) {
-        const DynaFedParams& d_params = block.m_dyna_params;
-        if (d_params.IsNull()) {
+        const DynaFedParams& dynafed_params = block.m_dyna_params;
+        if (dynafed_params.IsNull()) {
             return CheckProofGeneric(block, params.max_block_signature_size, params.signblockscript, block.proof.solution, CScriptWitness());
         } else {
-            return CheckProofGeneric(block, d_params.m_current.m_sbs_wit_limit, d_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
+            return CheckProofGeneric(block, dynafed_params.m_current.m_sbs_wit_limit, dynafed_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
         }
     } else {
         return CheckProofOfWork(block.GetHash(), block.nBits, params);
@@ -60,8 +60,8 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 
 bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params)
 {
-    const DynaFedParams& d_params = block.m_dyna_params;
-    if (d_params.IsNull()) {
+    const DynaFedParams& dynafed_params = block.m_dyna_params;
+    if (dynafed_params.IsNull()) {
         return CheckProofGeneric(block, params.max_block_signature_size, params.parent_chain_signblockscript, block.proof.solution, CScriptWitness());
     } else {
         // Dynamic federations means we cannot validate the signer set
