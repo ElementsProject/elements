@@ -1081,7 +1081,7 @@ UniValue getrequestbids(const JSONRPCRequest& request)
             if (pcursor2->GetKey(key) && pcursor2->GetValue(coins)) {
                 CBid bid;
                 if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
-                    if (IsValidRequestBid(req, bid)) {
+                    if (bid.hashRequest == hash && IsValidRequestBid(req, bid)) {
                         req.AddBid(bid);
                     }
                 }
