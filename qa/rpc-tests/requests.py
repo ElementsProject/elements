@@ -81,12 +81,12 @@ class RequestsTest(BitcoinTestFramework):
         assert(e)
 
     # re create transaction again and add pubkey
-    outputs = {"decayConst": 10, "endBlockHeight": 105, "fee": 1, "genesisBlockHash": genesis,
-    "startBlockHeight": 100, "tickets": 10, "startPrice": 5, "value": unspent[0]["amount"], "pubkey": pubkey}
-    outputs2 = {"decayConst": 5, "endBlockHeight": 120, "fee": 3, "genesisBlockHash": genesis2,
-    "startBlockHeight": 105, "tickets": 5, "startPrice": 5, "value": unspent[1]["amount"], "pubkey": pubkey}
+    outputs = {"decayConst": 10, "endBlockHeight": 118, "fee": 1, "genesisBlockHash": genesis,
+    "startBlockHeight": 110, "tickets": 10, "startPrice": 5, "value": unspent[0]["amount"], "pubkey": pubkey}
+    outputs2 = {"decayConst": 5, "endBlockHeight": 125, "fee": 3, "genesisBlockHash": genesis2,
+    "startBlockHeight": 111, "tickets": 5, "startPrice": 5, "value": unspent[1]["amount"], "pubkey": pubkey}
     outputs_sim = {"decayConst": 10, "endBlockHeight": 150, "fee": 1, "genesisBlockHash": genesis,
-    "startBlockHeight": 98, "tickets": 10, "startPrice": 5, "value": unspent[2]["amount"], "pubkey": pubkey}
+    "startBlockHeight": 105, "tickets": 10, "startPrice": 5, "value": unspent[2]["amount"], "pubkey": pubkey}
 
     # send transaction
     tx = self.nodes[1].createrawrequesttx(inputs, outputs)
@@ -107,12 +107,12 @@ class RequestsTest(BitcoinTestFramework):
     assert_equal(2, len(requests))
     for req in requests:
         if txid == req['txid']:
-            assert_equal(req['endBlockHeight'], 105)
+            assert_equal(req['endBlockHeight'], 118)
             assert_equal(req['genesisBlock'], genesis)
             assert_equal(req['numTickets'], 10)
             assert_equal(req['decayConst'], 10)
             assert_equal(req['feePercentage'], 1)
-            assert_equal(req['startBlockHeight'], 100)
+            assert_equal(req['startBlockHeight'], 110)
             assert_equal(req['confirmedBlockHeight'], 103)
             assert_equal(req['startPrice'], 5)
             assert(float(req['auctionPrice']) == 5)
@@ -125,12 +125,12 @@ class RequestsTest(BitcoinTestFramework):
     assert_equal(1, len(requests))
     for req in requests:
         if txid == req['txid']:
-            assert_equal(req['endBlockHeight'], 105)
+            assert_equal(req['endBlockHeight'], 118)
             assert_equal(req['genesisBlock'], genesis)
             assert_equal(req['numTickets'], 10)
             assert_equal(req['decayConst'], 10)
             assert_equal(req['feePercentage'], 1)
-            assert_equal(req['startBlockHeight'], 100)
+            assert_equal(req['startBlockHeight'], 110)
             assert_equal(req['confirmedBlockHeight'], 103)
             assert_equal(req['startPrice'], 5)
             assert(float(req['auctionPrice']) == 5)
@@ -141,12 +141,12 @@ class RequestsTest(BitcoinTestFramework):
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
-            assert_equal(req['endBlockHeight'], 120)
+            assert_equal(req['endBlockHeight'], 125)
             assert_equal(req['genesisBlock'], genesis2)
             assert_equal(req['numTickets'], 5)
             assert_equal(req['decayConst'], 5)
             assert_equal(req['feePercentage'], 3)
-            assert_equal(req['startBlockHeight'], 105)
+            assert_equal(req['startBlockHeight'], 111)
             assert_equal(req['confirmedBlockHeight'], 103)
             assert_equal(req['startPrice'], 5)
             assert_equal(req['auctionPrice'], 5)
@@ -207,36 +207,36 @@ class RequestsTest(BitcoinTestFramework):
     assert_equal(signedTxSpend["errors"][0]["error"], "Locktime requirement not satisfied")
 
     # make request 1 inactive
-    self.nodes[0].generate(10)
+    self.nodes[0].generate(15)
     self.sync_all()
     requests = self.nodes[0].getrequests()
     assert_equal(requests, self.nodes[1].getrequests())
     assert_equal(2, len(requests))
     for req in requests:
         if txid2 == req['txid']:
-            assert_equal(req['endBlockHeight'], 120)
+            assert_equal(req['endBlockHeight'], 125)
             assert_equal(req['genesisBlock'], genesis2)
             assert_equal(req['numTickets'], 5)
             assert_equal(req['decayConst'], 5)
             assert_equal(req['feePercentage'], 3)
-            assert_equal(req['startBlockHeight'], 105)
+            assert_equal(req['startBlockHeight'], 111)
             assert_equal(req['confirmedBlockHeight'], 103)
             assert_equal(req['startPrice'], 5)
-            assert(float(req['auctionPrice']) == 0.21567217)
+            assert(float(req['auctionPrice']) == 0.40394973)
     requests = self.nodes[0].getrequests(genesis2)
     assert_equal(self.nodes[1].getrequests(genesis2), requests)
     assert_equal(1, len(requests))
     for req in requests:
         if txid2 == req['txid']:
-            assert_equal(req['endBlockHeight'], 120)
+            assert_equal(req['endBlockHeight'], 125)
             assert_equal(req['genesisBlock'], genesis2)
             assert_equal(req['numTickets'], 5)
             assert_equal(req['decayConst'], 5)
             assert_equal(req['feePercentage'], 3)
-            assert_equal(req['startBlockHeight'], 105)
+            assert_equal(req['startBlockHeight'], 111)
             assert_equal(req['confirmedBlockHeight'], 103)
             assert_equal(req['startPrice'], 5)
-            assert(float(req['auctionPrice']) == 0.21567217)
+            assert(float(req['auctionPrice']) == 0.40394973)
 
     # spend previously locked transaction
     txSpend = self.nodes[1].createrawtransaction([inputs], outputs, self.nodes[1].getblockcount(), assets)
