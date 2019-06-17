@@ -61,7 +61,8 @@ public:
     unsigned char m_serialize_type; // Determines how it is serialized, defaults to null
     CScript m_signblockscript;
     uint32_t m_signblock_witness_limit; // Max block signature witness serialized size
-    CScript m_fedpegscript;
+    CScript m_fedpeg_program; // The "scriptPubKey" of the fedpegscript
+    CScript m_fedpegscript; // The witnessScript for witness v0 or undefined otherwise.
     // No consensus meaning to the particular bytes, currently we interpret as PAK keys, details in pak.h
     std::vector<std::vector<unsigned char>> m_extension_space;
 
@@ -69,7 +70,7 @@ public:
     // arguments are given
     DynaFedParamEntry() { m_signblock_witness_limit = 0; m_serialize_type = 0; };
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in) { m_serialize_type = 1; };
-    DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
+    DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpeg_program_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpeg_program(fedpeg_program_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
 
     ADD_SERIALIZE_METHODS;
 
@@ -87,6 +88,7 @@ public:
             case 2:
                 READWRITE(m_signblockscript);
                 READWRITE(m_signblock_witness_limit);
+                READWRITE(m_fedpeg_program);
                 READWRITE(m_fedpegscript);
                 READWRITE(m_extension_space);
                 break;
@@ -102,6 +104,7 @@ public:
         return m_serialize_type == 0 &&
             m_signblockscript.empty() &&
             m_signblock_witness_limit == 0 &&
+            m_fedpeg_program.empty() &&
             m_fedpegscript.empty() &&
             m_extension_space.empty();
 
@@ -110,9 +113,10 @@ public:
     void SetNull()
     {
         m_serialize_type = 0;
-        m_signblockscript = CScript();
+        m_signblockscript.clear();
         m_signblock_witness_limit = 0;
-        m_fedpegscript = CScript();
+        m_fedpeg_program.clear();
+        m_fedpegscript.clear();
         m_extension_space.clear();
     }
 
@@ -121,6 +125,7 @@ public:
         return m_serialize_type == other.m_serialize_type &&
             m_signblockscript == other.m_signblockscript &&
             m_signblock_witness_limit == other.m_signblock_witness_limit &&
+            m_fedpeg_program == other.m_fedpeg_program &&
             m_fedpegscript == other.m_fedpegscript &&
             m_extension_space == other.m_extension_space;
     }

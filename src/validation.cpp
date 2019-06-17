@@ -700,7 +700,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         // Used when checking peg-ins
-        std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), chainparams.GetConsensus(), true /* nextblock_validation */);
+        std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), chainparams.GetConsensus(), true /* nextblock_validation */);
 
         // do all inputs exist?
         for (unsigned int i = 0; i < tx.vin.size(); i++) {
@@ -1634,7 +1634,7 @@ static bool AbortNode(CValidationState& state, const std::string& strMessage, co
  * @param out The out point that corresponds to the tx input.
  * @return A DisconnectResult as an int
  */
-int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness, const std::vector<CScript>& fedpegscripts)
+int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     bool fClean = true;
 
@@ -1728,7 +1728,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // restore inputs
-        const std::vector<CScript> fedpegscripts = GetValidFedpegScripts(pindex, Params().GetConsensus(), false /* nextblock_validation */);
+        const auto& fedpegscripts = GetValidFedpegScripts(pindex, Params().GetConsensus(), false /* nextblock_validation */);
         if (i > 0) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
@@ -2145,7 +2145,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
 
     // Used when checking peg-ins
-    std::vector<CScript> fedpegscripts = GetValidFedpegScripts(pindex, chainparams.GetConsensus(), false /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(pindex, chainparams.GetConsensus(), false /* nextblock_validation */);
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {

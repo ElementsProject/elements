@@ -54,9 +54,11 @@ BOOST_AUTO_TEST_CASE(witness_valid)
 
     std::vector<unsigned char> fedpegscript_bytes = ParseHex(fedpegscript_str);
     CScript fedpegscript(fedpegscript_bytes.begin(), fedpegscript_bytes.end());
-    std::vector<CScript> fedpegscripts;
+    // Test sample was generated as "legacy" with p2sh-p2wsh fedpegscript
+    CScript fedpeg_program(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(fedpegscript)))));
+    std::vector<std::pair<CScript, CScript>> fedpegscripts;
     // TODO test with additional scripts
-    fedpegscripts.push_back(fedpegscript);
+    fedpegscripts.push_back(std::make_pair(fedpeg_program, fedpegscript));
 
     bool valid = IsValidPeginWitness(witness, fedpegscripts, prevout, err, false);
     BOOST_CHECK(err == "");

@@ -60,9 +60,10 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         // We need to construct the "full" current parameters of pre-dynafed
         // consensus
 
-        // Convert signblockscript to P2WSH
+        // Convert signblockscript to P2WSH and fedpeg_program to P2SH-P2WSH
         CScript p2wsh_signblock_script = GetScriptForDestination(WitnessV0ScriptHash(p_epoch_start->proof.challenge));
-        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size+consensus.signblockscript.size(), consensus.fedpegScript, consensus.first_extension_space);
+        CScript sh_wsh_fedpeg_program = GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(consensus.fedpegScript))));
+        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size+consensus.signblockscript.size(), sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
     } else {
         winning_proposal = p_epoch_start->dynafed_params.m_current;
     }

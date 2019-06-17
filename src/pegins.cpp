@@ -141,7 +141,7 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
 }
 
 template<typename T>
-static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script, const std::vector<CScript>& fedpegscripts)
+static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     try {
         CDataStream pegtx_stream(tx_data, SER_NETWORK, PROTOCOL_VERSION);
@@ -171,12 +171,15 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
         return false;
     }
 
-    // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
-    // We support multiple scripts as a grace period for peg-in users
-    for (const auto& fedpegscript : fedpegscripts) {
-        CScript tweaked_fedpegscript = calculate_contract(fedpegscript, claim_script);
-        CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
-        CScript expected_script(CScript() << OP_HASH160 << ToByteVector(ScriptHash(CScriptID(witness_output))) << OP_EQUAL);
+    // Check that the witness program matches the p2ch on the (p2sh-)p2wsh
+    // transaction output. We support multiple scripts as a grace period for peg-in users
+    for (const auto& scripts : fedpegscripts) {
+        CScript tweaked_fedpegscript = calculate_contract(scripts.second, claim_script);
+        // TODO: Remove script/standard.h dep for GetScriptFor*
+        CScript expected_script(GetScriptForWitness(tweaked_fedpegscript));
+        if (scripts.first.IsPayToScriptHash()) {
+            expected_script = GetScriptForDestination(ScriptHash(expected_script));
+        }
         if (pegtx->vout[prevout.n].scriptPubKey == expected_script) {
             return true;
         }
@@ -228,7 +231,7 @@ bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::P
     return true;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<CScript>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
     // 0) Return false if !consensus.has_parent_chain
     if (!Params().GetConsensus().has_parent_chain) {
         err_msg = "Parent chain is not enabled on this network.";
@@ -447,11 +450,11 @@ bool MatchLiquidWatchman(const CScript& script)
     return (it == script.end());
 }
 
-std::vector<CScript> GetValidFedpegScripts(const CBlockIndex* pblockindex, const Consensus::Params& params, bool nextblock_validation)
+std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex* pblockindex, const Consensus::Params& params, bool nextblock_validation)
 {
     assert(pblockindex);
 
-    std::vector<CScript> fedpegscripts;
+    std::vector<std::pair<CScript, CScript>> fedpegscripts;
 
     const int32_t epoch_length = params.dynamic_epoch_length;
     const int32_t epoch_age = pblockindex->nHeight % epoch_length;
@@ -460,7 +463,8 @@ std::vector<CScript> GetValidFedpegScripts(const CBlockIndex* pblockindex, const
     // In mempool and general "enforced next block" RPC we need to look ahead one block
     // to see if we're on a boundary. If so, put that epoch's fedpegscript in place
     if (nextblock_validation && epoch_age == epoch_length - 1) {
-        fedpegscripts.push_back(ComputeNextBlockFullCurrentParameters(pblockindex, params).m_fedpegscript);
+        DynaFedParamEntry next_param = ComputeNextBlockFullCurrentParameters(pblockindex, params);
+        fedpegscripts.push_back(std::make_pair(next_param.m_fedpeg_program, next_param.m_fedpegscript));
     }
 
     // Next we walk backwards up to two epoch start blocks
@@ -469,17 +473,17 @@ std::vector<CScript> GetValidFedpegScripts(const CBlockIndex* pblockindex, const
 
     if (p_current_epoch_start) {
         if (!p_current_epoch_start->dynafed_params.IsNull()) {
-            fedpegscripts.push_back(p_current_epoch_start->dynafed_params.m_current.m_fedpegscript);
+            fedpegscripts.push_back(std::make_pair(p_current_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_current_epoch_start->dynafed_params.m_current.m_fedpegscript));
         } else {
-            fedpegscripts.push_back(params.fedpegScript);
+            fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
         }
     }
 
     if (p_prev_epoch_start) {
         if (!p_prev_epoch_start->dynafed_params.IsNull()) {
-            fedpegscripts.push_back(p_prev_epoch_start->dynafed_params.m_current.m_fedpegscript);
+            fedpegscripts.push_back(std::make_pair(p_prev_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_prev_epoch_start->dynafed_params.m_current.m_fedpegscript));
         } else {
-            fedpegscripts.push_back(params.fedpegScript);
+            fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
         }
     }
 
