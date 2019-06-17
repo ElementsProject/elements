@@ -180,7 +180,9 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
             RPCHelpMan{"getnewaddress",
                 "\nReturns a new Bitcoin address for receiving payments.\n"
                 "If 'label' is specified, it is added to the address book \n"
-                "so payments received with the address will be associated with 'label'.\n",
+                "so payments received with the address will be associated with 'label'.\n"
+                "When the wallet doesn't give blinded addresses by default (-blindedaddresses=0), \n"
+                "the address type \"blech32\" can still be used to get a blinded address.\n",
                 {
                     {"label", RPCArg::Type::STR, /* default */ "\"\"", "The label name for the address to be linked to. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name."},
                     {"address_type", RPCArg::Type::STR, /* default */ "set by -addresstype", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype."},
