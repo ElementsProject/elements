@@ -3491,6 +3491,40 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
         return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header's current parameters do not match expected");
     }
 
+    // Lastly, enforce rules on proposals.
+    const DynaFedParamEntry& proposed = dynafed_params.m_proposed;
+    if (!proposed.IsNull()) {
+
+        // signblockscript proposals *must* be segwit versions
+        int block_version = 0;
+        std::vector<unsigned char> block_program;
+        if (!proposed.m_signblockscript.IsWitnessProgram(block_version, block_program)) {
+            return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "proposed signblockscript must be native segwit scriptPubkey");
+        }
+
+        int fedpeg_version = 0;
+        std::vector<unsigned char> fedpeg_program;
+        if (!proposed.m_fedpegscript.IsWitnessProgram(fedpeg_version, fedpeg_program)) {
+            return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "proposed fedpegscript must be native segwit scriptPubkey");
+        }
+
+        // for v0, fedpegscript's scriptPubKey must match. v1+ is unencumbered.
+        if (fedpeg_version == 0) {
+            CScript computed_program = CScript() << ToByteVector(WitnessV0ScriptHash(proposed.m_fedpegscript));
+            if (computed_program != proposed.m_fedpeg_program) {
+                return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "proposed v0 segwit fedpegscript must match proposed fedpeg witness program");
+            }
+
+            // fedpegscript proposals *must not* start with OP_DEPTH
+            // This forbids the first Liquid watchman script which is a hack.
+            // Use miniscript, which doesn't even have OP_DEPTH.
+            // We don't encumber future segwit versions as opcodes may change.
+            if (!proposed.m_fedpegscript.empty() &&
+                    proposed.m_fedpegscript.front() == OP_DEPTH) {
+                return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "Proposed fedpegscript starts with OP_DEPTH, which is illegal");
+            }
+        }
+    }
     return true;
 }
 
