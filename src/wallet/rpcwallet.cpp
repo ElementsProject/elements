@@ -4852,8 +4852,12 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     pwallet->AddCScript(dest_script);
 
     // Get P2CH deposit address on mainchain from most recent fedpegscript.
-    const std::vector<CScript>& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
-    CTxDestination mainchain_dest(ScriptHash(GetScriptForWitness(calculate_contract(fedpegscripts.front(), dest_script))));
+    const auto& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
+    // P2SH-wrapped is the only valid choice for non-dynafed chains
+    if (!IsDynaFedEnabled(chainActive.Tip(), Params().GetConsensus())) {
+        mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
+    }
 
     UniValue ret(UniValue::VOBJ);
 
@@ -5381,10 +5385,13 @@ extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
 template<typename T_tx>
-unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram, const std::vector<CScript>& fedpegscripts)
+unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
-    for (auto const& fedpegscript : fedpegscripts) {
-        CScript mainchain_script = GetScriptForDestination(ScriptHash(GetScriptForWitness(calculate_contract(fedpegscript, witnessProgram))));
+    for (const auto & scripts : fedpegscripts) {
+        CScript mainchain_script = GetScriptForWitness(calculate_contract(scripts.second, witnessProgram));
+        if (scripts.first.IsPayToScriptHash()) {
+            mainchain_script = GetScriptForDestination(ScriptHash(mainchain_script));
+        }
         for (unsigned int nOut = 0; nOut < txn.vout.size(); nOut++)
             if (txn.vout[nOut].scriptPubKey == mainchain_script) {
                 return nOut;
@@ -5462,7 +5469,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
 
     CScript witness_script;
     unsigned int nOut = txBTC.vout.size();
-    const std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
     if (request.params.size() > 2) {
         const std::string claim_script = request.params[2].get_str();
         if (!IsHex(claim_script)) {

@@ -591,7 +591,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
                     continue;
                 }
 
-                std::vector<CScript> fedpegscripts = GetValidFedpegScripts(p_block_index_new, chainparams.GetConsensus(), true /* nextblock_validation */);
+                const auto& fedpegscripts = GetValidFedpegScripts(p_block_index_new, chainparams.GetConsensus(), true /* nextblock_validation */);
                 for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
                     const CTxIn& in = tx.vin[nIn];
                     std::string err;
@@ -638,7 +638,7 @@ static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCa
     CValidationState state;
     CAmountMap fee_map;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    const auto& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
     bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, 1000000);

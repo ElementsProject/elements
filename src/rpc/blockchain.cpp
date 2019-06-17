@@ -2517,6 +2517,11 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
             "      \"xxxx\",                       (string) Hex-encoded active fedpegscript\n"
             "      ...\n"
             "    ]\n"
+            "  \"current_fedpeg_programs\":        (array) The currently-enforced fedpegscript scriptPubKeys in hex. Prior to a transition this may be P2SH scriptpubkey, otherwise it will be a native segwit script. Results are paired in-order with current_fedpegscripts.\n"
+            "    [\n"
+            "      \"xxxx\",                       (string) Hex-encoded active fedpegscriptscriptPubKeys\n"
+            "      ...\n"
+            "    ]\n"
             "  \"pegged_asset\" : \"xxxx\",        (string) Pegged asset type in hex\n"
             "  \"min_peg_diff\" : \"xxxx\",        (string) The minimum difficulty parent chain header target. Peg-in headers that have less work will be rejected as an anti-Dos measure.\n"
             "  \"parent_blockhash\" : \"xxxx\",    (string) The parent genesis blockhash as source of pegged-in funds.\n"
@@ -2542,11 +2547,14 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript.begin(), consensus.fedpegScript.end()));
     // We use mempool_validation as true to show what is enforced for *next* block
-    std::vector<CScript> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), consensus, true /* nextblock_validation */);
+    std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), consensus, true /* nextblock_validation */);
+    UniValue fedpeg_prog_entries(UniValue::VARR);
     UniValue fedpeg_entries(UniValue::VARR);
-    for (const auto& script : fedpegscripts) {
-        fedpeg_entries.push_back(HexStr(script));
+    for (const auto& scripts : fedpegscripts) {
+        fedpeg_prog_entries.push_back(HexStr(scripts.first));
+        fedpeg_entries.push_back(HexStr(scripts.second));
     }
+    obj.pushKV("current_fedpeg_programs", fedpeg_prog_entries);
     obj.pushKV("current_fedpegscripts", fedpeg_entries);
     obj.pushKV("pegged_asset", consensus.pegged_asset.GetHex());
     obj.pushKV("min_peg_diff", consensus.parentChainPowLimit.GetHex());

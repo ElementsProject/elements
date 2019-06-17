@@ -243,7 +243,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 }
 
 namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<CScript>& fedpegscripts)
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
