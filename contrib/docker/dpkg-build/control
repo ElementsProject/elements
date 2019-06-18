@@ -1,0 +1,9 @@
+Package: ocean
+Version:
+Section: base
+Priority: optional
+Architecture: amd64
+Depends: glibc (>= 2.19)
+Maintainer: Martin Tsvetanov <martin@commerceblock.com>
+Description: oceand ocean-cli and ocean-tx binaries
+ 
