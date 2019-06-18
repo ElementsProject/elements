@@ -18,7 +18,8 @@ RUN set -ex \
     && make \
     && cd .. \
     && ./autogen.sh \
-    && ./configure --enable-glibc-back-compat --prefix=`pwd`/depends/x86_64-pc-linux-gnu LDFLAGS="-static-libstdc++" \
+    && ./configure --enable-glibc-back-compat \
+    --prefix=`pwd`/depends/x86_64-pc-linux-gnu LDFLAGS="-static-libstdc++" \
     && make \
     && tar -cvf ocean.tar src/oceand src/ocean-cli src/ocean-tx \
     && git clone https://github.com/buildkite/github-release.git \
