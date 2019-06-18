@@ -1042,13 +1042,12 @@ UniValue getrequestbids(const JSONRPCRequest& request)
     UniValue retBids(UniValue::VARR);
 
     if (fRequestList) {
-        for (auto it = requestList.begin(); it != requestList.end(); ++it) {
-            if (it->first == hash) {
-                ret = requestToJSON(it->second);
-                ret.push_back(Pair("txid", it->first.ToString()));
-                for (const auto &bid : it->second.sBids) {
-                    retBids.push_back(bidToJSON(bid));
-                }
+        auto res = requestList.find(hash);
+        if (res.first) {
+            ret = requestToJSON(res.second->second);
+            ret.push_back(Pair("txid", res.second->first.ToString()));
+            for (const auto &bid : res.second->second.sBids) {
+                retBids.push_back(bidToJSON(bid));
             }
         }
     } else {
@@ -1082,7 +1081,7 @@ UniValue getrequestbids(const JSONRPCRequest& request)
             if (pcursor2->GetKey(key) && pcursor2->GetValue(coins)) {
                 CBid bid;
                 if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
-                    if (IsValidRequestBid(req, bid)) {
+                    if (bid.hashRequest == hash && IsValidRequestBid(req, bid)) {
                         req.AddBid(bid);
                     }
                 }
@@ -1141,7 +1140,6 @@ UniValue getrequests(const JSONRPCRequest& request)
     }
 
     UniValue ret(UniValue::VARR);
-
     if (fRequestList) {
         for (auto it = requestList.begin(); it != requestList.end(); ++it) {
             if (!fGenesisCheck || (it->second.hashGenesis == hash)) {
@@ -1176,6 +1174,20 @@ UniValue getrequests(const JSONRPCRequest& request)
             }
             pcursor->Next();
         }
+    }
+    // For a single client we only need to receive a single request
+    // If there are multiple active requests, the earliest confirmed
+    // should be returned to avoid confusion in the coordinator
+    if (fGenesisCheck && ret.size() > 1) {
+        auto request = ret[0];
+        for (auto i=1; i<ret.size(); ++i) {
+            if (ret[i]["confirmedBlockHeight"].get_int() < request["confirmedBlockHeight"].get_int()) {
+                request = ret[i];
+            }
+        }
+        UniValue retSingle(UniValue::VARR);
+        retSingle.push_back(request);
+        return retSingle;
     }
     return ret;
 }

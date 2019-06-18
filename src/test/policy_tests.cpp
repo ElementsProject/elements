@@ -68,8 +68,13 @@ BOOST_FIXTURE_TEST_CASE(valid_requestbid_test, TestChain100Setup)
     request.nNumTickets = 2;
     auto someHash = uint256S("0xb4749f017444b051c44dfd2720e88f314ff94f3dd6d56d40ef65854fcd7fff6b");
 
+    BOOST_CHECK_EQUAL(0, request.GetAuctionPrice(5));
     BOOST_CHECK_EQUAL(40, request.GetAuctionPrice(10));
     BOOST_CHECK_EQUAL(38, request.GetAuctionPrice(30));
+    BOOST_CHECK_EQUAL(35, request.GetAuctionPrice(45));
+    BOOST_CHECK_EQUAL(34, request.GetAuctionPrice(50));
+    BOOST_CHECK_EQUAL(34, request.GetAuctionPrice(51));
+    BOOST_CHECK_EQUAL(34, request.GetAuctionPrice(60));
 
     CBid bid;
     bid.nLockBlockHeight = 100;

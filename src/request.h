@@ -81,7 +81,8 @@ public:
 
     CAmount GetAuctionPrice(uint32_t height) const
     {
-        uint32_t t = height - nConfirmedBlockHeight;
+        auto nPriceHeight = height > nStartBlockHeight ? nStartBlockHeight : height;
+        uint32_t t = nPriceHeight - nConfirmedBlockHeight;
         if(t < 0) return 0; // auction not started yet
         return nStartPrice*(1 + t)/(1 + t + pow(t,3)/nDecayConst);
     }
