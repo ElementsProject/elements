@@ -30,7 +30,7 @@ RUN set -ex \
         ocean-$(git rev-parse --short HEAD)/DEBIAN/ \
     && sed -i "s/Version:*/Version: $(git rev-parse --short HEAD)/" \
         ocean-$(git rev-parse --short HEAD)/DEBIAN/control \
-    && dpkg-deb ocean-$(git rev-parse --short HEAD) \
+    && dpkg-deb --build ocean-$(git rev-parse --short HEAD) \
     && git clone https://github.com/buildkite/github-release.git \
     && go get github.com/google/go-github/github \
     && go get github.com/oleiade/reflections \
