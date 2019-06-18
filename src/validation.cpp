@@ -3539,8 +3539,6 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
             return state.Invalid(false, REJECT_OBSOLETE, strprintf("bad-version(0x%08x)", block.nVersion),
                                  strprintf("rejected nVersion=0x%08x block", block.nVersion));
 
-    // check for dynamic federations activation, then ensuring block header version
-    // bits are set. These bits drive serialization of the header.
     if (!ContextualCheckDynaFedHeader(block, state, params, pindexPrev)) {
         return false;
     }
