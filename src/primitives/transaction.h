@@ -212,6 +212,9 @@ public:
         // The asset fields are deserialized only if they are present.
         if (fHasAssetIssuance) {
             READWRITE(assetIssuance);
+            if (assetIssuance.IsNull()) {
+                throw std::ios_base::failure("Superfluous issuance record");
+            }
         } else if (ser_action.ForRead()) {
             assetIssuance.SetNull();
         }
