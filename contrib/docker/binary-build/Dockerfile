@@ -11,7 +11,8 @@ ENV GITHUB_RELEASE_TAG=$tag
 
 RUN set -ex \
     && apt-get -y update \
-    && apt-get -y install make automake cmake curl g++-multilib libtool binutils-gold bsdmainutils pkg-config python3 patch git golang-go \
+    && apt-get -y install make automake cmake curl g++-multilib libtool \
+    binutils-gold bsdmainutils pkg-config python3 patch git golang-go \
     && git clone https://github.com/commerceblock/ocean.git \
     && cd ocean/depends \
     && make \
