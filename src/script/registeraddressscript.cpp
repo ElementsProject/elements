@@ -54,7 +54,8 @@ bool CRegisterAddressScript::Append(const CPubKey& pubKey){
     if (!contract.IsNull())
     	tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     CKeyID keyID=tweakedPubKey.GetID();
-    assert(Consensus::CheckValidTweakedAddress(keyID, pubKey));
+    if(!Consensus::CheckValidTweakedAddress(keyID, pubKey))
+        return false;
     
     std::vector<unsigned char> vKeyIDNew = ToByteVector(keyID);
     _payload.insert(_payload.end(), 

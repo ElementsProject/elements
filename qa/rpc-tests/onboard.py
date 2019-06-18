@@ -381,6 +381,37 @@ class OnboardTest (BitcoinTestFramework):
         except JSONRPCException as e:
             assert("too many keys in input array" in e.error['message'])
 
+
+        #Set up a new whitelisting node with the same wallet as node 0
+        #Test that whitelist of node 3 mirrors that of node 0
+        self.nodes[0].backupwallet("wallet3.dat")
+
+        node3_args.append("-wallet=wallet3.dat")
+        node3_args.append("-rescan=1")
+        node3_args.append("-regtest=0")
+        node3_args.append("-pkhwhitelist=1")
+        node3_args.append("-keypool=100")
+        node3_args.append("-initialfreecoins=2100000000000000")
+        node3_args.append("-policycoins=50000000000000")
+        node3_args.append("-initialfreecoinsdestination=76a914b87ed64e2613422571747f5d968fff29a466e24e88ac")
+        node3_args.append("-issuancecoinsdestination=76a914df4439eb1a54b3a91d71979a0bb5b3f5971ff44c88ac")
+        node3_args.append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
+        node3_args.append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
+        node3_args.append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
+
+        self.nodes.extend(start_nodes(1, self.options.tmpdir, node3_args))
+        connect_nodes_bi(self.nodes,0,3)
+        connect_nodes_bi(self.nodes,1,3)
+        connect_nodes_bi(self.nodes,2,3)
+        self.is_network_split=False
+        self.sync_all()
+
+
+        
+
+        
+
+
         self.cleanup_files()
         return
 

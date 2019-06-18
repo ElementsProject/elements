@@ -17,6 +17,8 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
+	static const int64_t MAX_UNASSIGNED_KYCPUBKEYS=1000000;
+
 	enum status {
   		white,
   		black
@@ -35,7 +37,6 @@ public:
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
 	//Multisig whitelisting below
-
 	void add_multisig_whitelist(const std::string& sAddress, const UniValue& sPubKeys, 
   		const std::string& sKYCAddress, const uint8_t nMultisig);
 
@@ -104,6 +105,14 @@ public:
 	unsigned int n_my_pending();
 
 	bool kycFromUserOnboard(const CPubKey& userOnboard, CPubKey& kyc);
+
+	int64_t n_kyc_pubkeys() const{
+        return _kycStatusMap.size();
+    }
+
+    int64_t n_unassigned_kyc_pubkeys() const{
+        return _kycUnassignedSet.size();
+    }
   
 private:
 	//Make add_sorted private because we only want verified derived keys 

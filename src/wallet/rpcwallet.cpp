@@ -618,7 +618,7 @@ UniValue onboarduser(const JSONRPCRequest& request){
     return wtx.GetHash().GetHex();
 }
 
-static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CAsset& feeAsset, const CPubKey& pubKey, CWalletTx& wtxNew)
+static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CAsset& feeAsset, const CPubKey& pubKey, CWalletTx& wtxNew)
 {
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
@@ -723,6 +723,8 @@ static void FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CA
         strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
+
+    return wtxNew.GetHash().GetHex();
 }
 
 //Register an P2SH multi address to the
@@ -766,14 +768,17 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
         pubKeyVec.push_back(tpubKey);
     }
 
-    if(raScript->Append(nMultisig, keyid, pubKeyVec)){
-        //if(keysToReg.size()>=nToRegister) break;
-        addressWhitelist.add_my_pending(keyid);
-    }
-    else
+    if(!raScript->Append(nMultisig, keyid, pubKeyVec))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The process of p2sh whitelisting transaction serialization with present parameters has failed");
 
-    FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+    addressWhitelist.add_my_pending(keyid);
+
+    try{
+        FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+    } catch(...){
+        addressWhitelist.remove_my_pending(keyid);
+        throw std::current_exception();
+    }
 }
 
 //Register an unwhitelisted address from the keypool to the
@@ -804,35 +809,57 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_PUBLICKEY);
 
-    int nReg=0;
+
 
     CBitcoinAddress addr;
         // get the next registered base58check encoded tweaked public key and add it to the whitelist
     std::set<CKeyID> setKeyPool;
 
     //Get new addresses to register, topping up the key pool if necessary
-    while(nReg < nToRegister){
+
+    std::set<CKeyID> keysToReg;
+
+    nToRegister;
+    int nReg=0;
+    int nWl=0;
+
+    while(keysToReg.size() < nToRegister){
+        pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg + nWl);
         pwalletMain->GetAllReserveKeys(setKeyPool);
-        for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
-            const CKeyID &keyid = *it;
-            if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
-                continue;
-            addr.Set(keyid);
-            CKey key;
-            if (pwalletMain->GetKey(keyid, key)) { // verify exists
-                //keysToReg.push_back(key.GetPubKey());
-                if(raScript->Append(key.GetPubKey())){
-                    //if(keysToReg.size()>=nToRegister) break;
-                    addressWhitelist.add_my_pending(keyid);
-                    nReg++;
-                    if(nReg>=nToRegister) break;
+        for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); 
+            it != setKeyPool.end(); ++it) {
+                const CKeyID &keyid = *it;
+                if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid)){
+                    nWl++;
+                    continue;
                 }
-            }
+                addr.Set(keyid);
+                    CKey key;
+                if (pwalletMain->GetKey(keyid, key)) { // verify exists
+                    //keysToReg.push_back(key.GetPubKey());
+                    if(keysToReg.insert(keyid).second){
+                        if(!raScript->Append(key.GetPubKey()))
+                            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Failed to append address to registeraddress script");
+                        if(keysToReg.size() == nToRegister)
+                            break;
+                    }
+
+                }
         }
-        pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg);
     }
 
-    FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+ //Add to my pending here in case TX fails.
+    for(auto& key : keysToReg){
+        addressWhitelist.add_my_pending(key);        
+    }
+    try{
+        FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+    } catch(...){
+        for(auto& key : keysToReg){
+            addressWhitelist.remove_my_pending(key);
+        }
+        throw std::current_exception();
+    }
 }
 
 
@@ -1115,7 +1142,28 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     varr = UniValue(UniValue::VARR);
     varr.push_back(result["hex"]);
     request3.params = varr;
-    return sendrawtransaction(request3);
+
+    return (int)sendrawtransaction(request3).size();
+}
+
+UniValue getnunassignedkycpubkeys(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 0) {
+        throw runtime_error(
+            "getunassignedkycpubkey\n"
+            "Returns the number of unassigned KYC public keys; really only useful for debugging purposes\n"
+           
+            "\nExamples:\n"
+            + HelpExampleCli("getnunassignedkycpubkeys", "")
+            + HelpExampleRpc("getnunassignedkycpubkeys", "")
+        );
+    }
+    if(!fScanWhitelist && !fRequireWhitelistCheck)
+        throw JSONRPCError(RPC_MISC_ERROR, "pkhwhitelist and pkhwhitelist-scan are nor enabled\n");
+
+    return addressWhitelist.get_n_unassigned_kyc_pubkeys();
 }
 
 UniValue topupkycpubkeys(const JSONRPCRequest& request){
@@ -1138,35 +1186,50 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-
+//    int64_t nTopupTo = std::min(CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS, request.params[0].get_int64())
     int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.get_n_unassigned_kyc_pubkeys();
-    int nKeysToAddMax=1000;
-    if(nKeysToAdd>nKeysToAddMax)
-        nKeysToAdd = nKeysToAddMax;
+
+    int64_t unassignedDiff = CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS-addressWhitelist.get_n_unassigned_kyc_pubkeys();
+    if(nKeysToAdd > unassignedDiff){
+        nKeysToAdd = unassignedDiff;
+    }
 
     UniValue kycpubkeys(UniValue::VARR);
-        
+
+    EnsureWalletIsUnlocked();
+
+//    if(!pwalletMain->IsLocked())
+//        pwalletMain->TopUpKeyPool(pwalletMain->GetKeyPoolSize()+nKeysToAdd);
+
 
     UniValue ret(UniValue::VARR);
     UniValue varr(UniValue::VARR);
     JSONRPCRequest request2;
 
     int iMax=nKeysToAdd-1;
-    int nMaxPerTx=100;
+    int nMaxPerTx=10;
+    int nAdded=0;
     for(int i=0; i<nKeysToAdd; i++){
         CPubKey kycPubKey = pwalletMain->GenerateNewKey();
+//        if (!pwalletMain->GetKeyFromPool(newKey))
+  //          throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    //    CKeyID keyID = newKey.GetID();
+      //  CPubKey kycPubKey; 
+        //if(!pwalletMain->GetPubKey(keyID, kycPubKey))
+          //  throw JSONRPCError(RPC_WALLET_ERROR, "Error: could not get public key for address");
         std::vector<unsigned char> datavec = ToByteVector(kycPubKey);
         kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
         if(kycpubkeys.size() == nMaxPerTx || (i==iMax && kycpubkeys.size()>0)){
             varr.push_back(kycpubkeys);
             request2.params = varr;
-            ret.push_back(whitelistkycpubkeys(request2));
+            whitelistkycpubkeys(request2).get_int();
+            nAdded += kycpubkeys.size();
             kycpubkeys=UniValue(UniValue::VARR);
             varr=UniValue(UniValue::VARR);
         }
 
     }
-    return ret;
+    return nAdded;
 }
 
 UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){

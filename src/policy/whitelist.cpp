@@ -9,6 +9,7 @@
 #endif
 #include "ecies_hex.h"
 #include "policy/policy.h"
+#include "rpc/server.h"
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
@@ -255,6 +256,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   if (tx.IsCoinBase())
     return false; // Coinbases don't use vin normally
 
+  LOCK2(cs_main, pwalletMain->cs_wallet);
+  EnsureWalletIsUnlocked();
+
   //Check if this is a TX_REGISTERADDRESS. If so, read the data into a byte vector.
   opcodetype opcode;
   std::vector<unsigned char> bytes;
@@ -361,8 +365,11 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::unique_ptr<CBitcoinAddress> kycAddr(new CBitcoinAddress(kycKey));
 
   // Get the KYC private key from the wallet.
+  // If not found, generate new keys up to nMaxGap.
+  // This will allow the nsigning nodes to generate the necessary keys
+  // nMaxUnassigned is the maximum number of unassigned keys
   CKey decryptPrivKey;
-  if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
+  if(!pwalletMain->GetKey(kycKey, decryptPrivKey)) {
     //Non-whitelisting node
     if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)) return false;  
     decryptPubKey=kycPubKey;
@@ -439,11 +446,11 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
             }
             try{
               add_derived(addrNew, pubKeyNew, kycPubKey);
+               ++pairsAdded;
             } catch (std::invalid_argument e){
               LogPrintf(std::string(e.what()) + "\n");
               return bSuccess;
             } 
-            ++pairsAdded;
             bSuccess = true;
           }
         }
