@@ -6,7 +6,8 @@
 #include <chainparams.h>
 #include <primitives/block.h>
 
-
+/* Returns true if the next block would be the first block of an epoch with new
+ * parameters. It also returns the parameter set that is being transitioned to. */
 bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry);
 
 /* Compute the next block's enforced parameters */
