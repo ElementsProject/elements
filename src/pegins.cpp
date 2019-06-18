@@ -174,6 +174,15 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
     // Check that the witness program matches the p2ch on the (p2sh-)p2wsh
     // transaction output. We support multiple scripts as a grace period for peg-in users
     for (const auto& scripts : fedpegscripts) {
+        int fedpeg_version = 0;
+        std::vector<unsigned char> fedpeg_program;
+        scripts.first.IsWitnessProgram(fedpeg_version, fedpeg_program);
+        // We immediately return true if any fedpegscripts are unencumbered
+        // by currently-known parent chain segwit versions.
+        // TODO: Refactor for future versionbits deployment of parent-segwit version
+        if (fedpeg_version > 0) {
+            return true;
+        }
         CScript tweaked_fedpegscript = calculate_contract(scripts.second, claim_script);
         // TODO: Remove script/standard.h dep for GetScriptFor*
         CScript expected_script(GetScriptForWitness(tweaked_fedpegscript));
