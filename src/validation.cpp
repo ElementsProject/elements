@@ -3504,7 +3504,9 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
 
         // for v0, fedpegscript's scriptPubKey must match. v1+ is unencumbered.
         if (fedpeg_version == 0) {
-            CScript computed_program = GetScriptForDestination(WitnessV0ScriptHash(proposed.m_fedpegscript));
+            uint256 fedpeg_program;
+            CSHA256().Write(proposed.m_fedpegscript.data(), proposed.m_fedpegscript.size()).Finalize(fedpeg_program.begin());
+            CScript computed_program = CScript() << OP_0 << ToByteVector(fedpeg_program);
             if (computed_program != proposed.m_fedpeg_program) {
                 return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "proposed v0 segwit fedpegscript must match proposed fedpeg witness program");
             }
