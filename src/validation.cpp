@@ -611,7 +611,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
     // And now do PAK checks. Filtered by next blocks' enforced list
     if (chainparams.GetEnforcePak()) {
-        if (!IsPAKValidTx(tx, GetActivePAKList(chainActive.Tip(), chainparams.GetConsensus()))) {
+        if (!IsPAKValidTx(tx, GetActivePAKList(chainActive.Tip(), chainparams.GetConsensus()), chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
             return state.DoS(0, false, REJECT_NONSTANDARD, "invalid-pegout-proof");
         }
     }
@@ -2135,7 +2135,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         // GetActivePAKList computes for the following block, so use previous index
         CPAKList paklist = GetActivePAKList(pindex->pprev, chainparams.GetConsensus());
         for (const auto& tx : block.vtx) {
-            if (!IsPAKValidTx(*tx, paklist)) {
+            if (!IsPAKValidTx(*tx, paklist, chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
                 return state.DoS(100, error("ConnectBlock(): Bad PAK transaction"), REJECT_INVALID, "bad-pak-tx");
             }
         }

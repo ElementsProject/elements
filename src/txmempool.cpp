@@ -529,7 +529,7 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
 
         // Little hack to quickly check if any outputs are PAK ones
         // by sending in empty(reject) list.
-        if (!IsPAKValidTx(tx, CPAKList())) {
+        if (!IsPAKValidTx(tx, CPAKList(), Params().ParentGenesisBlockHash(), Params().GetConsensus().pegged_asset)) {
             txToRemove.insert(it);
             continue;
         }
@@ -604,7 +604,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
             std::vector<CTransactionRef> tx_to_remove;
             for (const auto& entry : mapTx) {
                 const CTransaction& tx = entry.GetTx();
-                if (chainparams.GetEnforcePak() && !IsPAKValidTx(tx, enforced_paklist)) {
+                if (chainparams.GetEnforcePak() && !IsPAKValidTx(tx, enforced_paklist, chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
                     tx_to_remove.push_back(MakeTransactionRef(tx));
                     continue;
                 }

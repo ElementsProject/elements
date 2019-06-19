@@ -65,8 +65,8 @@ CPAKList CreatePAKListFromExtensionSpace(const std::vector<std::vector<unsigned 
 
 CPAKList GetActivePAKList(const CBlockIndex* pblockindex, const Consensus::Params& params);
 
-bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist);
+bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset);
 
-bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist);
+bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset);
 
 #endif // BITCOIN_PRIMITIVES_PAK_H
