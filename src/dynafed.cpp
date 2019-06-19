@@ -1,6 +1,6 @@
 
 #include <dynafed.h>
-#include <script/standard.h>
+#include <hash.h>
 
 bool NextBlockIsParameterTransition(const CBlockIndex* pindexPrev, const Consensus::Params& consensus, DynaFedParamEntry& winning_entry)
 {
@@ -60,9 +60,19 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         // We need to construct the "full" current parameters of pre-dynafed
         // consensus
 
-        // Convert signblockscript to P2WSH and fedpeg_program to P2SH-P2WSH
-        CScript p2wsh_signblock_script = GetScriptForDestination(WitnessV0ScriptHash(p_epoch_start->proof.challenge));
-        CScript sh_wsh_fedpeg_program = GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(consensus.fedpegScript))));
+        // Convert signblockscript to P2WSH
+        uint256 signblock_witness_program;
+        CSHA256().Write(p_epoch_start->proof.challenge.data(), p_epoch_start->proof.challenge.size()).Finalize(signblock_witness_program.begin());
+        CScript p2wsh_signblock_script = CScript() << OP_0 << ToByteVector(signblock_witness_program);
+
+        // Make P2SH-P2WSH-ness of non-dynafed fedpegscript explicit
+        uint256 fedpegscript_redeemscript;
+        CSHA256().Write(consensus.fedpegScript.data(), consensus.fedpegScript.size()).Finalize(fedpegscript_redeemscript.begin());
+        CScript fedpeg_p2sw = CScript() << OP_0 << ToByteVector(fedpegscript_redeemscript);
+        uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw.begin(), fedpeg_p2sw.end()));
+        CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
+
+        // Put them in winning proposal
         winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size+consensus.signblockscript.size(), sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
     } else {
         winning_proposal = p_epoch_start->dynafed_params.m_current;
