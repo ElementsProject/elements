@@ -3524,6 +3524,16 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
                 return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "Proposed fedpegscript starts with OP_DEPTH, which is illegal");
             }
         }
+
+        // When enforcing PAK, extension_space must give non-empty PAK list when
+        // the vector itself is non-empty. Otherwise this means there were "junk"
+        // entries
+        if (params.GetEnforcePak()) {
+            if (!proposed.m_extension_space.empty() &&
+                    CreatePAKListFromExtensionSpace(proposed.m_extension_space).IsReject()) {
+                return state.Invalid(false, REJECT_INVALID, "invalid-dyna-fed", "Extension space is not list of valid PAK entries");
+            }
+        }
     }
     return true;
 }
