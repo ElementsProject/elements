@@ -22,9 +22,12 @@ previously ejected transactions are allowed back into the mempool when appropria
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_raises_rpc_error, assert_equal, sync_blocks
 
-# Hardcoded PAK to make sure PAK is enforced even when dynafed is not
-initial_pubkey = "02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f"
-initial_extension = [initial_pubkey+initial_pubkey]
+# Hardcoded PAK that's in chainparams to make sure PAK is enforced even when dynafed is not
+initial_online = "02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f"
+# Random key to make new pak
+initial_offline = "03808355deeb0555203b53df7ef8f36edaf66ab0207ca1b11968a7ac421554e621"
+initial_extension = [initial_online+initial_online]
+new_extension = [initial_offline+initial_online]
 
 def go_to_epoch_end(node):
     epoch_info = node.getblockchaininfo()
@@ -61,7 +64,7 @@ class DynaFedTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         # We want to test activation of dynafed
-        self.extra_args = [["-con_dyna_deploy_start=0", "-enforce_pak=1", "-con_parent_chain_signblockscript=51", "-peginconfirmationdepth=1", "-parentscriptprefix=75"] for i in range(self.num_nodes)]
+        self.extra_args = [["-con_dyna_deploy_start=0", "-enforce_pak=1", "-con_parent_chain_signblockscript=51", "-peginconfirmationdepth=1", "-parentscriptprefix=75", "-parent_bech32_hrp=ert"] for i in range(self.num_nodes)]
         # second node will not mine transactions
         self.extra_args[1].append("-blocksonly=1")
 
@@ -92,8 +95,8 @@ class DynaFedTest(BitcoinTestFramework):
 
             pak_info = self.nodes[i].getpakinfo()
             assert_equal(pak_info["block_paklist"]["reject"], False)
-            assert_equal(pak_info["block_paklist"]["online"], [initial_pubkey])
-            assert_equal(pak_info["block_paklist"]["offline"], [initial_pubkey])
+            assert_equal(pak_info["block_paklist"]["online"], [initial_online])
+            assert_equal(pak_info["block_paklist"]["offline"], [initial_online])
 
             # can not put proposed params into blockheader pre-dynafed
             assert_raises_rpc_error(-8, "Dynamic federations is not active on this network. Proposed parameters are not needed.", self.nodes[i].getnewblockhex, 0, {})
@@ -145,7 +148,7 @@ class DynaFedTest(BitcoinTestFramework):
         new_signblock = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "bech32"))["scriptPubKey"]
         cur_height = self.nodes[0].getblockcount()
         for _ in range(7):
-            prop_block = self.nodes[0].getnewblockhex(0, {"signblockscript":new_signblock, "max_block_witness":100, "fedpegscript":"52", "extension_space":["01", "02"]})
+            prop_block = self.nodes[0].getnewblockhex(0, {"signblockscript":new_signblock, "max_block_witness":100, "fedpegscript":"52", "extension_space":new_extension})
             self.nodes[0].submitblock(prop_block)
         self.sync_all()
         assert_equal(self.nodes[0].getblockcount(), cur_height+7)
@@ -176,7 +179,7 @@ class DynaFedTest(BitcoinTestFramework):
                 assert_equal(chain_info["extension_space"], initial_extension)
                 assert_equal(fedpeg_info["current_fedpegscripts"], ["51", "51"])
 
-            prop_block = self.nodes[0].getnewblockhex(0, {"signblockscript":new_signblock, "max_block_witness":107, "fedpegscript":"52", "extension_space":["01", "02"]})
+            prop_block = self.nodes[0].getnewblockhex(0, {"signblockscript":new_signblock, "max_block_witness":107, "fedpegscript":"52", "extension_space":new_extension})
             self.nodes[0].submitblock(prop_block)
         self.sync_all()
         assert_equal(self.nodes[0].getblockcount(), cur_height+8)
@@ -209,7 +212,7 @@ class DynaFedTest(BitcoinTestFramework):
             fedpeg_info = self.nodes[i].getsidechaininfo()
             assert_equal(chain_info["current_signblock_hex"], new_signblock)
             assert_equal(chain_info["max_block_witness"], 107) # 72+33+2
-            assert_equal(chain_info["extension_space"], ["01", "02"])
+            assert_equal(chain_info["extension_space"], new_extension)
             assert_equal(fedpeg_info["current_fedpegscripts"], ["52", "51"])
 
     def test_all_vote(self):
@@ -227,10 +230,10 @@ class DynaFedTest(BitcoinTestFramework):
                 fedpeg_info = self.nodes[i].getsidechaininfo()
                 assert chain_info["current_signblock_hex"] != new_signblock
                 assert_equal(chain_info["max_block_witness"], 107)
-                assert_equal(chain_info["extension_space"], ["01", "02"])
+                assert_equal(chain_info["extension_space"], new_extension)
                 assert_equal(fedpeg_info["current_fedpegscripts"], ["52", "51"])
 
-            block = self.nodes[1].getnewblockhex(0, {"signblockscript":new_signblock, "max_block_witness":108, "fedpegscript":"53", "extension_space":["01", "03"]})
+            block = self.nodes[1].getnewblockhex(0, {"signblockscript":new_signblock, "max_block_witness":108, "fedpegscript":"53", "extension_space":new_extension})
             sig = self.nodes[0].signblock(block, "")
 
             assert_raises_rpc_error(-25, "Could not sign the block.", self.nodes[1].signblock, block, "")
@@ -246,12 +249,8 @@ class DynaFedTest(BitcoinTestFramework):
         fedpeg_info = self.nodes[0].getsidechaininfo()
         assert_equal(chain_info["current_signblock_hex"], new_signblock)
         assert_equal(chain_info["max_block_witness"], 108)
-        assert_equal(chain_info["extension_space"], ["01", "03"])
+        assert_equal(chain_info["extension_space"], new_extension)
         assert_equal(fedpeg_info["current_fedpegscripts"], ["53", "52"])
-
-        # Note: Extension spaces with entries that are not 2 concat hex pubkeys
-        # are treated as PAK reject mode
-        assert self.nodes[0].getpakinfo()["block_paklist"]["reject"]
 
         # Now node 1 is the signer
         block = self.nodes[0].getnewblockhex()
@@ -380,7 +379,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # Both claim and peg-out rejected from submission as well
         assert_raises_rpc_error(-26, "invalid-pegout-proof", self.nodes[0].sendrawtransaction, raw_pegout)
-        assert_raises_rpc_error(-26, "bad-pegin-witness, Peg-in tx is invalid.", self.nodes[0].sendrawtransaction, raw_claim)
+        assert_raises_rpc_error(-26, "pegin-no-witness, Peg-in tx is invalid.", self.nodes[0].sendrawtransaction, raw_claim)
 
         # Now we test reorg behavior
         best_blockhash = self.nodes[0].getbestblockhash()
@@ -408,7 +407,7 @@ class DynaFedTest(BitcoinTestFramework):
         assert claim_id not in self.nodes[0].getrawmempool()
         assert pegout_id not in self.nodes[0].getrawmempool()
         assert_raises_rpc_error(-26, "invalid-pegout-proof", self.nodes[0].sendrawtransaction, raw_pegout)
-        assert_raises_rpc_error(-26, "bad-pegin-witness, Peg-in tx is invalid.", self.nodes[0].sendrawtransaction, raw_claim)
+        assert_raises_rpc_error(-26, "pegin-no-witness, Peg-in tx is invalid.", self.nodes[0].sendrawtransaction, raw_claim)
 
 
     def run_test(self):
