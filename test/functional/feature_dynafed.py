@@ -133,6 +133,11 @@ class DynaFedTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "invalid-dyna-fed, proposed signblockscript must be native segwit scriptPubkey", self.nodes[0].getnewblockhex, 0, {"signblockscript":"51", "max_block_witness":100, "fedpegscript":"51", "extension_space":[]})
         assert_raises_rpc_error(-1, "invalid-dyna-fed, proposed signblockscript must be native segwit scriptPubkey", self.nodes[0].getnewblockhex, 0, {"signblockscript":"00"+WSH_OP_TRUE, "max_block_witness":100, "fedpegscript":"51", "extension_space":[]})
 
+        # Since we're enforcing PAK, extension space entries *must* be 66 bytes
+        # each 33 of which are serialized compressed pubkeys
+        assert_raises_rpc_error(-1, "invalid-dyna-fed, Extension space is not list of valid PAK entries", self.nodes[0].getnewblockhex, 0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":100, "fedpegscript":"51", "extension_space":["00"]})
+        assert_raises_rpc_error(-1, "invalid-dyna-fed, Extension space is not list of valid PAK entries", self.nodes[0].getnewblockhex, 0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":100, "fedpegscript":"51", "extension_space":["", initial_extension[0]]})
+
     def test_no_vote(self):
         self.log.info("Testing no-vote epoch...")
         go_to_epoch_end(self.nodes[0])
@@ -360,7 +365,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # Now have node 1 transition to new pak and fedpegscript
         pak_prop["fedpegscript"] = "52"
-        pak_prop["extension_space"] = ["deadbeef"]
+        pak_prop["extension_space"] = initial_extension
         for _ in range(10):
             raw_pool = self.nodes[0].getrawmempool()
             assert claim_id in raw_pool

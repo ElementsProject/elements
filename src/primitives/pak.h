@@ -61,6 +61,8 @@ public:
  **/
 bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash, const CPAKList& paklist);
 
+CPAKList CreatePAKListFromExtensionSpace(const std::vector<std::vector<unsigned char>>& extension_space);
+
 CPAKList GetActivePAKList(const CBlockIndex* pblockindex, const Consensus::Params& params);
 
 bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist);
