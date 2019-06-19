@@ -121,6 +121,18 @@ class DynaFedTest(BitcoinTestFramework):
         for i in range(self.num_nodes):
             validate_no_vote_op_true(self.nodes[i], block)
 
+    def test_illegal_proposals(self):
+
+        WSH_OP_TRUE = self.nodes[0].decodescript("51")["segwit"]["hex"]
+        # fedpegscript proposals starting with OP_DEPTH(0x74) are illegal when witness v0
+        assert_raises_rpc_error(-1, "invalid-dyna-fed, Proposed fedpegscript starts with OP_DEPTH, which is illegal", self.nodes[0].getnewblockhex, 0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":100, "fedpegscript":"74", "extension_space":[]})
+        # but it's ok to have the opcode elsewhere
+        self.nodes[0].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":100, "fedpegscript":"0074", "extension_space":[]})
+
+        # signblockscript proposals must be native segwit scriptpubkeys
+        assert_raises_rpc_error(-1, "invalid-dyna-fed, proposed signblockscript must be native segwit scriptPubkey", self.nodes[0].getnewblockhex, 0, {"signblockscript":"51", "max_block_witness":100, "fedpegscript":"51", "extension_space":[]})
+        assert_raises_rpc_error(-1, "invalid-dyna-fed, proposed signblockscript must be native segwit scriptPubkey", self.nodes[0].getnewblockhex, 0, {"signblockscript":"00"+WSH_OP_TRUE, "max_block_witness":100, "fedpegscript":"51", "extension_space":[]})
+
     def test_no_vote(self):
         self.log.info("Testing no-vote epoch...")
         go_to_epoch_end(self.nodes[0])
@@ -413,6 +425,7 @@ class DynaFedTest(BitcoinTestFramework):
     def run_test(self):
         self.test_legacy_params()
         self.test_dynafed_activation()
+        self.test_illegal_proposals()
         self.test_no_vote()
         self.test_under_vote()
         self.test_four_fifth_vote()
