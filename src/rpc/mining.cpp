@@ -1057,6 +1057,8 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
         }
         std::vector<unsigned char> fedpeg_bytes = ParseHex(fps_str);
         proposed.m_fedpegscript = CScript(fedpeg_bytes.begin(), fedpeg_bytes.end());
+        // Compute the P2WSH scriptPubKey of this fedpegscript
+        proposed.m_fedpeg_program = GetScriptForDestination(WitnessV0ScriptHash(proposed.m_fedpegscript));
 
         UniValue extension_array = prop["extension_space"].get_array();
         for (unsigned int i = 0; i < extension_array.size(); i++) {
