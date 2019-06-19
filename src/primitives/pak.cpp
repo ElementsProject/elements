@@ -199,21 +199,20 @@ CPAKList GetActivePAKList(const CBlockIndex* pblockindex, const Consensus::Param
     return CreatePAKListFromExtensionSpace(ComputeNextBlockFullCurrentParameters(pblockindex, params).m_extension_space);
 }
 
-bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist)
+bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset)
 {
-    const CChainParams& params = Params();
-    if (txout.scriptPubKey.IsPegoutScript(params.ParentGenesisBlockHash()) &&
-                txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == params.GetConsensus().pegged_asset &&
-                (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash(), paklist))) {
+    if (txout.scriptPubKey.IsPegoutScript(parent_gen_hash) &&
+                txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == peg_asset &&
+                (!ScriptHasValidPAKProof(txout.scriptPubKey, parent_gen_hash, paklist))) {
             return false;
     }
     return true;
 }
 
-bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist)
+bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset)
 {
     for (const auto& txout : tx.vout) {
-        if (!IsPAKValidOutput(txout, paklist)) {
+        if (!IsPAKValidOutput(txout, paklist, parent_gen_hash, peg_asset)) {
             return false;
         }
     }
