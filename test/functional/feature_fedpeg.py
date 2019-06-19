@@ -294,6 +294,10 @@ class FedPegTest(BitcoinTestFramework):
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 0:
             raise Exception("Peg-in didn't unconfirm after invalidateblock call.")
 
+        # Re-org causes peg-ins to get booted(wallet will resubmit in 10 minutes)
+        assert_equal(sidechain.getrawmempool(), [])
+        sidechain.sendrawtransaction(tx1["hex"])
+
         # Create duplicate claim, put it in block along with current one in mempool
         # to test duplicate-in-block claims between two txs that are in the same block.
         raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]

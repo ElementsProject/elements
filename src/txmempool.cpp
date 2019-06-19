@@ -521,6 +521,24 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         if (!validLP) {
             mapTx.modify(it, update_lock_points(lp));
         }
+
+        // On re-org, remove *all* peg-in and PAK-based peg-outs due to possible
+        // invalidity from dynafed transitions
+        // TODO: Only boot out now-invalid transactions. Re-orgs are very rare in
+        // federated systems but can occasionally happen due to consensus algorithm.
+
+        // Little hack to quickly check if any outputs are PAK ones
+        // by sending in empty(reject) list.
+        if (!IsPAKValidTx(tx, CPAKList())) {
+            txToRemove.insert(it);
+            continue;
+        }
+        for (const auto& input : tx.vin) {
+            if (input.m_is_pegin) {
+                txToRemove.insert(it);
+                break;
+            }
+        }
     }
     setEntries setAllRemoves;
     for (txiter it : txToRemove) {
