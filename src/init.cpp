@@ -1869,17 +1869,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         return false;
     }
 
-    // ********************************************************* Step 13: Check fedpeg
-    // ELEMENTS:
-    if (chainparams.GetConsensus().has_parent_chain) {
-        // Will assert if not properly formatted
-        const CScript& fedpeg_script = chainparams.GetConsensus().fedpegScript;
-        unsigned int dummy_required;
-        std::vector<std::vector<unsigned char>> dummy_keys;
-        if (!MatchLiquidWatchman(fedpeg_script) &&
-                fedpeg_script != CScript() << OP_TRUE &&
-                !MatchMultisig(fedpeg_script, dummy_required, dummy_keys)) {
-            return InitError(_("ERROR: Fedpegscript is not one of the accepted templates: OP_TRUE, CHECKMULTISIG, and Liquidv1"));
+    // ********************************************************* Step 13: Check PAK
+    if (chainparams.GetEnforcePak()) {
+        if (!chainparams.GetConsensus().first_extension_space.empty() &&
+                CreatePAKListFromExtensionSpace(chainparams.GetConsensus().first_extension_space).IsReject()) {
+            return InitError("PAK is being enforced but initial extension space has invalid entries.");
         }
     }
 
