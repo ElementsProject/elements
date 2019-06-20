@@ -1163,7 +1163,7 @@ UniValue getnunassignedkycpubkeys(const JSONRPCRequest& request){
     if(!fScanWhitelist && !fRequireWhitelistCheck)
         throw JSONRPCError(RPC_MISC_ERROR, "pkhwhitelist and pkhwhitelist-scan are nor enabled\n");
 
-    return addressWhitelist.get_n_unassigned_kyc_pubkeys();
+    return addressWhitelist.n_unassigned_kyc_pubkeys();
 }
 
 UniValue topupkycpubkeys(const JSONRPCRequest& request){
@@ -1186,10 +1186,9 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-//    int64_t nTopupTo = std::min(CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS, request.params[0].get_int64())
-    int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.get_n_unassigned_kyc_pubkeys();
+    int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.n_unassigned_kyc_pubkeys();
 
-    int64_t unassignedDiff = CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS-addressWhitelist.get_n_unassigned_kyc_pubkeys();
+    int64_t unassignedDiff = CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS-addressWhitelist.n_unassigned_kyc_pubkeys();
     if(nKeysToAdd > unassignedDiff){
         nKeysToAdd = unassignedDiff;
     }
@@ -1198,25 +1197,16 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
     EnsureWalletIsUnlocked();
 
-//    if(!pwalletMain->IsLocked())
-//        pwalletMain->TopUpKeyPool(pwalletMain->GetKeyPoolSize()+nKeysToAdd);
-
-
     UniValue ret(UniValue::VARR);
     UniValue varr(UniValue::VARR);
-    JSONRPCRequest request2;
 
     int iMax=nKeysToAdd-1;
-    int nMaxPerTx=10;
+    int nMaxPerTx=100;
     int nAdded=0;
+    JSONRPCRequest request2;
+
     for(int i=0; i<nKeysToAdd; i++){
         CPubKey kycPubKey = pwalletMain->GenerateNewKey();
-//        if (!pwalletMain->GetKeyFromPool(newKey))
-  //          throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    //    CKeyID keyID = newKey.GetID();
-      //  CPubKey kycPubKey; 
-        //if(!pwalletMain->GetPubKey(keyID, kycPubKey))
-          //  throw JSONRPCError(RPC_WALLET_ERROR, "Error: could not get public key for address");
         std::vector<unsigned char> datavec = ToByteVector(kycPubKey);
         kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
         if(kycpubkeys.size() == nMaxPerTx || (i==iMax && kycpubkeys.size()>0)){

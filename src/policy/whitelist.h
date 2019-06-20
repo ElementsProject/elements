@@ -17,7 +17,7 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
-	static const int64_t MAX_UNASSIGNED_KYCPUBKEYS=1000000;
+	static const int64_t MAX_UNASSIGNED_KYCPUBKEYS=10000;
 
 	enum status {
   		white,
@@ -72,10 +72,6 @@ public:
   	bool peek_unassigned_kyc(CPubKey& pubKey);
   	//Query the set of unassigned kyc pub keys for the presence of pubKey
   	bool is_unassigned_kyc(const CKeyID& kycKeyID);
-
-  	int64_t get_n_unassigned_kyc_pubkeys() const{
-  		return _kycUnassignedQueue.size();
-  	}
 
   	void add_unassigned_kyc(const CPubKey& pubKey);
 
