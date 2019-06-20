@@ -181,11 +181,6 @@ class OnboardTest (BitcoinTestFramework):
                     wltxid = txid
                     wlvalue = rawtx["vout"][0]["value"]
 
-        #Whitelist node 0 addresses
-        keys_main=self.initfile("keys.main")
-        self.nodes[0].dumpderivedkeys(keys_main)
-        self.nodes[0].readwhitelist(keys_main)
-
         #No kycpubkeys available
         kycfile="kycfile.dat"
         try:
@@ -198,6 +193,14 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
         time.sleep(5)
+
+
+        #Onboard node0
+        kycfile0=self.initfile("kycfile0.dat")
+        userOnboardPubKey=self.nodes[0].dumpkycfile(kycfile0)
+        self.nodes[0].onboarduser(kycfile0)
+        self.nodes[0].generate(101)
+        self.sync_all()
 
         #Onboard node1
         kycfile=self.initfile("kycfile.dat")
@@ -435,27 +438,48 @@ class OnboardTest (BitcoinTestFramework):
             assert("too many keys in input array" in e.error['message'])
 
 
-        
+        #assert whitelist file are the same for the two nodes
         wl0file=self.initfile(self.options.tmpdir+"wl0.dat")
         self.nodes[0].dumpwhitelist(wl0file)
 
         wl2file=self.initfile(self.options.tmpdir+"wl2.dat")
         self.nodes[2].dumpwhitelist(wl2file)
 
+        assert(filecmp.cmp(wl0file, wl2file))
 
-        debugfile=os.path.join(self.options.tmpdir, "debug.dat")
-        fdb = open(debugfile,'w')
+        with open(wl0file, 'r') as fin0, open(wl2file, 'r') as fin2:
+            lines0=fin0.readlines()
+            lines2=fin2.readlines()
 
-        #assert whitelist file are the same for the two nodes
-        with open(wl0file, 'r') as fin0, open(wl2file, 'r') as fin3:
-            line0=fin0.read()
-            line3=fin3.read()
-            bEqual = (line0 == line3)
-            print(line0 + " " + line3 + " " + str(bEqual))
-            fdb.write(line0 + " " + line3 + " " + str(bEqual))
-#            assert(bEqual == True)
+            set0=set(lines0)
+            set2=set(lines2)
 
-        asser(False)
+            len0=len(set0)
+            len2=len(set2)
+
+            if len0 != len2:
+                print("len0: " + str(len0))
+                print("len2: " + str(len2))
+
+            assert(len0 == len2)
+
+            diff0=set0.difference(set2)
+            diff2=set2.difference(set0)
+
+            lendiff0 = len(diff0)
+            lendiff2 = len(diff2)
+
+            
+            if lendiff0 > 0:
+                print(diff0)
+
+            if lendiff2 > 0:
+                print(diff2)
+
+            assert(lendiff0 == 0)
+            assert(lendiff2 == 0)
+                
+
         self.cleanup_files()
         return
 
