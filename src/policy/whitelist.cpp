@@ -320,6 +320,10 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     //Onboarding must be done using the whitelist asset 
     if(!IsWhitelistAssetOnly(tx)) return false;
     // Check if reading from the client node
+
+    //The user onboard pubkey is one of the unassigned KYC pubkeys - so 
+    //this will have been derived already in add_unassigned_kycpubkey,
+    //even if the node has been restarted
     if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
       // kycPubKey assigned to me by the whitelisting node
       pwalletMain->SetKYCPubKey(kycPubKey);
@@ -328,7 +332,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
     decryptPubKey = inputPubKey;
-  } else {
+    } else {
     it1=bytes.begin(); //Reset iterator
     kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
     kycKey=kycPubKey.GetID();
