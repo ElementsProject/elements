@@ -35,4 +35,4 @@ RUN set -ex \
     && go get github.com/google/go-github/github \
     && go get github.com/oleiade/reflections \
     && go get golang.org/x/oauth2 \
-    && go run github-release/main.go \"Debian package\" ocean-$(git rev-parse --short HEAD).deb
+    && go run github-release/main.go \"Debian\ package\" ocean-$(git rev-parse --short HEAD).deb
