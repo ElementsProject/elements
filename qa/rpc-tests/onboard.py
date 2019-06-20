@@ -209,7 +209,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
         time.sleep(5)
-        
+
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         time.sleep(1)
         self.nodes[0].onboarduser(kycfile)
@@ -255,7 +255,7 @@ class OnboardTest (BitcoinTestFramework):
         # wl1file_2="wl1_2.dat"
         # self.nodes[1].dumpwhitelist(wl1file_2)
         # assert(filecmp.cmp(wlfile, wlfile_2))
- 
+
         #Node 1 registers additional addresses to whitelist
         nadd=100
         saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
@@ -308,7 +308,7 @@ class OnboardTest (BitcoinTestFramework):
         assert(iswl)
 
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
-        
+
         wl1file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1file)
 
@@ -326,7 +326,7 @@ class OnboardTest (BitcoinTestFramework):
         assert(iswl)
 
         if(clientAddress1['pubkey'] == clientAddress1['derivedpubkey']):
-            raise AssertionError("Pubkey and derived pubkey are the same for a new address. Either tweaking failed or the contract is not valid/existing.") 
+            raise AssertionError("Pubkey and derived pubkey are the same for a new address. Either tweaking failed or the contract is not valid/existing.")
         try:
             multiAddress2=self.nodes[1].createmultisig(2,["asdasdasdasdasdas",clientAddress2['pubkey'],clientAddress4['pubkey']])
             self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
@@ -385,7 +385,7 @@ class OnboardTest (BitcoinTestFramework):
 
         wl1_file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1_file)
-        
+
         #Get kyc pubkey for node1 from node1 and node0
         addr1=self.nodes[1].getnewaddress()
         kycpub1=self.nodes[0].getkycpubkey(addr1)
@@ -404,8 +404,6 @@ class OnboardTest (BitcoinTestFramework):
         nlines=self.linecount(wl1_file)
         nlines_bl=self.linecount(wl1_bl_file)
 
-        print(nlines)
-        print(nlines_bl)
         assert_equal(nlines-nlines_bl,nwhitelisted)
 
         #Re-whitelist node1 wallet
@@ -415,7 +413,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
 
-        wl1file_rwl="wl1_rwl.dat"
+        wl1file_rwl=self.initfile("wl1_rwl.dat")
         self.nodes[1].dumpwhitelist(wl1file_rwl)
         nlines_rwl=self.linecount(wl1file_rwl)
         assert_equal(nlines_rwl, nlines)
