@@ -21,7 +21,7 @@ RUN set -ex \
     && ./configure --enable-glibc-back-compat \
         --prefix=`pwd`/depends/x86_64-pc-linux-gnu LDFLAGS="-static-libstdc++" \
     && make \
-    && tar -cvf ocean.tar src/oceand src/ocean-cli src/ocean-tx \
+    && tar -cvf ocean.tar --directory src oceand ocean-cli ocean-tx \
     && git clone https://github.com/buildkite/github-release.git \
     && go get github.com/google/go-github/github \
     && go get github.com/oleiade/reflections \
