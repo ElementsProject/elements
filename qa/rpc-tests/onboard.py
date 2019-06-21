@@ -64,7 +64,6 @@ class OnboardTest (BitcoinTestFramework):
         #Set up wallet path and dump the wallet
         wlwalletname="wlwallet.dat"
         wlwalletpath=os.path.join(self.options.tmpdir,wlwalletname)
-        print(self.options.tmpdir)
         time.sleep(5)
         self.nodes[0].backupwallet(wlwalletpath)
         
@@ -86,9 +85,6 @@ class OnboardTest (BitcoinTestFramework):
         shutil.copyfile(wlwalletpath,dest0)
         shutil.copyfile(wlwalletpath,dest2)
         
-        print(node2path)
-        print(wlwalletpath)
-        print(dest0)
         time.sleep(5)
 
         #Start the nodes again with a different wallet path argument
@@ -101,8 +97,7 @@ class OnboardTest (BitcoinTestFramework):
         #Node0 and node2 wallets should be the same
         addr0=self.nodes[0].getnewaddress()
         addr2=self.nodes[2].getnewaddress()
-        print(addr0)
-        print(addr2)
+
         assert(addr0 == addr2)
 
         connect_nodes_bi(self.nodes,0,1)
@@ -236,8 +231,7 @@ class OnboardTest (BitcoinTestFramework):
 
         bal1=self.nodes[1].getwalletinfo()["balance"]["CBT"]
 
-        print(bal1)
-        print(ntosend)
+
         assert_equal(float(bal1),float(ntosend))
 
         #Restart the nodes. The whitelist will be restored. TODO
@@ -455,9 +449,6 @@ class OnboardTest (BitcoinTestFramework):
             len0=len(set0)
             len2=len(set2)
 
-            if len0 != len2:
-                print("len0: " + str(len0))
-                print("len2: " + str(len2))
 
             assert(len0 == len2)
 
@@ -466,13 +457,6 @@ class OnboardTest (BitcoinTestFramework):
 
             lendiff0 = len(diff0)
             lendiff2 = len(diff2)
-
-            
-            if lendiff0 > 0:
-                print(diff0)
-
-            if lendiff2 > 0:
-                print(diff2)
 
             assert(lendiff0 == 0)
             assert(lendiff2 == 0)
