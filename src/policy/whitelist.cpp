@@ -238,7 +238,6 @@ void CWhiteList::add_multisig_whitelist(const std::string& sAddress, const UniVa
   add_multisig_whitelist(address, pubKeyVec, kycPubKey, nMultisig);
 }
 
-#ifdef ENABLE_WALLET
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CCoinsViewCache mapInputs(pcoinsTip);
@@ -247,8 +246,8 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pind
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   #ifdef ENABLE_WALLET
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(!mapInputs.HaveInputs(tx)) 
     return false; // No inputs for tx in cache
 
@@ -400,7 +399,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   #endif //#ifdef ENABLE_WALLET
   return true;
 }
-#endif //#ifdef ENABLE_WALLET
+
 
 
 bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CPubKey>& kycPubKey){
@@ -792,8 +791,8 @@ void CWhiteList::add_unassigned_kyc(const CPubKey& id){
   //If this is the whitelisting node, the private key should be in the wallet.
   //Generate new keys up to the limit until found.
   //If not found, return and error.
-  
   CKeyID kycKey=id.GetID();
+  #ifdef ENABLE_WALLET
     if(fRequireWhitelistCheck){
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
@@ -805,10 +804,11 @@ void CWhiteList::add_unassigned_kyc(const CPubKey& id){
          LogPrintf("ERROR: kyc privkey not in whitelisting node wallet"+HexStr(id.begin(), id.end())+"\n");
         break;
         }
+      }
     }
-  }
-  
-  _kycUnassignedSet.insert(id.GetID());
+    #endif //ENABLE_WALLET  
+ 
+  _kycUnassignedSet.insert(kycKey);
   _kycUnassignedQueue.push(id);
 }
 
