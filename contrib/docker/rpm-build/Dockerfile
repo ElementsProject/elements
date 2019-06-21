@@ -5,6 +5,6 @@ RUN set -x \
     && yum install -y \
     rpm-build \
     git \
-    && git clone https://github.com/commerceblock/ocean.git -b docker_rpm \
-    && cd ocean/contrib/rpm \
+    && git clone https://github.com/commerceblock/ocean.git -b docker_rpm_spec \
+    && cd ocean/contrib/docker/rpm-build \
     && rpmbuild ocean.spec
