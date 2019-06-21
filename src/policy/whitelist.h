@@ -53,10 +53,9 @@ public:
 
   	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 
-#ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
+  	
 	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-#endif //#ifdef ENABLE_WALLET
 	
   	//Update from transaction
   	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
