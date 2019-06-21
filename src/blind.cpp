@@ -536,7 +536,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
                 // abort and not blind and the math adds up.
                 // Count as success(to signal caller that nothing wrong) and return early
                 if (memcmp(diff_zero, &blind[num_blind_attempts-1][0], 32) == 0) {
-                   return ++num_blinded;
+                    return ++num_blinded;
                 }
             }
 
@@ -545,7 +545,7 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
             out_val_blind_factors[nOut] = uint256(std::vector<unsigned char>(value_blindptrs[value_blindptrs.size()-1], value_blindptrs[value_blindptrs.size()-1]+32));
             out_asset_blind_factors[nOut] = uint256(std::vector<unsigned char>(asset_blindptrs[asset_blindptrs.size()-1], asset_blindptrs[asset_blindptrs.size()-1]+32));
 
-            //Blind the asset ID
+            // Blind the asset ID
             BlindAsset(conf_asset, asset_gen, asset, asset_blindptrs.back());
 
             // Create value commitment
