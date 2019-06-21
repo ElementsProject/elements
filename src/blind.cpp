@@ -284,7 +284,10 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
             }
         } else {
             ret = secp256k1_generator_generate_blinded(secp256k1_blind_context, &target_asset_generators[totalTargets], input_assets[i].begin(), input_asset_blinding_factors[i].begin());
-            assert(ret == 1);
+            if (ret != 1) {
+                // Possibly invalid blinding factor provided by user.
+                return -1;
+            }
         }
         memcpy(&surjection_targets[totalTargets], input_assets[i].begin(), 32);
         target_asset_blinders.push_back(input_asset_blinding_factors[i]);
@@ -519,7 +522,10 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 
                 // Generate value we intend to insert
                 ret = secp256k1_pedersen_blind_generator_blind_sum(secp256k1_blind_context, &blinded_amounts[0], &asset_blindptrs[0], &value_blindptrs[0], num_blind_attempts + num_known_input_blinds, num_issuance_blind_attempts + num_known_input_blinds);
-                assert(ret);
+                if (!ret) {
+                    // Possibly invalid blinding factor provided by user.
+                    return -1;
+                }
 
                 // Resulting blinding factor can sometimes be 0
                 // where inputs are the negations of each other
