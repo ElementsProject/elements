@@ -17,6 +17,8 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
+	static const int64_t MAX_UNASSIGNED_KYCPUBKEYS=10000;
+
 	enum status {
   		white,
   		black
@@ -35,7 +37,6 @@ public:
 	void add_derived(const std::string& sAddress, const std::string& sKey);
 
 	//Multisig whitelisting below
-
 	void add_multisig_whitelist(const std::string& sAddress, const UniValue& sPubKeys, 
   		const std::string& sKYCAddress, const uint8_t nMultisig);
 
@@ -48,15 +49,13 @@ public:
 	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
 		const uint8_t nMultisig);
 
-  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
   	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CPubKey>& kycPubKey);
 
   	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 
-#ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
-#endif //#ifdef ENABLE_WALLET
+  	
+	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 	
   	//Update from transaction
   	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
@@ -71,10 +70,6 @@ public:
   	bool peek_unassigned_kyc(CPubKey& pubKey);
   	//Query the set of unassigned kyc pub keys for the presence of pubKey
   	bool is_unassigned_kyc(const CKeyID& kycKeyID);
-
-  	int64_t get_n_unassigned_kyc_pubkeys() const{
-  		return _kycUnassignedQueue.size();
-  	}
 
   	void add_unassigned_kyc(const CPubKey& pubKey);
 
@@ -104,6 +99,14 @@ public:
 	unsigned int n_my_pending();
 
 	bool kycFromUserOnboard(const CPubKey& userOnboard, CPubKey& kyc);
+
+	int64_t n_kyc_pubkeys() const{
+        return _kycStatusMap.size();
+    }
+
+    int64_t n_unassigned_kyc_pubkeys() const{
+        return _kycUnassignedSet.size();
+    }
   
 private:
 	//Make add_sorted private because we only want verified derived keys 

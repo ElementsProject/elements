@@ -32,6 +32,8 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist-scan=1")
         self.extra_args[1].append("-keypool=100")
+        self.extra_args[1].append("-freezelist=1")
+        self.extra_args[1].append("-burnlistist=1")
         self.extra_args[1].append("-initialfreecoins=2100000000000000")
         self.extra_args[1].append("-policycoins=50000000000000")
         self.extra_args[1].append("-initialfreecoinsdestination=76a914b87ed64e2613422571747f5d968fff29a466e24e88ac")
@@ -39,21 +41,70 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[1].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[1].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[1].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
-        self.extra_args[2].append("-rescan=1")
-        self.extra_args[2].append("-regtest=0")
-        self.extra_args[2].append("-pkhwhitelist-scan=1")
         self.extra_args[2].append("-keypool=100")
+        self.extra_args[2].append("-freezelist=1")
+        self.extra_args[2].append("-burnlist=1")
+        self.extra_args[2].append("-pkhwhitelist=1")
+        self.extra_args[2].append("-rescan=1")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
         self.extra_args[2].append("-policycoins=50000000000000")
+        self.extra_args[2].append("-regtest=0")
         self.extra_args[2].append("-initialfreecoinsdestination=76a914b87ed64e2613422571747f5d968fff29a466e24e88ac")
         self.extra_args[2].append("-issuancecoinsdestination=76a914df4439eb1a54b3a91d71979a0bb5b3f5971ff44c88ac")
         self.extra_args[2].append("-freezelistcoinsdestination=76a91474168445da07d331faabd943422653dbe19321cd88ac")
         self.extra_args[2].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.files=[]
+        self.nodes=[]
 
     def setup_network(self, split=False):
+        #Start a node, get the wallet file, stop the node and use the wallet file as the whitelisting wallet
+        #Start nodes
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
+        #Set up wallet path and dump the wallet
+        wlwalletname="wlwallet.dat"
+        wlwalletpath=os.path.join(self.options.tmpdir,wlwalletname)
+        print(self.options.tmpdir)
+        time.sleep(5)
+        self.nodes[0].backupwallet(wlwalletpath)
+        
+        #Stop the nodes
+        stop_nodes(self.nodes)
+        time.sleep(5)
+
+        #Copy the wallet file to the node 0 and 2 data dirs
+        #Give nodes 0 and 2 the same wallet (whitelist wallet)
+        node0path=os.path.join(self.options.tmpdir, "node"+str(0))
+        node1path=os.path.join(self.options.tmpdir, "node"+str(1))
+        node2path=os.path.join(self.options.tmpdir, "node"+str(2))
+
+        dest0=os.path.join(node0path, "ocean_test")
+        dest0=os.path.join(dest0, wlwalletname)
+        dest2=os.path.join(node2path, "ocean_test")
+        dest2=os.path.join(dest2, wlwalletname)
+
+        shutil.copyfile(wlwalletpath,dest0)
+        shutil.copyfile(wlwalletpath,dest2)
+        
+        print(node2path)
+        print(wlwalletpath)
+        print(dest0)
+        time.sleep(5)
+
+        #Start the nodes again with a different wallet path argument
+        self.extra_args[0].append("-wallet="+wlwalletname)
+        self.extra_args[2].append("-wallet="+wlwalletname)
+        self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
+
+        time.sleep(5)
+
+        #Node0 and node2 wallets should be the same
+        addr0=self.nodes[0].getnewaddress()
+        addr2=self.nodes[2].getnewaddress()
+        print(addr0)
+        print(addr2)
+        assert(addr0 == addr2)
+
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
@@ -130,11 +181,6 @@ class OnboardTest (BitcoinTestFramework):
                     wltxid = txid
                     wlvalue = rawtx["vout"][0]["value"]
 
-        #Whitelist node 0 addresses
-        keys_main=self.initfile("keys.main")
-        self.nodes[0].dumpderivedkeys(keys_main)
-        self.nodes[0].readwhitelist(keys_main)
-
         #No kycpubkeys available
         kycfile="kycfile.dat"
         try:
@@ -147,6 +193,14 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.sync_all()
         time.sleep(5)
+
+
+        #Onboard node0
+        kycfile0=self.initfile("kycfile0.dat")
+        userOnboardPubKey=self.nodes[0].dumpkycfile(kycfile0)
+        self.nodes[0].onboarduser(kycfile0)
+        self.nodes[0].generate(101)
+        self.sync_all()
 
         #Onboard node1
         kycfile=self.initfile("kycfile.dat")
@@ -182,6 +236,8 @@ class OnboardTest (BitcoinTestFramework):
 
         bal1=self.nodes[1].getwalletinfo()["balance"]["CBT"]
 
+        print(bal1)
+        print(ntosend)
         assert_equal(float(bal1),float(ntosend))
 
         #Restart the nodes. The whitelist will be restored. TODO
@@ -378,6 +434,49 @@ class OnboardTest (BitcoinTestFramework):
             self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
         except JSONRPCException as e:
             assert("too many keys in input array" in e.error['message'])
+
+
+        #assert whitelist file are the same for the two nodes
+        wl0file=self.initfile(self.options.tmpdir+"wl0.dat")
+        self.nodes[0].dumpwhitelist(wl0file)
+
+        wl2file=self.initfile(self.options.tmpdir+"wl2.dat")
+        self.nodes[2].dumpwhitelist(wl2file)
+
+        assert(filecmp.cmp(wl0file, wl2file))
+
+        with open(wl0file, 'r') as fin0, open(wl2file, 'r') as fin2:
+            lines0=fin0.readlines()
+            lines2=fin2.readlines()
+
+            set0=set(lines0)
+            set2=set(lines2)
+
+            len0=len(set0)
+            len2=len(set2)
+
+            if len0 != len2:
+                print("len0: " + str(len0))
+                print("len2: " + str(len2))
+
+            assert(len0 == len2)
+
+            diff0=set0.difference(set2)
+            diff2=set2.difference(set0)
+
+            lendiff0 = len(diff0)
+            lendiff2 = len(diff2)
+
+            
+            if lendiff0 > 0:
+                print(diff0)
+
+            if lendiff2 > 0:
+                print(diff2)
+
+            assert(lendiff0 == 0)
+            assert(lendiff2 == 0)
+                
 
         self.cleanup_files()
         return

@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "chain.h"
 #include "whitelist.h"
 #include "validation.h"
 #ifdef ENABLE_WALLET
@@ -9,6 +10,7 @@
 #endif
 #include "ecies_hex.h"
 #include "policy/policy.h"
+#include "rpc/server.h"
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
@@ -237,23 +239,24 @@ void CWhiteList::add_multisig_whitelist(const std::string& sAddress, const UniVa
   add_multisig_whitelist(address, pubKeyVec, kycPubKey, nMultisig);
 }
 
-#ifdef ENABLE_WALLET
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CCoinsViewCache mapInputs(pcoinsTip);
   mapInputs.SetBestBlock(pindex->GetBlockHash());
   return RegisterAddress(tx, mapInputs);
 }
-#endif //#ifdef ENABLE_WALLET
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   #ifdef ENABLE_WALLET
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   if(!mapInputs.HaveInputs(tx)) 
     return false; // No inputs for tx in cache
 
   if (tx.IsCoinBase())
     return false; // Coinbases don't use vin normally
+
+  LOCK2(cs_main, pwalletMain->cs_wallet);
+  EnsureWalletIsUnlocked();
 
   //Check if this is a TX_REGISTERADDRESS. If so, read the data into a byte vector.
   opcodetype opcode;
@@ -316,6 +319,10 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     //Onboarding must be done using the whitelist asset 
     if(!IsWhitelistAssetOnly(tx)) return false;
     // Check if reading from the client node
+
+    //The user onboard pubkey is one of the unassigned KYC pubkeys - so 
+    //this will have been derived already in add_unassigned_kycpubkey,
+    //even if the node has been restarted
     if(pwalletMain->GetKey(userOnboardPubKey.GetID(), userOnboardPrivKey)){  
       // kycPubKey assigned to me by the whitelisting node
       pwalletMain->SetKYCPubKey(kycPubKey);
@@ -324,7 +331,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     inputPubKeys.insert(userOnboardPubKey);
     inputPubKey = userOnboardPubKey;
     decryptPubKey = inputPubKey;
-  } else {
+    } else {
     it1=bytes.begin(); //Reset iterator
     kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
     kycKey=kycPubKey.GetID();
@@ -361,12 +368,20 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   std::unique_ptr<CBitcoinAddress> kycAddr(new CBitcoinAddress(kycKey));
 
   // Get the KYC private key from the wallet.
+  // If not found, generate new keys up to nMaxGap.
+  // This will allow the nsigning nodes to generate the necessary keys
+  // nMaxUnassigned is the maximum number of unassigned keys
   CKey decryptPrivKey;
-  if(!pwalletMain->GetKey(kycKey, decryptPrivKey)){  
-    //Non-whitelisting node
-    if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)) return false;  
+  if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)){
+    //Whitelisting node?
+            // For debugging - translate into bitcoin address
+      CBitcoinAddress addr(kycKey);
+      std::string sAddr = addr.ToString();
+    if(!pwalletMain->GetKey(kycKey, decryptPrivKey))
+      return false;
+  }  else {
     decryptPubKey=kycPubKey;
-  }  
+  }
 
   //Decrypt
   CECIES_hex decryptor;
@@ -383,7 +398,9 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
       return false;
   #endif //#ifdef ENABLE_WALLET
+  return true;
 }
+
 
 
 bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CPubKey>& kycPubKey){
@@ -439,11 +456,11 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
             }
             try{
               add_derived(addrNew, pubKeyNew, kycPubKey);
+               ++pairsAdded;
             } catch (std::invalid_argument e){
               LogPrintf(std::string(e.what()) + "\n");
               return bSuccess;
             } 
-            ++pairsAdded;
             bSuccess = true;
           }
         }
@@ -607,7 +624,8 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
     // The first dummy key in the multisig is the (scrambled) kyc public key.
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxOut& prev = mapInputs.GetOutputFor(tx.vin[i]);
-
+        if(prev.nAsset.GetAsset() != whitelistAsset)
+          return false;
         std::vector<std::vector<unsigned char> > vSolutions;
         txnouttype whichType;
 
@@ -688,6 +706,7 @@ void CWhiteList::whitelist_kyc(const CKeyID& keyId, const COutPoint* outPoint){
   set_kyc_status(keyId, CWhiteList::status::white);
   if(outPoint)
     _kycPubkeyOutPointMap[keyId]=*outPoint;
+  _kycUnassignedSet.erase(keyId);
 }
 
 bool CWhiteList::get_kycpubkey_outpoint(const CKeyID& keyId, COutPoint& outPoint){
@@ -738,12 +757,10 @@ bool CWhiteList::get_unassigned_kyc(CPubKey& pubKey){
   if(peek_unassigned_kyc(pubKey)){
     //Move from "unassigned" to whitelisted in this node.
     //Other nodes will be notified via the user onboard transaction.
-    whitelist_kyc(pubKey.GetID());
+    CKeyID id = pubKey.GetID();
+    whitelist_kyc(id);
     _kycUnassignedQueue.pop();
-    auto it = _kycUnassignedSet.find(pubKey.GetID());
-    if(it != _kycUnassignedSet.end()){
-     _kycUnassignedSet.erase(it);
-    }
+    _kycUnassignedSet.erase(id);
     return true;
   }
   return false;
@@ -751,9 +768,16 @@ bool CWhiteList::get_unassigned_kyc(CPubKey& pubKey){
 
 bool CWhiteList::peek_unassigned_kyc(CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if (_kycUnassignedQueue.empty()) return false;
-  pubKey = _kycUnassignedQueue.front();
-  return true;
+  while (!_kycUnassignedQueue.empty()){
+      pubKey = _kycUnassignedQueue.front();
+      auto it = _kycUnassignedSet.find(pubKey.GetID());
+      if(it == _kycUnassignedSet.end()){
+        _kycUnassignedQueue.pop();
+      } else {
+        return true;
+      }
+  }
+  return false;
 }
 
 bool CWhiteList::is_unassigned_kyc(const CKeyID& kycKeyID){
@@ -765,7 +789,27 @@ bool CWhiteList::is_unassigned_kyc(const CKeyID& kycKeyID){
 
 void CWhiteList::add_unassigned_kyc(const CPubKey& id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  _kycUnassignedSet.insert(id.GetID());
+  //If this is the whitelisting node, the private key should be in the wallet.
+  //Generate new keys up to the limit until found.
+  //If not found, return and error.
+  CKeyID kycKey=id.GetID();
+  #ifdef ENABLE_WALLET
+    if(fRequireWhitelistCheck){
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    EnsureWalletIsUnlocked();
+    CKey privKey;
+    int nTries=0;
+    while(!pwalletMain->GetKey(kycKey, privKey)){
+      CPubKey newPubKey = pwalletMain->GenerateNewKey();
+      if(++nTries > MAX_UNASSIGNED_KYCPUBKEYS){
+         LogPrintf("ERROR: kyc privkey not in whitelisting node wallet"+HexStr(id.begin(), id.end())+"\n");
+        break;
+        }
+      }
+    }
+    #endif //ENABLE_WALLET  
+ 
+  _kycUnassignedSet.insert(kycKey);
   _kycUnassignedQueue.push(id);
 }
 

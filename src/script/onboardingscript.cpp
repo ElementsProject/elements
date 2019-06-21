@@ -22,13 +22,6 @@ COnboardingScript::~COnboardingScript(){
 
 }
 
-//bool COnboardingScript::SetKeys(const CKey* privKey, const CPubKey* pubKey){
-//    CRegisterAddressScript::SetKeys(privKey, pubKey);
-//    _kycPubKey=privKey->GetPubKey();
-//    _userPubKey=*pubKey;
-//    return true;
-//}
-
 bool COnboardingScript::Finalize(CScript& script, 
                     const CPubKey& onboardPubKey, 
                     const CKey& kycPrivKey){
@@ -41,14 +34,7 @@ bool COnboardingScript::Finalize(CScript& script,
 
     //Onboarding keys    	
     ucvec vPubKeyKYC = ToByteVector(kycPrivKey.GetPubKey());
-    _payload.insert(_payload.end(), 
-                    vPubKeyKYC.begin(), 
-                    vPubKeyKYC.end());
-
     ucvec vPubKeyUser = ToByteVector(onboardPubKey);
-    _payload.insert(_payload.end(), 
-                    vPubKeyUser.begin(), 
-                    vPubKeyUser.end());
 
     //Append the keys
 	ucvec sendData = vPubKeyKYC;
@@ -68,23 +54,11 @@ bool COnboardingScript::FinalizeUnencrypted(CScript& script){
         return false;
   	 //Onboarding keys    	
     ucvec vPubKeyKYC = ToByteVector(_kycPubKey);
-    _payload.insert(_payload.end(), 
-                    vPubKeyKYC.begin(), 
-                    vPubKeyKYC.end());
-
     ucvec vPubKeyUser = ToByteVector(_userPubKey);
-    _payload.insert(_payload.end(), 
-                    vPubKeyUser.begin(), 
-                    vPubKeyUser.end());
 
     //Append the keys
 	ucvec sendData = vPubKeyKYC;
 	sendData.insert(sendData.end(), vPubKeyUser.begin(), vPubKeyUser.end());
-
-	//Append dummy IV
-	ucvec dummy_iv;
-	dummy_iv.resize(AES_BLOCKSIZE);
-	sendData.insert(sendData.end(), dummy_iv.begin(), dummy_iv.end());
 
 	//Append the addresses (unencrypted)
     sendData.insert(sendData.end(), _payload.begin(), _payload.end()); 
