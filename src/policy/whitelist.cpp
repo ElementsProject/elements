@@ -245,7 +245,6 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pind
   mapInputs.SetBestBlock(pindex->GetBlockHash());
   return RegisterAddress(tx, mapInputs);
 }
-#endif //#ifdef ENABLE_WALLET
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
@@ -401,6 +400,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   #endif //#ifdef ENABLE_WALLET
   return true;
 }
+#endif //#ifdef ENABLE_WALLET
 
 
 bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CPubKey>& kycPubKey){

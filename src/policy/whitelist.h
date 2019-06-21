@@ -49,14 +49,13 @@ public:
 	void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
 		const uint8_t nMultisig);
 
-  	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
-
   	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const std::unique_ptr<CPubKey>& kycPubKey);
 
   	bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 
 #ifdef ENABLE_WALLET
   	bool RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex);
+	bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 #endif //#ifdef ENABLE_WALLET
 	
   	//Update from transaction
