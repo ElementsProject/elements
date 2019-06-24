@@ -168,8 +168,14 @@ class OnboardTest (BitcoinTestFramework):
         assert((balance_1-balance_2) == 0)
 
         node1addr=self.nodes[1].getnewaddress()
-        iswl=self.nodes[0].querywhitelist(node1addr)
+
+        try:
+            iswl=self.nodes[0].querywhitelist(node1addr)
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
         assert(iswl)
+
 
         keypool=100
         nwhitelisted=keypool
@@ -249,7 +255,11 @@ class OnboardTest (BitcoinTestFramework):
         nlines4=self.linecount(wl1file_4)
         assert_equal(nlines3+1, nlines4)
 
-        iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
+        try:
+            iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
         assert(iswl)
 
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
@@ -263,7 +273,12 @@ class OnboardTest (BitcoinTestFramework):
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
         assert_equal(nlines1+1,nlines2)
-        iswl=self.nodes[1].querywhitelist(multiAddress1['address'])
+
+        try:
+            iswl=self.nodes[1].querywhitelist(multiAddress1['address'])
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
         assert(iswl)
 
         if(clientAddress1['pubkey'] == clientAddress1['derivedpubkey']):

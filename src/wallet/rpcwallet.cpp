@@ -699,7 +699,7 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
     CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_MULTISIG);
 
     CTxDestination keyid = address.Get();
-    if (boost::get<CNoDestination>(&keyid))
+    if (keyid.which() == ((CTxDestination)CNoDestination()).which())
         throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) + 
             ": invalid key id"));
 
