@@ -1899,13 +1899,8 @@ UniValue removefromwhitelist(const JSONRPCRequest& request)
   //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
-<<<<<<< Updated upstream
-  if (boost::get<CNoDestination>(&keyId))
-      throw std::invalid_argument(std::string(std::string(__func__) + 
-=======
   if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) +
->>>>>>> Stashed changes
       ": invalid key id"));
 
   addressWhitelist.remove(keyId);
