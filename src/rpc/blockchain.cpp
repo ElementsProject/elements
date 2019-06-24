@@ -1042,13 +1042,12 @@ UniValue getrequestbids(const JSONRPCRequest& request)
     UniValue retBids(UniValue::VARR);
 
     if (fRequestList) {
-        for (auto it = requestList.begin(); it != requestList.end(); ++it) {
-            if (it->first == hash) {
-                ret = requestToJSON(it->second);
-                ret.push_back(Pair("txid", it->first.ToString()));
-                for (const auto &bid : it->second.sBids) {
-                    retBids.push_back(bidToJSON(bid));
-                }
+        auto res = requestList.find(hash);
+        if (res.first) {
+            ret = requestToJSON(res.second->second);
+            ret.push_back(Pair("txid", res.second->first.ToString()));
+            for (const auto &bid : res.second->second.sBids) {
+                retBids.push_back(bidToJSON(bid));
             }
         }
     } else {
@@ -1080,12 +1079,10 @@ UniValue getrequestbids(const JSONRPCRequest& request)
             uint256 key;
             CCoins coins;
             if (pcursor2->GetKey(key) && pcursor2->GetValue(coins)) {
-                if (coins.vout.size() > 1) { // bid transactions
-                    CBid bid;
-                    if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
-                        if (IsValidRequestBid(req, bid)) {
-                            req.AddBid(bid);
-                        }
+                CBid bid;
+                if (GetRequestBid(coins.vout, key, coins.nHeight, bid)) {
+                    if (bid.hashRequest == hash && IsValidRequestBid(req, bid)) {
+                        req.AddBid(bid);
                     }
                 }
             } else {
@@ -1143,7 +1140,6 @@ UniValue getrequests(const JSONRPCRequest& request)
     }
 
     UniValue ret(UniValue::VARR);
-
     if (fRequestList) {
         for (auto it = requestList.begin(); it != requestList.end(); ++it) {
             if (!fGenesisCheck || (it->second.hashGenesis == hash)) {
@@ -1178,6 +1174,20 @@ UniValue getrequests(const JSONRPCRequest& request)
             }
             pcursor->Next();
         }
+    }
+    // For a single client we only need to receive a single request
+    // If there are multiple active requests, the earliest confirmed
+    // should be returned to avoid confusion in the coordinator
+    if (fGenesisCheck && ret.size() > 1) {
+        auto request = ret[0];
+        for (auto i=1; i<ret.size(); ++i) {
+            if (ret[i]["confirmedBlockHeight"].get_int() < request["confirmedBlockHeight"].get_int()) {
+                request = ret[i];
+            }
+        }
+        UniValue retSingle(UniValue::VARR);
+        retSingle.push_back(request);
+        return retSingle;
     }
     return ret;
 }
@@ -1738,11 +1748,11 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
             "The address is checked that it has been tweaked with the contract hash.\n"
             "\nArguments:\n"
             "1. \"tweakedaddress\"  (string, required) Base58 tweaked address\n"
-            "2. \"basepubkey\"     (string, required) Hex encoded of the compressed base (un-tweaked) public key\n"
-            "3. \"kycaddress\"     (string, optional) Base58 KYC address\n"
+            "2. \"basepubkey\"     (string, required) Hex encoding of the compressed base (un-tweaked) public key\n"
+            "3. \"kycpubkey\"     (string, optional) Hex encoding of the compressed KYC public key\n"
             "\nExamples:\n"
-            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
-            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
+            + HelpExampleCli("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\",\"02f812677f00dffac2cc76e179f0da97ce28ad01e7b69c49a9958be53fe92c00f1\"")
+            + HelpExampleRpc("addtowhitelist", "\"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \" \"02e2367f74add814a482ab341cd514516f6c56dd951ceb1d51d9ddeb335968355e\", \"02f812677f00dffac2cc76e179f0da97ce28ad01e7b69c49a9958be53fe92c00f1\"")
                         );
 try{
     if(nparams == 2){
@@ -1805,22 +1815,17 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The key file\n"
-            "2. \"kycaddress\"  (string, optional) The KYC address of the key file owner\n"
+            "2. \"kycpubkey\"  (string, optional) The hex-encoded KYC public key of the file owner\n"
             "\nExamples:\n"
             "\nDump the keys\n"
             + HelpExampleCli("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
             + HelpExampleRpc("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
 			);
 
-    std::string sKYCAddress="";
+    std::string sKYCPubKey="";
     if(request.params.size()==2){
-        sKYCAddress=request.params[1].get_str();
-        CBitcoinAddress addr;
-        if(addr.SetString(sKYCAddress)){
-            CKeyID id;
-            addr.GetKeyID(id);
-            addressWhitelist.whitelist_kyc(id);
-        }
+        sKYCPubKey=request.params[1].get_str();
+        addressWhitelist.whitelist_kyc(CPubKey(ParseHex(sKYCPubKey)).GetID());
     }
 
     std::ifstream file;
@@ -1842,7 +1847,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCAddress);
+	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCPubKey);
     }
 
     file.close();

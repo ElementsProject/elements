@@ -72,9 +72,7 @@ bool CRequestList::LoadBids(CCoinsView *view, uint32_t nHeight)
         uint256 key;
         CCoins coins;
         if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
-            if (coins.vout.size() > 1){
-                this->LoadBid(coins.vout, key, coins.nHeight);
-            }
+            this->LoadBid(coins.vout, key, coins.nHeight);
         } else {
             return error("%s: unable to read value", __func__);
         }

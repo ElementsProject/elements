@@ -31,6 +31,8 @@ public:
  */
 static const CRPCConvertParam vRPCConvertParams[] =
 {
+    { "topupkycpubkeys", 0, "nkeys" },
+    { "whitelistkycpubkeys", 0, "kycpubkeys" },
     { "setmocktime", 0, "timestamp" },
     { "generate", 0, "nblocks" },
     { "generate", 1, "maxtries" },
@@ -110,6 +112,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "createrawbidtx", 1, "outputs" },
     { "createrawpolicytx", 0, "inputs" },
     { "createrawpolicytx", 1, "outputs" },
+    { "createkycpubkeytx", 0, "nkeys" },
     { "dumpissuanceblindingkey", 1, "vin" },
     { "importissuanceblindingkey", 1, "vin" },
     { "createrawtransaction", 2, "locktime" },
