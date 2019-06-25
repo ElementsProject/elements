@@ -2956,7 +2956,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         CScript scriptChange;
 
                         // coin control: send change to custom address
-                        if (coinControl && !boost::get<CNoDestination>(&coinControl->destChange))
+                        if (coinControl && !((coinControl->destChange).which() == ((CTxDestination)CNoDestination()).which()))
                             scriptChange = GetScriptForDestination(coinControl->destChange);
 
                         // no coin control: send change to newly generated address
@@ -4168,7 +4168,7 @@ void CWallet::GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) c
 
 bool CWallet::AddDestData(const CTxDestination &dest, const std::string &key, const std::string &value)
 {
-    if (boost::get<CNoDestination>(&dest))
+    if (dest.which() == ((CTxDestination)CNoDestination()).which())
         return false;
 
     mapAddressBook[dest].destdata.insert(std::make_pair(key, value));

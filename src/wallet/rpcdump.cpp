@@ -883,7 +883,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
         //Will skip if address is not a valid tweaked address.
         CTxDestination multiKeyId;
         multiKeyId = address.Get();
-        if (boost::get<CNoDestination>(&multiKeyId))
+        if (multiKeyId.which() == ((CTxDestination)CNoDestination()).which())
             continue;
 
         ss << strprintf("%d %s",

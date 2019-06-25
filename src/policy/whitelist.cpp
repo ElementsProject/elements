@@ -91,7 +91,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
     //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
-  if (boost::get<CNoDestination>(&keyId))
+  if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
 
@@ -181,7 +181,7 @@ void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const st
   //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
-  if (boost::get<CNoDestination>(&keyId))
+  if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
    
