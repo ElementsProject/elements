@@ -1858,7 +1858,7 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     if (multiKeyId.which() == ((CTxDestination)CNoDestination()).which())
         return false;
 
-    if (!(multiKeyId == destCopy))
+    if (!(boost::get<CScriptID>(multiKeyId) == boost::get<CScriptID>(destCopy)))
         return false;
 
     return true;
