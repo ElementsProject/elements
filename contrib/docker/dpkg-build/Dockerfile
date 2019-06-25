@@ -10,9 +10,6 @@ ARG tag
 ENV GITHUB_RELEASE_TAG=$tag
 
 RUN set -ex \
-    && apt-get -y update \
-    && apt-get -y install make automake cmake curl g++-multilib libtool \
-        binutils-gold bsdmainutils pkg-config python3 patch git golang-go \
     && git clone https://github.com/commerceblock/ocean.git \
     && cd ocean/depends \
     && make \
@@ -32,9 +29,5 @@ RUN set -ex \
     && sed -i "s/Version:*/Version: $(git rev-parse --short HEAD)/" \
         ocean-$(git rev-parse --short HEAD)/DEBIAN/control \
     && dpkg-deb --build ocean-$(git rev-parse --short HEAD) \
-    && git clone https://github.com/buildkite/github-release.git \
-    && go get github.com/google/go-github/github \
-    && go get github.com/oleiade/reflections \
-    && go get golang.org/x/oauth2 \
     && go run github-release/main.go "Debian package" \
         ocean-$(git rev-parse --short HEAD).deb
