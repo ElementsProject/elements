@@ -224,7 +224,7 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     //Will throw an error if address is not a valid derived address.
     CTxDestination multiKeyId;
     multiKeyId = address.Get();
-    if (!boost::get<CNoDestination>(&multiKeyId)){
+    if (!(multiKeyId.which() == ((CTxDestination)CNoDestination()).which())){
         if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
             _decryptedStream << line << ": invalid key tweaking\n";
             return;

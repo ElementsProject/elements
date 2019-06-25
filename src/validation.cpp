@@ -1855,10 +1855,10 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     //Will throw an error if address is not a valid derived address.
     CTxDestination multiKeyId;
     multiKeyId = address.Get();
-    if (boost::get<CNoDestination>(&multiKeyId))
+    if (multiKeyId.which() == ((CTxDestination)CNoDestination()).which())
         return false;
 
-    if (!(multiKeyId == destCopy))
+    if (!(boost::get<CScriptID>(multiKeyId) == boost::get<CScriptID>(destCopy)))
         return false;
 
     return true;
