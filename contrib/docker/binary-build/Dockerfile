@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM commerceblock:ubuntuoceanbase
 
 ARG token
 ENV GITHUB_RELEASE_ACCESS_TOKEN=$token
