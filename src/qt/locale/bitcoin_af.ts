@@ -1523,7 +1523,7 @@
     <message>
         <source>Using the fallbackfee can result in sending a transaction that will take several hours or days (or never) to confirm. Consider choosing your fee manually or wait until you have validated the complete chain.</source>
         <translation>Die verstekfooi kan veroorsaak dat 'n transaksie gestuur word wat
-etlike ure of dae (of nooit) sal neem om te bevestig. Oorweeg om 
+etlike ure of dae (of nooit) sal neem om te bevestig. Oorweeg om
 'n fooi met die hand te kies, of wag tot jy die hele ketting bevestig het.</translation>
     </message>
     <message>
@@ -1748,7 +1748,7 @@ Is u seker?</translation>
     <message>
         <source>The fee will be deducted from the amount being sent. The recipient will receive less bitcoins than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</source>
         <translation>De fooi word afgetrek van die gestuurde bedrag.
-Die ontvanger sal minder ontvang as wat u in die 
+Die ontvanger sal minder ontvang as wat u in die
 bedrag opgee. As daar meer as een ontvanger is,
 word die fooi eweredig verdeel.</translation>
     </message>
