@@ -162,6 +162,7 @@ bool CKYCFile::read(){
 void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::string line){
     CBitcoinAddress address;
     if (!address.SetString(vstr[0])) {
+        _decryptedStream << line << ": invalid base58check address: "  << vstr[0] << "\n";
         return;
     }
 
@@ -206,6 +207,7 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     
     CBitcoinAddress address;
     if (!address.SetString(vstr[1])) {
+        _decryptedStream << line << ": invalid base58check address: "  << vstr[0] << "\n";
         return;
     }
 

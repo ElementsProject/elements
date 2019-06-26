@@ -111,9 +111,12 @@ class OnboardManualTest (BitcoinTestFramework):
         onboardAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         onboardAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         onboardAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        onboardAddress4=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         untweakedPubkeys=[onboardAddress1['derivedpubkey'],onboardAddress2['derivedpubkey'],onboardAddress3['derivedpubkey']]
+        untweakedPubkeys2=[onboardAddress2['derivedpubkey'],onboardAddress3['derivedpubkey'],onboardAddress4['derivedpubkey']]
+        untweakedPubkeys3=[onboardAddress3['derivedpubkey'],onboardAddress4['derivedpubkey']]
         try:
-            userOnboardPubKey=self.nodes[1].createkycfile(kycfile, [{"address":onboardAddress1['address'],"pubkey":onboardAddress1['derivedpubkey']},{"address":onboardAddress2['address'],"pubkey":onboardAddress2['derivedpubkey']}], [{"nmultisig":2,"pubkeys":untweakedPubkeys}]);
+            userOnboardPubKey=self.nodes[1].createkycfile(kycfile, [{"address":onboardAddress1['address'],"pubkey":onboardAddress1['derivedpubkey']},{"address":onboardAddress2['address'],"pubkey":onboardAddress2['derivedpubkey']}], [{"nmultisig":2,"pubkeys":untweakedPubkeys},{"nmultisig":2,"pubkeys":untweakedPubkeys2},{"nmultisig":2,"pubkeys":untweakedPubkeys3}]);
         except JSONRPCException as e:
             print(e.error['message'])
             assert(False)
@@ -155,6 +158,22 @@ class OnboardManualTest (BitcoinTestFramework):
         assert(iswl)
 
         multiAdr=self.nodes[1].createmultisig(2,[onboardAddress1['pubkey'],onboardAddress2['pubkey'],onboardAddress3['pubkey']])
+        try:
+            iswl2=self.nodes[0].querywhitelist(multiAdr['address'])
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
+        assert(iswl2)
+
+        multiAdr=self.nodes[1].createmultisig(2,[onboardAddress2['pubkey'],onboardAddress3['pubkey'],onboardAddress4['pubkey']])
+        try:
+            iswl2=self.nodes[0].querywhitelist(multiAdr['address'])
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
+        assert(iswl2)
+
+        multiAdr=self.nodes[1].createmultisig(2,[onboardAddress3['pubkey'],onboardAddress4['pubkey']])
         try:
             iswl2=self.nodes[0].querywhitelist(multiAdr['address'])
         except JSONRPCException as e:
