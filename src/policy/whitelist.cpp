@@ -469,11 +469,6 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
     //REGISTERADDRESS for MULTISIG
     else{
 
-      if(nMultisigSize != 1){
-        LogPrintf("Undefined behaviour, the nMultisigSize was set to a number other than 1. Changes may be necessary to accommodate the extra bytes.\n");
-        return bSuccess;
-      }
-
       itData2 += nMultisigSize;
 
       uint8_t mMultisig = 0;
