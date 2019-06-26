@@ -14,6 +14,8 @@
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
+  //The written code behaviour expects nMultisigSize to be of length 1 at the moment. If it is changed in the future the code needs to be adjusted accordingly.
+  assert(nMultisigSize == 1);
 }
 CWhiteList::~CWhiteList(){;}
 
