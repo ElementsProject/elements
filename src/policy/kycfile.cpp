@@ -207,7 +207,7 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     
     CBitcoinAddress address;
     if (!address.SetString(vstr[1])) {
-        _decryptedStream << line << ": invalid base58check address: "  << vstr[0] << "\n";
+        _decryptedStream << line << ": invalid base58check address: "  << vstr[1] << "\n";
         return;
     }
 
