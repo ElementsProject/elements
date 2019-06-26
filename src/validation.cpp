@@ -1831,7 +1831,7 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const CPubKey& pubKey)
 
   if (tmpPubKey.GetID() != boost::get<CKeyID>(keyID))
     return false;
-  
+
 return true;
 }
 
@@ -2239,30 +2239,25 @@ bool BitcoindRPCCheck(const bool init)
 
     //Next, check for working rpc
     if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        // During init try until a non-RPC_IN_WARMUP result
         while (true) {
             try {
                 UniValue params(UniValue::VARR);
-                params.push_back(UniValue(0));
-                UniValue reply = CallRPC("getblockhash", params, true);
+                params.push_back(UniValue("0x0"));
+                params.push_back(UniValue(false));
+                UniValue reply = CallRPC("eth_getBlockByNumber", params, true);
                 UniValue error = find_value(reply, "error");
                 if (!error.isNull()) {
-                    if (error["code"].get_int() == RPC_IN_WARMUP) {
-                        MilliSleep(1000);
-                        continue;
-                    }
-                    else {
-                        LogPrintf("ERROR: Bitcoind RPC check returned 'error' response.\n");
-                        return false;
-                    }
+                    LogPrintf("ERROR: Geth RPC check returned 'error' response.\n");
+                    return false;
                 }
                 UniValue result = reply["result"];
-                if (!result.isStr() || result.get_str() != Params().ParentGenesisBlockHash().GetHex()) {
+                auto ethHash = uint256S(find_value(result.get_obj(), "hash").get_str());
+                if (!result.isObject() || ethHash.GetHex() != Params().ParentGenesisBlockHash().GetHex()) {
                     LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
                     return false;
                 }
             } catch (const std::runtime_error& re) {
-                std::string totalErr = "ERROR: Failure connecting to bitcoind RPC: ";
+                std::string totalErr = "ERROR: Failure connecting to geth RPC: ";
                 totalErr += std::string(re.what()) + "\n";
                 LogPrintf(totalErr.c_str());
                 return false;

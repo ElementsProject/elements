@@ -4409,6 +4409,16 @@ unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn,
     return nOut;
 }
 
+UniValue getethpegin(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "getethpegin \"txid\" \n"
+        );
+    uint256 hash = ParseHashV(request.params[0], "parameter 1");
+    return GetEthTransaction(hash);
+}
+
 UniValue createrawpegin(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
@@ -5246,6 +5256,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "whitelistkycpubkeys",  &whitelistkycpubkeys,      false,   {"kycpubkeys"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
+    { "wallet",             "getethpegin",              &getethpegin,              true,   {"txid"}},
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",           &createrawpegin,           false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },
