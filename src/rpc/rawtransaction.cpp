@@ -7,8 +7,8 @@
 #include <chain.h>
 #include <coins.h>
 #include <compat/byteswap.h>
-#include <consensus/validation.h>
 #include <consensus/tx_verify.h>
+#include <consensus/validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
 #include <init.h>
@@ -73,9 +73,7 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
 
 static UniValue getrawtransaction(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
-        throw std::runtime_error(
-            RPCHelpMan{
+    const RPCHelpMan help{
                 "getrawtransaction",
                 "\nReturn the raw transaction data.\n"
 
@@ -85,8 +83,7 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
                 "will return the transaction if it is in the mempool, or if -txindex is enabled and the transaction\n"
                 "is in a block in the blockchain.\n"
 
-                "\nHint: use getmempoolentry to fetch a specific transaction from the mempool.\n"
-                "Or use gettransaction for wallet transactions.\n"
+                "\nHint: Use gettransaction for wallet transactions.\n"
 
                 "\nIf verbose is 'true', returns an Object with information about 'txid'.\n"
                 "If verbose is 'false' or omitted, returns a string that is serialized, hex-encoded data for 'txid'.\n",
@@ -159,7 +156,11 @@ static UniValue getrawtransaction(const JSONRPCRequest& request)
             + HelpExampleCli("getrawtransaction", "\"mytxid\" false \"myblockhash\"")
             + HelpExampleCli("getrawtransaction", "\"mytxid\" true \"myblockhash\"")
                 },
-            }.ToString());
+    };
+
+    if (request.fHelp || !help.IsValidNumArgs(request.params.size())) {
+        throw std::runtime_error(help.ToString());
+    }
 
     bool in_active_chain = true;
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
@@ -1975,21 +1976,21 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
                 "      \"has_utxo\" : true|false     (boolean) Whether a UTXO is provided\n"
                 "      \"is_final\" : true|false     (boolean) Whether the input is finalized\n"
                 "      \"missing\" : {               (json object, optional) Things that are missing that are required to complete this input\n"
-                "        \"pubkeys\" : [             (array)\n"
+                "        \"pubkeys\" : [             (array, optional)\n"
                 "          \"keyid\"                 (string) Public key ID, hash160 of the public key, of a public key whose BIP 32 derivation path is missing\n"
                 "        ]\n"
-                "        \"signatures\" : [          (array)\n"
+                "        \"signatures\" : [          (array, optional)\n"
                 "          \"keyid\"                 (string) Public key ID, hash160 of the public key, of a public key whose signature is missing\n"
                 "        ]\n"
-                "        \"redeemscript\" : \"hash\"   (string) Hash160 of the redeemScript that is missing\n"
-                "        \"witnessscript\" : \"hash\"  (string) SHA256 of the witnessScript that is missing\n"
+                "        \"redeemscript\" : \"hash\"   (string, optional) Hash160 of the redeemScript that is missing\n"
+                "        \"witnessscript\" : \"hash\"  (string, optional) SHA256 of the witnessScript that is missing\n"
                 "      }\n"
-                "      \"next\" : \"role\"           (string) Role of the next person that this input needs to go to\n"
+                "      \"next\" : \"role\"             (string, optional) Role of the next person that this input needs to go to\n"
                 "    }\n"
                 "    ,...\n"
                 "  ]\n"
-                "  \"estimated_vsize\" : vsize       (numeric) Estimated vsize of the final signed transaction\n"
-                "  \"estimated_feerate\" : feerate   (numeric, optional) Estimated feerate of the final signed transaction. Shown only if all UTXO slots in the PSBT have been filled.\n"
+                "  \"estimated_vsize\" : vsize       (numeric, optional) Estimated vsize of the final signed transaction\n"
+                "  \"estimated_feerate\" : feerate   (numeric, optional) Estimated feerate of the final signed transaction in " + CURRENCY_UNIT + "/kB. Shown only if all UTXO slots in the PSBT have been filled.\n"
                 "  \"fee\" : fee                     (numeric, optional) The transaction fee paid. Shown only if all UTXO slots in the PSBT have been filled.\n"
                 "  \"next\" : \"role\"                 (string) Role of the next person that this psbt needs to go to\n"
                 "}\n"
@@ -2136,7 +2137,7 @@ UniValue analyzepsbt(const JSONRPCRequest& request)
             result.pushKV("estimated_vsize", (int)size);
             // Estimate fee rate
             CFeeRate feerate(fee[::policyAsset], size);
-            result.pushKV("estimated_feerate", feerate.ToString());
+            result.pushKV("estimated_feerate", ValueFromAmount(feerate.GetFeePerK()));
         }
         result.pushKV("fee", AmountMapToUniv(fee, ""));
 

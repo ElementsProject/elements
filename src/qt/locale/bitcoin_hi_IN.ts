@@ -187,10 +187,6 @@
         <translation>बीटकोइन</translation>
     </message>
     <message>
-        <source>Wallet</source>
-        <translation>वॉलेट</translation>
-    </message>
-    <message>
         <source>&amp;File</source>
         <translation>&amp;फाइल</translation>
     </message>
@@ -558,6 +554,9 @@
     </context>
 <context>
     <name>UnitDisplayStatusBarControl</name>
+    </context>
+<context>
+    <name>WalletController</name>
     </context>
 <context>
     <name>WalletFrame</name>

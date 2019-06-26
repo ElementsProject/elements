@@ -38,11 +38,7 @@ static UniValue validateaddress(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             RPCHelpMan{"validateaddress",
-                "\nReturn information about the given bitcoin address.\n"
-                "DEPRECATION WARNING: Parts of this command have been deprecated and moved to getaddressinfo. Clients must\n"
-                "transition to using getaddressinfo to access this information before upgrading to v0.18. The following deprecated\n"
-                "fields have moved to getaddressinfo and will only be shown here with -deprecatedrpc=validateaddress: ismine, iswatchonly,\n"
-                "script, hex, pubkeys, sigsrequired, pubkey, addresses, embedded, iscompressed, account, timestamp, hdkeypath, kdmasterkeyid.\n",
+                "\nReturn information about the given bitcoin address.\n",
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address to validate"},
                 },
@@ -216,7 +212,7 @@ UniValue getdescriptorinfo(const JSONRPCRequest& request)
 
 UniValue deriveaddresses(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.empty() || request.params.size() > 3) {
+    if (request.fHelp || request.params.empty() || request.params.size() > 2) {
         throw std::runtime_error(
             RPCHelpMan{"deriveaddresses",
             {"\nDerives one or more addresses corresponding to an output descriptor.\n"
@@ -230,37 +226,37 @@ UniValue deriveaddresses(const JSONRPCRequest& request)
             "For more information on output descriptors, see the documentation in the doc/descriptors.md file.\n"},
             {
                 {"descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The descriptor."},
-                {"begin", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "If a ranged descriptor is used, this specifies the beginning of the range to import."},
-                {"end", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "If a ranged descriptor is used, this specifies the end of the range to import."}
+                {"range", RPCArg::Type::RANGE, RPCArg::Optional::OMITTED_NAMED_ARG, "If a ranged descriptor is used, this specifies the end or the range (in [begin,end] notation) to derive."},
             },
             RPCResult{
                 "[ address ] (array) the derived addresses\n"
             },
             RPCExamples{
                 "First three native segwit receive addresses\n" +
-                HelpExampleCli("deriveaddresses", "\"wpkh([d34db33f/84h/0h/0h]xpub6DJ2dNUysrn5Vt36jH2KLBT2i1auw1tTSSomg8PhqNiUtx8QX2SvC9nrHu81fT41fvDUnhMjEzQgXnQjKEu3oaqMSzhSrHMxyyoEAmUHQbY/0/*)#trd0mf0l\" 0 2")
+                HelpExampleCli("deriveaddresses", "\"wpkh([d34db33f/84h/0h/0h]xpub6DJ2dNUysrn5Vt36jH2KLBT2i1auw1tTSSomg8PhqNiUtx8QX2SvC9nrHu81fT41fvDUnhMjEzQgXnQjKEu3oaqMSzhSrHMxyyoEAmUHQbY/0/*)#trd0mf0l\" \"[0,2]\"")
             }}.ToString()
         );
     }
 
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM, UniValue::VNUM});
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValueType()}); // Range argument is checked later
     const std::string desc_str = request.params[0].get_str();
 
-    int range_begin = 0;
-    int range_end = 0;
+    int64_t range_begin = 0;
+    int64_t range_end = 0;
 
-    if (request.params.size() >= 2) {
-        if (request.params.size() == 2) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Missing range end parameter");
-        }
-        range_begin = request.params[1].get_int();
-        range_end = request.params[2].get_int();
-        if (range_begin < 0) {
+    if (request.params.size() >= 2 && !request.params[1].isNull()) {
+        auto range = ParseRange(request.params[1]);
+        if (range.first < 0) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Range should be greater or equal than 0");
         }
-        if (range_begin > range_end) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Range end should be equal to or greater than begin");
+        if ((range.second >> 31) != 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "End of range is too high");
         }
+        if (range.second >= range.first + 1000000) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Range is too large");
+        }
+        range_begin = range.first;
+        range_end = range.second;
     }
 
     FlatSigningProvider provider;
@@ -844,7 +840,7 @@ static const CRPCCommand commands[] =
     { "control",            "logging",                &logging,                {"include", "exclude"}},
     { "util",               "validateaddress",        &validateaddress,        {"address"} },
     { "util",               "createmultisig",         &createmultisig,         {"nrequired","keys","address_type"} },
-    { "util",               "deriveaddresses",        &deriveaddresses,        {"descriptor", "begin", "end"} },
+    { "util",               "deriveaddresses",        &deriveaddresses,        {"descriptor", "range"} },
     { "util",               "getdescriptorinfo",      &getdescriptorinfo,      {"descriptor"} },
     { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
