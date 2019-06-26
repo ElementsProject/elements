@@ -12,6 +12,7 @@
 #define CHAINPARAMS_OLD_MAIN "___old_main"
 #define CHAINPARAMS_OCEAN_MAIN "ocean_main"
 #define CHAINPARAMS_OCEAN_TEST "ocean_test"
+#define CHAINPARAMS_GOLD_MAIN "gold_main"
 #define CHAINPARAMS_REGTEST "elementsregtest"
 
 /**
@@ -23,6 +24,7 @@ class CBaseChainParams
 public:
     static const std::string MAIN;
     static const std::string TEST;
+    static const std::string GOLD;
     static const std::string REGTEST;
 
     const std::string& DataDir() const { return strDataDir; }
