@@ -27,8 +27,8 @@ class DeriveaddressesTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].deriveaddresses(descriptor_pubkey), [address])
 
         ranged_descriptor = "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/1/1/*)#kft60nuy"
-        assert_equal(self.nodes[0].deriveaddresses(ranged_descriptor, [1, 2]), ["bcrt1qhku5rq7jz8ulufe2y6fkcpnlvpsta7rq4442dy", "bcrt1qpgptk2gvshyl0s9lqshsmx932l9ccsv265tvaq"])
-        assert_equal(self.nodes[0].deriveaddresses(ranged_descriptor, 2), [address, "bcrt1qhku5rq7jz8ulufe2y6fkcpnlvpsta7rq4442dy", "bcrt1qpgptk2gvshyl0s9lqshsmx932l9ccsv265tvaq"])
+        assert_equal(self.nodes[0].deriveaddresses(ranged_descriptor, [1, 2]), ['ert1qhku5rq7jz8ulufe2y6fkcpnlvpsta7rqdpq5ny', 'ert1qpgptk2gvshyl0s9lqshsmx932l9ccsv2zq7jrq'])
+        assert_equal(self.nodes[0].deriveaddresses(ranged_descriptor, 2), [address, 'ert1qhku5rq7jz8ulufe2y6fkcpnlvpsta7rqdpq5ny', 'ert1qpgptk2gvshyl0s9lqshsmx932l9ccsv2zq7jrq'])
 
         assert_raises_rpc_error(-8, "Range should not be specified for an un-ranged descriptor", self.nodes[0].deriveaddresses, descsum_create("wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/1/1/0)"), [0, 2])
 

@@ -140,13 +140,13 @@ class WalletTest(BitcoinTestFramework):
 
         # check mempool transactions count for wallet unconfirmed balance after
         # dynamically loading the wallet.
-        before = self.nodes[1].getunconfirmedbalance()
+        before = self.nodes[1].getunconfirmedbalance()['bitcoin']
         dst = self.nodes[1].getnewaddress()
         self.nodes[1].unloadwallet('')
         self.nodes[0].sendtoaddress(dst, 0.1)
         self.sync_all()
         self.nodes[1].loadwallet('')
-        after = self.nodes[1].getunconfirmedbalance()
+        after = self.nodes[1].getunconfirmedbalance()['bitcoin']
         assert_equal(before + Decimal('0.1'), after)
 
 
