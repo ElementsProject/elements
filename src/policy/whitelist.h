@@ -149,6 +149,7 @@ private:
 	void synchronise(CWhiteList* wl_new);
 
   	const unsigned int addrSize=20;
+  	//The written code behaviour expects nMultisigSize to be of length 1 at the moment. If it is changed in the future the code needs to be adjusted accordingly.
   	const unsigned int nMultisigSize=1;
   	const unsigned int minPayloadSize=2;
 
