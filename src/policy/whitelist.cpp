@@ -14,6 +14,8 @@
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
+  //The written code behaviour expects nMultisigSize to be of length 1 at the moment. If it is changed in the future the code needs to be adjusted accordingly.
+  assert(nMultisigSize == 1);
 }
 CWhiteList::~CWhiteList(){;}
 
@@ -468,17 +470,22 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
     }
     //REGISTERADDRESS for MULTISIG
     else{
+
+      itData2 += nMultisigSize;
+
+      uint8_t mMultisig = 0;
+      std::vector<unsigned char> mMultisigChars(itData1,itData2);
+
+      mMultisig = mMultisigChars[0];
+
+      itData1 = itData2;
+
       itData2 += nMultisigSize;
 
       uint8_t nMultisig = 0;
       std::vector<unsigned char> nMultisigChars(itData1,itData2);
 
-      if(nMultisigSize != 1){
-        LogPrintf("Undefined behaviour, the nMultisigSize was set to a number other than 1. Changes may be necessary to accommodate the extra bytes.\n");
-        return bSuccess;
-      }
-
-      nMultisig = (uint8_t)nMultisigChars[0];
+      nMultisig = nMultisigChars[0];
 
       itData1 = itData2;
 
@@ -491,18 +498,21 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
       std::vector<CPubKey> vPubKeys;
 
       itData1=itData2;
-      bool fEnd = false;
 
-      while(!fEnd){
+      unsigned int pubkeyNr = static_cast<unsigned int>(nMultisig);
+
+      for (unsigned int j=0; j < pubkeyNr; ++j){
+
+        if(bEnd == true)
+          break;
+
         for(unsigned int i=0; i<CPubKey::COMPRESSED_PUBLIC_KEY_SIZE; ++i){
           if(itData2++ == pend){
             bEnd = true;
-            fEnd = true;
             break;
           }
         }
-
-        if(!fEnd){
+        if(!bEnd){
           CPubKey pubKeyNew = CPubKey(itData1,itData2);
           if(!pubKeyNew.IsFullyValid()){
             itData2=itData1;
@@ -514,7 +524,7 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
       }
 
       try{
-        add_multisig_whitelist(addrMultiNew, vPubKeys, kycPubKey, nMultisig);
+        add_multisig_whitelist(addrMultiNew, vPubKeys, kycPubKey, mMultisig);
       } catch (std::invalid_argument e){
         LogPrintf(std::string(e.what()) + "\n");
         return bSuccess;
@@ -538,7 +548,20 @@ bool CWhiteList::IsRegisterAddressMulti(const std::vector<unsigned char>::const_
     }
   }
 
-  uint8_t nMultisig = (uint8_t)*start;
+  uint8_t mMultisig = *start;
+
+  if(mMultisig > MAX_P2SH_SIGOPS || mMultisig == 0)
+    return false;
+
+  point1 = point2;
+
+  for(unsigned int i=0; i<nMultisigSize; ++i){
+    if(point2++ == vend) {
+      return false;
+    }
+  }
+
+  uint8_t nMultisig = *point1;
 
   if(nMultisig > MAX_P2SH_SIGOPS || nMultisig == 0)
     return false;

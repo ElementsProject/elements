@@ -90,6 +90,9 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
     _payload.insert(_payload.end(), 
                     (unsigned char)nMultisig);
 
+    _payload.insert(_payload.end(), 
+                    (unsigned char)keys.size());
+
     CScriptID scriptID = boost::get<CScriptID>(keyID);
     _payload.insert(_payload.end(), 
                     scriptID.begin(), 
