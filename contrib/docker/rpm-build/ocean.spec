@@ -1,13 +1,13 @@
-Name:           ocean
-Version:        1.0
-Release:        1
-Summary:        oceand ocean-cli and ocean-tx binaries
-License:        MIT
-URL:            https://github.com/commerceblock/ocean
-Source0:        https://github.com/commerceblock/ocean/archive/master.zip
-Packager:       Martin Tsvetanov
-Requires:       glibc
-BuildRoot:      ~/rpmbuild/
+Name: ocean
+Version: 1.0
+Release: 6f30155bf1
+Summary: oceand ocean-cli and ocean-tx binaries
+License: MIT
+URL: https://github.com/commerceblock/ocean
+Source0: https://github.com/commerceblock/ocean/archive/master.zip
+Packager: Martin Tsvetanov
+Requires: glibc
+BuildRoot: ~/rpmbuild/
 
 %description
 oceand ocean-cli and ocean-tx binaries
