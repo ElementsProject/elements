@@ -15,9 +15,9 @@ oceand ocean-cli and ocean-tx binaries
 %prep
 echo "BUILDROOT = $RPM_BUILD_ROOT"
 mkdir -p $RPM_BUILD_ROOT/usr/local/bin/
-cp ~/ocean/src/oceand $RPM_BUILD_ROOT/usr/local/bin/oceand
-cp ~/ocean/src/ocean-cli $RPM_BUILD_ROOT/usr/local/bin/ocean-cli
-cp ~/ocean/src/ocean-tx $RPM_BUILD_ROOT/usr/local/bin/ocean-tx
+cp /ocean/src/oceand $RPM_BUILD_ROOT/usr/local/bin/oceand
+cp /ocean/src/ocean-cli $RPM_BUILD_ROOT/usr/local/bin/ocean-cli
+cp /ocean/src/ocean-tx $RPM_BUILD_ROOT/usr/local/bin/ocean-tx
 exit
 
 %clean
@@ -25,6 +25,6 @@ rm -rf %{buildroot}
 rm -rf $RPM_BUILD_ROOT/usr/local/bin
 
 %files
-%{_bindir}/oceand
-%{_bindir}/ocean-cli
-%{_bindir}/ocean-tx
+/usr/local/bin/oceand
+/usr/local/bin/ocean-cli
+/usr/local/bin/ocean-tx
