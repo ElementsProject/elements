@@ -66,6 +66,6 @@ RUN set -x \
     && go get github.com/google/go-github/github \
     && go get github.com/oleiade/reflections \
     && go get golang.org/x/oauth2 \
-    && git clone https://github.com/commerceblock/ocean.git -b docker_rpm_spec \
+    && git clone https://github.com/commerceblock/ocean.git \
     && cd ocean/depends \
     && make
