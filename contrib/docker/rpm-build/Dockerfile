@@ -2,7 +2,8 @@ FROM commerceblock/rpmbase:latest
 
 
 SHELL [ "/usr/bin/scl", "enable", "devtoolset-7"]
-RUN cd ocean \
+RUN set -ex \
+    && cd ocean \
     && git pull \
     && ./autogen.sh \
     && ./configure --enable-glibc-back-compat \

@@ -5,7 +5,7 @@ Summary: oceand ocean-cli and ocean-tx binaries
 License: MIT
 URL: https://github.com/commerceblock/ocean
 Source0: https://github.com/commerceblock/ocean/archive/master.zip
-Packager: Martin Tsvetanov
+Packager: Martin Tsvetanov @ CommerceBlock
 Requires: glibc
 BuildRoot: ~/rpmbuild/
 
