@@ -7,4 +7,7 @@ RUN set -ex \
     && git clone https://github.com/buildkite/github-release.git \
     && go get github.com/google/go-github/github \
     && go get github.com/oleiade/reflections \
-    && go get golang.org/x/oauth2
+    && go get golang.org/x/oauth2 \
+    && git clone https://github.com/commerceblock/ocean.git \
+    && cd ocean/depends \
+    && make \

@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM commerceblock/debbase:latest
 
 ARG token
 ENV GITHUB_RELEASE_ACCESS_TOKEN=$token
@@ -10,10 +10,7 @@ ARG tag
 ENV GITHUB_RELEASE_TAG=$tag
 
 RUN set -ex \
-    && git clone https://github.com/commerceblock/ocean.git \
-    && cd ocean/depends \
-    && make \
-    && cd .. \
+    && cd ocean \
     && ./autogen.sh \
     && ./configure --enable-glibc-back-compat \
         --prefix=`pwd`/depends/x86_64-pc-linux-gnu \
