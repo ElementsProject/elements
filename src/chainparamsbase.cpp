@@ -12,6 +12,7 @@
 
 const std::string CBaseChainParams::MAIN = CHAINPARAMS_OCEAN_MAIN;
 const std::string CBaseChainParams::TEST = CHAINPARAMS_OCEAN_TEST;
+const std::string CBaseChainParams::GOLD = CHAINPARAMS_GOLD_MAIN;
 const std::string CBaseChainParams::REGTEST = CHAINPARAMS_REGTEST;
 
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
@@ -35,6 +36,8 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CBaseChainParams>(new CBaseChainParams(chain, 8332, 18332));
+    if (chain == CBaseChainParams::GOLD)
+        return std::unique_ptr<CBaseChainParams>(new CBaseChainParams(chain, 8443, 18332));
     return std::unique_ptr<CBaseChainParams>(new CBaseChainParams(chain, 7041, 18332));
 }
 

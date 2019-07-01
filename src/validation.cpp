@@ -1855,10 +1855,10 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     //Will throw an error if address is not a valid derived address.
     CTxDestination multiKeyId;
     multiKeyId = address.Get();
-    if (boost::get<CNoDestination>(&multiKeyId))
+    if (multiKeyId.which() == ((CTxDestination)CNoDestination()).which())
         return false;
 
-    if (!(multiKeyId == destCopy))
+    if (!(boost::get<CScriptID>(multiKeyId) == boost::get<CScriptID>(destCopy)))
         return false;
 
     return true;
@@ -2754,11 +2754,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
              if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
              }
             if(fRequireWhitelistCheck || fScanWhitelist){
-            if(!addressWhitelist.RegisterAddress(tx, view)){
-                if(tx.vout[0].nAsset.GetAsset() == whitelistAsset) {
+                if(!addressWhitelist.RegisterAddress(tx, view)){
                     addressWhitelist.Update(tx,view);
                 }
-            }
             }
 
             if(fRecordInflation) {

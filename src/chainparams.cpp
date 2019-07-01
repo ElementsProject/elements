@@ -333,6 +333,21 @@ public:
     }
 };
 
+/**
+ * Gold Params - overriding only key/address prefixes
+ */
+class CGoldParams : public CCustomParams {
+public:
+    CGoldParams(const std::string& chain) : CCustomParams(chain)
+    {
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,38); // G
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,97); // g
+        base58Prefixes[BLINDED_ADDRESS]= std::vector<unsigned char>(1,13);
+        base58Prefixes[EXTENDED_ADDRESS]= std::vector<unsigned char>(1,14);
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,180);
+    }
+};
+
 
 const std::vector<std::string> CChainParams::supportedChains =
     boost::assign::list_of
@@ -350,6 +365,8 @@ std::unique_ptr<CChainParams> CreateChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CChainParams>(new CMainParams(chain));
+    if (chain == CBaseChainParams::GOLD)
+        return std::unique_ptr<CChainParams>(new CGoldParams(chain));
     return std::unique_ptr<CChainParams>(new CCustomParams(chain));
 }
 

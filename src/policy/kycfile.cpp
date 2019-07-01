@@ -162,6 +162,7 @@ bool CKYCFile::read(){
 void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::string line){
     CBitcoinAddress address;
     if (!address.SetString(vstr[0])) {
+        _decryptedStream << line << ": invalid base58check address: "  << vstr[0] << "\n";
         return;
     }
 
@@ -206,6 +207,7 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     
     CBitcoinAddress address;
     if (!address.SetString(vstr[1])) {
+        _decryptedStream << line << ": invalid base58check address: "  << vstr[1] << "\n";
         return;
     }
 
@@ -224,7 +226,7 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     //Will throw an error if address is not a valid derived address.
     CTxDestination multiKeyId;
     multiKeyId = address.Get();
-    if (!boost::get<CNoDestination>(&multiKeyId)){
+    if (!(multiKeyId.which() == ((CTxDestination)CNoDestination()).which())){
         if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
             _decryptedStream << line << ": invalid key tweaking\n";
             return;

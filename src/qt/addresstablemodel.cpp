@@ -260,7 +260,7 @@ bool AddressTableModel::setData(const QModelIndex &index, const QVariant &value,
         } else if(index.column() == Address) {
             CTxDestination newAddress = CBitcoinAddress(value.toString().toStdString()).Get();
             // Refuse to set invalid address, set error status and return false
-            if(boost::get<CNoDestination>(&newAddress))
+            if (newAddress.which() == ((CTxDestination)CNoDestination()).which())
             {
                 editStatus = INVALID_ADDRESS;
                 return false;

@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM commerceblock:ubuntuoceanbase
 
 ARG token
 ENV GITHUB_RELEASE_ACCESS_TOKEN=$token
@@ -10,9 +10,6 @@ ARG tag
 ENV GITHUB_RELEASE_TAG=$tag
 
 RUN set -ex \
-    && apt-get -y update \
-    && apt-get -y install make automake cmake curl g++-multilib libtool \
-        binutils-gold bsdmainutils pkg-config python3 patch git golang-go \
     && git clone https://github.com/commerceblock/ocean.git \
     && cd ocean/depends \
     && make \
@@ -22,8 +19,4 @@ RUN set -ex \
         --prefix=`pwd`/depends/x86_64-pc-linux-gnu LDFLAGS="-static-libstdc++" \
     && make \
     && tar -cvf ocean.tar --directory src oceand ocean-cli ocean-tx \
-    && git clone https://github.com/buildkite/github-release.git \
-    && go get github.com/google/go-github/github \
-    && go get github.com/oleiade/reflections \
-    && go get golang.org/x/oauth2 \
     && go run github-release/main.go "Linux binaries" ocean.tar

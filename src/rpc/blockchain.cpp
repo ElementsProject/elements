@@ -1876,7 +1876,8 @@ UniValue querywhitelist(const JSONRPCRequest& request)
   //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
-  if (boost::get<CNoDestination>(&keyId))
+  //The which function for boost variant returns an index which represents the type of variant in order.
+  if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) +
       ": invalid key id"));
 
@@ -1904,7 +1905,7 @@ UniValue removefromwhitelist(const JSONRPCRequest& request)
   //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
-  if (boost::get<CNoDestination>(&keyId))
+  if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) +
       ": invalid key id"));
 
