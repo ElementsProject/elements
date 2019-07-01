@@ -349,7 +349,11 @@ UniValue importaddress(const JSONRPCRequest& request)
     if (fRescan)
     {
         RescanWallet(*pwallet, reserver);
-        pwallet->ReacceptWalletTransactions();
+        {
+            auto locked_chain = pwallet->chain().lock();
+            LOCK(pwallet->cs_wallet);
+            pwallet->ReacceptWalletTransactions(*locked_chain);
+        }
     }
 
     return NullUniValue;
@@ -532,7 +536,11 @@ UniValue importpubkey(const JSONRPCRequest& request)
     if (fRescan)
     {
         RescanWallet(*pwallet, reserver);
-        pwallet->ReacceptWalletTransactions();
+        {
+            auto locked_chain = pwallet->chain().lock();
+            LOCK(pwallet->cs_wallet);
+            pwallet->ReacceptWalletTransactions(*locked_chain);
+        }
     }
 
     return NullUniValue;
@@ -895,7 +903,7 @@ struct ImportData
     // Output data
     std::set<CScript> import_scripts;
     std::map<CKeyID, bool> used_keys; //!< Import these private keys if available (the value indicates whether if the key is required for solvability)
-    std::map<CKeyID, KeyOriginInfo> key_origins;
+    std::map<CKeyID, std::pair<CPubKey, KeyOriginInfo>> key_origins;
 };
 
 enum class ScriptContext
@@ -1140,13 +1148,10 @@ static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID
         if (!data.exists("range")) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Descriptor is ranged, please specify the range");
         }
-        const UniValue& range = data["range"];
-        range_start = range.exists("start") ? range["start"].get_int64() : 0;
-        if (!range.exists("end")) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "End of range for descriptor must be specified");
-        }
-        range_end = range["end"].get_int64();
-        if (range_end < range_start || range_start < 0) {
+        auto range = ParseRange(data["range"]);
+        range_start = range.first;
+        range_end = range.second;
+        if (range_start < 0 || (range_end >> 31) != 0 || range_end - range_start >= 1000000) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid descriptor range specified");
         }
     }
@@ -1196,6 +1201,9 @@ static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID
     bool spendable = std::all_of(pubkey_map.begin(), pubkey_map.end(),
         [&](const std::pair<CKeyID, CPubKey>& used_key) {
             return privkey_map.count(used_key.first) > 0;
+        }) && std::all_of(import_data.key_origins.begin(), import_data.key_origins.end(),
+        [&](const std::pair<CKeyID, std::pair<CPubKey, KeyOriginInfo>>& entry) {
+            return privkey_map.count(entry.first) > 0;
         });
     if (!watch_only && !spendable) {
         warnings.push_back("Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag.");
@@ -1289,7 +1297,10 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
                  throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
              }
              pwallet->UpdateTimeFirstKey(timestamp);
-         }
+        }
+        for (const auto& entry : import_data.key_origins) {
+            pwallet->AddKeyOrigin(entry.second.first, entry.second.second);
+        }
         for (const CKeyID& id : ordered_pubkeys) {
             auto entry = pubkey_map.find(id);
             if (entry == pubkey_map.end()) {
@@ -1299,10 +1310,6 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
              CPubKey temp;
              if (!pwallet->GetPubKey(id, temp) && !pwallet->AddWatchOnly(GetScriptForRawPubKey(pubkey), timestamp)) {
                 throw JSONRPCError(RPC_WALLET_ERROR, "Error adding address to wallet");
-            }
-            const auto& key_orig_it = import_data.key_origins.find(id);
-            if (key_orig_it != import_data.key_origins.end()) {
-                pwallet->AddKeyOrigin(pubkey, key_orig_it->second);
             }
             pwallet->mapKeyMetadata[id].nCreateTime = timestamp;
 
@@ -1404,12 +1411,7 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
                                             {"key", RPCArg::Type::STR, RPCArg::Optional::OMITTED, ""},
                                         }
                                     },
-                                    {"range", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "If a ranged descriptor is used, this specifies the start and end of the range to import",
-                                        {
-                                            {"start", RPCArg::Type::NUM, /* default */ "0", "Start of the range to import"},
-                                            {"end", RPCArg::Type::NUM, RPCArg::Optional::NO, "End of the range to import (inclusive)"},
-                                        }
-                                    },
+                                    {"range", RPCArg::Type::RANGE, RPCArg::Optional::OMITTED, "If a ranged descriptor is used, this specifies the end or the range (in the form [begin,end]) to import"},
                                     {"internal", RPCArg::Type::BOOL, /* default */ "false", "Stating whether matching outputs should be treated as not incoming payments (also known as change)"},
                                     {"watchonly", RPCArg::Type::BOOL, /* default */ "false", "Stating whether matching outputs should be considered watchonly."},
                                     {"label", RPCArg::Type::STR, /* default */ "''", "Label to assign to the address, only allowed with internal=false"},
@@ -1503,7 +1505,11 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
     }
     if (fRescan && fRunScan && requests.size()) {
         int64_t scannedTime = pwallet->RescanFromTime(nLowestTimestamp, reserver, true /* update */);
-        pwallet->ReacceptWalletTransactions();
+        {
+            auto locked_chain = pwallet->chain().lock();
+            LOCK(pwallet->cs_wallet);
+            pwallet->ReacceptWalletTransactions(*locked_chain);
+        }
 
         if (pwallet->IsAbortingRescan()) {
             throw JSONRPCError(RPC_MISC_ERROR, "Rescan aborted by user.");

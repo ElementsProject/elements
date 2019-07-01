@@ -604,7 +604,7 @@ class ImportMultiTest(BitcoinTestFramework):
         self.log.info("Should import the ranged descriptor with specified range as solvable")
         self.test_importmulti({"desc": descsum_create(desc),
                                "timestamp": "now",
-                               "range": {"end": 1}},
+                               "range": 1},
                               success=True,
                               warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         for address in addresses:
@@ -650,7 +650,8 @@ class ImportMultiTest(BitcoinTestFramework):
         self.log.info("Should import a 1-of-2 bare multisig from descriptor")
         self.test_importmulti({"desc": descsum_create("multi(1," + key1.pubkey + "," + key2.pubkey + ")"),
                                "timestamp": "now"},
-                              success=True)
+                              success=True,
+                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
         self.log.info("Should not treat individual keys from the imported bare multisig as watchonly")
         test_address(self.nodes[1],
                      key1.p2pkh_addr,
@@ -827,7 +828,7 @@ class ImportMultiTest(BitcoinTestFramework):
                 'desc': descsum_create('wpkh([80002067/0h/0h]' + xpub + '/*)'),
                 'keypool': True,
                 'timestamp': 'now',
-                'range' : {'start': 0, 'end': 4}
+                'range' : [0, 4],
             }]
         )
         for i in range(0, 5):

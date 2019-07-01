@@ -8,6 +8,7 @@
 #include <chainparams.h>
 #include <primitives/block.h>
 #include <sync.h>
+#include <txmempool.h>
 #include <uint256.h>
 #include <util/system.h>
 #include <validation.h>
@@ -176,6 +177,13 @@ public:
     {
         LOCK(cs_main);
         return GuessVerificationProgress(LookupBlockIndex(block_hash), Params().GetConsensus().nPowTargetSpacing);
+    }
+    void requestMempoolTransactions(std::function<void(const CTransactionRef&)> fn) override
+    {
+        LOCK2(::cs_main, ::mempool.cs);
+        for (const CTxMemPoolEntry& entry : ::mempool.mapTx) {
+            fn(entry.GetSharedTx());
+        }
     }
 };
 

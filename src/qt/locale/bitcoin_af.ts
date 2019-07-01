@@ -246,10 +246,6 @@
         <translation>&amp;Oorsig</translation>
     </message>
     <message>
-        <source>Node</source>
-        <translation>Node</translation>
-    </message>
-    <message>
         <source>Show general overview of wallet</source>
         <translation>Vertoon 'n algemene oorsig van die beursie</translation>
     </message>
@@ -306,14 +302,6 @@
         <translation>&amp;Verander Wagwoord</translation>
     </message>
     <message>
-        <source>&amp;Sending addresses...</source>
-        <translation>&amp;Versending adresse...</translation>
-    </message>
-    <message>
-        <source>&amp;Receiving addresses...</source>
-        <translation>&amp;Ontvanger adresse</translation>
-    </message>
-    <message>
         <source>Open &amp;URI...</source>
         <translation>Oop &amp; URI...</translation>
     </message>
@@ -360,10 +348,6 @@
     <message>
         <source>Bitcoin</source>
         <translation>Bitcoin</translation>
-    </message>
-    <message>
-        <source>Wallet</source>
-        <translation>Beursie</translation>
     </message>
     <message>
         <source>&amp;Send</source>
@@ -464,6 +448,10 @@
     <message>
         <source>Up to date</source>
         <translation>Op datum</translation>
+    </message>
+    <message>
+        <source>&amp;Window</source>
+        <translation>&amp;Venster</translation>
     </message>
     <message>
         <source>%1 client</source>
@@ -833,11 +821,7 @@
         <source>Hide</source>
         <translation>Versteek</translation>
     </message>
-    <message>
-        <source>Unknown. Syncing Headers (%1)...</source>
-        <translation>Onbekend. Besig Met Sinchroniseer Van Hoofde (%1)...</translation>
-    </message>
-</context>
+    </context>
 <context>
     <name>OpenURIDialog</name>
     <message>
@@ -884,16 +868,8 @@
         <translation>Grootte van &amp;databasis kas</translation>
     </message>
     <message>
-        <source>MB</source>
-        <translation>MG</translation>
-    </message>
-    <message>
         <source>Number of script &amp;verification threads</source>
         <translation>Aantal skrip &amp;verifikasie drade</translation>
-    </message>
-    <message>
-        <source>Active command-line options that override above options:</source>
-        <translation>Aktiewe opdrag lyn opsies wat die boonste opsies ignoreer:</translation>
     </message>
     <message>
         <source>Open the %1 configuration file from the working directory.</source>
@@ -1567,13 +1543,6 @@ etlike ure of dae (of nooit) sal neem om te bevestig. Oorweeg om
         <translation>Versteek</translation>
     </message>
     <message>
-        <source>Paying only the minimum fee is just fine as long as there is less transaction volume than space in the blocks. But be aware that this can end up in a never confirming transaction once there is more demand for bitcoin transactions than the network can process.</source>
-        <translation>Om die minimumfooi te betaal is in die haak, mits daar minder transaksievolume
-as ruimte in die blok is. Wees bewus dat de gevolg kan wees dat 'n transaksie nooit
-bevestig nie indien daar meer aanvraag vir bitcoin transaksies is as wat die netwerk kan
-verwerk.</translation>
-    </message>
-    <message>
         <source>Recommended:</source>
         <translation>Aanbeveel:</translation>
     </message>
@@ -1607,7 +1576,7 @@ verwerk.</translation>
     </message>
     <message>
         <source>Enable Replace-By-Fee</source>
-        <translation>Bemontlik vervang-deur-fooi</translation>
+        <translation>Bemoontlik vervang-deur-fooi</translation>
     </message>
     <message>
         <source>With Replace-By-Fee (BIP-125) you can increase a transaction's fee after it is sent. Without this, a higher fee may be recommended to compensate for increased transaction delay risk.</source>
@@ -1617,11 +1586,11 @@ transaksievertragingsrisiko.</translation>
     </message>
     <message>
         <source>Clear &amp;All</source>
-        <translation>Maak skoon &amp;Alles</translation>
+        <translation>Vee &amp;Alles skoon</translation>
     </message>
     <message>
         <source>Balance:</source>
-        <translation>Balans:</translation>
+        <translation>Saldo:</translation>
     </message>
     <message>
         <source>Confirm the send action</source>
@@ -1728,10 +1697,6 @@ transaksievertragingsrisiko.</translation>
         <translation>Betalings versoek verstryk.</translation>
     </message>
     <message>
-        <source>Pay only the required fee of %1</source>
-        <translation>Betaal slegs die verlangde fooi van %1</translation>
-    </message>
-    <message>
         <source>Warning: Invalid Bitcoin address</source>
         <translation>Waarskuwing: Ongeldige Bitcoinadres</translation>
     </message>
@@ -1758,7 +1723,7 @@ Is u seker?</translation>
     </message>
     <message>
         <source>Choose previously used address</source>
-        <translation>Kies voorhen gebruikte adres</translation>
+        <translation>Kies voorheen gebruikte adres</translation>
     </message>
     <message>
         <source>This is a normal payment.</source>
@@ -1805,7 +1770,8 @@ word die fooi eweredig verdeel.</translation>
     </message>
     <message>
         <source>This is an authenticated payment request.</source>
-        <translation>Hierdie is 'n gemagtigde uitbetalingsversoek</translation>
+        <translation>Hierdie is 'n gemagtigde uitbetalingsversoek
+</translation>
     </message>
     <message>
         <source>Pay To:</source>
@@ -1830,7 +1796,7 @@ word die fooi eweredig verdeel.</translation>
     </message>
     <message>
         <source>Choose previously used address</source>
-        <translation>Kies voorhen gebruikte adres</translation>
+        <translation>Kies voorheen gebruikte adres</translation>
     </message>
     <message>
         <source>Alt+A</source>
@@ -1846,7 +1812,7 @@ word die fooi eweredig verdeel.</translation>
     </message>
     <message>
         <source>Clear &amp;All</source>
-        <translation>Maak skoon &amp;Alles</translation>
+        <translation>Vee &amp;Alles skoon</translation>
     </message>
     <message>
         <source>&amp;Verify Message</source>
@@ -2041,6 +2007,9 @@ word die fooi eweredig verdeel.</translation>
 </context>
 <context>
     <name>UnitDisplayStatusBarControl</name>
+    </context>
+<context>
+    <name>WalletController</name>
     </context>
 <context>
     <name>WalletFrame</name>
