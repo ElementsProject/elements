@@ -1,5 +1,13 @@
 FROM commerceblock/rpmbase:latest
 
+ARG token
+ENV GITHUB_RELEASE_ACCESS_TOKEN=$token
+ARG repository
+ENV GITHUB_RELEASE_REPOSITORY=$repository
+ARG commit
+ENV GITHUB_RELEASE_COMMIT=$commit
+ARG tag
+ENV GITHUB_RELEASE_TAG=$tag
 
 SHELL [ "/usr/bin/scl", "enable", "devtoolset-7"]
 RUN set -ex \
