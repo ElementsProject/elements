@@ -211,16 +211,26 @@ bool IsWhitelisted(CTransaction const &tx) {
     if (!tx.vin[0].assetIssuance.IsNull() || whichType == TX_FEE ||
         whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS)
       continue;
-    // return false if not P2PKH
-    if (!(whichType == TX_PUBKEYHASH))
+    // return false if not P2PKH or P2SH
+    if (whichType == TX_PUBKEYHASH){
+      CKeyID keyId;
+      keyId = CKeyID(uint160(vSolutions[0]));
+      // Search in whitelist for the presence of each output address.
+      // If one is not found, return false.
+      if (!addressWhitelist.is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
+        return false;
+    }
+    else if (whichType == TX_SCRIPTHASH){
+      CScriptID keyId;
+      keyId = CScriptID(uint160(vSolutions[0]));
+      // Search in whitelist for the presence of each output address.
+      // If one is not found, return false.
+      if (!addressWhitelist.is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
+        return false;
+    }
+    else{
       return false;
-
-    CKeyID keyId;
-    keyId = CKeyID(uint160(vSolutions[0]));
-    // Search in whitelist for the presence of each output address.
-    // If one is not found, return false.
-    if (!addressWhitelist.is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
-      return false;
+    }
   }
   return true;
 }
