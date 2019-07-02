@@ -59,10 +59,8 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
         nonce = uint256(std::vector<unsigned char>(blinding_key.begin(), blinding_key.end()));
     }
 
-    // API-prescribed sidechannel maximum size, though we only use 64 bytes
-    unsigned char msg[4096] = {0};
-    // 32 bytes of asset type, 32 bytes of asset blinding factor in sidechannel
-    size_t msg_size = 64;
+    unsigned char msg[SIDECHANNEL_MSG_SIZE] = {0};
+    size_t msg_size = SIDECHANNEL_MSG_SIZE;
 
     // If value is unblinded, we don't support unblinding just the asset
     if (!conf_value.IsCommitment()) {
@@ -102,7 +100,7 @@ bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue&
 
     // Asset sidechannel of asset type + asset blinder
     secp256k1_generator recalculated_gen;
-    if (msg_size != 64 || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recalculated_gen, asset_type, asset_blinder) != 1) {
+    if (msg_size != SIDECHANNEL_MSG_SIZE || secp256k1_generator_generate_blinded(secp256k1_blind_context, &recalculated_gen, asset_type, asset_blinder) != 1) {
         return false;
     }
 
@@ -175,7 +173,7 @@ bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vecto
     rangeproof.resize(nRangeProofLen);
 
     // Compose sidechannel message to convey asset info (ID and asset blinds)
-    unsigned char asset_message[64];
+    unsigned char asset_message[SIDECHANNEL_MSG_SIZE];
     memcpy(asset_message, asset.begin(), 32);
     memcpy(asset_message+32, asset_blindptrs[asset_blindptrs.size()-1], 32);
 
