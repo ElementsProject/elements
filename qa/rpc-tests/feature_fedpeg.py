@@ -203,6 +203,14 @@ class FedPegTest(BitcoinTestFramework):
         # Should succeed via wallet lookup for address match, and when given
         pegtxid1 = sidechain.claimpegin(raw, proof)
 
+        # Make sure a double spend of the pegin doesn't get accepted while another is in mempool.
+        try:
+            pegtxid1 = sidechain.claimpegin(raw, proof)
+            raise Exception("double spending a pegin should not be accepted in mempool!")
+        except JSONRPCException as e:
+            print('RPC ERROR:', e.error['message'])
+            assert("pegin-already-claimed" in e.error["message"])
+
         # Will invalidate the block that confirms this transaction later
         self.sync_all()
         blockhash = sidechain2.generate(1)
@@ -239,6 +247,14 @@ class FedPegTest(BitcoinTestFramework):
         sidechain.reconsiderblock(blockhash[0])
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 6:
             raise Exception("Peg-in should be back to 6 confirms.")
+
+        # Make sure a double spend of the pegin doesn't get accepted while another is confirmed.
+        try:
+            pegtxid1 = sidechain.claimpegin(raw, proof)
+            raise Exception("double spending a pegin should not be accepted in mempool!")
+        except JSONRPCException as e:
+            print('RPC ERROR:', e.error['message'])
+            assert("pegin-already-claimed" in e.error["message"])
 
         # Do multiple claims in mempool
         n_claims = 6
