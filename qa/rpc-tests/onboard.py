@@ -311,6 +311,36 @@ class OnboardTest (BitcoinTestFramework):
             assert(False)
         assert(iswl)
 
+        result = self.nodes[1].importmulti([{
+            "scriptPubKey": {
+                "address": multiAddress2['address']
+            },
+            "timestamp": "now",
+            "redeemscript": multiAddress2['redeemScript'],
+            "keys": [ self.nodes[1].dumpprivkey(clientAddress2['unconfidential']), self.nodes[1].dumpprivkey(clientAddress3['unconfidential']), self.nodes[1].dumpprivkey(clientAddress4['unconfidential'])]
+        }])
+
+        vaddr = self.nodes[1].validateaddress(multiAddress2['address'])
+
+        assert(vaddr['ismine'])
+
+        issue = self.nodes[0].issueasset('100.0','0')
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        txhead = self.nodes[0].sendtoaddress(multiAddress2['address'], 11,"","",False,issue["asset"])
+        self.nodes[0].generate(101)
+        self.sync_all()
+        try:
+            rawtxm = self.nodes[2].getrawtransaction(txhead, 1)
+            rawtxm2 = self.nodes[0].getrawtransaction(txhead, 1)
+        except JSONRPCException as e:
+            print(e)
+            assert(False)
+
+        assert_equal(self.nodes[0].getbalance("", 0, False, issue["asset"]), 100-11)
+        assert_equal(self.nodes[1].getbalance("", 0, False, issue["asset"]), 11)
+
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
 
         wl1file=self.initfile("wl1.dat")

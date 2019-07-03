@@ -119,6 +119,27 @@ class WhitelistingTest (BitcoinTestFramework):
         issue = self.nodes[0].issueasset('100.0','0')
         self.nodes[1].generate(1)
 
+        clientAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        clientAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        clientAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+
+        # Send 13 issued asset from 0 to 1 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
+        print("Sending 13 issued asset from 0 to 1 (multi) using sendtoaddress.")
+        txidm = self.nodes[0].sendtoaddress(self.nodes[1].createmultisig(2,[clientAddress3['pubkey'],clientAddress2['pubkey'],clientAddress1['pubkey']])['address'], 13,"","",False,issue["asset"])
+        txoutmv0 = self.nodes[0].gettxout(txidm, 0)
+        self.nodes[1].generate(101)
+        
+        try:
+            rawtxm = self.nodes[1].getrawtransaction(txidm, 1)
+            print("Raw trans:")
+            print(rawtxm)
+        except JSONRPCException as e:
+            assert("No such mempool transaction" in e.error['message'])
+            #Abandon the transaction to allow the output to be respent
+            self.nodes[0].abandontransaction(txidm)
+        else:
+            raise AssertionError("Output accepted to non-whitelisted address.")
+
         # Send 21 issued asset from 0 to 2 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
         print(self.nodes[0].getwalletinfo())
         print("Sending 21 issued asset from 0 to 2 using sendtoaddress.")
@@ -136,7 +157,6 @@ class WhitelistingTest (BitcoinTestFramework):
             self.nodes[0].abandontransaction(txid1)
         else:
             raise AssertionError("Output accepted to non-whitelisted address.")
-
 
         txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)

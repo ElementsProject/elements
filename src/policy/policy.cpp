@@ -195,7 +195,6 @@ bool IsPolicy(const CAsset& asset){
 // @retrun true == successful process.
 // @retrun false == failed process.
 bool IsWhitelisted(CTransaction const &tx) {
-  CKeyID keyId;
   txnouttype whichType;
 
   uint160 frzInt;
