@@ -242,7 +242,7 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
-    
+
     CKeyID addr;
     if(!address.GetKeyID(addr))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
@@ -558,7 +558,7 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
 
 
     CCoinControl* coinControl = new CCoinControl();
-    //Fee = 0 
+    //Fee = 0
     coinControl->fOverrideFeeRate=true;
     coinControl->nFeeRate=CFeeRate(0);
     coinControl->fAllowOtherInputs=false;
@@ -589,14 +589,14 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
 }
 
 UniValue onboarduser(const JSONRPCRequest& request){
-  if (request.fHelp || request.params.size() != 1) 
+  if (request.fHelp || request.params.size() != 1)
     throw runtime_error(
             "onboarduser \"filename\" \n"
             "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
             "\nArguments:\n"
 
             "1. \"filename\"    (string, required) The kyc file name\n"
-           
+
             "\nExamples:\n"
             + HelpExampleCli("onboarduser", "\"my filename\"")
             + HelpExampleRpc("onboarduser", "\"my filename\"")
@@ -748,8 +748,8 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
     CRegisterAddressScript* raScript = new CRegisterAddressScript(RA_MULTISIG);
 
     CTxDestination keyid = address.Get();
-    if (keyid.which() == ((CTxDestination)CNoDestination()).which())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) + 
+    if (boost::get<CNoDestination>(&keyid))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) +
             ": invalid key id"));
 
     if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
@@ -761,8 +761,8 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
         std::vector<unsigned char> pubKeyData(ParseHex(parseStr.c_str()));
         CPubKey tpubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
 
-        if (!tpubKey.IsFullyValid()) 
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) + 
+        if (!tpubKey.IsFullyValid())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) +
                 ": invalid public key"));
 
         pubKeyVec.push_back(tpubKey);
@@ -826,7 +826,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     while(keysToReg.size() < nToRegister){
         pwalletMain->TopUpKeyPool(setKeyPool.size()+nToRegister - nReg + nWl);
         pwalletMain->GetAllReserveKeys(setKeyPool);
-        for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); 
+        for(std::set<CKeyID>::const_iterator it = setKeyPool.begin();
             it != setKeyPool.end(); ++it) {
                 const CKeyID &keyid = *it;
                 if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid)){
@@ -850,7 +850,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
  //Add to my pending here in case TX fails.
     for(auto& key : keysToReg){
-        addressWhitelist.add_my_pending(key);        
+        addressWhitelist.add_my_pending(key);
     }
     try{
         FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
@@ -878,7 +878,7 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
             "\nArguments:\n"
 
             "1. \"kycpubkey\"    (string, required) The KYC public key to be blacklisted\n"
-           
+
             "\nExamples:\n"
             + HelpExampleCli("blacklistkycpubkey", "\"kycpubkey\"")
             + HelpExampleRpc("blacklistkycpubkey", "\"kycpubkey\"")
@@ -909,7 +909,7 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     CMutableTransaction rawTx;
     rawTx.nLockTime=0;
     uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
-    
+
     CTxIn in = CTxIn(outPoint, CScript(), nSequence);
     rawTx.vin.push_back(in);
 
@@ -929,7 +929,7 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     CAsset assetIn=inputTx.vout[outPoint.n].nAsset.GetAsset();
 
     if (!IsWhitelistAsset(assetIn))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Input TX asset is not WHITELIST");    
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Input TX asset is not WHITELIST");
 
     //Construct the change output
     CPubKey vchPubKey;
@@ -938,11 +938,11 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
             pwalletMain->TopUpKeyPool();
     if (!changeKey.GetReservedKey(vchPubKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        
+
     rawTx.vout.push_back(
             CTxOut(
-                assetIn, 
-                amountIn, 
+                assetIn,
+                amountIn,
                 GetScriptForDestination(vchPubKey.GetID())
             )
         );
@@ -981,7 +981,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
             "        \"pubkey\", \n"
             "        ...,\n"
             "      ]\n"
-        
+
             "\nExamples:\n"
             + HelpExampleCli("whitelistkycpubkey", "[\"kycpubkey1\",\"kycpubkey2\"]")
             + HelpExampleRpc("whitelistkycpubkey", "[\"kycpubkey1\",\"kycpubkey2\"]")
@@ -1027,7 +1027,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
         adminValue = out.tx->GetOutputValueOut(out.i);
         CAsset assetid = out.tx->GetOutputAsset(out.i);
-        
+
         //The output must contain some WHITELIST asset
         if (adminValue < 1 || assetid.IsNull())
             continue;
@@ -1056,7 +1056,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
         auto it = address.GetKeyID(keyID) ? meta.find(keyID) : meta.end();
         if (it == meta.end()) {
             it = meta.find(CScriptID(scriptPubKey));
-        } 
+        }
         //Copy the pubkey
         if (it != meta.end()) {
             //Get nsequence
@@ -1078,7 +1078,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
     if(!adminIn)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: wallet has no spendable whitelist asset.");
-        
+
 
     CPubKey kycPubKey;
 
@@ -1089,7 +1089,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     for (unsigned int idx = 0; idx < kycPubKeys.size(); idx++){
         const UniValue& item = kycPubKeys[idx];
         std::vector<unsigned char> pubKeyData=ParseHex(item.get_str());
-        
+
         const CPubKey testKey(pubKeyData.begin(), pubKeyData.end());
         if(!testKey.IsFullyValid())
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
@@ -1102,8 +1102,8 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
         //1 of 2 multisig
         rawTx.vout.push_back(
-            CTxOut(wl_asset, 
-                amountPerOutput, 
+            CTxOut(wl_asset,
+                amountPerOutput,
                 GetScriptForMultisig(1, pubkeys)
                 )
             );
@@ -1118,12 +1118,12 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
             pwalletMain->TopUpKeyPool();
     if (!changeKey.GetReservedKey(vchPubKey))
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        
+
 
     rawTx.vout.push_back(
             CTxOut(
-                wl_asset, 
-                changeAmount, 
+                wl_asset,
+                changeAmount,
                 GetScriptForDestination(vchPubKey.GetID())
             )
         );
@@ -1154,7 +1154,7 @@ UniValue getnunassignedkycpubkeys(const JSONRPCRequest& request){
         throw runtime_error(
             "getunassignedkycpubkey\n"
             "Returns the number of unassigned KYC public keys; really only useful for debugging purposes\n"
-           
+
             "\nExamples:\n"
             + HelpExampleCli("getnunassignedkycpubkeys", "")
             + HelpExampleRpc("getnunassignedkycpubkeys", "")
@@ -1177,7 +1177,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
             "\nArguments:\n"
 
             "1. \"nkeys\"    (numeric, required) The required key pool size.\n"
-           
+
             "\nExamples:\n"
             + HelpExampleCli("topupkycpubkeys", "\"nkeys\"")
             + HelpExampleRpc("topupkycpubkeys", "\"nkeys\"")
@@ -4305,7 +4305,9 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
 
     //Creates new address for receiving unlocked utxos
     JSONRPCRequest req;
-    CBitcoinAddress address(CBitcoinAddress(getnewaddress(req).get_str()).GetUnblinded());
+    CBitcoinAddress address(!pwalletMain->GetDisableCt() ?
+        CBitcoinAddress(getnewaddress(req).get_str()).GetUnblinded() :
+        CBitcoinAddress(getnewaddress(req).get_str()));
 
     Witnessifier w;
     CTxDestination dest = address.Get();
@@ -4320,12 +4322,13 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     CScript witProg = GetScriptForWitness(destScript);
 
     //Call contracthashtool, get deposit address on mainchain.
-    CParentBitcoinAddress destAddr(CScriptID(GetScriptForWitness(calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
+    CParentBitcoinAddress destAddr(CScriptID(GetScriptForWitness(
+        calculate_contract(Params().GetConsensus().fedpegScript, witProg))));
+
+    AuditLogPrintf("%s : getpeginaddress mainchain_address: %s claim_script: %s\n",
+        getUser(), destAddr.ToString(), HexStr(witProg));
 
     UniValue fundinginfo(UniValue::VOBJ);
-
-    AuditLogPrintf("%s : getpeginaddress mainchain_address: %s claim_script: %s\n", getUser(), destAddr.ToString(), HexStr(witProg));
-
     fundinginfo.pushKV("mainchain_address", destAddr.ToString());
     fundinginfo.pushKV("claim_script", HexStr(witProg));
     return fundinginfo;
@@ -4404,6 +4407,16 @@ unsigned int GetPeginTxnOutputIndex(const Sidechain::Bitcoin::CTransaction& txn,
         if (txn.vout[nOut].scriptPubKey == mainchain_script)
             break;
     return nOut;
+}
+
+UniValue getethpegin(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "getethpegin \"txid\" \n"
+        );
+    uint256 hash = ParseHashV(request.params[0], "parameter 1");
+    return GetEthTransaction(hash);
 }
 
 UniValue createrawpegin(const JSONRPCRequest& request)
@@ -5243,6 +5256,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "whitelistkycpubkeys",  &whitelistkycpubkeys,      false,   {"kycpubkeys"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
+    { "wallet",             "getethpegin",              &getethpegin,              true,   {"txid"}},
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",           &createrawpegin,           false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },
