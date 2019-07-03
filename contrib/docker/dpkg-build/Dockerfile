@@ -14,6 +14,7 @@ RUN set -ex \
     && git pull \
     && export gittag=$(git describe --tags --match '[0-9].[0-9].[0-9]*') \
     && export GITHUB_RELEASE_TAG=$gittag \
+    && git checkout $gittag \
     && ./autogen.sh \
     && ./configure --enable-glibc-back-compat \
         --prefix=`pwd`/depends/x86_64-pc-linux-gnu \
