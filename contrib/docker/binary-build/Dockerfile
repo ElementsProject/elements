@@ -11,6 +11,9 @@ ENV GITHUB_RELEASE_TAG=$tag
 
 RUN set -ex \
     && git clone https://github.com/commerceblock/ocean.git \
+    && export gittag=$(git describe --tags --match '[0-9].[0-9].[0-9]*') \
+    && export GITHUB_RELEASE_TAG=$gittag \
+    && git checkout $gittag \
     && cd ocean/depends \
     && make \
     && cd .. \

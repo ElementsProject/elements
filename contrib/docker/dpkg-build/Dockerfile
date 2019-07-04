@@ -11,20 +11,24 @@ ENV GITHUB_RELEASE_TAG=$tag
 
 RUN set -ex \
     && cd ocean \
+    && git pull \
+    && export gittag=$(git describe --tags --match '[0-9].[0-9].[0-9]*') \
+    && export GITHUB_RELEASE_TAG=$gittag \
+    && git checkout $gittag \
     && ./autogen.sh \
     && ./configure --enable-glibc-back-compat \
         --prefix=`pwd`/depends/x86_64-pc-linux-gnu \
         LDFLAGS="-static-libstdc++" \
     && make \
-    && mkdir -p ocean-$(git rev-parse --short HEAD)/usr/local/bin \
-    && cp src/oceand ocean-$(git rev-parse --short HEAD)/usr/local/bin/ \
-    && cp src/ocean-cli ocean-$(git rev-parse --short HEAD)/usr/local/bin/ \
-    && cp src/ocean-tx ocean-$(git rev-parse --short HEAD)/usr/local/bin/ \
-    && mkdir -p ocean-$(git rev-parse --short HEAD)/DEBIAN \
+    && mkdir -p ocean-$gittag/usr/local/bin \
+    && cp src/oceand ocean-$gittag/usr/local/bin/ \
+    && cp src/ocean-cli ocean-$gittag/usr/local/bin/ \
+    && cp src/ocean-tx ocean-$gittag/usr/local/bin/ \
+    && mkdir -p ocean-$gittag/DEBIAN \
     && cp contrib/docker/dpkg-build/control \
-        ocean-$(git rev-parse --short HEAD)/DEBIAN/ \
-    && sed -i "s/Version:*/Version: $(git rev-parse --short HEAD)/" \
-        ocean-$(git rev-parse --short HEAD)/DEBIAN/control \
-    && dpkg-deb --build ocean-$(git rev-parse --short HEAD) \
+        ocean-$gittag/DEBIAN/ \
+    && sed -i "s/Version: .*/Version: $gittag/" \
+        ocean-$gittag/DEBIAN/control \
+    && dpkg-deb --build ocean-$gittag \
     && go run github-release/main.go "Debian package" \
-        ocean-$(git rev-parse --short HEAD).deb
+        ocean-$gittag.deb
