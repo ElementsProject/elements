@@ -67,6 +67,7 @@ struct Params {
     uint256 nMinimumChainWork;
     // The redeemscript that the peg uses. Uses p2sh-p2wsh
     CScript fedpegScript;
+    uint160 parentContract;
     CAsset pegged_asset;
     CAsset freezelist_asset;
     CAsset burnlist_asset;
