@@ -2220,6 +2220,53 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
+bool IsEthPeginValid(const UniValue& tx, const CAmount& nAmount, std::string& strFailReason)
+{
+    try {
+        auto txLogs = find_value(tx, "logs");
+
+        // Check that the correct CBT ERC-20 contract is paid to
+        uint160 ethContract;
+        ethContract.SetHex(find_value(txLogs[1], "address").get_str());
+        if (ethContract != Params().GetConsensus().parentContract) {
+            strFailReason = "Invalid CBT ERC-20 contract provided";
+            return false;
+        }
+        // Check this is an ERC-20 Transfer
+        const auto ercTransferHash = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+        if (find_value(txLogs[1], "topics")[0].get_str() != ercTransferHash) {
+            strFailReason = "Unexpected ERC-20 transfer topic hash";
+            return false;
+        }
+        // Check to pay to address included the fedpeg pubkey
+        uint160 ethToAddress;
+        ethToAddress.SetHex(find_value(txLogs[1], "topics")[2].get_str());
+        if (ethToAddress != Params().GetConsensus().fedpegAddress) {
+            strFailReason = "Invalid fegpeg destination address";
+            return false;
+        }
+        // Check that the amount is correct
+        uint256 ethAmount = uint256S(find_value(txLogs[1], "data").get_str());
+        arith_uint256 aEthAmount = UintToArith256(ethAmount);
+        const arith_uint256 aEthPrecision("2540BE400"); // 10^10
+        aEthAmount /= aEthPrecision;
+        if (!aEthAmount.EqualTo(nAmount)) {
+            strFailReason = "Pegin amount and ERC-20 transaction amount don't match";
+            return false;
+        }
+        // Check tx number of confirmations
+        if (!IsConfirmedEthBlock(std::strtoll(find_value(txLogs[1], "blockNumber").get_str().c_str(), NULL, 16),
+            Params().GetConsensus().pegin_min_depth + 2)) {
+            strFailReason = "Peg-in eth transaction needs more confirmations to be sent";
+            return false;
+        }
+        return true;
+    } catch (...) {
+        strFailReason = "Invalid eth transaction";
+        return false;
+    }
+}
+
 bool BitcoindRPCCheck(const bool init)
 {
     //First, we can clear out any blocks thatsomehow are now deemed valid

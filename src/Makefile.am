@@ -368,8 +368,6 @@ libbitcoin_common_a_SOURCES = \
 libbitcoin_util_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
 libbitcoin_util_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_util_a_SOURCES = \
-  arith_uint256.cpp \
-  arith_uint256.h \
   support/lockedpool.cpp \
   support/events.cpp \
   callrpc.cpp \

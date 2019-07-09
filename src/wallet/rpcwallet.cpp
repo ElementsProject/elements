@@ -4436,26 +4436,13 @@ UniValue validateethpegin(const JSONRPCRequest& request)
     uint256 hash = ParseHashV(request.params[0], "txid");
     CAmount nAmount = AmountFromValue(request.params[1]);
 
+    const auto tx = GetEthTransaction(hash);
     std::string strFailReason;
-    if (!IsValidEthPegin(hash, nAmount, strFailReason)) {
+    if (!IsEthPeginValid(tx, nAmount, strFailReason)) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, strFailReason);
     }
 
     return true;
-}
-
-UniValue claimethpegin(const JSONRPCRequest& request)
-{
-    if (request.fHelp || request.params.size() != 1)
-        throw runtime_error(
-            "claimethpegin \"txid\" \n"
-        );
-
-    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
-        return validateethpegin(request);
-    }
-
-    return false;
 }
 
 UniValue createrawpegin(const JSONRPCRequest& request)
@@ -5297,7 +5284,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "getethpegin",              &getethpegin,              true,   {"txid"}},
     { "wallet",             "validateethpegin",         &validateethpegin,              true,   {"txid"}},
-    { "wallet",             "claimethpegin",            &claimethpegin,              true,   {"txid"}},
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",           &createrawpegin,           false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },
