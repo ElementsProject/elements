@@ -4419,6 +4419,31 @@ UniValue getethpegin(const JSONRPCRequest& request)
     return GetEthTransaction(hash);
 }
 
+UniValue validateethpegin(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(
+            "validateethpegin \"txid\" amount \n"
+            "1. \"txid\"        (hex, required) Eth transaction pegin transaction id\n"
+            "2. \"amount\"      (numeric, required) Eth transaction pegin amount\n"
+            "Result:\n"
+            "   valid:      (bool) Pegin is valid or invalid \n"
+            "\nExamples:\n"
+            + HelpExampleCli("validateethpegin", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 432.109")
+            + HelpExampleRpc("validateethpegin", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 432.109")
+        );
+
+    uint256 hash = ParseHashV(request.params[0], "txid");
+    CAmount nAmount = AmountFromValue(request.params[1]);
+
+    std::string strFailReason;
+    if (!IsValidEthPegin(hash, nAmount, strFailReason)) {
+        throw JSONRPCError(RPC_TRANSACTION_ERROR, strFailReason);
+    }
+
+    return true;
+}
+
 UniValue createrawpegin(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
@@ -5257,6 +5282,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
     { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
     { "wallet",             "getethpegin",              &getethpegin,              true,   {"txid"}},
+    { "wallet",             "validateethpegin",         &validateethpegin,              true,   {"txid"}},
     { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "createrawpegin",           &createrawpegin,           false,  {"bitcoinT", "txoutproof", "claim_script"} },
     { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },

@@ -9,6 +9,7 @@
 #include "rpc/client.h"
 #include "rpc/protocol.h"
 #include "uint256.h"
+#include "amount.h"
 
 #include <string>
 #include <stdexcept>
@@ -36,6 +37,7 @@ public:
 
 UniValue CallRPC(const std::string& strMethod, const UniValue& params, bool connectToMainchain=false);
 UniValue GetEthTransaction(const uint256& hash);
+bool IsValidEthPegin(const uint256& hash, const CAmount& nAmount, std::string& strFailReason);
 bool IsConfirmedEthBlock(const int64_t& nHeight, int nMinConfirmationDepth);
 bool IsConfirmedBitcoinBlock(const uint256& hash, int nMinConfirmationDepth);
 
