@@ -4413,8 +4413,17 @@ UniValue getethpegin(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
-            "getethpegin \"txid\" \n"
+            "getethpegin \"txid\"\n"
+            "1. \"txid\"        (hex, required) Eth transaction pegin transaction id\n"
+            "Result:\n"
+            "{\n"
+            "   ...         JSON result of eth_getTransactionReceipt\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\"")
+            + HelpExampleRpc("getethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\"")
         );
+
     uint256 hash = ParseHashV(request.params[0], "parameter 1");
     return GetEthTransaction(hash);
 }
@@ -4429,19 +4438,18 @@ UniValue validateethpegin(const JSONRPCRequest& request)
             "Result:\n"
             "   valid:      (bool) Pegin is valid or invalid \n"
             "\nExamples:\n"
-            + HelpExampleCli("validateethpegin", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 432.109")
-            + HelpExampleRpc("validateethpegin", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 432.109")
+            + HelpExampleCli("validateethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\" 432.109")
+            + HelpExampleRpc("validateethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\" 432.109")
         );
 
     uint256 hash = ParseHashV(request.params[0], "txid");
     CAmount nAmount = AmountFromValue(request.params[1]);
+    const UniValue tx = GetEthTransaction(hash);
 
-    const auto tx = GetEthTransaction(hash);
     std::string strFailReason;
     if (!IsEthPeginValid(tx, nAmount, strFailReason)) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, strFailReason);
     }
-
     return true;
 }
 
