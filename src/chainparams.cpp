@@ -25,6 +25,7 @@ static std::vector<unsigned char> CommitToArguments(const Consensus::Params& par
     sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
     sha2.Write((const unsigned char*)HexStr(signblockscript).c_str(), HexStr(signblockscript).length());
     sha2.Write((const unsigned char*)HexStr(params.parentContract).c_str(), HexStr(params.parentContract).length());
+    sha2.Write((const unsigned char*)HexStr(params.fedpegAddress).c_str(), HexStr(params.fedpegAddress).length());
     sha2.Finalize(commitment);
     return std::vector<unsigned char>(commitment, commitment + 32);
 }
@@ -180,6 +181,7 @@ public:
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
         consensus.parentContract.SetHex(GetArg("-parentcontract", "0x076C97e1c869072eE22f8c91978C99B4bcB02591"));
+        consensus.fedpegAddress.SetHex(GetArg("-fedpegaddress", ""));
 
         if (!anyonecanspend_aremine) {
             assert("Anyonecanspendismine was marked as false, but they are in the genesis block"

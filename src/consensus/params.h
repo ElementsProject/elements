@@ -68,6 +68,7 @@ struct Params {
     // The redeemscript that the peg uses. Uses p2sh-p2wsh
     CScript fedpegScript;
     uint160 parentContract;
+    uint160 fedpegAddress;
     CAsset pegged_asset;
     CAsset freezelist_asset;
     CAsset burnlist_asset;

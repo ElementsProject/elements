@@ -526,6 +526,8 @@ std::string HelpMessage(HelpMessageMode mode)
             " " + _("This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-signblockscript=<hex>", _("Change chain to be signed and validated with a different script.") +
             " " + _(" This creates a new chain with a different genesis block."));
+        strUsage += HelpMessageOpt("-fedpegaddress=<hex>", _("Change federated peg to use a different ETH address.") +
+            " " + _("This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-parentcontract=<hex>", _("Change parent ERC20 contract to use a different script.") +
             " " + _("This creates a new chain with a different genesis block."));
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
@@ -1524,7 +1526,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 // If the loaded chain has a wrong genesis, bail out immediately
                 // (we're likely using a testnet datadir, or the other way around).
                 if (!mapBlockIndex.empty() && mapBlockIndex.count(chainparams.GetConsensus().hashGenesisBlock) == 0)
-                    return InitError(_("Incorrect or no genesis block found. Wrong `-fedpegscript`, `-signblockscript`, `-parentcontract` or datadir for network?"));
+                    return InitError(_("Incorrect or no genesis block found. Wrong `-fedpegscript`, "
+                        "`-signblockscript`, `-parentcontract`, `-fedpegaddress` or datadir for network?"));
 
                 // Initialize the block index (no-op if non-empty database was already loaded)
                 if (!InitBlockIndex(chainparams)) {
@@ -1743,8 +1746,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     uiInterface.InitMessage(_("Awaiting bitcoind RPC warmup"));
 
-    if (!BitcoindRPCCheck(true)) { //Initial check, fail immediately
-        return InitError(_("ERROR: oceand is set to verify pegins but cannot get valid response from bitcoind. Please check debug.log for more information."));
+    if (!GethRPCCheck(true)) { //Initial check, fail immediately
+        return InitError(_("ERROR: oceand is set to verify pegins but cannot get valid response from geth. Please check debug.log for more information."));
     }
 
     uiInterface.InitMessage(_("Done loading"));
