@@ -2311,6 +2311,97 @@ bool BitcoindRPCCheck(const bool init)
     return true;
 }
 
+bool GethRPCCheck(const bool init)
+{
+    //First, we can clear out any blocks thatsomehow are now deemed valid
+    //eg reconsiderblock rpc call manually
+    std::vector<uint256> vblocksToReconsider;
+    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
+    std::vector<uint256> vblocksToReconsiderAgain;
+    for (uint256 &blockhash : vblocksToReconsider) {
+        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+            vblocksToReconsiderAgain.push_back(blockhash);
+        }
+    }
+    vblocksToReconsider = vblocksToReconsiderAgain;
+    vblocksToReconsiderAgain.clear();
+    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
+
+    //Next, check for working rpc
+    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        while (true) {
+            try {
+                UniValue params(UniValue::VARR);
+                params.push_back(UniValue("0x0"));
+                params.push_back(UniValue(false));
+                UniValue reply = CallRPC("eth_getBlockByNumber", params, true);
+                UniValue error = find_value(reply, "error");
+                if (!error.isNull()) {
+                    LogPrintf("ERROR: Geth RPC check returned 'error' response.\n");
+                    return false;
+                }
+                UniValue result = reply["result"];
+                auto ethHash = uint256S(find_value(result.get_obj(), "hash").get_str());
+                if (!result.isObject() || ethHash.GetHex() != Params().ParentGenesisBlockHash().GetHex()) {
+                    LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
+                    return false;
+                }
+            } catch (const std::runtime_error& re) {
+                std::string totalErr = "ERROR: Failure connecting to geth RPC: ";
+                totalErr += std::string(re.what()) + "\n";
+                LogPrintf(totalErr.c_str());
+                return false;
+            }
+            // Success
+            break;
+        }
+    }
+
+    //Sanity startup check won't reconsider queued blocks
+    if (init) {
+       return true;
+    }
+
+    /* Getting this far means we either aren't validating pegins(so let's make sure that's why
+       it failed previously) or we successfully connected to bitcoind
+       Time to reconsider blocks
+    */
+    if (vblocksToReconsider.size() > 0) {
+        CValidationState state;
+        for (uint256 const &blockhash : vblocksToReconsider) {
+            {
+                LOCK(cs_main);
+                if (mapBlockIndex.count(blockhash) == 0)
+                    continue;
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+                ResetBlockFailureFlags(pblockindex);
+            }
+        }
+
+        //All blocks are now being reconsidered
+        ActivateBestChain(state, Params());
+        //This simply checks for DB errors
+        if (!state.IsValid()) {
+            //Something scary?
+        }
+
+        //Now to clear out now-valid blocks
+        for (uint256 const &blockhash : vblocksToReconsider) {
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+
+            //Marked as invalid still, put back into queue
+            if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                vblocksToReconsiderAgain.push_back(blockhash);
+            }
+        }
+
+        //Write back remaining blocks
+        pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
+        }
+    return true;
+}
+
 /* Takes federation redeeem script and adds HMAC_SHA256(pubkey, scriptPubKey) as a tweak to each pubkey */
 CScript calculate_contract(const CScript& federationRedeemScript, const CScript& scriptPubKey) {
     CScript scriptDestination(federationRedeemScript);
