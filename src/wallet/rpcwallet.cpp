@@ -4414,7 +4414,8 @@ UniValue getethpegin(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
             "getethpegin \"txid\"\n"
-            "1. \"txid\"        (hex, required) Eth transaction pegin transaction id\n"
+            " Get eth ERC-20 peg-in transaction via geth rpc connectivity\n"
+            "1. \"txid\"        (hex, required) Eth transaction peg-in transaction id\n"
             "Result:\n"
             "{\n"
             "   ...         JSON result of eth_getTransactionReceipt\n"
@@ -4433,8 +4434,9 @@ UniValue validateethpegin(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 2)
         throw runtime_error(
             "validateethpegin \"txid\" amount \n"
-            "1. \"txid\"        (hex, required) Eth transaction pegin transaction id\n"
-            "2. \"amount\"      (numeric, required) Eth transaction pegin amount\n"
+            " Validate an eth ERC-20 transaction to be used from peg-in to Ocean\n"
+            "1. \"txid\"        (hex, required) Eth transaction peg-in transaction id\n"
+            "2. \"amount\"      (numeric, required) Eth transaction peg-in amount\n"
             "Result:\n"
             "   valid:      (bool) Pegin is valid or invalid \n"
             "\nExamples:\n"
@@ -4451,6 +4453,138 @@ UniValue validateethpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TRANSACTION_ERROR, strFailReason);
     }
     return true;
+}
+
+UniValue createrawethpegin(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(
+            "createrawethpegin \"txid\" amount \n"
+            " Create a raw CBT peg-in from an eth ERC-20 transaction\n"
+            "1. \"txid\"        (hex, required) Eth transaction peg-in transaction id\n"
+            "2. \"amount\"      (numeric, required) Eth transaction peg-in amount\n"
+            "Result:\n"
+            "   transaction:      (string) Raw transaction in hex \n"
+            "\nExamples:\n"
+            + HelpExampleCli("createrawethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\" 432.109")
+            + HelpExampleRpc("createrawethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\" 432.109")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    CAmount value = AmountFromValue(request.params[1]);
+    CDataStream stream(0, 0);
+    try {
+        stream << value;
+    } catch (...) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Amount serialization is invalid.");
+    }
+    // Need to reinterpret bytes as unsigned chars before adding to witness
+    char* buf = stream.data();
+    unsigned char* membuf = reinterpret_cast<unsigned char*>(buf);
+    std::vector<unsigned char> value_bytes(membuf, membuf + stream.size());
+
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+    uint256 ethHash = ParseHashV(request.params[0], "txid");
+
+    // Manually construct peg-in transaction, sign it, and send it off.
+    // Decrement the output value as much as needed given the total vsize to
+    // pay the fees.
+
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet
+    CPubKey newKey;
+    if (!pwalletMain->GetKeyFromPool(newKey))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    CKeyID keyID = newKey.GetID();
+
+    // Generate a new key for the input script witness
+    CPubKey newKeyWit;
+    if (!pwalletMain->GetKeyFromPool(newKeyWit))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    CKeyID keyIDwit = newKeyWit.GetID();
+    CScript destScriptWit = GetScriptForDestination(keyIDwit);
+    CScript witProg = GetScriptForWitness(destScriptWit);
+
+    pwalletMain->SetAddressBook(keyID, "", "receive");
+
+    // One peg-in input, one wallet output and one fee output
+    CMutableTransaction mtx;
+    mtx.vin.push_back(CTxIn(COutPoint(ethHash, 0), CScript(), ~(uint32_t)0));
+    // mark as peg-in input
+    mtx.vin[0].m_is_pegin = true;
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(CBitcoinAddress(keyID).Get())));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
+
+    // Construct pegin proof
+    CScriptWitness pegin_witness;
+    std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
+    stack.push_back(value_bytes);
+    stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
+    stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
+    stack.push_back(std::vector<unsigned char>(witProg.begin(), witProg.end()));
+    stack.push_back(std::vector<unsigned char>(ethHash.begin(), ethHash.end()));
+
+    // Check peg-in witness is valid without checking the actual tx
+    if (!IsValidEthPeginWitness(pegin_witness, mtx.vin[0].prevout)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Constructed peg-in witness is invalid.");
+    }
+
+    // Put input witness in transaction
+    CTxInWitness txinwit;
+    txinwit.m_pegin_witness = pegin_witness;
+    mtx.wit.vtxinwit.push_back(txinwit);
+
+    // Estimate fee for transaction, decrement fee output(including witness data)
+    unsigned int nBytes = GetVirtualTransactionSize(mtx) +
+        (1+1+72+1+33/WITNESS_SCALE_FACTOR);
+    CAmount nFeeNeeded = CWallet::GetMinimumFee(nBytes, nTxConfirmTarget, mempool);
+
+    mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
+    mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
+
+    return EncodeHexTx(mtx, RPCSerializationFlags());
+}
+
+UniValue claimethpegin(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 2)
+        throw runtime_error(
+            "claimethpegin \"txid\" amount \n"
+            "  Claim ERC-20 CBT tokens from eth to Ocean \n"
+            "1. \"txid\"        (hex, required) Eth transaction peg-in transaction id\n"
+            "2. \"amount\"      (numeric, required) Eth transaction peg-in amount\n"
+            "Result:\n"
+            "\"txid\"       (string) Txid of the resulting sidechain transaction\n"
+            "\nExamples:\n"
+            + HelpExampleCli("claimethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\" 432.109")
+            + HelpExampleRpc("claimethpegin", "\"3080f6cb4434e5f99b8f399abf0f25e8631b1832de10087ee7a2368cb00fa66c\" 432.109")
+        );
+
+    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        if (!validateethpegin(request).getBool()) {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Eth pegin invalid");
+        }
+    }
+
+    // Get raw peg-in transaction
+    UniValue ret(createrawethpegin(request));
+
+    // Sign it
+    JSONRPCRequest request2;
+    UniValue varr(UniValue::VARR);
+    varr.push_back(ret);
+    request2.params = varr;
+    UniValue result = signrawtransaction(request2);
+
+    // Send it
+    JSONRPCRequest request3;
+    varr = UniValue(UniValue::VARR);
+    varr.push_back(result["hex"]);
+    request3.params = varr;
+    return sendrawtransaction(request3);
 }
 
 UniValue createrawpegin(const JSONRPCRequest& request)
@@ -5268,84 +5402,86 @@ extern UniValue importissuanceblindingkey(const JSONRPCRequest& request);
 static const CRPCCommand commands[] =
 { //  category              name                        actor (function)           okSafeMode
     //  --------------------- ------------------------    -----------------------    ----------
-    { "rawtransactions",    "fundrawtransaction",       &fundrawtransaction,       false,  {"hexstring","options"} },
-    { "hidden",             "resendwallettransactions", &resendwallettransactions, true,   {} },
-    { "wallet",             "abandontransaction",       &abandontransaction,       false,  {"txid"} },
-    { "wallet",             "addmultisigaddress",       &addmultisigaddress,       true,   {"nrequired","keys","account"} },
-    { "wallet",             "addwitnessaddress",        &addwitnessaddress,        true,   {"address"} },
-    { "wallet",             "backupwallet",             &backupwallet,             true,   {"destination"} },
-    { "wallet",             "createkycfile",            &createkycfile,            true,   {"filename","pubkeylist","multisiglist"} },
-    { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true,   {} },
-    { "wallet",             "dumpassetlabels",          &dumpassetlabels,          true,   {} },
-    { "wallet",             "dumpprivkey",              &dumpprivkey,              true,   {"address"}  },
-    { "wallet",             "dumpkycpubkey",            &dumpkycpubkey,            true,   {"useronboardpubkey"}  },
-    { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,  true,   {"txid", "vin"} },
-    { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
-    { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
-    { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
-    { "wallet",             "readkycfile",              &readkycfile,              true,   {"filename", "outfilename", "onboardpubkey"} },
-    { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename"} },
-    { "wallet",             "topupkycpubkeys",          &topupkycpubkeys,          false,   {"nkeys"} },
-    { "wallet",             "blacklistkycpubkey",       &blacklistkycpubkey,       false,   {"kycpubkey"} },
-    { "wallet",             "whitelistkycpubkeys",  &whitelistkycpubkeys,      false,   {"kycpubkeys"} },
-    { "wallet",             "validatederivedkeys",      &validatederivedkeys,      true,   {"filename"} },
-    { "wallet",             "encryptwallet",            &encryptwallet,            true,   {"passphrase"} },
-    { "wallet",             "getethpegin",              &getethpegin,              true,   {"txid"}},
-    { "wallet",             "validateethpegin",         &validateethpegin,              true,   {"txid"}},
-    { "wallet",             "claimpegin",               &claimpegin,               false,  {"bitcoinT", "txoutproof", "claim_script"} },
-    { "wallet",             "createrawpegin",           &createrawpegin,           false,  {"bitcoinT", "txoutproof", "claim_script"} },
-    { "wallet",             "getaccountaddress",        &getaccountaddress,        true,   {"account"} },
-    { "wallet",             "getaccount",               &getaccount,               true,   {"address"} },
-    { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,    true,   {"account"} },
-    { "wallet",             "getbalance",               &getbalance,               false,  {"account","minconf","include_watchonly"} },
-    { "wallet",             "getderivedkeys",           &getderivedkeys,           true,   {} },
-    { "wallet",             "getnewaddress",            &getnewaddress,            true,   {"account"} },
-    { "wallet",             "getkycpubkey",             &getkycpubkey,             true,   {"address"} },
-    { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,      true,   {} },
-    { "wallet",             "getpeginaddress",          &getpeginaddress,          false,  {} },
-    { "wallet",             "getreceivedbyaccount",     &getreceivedbyaccount,     false,  {"account","minconf"} },
-    { "wallet",             "getreceivedbyaddress",     &getreceivedbyaddress,     false,  {"address","minconf"} },
-    { "wallet",             "gettransaction",           &gettransaction,           false,  {"txid","include_watchonly"} },
-    { "wallet",             "getunconfirmedbalance",    &getunconfirmedbalance,    false,  {} },
-    { "wallet",             "getwalletinfo",            &getwalletinfo,            false,  {} },
-    { "wallet",             "importmulti",              &importmulti,              true,   {"requests","options"} },
-    { "wallet",             "importprivkey",            &importprivkey,            true,   {"privkey","label","rescan"} },
-    { "wallet",             "importwallet",             &importwallet,             true,   {"filename"} },
-    { "wallet",             "importaddress",            &importaddress,            true,   {"address","label","rescan","p2sh"} },
-    { "wallet",             "importblindingkey",        &importblindingkey,        true,   {} },
-    { "wallet",             "importprunedfunds",        &importprunedfunds,        true,   {"rawtransaction","txoutproof"} },
-    { "wallet",             "importpubkey",             &importpubkey,             true,   {"pubkey","label","rescan"} },
-    { "wallet",             "importissuanceblindingkey",&importissuanceblindingkey,true,   {"txid", "vin", "blindingkey"} },
-    { "wallet",             "keypoolrefill",            &keypoolrefill,            true,   {"newsize"} },
-    { "wallet",             "issueasset",               &issueasset,               true,   {"assetamount", "tokenamount", "blind"} },
-    { "wallet",             "createrawissuance",        &createrawissuance,        true,   {"assetaddress", "assetamount", "tokenaddress", "tokenamount", "changeaddress", "changeamount", "numchange", "inputtxid", "vout"} },
-    { "wallet",             "createrawreissuance",      &createrawreissuance,      true,   {"assetaddress", "assetamount", "tokenaddress", "tokenamount", "inputtxid", "vout", "asset", "entropy", "token"} },
-    { "wallet",             "createrawburn",            &createrawburn,            true,   {"txid", "vout", "asset", "amount"} },
-    { "wallet",             "listaccounts",             &listaccounts,             false,  {"minconf","include_watchonly"} },
-    { "wallet",             "listaddressgroupings",     &listaddressgroupings,     false,  {} },
-    { "wallet",             "listlockunspent",          &listlockunspent,          false,  {} },
-    { "wallet",             "listissuances",            &listissuances,            false,  {"asset"} },
-    { "wallet",             "listreceivedbyaccount",    &listreceivedbyaccount,    false,  {"minconf","include_empty","include_watchonly"} },
-    { "wallet",             "listreceivedbyaddress",    &listreceivedbyaddress,    false,  {"minconf","include_empty","include_watchonly"} },
-    { "wallet",             "listsinceblock",           &listsinceblock,           false,  {"blockhash","target_confirmations","include_watchonly"} },
-    { "wallet",             "listtransactions",         &listtransactions,         false,  {"account","count","skip","include_watchonly"} },
-    { "wallet",             "listunspent",              &listunspent,              false,  {"minconf","maxconf","addresses","include_unsafe"} },
-    { "wallet",             "lockunspent",              &lockunspent,              true,   {"unlock","transactions"} },
-    { "wallet",             "sendmany",                 &sendmany,                 false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
-    { "wallet",             "sendtoaddress",            &sendtoaddress,            false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
-    { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,     false,  {"naddresses", "feeasset"} },
-    { "wallet",             "sendaddmultitowhitelisttx",&sendaddmultitowhitelisttx,false,  {"tweakedaddress", "basepubkeys", "nmultisig", "feeasset"} },
-    { "wallet",             "setaccount",               &setaccount,               true,   {"address","account"} },
-    { "wallet",             "reissueasset",             &reissueasset,             true,   {"asset", "assetamount"} },
-    { "wallet",             "signblock",                &signblock,                true,   {} },
-    { "wallet",             "sendtomainchain",          &sendtomainchain,          false,  {"address", "amount", "subtractfeefromamount"} },
-    { "wallet",             "destroyamount",            &destroyamount,            false,  {"asset", "amount", "comment"} },
-    { "wallet",             "settxfee",                 &settxfee,                 true,   {"amount"} },
-    { "wallet",             "signmessage",              &signmessage,              true,   {"address","message"} },
-    { "wallet",             "walletlock",               &walletlock,               true,   {} },
-    { "wallet",             "walletpassphrasechange",   &walletpassphrasechange,   true,   {"oldpassphrase","newpassphrase"} },
-    { "wallet",             "walletpassphrase",         &walletpassphrase,         true,   {"passphrase","timeout"} },
-    { "wallet",             "removeprunedfunds",        &removeprunedfunds,        true,   {"txid"} },
+    { "rawtransactions",    "fundrawtransaction",       &fundrawtransaction,        false,  {"hexstring","options"} },
+    { "hidden",             "resendwallettransactions", &resendwallettransactions,  true,   {} },
+    { "wallet",             "abandontransaction",       &abandontransaction,        false,  {"txid"} },
+    { "wallet",             "addmultisigaddress",       &addmultisigaddress,        true,   {"nrequired","keys","account"} },
+    { "wallet",             "addwitnessaddress",        &addwitnessaddress,         true,   {"address"} },
+    { "wallet",             "backupwallet",             &backupwallet,              true,   {"destination"} },
+    { "wallet",             "createkycfile",            &createkycfile,             true,   {"filename","pubkeylist","multisiglist"} },
+    { "wallet",             "dumpblindingkey",          &dumpblindingkey,           true,   {} },
+    { "wallet",             "dumpassetlabels",          &dumpassetlabels,           true,   {} },
+    { "wallet",             "dumpprivkey",              &dumpprivkey,               true,   {"address"}  },
+    { "wallet",             "dumpkycpubkey",            &dumpkycpubkey,             true,   {"useronboardpubkey"}  },
+    { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,   true,   {"txid", "vin"} },
+    { "wallet",             "dumpwallet",               &dumpwallet,                true,   {"filename"} },
+    { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,           true,   {"filename"} },
+    { "wallet",             "dumpkycfile",              &dumpkycfile,               true,   {"filename"} },
+    { "wallet",             "readkycfile",              &readkycfile,               true,   {"filename", "outfilename", "onboardpubkey"} },
+    { "wallet",             "onboarduser",              &onboarduser,               false,  {"filename"} },
+    { "wallet",             "topupkycpubkeys",          &topupkycpubkeys,           false,  {"nkeys"} },
+    { "wallet",             "blacklistkycpubkey",       &blacklistkycpubkey,        false,  {"kycpubkey"} },
+    { "wallet",             "whitelistkycpubkeys",      &whitelistkycpubkeys,       false,  {"kycpubkeys"} },
+    { "wallet",             "validatederivedkeys",      &validatederivedkeys,       true,   {"filename"} },
+    { "wallet",             "encryptwallet",            &encryptwallet,             true,   {"passphrase"} },
+    { "wallet",             "getethpegin",              &getethpegin,               true,   {"txid"}},
+    { "wallet",             "validateethpegin",         &validateethpegin,          true,   {"txid", "amount"}},
+    { "wallet",             "claimethpegin",            &claimethpegin,             true,   {"txid", "amount"}},
+    { "wallet",             "createrawethpegin",        &createrawethpegin,         true,   {"txid", "amount"}},
+    { "wallet",             "claimpegin",               &claimpegin,                false,  {"bitcoinT", "txoutproof", "claim_script"} },
+    { "wallet",             "createrawpegin",           &createrawpegin,            false,  {"bitcoinT", "txoutproof", "claim_script"} },
+    { "wallet",             "getaccountaddress",        &getaccountaddress,         true,   {"account"} },
+    { "wallet",             "getaccount",               &getaccount,                true,   {"address"} },
+    { "wallet",             "getaddressesbyaccount",    &getaddressesbyaccount,     true,   {"account"} },
+    { "wallet",             "getbalance",               &getbalance,                false,  {"account","minconf","include_watchonly"} },
+    { "wallet",             "getderivedkeys",           &getderivedkeys,            true,   {} },
+    { "wallet",             "getnewaddress",            &getnewaddress,             true,   {"account"} },
+    { "wallet",             "getkycpubkey",             &getkycpubkey,              true,   {"address"} },
+    { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,       true,   {} },
+    { "wallet",             "getpeginaddress",          &getpeginaddress,           false,  {} },
+    { "wallet",             "getreceivedbyaccount",     &getreceivedbyaccount,      false,  {"account","minconf"} },
+    { "wallet",             "getreceivedbyaddress",     &getreceivedbyaddress,      false,  {"address","minconf"} },
+    { "wallet",             "gettransaction",           &gettransaction,            false,  {"txid","include_watchonly"} },
+    { "wallet",             "getunconfirmedbalance",    &getunconfirmedbalance,     false,  {} },
+    { "wallet",             "getwalletinfo",            &getwalletinfo,             false,  {} },
+    { "wallet",             "importmulti",              &importmulti,               true,   {"requests","options"} },
+    { "wallet",             "importprivkey",            &importprivkey,             true,   {"privkey","label","rescan"} },
+    { "wallet",             "importwallet",             &importwallet,              true,   {"filename"} },
+    { "wallet",             "importaddress",            &importaddress,             true,   {"address","label","rescan","p2sh"} },
+    { "wallet",             "importblindingkey",        &importblindingkey,         true,   {} },
+    { "wallet",             "importprunedfunds",        &importprunedfunds,         true,   {"rawtransaction","txoutproof"} },
+    { "wallet",             "importpubkey",             &importpubkey,              true,   {"pubkey","label","rescan"} },
+    { "wallet",             "importissuanceblindingkey",&importissuanceblindingkey, true,   {"txid", "vin", "blindingkey"} },
+    { "wallet",             "keypoolrefill",            &keypoolrefill,             true,   {"newsize"} },
+    { "wallet",             "issueasset",               &issueasset,                true,   {"assetamount", "tokenamount", "blind"} },
+    { "wallet",             "createrawissuance",        &createrawissuance,         true,   {"assetaddress", "assetamount", "tokenaddress", "tokenamount", "changeaddress", "changeamount", "numchange", "inputtxid", "vout"} },
+    { "wallet",             "createrawreissuance",      &createrawreissuance,       true,   {"assetaddress", "assetamount", "tokenaddress", "tokenamount", "inputtxid", "vout", "asset", "entropy", "token"} },
+    { "wallet",             "createrawburn",            &createrawburn,             true,   {"txid", "vout", "asset", "amount"} },
+    { "wallet",             "listaccounts",             &listaccounts,              false,  {"minconf","include_watchonly"} },
+    { "wallet",             "listaddressgroupings",     &listaddressgroupings,      false,  {} },
+    { "wallet",             "listlockunspent",          &listlockunspent,           false,  {} },
+    { "wallet",             "listissuances",            &listissuances,             false,  {"asset"} },
+    { "wallet",             "listreceivedbyaccount",    &listreceivedbyaccount,     false,  {"minconf","include_empty","include_watchonly"} },
+    { "wallet",             "listreceivedbyaddress",    &listreceivedbyaddress,     false,  {"minconf","include_empty","include_watchonly"} },
+    { "wallet",             "listsinceblock",           &listsinceblock,            false,  {"blockhash","target_confirmations","include_watchonly"} },
+    { "wallet",             "listtransactions",         &listtransactions,          false,  {"account","count","skip","include_watchonly"} },
+    { "wallet",             "listunspent",              &listunspent,               false,  {"minconf","maxconf","addresses","include_unsafe"} },
+    { "wallet",             "lockunspent",              &lockunspent,               true,   {"unlock","transactions"} },
+    { "wallet",             "sendmany",                 &sendmany,                  false,  {"fromaccount","amounts","minconf","comment","subtractfeefrom"} },
+    { "wallet",             "sendtoaddress",            &sendtoaddress,             false,  {"address","amount","comment","comment_to","subtractfeefromamount"} },
+    { "wallet",             "sendaddtowhitelisttx",     &sendaddtowhitelisttx,      false,  {"naddresses", "feeasset"} },
+    { "wallet",             "sendaddmultitowhitelisttx",&sendaddmultitowhitelisttx, false,  {"tweakedaddress", "basepubkeys", "nmultisig", "feeasset"} },
+    { "wallet",             "setaccount",               &setaccount,                true,   {"address","account"} },
+    { "wallet",             "reissueasset",             &reissueasset,              true,   {"asset", "assetamount"} },
+    { "wallet",             "signblock",                &signblock,                 true,   {} },
+    { "wallet",             "sendtomainchain",          &sendtomainchain,           false,  {"address", "amount", "subtractfeefromamount"} },
+    { "wallet",             "destroyamount",            &destroyamount,             false,  {"asset", "amount", "comment"} },
+    { "wallet",             "settxfee",                 &settxfee,                  true,   {"amount"} },
+    { "wallet",             "signmessage",              &signmessage,               true,   {"address","message"} },
+    { "wallet",             "walletlock",               &walletlock,                true,   {} },
+    { "wallet",             "walletpassphrasechange",   &walletpassphrasechange,    true,   {"oldpassphrase","newpassphrase"} },
+    { "wallet",             "walletpassphrase",         &walletpassphrase,          true,   {"passphrase","timeout"} },
+    { "wallet",             "removeprunedfunds",        &removeprunedfunds,         true,   {"txid"} },
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)

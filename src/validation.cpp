@@ -512,7 +512,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        if (tx.vin[i].m_is_pegin && (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout))) {
+        if (tx.vin[i].m_is_pegin && (tx.wit.vtxinwit.size() <= i || !IsValidEthPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout))) {
             continue;
         }
         const CTxOut &prevout = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.wit.vtxinwit[i].m_pegin_witness) : inputs.GetOutputFor(tx.vin[i]);
@@ -520,10 +520,6 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     }
     return nSigOps;
 }
-
-
-
-
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
@@ -734,7 +730,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     // Tally up value commitments, check balance
     for (size_t i = 0; i < tx.vin.size(); ++i)
     {
-        // Assumes IsValidPeginWitness has been called successfully
+        // Assumes IsValidEthPeginWitness has been called successfully
         const CTxOut out = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.wit.vtxinwit[i].m_pegin_witness) : cache.GetOutputFor(tx.vin[i]);
         const CConfidentialValue& val = out.nValue;
         const CConfidentialAsset& asset = out.nAsset;
@@ -1151,7 +1147,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
       for (unsigned int i = 0; i < tx.vin.size(); i++) {
         if (tx.vin[i].m_is_pegin) {
           // Quick check of pegin witness and prevout to extract db entry
-          if (tx.wit.vtxinwit.size() <= i || tx.wit.vtxinwit[i].m_pegin_witness.stack.size() < 6 || uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]).IsNull() || tx.vin[i].prevout.hash.IsNull())
+          if (tx.wit.vtxinwit.size() <= i || tx.wit.vtxinwit[i].m_pegin_witness.stack.size() < 5 || uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]).IsNull() || tx.vin[i].prevout.hash.IsNull())
             return state.Invalid(false, REJECT_INVALID, "pegin-no-witness");
           pair<uint256, COutPoint> pegin = make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), tx.vin[i].prevout);
           // This assumes non-null prevout and genesis block hash
@@ -1877,7 +1873,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             const COutPoint &prevout = tx.vin[i].prevout;
             if (tx.vin[i].m_is_pegin) {
                 // Check existence and validity of pegin witness
-                if (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
+                if (tx.wit.vtxinwit.size() <= i || !IsValidEthPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
                     return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", true);
                 }
                 std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
@@ -2103,7 +2099,7 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
             coins->vout.resize(out.n+1);
         coins->vout[out.n] = undo.txout;
     } else {
-        if (!IsValidPeginWitness(pegin_witness, txin.prevout)) {
+        if (!IsValidEthPeginWitness(pegin_witness, txin.prevout)) {
             fClean = fClean && error("%s: peg-in occurred without proof", __func__);
         } else {
             std::pair<uint256, COutPoint> outpoint = std::make_pair(uint256(pegin_witness.stack[2]), txin.prevout);
@@ -2510,7 +2506,8 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
     return scriptDestination;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth)
+{
 
     // Format on stack is as follows:
     // 1) value - the value of the pegin output
@@ -2632,8 +2629,85 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     return true;
 }
 
+bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_tx)
+{
+    // Format on stack is as follows:
+    // 1) value - the value of the pegin output
+    // 2) asset type - the asset type being pegged in
+    // 3) genesis blockhash - genesis block of the parent chain
+    // 4) txid - eth pegin transaction hash
+    //
+    // First 4 values(plus prevout) are enough to validate a peg-in without any knowledge
+    // of the Eth transaction. This is useful for further abstraction by outsourcing
+    // the other validity checks to RPC calls.
+
+    const std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
+    // Must include all ocean
+    if (stack.size() != 5) {
+        return false;
+    }
+
+    // Get value
+    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    CAmount value;
+    try {
+        stream >> value;
+    } catch (...) {
+        return false;
+    }
+    if (!MoneyRange(value)) {
+        return false;
+    }
+
+    // Get asset type
+    if (stack[1].size() != 32) {
+        return false;
+    }
+    CAsset asset(stack[1]);
+    // Check the asset type corresponds to a valid pegged asset (only one for now)
+    if (asset != Params().GetConsensus().pegged_asset) {
+        return false;
+    }
+
+    // Get genesis blockhash
+    if (stack[2].size() != 32) {
+        return false;
+    }
+    uint256 gen_hash(stack[2]);
+    // Check the genesis block corresponds to a valid peg (only one for now)
+    if (gen_hash != Params().ParentGenesisBlockHash()) {
+        return false;
+    }
+
+    // Get claim_script, sanity check size
+    // In the eth case the script is not used to tweak
+    // the fedpeg address which is constant (for now)
+    CScript claim_script(stack[3].begin(), stack[3].end());
+    if (claim_script.size() > 100) {
+        return false;
+    }
+
+    // Get txid
+    if (stack[4].size() != 32) {
+        return false;
+    }
+    uint256 txid(stack[4]);
+    // Check that transaction matches txid
+    if (txid != prevout.hash) {
+        return false;
+    }
+
+    // Finally, validate peg-in via rpc call
+    if (check_tx && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        std::string strFailReason;
+        return IsEthPeginValid(GetEthTransaction(txid), value, strFailReason);
+    }
+    return true;
+}
+
 // Constructs unblinded output to be used in amount and scriptpubkey checks during pegin
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness)
+{
 	CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
     CAmount value;
     stream >> value;

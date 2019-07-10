@@ -1807,7 +1807,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         if (!txin.m_is_pegin && (coins == NULL || !coins->IsAvailable(txin.prevout.n))) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
-        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout))) {
+        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidEthPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout))) {
             TxInErrorToJSON(txin, vErrors, "Peg-in input has invalid proof.");
             continue;
         }
