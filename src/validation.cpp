@@ -1839,7 +1839,7 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
     if (!contract.IsNull()){
-        for (int it = 0; it < tweakedPubKeys.size(); ++it){
+        for (size_t it = 0; it < tweakedPubKeys.size(); ++it){
             tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
         }
     }
@@ -4106,7 +4106,6 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
 
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, int64_t nAdjustedTime)
 {
-    const int nHeight = pindexPrev == NULL ? 0 : pindexPrev->nHeight + 1;
     // Check proof of work
     if (!CheckChallenge(block, *pindexPrev, consensusParams))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work");

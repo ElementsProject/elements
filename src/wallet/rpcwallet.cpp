@@ -1010,7 +1010,6 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     CPubKey adminPubKey;
     CAmount adminValue;
     uint256 adminTxID;
-    int adminNOutput;
 
     CAsset wl_asset=Params().GetConsensus().whitelist_asset;
 
@@ -3680,9 +3679,6 @@ UniValue listunspent(const JSONRPCRequest& request)
     if (assetstr != "") {
         asset = GetAssetFromString(assetstr);
     }
-
-    bool bPolicy=false;
-
 
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;
