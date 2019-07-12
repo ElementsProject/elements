@@ -12,7 +12,7 @@ class WhitelistingTest (BitcoinTestFramework):
         super().__init__()
         self.setup_clean_chain = True
         self.num_nodes = 4
-        self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100'] for i in range(self.num_nodes)]
+        self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100', '-txindex'] for i in range(self.num_nodes)]
 #Node 1 is a whitelist node. 
         self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[1].append("-pkhwhitelist=1")
@@ -119,27 +119,6 @@ class WhitelistingTest (BitcoinTestFramework):
         issue = self.nodes[0].issueasset('100.0','0')
         self.nodes[1].generate(1)
 
-        clientAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
-        clientAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
-        clientAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
-
-        # Send 13 issued asset from 0 to 1 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
-        print("Sending 13 issued asset from 0 to 1 (multi) using sendtoaddress.")
-        txidm = self.nodes[0].sendtoaddress(self.nodes[1].createmultisig(2,[clientAddress3['pubkey'],clientAddress2['pubkey'],clientAddress1['pubkey']])['address'], 13,"","",False,issue["asset"])
-        txoutmv0 = self.nodes[0].gettxout(txidm, 0)
-        self.nodes[1].generate(101)
-        
-        try:
-            rawtxm = self.nodes[1].getrawtransaction(txidm, 1)
-            print("Raw trans:")
-            print(rawtxm)
-        except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
-            #Abandon the transaction to allow the output to be respent
-            self.nodes[0].abandontransaction(txidm)
-        else:
-            raise AssertionError("Output accepted to non-whitelisted address.")
-
         # Send 21 issued asset from 0 to 2 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
         print(self.nodes[0].getwalletinfo())
         print("Sending 21 issued asset from 0 to 2 using sendtoaddress.")
@@ -152,7 +131,7 @@ class WhitelistingTest (BitcoinTestFramework):
             print("Raw trans:")
             print(rawtx1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid1)
         else:
@@ -165,7 +144,7 @@ class WhitelistingTest (BitcoinTestFramework):
         try:
             rawtx2 = self.nodes[1].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid2)
         else:
@@ -240,7 +219,7 @@ class WhitelistingTest (BitcoinTestFramework):
             rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
             print(rawtx1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid1)
         else:
@@ -251,7 +230,7 @@ class WhitelistingTest (BitcoinTestFramework):
         try:
             rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid2)
         else:

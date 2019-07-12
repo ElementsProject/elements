@@ -421,6 +421,38 @@ class OnboardTest (BitcoinTestFramework):
         else:
             raise AssertionError("P2SH multisig with n=0 has been validated and accepted to the whitelist.")
 
+        # issue some new asset (that is not the policy asset)
+        issue = self.nodes[0].issueasset('100.0','0')
+        self.nodes[1].generate(1)
+
+        nonPolicyAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        nonPolicyAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        nonPolicyAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+
+        multiAddr = self.nodes[1].createmultisig(2,[nonPolicyAddress1['pubkey'],nonPolicyAddress2['pubkey'],nonPolicyAddress3['pubkey']])
+
+        result = self.nodes[1].importmulti([{
+            "scriptPubKey": {
+                "address": multiAddr['address']
+            },
+            "timestamp": "now",
+            "redeemscript": multiAddr['redeemScript'],
+            "keys": [ self.nodes[1].dumpprivkey(nonPolicyAddress1['unconfidential']), self.nodes[1].dumpprivkey(nonPolicyAddress2['unconfidential']), self.nodes[1].dumpprivkey(nonPolicyAddress3['unconfidential'])]
+        }])
+
+        # Send 12 issued asset from 0 to 1 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
+        txidm = self.nodes[0].sendtoaddress(multiAddr['address'], 12,"","",False,issue["asset"])
+        self.nodes[1].generate(101)
+        self.sync_all()
+
+        try:
+            rawtxm = self.nodes[1].getrawtransaction(txidm, 1)
+        except JSONRPCException as e:
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
+            #Abandon the transaction to allow the output to be respent
+            self.nodes[0].abandontransaction(txidm)
+        else:
+            raise AssertionError("Output accepted to non-whitelisted address.")
 
         wl1_file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1_file)
