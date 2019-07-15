@@ -75,9 +75,9 @@ public:
 
   	bool LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound);
 
-  	bool LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound);
+  	bool LookupKYCKey(const CTxDestination keyId, CPubKey& kycPubkeyFound);
 
-  	bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound);
+  	bool LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound);
 
 	bool find_kyc_whitelisted(const CKeyID& keyId);
 
@@ -116,12 +116,13 @@ private:
 	using CPolicyList::find;
 	//A map of address to kycPubKey
 	std::map<CTxDestination, CKeyID> _kycMap;
-	//A map of address to tweaked public key
-	std::map<CKeyID, CPubKey> _tweakedPubKeyMap;
 	//Whitelisted KYC keys
 	std::map<CKeyID, CWhiteList::status> _kycStatusMap;
 	//Map user onboard key to KYC pub key
 	std::map<CKeyID, CPubKey> _onboardMap;
+
+	//A map of address to tweaked public keys
+	std::map<CTxDestination, std::set<CPubKey>> _tweakedPubKeysMap;
 
 	//Map KYC key ID to public key
 	std::map<CKeyID, CPubKey> _kycPubkeyMap;
@@ -153,6 +154,6 @@ private:
   	const unsigned int nMultisigSize=1;
   	const unsigned int minPayloadSize=2;
 
-  	//Lookup owner (idpubkey) of address
-  	bool LookupTweakedPubKey(const CKeyID& keyId, CPubKey& pubKeyFound);
+
+  	bool LookupTweakedPubKeys(const CTxDestination address, std::set<CPubKey>& pubKeysFound);
 };

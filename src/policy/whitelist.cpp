@@ -125,13 +125,13 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
 
   _kycMap[keyId]=kycKeyID;
 
-
+  std::set<CPubKey> pubkeySet;
   CPubKey tweakedPubKey(pubKey);
-   uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
   if (!contract.IsNull())
-    tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-    _tweakedPubKeyMap[boost::get<CKeyID>(keyId)]=tweakedPubKey;
-
+      tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+  pubkeySet.insert(tweakedPubKey);
+  _tweakedPubKeysMap[keyId]=pubkeySet;
 
  //insert new address into sorted CWhiteList vector
   add_sorted(keyId);
@@ -204,6 +204,16 @@ void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const st
   
   //Add to the ID map
   _kycMap[keyId]=kycKeyId;
+
+  std::set<CPubKey> pubkeySet;
+  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+  for(unsigned int i = 0; i < pubKeys.size(); ++i){
+      CPubKey tweakedPubKey(pubKeys[i]);
+      if (!contract.IsNull())
+          tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
+      pubkeySet.insert(tweakedPubKey);
+  }
+  _tweakedPubKeysMap[keyId]=pubkeySet;
 }
 
 void CWhiteList::add_multisig_whitelist(const std::string& addressIn, const UniValue& keys, const uint8_t nMultisig){
@@ -289,10 +299,11 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   bool bOnboard=false;
   CPubKey kycPubKey;
   CPubKey userOnboardPubKey;
-  CKeyID kycKey, keyId, onboardKeyID;
+  CKeyID kycKey, onboardKeyID;
+  CTxDestination keyId;
   CKey userOnboardPrivKey;
-  CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
+  unsigned int inputKeyCounter = 0;
 
   unsigned int minOnboardDataSize=2*CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+minPayloadSize;
   std::vector<unsigned char>::const_iterator it1=bytes.begin();
@@ -331,37 +342,51 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
       _onboardMap[userOnboardPubKey.GetID()]=kycPubKey;
     }
     inputPubKeys.insert(userOnboardPubKey);
-    inputPubKey = userOnboardPubKey;
-    decryptPubKey = inputPubKey;
-    } else {
-    it1=bytes.begin(); //Reset iterator
-    kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
-    kycKey=kycPubKey.GetID();
-    //Get input keyids
-    //Lookup the ID public keys of the input addresses.
-    //The set is used to ensure that there is only one kycKey involved.
-    BOOST_FOREACH(const CTxIn& prevIn, tx.vin) {
-      const CTxOut& prev = mapInputs.GetOutputFor(prevIn);
-      CTxDestination dest;
-      if(!ExtractDestination(prev.scriptPubKey, dest))
-       continue;
-    
-      // For debugging - translate into bitcoin address
-      CBitcoinAddress addr(dest);
-      addr.GetKeyID(keyId);
-      std::string sAddr = addr.ToString();
-      // search in whitelist for the presence of keyid
-      // add the associated kycKey to the set of kyc keys
-      if(LookupKYCKey(keyId, kycKey, kycPubKey)){
-        if(find_kyc(kycKey)){ //Is user whitelisted?
-          if(LookupTweakedPubKey(keyId, inputPubKey))
-            inputPubKeys.insert(inputPubKey);
-        }
+    decryptPubKey = userOnboardPubKey;
+    } 
+  else {
+      it1=bytes.begin(); //Reset iterator
+      kycPubKey=pwalletMain->GetKYCPubKey();  //For the non-whitelisting nodes
+      kycKey=kycPubKey.GetID();
+      //Get input keyids
+      //Lookup the ID public keys of the input addresses.
+      //The set is used to ensure that there is only one kycKey involved.
+      std::set<CKeyID> kycKeysFound;
+      unsigned int validInputCounter = 0;
+      BOOST_FOREACH(const CTxIn& prevIn, tx.vin) {
+          const CTxOut& prev = mapInputs.GetOutputFor(prevIn);
+          CTxDestination dest;
+          if(!ExtractDestination(prev.scriptPubKey, dest))
+              continue;
+        
+          // For debugging - translate into bitcoin address
+          CBitcoinAddress addr(dest);
+          keyId = addr.Get();
+          std::string sAddr = addr.ToString();
+          // search in whitelist for the presence of keyid
+          // add the associated kycKey to the set of kyc keys
+          if(keyId.which() == ((CTxDestination)CNoDestination()).which())
+              continue;
+          ++validInputCounter;
+          //Placeholders are used so our method-wide variables do not get modified by invalid inputs
+          CKeyID kycPlaceholder;
+          CPubKey pubkeyPlaceholder;
+          if(LookupKYCKey(keyId, kycPlaceholder, pubkeyPlaceholder)){
+              if(find_kyc_whitelisted(kycPlaceholder)){ //Is user whitelisted?
+                  if(LookupTweakedPubKeys(keyId, inputPubKeys)){
+                      kycKeysFound.insert(kycPlaceholder);
+                      ++inputKeyCounter;
+                      kycKey = kycPlaceholder;
+                      kycPubKey = pubkeyPlaceholder;
+                  }
+              }
+          }
       }
-    }
+      //Only want one unique kyc key
+      if(inputKeyCounter != validInputCounter || kycKeysFound.size() != 1) return false;
   }
 
-  if(inputPubKeys.size()!=1) return false;
+  
 
   //Read the encrypted message data
   it2=bytes.end();
@@ -374,15 +399,23 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   // This will allow the nsigning nodes to generate the necessary keys
   // nMaxUnassigned is the maximum number of unassigned keys
   CKey decryptPrivKey;
-  if(!pwalletMain->GetKey(inputPubKey.GetID(), decryptPrivKey)){
-    //Whitelisting node?
-            // For debugging - translate into bitcoin address
+
+  std::set<CPubKey>::iterator it;
+  bool foundPrivKey = false;
+  for(it = inputPubKeys.begin(); it != inputPubKeys.end(); ++it){
+      if(pwalletMain->GetKey((*it).GetID(), decryptPrivKey)){
+          decryptPubKey = kycPubKey;
+          foundPrivKey = true;
+      }
+  }
+
+  if(foundPrivKey == false){
+      //Whitelisting node?
+      // For debugging - translate into bitcoin address
       CBitcoinAddress addr(kycKey);
       std::string sAddr = addr.ToString();
-    if(!pwalletMain->GetKey(kycKey, decryptPrivKey))
-      return false;
-  }  else {
-    decryptPubKey=kycPubKey;
+      if(!pwalletMain->GetKey(kycKey, decryptPrivKey))
+          return false;
   }
 
   //Decrypt
@@ -606,13 +639,14 @@ bool CWhiteList::LookupKYCKey(const CTxDestination address, CKeyID& kycKeyFound)
   return false;
 }
 
-bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubKeyFound){
+bool CWhiteList::LookupKYCKey(const CTxDestination keyId, CPubKey& kycPubKeyFound){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CKeyID kycKeyID;
   return LookupKYCKey(keyId, kycKeyID, kycPubKeyFound);
 }
 
-bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
+bool CWhiteList::LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CKeyID kycKeyId;
   if(LookupKYCKey(keyId, kycKeyId)){
     auto search = _kycPubkeyMap.find(kycKeyId);
@@ -625,12 +659,11 @@ bool CWhiteList::LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKe
   return false;
 }
 
-
-bool CWhiteList::LookupTweakedPubKey(const CKeyID& address, CPubKey& pubKeyFound){
+bool CWhiteList::LookupTweakedPubKeys(const CTxDestination address, std::set<CPubKey>& pubKeysFound){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  auto search = _tweakedPubKeyMap.find(address);
-  if(search != _tweakedPubKeyMap.end()){
-    pubKeyFound = search->second;
+  auto search = _tweakedPubKeysMap.find(address);
+  if(search != _tweakedPubKeysMap.end()){
+    pubKeysFound = search->second;
     return true;
   }
   return false;
@@ -839,7 +872,6 @@ void CWhiteList::add_unassigned_kyc(const CPubKey& id){
 void CWhiteList::clear(){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   _kycMap.clear();
-  _tweakedPubKeyMap.clear();
   _kycStatusMap.clear();
   CPolicyList::clear();
 }

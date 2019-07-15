@@ -242,9 +242,8 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
-
-    CKeyID addr;
-    if(!address.GetKeyID(addr))
+    CTxDestination addr = address.Get();
+    if(addr.which() == ((CTxDestination)CNoDestination()).which())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
 
     if(!addressWhitelist.LookupKYCKey(addr, kycPubKey))
@@ -577,6 +576,17 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
         CAsset assetid = out.tx->GetOutputAsset(out.i);
         if (nValue >= nAmount && assetid == whitelistAsset){
             coinControl->Select(COutPoint(out.tx->GetHash(), out.i));
+            assert(out.i < out.tx->tx->vout.size());
+            const CTxOut& newout = out.tx->tx->vout[out.i];
+            std::vector<std::vector<unsigned char> > vSolutions;
+            txnouttype whichType;
+            CTxDestination address;
+            if (ExtractDestination(newout.scriptPubKey, address)){
+                coinControl->destChange=address;
+            }
+            else{
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Solver failed to retrieve addresses from the output");
+            }
             break;
         }
     }
@@ -1110,21 +1120,11 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
         changeAmount = changeAmount - amountPerOutput;
     }
 
-    //Construct the change output
-    CPubKey vchPubKey;
-
-    CReserveKey changeKey(pwalletMain);
-    if (!pwalletMain->IsLocked())
-            pwalletMain->TopUpKeyPool();
-    if (!changeKey.GetReservedKey(vchPubKey))
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-
-
     rawTx.vout.push_back(
             CTxOut(
-                wl_asset,
-                changeAmount,
-                GetScriptForDestination(vchPubKey.GetID())
+                wl_asset, 
+                changeAmount, 
+                GetScriptForDestination(adminPubKey.GetID())
             )
         );
 
