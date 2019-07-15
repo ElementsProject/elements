@@ -576,7 +576,6 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
         CAsset assetid = out.tx->GetOutputAsset(out.i);
         if (nValue >= nAmount && assetid == whitelistAsset){
             coinControl->Select(COutPoint(out.tx->GetHash(), out.i));
-            assert(out.i < out.tx->tx->vout.size());
             const CTxOut& newout = out.tx->tx->vout[out.i];
             std::vector<std::vector<unsigned char> > vSolutions;
             txnouttype whichType;
