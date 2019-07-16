@@ -37,6 +37,7 @@
 #include "chainparams.h"
 #include "coincontrol.h"
 #include <secp256k1.h>
+#include "ethaddress.h"
 
 #include <stdint.h>
 
@@ -164,6 +165,33 @@ string AccountFromValue(const UniValue& value)
     if (strAccount == "*")
         throw JSONRPCError(RPC_WALLET_INVALID_ACCOUNT_NAME, "Invalid account name");
     return strAccount;
+}
+
+UniValue getethaddress(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "getethaddress key\n"
+            "1. key         (hex, required) Eth private key\n"
+            "\nReturns an eth address from an eth private key.\n"
+            "\nResult:\n"
+            "\"address\"    (string) The eth address\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getnewaddress", "3ecb44df2159c26e0f995712d4f39b6f6e499b40749b1cf1246c37f9516cb6a4")
+            + HelpExampleRpc("getnewaddress", "3ecb44df2159c26e0f995712d4f39b6f6e499b40749b1cf1246c37f9516cb6a4")
+        );
+
+    std::vector<unsigned char> keyBytes = ParseHex(request.params[0].get_str());
+    CKey key;
+    key.Set(keyBytes.begin(), keyBytes.end(), false);
+    if (!key.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
+
+    CPubKey pubkey = key.GetPubKey();
+    CEthAddress addr = CEthAddress(pubkey);
+    if (addr.IsValid()) {
+        return addr.ToString();
+    }
+    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Eth address invalid or key pubkey compressed");
 }
 
 UniValue getnewaddress(const JSONRPCRequest& request)
@@ -4286,16 +4314,16 @@ UniValue getethpeginaddress(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            "getethpeginaddress\n"
+            "getethpeginaddress key\n"
             "\nReturns information needed for claimethpegin to move coins to the sidechain.\n"
             "The user should send CBT coins from their eth wallet to the eth_mainchain_address returned.\n"
             "The user needs to provide their eth priv key, which is used to generate a claim script that \n"
             "is added to the pegin transaction. The transaction is then signed with the key provided.\n"
-            "IMPORTANT: Like getaddress, getpeginaddress adds new secrets to wallet.dat, necessitating backup on a regular basis.\n"
-
+            "IMPORTANT: Like getaddress, getethpeginaddress adds new secrets to wallet.dat, necessitating backup on a regular basis.\n"
+            "1. key         (hex, required) Eth private key\n"
             "\nResult:\n"
             "\"eth_mainchain_address\"      (string) Mainchain Eth deposit address to send CBT to\n"
-            "\"eth_claim_script\"       (string) The claim script in hex required in `claimpegin` to retrieve pegged-in funds\n"
+            "\"eth_claim_script\"       (string) The claim script in hex required in `claimethpegin` to retrieve pegged-in funds\n"
             "\nExamples:\n"
             + HelpExampleCli("getethpeginaddress", "db21180712a256d6a08cc2115853effa429671041ee8d7e7d7cb36f39bb069a0")
             + HelpExampleRpc("getethpeginaddress", "db21180712a256d6a08cc2115853effa429671041ee8d7e7d7cb36f39bb069a0")
@@ -4303,7 +4331,7 @@ UniValue getethpeginaddress(const JSONRPCRequest& request)
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    uint256 keyBytes = ParseHashV(request.params[0], "key");
+    std::vector<unsigned char> keyBytes = ParseHex(request.params[0].get_str());
     CKey key;
     key.Set(keyBytes.begin(), keyBytes.end(), true);
     if (!key.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
@@ -5501,6 +5529,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "getnewaddress",            &getnewaddress,             true,   {"account"} },
     { "wallet",             "getkycpubkey",             &getkycpubkey,              true,   {"address"} },
     { "wallet",             "getrawchangeaddress",      &getrawchangeaddress,       true,   {} },
+    { "wallet",             "getethaddress",            &getethaddress,             true,   {"key"} },
     { "wallet",             "getethpeginaddress",       &getethpeginaddress,        false,  {"key"} },
     { "wallet",             "getpeginaddress",          &getpeginaddress,           false,  {} },
     { "wallet",             "getreceivedbyaccount",     &getreceivedbyaccount,      false,  {"account","minconf"} },
