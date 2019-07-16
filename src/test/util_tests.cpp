@@ -558,10 +558,7 @@ BOOST_AUTO_TEST_CASE(util_GetChainName)
     std::string error;
 
     BOOST_CHECK(test_args.ParseParameters(0, (char**)argv_testnet, error));
-    std::string default_chain = "elementsregtest";
-#if LIQUID
-    default_chain = "liquidv1";
-#endif
+    std::string default_chain = "liquidv1";
     BOOST_CHECK_EQUAL(test_args.GetChainName(), default_chain);
 
     BOOST_CHECK(test_args.ParseParameters(2, (char**)argv_testnet, error));

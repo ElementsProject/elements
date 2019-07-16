@@ -1001,10 +1001,7 @@ std::string ArgsManager::GetChainName() const
     if (fTestNet)
         return CBaseChainParams::TESTNET;
 
-    std::string default_chain = "elementsregtest";
-#ifdef LIQUID
-    default_chain = "liquidv1";
-#endif
+    std::string default_chain = "liquidv1";
     return GetArg("-chain", default_chain);
 }
 
