@@ -249,6 +249,7 @@ libbitcoin_wallet_a_SOURCES = \
   policy/kycfile.cpp \
   script/registeraddressscript.cpp \
   script/onboardingscript.cpp \
+  ethaddress.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/rpcdump.cpp \
