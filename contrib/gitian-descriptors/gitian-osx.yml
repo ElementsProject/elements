@@ -1,5 +1,5 @@
 ---
-name: "elements-osx-0.18"
+name: "elements-osx-0.17"
 enable_cache: true
 suites:
 - "bionic"
