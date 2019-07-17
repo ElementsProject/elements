@@ -125,13 +125,13 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
 
     _kycMap[keyId]=kycKeyID;
 
-    std::set<CPubKey> pubkeySet;
+    std::vector<CPubKey> pubkeyVec;
     CPubKey tweakedPubKey(pubKey);
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
     if (!contract.IsNull())
         tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-    pubkeySet.insert(tweakedPubKey);
-    _tweakedPubKeysMap[keyId]=pubkeySet;
+    pubkeyVec.push_back(tweakedPubKey);
+    _tweakedPubKeysMap[keyId]=pubkeyVec;
 
    //insert new address into sorted CWhiteList vector
     add_sorted(keyId);
@@ -186,34 +186,48 @@ void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const st
     if (keyId.which() == ((CTxDestination)CNoDestination()).which())
         throw std::invalid_argument(std::string(std::string(__func__) + 
         ": invalid key id"));
-     
-    CKeyID kycKeyId;
-    if(kycPubKey) {
-        if (!kycPubKey->IsFullyValid())
-            throw std::invalid_argument(std::string(std::string(__func__) + 
-            ": invalid public key (kyc pub key)"));
-        kycKeyId=kycPubKey->GetID();
-    }
 
     if(!Consensus::CheckValidTweakedAddress(keyId, pubKeys, nMultisig))
         throw std::invalid_argument(std::string(std::string(__func__) + 
         ": address does not derive from public keys when tweaked with contract hash"));
 
-    //insert new address into sorted CWhiteList vector
-    add_sorted(keyId);
+    CKeyID kycKeyId;
+
+    //Update kyc pub key maps one is supplied
+    if(kycPubKey){
+        if (!kycPubKey->IsFullyValid()) 
+            throw std::invalid_argument(std::string(std::string(__func__) + 
+            ": invalid KYC public key"));
+
+        kycKeyId=kycPubKey->GetID();
+
+        //If the kycpubkey is not in the whitelist, blacklist or the unassigned list then 
+        //it must have been blacklisted (the KYC pub key registration transaction hase been
+        //remvoved from the UTXO set and the blockchain has not been rescanned).
+        if(!find_kyc(kycKeyId) &! is_unassigned_kyc(kycKeyId)){
+            blacklist_kyc(kycKeyId);
+        }
+
+        _kycPubkeyMap[kycKeyId]= *kycPubKey;
+    } else {
+        _kycPubkeyMap[kycKeyId]=CPubKey();
+    }
     
     //Add to the ID map
     _kycMap[keyId]=kycKeyId;
 
-    std::set<CPubKey> pubkeySet;
+    std::vector<CPubKey> pubkeyVec;
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
     for(unsigned int i = 0; i < pubKeys.size(); ++i) {
         CPubKey tweakedPubKey(pubKeys[i]);
         if (!contract.IsNull())
             tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
-        pubkeySet.insert(tweakedPubKey);
+        pubkeyVec.push_back(tweakedPubKey);
     }
-    _tweakedPubKeysMap[keyId]=pubkeySet;
+    _tweakedPubKeysMap[keyId]=pubkeyVec;
+
+    //insert new address into sorted CWhiteList vector
+    add_sorted(keyId);
 }
 
 void CWhiteList::add_multisig_whitelist(const std::string& addressIn, const UniValue& keys, const uint8_t nMultisig){
@@ -302,7 +316,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     CKeyID kycKey, onboardKeyID;
     CTxDestination keyId;
     CKey userOnboardPrivKey;
-    std::set<CPubKey> inputPubKeys;
+    std::vector<CPubKey> inputPubKeys;
     unsigned int inputKeyCounter = 0;
 
     unsigned int minOnboardDataSize=2*CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+minPayloadSize;
@@ -341,7 +355,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
             pwalletMain->SetKYCPubKey(kycPubKey);
             _onboardMap[userOnboardPubKey.GetID()]=kycPubKey;
         }
-        inputPubKeys.insert(userOnboardPubKey);
+        inputPubKeys.push_back(userOnboardPubKey);
         decryptPubKey = userOnboardPubKey;
     } 
     else {
@@ -400,7 +414,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
     // nMaxUnassigned is the maximum number of unassigned keys
     CKey decryptPrivKey;
 
-    std::set<CPubKey>::iterator it;
+    std::vector<CPubKey>::iterator it;
     bool foundPrivKey = false;
     for(it = inputPubKeys.begin(); it != inputPubKeys.end(); ++it){
         if(pwalletMain->GetKey((*it).GetID(), decryptPrivKey)){
@@ -659,7 +673,7 @@ bool CWhiteList::LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound,
   return false;
 }
 
-bool CWhiteList::LookupTweakedPubKeys(const CTxDestination address, std::set<CPubKey>& pubKeysFound) {
+bool CWhiteList::LookupTweakedPubKeys(const CTxDestination address, std::vector<CPubKey>& pubKeysFound) {
     boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
     auto search = _tweakedPubKeysMap.find(address);
     if(search != _tweakedPubKeysMap.end()) {

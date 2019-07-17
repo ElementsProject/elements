@@ -122,7 +122,7 @@ private:
 	std::map<CKeyID, CPubKey> _onboardMap;
 
 	//A map of address to tweaked public keys
-	std::map<CTxDestination, std::set<CPubKey>> _tweakedPubKeysMap;
+	std::map<CTxDestination, std::vector<CPubKey>> _tweakedPubKeysMap;
 
 	//Map KYC key ID to public key
 	std::map<CKeyID, CPubKey> _kycPubkeyMap;
@@ -155,5 +155,5 @@ private:
   	const unsigned int minPayloadSize=2;
 
 
-  	bool LookupTweakedPubKeys(const CTxDestination address, std::set<CPubKey>& pubKeysFound);
+  	bool LookupTweakedPubKeys(const CTxDestination address, std::vector<CPubKey>& pubKeysFound);
 };

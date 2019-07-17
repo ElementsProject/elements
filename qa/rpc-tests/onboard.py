@@ -242,7 +242,7 @@ class OnboardTest (BitcoinTestFramework):
 
         #Restart the nodes. The whitelist will be restored. TODO
         wl1file=self.initfile("wl1.dat")
-        self.nodes[1].dumpwhitelist(wl1file)
+        self.nodes[0].dumpwhitelist(wl1file)
 
         # time.sleep(1)
         # try:
@@ -264,7 +264,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
         nwhitelisted+=nadd
         wl1file_2=self.initfile("wl1_2.dat")
-        self.nodes[1].dumpwhitelist(wl1file_2)
+        self.nodes[0].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
         assert_equal(nlines2-nlines1, nadd)
@@ -279,7 +279,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
         nwhitelisted+=(3*nadd)
         wl1file_3=self.initfile("wl1_3.dat")
-        self.nodes[1].dumpwhitelist(wl1file_3)
+        self.nodes[0].dumpwhitelist(wl1file_3)
         nlines3=self.linecount(wl1file_3)
         assert_equal(nlines3-nlines2, 3*nadd)
 
@@ -300,12 +300,12 @@ class OnboardTest (BitcoinTestFramework):
         nwhitelisted+=1
         time.sleep(1)
         wl1file_4=self.initfile("wl1_4.dat")
-        self.nodes[1].dumpwhitelist(wl1file_4)
+        self.nodes[0].dumpwhitelist(wl1file_4)
         nlines4=self.linecount(wl1file_4)
         assert_equal(nlines3+1, nlines4)
 
         try:
-            iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
+            iswl=self.nodes[0].querywhitelist(multiAddress2['address'])
         except JSONRPCException as e:
             print(e.error['message'])
             assert(False)
