@@ -6,6 +6,7 @@
 #include "chainparams.h"
 #include "consensus/merkle.h"
 #include "issuance.h"
+#include "ethaddress.h"
 
 #include "tinyformat.h"
 #include "util.h"
@@ -149,7 +150,7 @@ protected:
         consensus.pegin_min_depth = GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH);
         consensus.mandatory_coinbase_destination = StrHexToScriptWithDefault(GetArg("-con_mandatorycoinbase", ""), CScript()); // Blank script allows any coinbase destination
         // eth mainnet is the parent genesis blockhash by default
-        parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"));
+        parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
         policyCoins = GetArg("-policycoins", 0);
         initialFreeCoinsDestination = StrHexToScriptWithDefault(GetArg("-initialfreecoinsdestination", ""), CScript() << OP_TRUE);
@@ -180,8 +181,8 @@ public:
         const CScript defaultRegtestScript(CScript() << OP_TRUE);
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
-        consensus.parentContract.SetHex(GetArg("-parentcontract", "0x076C97e1c869072eE22f8c91978C99B4bcB02591"));
-        consensus.fedpegAddress.SetHex(GetArg("-fedpegaddress", ""));
+        consensus.parentContract.SetHex(GetArg("-parentcontract", "076C97e1c869072eE22f8c91978C99B4bcB02591"));
+        consensus.fedpegAddress = CEthAddress(ParseHex(GetArg("-fedpegaddress", "")));
 
         if (!anyonecanspend_aremine) {
             assert("Anyonecanspendismine was marked as false, but they are in the genesis block"

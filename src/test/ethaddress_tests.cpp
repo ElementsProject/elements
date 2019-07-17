@@ -5,6 +5,7 @@
 #include "utilstrencodings.h"
 #include "ethaddress.h"
 #include "key.h"
+#include "uint256.h"
 #include "test/test_bitcoin.h"
 
 #include <boost/foreach.hpp>
@@ -12,7 +13,7 @@
 
 BOOST_FIXTURE_TEST_SUITE(ethaddress_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(ethaddress_ConstructEthAddress)
+BOOST_AUTO_TEST_CASE(ethaddress_AddrFromPubkey)
 {
     std::vector<unsigned char> keyBytes = ParseHex("3ecb44df2159c26e0f995712d4f39b6f6e499b40749b1cf1246c37f9516cb6a4");
     CKey keyCompressed;
@@ -23,6 +24,7 @@ BOOST_AUTO_TEST_CASE(ethaddress_ConstructEthAddress)
     CPubKey pubkey = keyCompressed.GetPubKey();
     CEthAddress addr(pubkey);
     BOOST_CHECK_EQUAL(false, addr.IsValid());
+    BOOST_CHECK_EQUAL("0000000000000000000000000000000000000000", addr.ToString());
     BOOST_CHECK_EQUAL("0397466f2b32bc3bb76d4741ae51cd1d8578b48d3f1e68da206d47321aec267ce7",
         HexStr(pubkey.begin(), pubkey.end()));
 
@@ -41,6 +43,21 @@ BOOST_AUTO_TEST_CASE(ethaddress_ConstructEthAddress)
     BOOST_CHECK_EQUAL("8a40bfaa73256b60764c1bf40675a99083efb075", addr3.ToString());
     BOOST_CHECK_EQUAL("0497466f2b32bc3bb76d4741ae51cd1d8578b48d3f1e68da206d47321aec267ce78549b514e4453d74ef11b0cd5e4e4c364effddac8b51bcfc8de80682f952896f",
         HexStr(pubkey.begin(), pubkey.end()));
+}
+
+BOOST_AUTO_TEST_CASE(ethaddress_AddrFromData)
+{
+    CEthAddress addr(ParseHex("0x000000000000000000000000b6872561de5ba19d38071a7616d9d434b9e37860"));
+    BOOST_CHECK_EQUAL("0000000000000000000000000000000000000000", addr.ToString());
+    BOOST_CHECK(addr.IsValid() == false);
+
+    CEthAddress addr2(ParseHex("0xb6872561de5ba19d38071a7616d9d434b9e37860"));
+    BOOST_CHECK_EQUAL("0000000000000000000000000000000000000000", addr2.ToString());
+    BOOST_CHECK(addr2.IsValid() == false);
+
+    CEthAddress addr3(ParseHex("b6872561de5ba19d38071a7616d9d434b9e37860"));
+    BOOST_CHECK_EQUAL("b6872561de5ba19d38071a7616d9d434b9e37860", addr3.ToString());
+    BOOST_CHECK(addr3.IsValid() == true);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
