@@ -326,7 +326,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
 /** Checks eth pegin witness for validity */
 bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_tx = true);
 /** Checks eth pegin transaction (in JSON format) for validity */
-bool IsEthPeginValid(const UniValue& tx, const CAmount& nAmount, std::string& strFailReason);
+bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& strFailReason);
 /** Extracts an output from pegin witness for evaluation as a normal output */
 CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */

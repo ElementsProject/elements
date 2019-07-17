@@ -2216,7 +2216,7 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
-bool IsEthPeginValid(const UniValue& tx, const CAmount& nAmount, std::string& strFailReason)
+bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& strFailReason)
 {
     try {
         auto txLogs = find_value(tx, "logs");
@@ -2232,8 +2232,9 @@ bool IsEthPeginValid(const UniValue& tx, const CAmount& nAmount, std::string& st
                     return false;
                 }
                 // Check to pay to address included the fedpeg pubkey
-                uint160 ethToAddress;
-                ethToAddress.SetHex(find_value(txLogs[i], "topics")[2].get_str());
+                auto addrHex = ParseHex(find_value(txLogs[i], "topics")[2].get_str());
+                std::vector<unsigned char> addrHexParsed(addrHex.begin() + 14, addrHex.end());
+                CEthAddress ethToAddress(addrHexParsed);
                 if (ethToAddress != Params().GetConsensus().fedpegAddress) {
                     strFailReason = "Invalid fegpeg destination address";
                     return false;
@@ -2701,7 +2702,7 @@ bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint
     // Finally, validate peg-in via rpc call
     if (check_tx && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         std::string strFailReason;
-        return IsEthPeginValid(GetEthTransaction(txid), value, strFailReason);
+        return IsValidEthPegin(GetEthTransaction(txid), value, strFailReason);
     }
     return true;
 }
