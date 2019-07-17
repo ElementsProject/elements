@@ -2232,8 +2232,8 @@ bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& st
                     return false;
                 }
                 // Check to pay to address included the fedpeg pubkey
-                auto addrHex = ParseHex(find_value(txLogs[i], "topics")[2].get_str());
-                std::vector<unsigned char> addrHexParsed(addrHex.begin() + 14, addrHex.end());
+                auto addrHex = ParseHex(find_value(txLogs[i], "topics")[2].get_str().substr(2)); // skip 0x
+                std::vector<unsigned char> addrHexParsed(addrHex.begin() + 12, addrHex.end());
                 CEthAddress ethToAddress(addrHexParsed);
                 if (ethToAddress != Params().GetConsensus().fedpegAddress) {
                     strFailReason = "Invalid fegpeg destination address";
@@ -2248,6 +2248,25 @@ bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& st
                     strFailReason = "Pegin amount and ERC-20 transaction amount don't match";
                     return false;
                 }
+                return true;
+            }
+        }
+        strFailReason = "Unexpected ERC-20 transfer topic hash";
+        return false;
+    } catch (...) {
+        strFailReason = "Invalid eth transaction";
+        return false;
+    }
+}
+
+bool IsConfirmedEthPegin(const UniValue& tx, std::string& strFailReason)
+{
+    try {
+        auto txLogs = find_value(tx, "logs");
+        const auto ercTransferHash = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+        // Find ERC-20 Transfer
+        for (size_t i=0; i<txLogs.size(); ++i) {
+            if (find_value(txLogs[i], "topics")[0].get_str() == ercTransferHash) {
                 // Check tx number of confirmations
                 if (!IsConfirmedEthBlock(std::strtoll(find_value(txLogs[i], "blockNumber").get_str().c_str(), NULL, 16),
                     Params().GetConsensus().pegin_min_depth + 2)) {
@@ -2702,7 +2721,8 @@ bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint
     // Finally, validate peg-in via rpc call
     if (check_tx && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         std::string strFailReason;
-        return IsValidEthPegin(GetEthTransaction(txid), value, strFailReason);
+        const auto &tx = GetEthTransaction(txid);
+        return IsValidEthPegin(tx, value, strFailReason) && IsConfirmedEthPegin(tx, strFailReason);
     }
     return true;
 }

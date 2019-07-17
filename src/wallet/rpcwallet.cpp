@@ -4537,7 +4537,7 @@ UniValue validateethpegin(const JSONRPCRequest& request)
     const UniValue tx = GetEthTransaction(hash);
 
     std::string strFailReason;
-    if (!IsValidEthPegin(tx, nAmount, strFailReason)) {
+    if (!IsValidEthPegin(tx, nAmount, strFailReason) && IsConfirmedEthPegin(tx, strFailReason)) {
         throw JSONRPCError(RPC_TRANSACTION_ERROR, strFailReason);
     }
     return true;
