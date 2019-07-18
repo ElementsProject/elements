@@ -330,7 +330,7 @@ bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, const CPubKey& 
 /** Checks eth pegin transaction (in JSON format) confirmation */
 bool IsConfirmedEthPegin(const UniValue& tx, std::string& strFailReason);
 /** Extracts an output from pegin witness for evaluation as a normal output */
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness, bool eth_pegin = true);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Format a string that describes several potential problems detected by the core.

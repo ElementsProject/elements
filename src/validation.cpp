@@ -2738,15 +2738,17 @@ bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint
 }
 
 // Constructs unblinded output to be used in amount and scriptpubkey checks during pegin
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness)
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness, bool eth_pegin)
 {
 	CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
     CAmount value;
     stream >> value;
 
-    CPubKey pubkey(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
-
-	return CTxOut(CAsset(pegin_witness.stack[1]), value, GetScriptForDestination(pubkey.GetID()));
+    if (eth_pegin) {
+        CPubKey pubkey(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
+        return CTxOut(CAsset(pegin_witness.stack[1]), value, GetScriptForDestination(pubkey.GetID()));
+    }
+    return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
 }
 
 // Protected by cs_main
