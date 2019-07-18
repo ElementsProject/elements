@@ -2216,7 +2216,7 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
-bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& strFailReason)
+bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, const CPubKey& pubKey, std::string& strFailReason)
 {
     try {
         auto txLogs = find_value(tx, "logs");
@@ -2231,10 +2231,10 @@ bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& st
                     strFailReason = "Invalid CBT ERC-20 contract provided";
                     return false;
                 }
-                // Check to pay to address included the fedpeg pubkey
-                auto addrHex = ParseHex(find_value(txLogs[i], "topics")[2].get_str().substr(2)); // skip 0x
-                std::vector<unsigned char> addrHexParsed(addrHex.begin() + 12, addrHex.end());
-                CEthAddress ethToAddress(addrHexParsed);
+                // Check that the correct fedpeg address is paid to
+                auto toAddrHex = ParseHex(find_value(txLogs[i], "topics")[2].get_str().substr(2)); // skip 0x
+                std::vector<unsigned char> toAddrHexParsed(toAddrHex.begin() + 12, toAddrHex.end());
+                CEthAddress ethToAddress(toAddrHexParsed);
                 if (ethToAddress != Params().GetConsensus().fedpegAddress) {
                     strFailReason = "Invalid fegpeg destination address";
                     return false;
@@ -2246,6 +2246,15 @@ bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, std::string& st
                 aEthAmount /= aEthPrecision;
                 if (!aEthAmount.EqualTo(nAmount)) {
                     strFailReason = "Pegin amount and ERC-20 transaction amount don't match";
+                    return false;
+                }
+                // Check that the from address corresponds to the pubkey provided
+                auto fromAddrHex = ParseHex(find_value(txLogs[i], "topics")[1].get_str().substr(2)); // skip 0x
+                std::vector<unsigned char> fromAddrHexParsed(fromAddrHex.begin() + 12, fromAddrHex.end());
+                CEthAddress ethFromAddress(fromAddrHexParsed);
+                CEthAddress ethPubAddress(pubKey);
+                if (ethFromAddress != ethPubAddress) {
+                    strFailReason = "From address not matching claim_pubkey";
                     return false;
                 }
                 return true;
@@ -2700,11 +2709,11 @@ bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint
         return false;
     }
 
-    // Get claim_script, sanity check size
-    // In the eth case the script is not used to tweak
-    // the fedpeg address which is constant (for now)
-    CScript claim_script(stack[3].begin(), stack[3].end());
-    if (claim_script.size() > 100) {
+    // Get claim_pubkey, sanity check size
+    // In the eth case is not used to tweak
+    // the fedpeg address which is constant
+    CPubKey claim_pubkey(stack[3].begin(), stack[3].end());
+    if (!claim_pubkey.IsFullyValid()) {
         return false;
     }
 
@@ -2722,7 +2731,8 @@ bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint
     if (check_tx && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
         std::string strFailReason;
         const auto &tx = GetEthTransaction(txid);
-        return IsValidEthPegin(tx, value, strFailReason) && IsConfirmedEthPegin(tx, strFailReason);
+        claim_pubkey.Decompress(); // eth addresses require full pubkey
+        return IsValidEthPegin(tx, value, claim_pubkey, strFailReason) && IsConfirmedEthPegin(tx, strFailReason);
     }
     return true;
 }
@@ -2734,7 +2744,9 @@ CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness)
     CAmount value;
     stream >> value;
 
-	return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+    CPubKey pubkey(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
+
+	return CTxOut(CAsset(pegin_witness.stack[1]), value, GetScriptForDestination(pubkey.GetID()));
 }
 
 // Protected by cs_main

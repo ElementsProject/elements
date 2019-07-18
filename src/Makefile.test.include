@@ -73,6 +73,7 @@ JSON_TEST_FILES = \
   test/data/ethpegin_invalid3.json \
   test/data/ethpegin_invalid4.json \
   test/data/ethpegin_invalid5.json \
+  test/data/ethpegin_invalid6.json \
   test/data/tx_invalid.json \
   test/data/tx_valid.json \
   test/data/sighash.json
