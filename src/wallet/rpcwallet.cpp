@@ -4413,6 +4413,67 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     return fundinginfo;
 }
 
+UniValue sendtoethmainchain(const JSONRPCRequest& request)
+{
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw runtime_error(
+            "sendtoethmainchain ethmainchainaddress amount ( subtractfeefromamount )\n"
+            "\nSends sidechain funds to the given eth mainchain address, through the federated withdraw mechanism\n"
+            + HelpRequiringPassphrase() +
+            "\nArguments:\n"
+            "1. \"address\"        (string, required) The destination address on eth mainchain\n"
+            "2. \"amount\"         (numeric, required) The amount being sent to eth mainchain\n"
+            "3. \"subtractfeefromamount\"  (boolean, optional, default=false) The fee will be deducted from the amount being pegged-out.\n"
+            "\nResult:\n"
+            "\"txid\"              (string) Transaction ID of the resulting sidechain transaction\n"
+            "\nExamples:\n"
+            + HelpExampleCli("sendtoethmainchain", "\"8e8a0ec05cc3c2b8511aabadeeb821df19ea7564\" 0.1")
+            + HelpExampleRpc("sendtoethmainchain", "\"8e8a0ec05cc3c2b8511aabadeeb821df19ea7564\" 0.1")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CEthAddress address(ParseHex(request.params[0].get_str()));
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid eth address");
+
+    CAmount nAmount = AmountFromValue(request.params[1]);
+    if (nAmount <= 0)
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
+
+    bool subtract_fee = false;
+    if (request.params.size() > 2) {
+        subtract_fee = request.params[2].get_bool();
+    }
+
+    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+
+    // Asset type is implicit, no need to add to script
+    CScript scriptPubKey;
+    scriptPubKey << OP_RETURN;
+    scriptPubKey << std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end());
+    scriptPubKey << std::vector<unsigned char>(address.begin(), address.end());
+
+    EnsureWalletIsUnlocked();
+
+    CWalletTx wtxNew;
+    SendMoney(scriptPubKey, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, CPubKey(), wtxNew, true);
+
+    std::string blinds;
+    for (unsigned int i=0; i<wtxNew.tx->vout.size(); i++) {
+        blinds += "blind:" + wtxNew.GetOutputBlindingFactor(i).ToString() + "\n";
+    }
+
+    AuditLogPrintf("%s : sendtoethmainchain %s\nblinds:\n%s\n", getUser(), wtxNew.tx->GetHash().GetHex(), blinds);
+
+    return wtxNew.GetHash().GetHex();
+}
+
 UniValue sendtomainchain(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -5563,6 +5624,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "setaccount",               &setaccount,                true,   {"address","account"} },
     { "wallet",             "reissueasset",             &reissueasset,              true,   {"asset", "assetamount"} },
     { "wallet",             "signblock",                &signblock,                 true,   {} },
+    { "wallet",             "sendtoethmainchain",       &sendtoethmainchain,        false,  {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "sendtomainchain",          &sendtomainchain,           false,  {"address", "amount", "subtractfeefromamount"} },
     { "wallet",             "destroyamount",            &destroyamount,             false,  {"asset", "amount", "comment"} },
     { "wallet",             "settxfee",                 &settxfee,                  true,   {"amount"} },
