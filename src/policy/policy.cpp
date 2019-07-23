@@ -182,6 +182,28 @@ bool IsPolicy(const CAsset& asset){
     return false;
 }
 
+bool IsContractInTx(CTransaction const &tx) {
+  txnouttype whichType;
+  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+
+  for (CTxOut const &txout : tx.vout) {
+    opcodetype opcode;
+    std::vector<unsigned char> bytes;
+    vector<vector<uint8_t>> vSolutions;
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+      return false;
+    if(whichType == TX_NULL_DATA) {
+      CScript::const_iterator pc = txout.scriptPubKey.begin();
+      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) continue;
+      if(bytes.size() == 32) {
+        uint256 data(bytes)
+        if(data == contract) return true
+      }
+    }
+  }
+  return false;
+}
+
 // @fn IsWhitelisted
 // @brief determines that all outputs of a transaction are P2PKH,
 //        all output addresses must be in the whitelist database.

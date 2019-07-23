@@ -39,6 +39,7 @@ struct ChainTxData {
 };
 
 static const bool DEFAULT_EMBED_CONTRACT = true;
+static const bool DEFAULT_CONTRACT_INTX = false;
 static const bool DEFAULT_EMBED_MAPPING = true;
 
 /**
@@ -83,8 +84,10 @@ public:
     bool DefaultConsistencyChecks() const { return fDefaultConsistencyChecks; }
     /** Policy: Filter transactions that do not match well-defined patterns */
     bool RequireStandard() const { return fRequireStandard; }
+    /** Configuration option to include the contract in transactions and enforce as a mempool policy */
+    bool ContractInTx() const { return fContractInTx; }
     /** Configuration option to include the contract hash in block and address generation */
-    bool EmbedContract() const { return fEmbedContract; }
+    bool EmbedContract() const { return fEmbedContract; }    
     /** Configuration option to include the mapping hash in block */
     bool EmbedMapping() const { return fEmbedMapping; }
     uint64_t PruneAfterHeight() const { return nPruneAfterHeight; }
@@ -128,6 +131,7 @@ protected:
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
+    bool fContractInTx
     bool fEmbedContract;
     bool fEmbedMapping;
     CCheckpointData checkpointData;
