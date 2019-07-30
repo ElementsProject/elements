@@ -327,7 +327,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             uint64_t minv;
             uint64_t maxv;
             const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
-            if (ptxoutwit && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
+            if (ptxoutwit && !ptxoutwit->vchRangeproof.empty() && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
                 if (exp == -1) {
                     out.pushKV("value", ValueFromAmount((CAmount)minv));
                 } else {
