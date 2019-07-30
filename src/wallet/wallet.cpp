@@ -3349,6 +3349,16 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             }
         }
 
+        //add contract hash to transaction if option selected
+        if(Params().ContractInTx()) {
+            uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+            CScript scriptPubKey;
+            scriptPubKey << OP_RETURN;
+            scriptPubKey << std::vector<unsigned char>(contract.begin(), contract.end());
+            CTxOut txoutcontract(feeAsset,0,scriptPubKey);
+            txNew.vout.push_back(txoutcontract);
+        }
+
         // TODO Do actual blinding/caching here to allow for amount adjustments until end
         if (sign)
         {

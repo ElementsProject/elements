@@ -196,8 +196,8 @@ bool IsContractInTx(CTransaction const &tx) {
       CScript::const_iterator pc = txout.scriptPubKey.begin();
       if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) continue;
       if(bytes.size() == 32) {
-        uint256 data(bytes)
-        if(data == contract) return true
+        uint256 data(bytes);
+        if(data == contract) return true;
       }
     }
   }

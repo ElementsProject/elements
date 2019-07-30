@@ -131,7 +131,7 @@ protected:
     bool fDefaultConsistencyChecks;
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
-    bool fContractInTx
+    bool fContractInTx;
     bool fEmbedContract;
     bool fEmbedMapping;
     CCheckpointData checkpointData;
