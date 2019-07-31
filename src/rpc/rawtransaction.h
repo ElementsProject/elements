@@ -16,7 +16,9 @@ class Chain;
 /** Sign a transaction with the given keystore and previous transactions */
 UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType);
 
-/** Create a transaction from univalue parameters */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in);
+/** Create a transaction from univalue parameters. If (and only if)
+    output_pubkeys_out is null, the "nonce hack" of storing Confidential
+    Assets output pubkeys in nonces will be used. */
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out = nullptr);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_H
