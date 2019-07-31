@@ -3694,10 +3694,10 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
             if (fSendTrickle && pto->fSendMempool) {
                 auto vtxinfo = mempool.infoAll();
                 pto->fSendMempool = false;
-                CAmount filterrate = 0;
+                    CFeeRate filterrate;
                 {
                     LOCK(pto->cs_feeFilter);
-                    filterrate = pto->minFeeFilter;
+                    filterrate = CFeeRate(pto->minFeeFilter);
                 }
 
                 LOCK(pto->cs_filter);
@@ -3706,9 +3706,9 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     const uint256& hash = txinfo.tx->GetHash();
                     CInv inv(MSG_TX, hash);
                     pto->setInventoryTxToSend.erase(hash);
-                    if (filterrate) {
-                        if (txinfo.feeRate.GetFeePerK() < filterrate)
-                            continue;
+                    // Don't send transactions that peers will not put into their mempool
+                    if (txinfo.fee < filterrate.GetFee(txinfo.vsize)) {
+                        continue;
                     }
                     if (pto->pfilter) {
                         if (!pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
@@ -3731,10 +3731,10 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                 for (std::set<uint256>::iterator it = pto->setInventoryTxToSend.begin(); it != pto->setInventoryTxToSend.end(); it++) {
                     vInvTx.push_back(it);
                 }
-                CAmount filterrate = 0;
+                CFeeRate filterrate;
                 {
                     LOCK(pto->cs_feeFilter);
-                    filterrate = pto->minFeeFilter;
+                    filterrate = CFeeRate(pto->minFeeFilter);
                 }
                 // Topologically and fee-rate sort the inventory we send for privacy and priority reasons.
                 // A heap is used so that not all items need sorting if only a few are being sent.
@@ -3761,7 +3761,8 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                     if (!txinfo.tx) {
                         continue;
                     }
-                    if (filterrate && txinfo.feeRate.GetFeePerK() < filterrate) {
+                    // Peer told you to not send transactions at that feerate? Don't bother sending it.
+                    if (txinfo.fee < filterrate.GetFee(txinfo.vsize)) {
                         continue;
                     }
                     if (pto->pfilter && !pto->pfilter->IsRelevantAndUpdate(*txinfo.tx)) continue;
