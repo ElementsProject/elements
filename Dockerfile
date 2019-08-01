@@ -6,7 +6,7 @@ COPY . /usr/src/package
 RUN set -ex \
     && cd /usr/src/package \
     && ./autogen.sh \
-    && ./configure \
+    && ./configure --without-gui \
     && make clean \
     && make -j$(nproc) \
     && echo "Running tests" \

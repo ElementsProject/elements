@@ -561,14 +561,13 @@ Examples:
 
 static inline void createrawrequesttx_input(CMutableTransaction &rawTx,
                                             UniValue const &input) {
-    uint32_t nOutput;
     uint256 txid = ParseHashO(input, "txid");
     UniValue const& vout = find_value(input, "vout");
     if (!vout.isNum())
         throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_VOUT);
-    if ((nOutput = vout.get_int()) < 0)
+    if (vout.get_int() < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, ERROR_VOUT_VALUE);
-    rawTx.vin.push_back(CTxIn(COutPoint(txid, nOutput), CScript(), UINT_MAX - 1));
+    rawTx.vin.push_back(CTxIn(COutPoint(txid, (uint32_t)vout.get_int()), CScript(), UINT_MAX - 1));
 }
 
 static inline void createrawrequesttx_output(CMutableTransaction& rawTx,
@@ -698,14 +697,13 @@ static inline void createrawbidtx_input(CMutableTransaction &rawTx,
                                             UniValue const &inputs) {
     for (size_t i = 0; i < inputs.size(); ++i) {
         const auto &inputObj = inputs[i].get_obj();
-        uint32_t nOutput;
         uint256 txid = ParseHashO(inputObj, "txid");
         UniValue const& vout = find_value(inputObj, "vout");
         if (!vout.isNum())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
-        if ((nOutput = vout.get_int()) < 0)
+        if (vout.get_int() < 0)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
-        rawTx.vin.push_back(CTxIn(COutPoint(txid, nOutput), CScript(), UINT_MAX - 1));
+        rawTx.vin.push_back(CTxIn(COutPoint(txid, (uint32_t)vout.get_int()), CScript(), UINT_MAX - 1));
     }
 }
 
@@ -1807,7 +1805,7 @@ UniValue signrawtransaction(const JSONRPCRequest& request)
         if (!txin.m_is_pegin && (coins == NULL || !coins->IsAvailable(txin.prevout.n))) {
             TxInErrorToJSON(txin, vErrors, "Input not found or already spent");
             continue;
-        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout))) {
+        } else if (txin.m_is_pegin && (txConst.wit.vtxinwit.size() <= i || !IsValidEthPeginWitness(txConst.wit.vtxinwit[i].m_pegin_witness, txin.prevout))) {
             TxInErrorToJSON(txin, vErrors, "Peg-in input has invalid proof.");
             continue;
         }

@@ -6,6 +6,7 @@
 #include "chainparams.h"
 #include "consensus/merkle.h"
 #include "issuance.h"
+#include "ethaddress.h"
 
 #include "tinyformat.h"
 #include "util.h"
@@ -24,6 +25,8 @@ static std::vector<unsigned char> CommitToArguments(const Consensus::Params& par
     sha2.Write((const unsigned char*)networkID.c_str(), networkID.length());
     sha2.Write((const unsigned char*)HexStr(params.fedpegScript).c_str(), HexStr(params.fedpegScript).length());
     sha2.Write((const unsigned char*)HexStr(signblockscript).c_str(), HexStr(signblockscript).length());
+    sha2.Write((const unsigned char*)HexStr(params.parentContract).c_str(), HexStr(params.parentContract).length());
+    sha2.Write((const unsigned char*)HexStr(params.fedpegAddress).c_str(), HexStr(params.fedpegAddress).length());
     sha2.Finalize(commitment);
     return std::vector<unsigned char>(commitment, commitment + 32);
 }
@@ -146,8 +149,8 @@ protected:
         consensus.defaultAssumeValid = uint256S(GetArg("-con_defaultassumevalid", "0x00"));
         consensus.pegin_min_depth = GetArg("-peginconfirmationdepth", DEFAULT_PEGIN_CONFIRMATION_DEPTH);
         consensus.mandatory_coinbase_destination = StrHexToScriptWithDefault(GetArg("-con_mandatorycoinbase", ""), CScript()); // Blank script allows any coinbase destination
-        // bitcoin regtest is the parent chain by default
-        parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
+        // eth mainnet is the parent genesis blockhash by default
+        parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
         policyCoins = GetArg("-policycoins", 0);
         initialFreeCoinsDestination = StrHexToScriptWithDefault(GetArg("-initialfreecoinsdestination", ""), CScript() << OP_TRUE);
@@ -178,6 +181,8 @@ public:
         const CScript defaultRegtestScript(CScript() << OP_TRUE);
         CScript genesisChallengeScript = StrHexToScriptWithDefault(GetArg("-signblockscript", ""), defaultRegtestScript);
         consensus.fedpegScript = StrHexToScriptWithDefault(GetArg("-fedpegscript", ""), defaultRegtestScript);
+        consensus.parentContract.SetHex(GetArg("-parentcontract", "076C97e1c869072eE22f8c91978C99B4bcB02591"));
+        consensus.fedpegAddress = CEthAddress(ParseHex(GetArg("-fedpegaddress", "")));
 
         if (!anyonecanspend_aremine) {
             assert("Anyonecanspendismine was marked as false, but they are in the genesis block"

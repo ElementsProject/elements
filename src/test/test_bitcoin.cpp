@@ -50,6 +50,7 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         // Hack to allow testing of fedpeg args
         if (!fedpegscript.empty()) {
             SoftSetArg("-fedpegscript", fedpegscript);
+            SoftSetArg("-fedpegaddress", "efff2561de5ba19d38071addddd9d434b9111160");
         }
         // MAX_MONEY
         SoftSetArg("-initialfreecoins", "2100000000000000");

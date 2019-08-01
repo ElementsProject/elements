@@ -512,7 +512,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
 
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        if (tx.vin[i].m_is_pegin && (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout))) {
+        if (tx.vin[i].m_is_pegin && (tx.wit.vtxinwit.size() <= i || !IsValidEthPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout))) {
             continue;
         }
         const CTxOut &prevout = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.wit.vtxinwit[i].m_pegin_witness) : inputs.GetOutputFor(tx.vin[i]);
@@ -520,10 +520,6 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     }
     return nSigOps;
 }
-
-
-
-
 
 bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
 {
@@ -734,7 +730,7 @@ bool VerifyAmounts(const CCoinsViewCache& cache, const CTransaction& tx, std::ve
     // Tally up value commitments, check balance
     for (size_t i = 0; i < tx.vin.size(); ++i)
     {
-        // Assumes IsValidPeginWitness has been called successfully
+        // Assumes IsValidEthPeginWitness has been called successfully
         const CTxOut out = tx.vin[i].m_is_pegin ? GetPeginOutputFromWitness(tx.wit.vtxinwit[i].m_pegin_witness) : cache.GetOutputFor(tx.vin[i]);
         const CConfidentialValue& val = out.nValue;
         const CConfidentialAsset& asset = out.nAsset;
@@ -1151,7 +1147,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
       for (unsigned int i = 0; i < tx.vin.size(); i++) {
         if (tx.vin[i].m_is_pegin) {
           // Quick check of pegin witness and prevout to extract db entry
-          if (tx.wit.vtxinwit.size() <= i || tx.wit.vtxinwit[i].m_pegin_witness.stack.size() < 6 || uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]).IsNull() || tx.vin[i].prevout.hash.IsNull())
+          if (tx.wit.vtxinwit.size() <= i || tx.wit.vtxinwit[i].m_pegin_witness.stack.size() < 5 || uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]).IsNull() || tx.vin[i].prevout.hash.IsNull())
             return state.Invalid(false, REJECT_INVALID, "pegin-no-witness");
           pair<uint256, COutPoint> pegin = make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), tx.vin[i].prevout);
           // This assumes non-null prevout and genesis block hash
@@ -1843,7 +1839,7 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
     if (!contract.IsNull()){
-        for (int it = 0; it < tweakedPubKeys.size(); ++it){
+        for (size_t it = 0; it < tweakedPubKeys.size(); ++it){
             tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
         }
     }
@@ -1877,7 +1873,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             const COutPoint &prevout = tx.vin[i].prevout;
             if (tx.vin[i].m_is_pegin) {
                 // Check existence and validity of pegin witness
-                if (tx.wit.vtxinwit.size() <= i || !IsValidPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
+                if (tx.wit.vtxinwit.size() <= i || !IsValidEthPeginWitness(tx.wit.vtxinwit[i].m_pegin_witness, prevout)) {
                     return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", true);
                 }
                 std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.wit.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
@@ -2103,7 +2099,7 @@ bool ApplyTxInUndo(const CTxInUndo& undo, CCoinsViewCache& view, const COutPoint
             coins->vout.resize(out.n+1);
         coins->vout[out.n] = undo.txout;
     } else {
-        if (!IsValidPeginWitness(pegin_witness, txin.prevout)) {
+        if (!IsValidEthPeginWitness(pegin_witness, txin.prevout)) {
             fClean = fClean && error("%s: peg-in occurred without proof", __func__);
         } else {
             std::pair<uint256, COutPoint> outpoint = std::make_pair(uint256(pegin_witness.stack[2]), txin.prevout);
@@ -2220,7 +2216,175 @@ void ThreadScriptCheck() {
     scriptcheckqueue.Thread();
 }
 
+bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, const CPubKey& pubKey, std::string& strFailReason)
+{
+    try {
+        auto txLogs = find_value(tx, "logs");
+        const auto ercTransferHash = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+        // Find ERC-20 Transfer
+        for (size_t i=0; i<txLogs.size(); ++i) {
+            if (find_value(txLogs[i], "topics")[0].get_str() == ercTransferHash) {
+                // Check that the correct CBT ERC-20 contract is paid to
+                uint160 ethContract;
+                ethContract.SetHex(find_value(txLogs[i], "address").get_str());
+                if (ethContract != Params().GetConsensus().parentContract) {
+                    strFailReason = "Invalid CBT ERC-20 contract provided";
+                    return false;
+                }
+                // Check that the correct fedpeg address is paid to
+                auto toAddrHex = ParseHex(find_value(txLogs[i], "topics")[2].get_str().substr(2)); // skip 0x
+                std::vector<unsigned char> toAddrHexParsed(toAddrHex.begin() + 12, toAddrHex.end());
+                CEthAddress ethToAddress(toAddrHexParsed);
+                if (ethToAddress != Params().GetConsensus().fedpegAddress) {
+                    strFailReason = "Invalid fegpeg destination address";
+                    return false;
+                }
+                // Check that the amount is correct
+                uint256 ethAmount = uint256S(find_value(txLogs[i], "data").get_str());
+                arith_uint256 aEthAmount = UintToArith256(ethAmount);
+                const arith_uint256 aEthPrecision("2540BE400"); // 10^10
+                aEthAmount /= aEthPrecision;
+                if (!aEthAmount.EqualTo(nAmount)) {
+                    strFailReason = "Pegin amount and ERC-20 transaction amount don't match";
+                    return false;
+                }
+                // Check that the from address corresponds to the pubkey provided
+                auto fromAddrHex = ParseHex(find_value(txLogs[i], "topics")[1].get_str().substr(2)); // skip 0x
+                std::vector<unsigned char> fromAddrHexParsed(fromAddrHex.begin() + 12, fromAddrHex.end());
+                CEthAddress ethFromAddress(fromAddrHexParsed);
+                CEthAddress ethPubAddress(pubKey);
+                if (ethFromAddress != ethPubAddress) {
+                    strFailReason = "From address not matching claim_pubkey";
+                    return false;
+                }
+                return true;
+            }
+        }
+        strFailReason = "Unexpected ERC-20 transfer topic hash";
+        return false;
+    } catch (...) {
+        strFailReason = "Invalid eth transaction";
+        return false;
+    }
+}
+
+bool IsConfirmedEthPegin(const UniValue& tx, std::string& strFailReason)
+{
+    try {
+        auto txLogs = find_value(tx, "logs");
+        const auto ercTransferHash = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+        // Find ERC-20 Transfer
+        for (size_t i=0; i<txLogs.size(); ++i) {
+            if (find_value(txLogs[i], "topics")[0].get_str() == ercTransferHash) {
+                // Check tx number of confirmations
+                if (!IsConfirmedEthBlock(std::strtoll(find_value(txLogs[i], "blockNumber").get_str().c_str(), NULL, 16),
+                    Params().GetConsensus().pegin_min_depth + 2)) {
+                    strFailReason = "Peg-in eth transaction needs more confirmations to be sent";
+                    return false;
+                }
+                return true;
+            }
+        }
+        strFailReason = "Unexpected ERC-20 transfer topic hash";
+        return false;
+    } catch (...) {
+        strFailReason = "Invalid eth transaction";
+        return false;
+    }
+}
+
 bool BitcoindRPCCheck(const bool init)
+{
+    //First, we can clear out any blocks thatsomehow are now deemed valid
+    //eg reconsiderblock rpc call manually
+    std::vector<uint256> vblocksToReconsider;
+    pblocktree->ReadInvalidBlockQueue(vblocksToReconsider);
+    std::vector<uint256> vblocksToReconsiderAgain;
+    for (uint256 &blockhash : vblocksToReconsider) {
+        CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+        if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+            vblocksToReconsiderAgain.push_back(blockhash);
+        }
+    }
+    vblocksToReconsider = vblocksToReconsiderAgain;
+    vblocksToReconsiderAgain.clear();
+    pblocktree->WriteInvalidBlockQueue(vblocksToReconsider);
+
+    //Next, check for working rpc
+    if (GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        while (true) {
+            try {
+                UniValue params(UniValue::VARR);
+                params.push_back(UniValue("0x0"));
+                params.push_back(UniValue(false));
+                UniValue reply = CallRPC("eth_getBlockByNumber", params, true);
+                UniValue error = find_value(reply, "error");
+                if (!error.isNull()) {
+                    LogPrintf("ERROR: Geth RPC check returned 'error' response.\n");
+                    return false;
+                }
+                UniValue result = reply["result"];
+                auto ethHash = uint256S(find_value(result.get_obj(), "hash").get_str());
+                if (!result.isObject() || ethHash.GetHex() != Params().ParentGenesisBlockHash().GetHex()) {
+                    LogPrintf("ERROR: Invalid parent genesis block hash response via RPC. Contacting wrong parent daemon?\n");
+                    return false;
+                }
+            } catch (const std::runtime_error& re) {
+                std::string totalErr = "ERROR: Failure connecting to geth RPC: ";
+                totalErr += std::string(re.what()) + "\n";
+                LogPrintf(totalErr.c_str());
+                return false;
+            }
+            // Success
+            break;
+        }
+    }
+
+    //Sanity startup check won't reconsider queued blocks
+    if (init) {
+       return true;
+    }
+
+    /* Getting this far means we either aren't validating pegins(so let's make sure that's why
+       it failed previously) or we successfully connected to bitcoind
+       Time to reconsider blocks
+    */
+    if (vblocksToReconsider.size() > 0) {
+        CValidationState state;
+        for (uint256 const &blockhash : vblocksToReconsider) {
+            {
+                LOCK(cs_main);
+                if (mapBlockIndex.count(blockhash) == 0)
+                    continue;
+                CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+                ResetBlockFailureFlags(pblockindex);
+            }
+        }
+
+        //All blocks are now being reconsidered
+        ActivateBestChain(state, Params());
+        //This simply checks for DB errors
+        if (!state.IsValid()) {
+            //Something scary?
+        }
+
+        //Now to clear out now-valid blocks
+        for (uint256 const &blockhash : vblocksToReconsider) {
+            CBlockIndex* pblockindex = mapBlockIndex[blockhash];
+
+            //Marked as invalid still, put back into queue
+            if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
+                vblocksToReconsiderAgain.push_back(blockhash);
+            }
+        }
+
+        //Write back remaining blocks
+        pblocktree->WriteInvalidBlockQueue(vblocksToReconsiderAgain);
+        }
+    return true;
+}
+
+bool GethRPCCheck(const bool init)
 {
     //First, we can clear out any blocks thatsomehow are now deemed valid
     //eg reconsiderblock rpc call manually
@@ -2372,7 +2536,8 @@ CScript calculate_contract(const CScript& federationRedeemScript, const CScript&
     return scriptDestination;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth)
+{
 
     // Format on stack is as follows:
     // 1) value - the value of the pegin output
@@ -2494,13 +2659,96 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     return true;
 }
 
+bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_tx)
+{
+    // Format on stack is as follows:
+    // 1) value - the value of the pegin output
+    // 2) asset type - the asset type being pegged in
+    // 3) genesis blockhash - genesis block of the parent chain
+    // 4) txid - eth pegin transaction hash
+    //
+    // First 4 values(plus prevout) are enough to validate a peg-in without any knowledge
+    // of the Eth transaction. This is useful for further abstraction by outsourcing
+    // the other validity checks to RPC calls.
+
+    const std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
+    // Must include all ocean
+    if (stack.size() != 5) {
+        return false;
+    }
+
+    // Get value
+    CDataStream stream(stack[0], SER_NETWORK, PROTOCOL_VERSION);
+    CAmount value;
+    try {
+        stream >> value;
+    } catch (...) {
+        return false;
+    }
+    if (!MoneyRange(value)) {
+        return false;
+    }
+
+    // Get asset type
+    if (stack[1].size() != 32) {
+        return false;
+    }
+    CAsset asset(stack[1]);
+    // Check the asset type corresponds to a valid pegged asset (only one for now)
+    if (asset != Params().GetConsensus().pegged_asset) {
+        return false;
+    }
+
+    // Get genesis blockhash
+    if (stack[2].size() != 32) {
+        return false;
+    }
+    uint256 gen_hash(stack[2]);
+    // Check the genesis block corresponds to a valid peg (only one for now)
+    if (gen_hash != Params().ParentGenesisBlockHash()) {
+        return false;
+    }
+
+    // Get claim_pubkey, sanity check size
+    // In the eth case is not used to tweak
+    // the fedpeg address which is constant
+    CPubKey claim_pubkey(stack[3].begin(), stack[3].end());
+    if (!claim_pubkey.IsFullyValid()) {
+        return false;
+    }
+
+    // Get txid
+    if (stack[4].size() != 32) {
+        return false;
+    }
+    uint256 txid(stack[4]);
+    // Check that transaction matches txid
+    if (txid != prevout.hash) {
+        return false;
+    }
+
+    // Finally, validate peg-in via rpc call
+    if (check_tx && GetBoolArg("-validatepegin", DEFAULT_VALIDATE_PEGIN)) {
+        std::string strFailReason;
+        const auto &tx = GetEthTransaction(txid);
+        claim_pubkey.Decompress(); // eth addresses require full pubkey
+        return IsValidEthPegin(tx, value, claim_pubkey, strFailReason) && IsConfirmedEthPegin(tx, strFailReason);
+    }
+    return true;
+}
+
 // Constructs unblinded output to be used in amount and scriptpubkey checks during pegin
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness, bool eth_pegin)
+{
 	CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
     CAmount value;
     stream >> value;
 
-	return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
+    if (eth_pegin) {
+        CPubKey pubkey(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
+        return CTxOut(CAsset(pegin_witness.stack[1]), value, GetScriptForDestination(pubkey.GetID()));
+    }
+    return CTxOut(CAsset(pegin_witness.stack[1]), value, CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
 }
 
 // Protected by cs_main
@@ -3894,7 +4142,6 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
 
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev, int64_t nAdjustedTime)
 {
-    const int nHeight = pindexPrev == NULL ? 0 : pindexPrev->nHeight + 1;
     // Check proof of work
     if (!CheckChallenge(block, *pindexPrev, consensusParams))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work");
