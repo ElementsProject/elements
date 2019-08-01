@@ -1180,7 +1180,7 @@ UniValue getrequests(const JSONRPCRequest& request)
     // should be returned to avoid confusion in the coordinator
     if (fGenesisCheck && ret.size() > 1) {
         auto request = ret[0];
-        for (auto i=1; i<ret.size(); ++i) {
+        for (size_t i=1; i<ret.size(); ++i) {
             if (ret[i]["confirmedBlockHeight"].get_int() < request["confirmedBlockHeight"].get_int()) {
                 request = ret[i];
             }

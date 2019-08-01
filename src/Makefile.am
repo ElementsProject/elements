@@ -100,16 +100,17 @@ BITCOIN_CORE_H = \
   core_io.h \
   core_memusage.h \
   cuckoocache.h \
+  dbwrapper.h \
+  ecies.h \
+  ecies_hex.h \
+  ethaddress.h \
   global/common.h \
   httprpc.h \
   httpserver.h \
   indirectmap.h \
   init.h \
   key.h \
-  ecies.h \
-  ecies_hex.h \
   keystore.h \
-  dbwrapper.h \
   limitedmap.h \
   memusage.h \
   merkleblock.h \
@@ -248,6 +249,7 @@ libbitcoin_wallet_a_SOURCES = \
   policy/kycfile.cpp \
   script/registeraddressscript.cpp \
   script/onboardingscript.cpp \
+  ethaddress.cpp \
   wallet/crypter.cpp \
   wallet/db.cpp \
   wallet/rpcdump.cpp \
@@ -277,7 +279,15 @@ crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/sha256.cpp \
   crypto/sha256.h \
   crypto/sha512.cpp \
-  crypto/sha512.h
+  crypto/sha512.h \
+  crypto/ethash/attributes.h \
+  crypto/ethash/hash_types.h \
+  crypto/ethash/hash_types.hpp \
+  crypto/ethash/keccak.h \
+  crypto/ethash/keccak.hpp \
+  crypto/ethash/keccakf1600.c \
+  crypto/ethash/keccakf800.c \
+  crypto/ethash/keccak.c
 
 # consensus: shared between all executables that validate any consensus rules.
 libbitcoin_consensus_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
@@ -345,10 +355,11 @@ libbitcoin_common_a_SOURCES = \
   compressor.cpp \
   core_read.cpp \
   core_write.cpp \
-  global/common.cpp \
-  key.cpp \
   ecies.cpp \
   ecies_hex.cpp \
+  ethaddress.cpp \
+  global/common.cpp \
+  key.cpp \
   keystore.cpp \
   netaddress.cpp \
   issuance.cpp \
