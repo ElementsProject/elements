@@ -21,6 +21,7 @@ CWhiteList::~CWhiteList(){;}
 
 bool CWhiteList::Load(CCoinsView *view)
 {
+    boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
     LOCK(cs_main);
 
