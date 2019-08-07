@@ -52,10 +52,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
             SoftSetArg("-fedpegscript", fedpegscript);
             SoftSetArg("-fedpegaddress", "efff2561de5ba19d38071addddd9d434b9111160");
         }
-        if (!con_mandatorycoinbase.empty()){
-            ForceSetArg("-con_mandatorycoinbase", con_mandatorycoinbase);
-        } 
-        // MAX_MONEY
+	ForceSetArg("-con_mandatorycoinbase", con_mandatorycoinbase);
+	// MAX_MONEY
         SoftSetArg("-initialfreecoins", "2100000000000000");
         SoftSetArg("-policycoins", "2100000000000000");
         SelectParams(chainName);
