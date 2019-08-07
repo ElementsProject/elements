@@ -6,12 +6,11 @@ COPY . /usr/src/package
 RUN set -ex \
     && cd /usr/src/package \
     && ./autogen.sh \
-    && ./configure \
+    && ./configure --without-gui \
     && make clean \
-    && make \
+    && make -j$(nproc) \
     && echo "Running tests" \
     && make check \
-    && cat src/test-suite.log \
     && echo "Running Python QA tests" \
     && ./qa/pull-tester/rpc-tests.py \
     && make install \
@@ -21,8 +20,6 @@ RUN set -ex \
     && cp -R package/doc/terms-and-conditions /home/bitcoin/.bitcoin \
     && chown -R bitcoin:bitcoin /home/bitcoin \
     && rm -rf package
-
-RUN cat src/test-suite.log 
 
 COPY contrib/docker/docker-entrypoint.sh /docker-entrypoint.sh
 
