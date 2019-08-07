@@ -17,6 +17,7 @@ CWhiteList::CWhiteList(){
   //The written code behaviour expects nMultisigSize to be of length 1 at the moment. If it is changed in the future the code needs to be adjusted accordingly.
   assert(nMultisigSize == 1);
 }
+
 CWhiteList::~CWhiteList(){;}
 
 bool CWhiteList::Load(CCoinsView *view)
@@ -77,6 +78,17 @@ bool CWhiteList::Load(CCoinsView *view)
   return true;
 }
 
+void CWhiteList::add_destination(const CTxDestination& dest){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);  
+  if (dest.which() == ((CTxDestination)CNoDestination()).which())
+    throw std::invalid_argument(std::string(std::string(__func__) + 
+      ": invalid destination"));
+  CKeyID kycKeyID;
+  _kycPubkeyMap[kycKeyID]=CPubKey();  
+  _kycMap[dest]=kycKeyID;
+   add_sorted(dest);
+}
+
 void CWhiteList::add_derived(const CBitcoinAddress& address, const CPubKey& pubKey){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CWhiteList::add_derived(address, pubKey, nullptr);
@@ -93,6 +105,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
     //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
+  
   if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));

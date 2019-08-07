@@ -1139,6 +1139,10 @@ bool AppInitParameterInteraction()
     } catch (const std::exception& e) {
         return InitError(strprintf("Error in -assetdir: %s\n", e.what()));
     }
+
+    //Add the mandatory coinbase destination to the whitelist if needed.
+    InitWhitelistDefaults();
+    
     if (mapMultiArgs.count("-bip9params")) {
         // Allow overriding BIP9 parameters for testing
         if (!chainparams.MineBlocksOnDemand()) {
@@ -1174,6 +1178,22 @@ bool AppInitParameterInteraction()
         }
     }
     return true;
+}
+
+void InitWhitelistDefaults(){
+    if (fRequireWhitelistCheck || fScanWhitelist) {
+      const CChainParams& chainparams = Params();
+      if (chainparams.GetConsensus().mandatory_coinbase_destination != CScript()){
+	CTxDestination man_con_dest;
+	if(ExtractDestination(chainparams.GetConsensus().mandatory_coinbase_destination, man_con_dest)){
+	  try{
+	    addressWhitelist.add_destination(man_con_dest); 
+	  } catch (std::invalid_argument e){
+	    LogPrintf(std::string("Error adding coinbase destination to whitelist: ") + std::string(e.what()) + "\n");
+	  } 
+	}
+      }
+    }
 }
 
 static bool LockDataDirectory(bool probeOnly)
@@ -1696,7 +1716,9 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     if(chainActive.Height() > 1) {
         if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
         if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
-        if (fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
+        if (fRequireWhitelistCheck || fScanWhitelist) {
+	  addressWhitelist.Load(pcoinsTip);
+	}
         if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
     }
 

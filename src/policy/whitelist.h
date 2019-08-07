@@ -26,6 +26,8 @@ public:
 
 	bool Load(CCoinsView *view);
 
+	void add_destination(const CTxDestination& dest);
+
 	void add_derived(const CBitcoinAddress& address, const CPubKey& pubKey, 
 		const std::unique_ptr<CPubKey>& kycPubKey);
 
@@ -109,6 +111,7 @@ public:
     }
   
 private:
+
 	//Make add_sorted private because we only want verified derived keys 
 	//to be added to the CWhiteList.
 	using CPolicyList::add_sorted;

@@ -37,7 +37,7 @@ FastRandomContext insecure_rand_ctx(true);
 extern bool fPrintToConsole;
 extern void noui_connect();
 
-BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript)
+BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::string& con_mandatorycoinbase)
 {
         ECC_Start();
         SetupEnvironment();
@@ -50,6 +50,11 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         // Hack to allow testing of fedpeg args
         if (!fedpegscript.empty()) {
             SoftSetArg("-fedpegscript", fedpegscript);
+            SoftSetArg("-fedpegaddress", "efff2561de5ba19d38071addddd9d434b9111160");
+        }
+        if (!con_mandatorycoinbase.empty()){
+            ForceSetArg("-con_mandatorycoinbase", con_mandatorycoinbase);
+            fRequireWhitelistCheck=true;
         }
         // MAX_MONEY
         SoftSetArg("-initialfreecoins", "2100000000000000");
@@ -64,7 +69,7 @@ BasicTestingSetup::~BasicTestingSetup()
         g_connman.reset();
 }
 
-TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript) : BasicTestingSetup(chainName, fedpegscript)
+TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::string& con_mandatorycoinbase) : BasicTestingSetup(chainName, fedpegscript, con_mandatorycoinbase)
 {
     const CChainParams& chainparams = Params();
         // Ideally we'd move all the RPC tests to the functional testing framework
