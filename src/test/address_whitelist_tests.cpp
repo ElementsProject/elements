@@ -13,7 +13,6 @@
 
 struct WhitelistTestingSetup : public TestingSetup {
     WhitelistTestingSetup() : TestingSetup(CBaseChainParams::REGTEST, "", "76a914567884b53d417d36b37a0409521f4644a7f46ffe88ac") {}
-    //WhitelistTestingSetup() : TestingSetup(CBaseChainParams::REGTEST, "", "") {}
 };
 
 BOOST_FIXTURE_TEST_SUITE(address_whitelist_tests, WhitelistTestingSetup)
@@ -23,9 +22,10 @@ BOOST_AUTO_TEST_CASE(mandatory_coinbase_destination)
     BOOST_CHECK(Params().GetConsensus().mandatory_coinbase_destination != CScript());
     	CTxDestination man_con_dest;
     	BOOST_CHECK(ExtractDestination(Params().GetConsensus().mandatory_coinbase_destination, man_con_dest));
-    	BOOST_CHECK(fRequireWhitelistCheck);
+	fRequireWhitelistCheck=true;
 	addressWhitelist.init_defaults();
 	BOOST_CHECK(addressWhitelist.is_whitelisted(man_con_dest));
+	fRequireWhitelistCheck=false;
 }
 
 BOOST_AUTO_TEST_SUITE_END()
