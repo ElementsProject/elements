@@ -2557,13 +2557,13 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
     uint256 tx_hash;
     int num_txs;
     // Get txout proof
-    if (Params().GetConsensus().ParentChainHasPow()) {
+    if (Params().GetConsensus().ParentChainIsBitcoinLike()) {
 
         Sidechain::Bitcoin::CMerkleBlock merkle_block_pow;
         if (!GetBlockAndTxFromMerkleBlock(block_hash, tx_hash, merkle_block_pow, stack[5])) {
             return false;
         }
-        if (!CheckBitcoinProof(block_hash, merkle_block_pow.header.nBits)) {
+        if (!CheckBitcoinProof(block_hash, merkle_block_pow.header.nBits, Params().GetConsensus())) {
             return false;
         }
 

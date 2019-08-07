@@ -12,6 +12,10 @@
 #include "utilstrencodings.h"
 #include "crypto/common.h"
 
+bool g_solution_blocks = false;
+size_t g_solution_block_len = 0;
+std::map<uint256,std::vector<uint8_t>> g_blockheader_payload_map;
+
 namespace Sidechain {
 namespace Bitcoin {
 

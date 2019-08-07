@@ -12,6 +12,22 @@
 #include "serialize.h"
 #include "uint256.h"
 
+/**
+ * If true, block headers contain a payload equal to a Bitcoin Script solution
+ * to a signet challenge as defined in the chain params.
+ */
+extern bool g_solution_blocks;
+/**
+ * If non-zero, defines an enforced size requirement for block header payloads.
+ * It requires that all blocks are of size 80 + (this value) bytes.
+ */
+extern size_t g_solution_block_len;
+ /**
+ * Contains a mapping of hash to signature data for each block header
+ * in signet networks.
+ */
+extern std::map<uint256,std::vector<uint8_t>> g_blockheader_payload_map;
+
 namespace Sidechain {
 namespace Bitcoin {
 
@@ -48,6 +64,15 @@ public:
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        if (g_solution_blocks && !(s.GetType() & SER_GETHASH)) {
+            READWRITE(g_blockheader_payload_map[GetHash()]);
+            size_t len = GetSizeOfCompactSize(g_blockheader_payload_map[GetHash()].size()) + g_blockheader_payload_map[GetHash()].size();
+            while (len < g_solution_block_len) {
+                uint8_t padding = 0;
+                READWRITE(padding);
+                len++;
+            }
+        }
     }
 
     void SetNull()

@@ -519,6 +519,8 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-parentpubkeyprefix", strprintf(_("The byte prefix, in decimal, of the parent chain's base58 pubkey address. (default: %d)"), 111));
         strUsage += HelpMessageOpt("-parentscriptprefix", strprintf(_("The byte prefix, in decimal, of the parent chain's base58 script address. (default: %d)"), 196));
         strUsage += HelpMessageOpt("-con_parent_chain_signblockscript", _("Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])"));
+        strUsage += HelpMessageOpt("-con_parent_is_signet", _("If parent chain uses signed blocks, whether it is an elements based chain or one based on signet (default: false)"));
+        strUsage += HelpMessageOpt("-con_parent_signet_siglen", _("If parent chain uses signed blocks based on signet, The length of the signature must be exactly this long (padded to this length, if shorter). All block headers in this network are of length 80 + this value. (default: 77)"));
         strUsage += HelpMessageOpt("-con_parent_pegged_asset=<hex>", _("Asset ID (hex) for pegged asset for when parent chain has CA. (default: 0x00)"));
         strUsage += HelpMessageOpt("-recheckpeginblockinterval", strprintf(_("The interval in seconds at which a peg-in witness failing block is re-evaluated in case of intermittant peg-in witness failure. 0 means never. (default: %u)"), 120));
     }

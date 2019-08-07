@@ -74,8 +74,10 @@ struct Params {
     CScript signblockscript;
     bool has_parent_chain;
     CScript parent_chain_signblockscript;
+    bool parent_is_signet;
     CAsset parent_pegged_asset;
-    bool ParentChainHasPow() const { return parent_chain_signblockscript == CScript();}
+    bool ParentChainHasPow() const { return parent_chain_signblockscript == CScript(); }
+    bool ParentChainIsBitcoinLike() const { return parent_is_signet || ParentChainHasPow(); }
 };
 } // namespace Consensus
 
