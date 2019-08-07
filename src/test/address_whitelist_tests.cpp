@@ -8,7 +8,6 @@
 #include "policy/requestlist.h"
 #include "chainparams.h"
 #include "validation.h"
-#include "init.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -25,10 +24,8 @@ BOOST_AUTO_TEST_CASE(mandatory_coinbase_destination)
     	CTxDestination man_con_dest;
     	BOOST_CHECK(ExtractDestination(Params().GetConsensus().mandatory_coinbase_destination, man_con_dest));
     	BOOST_CHECK(fRequireWhitelistCheck);
-	InitWhitelistDefaults();
+	addressWhitelist.init_defaults();
 	BOOST_CHECK(addressWhitelist.is_whitelisted(man_con_dest));
-
-
 }
 
 BOOST_AUTO_TEST_SUITE_END()

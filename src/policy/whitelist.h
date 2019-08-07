@@ -24,6 +24,8 @@ public:
   		black
   	};
 
+        void init_defaults();
+  
 	bool Load(CCoinsView *view);
 
 	void add_destination(const CTxDestination& dest);

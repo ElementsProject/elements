@@ -1140,8 +1140,7 @@ bool AppInitParameterInteraction()
         return InitError(strprintf("Error in -assetdir: %s\n", e.what()));
     }
 
-    //Add the mandatory coinbase destination to the whitelist if needed.
-    InitWhitelistDefaults();
+    addressWhitelist.init_defaults();
     
     if (mapMultiArgs.count("-bip9params")) {
         // Allow overriding BIP9 parameters for testing
@@ -1178,22 +1177,6 @@ bool AppInitParameterInteraction()
         }
     }
     return true;
-}
-
-void InitWhitelistDefaults(){
-    if (fRequireWhitelistCheck || fScanWhitelist) {
-      const CChainParams& chainparams = Params();
-      if (chainparams.GetConsensus().mandatory_coinbase_destination != CScript()){
-	CTxDestination man_con_dest;
-	if(ExtractDestination(chainparams.GetConsensus().mandatory_coinbase_destination, man_con_dest)){
-	  try{
-	    addressWhitelist.add_destination(man_con_dest); 
-	  } catch (std::invalid_argument e){
-	    LogPrintf(std::string("Error adding coinbase destination to whitelist: ") + std::string(e.what()) + "\n");
-	  } 
-	}
-      }
-    }
 }
 
 static bool LockDataDirectory(bool probeOnly)

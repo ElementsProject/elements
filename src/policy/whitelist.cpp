@@ -20,6 +20,24 @@ CWhiteList::CWhiteList(){
 
 CWhiteList::~CWhiteList(){;}
 
+void CWhiteList::init_defaults(){
+  if (fRequireWhitelistCheck || fScanWhitelist) {
+    const CChainParams& chainparams = Params();
+    if (chainparams.GetConsensus().mandatory_coinbase_destination != CScript()){
+      CTxDestination man_con_dest;
+      if(ExtractDestination(chainparams.GetConsensus().mandatory_coinbase_destination, man_con_dest)){
+	if(!is_whitelisted(man_con_dest)){
+	    try{
+	      add_destination(man_con_dest); 
+	    } catch (std::invalid_argument e){
+	      LogPrintf(std::string("Error adding coinbase destination to whitelist: ") + std::string(e.what()) + "\n");
+	    }
+	}
+	}
+      }
+    }
+}
+
 bool CWhiteList::Load(CCoinsView *view)
 {
     std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
