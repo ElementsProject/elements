@@ -274,7 +274,11 @@ bool CKYCFile::getOnboardingScript(CScript& script){
     if(_multisigData.size() != 0)
         if(!obScript.Append(_multisigData)) return false;
 
-    if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;
+    if(fWhitelistEncrypt){
+        if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;
+    } else {
+        if(!obScript.FinalizeUnencrypted(script, kycPubKey)) return false;
+    }
     return true;
 }
 

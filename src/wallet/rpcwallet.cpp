@@ -702,7 +702,14 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
 
     //Finalize the encrypted script.
     CScript script;
-    raScript->Finalize(script, pubKey, key);
+
+    if(fWhitelistEncrypt){
+        if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+        raScript->Finalize(script, pubKey, key);
+    } else {
+        raScript->FinalizeUnencrypted(script);
+    }
 
     vector<CRecipient> vecSend;
     CAmount amount(0);
@@ -787,9 +794,6 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
 static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     const int nToRegister, const CPubKey& pubKey,
     CWalletTx& wtxNew){
-
-    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
@@ -1252,7 +1256,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     CAsset feeasset = GetAssetFromString(sFeeAsset);
 
     CWalletTx wtx;
-    CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
+    CPubKey kycPubKey = pwalletMain->GetKYCPubKey();
     int naddr=naddresses.get_int();
     SendAddNextToWhitelistTx(feeasset, naddr, kycPubKey, wtx);
 

@@ -19,12 +19,6 @@ public:
 
 	virtual bool Finalize(CScript& script, const CPubKey& onboardPubKey,
 		const CKey& kycPrivKey);
-	virtual bool FinalizeUnencrypted(CScript& script);
+	virtual bool FinalizeUnencrypted(CScript& script, const CPubKey& kycPubKey);
 
-	bool SetOnboardingKeyKYC(const CPubKey& key);
-	bool SetOnboardingKeyUser(const CPubKey& key);
-
-private:
-	CPubKey _kycPubKey;
-	CPubKey _userPubKey;
 };

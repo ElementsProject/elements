@@ -85,6 +85,7 @@ bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
 bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
+bool fWhitelistEncrypt = DEFAULT_WHITELIST_ENCRYPT;  
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;

@@ -325,28 +325,34 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
 
-  unsigned int minOnboardDataSize=2*CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+minPayloadSize;
+  unsigned int minOnboardDataSize=CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+minPayloadSize;
+  if(fWhitelistEncrypt) minOnboardDataSize += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
   std::vector<unsigned char>::const_iterator it1=bytes.begin();
   std::vector<unsigned char>::const_iterator it2=it1+CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
 
   if(bytes.size()>=minOnboardDataSize){
     kycPubKey = CPubKey(it1, it2);
     it1=it2;
-    it2+=CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
-    userOnboardPubKey = CPubKey(it1, it2);
-    it1=it2;
+    if(fWhitelistEncrypt){
+      it2+=CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+      userOnboardPubKey = CPubKey(it1, it2);
+      it1=it2;
+    }
 
     if(kycPubKey.IsFullyValid()){
-      if(userOnboardPubKey.IsFullyValid()){
-        kycKey=kycPubKey.GetID();
-        bOnboard = find_kyc(kycKey);
+      if(fWhitelistEncrypt &! userOnboardPubKey.IsFullyValid()){
+            return false;
       }
+      kycKey=kycPubKey.GetID();
+      bOnboard = find_kyc(kycKey);
+    } else {
+      bOnboard=false;
     }
-  } else {
-    bOnboard=false;
   }
 
   CPubKey decryptPubKey; //Default key
+
+  if(fWhitelistEncrypt){
 
   if(bOnboard){
     //Onboarding must be done using the whitelist asset 
@@ -394,9 +400,14 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
 
   if(inputPubKeys.size()!=1) return false;
 
+  }
+
   //Read the encrypted message data
   it2=bytes.end();
   std::vector<unsigned char> encryptedData(it1, it2);
+  std::unique_ptr<CPubKey> kycPubKeyPtr(new CPubKey(kycPubKey.begin(), kycPubKey.end()));
+
+  if(fWhitelistEncrypt){
   //Get the private key that is paired with kycKey
   std::unique_ptr<CBitcoinAddress> kycAddr(new CBitcoinAddress(kycKey));
 
@@ -423,9 +434,10 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   if(!decryptor.Decrypt(data, encryptedData, decryptPrivKey, decryptPubKey)){
     return false;   
   }
-
-  std::unique_ptr<CPubKey> kycPubKeyPtr(new CPubKey(kycPubKey.begin(), kycPubKey.end()));
-  return RegisterDecryptedAddresses(data, kycPubKeyPtr);
+    return RegisterDecryptedAddresses(data, kycPubKeyPtr);
+  } else {
+    return RegisterDecryptedAddresses(encryptedData, kycPubKeyPtr);  
+  }
 
   #else //#ifdef ENABLE_WALLET
     LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
