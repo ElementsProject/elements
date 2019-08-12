@@ -163,6 +163,7 @@ testScripts = [
     #'p2p-segwit.py',
     #'importprunedfunds.py',
     'signmessages.py',
+    'signcontract.py',
     #'nulldummy.py',
     # TODO reactivate this
     #'import-rescan.py',
