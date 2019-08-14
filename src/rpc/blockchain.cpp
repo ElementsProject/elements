@@ -1948,7 +1948,7 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
      std::string strAddr = CBitcoinAddress(*it).ToString();
      CKeyID kycKey;
      if(fWhitelistEncrypt){
-        addressWhitelist->LookupKYCKey(CTxDestination(*it), kycKey);
+        addressWhitelist->LookupKYCKey(*it, kycKey);        
         std::string strKYCKey = CBitcoinAddress(kycKey).ToString();
         file << strprintf("%s %s\n", strAddr, strKYCKey);
      } else {

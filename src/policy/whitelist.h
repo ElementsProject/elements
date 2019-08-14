@@ -72,6 +72,10 @@ public:
   		return false;
   	}
 
+  	virtual bool LookupKYCKey(const CTxDestination keyId, CPubKey& kycPubkeyFound){
+  		return false;
+  	}
+
   	virtual bool LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound){
   		return false;
   	}

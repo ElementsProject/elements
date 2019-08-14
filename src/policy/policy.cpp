@@ -195,34 +195,41 @@ bool IsPolicy(const CAsset& asset){
 // @retrun true == successful process.
 // @retrun false == failed process.
 bool IsWhitelisted(CTransaction const &tx) {
-  CKeyID keyId;
-  txnouttype whichType;
+    txnouttype whichType;
 
-  uint160 frzInt;
-  frzInt.SetHex("0x0000000000000000000000000000000000000000");
-  for (CTxOut const &txout : tx.vout) {
-    vector<vector<uint8_t>> vSolutions;
-    if (!Solver(txout.scriptPubKey, whichType, vSolutions))
-      return false;
-    // skip whitelist check if issuance transaction
-    // skip whitelist check if output is TX_FEE
-    // skip whitelist check if output is OP_RETURN
+    uint160 frzInt;
+    frzInt.SetHex("0x0000000000000000000000000000000000000000");
+    for (CTxOut const &txout : tx.vout) {
+        vector<vector<uint8_t>> vSolutions;
+        if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+            return false;
+        // skip whitelist check if issuance transaction
+        // skip whitelist check if output is TX_FEE
+        // skip whitelist check if output is OP_RETURN
     // skip whitelist check if output is OP_REGISTERADDRESS or OP_DEREGISTERADDRESS
-    if (!tx.vin[0].assetIssuance.IsNull() || whichType == TX_FEE ||
+        if (!tx.vin[0].assetIssuance.IsNull() || whichType == TX_FEE ||
         whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS )
-      continue;
-    // return false if not P2PKH
-    if (!(whichType == TX_PUBKEYHASH))
-      return false;
-
-    CKeyID keyId;
-    keyId = CKeyID(uint160(vSolutions[0]));
-    // Search in whitelist for the presence of each output address.
-    // If one is not found, return false.
+            continue;
+        // return false if not P2PKH or P2SH
+        if (whichType == TX_PUBKEYHASH) {
+            CKeyID keyId;
+            keyId = CKeyID(uint160(vSolutions[0]));
+            // Search in whitelist for the presence of each output address.
+            // If one is not found, return false.
     if (!addressWhitelist->is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
-      return false;
-  }
-  return true;
+                return false;
+        } else if (whichType == TX_SCRIPTHASH) {
+            CScriptID keyId;
+            keyId = CScriptID(uint160(vSolutions[0]));
+            // Search in whitelist for the presence of each output address.
+            // If one is not found, return false.
+            if (!addressWhitelist->is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
+                return false;
+        } else {
+            return false;
+        }
+    }
+    return true;
 }
 // @fn IsRedemption.
 // @brief check if the transaction is tagged as a redemption transaction.

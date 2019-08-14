@@ -2855,6 +2855,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             AvailableCoins(vAvailableCoins, true, coinControl);
 
 	    nFeeRet = 1;
+        if (IsPolicy(feeAsset))
+            nFeeRet = 0;
             // Start with tiny non-zero or zero fee for issuance entropy and loop until there is enough fee
             while (true)
             {

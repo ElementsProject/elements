@@ -12,7 +12,7 @@ class WhitelistingTest (BitcoinTestFramework):
         super().__init__()
         self.setup_clean_chain = True
         self.num_nodes = 4
-        self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100'] for i in range(self.num_nodes)]
+        self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100', '-txindex'] for i in range(self.num_nodes)]
 #Node 1 is a whitelist node. 
         self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[1].append("-pkhwhitelist=1")
@@ -131,12 +131,11 @@ class WhitelistingTest (BitcoinTestFramework):
             print("Raw trans:")
             print(rawtx1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid1)
         else:
             raise AssertionError("Output accepted to non-whitelisted address.")
-
 
         txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
@@ -145,7 +144,7 @@ class WhitelistingTest (BitcoinTestFramework):
         try:
             rawtx2 = self.nodes[1].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid2)
         else:
@@ -220,7 +219,7 @@ class WhitelistingTest (BitcoinTestFramework):
             rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
             print(rawtx1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid1)
         else:
@@ -231,7 +230,7 @@ class WhitelistingTest (BitcoinTestFramework):
         try:
             rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
-            assert("No such mempool transaction" in e.error['message'])
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid2)
         else:
