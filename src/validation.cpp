@@ -102,7 +102,7 @@ uint256 hashAssumeValid;
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
-CWhiteList addressWhitelist;
+CWhiteList* addressWhitelist = nullptr;
 CPolicyList addressBurnlist;
 CPolicyList addressFreezelist;
 CRequestList requestList;
@@ -2750,8 +2750,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
              if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
              }
             if(fRequireWhitelistCheck || fScanWhitelist){
-                if(!addressWhitelist.RegisterAddress(tx, view)){
-                    addressWhitelist.Update(tx,view);
+                if(!addressWhitelist->RegisterAddress(tx, view)){
+                    addressWhitelist->Update(tx,view);
                 }
             }
 

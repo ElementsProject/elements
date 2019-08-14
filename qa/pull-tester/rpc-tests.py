@@ -113,6 +113,7 @@ testScripts = [
     'whitelisting.py',
     'policytransactions.py',
     'onboard.py',
+    'onboardencrypted.py',
     'onboardmanual.py',
     # Accounts not supported
     #'wallet-accounts.py',

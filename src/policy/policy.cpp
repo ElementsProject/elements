@@ -207,9 +207,9 @@ bool IsWhitelisted(CTransaction const &tx) {
     // skip whitelist check if issuance transaction
     // skip whitelist check if output is TX_FEE
     // skip whitelist check if output is OP_RETURN
-    // skip whitelist check if output is OP_REGISTERADDRESS
+    // skip whitelist check if output is OP_REGISTERADDRESS or OP_DEREGISTERADDRESS
     if (!tx.vin[0].assetIssuance.IsNull() || whichType == TX_FEE ||
-        whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS)
+        whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS )
       continue;
     // return false if not P2PKH
     if (!(whichType == TX_PUBKEYHASH))
@@ -219,7 +219,7 @@ bool IsWhitelisted(CTransaction const &tx) {
     keyId = CKeyID(uint160(vSolutions[0]));
     // Search in whitelist for the presence of each output address.
     // If one is not found, return false.
-    if (!addressWhitelist.is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
+    if (!addressWhitelist->is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
       return false;
   }
   return true;

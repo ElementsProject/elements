@@ -31,7 +31,7 @@ bool CRegisterAddressScript::Finalize(CScript& script, const CPubKey& ePubKey, c
     sendData.insert(sendData.end(), _encrypted.begin(), _encrypted.end()); 
     //Assemble the script and return
     script.clear();
-    script << OP_REGISTERADDRESS << sendData; 
+    script << _opcode << sendData; 
     return true;
 }
 
@@ -40,7 +40,7 @@ bool CRegisterAddressScript::FinalizeUnencrypted(CScript& script){
     sendData.resize(AES_BLOCKSIZE);
     sendData.insert(sendData.end(), _payload.begin(), _payload.end()); 
     script.clear();
-    script << OP_REGISTERADDRESS << sendData; 
+    script << _opcode << sendData; 
     return true;
 }
 

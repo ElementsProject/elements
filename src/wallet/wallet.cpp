@@ -5,7 +5,6 @@
 
 #include "wallet/wallet.h"
 
-#include "base58.h"
 #include "checkpoints.h"
 #include "chain.h"
 #include "wallet/coincontrol.h"
@@ -27,6 +26,7 @@
 #include "util.h"
 #include "ui_interface.h"
 #include "utilmoneystr.h"
+#include "script/ismine.h"
 
 #include <assert.h>
 
@@ -1629,7 +1629,7 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
                     if(fRequireWhitelistCheck || fScanWhitelist){
-                        addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
+                        addressWhitelist->RegisterAddress(*block.vtx[posInBlock], pindex);
                     }
                     if(fRecordInflation){
                         UpdateAssetMap(*block.vtx[posInBlock]);
@@ -2592,7 +2592,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
 
                 if(ExtractDestination(script, dest)){
                     CKeyID keyId = boost::get<CKeyID>(dest);
-                    if(!addressWhitelist.is_whitelisted(keyId)) continue;
+                    if(!addressWhitelist->is_whitelisted(keyId)) continue;
                 }
             }
             
@@ -4800,4 +4800,16 @@ std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes()
         }
     }
     return tokenMap;
+}
+
+void CWallet::SetKYCPubKeyIfMine(const CBitcoinAddress& addr, const CPubKey& pubKey){
+    isminetype mine = ::IsMine(*this, addr.Get());
+    if (mine != ISMINE_NO && addr.IsBlinded() && addr.GetBlindingKey() 
+        != GetBlindingPubKey(GetScriptForDestination(addr.Get()))) {
+        // Note: this will fail to return ismine for deprecated static blinded addresses.
+        mine = ISMINE_NO;
+    }
+    if((mine & ISMINE_SPENDABLE) ? true : false) {
+        SetKYCPubKey(pubKey);
+    }
 }

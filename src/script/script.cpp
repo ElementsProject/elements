@@ -146,10 +146,11 @@ const char* GetOpName(opcodetype opcode)
     case OP_CHECKSEQUENCEVERIFY    : return "OP_CHECKSEQUENCEVERIFY";
     case OP_NOP5                   : return "OP_NOP5";
     case OP_NOP6                   : return "OP_NOP6";
-    case OP_NOP7                   : return "OP_NOP7";
+    case OP_DEREGISTERADDRESS      : return "OP_DEREGISTERADDRESS";
     case OP_NOP8                   : return "OP_NOP8";
     case OP_REGISTERADDRESS        : return "OP_REGISTERADDRESS";
     case OP_NOP10                  : return "OP_NOP10";
+
 
     // sidechains/withdraw-proofs
     case OP_WITHDRAWPROOFVERIFY    : return "OP_WITHDRAWPROOFVERIFY";

@@ -166,7 +166,7 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
 
-extern CWhiteList addressWhitelist;
+extern CWhiteList* addressWhitelist;
 //freezelist address list
 extern CPolicyList addressFreezelist;
 //burnlist address list

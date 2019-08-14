@@ -41,8 +41,14 @@ public:
 
 	virtual void clear(){_payload.clear(); _encrypted.clear(); ((CScript*)this)->clear();}
 
+	//Make this a "deregister" transaction (remove address from whitelist).
+	void SetDeregister(bool bDereg){
+		bDereg ? _opcode = OP_DEREGISTERADDRESS: _opcode = OP_REGISTERADDRESS;
+	}
+
 protected:
 	ucvec _payload;
 	ucvec _encrypted;
 	RegisterAddressType whitelistType;
+	opcodetype _opcode = OP_REGISTERADDRESS;
 };

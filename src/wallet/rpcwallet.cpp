@@ -226,6 +226,10 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
             + HelpExampleRpc("getkycpubkey", "2dxig5syTVt6SvMjjBFJVGdSj4o8TVsixYK")
         );
 
+    if(!fWhitelistEncrypt)
+        throw JSONRPCError(RPC_MISC_ERROR, 
+            "Not implememented for unencrypted whitelist");
+
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     CPubKey kycPubKey;
@@ -247,7 +251,7 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
     if(!address.GetKeyID(addr))
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
 
-    if(!addressWhitelist.LookupKYCKey(addr, kycPubKey))
+    if(!addressWhitelist->LookupKYCKey(addr, kycPubKey))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not found");
 
     UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
@@ -592,7 +596,7 @@ UniValue onboarduser(const JSONRPCRequest& request){
   if (request.fHelp || request.params.size() != 1)
     throw runtime_error(
             "onboarduser \"filename\" \n"
-            "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist, and assign a KYC public key to the user.\n"
+            "Read in derived keys and tweaked addresses from kyc file (see dumpkycfile) into the address whitelist. Assign a KYC public key to the user if using encrypted whitelist.\n"
             "\nArguments:\n"
 
             "1. \"filename\"    (string, required) The kyc file name\n"
@@ -618,8 +622,43 @@ UniValue onboarduser(const JSONRPCRequest& request){
     return wtx.GetHash().GetHex();
 }
 
-static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CAsset& feeAsset, const CPubKey& pubKey, CWalletTx& wtxNew)
+UniValue blacklistuser(const JSONRPCRequest& request){
+  if (request.fHelp || request.params.size() != 1)
+    throw runtime_error(
+            "blacklistuser \"filename\" \n"
+            "Remove addresses in the kyc file from the address whitelist\n"
+            "\nArguments:\n"
+
+            "1. \"filename\"    (string, required) The kyc file name\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("blacklistuser", "\"my filename\"")
+            + HelpExampleRpc("blacklistuser", "\"my filename\"")
+            );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    CKYCFile file;
+    file.read(request.params[0].get_str().c_str());
+
+    CScript script;
+    if(!file.getOnboardingScript(script, true))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot generate blacklisting script");
+
+    CWalletTx wtx;
+    SendOnboardTx(script, wtx);
+    return wtx.GetHash().GetHex();
+}
+
+static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, const CAsset& feeAsset, const CPubKey* pubKey, CWalletTx& wtxNew)
 {
+    if(fWhitelistEncrypt){
+        if(!pubKey)
+            throw JSONRPCError(RPC_INVALID_PARAMETER,"KYC pub key is NULL");
+    }
+
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
 
@@ -700,15 +739,11 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: could not retrieve private key for \"fromaddress\" from wallet.");
     }
 
-    //Finalize the encrypted script.
     CScript script;
-
     if(fWhitelistEncrypt){
-        if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
-        raScript->Finalize(script, pubKey, key);
+       raScript->Finalize(script, *pubKey, key);
     } else {
-        raScript->FinalizeUnencrypted(script);
+       raScript->FinalizeUnencrypted(script);
     }
 
     vector<CRecipient> vecSend;
@@ -737,12 +772,16 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
 //Register an P2SH multi address to the
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
-static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey& pubKey,
+static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey* pubKey,
     const CBitcoinAddress& address, const UniValue& sPubKeys, const uint8_t nMultisig,
     CWalletTx& wtxNew){
 
-    if(!addressWhitelist.find_kyc_whitelisted(pubKey.GetID()))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+    if(fWhitelistEncrypt){
+        if(!pubKey)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC pub key is NULL");
+        if(!addressWhitelist->find_kyc_whitelisted(pubKey->GetID()))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+    }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
@@ -759,7 +798,7 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
         throw JSONRPCError(RPC_INVALID_PARAMETER, std::string(std::string(__func__) +
             ": invalid key id"));
 
-    if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid))
+    if (addressWhitelist->is_whitelisted(keyid) || addressWhitelist->is_my_pending(keyid))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "This P2SH address is pending or has been whitelisted already");
 
     std::vector<CPubKey> pubKeyVec;
@@ -778,12 +817,12 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
     if(!raScript->Append(nMultisig, keyid, pubKeyVec))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "The process of p2sh whitelisting transaction serialization with present parameters has failed");
 
-    addressWhitelist.add_my_pending(keyid);
+    addressWhitelist->add_my_pending(keyid);
 
     try{
         FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
     } catch(...){
-        addressWhitelist.remove_my_pending(keyid);
+        addressWhitelist->remove_my_pending(keyid);
         throw std::current_exception();
     }
 }
@@ -794,6 +833,10 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey&
 static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
     const int nToRegister, const CPubKey& pubKey,
     CWalletTx& wtxNew){
+
+    if(fWhitelistEncrypt && !addressWhitelist->find_kyc_whitelisted(pubKey.GetID())){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not whitelisted");
+    }
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
@@ -833,7 +876,7 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
         for(std::set<CKeyID>::const_iterator it = setKeyPool.begin();
             it != setKeyPool.end(); ++it) {
                 const CKeyID &keyid = *it;
-                if (addressWhitelist.is_whitelisted(keyid) || addressWhitelist.is_my_pending(keyid)){
+                if (addressWhitelist->is_whitelisted(keyid) || addressWhitelist->is_my_pending(keyid)){
                     nWl++;
                     continue;
                 }
@@ -854,13 +897,13 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
  //Add to my pending here in case TX fails.
     for(auto& key : keysToReg){
-        addressWhitelist.add_my_pending(key);
+        addressWhitelist->add_my_pending(key);
     }
     try{
-        FinalizeRegisterAddressTx(raScript, feeAsset, pubKey, wtxNew);
+        FinalizeRegisterAddressTx(raScript, feeAsset, &pubKey, wtxNew);
     } catch(...){
         for(auto& key : keysToReg){
-            addressWhitelist.remove_my_pending(key);
+            addressWhitelist->remove_my_pending(key);
         }
         throw std::current_exception();
     }
@@ -887,6 +930,8 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
             + HelpExampleCli("blacklistkycpubkey", "\"kycpubkey\"")
             + HelpExampleRpc("blacklistkycpubkey", "\"kycpubkey\"")
             );
+    if(!fWhitelistEncrypt)
+        throw JSONRPCError(RPC_MISC_ERROR, "Whitelist is not encrypted");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -900,13 +945,13 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
 
     CKeyID keyId = kycPubKey.GetID();
 
-    if(!addressWhitelist.find_kyc_whitelisted(keyId))
+    if(!addressWhitelist->find_kyc_whitelisted(keyId))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is not whitelisted");
 
 
     COutPoint outPoint;
 
-    if(!addressWhitelist.get_kycpubkey_outpoint(keyId, outPoint))
+    if(!addressWhitelist->get_kycpubkey_outpoint(keyId, outPoint))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find kycpubkey registration transaction hash");
 
     //Spend the whitelist registration transaction to blacklist the kycpubkey
@@ -1167,7 +1212,7 @@ UniValue getnunassignedkycpubkeys(const JSONRPCRequest& request){
     if(!fScanWhitelist && !fRequireWhitelistCheck)
         throw JSONRPCError(RPC_MISC_ERROR, "pkhwhitelist and pkhwhitelist-scan are nor enabled\n");
 
-    return addressWhitelist.n_unassigned_kyc_pubkeys();
+    return addressWhitelist->n_unassigned_kyc_pubkeys();
 }
 
 UniValue topupkycpubkeys(const JSONRPCRequest& request){
@@ -1190,9 +1235,9 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
-    int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist.n_unassigned_kyc_pubkeys();
+    int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist->n_unassigned_kyc_pubkeys();
 
-    int64_t unassignedDiff = CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS-addressWhitelist.n_unassigned_kyc_pubkeys();
+    int64_t unassignedDiff = CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS-addressWhitelist->n_unassigned_kyc_pubkeys();
     if(nKeysToAdd > unassignedDiff){
         nKeysToAdd = unassignedDiff;
     }
@@ -1245,6 +1290,10 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
         );
     }
 
+    if (!fWhitelistEncrypt)
+            throw JSONRPCError(RPC_MISC_ERROR, "Not implememented for unencrypted whitelist");
+
+
     LOCK2(cs_main, pwalletMain->cs_wallet);
     EnsureWalletIsUnlocked();
 
@@ -1256,7 +1305,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     CAsset feeasset = GetAssetFromString(sFeeAsset);
 
     CWalletTx wtx;
-    CPubKey kycPubKey = pwalletMain->GetKYCPubKey();
+    CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
     int naddr=naddresses.get_int();
     SendAddNextToWhitelistTx(feeasset, naddr, kycPubKey, wtx);
 
@@ -1313,9 +1362,11 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     CAsset feeasset = GetAssetFromString(sFeeAsset);
 
     CWalletTx wtx;
-    CPubKey kycPubKey=pwalletMain->GetKYCPubKey();
+    CPubKey* kycPubKey = nullptr;
+    if(fWhitelistEncrypt){
+        kycPubKey = new CPubKey(pwalletMain->GetKYCPubKey());
+    } 
     SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), (uint8_t)nMultisig, wtx);
-
     return wtx.GetHash().GetHex();
 }
 
@@ -5215,7 +5266,6 @@ UniValue dumpassetlabels(const JSONRPCRequest& request)
 }
 
 extern UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
-extern UniValue dumpkycpubkey(const JSONRPCRequest& request); // in rpcdump.cpp
 extern UniValue importprivkey(const JSONRPCRequest& request);
 extern UniValue importaddress(const JSONRPCRequest& request);
 extern UniValue importpubkey(const JSONRPCRequest& request);
@@ -5248,13 +5298,13 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpblindingkey",          &dumpblindingkey,          true,   {} },
     { "wallet",             "dumpassetlabels",          &dumpassetlabels,          true,   {} },
     { "wallet",             "dumpprivkey",              &dumpprivkey,              true,   {"address"}  },
-    { "wallet",             "dumpkycpubkey",            &dumpkycpubkey,            true,   {"useronboardpubkey"}  },
     { "wallet",             "dumpissuanceblindingkey",  &dumpissuanceblindingkey,  true,   {"txid", "vin"} },
     { "wallet",             "dumpwallet",               &dumpwallet,               true,   {"filename"} },
     { "wallet",             "dumpderivedkeys",          &dumpderivedkeys,          true,   {"filename"} },
     { "wallet",             "dumpkycfile",              &dumpkycfile,              true,   {"filename"} },
     { "wallet",             "readkycfile",              &readkycfile,              true,   {"filename", "outfilename", "onboardpubkey"} },
     { "wallet",             "onboarduser",              &onboarduser,              false,  {"filename"} },
+    { "wallet",             "blacklistuser",            &blacklistuser,            false,  {"filename"} },
     { "wallet",             "topupkycpubkeys",          &topupkycpubkeys,          false,   {"nkeys"} },
     { "wallet",             "blacklistkycpubkey",       &blacklistkycpubkey,       false,   {"kycpubkey"} },
     { "wallet",             "whitelistkycpubkeys",  &whitelistkycpubkeys,      false,   {"kycpubkeys"} },

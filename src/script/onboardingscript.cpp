@@ -14,6 +14,8 @@ COnboardingScript::COnboardingScript():
 
 COnboardingScript::COnboardingScript(const COnboardingScript* script) : 
 	CRegisterAddressScript((CRegisterAddressScript*)script, RA_ONBOARDING){
+	_kycPubKey=script->_kycPubKey;
+	_userPubKey=script->_userPubKey;
 }
 
 COnboardingScript::~COnboardingScript(){
@@ -43,21 +45,18 @@ bool COnboardingScript::Finalize(CScript& script,
 
     //Assemble the script and return
     script.clear();
-    script << OP_REGISTERADDRESS << sendData; 
+    script << _opcode << sendData; 
     return true;
 }
 
-bool COnboardingScript::FinalizeUnencrypted(CScript& script, const CPubKey& kycPubKey){
+bool COnboardingScript::FinalizeUnencrypted(CScript& script){
     if(whitelistType != RA_ONBOARDING)
         return false;
-
-    //Append the key
-	ucvec sendData = ToByteVector(kycPubKey);
-
+	ucvec sendData = ToByteVector(_kycPubKey);
 	//Append the addresses (unencrypted)
     sendData.insert(sendData.end(), _payload.begin(), _payload.end()); 
     script.clear();
-    script << OP_REGISTERADDRESS << sendData; 
+    script << _opcode << sendData; 
     return true;
 }
 

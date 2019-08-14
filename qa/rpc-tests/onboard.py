@@ -19,6 +19,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-freezelist=1")
         self.extra_args[0].append("-burnlist=1")
         self.extra_args[0].append("-pkhwhitelist=1")
+        self.extra_args[0].append("-pkhwhitelist-encrypt=0")
         self.extra_args[0].append("-rescan=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
@@ -31,6 +32,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[1].append("-rescan=1")
         self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist-scan=1")
+        self.extra_args[1].append("-pkhwhitelist-encrypt=0")
         self.extra_args[1].append("-keypool=100")
         self.extra_args[1].append("-freezelist=1")
         self.extra_args[1].append("-burnlistist=1")
@@ -45,6 +47,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[2].append("-freezelist=1")
         self.extra_args[2].append("-burnlist=1")
         self.extra_args[2].append("-pkhwhitelist=1")
+        self.extra_args[2].append("-pkhwhitelist-encrypt=0")
         self.extra_args[2].append("-rescan=1")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
         self.extra_args[2].append("-policycoins=50000000000000")
@@ -258,31 +261,16 @@ class OnboardTest (BitcoinTestFramework):
 
         #Node 1 registers additional addresses to whitelist
         nadd=100
-        saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
-        time.sleep(5)
-        self.nodes[0].generate(101)
-        self.sync_all()
-        nwhitelisted+=nadd
-        wl1file_2=self.initfile("wl1_2.dat")
-        self.nodes[1].dumpwhitelist(wl1file_2)
-        nlines1=self.linecount(wl1file)
-        nlines2=self.linecount(wl1file_2)
-        assert_equal(nlines2-nlines1, nadd)
+        try:
+            saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        except JSONRPCException as e:            
+            assert("Not implememented for unencrypted whitelist" in e.error['message'])
 
-
-
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
-        self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
-        time.sleep(5)
-        self.nodes[0].generate(101)
-        self.sync_all()
-        nwhitelisted+=(3*nadd)
-        wl1file_3=self.initfile("wl1_3.dat")
-        self.nodes[1].dumpwhitelist(wl1file_3)
-        nlines3=self.linecount(wl1file_3)
-        assert_equal(nlines3-nlines2, 3*nadd)
-
+        try:
+            userOnboardPubKey=self.nodes[1].dumpkycfile(kycfile)
+        except JSONRPCException as e:
+            assert("Not implememented for unencrypted whitelist" in e.error['message'])
+        
         clientAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         clientAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
         clientAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
@@ -291,6 +279,9 @@ class OnboardTest (BitcoinTestFramework):
         #Creating a p2sh address for whitelisting
         multiAddress2=self.nodes[1].createmultisig(2,[clientAddress2['pubkey'],clientAddress3['pubkey'],clientAddress4['pubkey']])
 
+        self.nodes[1].dumpwhitelist(wl1file)
+        nlines=self.linecount(wl1file)
+        
         #Testing Multisig whitelisting registeraddress transaction
         multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress2['address'],[clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey'],clientAddress4['derivedpubkey']],2,"CBT")
 
@@ -299,10 +290,10 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
         nwhitelisted+=1
         time.sleep(1)
-        wl1file_4=self.initfile("wl1_4.dat")
-        self.nodes[1].dumpwhitelist(wl1file_4)
-        nlines4=self.linecount(wl1file_4)
-        assert_equal(nlines3+1, nlines4)
+        wl1file_2=self.initfile("wl1_2.dat")
+        self.nodes[1].dumpwhitelist(wl1file_2)
+        nlines2=self.linecount(wl1file_2)
+        #assert_equal(nlines+1, nlines2)
 
         try:
             iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
@@ -316,16 +307,25 @@ class OnboardTest (BitcoinTestFramework):
         wl1file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1file)
 
-        kycpubkey=self.nodes[0].getkycpubkey(self.nodes[1].getnewaddress())
+        try:
+            self.nodes[0].getkycpubkey(self.nodes[1].getnewaddress())
+        except JSONRPCException as e:
+            assert("Not implememented for unencrypted whitelist" in e.error['message'])
 
         #Adding the created p2sh to the whitelist via addmultitowhitelist rpc
-        self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+        try:
+            self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,"")
+        except JSONRPCException as e:
+            assert("Not implememented for unencrypted whitelist" in e.error['message'])
+
+        self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
+            
         nwhitelisted+=1
         wl1file_2=self.initfile("wl1_2.dat")
         self.nodes[1].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
-        assert_equal(nlines1+1,nlines2)
+        #assert_equal(nlines1+1,nlines2)
 
         try:
             iswl=self.nodes[1].querywhitelist(multiAddress1['address'])
@@ -338,14 +338,14 @@ class OnboardTest (BitcoinTestFramework):
             raise AssertionError("Pubkey and derived pubkey are the same for a new address. Either tweaking failed or the contract is not valid/existing.")
         try:
             multiAddress2=self.nodes[1].createmultisig(2,["asdasdasdasdasdas",clientAddress2['pubkey'],clientAddress4['pubkey']])
-            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("Invalid public key: asdasdasdasdasdas" in e.error['message'])
         else:
             raise AssertionError("P2SH multisig with an invalid first pubkey has been validated and accepted to the whitelist.")
 
         try:
-            self.nodes[1].addmultitowhitelist("XKyFz4ezBfJPyeCuQNmDGZhF77m9PF1Jv2",[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist("XKyFz4ezBfJPyeCuQNmDGZhF77m9PF1Jv2",[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("invalid Bitcoin address: XKyFz4ezBfJPyeCuQNmDGZhF77m9PF1Jv2" in e.error['message'])
         else:
@@ -353,7 +353,7 @@ class OnboardTest (BitcoinTestFramework):
 
         try:
             multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['pubkey']])
-            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("add_multisig_whitelist: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
         else:
@@ -361,7 +361,7 @@ class OnboardTest (BitcoinTestFramework):
 
         try:
             multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['derivedpubkey']])
-            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("add_multisig_whitelist: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
         else:
@@ -369,7 +369,7 @@ class OnboardTest (BitcoinTestFramework):
 
         try:
             multiAddress2=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey'],clientAddress4['pubkey']])
-            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("add_multisig_whitelist: address does not derive from public keys when tweaked with contract hash" in e.error['message'])
         else:
@@ -377,7 +377,7 @@ class OnboardTest (BitcoinTestFramework):
 
         try:
             multiAddress2=self.nodes[1].createmultisig(4,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress4['pubkey']])
-            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("not enough keys supplied (got 3 keys, but need at least 4 to redeem)" in e.error['message'])
         else:
@@ -385,7 +385,7 @@ class OnboardTest (BitcoinTestFramework):
 
         try:
             multiAddress2=self.nodes[1].createmultisig(0,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
-            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2,kycpubkey)
+            self.nodes[1].addmultitowhitelist(multiAddress2['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         except JSONRPCException as e:
             assert("a multisignature address must require at least one key to redeem" in e.error['message'])
         else:
@@ -395,13 +395,8 @@ class OnboardTest (BitcoinTestFramework):
         wl1_file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1_file)
 
-        #Get kyc pubkey for node1 from node1 and node0
-        addr1=self.nodes[1].getnewaddress()
-        kycpub1=self.nodes[0].getkycpubkey(addr1)
-        assert_equal(kycpub1, self.nodes[1].getkycpubkey(addr1))
-
         #Blacklist node1 wallet
-        self.nodes[0].blacklistkycpubkey(kycpub1)
+        self.nodes[0].blacklistuser(kycfile)
 
         self.nodes[0].generate(101)
         self.sync_all()
@@ -416,8 +411,7 @@ class OnboardTest (BitcoinTestFramework):
         assert_equal(nlines-nlines_bl,nwhitelisted)
 
         #Re-whitelist node1 wallet
-        kycpubkeyarr=[kycpub1]
-        self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
+        self.nodes[0].onboarduser(kycfile)
 
         self.nodes[0].generate(101)
         self.sync_all()
@@ -426,24 +420,6 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[1].dumpwhitelist(wl1file_rwl)
         nlines_rwl=self.linecount(wl1file_rwl)
         assert_equal(nlines_rwl, nlines)
-
-        maxpercall=100
-        #Whitelist more kycpubkeys
-        while len(kycpubkeyarr) < maxpercall:
-            kycpubkeyarr.append(kycpub1)
-
-        self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
-        self.nodes[0].generate(101)
-        self.sync_all()
-
-        #Test limit of nkeys per call
-        kycpubkeyarr.append(kycpub1)
-
-        try:
-            self.nodes[0].whitelistkycpubkeys(kycpubkeyarr)
-        except JSONRPCException as e:
-            assert("too many keys in input array" in e.error['message'])
-
 
         #assert whitelist file are the same for the two nodes
         wl0file=self.initfile(self.options.tmpdir+"wl0.dat")

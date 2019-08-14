@@ -8,7 +8,7 @@
 #endif
 
 #include "init.h"
-
+#include "policy/whitelistEncrypted.h"
 #include "addrman.h"
 #include "amount.h"
 #include "callrpc.h"
@@ -1121,7 +1121,7 @@ bool AppInitParameterInteraction()
     //Acceptance of data in OP_RETURN
     fAcceptDatacarrier = GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
-    //Acceptance of OP_REGISTERADDRESS
+    //Acceptance of OP_REGISTERADDRESS and OP_DEREGISTERADDRESS
     fAcceptRegisteraddress = GetBoolArg("-registeraddress", DEFAULT_ACCEPT_REGISTERADDRESS);
     nMaxRegisteraddressBytes = GetArg("-registeraddresssize", nMaxRegisteraddressBytes);
 
@@ -1142,7 +1142,12 @@ bool AppInitParameterInteraction()
         return InitError(strprintf("Error in -assetdir: %s\n", e.what()));
     }
 
-    addressWhitelist.init_defaults();
+    if(fWhitelistEncrypt){
+        addressWhitelist = new CWhiteListEncrypted();
+    } else {
+        addressWhitelist = new CWhiteList();
+    }
+    addressWhitelist->init_defaults();
     
     if (mapMultiArgs.count("-bip9params")) {
         // Allow overriding BIP9 parameters for testing
@@ -1702,7 +1707,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
         if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
         if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
         if (fRequireWhitelistCheck || fScanWhitelist) {
-	  addressWhitelist.Load(pcoinsTip);
+	  addressWhitelist->Load(pcoinsTip);
 	}
         if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
     }

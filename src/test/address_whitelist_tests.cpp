@@ -23,8 +23,9 @@ BOOST_AUTO_TEST_CASE(mandatory_coinbase_destination)
   CTxDestination man_con_dest;
   BOOST_CHECK(ExtractDestination(Params().GetConsensus().mandatory_coinbase_destination, man_con_dest));
   fRequireWhitelistCheck=true;
-  addressWhitelist.init_defaults();
-  BOOST_CHECK(addressWhitelist.is_whitelisted(man_con_dest));
+  if(!addressWhitelist) addressWhitelist=new CWhiteList();
+  addressWhitelist->init_defaults();
+  BOOST_CHECK(addressWhitelist->is_whitelisted(man_con_dest));
   fRequireWhitelistCheck=false;
 }
 

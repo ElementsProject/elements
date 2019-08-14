@@ -18,6 +18,7 @@
 #include "wallet/crypter.h"
 #include "wallet/walletdb.h"
 #include "wallet/rpcwallet.h"
+#include "base58.h"
 
 #include <algorithm>
 #include <atomic>
@@ -847,8 +848,9 @@ public:
     void GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const;
 
     //The KYC public key used for address whitelist registration by the user.
-    CPubKey GetKYCPubKey(){return _kycPubKey;}
-    void SetKYCPubKey(CPubKey val){_kycPubKey = val;}
+    CPubKey GetKYCPubKey(){return _kycPubKey;}\
+    void SetKYCPubKey(const CPubKey& val){_kycPubKey = val;}
+    void SetKYCPubKeyIfMine(const CBitcoinAddress& addr, const CPubKey& val);
 
     //The onboarding public key, to be read from the blockchain.
     CPubKey GetOnboardPubKey(){return _onboardPubKey;}

@@ -49,7 +49,7 @@ class CKYCFile{
    		 	ENCRYPTION_ERROR
   		};
 
-	 	bool getOnboardingScript(CScript& script);
+	 	bool getOnboardingScript(CScript& script, bool bBlacklist=false);
 
 	private:
 		std::ifstream _file;
