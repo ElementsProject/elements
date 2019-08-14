@@ -290,11 +290,11 @@ bool CScript::IsWitnessProgram(int& version, std::vector<unsigned char>& program
     if (this->size() < 4 || this->size() > 42) {
         return false;
     }
-    if ((*this)[0] != OP_0 && ((*this)[0] < OP_1 || (*this)[0] > OP_16)) {
+    if ((*this)[0] != OP_0 && (*this)[0] != OP_1NEGATE && ((*this)[0] < OP_1 || (*this)[0] > OP_16)) {
         return false;
     }
     if ((size_t)((*this)[1] + 2) == this->size()) {
-        version = DecodeOP_N((opcodetype)(*this)[0]);
+        version = (*this)[0] == OP_1NEGATE ? 31 : DecodeOP_N((opcodetype)(*this)[0]);
         program = std::vector<unsigned char>(this->begin() + 2, this->end());
         return true;
     }

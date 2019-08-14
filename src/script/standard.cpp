@@ -312,7 +312,8 @@ public:
     bool operator()(const WitnessUnknown& id) const
     {
         script->clear();
-        *script << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
+        *script << ((id.version == 31) ? OP_1NEGATE : CScript::EncodeOP_N(id.version))
+                << std::vector<unsigned char>(id.program, id.program + id.length);
         return true;
     }
 
