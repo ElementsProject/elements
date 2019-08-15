@@ -245,7 +245,7 @@ class OnboardTest (BitcoinTestFramework):
 
         #Restart the nodes. The whitelist will be restored. TODO
         wl1file=self.initfile("wl1.dat")
-        self.nodes[1].dumpwhitelist(wl1file)
+        self.nodes[0].dumpwhitelist(wl1file)
 
         # time.sleep(1)
         # try:
@@ -267,7 +267,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
         nwhitelisted+=nadd
         wl1file_2=self.initfile("wl1_2.dat")
-        self.nodes[1].dumpwhitelist(wl1file_2)
+        self.nodes[0].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
         nlines2=self.linecount(wl1file_2)
         assert_equal(nlines2-nlines1, nadd)
@@ -282,7 +282,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
         nwhitelisted+=(3*nadd)
         wl1file_3=self.initfile("wl1_3.dat")
-        self.nodes[1].dumpwhitelist(wl1file_3)
+        self.nodes[0].dumpwhitelist(wl1file_3)
         nlines3=self.linecount(wl1file_3)
         assert_equal(nlines3-nlines2, 3*nadd)
 
@@ -303,16 +303,46 @@ class OnboardTest (BitcoinTestFramework):
         nwhitelisted+=1
         time.sleep(1)
         wl1file_4=self.initfile("wl1_4.dat")
-        self.nodes[1].dumpwhitelist(wl1file_4)
+        self.nodes[0].dumpwhitelist(wl1file_4)
         nlines4=self.linecount(wl1file_4)
         assert_equal(nlines3+1, nlines4)
 
         try:
-            iswl=self.nodes[1].querywhitelist(multiAddress2['address'])
+            iswl=self.nodes[0].querywhitelist(multiAddress2['address'])
         except JSONRPCException as e:
             print(e.error['message'])
             assert(False)
         assert(iswl)
+
+        result = self.nodes[1].importmulti([{
+            "scriptPubKey": {
+                "address": multiAddress2['address']
+            },
+            "timestamp": "now",
+            "redeemscript": multiAddress2['redeemScript'],
+            "keys": [ self.nodes[1].dumpprivkey(clientAddress2['unconfidential']), self.nodes[1].dumpprivkey(clientAddress3['unconfidential']), self.nodes[1].dumpprivkey(clientAddress4['unconfidential'])]
+        }])
+
+        vaddr = self.nodes[1].validateaddress(multiAddress2['address'])
+
+        assert(vaddr['ismine'])
+
+        issue = self.nodes[0].issueasset('100.0','0')
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        txhead = self.nodes[0].sendtoaddress(multiAddress2['address'], 11,"","",False,issue["asset"])
+        self.nodes[0].generate(101)
+        self.sync_all()
+        try:
+            rawtxm = self.nodes[2].getrawtransaction(txhead, 1)
+            rawtxm2 = self.nodes[0].getrawtransaction(txhead, 1)
+        except JSONRPCException as e:
+            print(e)
+            assert(False)
+
+        assert_equal(self.nodes[0].getbalance("", 0, False, issue["asset"]), 100-11)
+        assert_equal(self.nodes[1].getbalance("", 0, False, issue["asset"]), 11)
 
         multiAddress1=self.nodes[1].createmultisig(2,[clientAddress1['pubkey'],clientAddress2['pubkey'],clientAddress3['pubkey']])
 
@@ -394,6 +424,38 @@ class OnboardTest (BitcoinTestFramework):
         else:
             raise AssertionError("P2SH multisig with n=0 has been validated and accepted to the whitelist.")
 
+        # issue some new asset (that is not the policy asset)
+        issue = self.nodes[0].issueasset('100.0','0')
+        self.nodes[1].generate(1)
+
+        nonPolicyAddress1=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        nonPolicyAddress2=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+        nonPolicyAddress3=self.nodes[1].validateaddress(self.nodes[1].getnewaddress())
+
+        multiAddr = self.nodes[1].createmultisig(2,[nonPolicyAddress1['pubkey'],nonPolicyAddress2['pubkey'],nonPolicyAddress3['pubkey']])
+
+        result = self.nodes[1].importmulti([{
+            "scriptPubKey": {
+                "address": multiAddr['address']
+            },
+            "timestamp": "now",
+            "redeemscript": multiAddr['redeemScript'],
+            "keys": [ self.nodes[1].dumpprivkey(nonPolicyAddress1['unconfidential']), self.nodes[1].dumpprivkey(nonPolicyAddress2['unconfidential']), self.nodes[1].dumpprivkey(nonPolicyAddress3['unconfidential'])]
+        }])
+
+        # Send 12 issued asset from 0 to 1 using sendtoaddress. Will fail to create mempool transaction because recipient addresses not whitelisted.
+        txidm = self.nodes[0].sendtoaddress(multiAddr['address'], 12,"","",False,issue["asset"])
+        self.nodes[1].generate(101)
+        self.sync_all()
+
+        try:
+            rawtxm = self.nodes[1].getrawtransaction(txidm, 1)
+        except JSONRPCException as e:
+            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
+            #Abandon the transaction to allow the output to be respent
+            self.nodes[0].abandontransaction(txidm)
+        else:
+            raise AssertionError("Output accepted to non-whitelisted address.")
 
         wl1_file=self.initfile("wl1.dat")
         self.nodes[1].dumpwhitelist(wl1_file)

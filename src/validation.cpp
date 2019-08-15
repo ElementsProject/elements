@@ -1844,7 +1844,7 @@ bool CheckValidTweakedAddress(const CTxDestination keyID, const std::vector<CPub
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
     if (!contract.IsNull()){
-        for (int it = 0; it < tweakedPubKeys.size(); ++it){
+        for (std::vector<CPubKey>::size_type it = 0; it < tweakedPubKeys.size(); ++it){
             tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
         }
     }

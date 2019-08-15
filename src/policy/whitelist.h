@@ -48,8 +48,7 @@ public:
 	virtual void add_multisig_whitelist(const CBitcoinAddress& address, const std::vector<CPubKey>& pubKeys,
 		const uint8_t nMultisig);
 
-  	virtual bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data,
-  		const bool bBlacklist=false);
+  	bool RegisterDecryptedAddresses(const std::vector<unsigned char>& data, const bool bBlacklist=false);
 
   	virtual bool IsRegisterAddressMulti(const std::vector<unsigned char>::const_iterator start,const std::vector<unsigned char>::const_iterator vend);
 
@@ -68,21 +67,10 @@ public:
 
   	virtual bool peek_unassigned_kyc(CPubKey& pubKey);
 
-  	virtual bool LookupKYCKey(const CTxDestination keyId, CKeyID& kycKeyIdFound){
-  		return false;
-  	}
+	virtual bool LookupKYCKey(const CTxDestination& keyId, CKeyID& kycKeyIdFound){return false;}
+  	virtual bool LookupKYCKey(const CTxDestination& keyId, CPubKey& pubKeyFound){return false;}
+  	virtual bool LookupKYCKey(const CTxDestination& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){return false;}
 
-  	virtual bool LookupKYCKey(const CTxDestination keyId, CPubKey& kycPubkeyFound){
-  		return false;
-  	}
-
-  	virtual bool LookupKYCKey(const CKeyID& keyId, CPubKey& kycPubkeyFound){
-  		return false;
-  	}
-
-  	virtual bool LookupKYCKey(const CKeyID& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){
-  		return false;
-  	}
 
   	virtual bool find_kyc_whitelisted(const CKeyID& keyId){
   		return false;

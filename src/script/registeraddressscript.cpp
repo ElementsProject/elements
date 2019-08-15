@@ -98,7 +98,7 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
                     scriptID.begin(), 
                     scriptID.end());
 
-    for(int i = 0; i < keys.size(); ++i){
+    for(unsigned int i = 0; i < keys.size(); ++i){
         _payload.insert(_payload.end(), 
                 keys[i].begin(), 
                 keys[i].end());

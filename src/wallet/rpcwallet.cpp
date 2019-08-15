@@ -574,7 +574,7 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
     LOCK2(cs_main, pwalletMain->cs_wallet);
     pwalletMain->AvailableCoins(vecOutputs, true, NULL, true);
     BOOST_FOREACH(const COutput& out, vecOutputs) {
-     if (out.nDepth < nMinDepth || out.nDepth > nMaxDepth |! out.fSpendable)
+     if ((out.nDepth < nMinDepth) || (out.nDepth > nMaxDepth) |! (out.fSpendable))
             continue;
         CAmount nValue = out.tx->GetOutputValueOut(out.i);
         CAsset assetid = out.tx->GetOutputAsset(out.i);
@@ -582,7 +582,6 @@ static void SendOnboardTx(const CScript& script,  CWalletTx& wtxNew){
             coinControl->Select(COutPoint(out.tx->GetHash(), out.i));
             const CTxOut& newout = out.tx->tx->vout[out.i];
             std::vector<std::vector<unsigned char> > vSolutions;
-            txnouttype whichType;
             CTxDestination address;
             if (ExtractDestination(newout.scriptPubKey, address)){
                 coinControl->destChange=address;
@@ -728,7 +727,7 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
         unsigned int& icoin=coin.second;
         BOOST_FOREACH(COutput& out, vAvailableCoins){
             if(out.tx == pcoin){
-                if(out.i == icoin){
+                if((unsigned int)out.i == icoin){
                     const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
                     if(!ExtractDestination(scriptPubKey, inputAddr)) continue;
                     CBitcoinAddress addr(inputAddr);
@@ -811,7 +810,7 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey*
         throw JSONRPCError(RPC_INVALID_PARAMETER, "This P2SH address is pending or has been whitelisted already");
 
     std::vector<CPubKey> pubKeyVec;
-    for (int i = 0; i < sPubKeys.size(); ++i){
+    for (unsigned int i = 0; i < sPubKeys.size(); ++i){
         std::string parseStr = sPubKeys[i].get_str();
         std::vector<unsigned char> pubKeyData(ParseHex(parseStr.c_str()));
         CPubKey tpubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
@@ -840,7 +839,7 @@ static void SendAddNextMultiToWhitelistTx(const CAsset& feeAsset, const CPubKey*
 //whitelist via a OP_REGISTERADDRESS transaction.
 //Use "asset" to pay the transaction fee.
 static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
-    const int nToRegister, const CPubKey& pubKey,
+    const unsigned int nToRegister, const CPubKey& pubKey,
     CWalletTx& wtxNew){
 
     if(fWhitelistEncrypt && !addressWhitelist->find_kyc_whitelisted(pubKey.GetID())){
@@ -875,7 +874,6 @@ static void SendAddNextToWhitelistTx(const CAsset& feeAsset,
 
     std::set<CKeyID> keysToReg;
 
-    nToRegister;
     int nReg=0;
     int nWl=0;
 
@@ -1047,7 +1045,7 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
     UniValue kycPubKeys(UniValue::VARR);
     kycPubKeys = request.params[0].get_array();
-    int maxNKeys=100;
+    unsigned int maxNKeys=100;
     if(kycPubKeys.size() > maxNKeys)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: too many keys in input array");
 
@@ -1068,7 +1066,6 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
     CPubKey adminPubKey;
     CAmount adminValue;
     uint256 adminTxID;
-    int adminNOutput;
 
     CAsset wl_asset=Params().GetConsensus().whitelist_asset;
 
@@ -1236,6 +1233,8 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
 
     int64_t nKeysToAdd=request.params[0].get_int64()-addressWhitelist->n_unassigned_kyc_pubkeys();
 
+    if(nKeysToAdd == 0) return 0;
+
     int64_t unassignedDiff = CWhiteList::MAX_UNASSIGNED_KYCPUBKEYS-addressWhitelist->n_unassigned_kyc_pubkeys();
     if(nKeysToAdd > unassignedDiff){
         nKeysToAdd = unassignedDiff;
@@ -1248,12 +1247,12 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     UniValue ret(UniValue::VARR);
     UniValue varr(UniValue::VARR);
 
-    int iMax=nKeysToAdd-1;
-    int nMaxPerTx=100;
+    unsigned int iMax=nKeysToAdd-1;
+    unsigned int nMaxPerTx=100;
     int nAdded=0;
     JSONRPCRequest request2;
 
-    for(int i=0; i<nKeysToAdd; i++){
+    for(unsigned int i=0; i<nKeysToAdd; i++){
         CPubKey kycPubKey = pwalletMain->GenerateNewKey();
         std::vector<unsigned char> datavec = ToByteVector(kycPubKey);
         kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
@@ -1350,10 +1349,13 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     if (!address.IsValid())
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
 
-    int nMultisig = request.params[2].get_int();
+    int nPar2 = request.params[2].get_int();
+    if(nPar2 < 1)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be less than 1");
+    unsigned int nMultisig = nPar2;
 
     if (nMultisig > MAX_P2SH_SIGOPS || nMultisig == 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be larger than 255 (1 byte) or 0");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "N of multisig can't be larger than 255 (1 byte)");
 
     std::string sFeeAsset="CBT";
     if(request.params.size() == 4)
@@ -3734,9 +3736,6 @@ UniValue listunspent(const JSONRPCRequest& request)
     if (assetstr != "") {
         asset = GetAssetFromString(assetstr);
     }
-
-    bool bPolicy=false;
-
 
     UniValue results(UniValue::VARR);
     vector<COutput> vecOutputs;

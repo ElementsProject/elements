@@ -96,7 +96,6 @@ void CWhiteListEncrypted::add_derived(const CBitcoinAddress& address,  const CPu
     //Will throw an error if address is not a valid derived address.
   CTxDestination keyId;
   keyId = address.Get();
-  
   if (keyId.which() == ((CTxDestination)CNoDestination()).which())
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
@@ -178,7 +177,7 @@ void CWhiteListEncrypted::add_multisig_whitelist(const CBitcoinAddress& address,
     const std::unique_ptr<CPubKey>& kycPubKey, const uint8_t nMultisig) {
     boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 
-    for(int i = 0; i < pubKeys.size(); ++i) {
+    for(unsigned int i = 0; i < pubKeys.size(); ++i) {
         if (!pubKeys[i].IsFullyValid()) 
             throw std::invalid_argument(std::string(std::string(__func__) + 
             ": invalid public key"));
@@ -250,7 +249,7 @@ void CWhiteListEncrypted::add_multisig_whitelist(const std::string& sAddress, co
     ": invalid Bitcoin address: ") + sAddress);
 
   std::vector<CPubKey> pubKeyVec;
-  for (int i = 0; i < sPubKeys.size(); ++i){
+  for (unsigned int i = 0; i < sPubKeys.size(); ++i){
     std::string parseStr = sPubKeys[i].get_str();
     std::vector<unsigned char> pubKeyData(ParseHex(parseStr.c_str()));
     CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
@@ -430,9 +429,6 @@ bool CWhiteListEncrypted::RegisterAddress(const CTransaction& tx, const CCoinsVi
 
   if(foundPrivKey == false){
     //Whitelisting node?
-    // For debugging - translate into bitcoin address
-    CBitcoinAddress addr(kycKey);
-    std::string sAddr = addr.ToString();
     if(!pwalletMain->GetKey(kycKey, decryptPrivKey))
       return false;
   }
@@ -446,7 +442,7 @@ bool CWhiteListEncrypted::RegisterAddress(const CTransaction& tx, const CCoinsVi
   }
 
   std::unique_ptr<CPubKey> kycPubKeyPtr(new CPubKey(kycPubKey.begin(), kycPubKey.end()));
-  return RegisterDecryptedAddresses(data, kycPubKeyPtr, false);
+  return RegisterDecryptedAddresses(data, kycPubKeyPtr, bOnboard);
 
   #else //#ifdef ENABLE_WALLET
     LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
@@ -726,7 +722,6 @@ bool CWhiteListEncrypted::Update(const CTransaction& tx, const CCoinsViewCache& 
               LogPrintf("POLICY: not blacklisting invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             }
 
-            CKeyID id=kycPubKey.GetID();
             blacklist_kyc(kycPubKey);
 
             LogPrintf("POLICY: moved KYC pubkey from whitelist to blacklist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
@@ -872,7 +867,7 @@ void CWhiteListEncrypted::add_unassigned_kyc(const CPubKey& id){
     CKey privKey;
     int nTries=0;
     while(!pwalletMain->GetKey(kycKey, privKey)){
-      CPubKey newPubKey = pwalletMain->GenerateNewKey();
+      pwalletMain->GenerateNewKey();
       if(++nTries > MAX_UNASSIGNED_KYCPUBKEYS){
          LogPrintf("ERROR: kyc privkey not in whitelisting node wallet"+HexStr(id.begin(), id.end())+"\n");
         break;

@@ -72,7 +72,6 @@ bool CWhiteList::Load(CCoinsView *view)
                                 LogPrintf("POLICY: not adding invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
                             }
 
-                            CKeyID id=kycPubKey.GetID();
                             COutPoint outPoint(key, i);
                             LogPrintf("POLICY: added unassigned KYC pub key "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
                             add_unassigned_kyc(kycPubKey);
@@ -152,7 +151,7 @@ void CWhiteList::add_multisig_whitelist(const CBitcoinAddress& address, const st
   const uint8_t nMultisig){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
 
-  for(int i = 0; i < pubKeys.size(); ++i) {
+  for(unsigned int i = 0; i < pubKeys.size(); ++i) {
     if (!pubKeys[i].IsFullyValid()) 
       throw std::invalid_argument(std::string(std::string(__func__) + 
         ": invalid public key"));
@@ -188,7 +187,7 @@ void CWhiteList::add_multisig_whitelist(const std::string& sAddress, const UniVa
     ": invalid Bitcoin address: ") + sAddress);
 
   std::vector<CPubKey> pubKeyVec;
-  for (int i = 0; i < sPubKeys.size(); ++i){
+  for (unsigned int i = 0; i < sPubKeys.size(); ++i){
     std::string parseStr = sPubKeys[i].get_str();
     std::vector<unsigned char> pubKeyData(ParseHex(parseStr.c_str()));
     CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
