@@ -151,7 +151,7 @@ bool CKYCFile::read(){
             }
         }
     }
-    if(ss.str().size() < nBytesTotal){
+    if(ss.str().size() < nBytesTotal || ss.str().size() == 0){
          throw std::system_error(
                         std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
                         std::string(std::string(__func__) +  ": invalid KYC file: encrypted data stream too short"));
