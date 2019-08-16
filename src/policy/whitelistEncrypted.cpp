@@ -491,7 +491,6 @@ bool CWhiteListEncrypted::RegisterDecryptedAddresses(const std::vector<unsigned 
             }
           }
           std::string addrStr=addrNew.ToString();
-          if(!fEnd){
             CPubKey pubKeyNew = CPubKey(itData1,itData2);
             itData1=itData2;
             if(!pubKeyNew.IsFullyValid())
@@ -514,7 +513,6 @@ bool CWhiteListEncrypted::RegisterDecryptedAddresses(const std::vector<unsigned 
             } 
             bSuccess = true;
           }
-        }
       }
     }
     //REGISTERADDRESS for MULTISIG

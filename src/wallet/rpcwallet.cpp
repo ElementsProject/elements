@@ -228,7 +228,7 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
 
     if(!fWhitelistEncrypt)
         throw JSONRPCError(RPC_MISC_ERROR, 
-            "Not implememented for unencrypted whitelist");
+            "Not implemented for unencrypted whitelist");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -1289,7 +1289,7 @@ UniValue sendaddtowhitelisttx(const JSONRPCRequest& request){
     }
 
     if (!fWhitelistEncrypt)
-            throw JSONRPCError(RPC_MISC_ERROR, "Not implememented for unencrypted whitelist");
+            throw JSONRPCError(RPC_MISC_ERROR, "Not implemented for unencrypted whitelist");
 
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1338,6 +1338,9 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
             + HelpExampleCli("sendaddmultitowhitelisttx", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XX\" \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\" 1, \"CBT\"")
         );
     }
+
+    if(!fWhitelistEncrypt)
+        throw JSONRPCError(RPC_MISC_ERROR, "Not implemented for unencrypted whitelist");
 
     if (request.params[0].isNull() || request.params[1].isNull() || request.params[2].isNull())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, required arguments must be non-null");

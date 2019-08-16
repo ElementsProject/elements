@@ -35,6 +35,7 @@ public:
 
 	virtual void add_derived(const std::string& sAddress, const std::string& sKey);
 
+
 	//Multisig whitelisting below
 	virtual void add_multisig_whitelist(const std::string& sAddress, const UniValue& sPubKeys, 
   		const std::string& sKYCAddress, const uint8_t nMultisig);
@@ -120,4 +121,5 @@ protected:
   	//The written code behaviour expects nMultisigSize to be of length 1 at the moment. If it is changed in the future the code needs to be adjusted accordingly.
   	const unsigned int nMultisigSize=1;
   	const unsigned int minPayloadSize=2;
+
 };

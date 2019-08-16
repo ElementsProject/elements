@@ -2757,7 +2757,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         // TODO - should also do this for the case where bytes are appended to OP_RETURN?
         // Just like issuance/re-issuance, when destroying assets pay policyAsset fees
         if (recipient.scriptPubKey == CScript(OP_RETURN) || 
-            recipient.scriptPubKey == CScript(OP_REGISTERADDRESS))
+            recipient.scriptPubKey == CScript(OP_REGISTERADDRESS) ||
+            recipient.scriptPubKey == CScript(OP_DEREGISTERADDRESS))
             feeAsset =  policyAsset;
 
         if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset.IsNull())

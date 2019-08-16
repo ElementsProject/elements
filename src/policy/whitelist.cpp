@@ -216,7 +216,7 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   LOCK2(cs_main, pwalletMain->cs_wallet);
   EnsureWalletIsUnlocked();
 
-  //Check if this is a TX_REGISTERADDRESS. If so, read the data into a byte vector.
+  //Check if this is a TX_REGISTERADDRESS or TX_DEREGISTERADDRESS. If so, read the data into a byte vector.
   opcodetype opcode;
   std::vector<unsigned char> bytes;
 
@@ -286,7 +286,8 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
         if(!fEnd){
           CBitcoinAddress addrNew;
           std::vector<unsigned char> addrChars(itData1,itData2);
-          addrNew.Set(CKeyID(uint160(addrChars)));  
+          CTxDestination addr = CKeyID(uint160(addrChars));
+//          addrNew.Set(CKeyID(uint160(addrChars)));  
           itData1 = itData2;
           for(unsigned int i=0; i<CPubKey::COMPRESSED_PUBLIC_KEY_SIZE; ++i){
             if(itData2++ == pend){
@@ -295,27 +296,29 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
               break;
             }
           }
-          std::string addrStr=addrNew.ToString();
-          if(!fEnd){
-            CPubKey pubKeyNew = CPubKey(itData1,itData2);
-            itData1=itData2;
-            if(!pubKeyNew.IsFullyValid())
-            {
-              itData1 = itStart;
-              itData2 = itStart;
-              if(pairsAdded == 0)
-                bEnd = true;
-              break;
-            }
+  //        std::string addrStr=addrNew.ToString();
             try{
-                add_derived(addrNew, pubKeyNew);
+                CPubKey pubKeyNew = CPubKey(itData1,itData2);
+                itData1=itData2;
+                if(bBlacklist){
+                    remove(addr);
+                } else {
+                    if(!pubKeyNew.IsFullyValid())
+                    {
+                        itData1 = itStart;
+                        itData2 = itStart;
+                        if(pairsAdded == 0)
+                        bEnd = true;
+                        break;
+                    }
+                    add_derived(CBitcoinAddress(addr), pubKeyNew);
+                }
                 ++pairsAdded;
             } catch (std::invalid_argument e){
               LogPrintf(std::string(e.what()) + "\n");
               return bSuccess;
             } 
             bSuccess = true;
-          }
         }
       }
     }
@@ -373,12 +376,15 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
           vPubKeys.push_back(pubKeyNew);
         }
       }
-
-      try{
-        add_multisig_whitelist(addrMultiNew, vPubKeys, mMultisig);
-      } catch (std::invalid_argument e){
-        LogPrintf(std::string(e.what()) + "\n");
-        return bSuccess;
+      if(bBlacklist){
+        remove(addrMultiNew.Get());
+      } else {
+            try{
+            add_multisig_whitelist(addrMultiNew, vPubKeys, mMultisig);
+            } catch (std::invalid_argument e){
+            LogPrintf(std::string(e.what()) + "\n");
+            return bSuccess;
+        }
       }
 
       bSuccess = true;

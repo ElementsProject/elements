@@ -661,7 +661,7 @@ public:
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
+        return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS || *begin() == OP_DEREGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
     }
 
     void clear()

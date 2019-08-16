@@ -62,7 +62,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     } else if (whichType == TX_NULL_DATA &&
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
           return false;
-    else if (whichType == TX_REGISTERADDRESS &&
+    else if ( (whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) &&
                (!fAcceptRegisteraddress || scriptPubKey.size() > nMaxRegisteraddressBytes))
           return false;
     else if (whichType == TX_TRUE)
@@ -124,7 +124,7 @@ bool IsAnyBurn(const CTransaction &tx) {
   vector<vector<uint8_t>> vSolutions;
   for (CTxOut const &txout : tx.vout) {
     if(Solver(txout.scriptPubKey, whichType, vSolutions)) {
-      if ((whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS) && txout.nValue.GetAmount() != 0) return true;
+      if ((whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) && txout.nValue.GetAmount() != 0) return true;
     } else {
       return true;
     }
@@ -241,7 +241,7 @@ bool IsRedemption(CTransaction const &tx) {
   vector<vector<uint8_t>> vSolutions;
   for (uint32_t itr = 0; itr < tx.vout.size(); ++itr) {
     if (Solver(tx.vout[itr].scriptPubKey, whichType, vSolutions)) {
-      if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS)
+      if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS)
         continue;
       //set freeze-flag key
       uint160 frzInt;
@@ -291,7 +291,7 @@ bool IsFreezelisted(CTransaction const &tx, CCoinsViewCache const &mapInputs) {
       CKeyID keyId = CKeyID(uint160(vSolutions[0]));
       // search in freezelist for the presence of keyid
       if (!addressFreezelist.find(keyId)) return false;
-    } else if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS) {
+    } else if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) {
       continue;
      } else {
       return false;
