@@ -248,6 +248,8 @@ libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   global/common.cpp \
   policy/kycfile.cpp \
+  ecies.cpp \
+  ecies_hex.cpp \
   script/registeraddressscript.cpp \
   script/onboardingscript.cpp \
   wallet/crypter.cpp \
