@@ -18,12 +18,14 @@ class OnboardManualTest (BitcoinTestFramework):
         self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[0].append("-pkhwhitelist-encrypt=1")
         self.extra_args[0].append("-rescan=1")
+        self.extra_args[0].append("-reindex-chainstate=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
         self.extra_args[0].append("-regtest=0")
         self.extra_args[0].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-rescan=1")
+        self.extra_args[1].append("-reindex-chainstate=1")
         self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist-scan=1")
         self.extra_args[1].append("-pkhwhitelist-encrypt=1")
@@ -32,6 +34,7 @@ class OnboardManualTest (BitcoinTestFramework):
         self.extra_args[1].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[1].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[2].append("-rescan=1")
+        self.extra_args[2].append("-reindex-chainstate=1")
         self.extra_args[2].append("-regtest=0")
         self.extra_args[2].append("-pkhwhitelist-scan=1")
         self.extra_args[2].append("-pkhwhitelist-encrypt=1")
@@ -183,6 +186,24 @@ class OnboardManualTest (BitcoinTestFramework):
             print(e.error['message'])
             assert(False)
         assert(iswl2)
+
+        time.sleep(1)
+        try:
+            stop_node(self.nodes[1],1)
+        except ConnectionResetError as e:
+            assert(False)
+        except ConnectionRefusedError as e:
+            assert(False)
+        time.sleep(5)
+        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+        time.sleep(5)
+        connect_nodes_bi(self.nodes,0,1)
+        connect_nodes_bi(self.nodes,1,2)
+        time.sleep(5)
+        wl1file_recon=self.initfile(os.path.join(self.options.tmpdir,"wl1_recon.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_recon)
+        assert(filecmp.cmp(wl1file, wl1file_recon))
+
         return
 
 if __name__ == '__main__':

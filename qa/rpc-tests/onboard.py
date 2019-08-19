@@ -21,6 +21,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[0].append("-pkhwhitelist-encrypt=0")
         self.extra_args[0].append("-rescan=1")
+        self.extra_args[0].append("-reindex-chainstate=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
         self.extra_args[0].append("-regtest=0")
@@ -30,6 +31,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-rescan=1")
+        self.extra_args[1].append("-reindex-chainstate=1")
         self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist=1")
         self.extra_args[1].append("-pkhwhitelist-encrypt=0")
@@ -49,6 +51,7 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[2].append("-pkhwhitelist=1")
         self.extra_args[2].append("-pkhwhitelist-encrypt=0")
         self.extra_args[2].append("-rescan=1")
+        self.extra_args[2].append("-reindex-chainstate=1")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
         self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-regtest=0")
@@ -92,7 +95,6 @@ class OnboardTest (BitcoinTestFramework):
             self.removefileifexists(file)
 
     def run_test (self):
-        self.n_blacklist_tests=0
         keypool=100
         # import the policy keys into node 0
         self.nodes[0].importprivkey("cS29UJMQrpnee7UaUHo6NqJVpGr35TEqUDkKXStTnxSZCGUWavgE")
@@ -214,26 +216,12 @@ class OnboardTest (BitcoinTestFramework):
 
         bal1=self.nodes[1].getwalletinfo()["balance"]["CBT"]
 
-        self.blacklist_test(kycfile, keypool)
         assert_equal(float(bal1),float(ntosend))
 
         self.nodes[1].dumpwhitelist(wl1file)
 
         
-        # time.sleep(1)
-        # try:
-        #     stop_node(self.nodes[1],1)
-        #  except ConnectionResetError as e:
-        #     pass
-        # except ConnectionRefusedError as e:
-        #     pass
-        # self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[:3])
-        # wl1file_2="wl1_2.dat"
-        # self.nodes[1].dumpwhitelist(wl1file_2)
-        # assert(filecmp.cmp(wlfile, wlfile_2))
-
         #Node 1 registers additional addresses to whitelist
-        self.blacklist_test(kycfile, keypool)
         nadd=100
         try:
             saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
@@ -255,7 +243,6 @@ class OnboardTest (BitcoinTestFramework):
             multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress2['address'],[clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey'],clientAddress4['derivedpubkey']],2,"CBT")
         except JSONRPCException as e:
             assert("Not implemented for unencrypted whitelist" in e.error['message'])
-        self.blacklist_test(kycfile, keypool)
 
             
         time.sleep(5)
@@ -283,8 +270,6 @@ class OnboardTest (BitcoinTestFramework):
             "keys": [ self.nodes[1].dumpprivkey(clientAddress2['unconfidential']), self.nodes[1].dumpprivkey(clientAddress3['unconfidential']), self.nodes[1].dumpprivkey(clientAddress4['unconfidential'])]
         }])
 
-        self.blacklist_test(kycfile, keypool)
-        
         vaddr = self.nodes[1].validateaddress(multiAddress2['address'])
 
         assert(vaddr['ismine'])
@@ -308,14 +293,12 @@ class OnboardTest (BitcoinTestFramework):
         except JSONRPCException as e:
             assert("kycaddress argument not implemented for unencrypted whitelist" in e.error['message'])
 
-        self.blacklist_test(kycfile, keypool)
             
         #Manual whitelisting - not via blockchain - manually added to all nodes.
         self.nodes[0].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         self.nodes[1].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
         self.nodes[2].addmultitowhitelist(multiAddress1['address'],[clientAddress1['derivedpubkey'],clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey']],2)
 
-        self.blacklist_test(kycfile, keypool)
         
         self.nodes[1].dumpwhitelist(wl1file_2)
         nlines1=self.linecount(wl1file)
@@ -329,7 +312,6 @@ class OnboardTest (BitcoinTestFramework):
             assert(False)
         assert(iswl)
 
-        self.blacklist_test(kycfile, keypool)
         
 #        self.nodes[0].removefromwhitelist(multiAddress1['address'])
 #        self.nodes[1].removefromwhitelist(multiAddress1['address'])
@@ -439,13 +421,30 @@ class OnboardTest (BitcoinTestFramework):
 
         self.blacklist_test(kycfile, keypool)
 
-#        self.cleanup_files()
+        #Restart nodes and restore whitelist.
+        time.sleep(1)
+        try:
+            stop_node(self.nodes[1],1)
+        except ConnectionResetError as e:
+            assert(False)
+        except ConnectionRefusedError as e:
+            assert(False)
+        time.sleep(5)
+        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+        time.sleep(5)
+        connect_nodes_bi(self.nodes,0,1)
+        connect_nodes_bi(self.nodes,1,2)
+        time.sleep(5)
+        wl1file_recon=self.initfile(os.path.join(self.options.tmpdir,"wl1_recon.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_recon)
+        assert(filecmp.cmp(wl1file, wl1file_recon))
+
+        
+        self.cleanup_files()
         return
     
     def blacklist_test(self, kycfile, keypool, toprint=""):
-        print("Blacklist test number: " + str(self.n_blacklist_tests))
         print(toprint)
-        self.n_blacklist_tests=self.n_blacklist_tests+1
         #Blacklist node1 wallet
         wl1file_4=self.initfile(os.path.join(self.options.tmpdir,"wl1_4.dat"))
         self.nodes[1].dumpwhitelist(wl1file_4)
