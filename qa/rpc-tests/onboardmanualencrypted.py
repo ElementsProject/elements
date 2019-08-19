@@ -187,6 +187,9 @@ class OnboardManualTest (BitcoinTestFramework):
             assert(False)
         assert(iswl2)
 
+        wl1file=os.path.join(self.options.tmpdir,"wl1.dat")
+        self.nodes[1].dumpwhitelist(wl1file)
+        
         time.sleep(1)
         try:
             stop_node(self.nodes[1],1)
@@ -200,7 +203,7 @@ class OnboardManualTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         time.sleep(5)
-        wl1file_recon=self.initfile(os.path.join(self.options.tmpdir,"wl1_recon.dat"))
+        wl1file_recon=os.path.join(self.options.tmpdir,"wl1_recon.dat")
         self.nodes[1].dumpwhitelist(wl1file_recon)
         assert(filecmp.cmp(wl1file, wl1file_recon))
 
