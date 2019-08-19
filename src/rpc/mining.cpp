@@ -1007,7 +1007,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
                         {
                             {"signblockscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded block signing script to propose"},
                             {"max_block_witness", RPCArg::Type::NUM, RPCArg::Optional::NO, "Total size in witness bytes that are allowed in the dynamic federations block witness for blocksigning"},
-                            {"fedpegscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded fedpegscript for dynamic block proposal"},
+                            {"fedpegscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded fedpegscript for dynamic block proposal. This is interpreted as a v0 segwit witnessScript, and fills out the fedpeg_program as such."},
                             {"extension_space", RPCArg::Type::ARR, RPCArg::Optional::NO, "Array of additional fields to embed in the dynamic blockheader. Has no consensus meaning aside from serialized size changes. This space is currently is only used for PAK enforcement.",
                                 {
                                     {"", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex encoded string for extension entries."},
