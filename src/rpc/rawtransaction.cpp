@@ -2462,6 +2462,8 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
             "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
     }
 
+    const auto& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
@@ -2474,7 +2476,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         // Special handling for pegin inputs: no blinds and explicit amount/asset.
         if (tx.vin[nIn].m_is_pegin) {
             std::string err;
-            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, tx.vin[nIn].prevout, err, false)) {
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, fedpegscripts, tx.vin[nIn].prevout, err, false)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
             }
             CTxOut pegin_output = GetPeginOutputFromWitness(tx.witness.vtxinwit[nIn].m_pegin_witness);
