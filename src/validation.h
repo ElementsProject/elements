@@ -321,10 +321,18 @@ void UnloadBlockIndex();
 void ThreadScriptCheck();
 /** Check if bitcoind connection via RPC is correctly working*/
 bool BitcoindRPCCheck(bool init);
+/** Check if geth connection via RPC is correctly working*/
+bool GethRPCCheck(bool init);
 /** Checks pegin witness for validity */
 bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_depth = true);
+/** Checks eth pegin witness for validity */
+bool IsValidEthPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, bool check_tx = true);
+/** Checks eth pegin transaction (in JSON format) for validity */
+bool IsValidEthPegin(const UniValue& tx, const CAmount& nAmount, const CPubKey& pubKey, std::string& strFailReason);
+/** Checks eth pegin transaction (in JSON format) confirmation */
+bool IsConfirmedEthPegin(const UniValue& tx, std::string& strFailReason);
 /** Extracts an output from pegin witness for evaluation as a normal output */
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
+CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness, bool eth_pegin = true);
 /** Check whether we are doing an initial block download (synchronizing from disk or network) */
 bool IsInitialBlockDownload();
 /** Format a string that describes several potential problems detected by the core.
