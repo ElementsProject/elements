@@ -16,7 +16,7 @@ class OnboardManualTest (BitcoinTestFramework):
         self.num_nodes = 3
         self.extra_args = [['-txindex'] for i in range(3)]
         self.extra_args[0].append("-pkhwhitelist=1")
-        self.extra_args[0].append("-pkhwhitelist-encrypt=0")
+        self.extra_args[0].append("-pkhwhitelist-encrypt=1")
         self.extra_args[0].append("-rescan=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
@@ -26,7 +26,7 @@ class OnboardManualTest (BitcoinTestFramework):
         self.extra_args[1].append("-rescan=1")
         self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist=1")
-        self.extra_args[1].append("-pkhwhitelist-encrypt=0")
+        self.extra_args[1].append("-pkhwhitelist-encrypt=1")
         self.extra_args[1].append("-initialfreecoins=2100000000000000")
         self.extra_args[1].append("-policycoins=50000000000000")
         self.extra_args[1].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
@@ -34,7 +34,7 @@ class OnboardManualTest (BitcoinTestFramework):
         self.extra_args[2].append("-rescan=1")
         self.extra_args[2].append("-regtest=0")
         self.extra_args[2].append("-pkhwhitelist=1")
-        self.extra_args[2].append("-pkhwhitelist-encrypt=0")
+        self.extra_args[2].append("-pkhwhitelist-encrypt=1")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
         self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
