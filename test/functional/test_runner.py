@@ -70,6 +70,8 @@ BASE_SCRIPTS = [
     # Scripts that are run by the travis build process.
     # vv First elements tests vv
     'feature_fedpeg.py',
+    'feature_fedpeg.py --pre_transition',
+    'feature_fedpeg.py --post_transition',
     'feature_mandatory_coinbase.py',
     'feature_block_subsidy.py',
     'feature_connect_genesis_outputs.py',
