@@ -476,27 +476,23 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
         fedpegscripts.push_back(std::make_pair(next_param.m_fedpeg_program, next_param.m_fedpegscript));
     }
 
-    // Next we walk backwards up to two epoch start blocks
-    const CBlockIndex* p_current_epoch_start = pblockindex->GetAncestor(epoch_start_height);
-    const CBlockIndex* p_prev_epoch_start = pblockindex->GetAncestor(epoch_start_height-epoch_length);
+    // Next we walk backwards up to M epoch starts
+    for (size_t i = 0; i < params.total_valid_epochs; i++) {
 
-    if (p_current_epoch_start) {
-        if (!p_current_epoch_start->dynafed_params.IsNull()) {
-            fedpegscripts.push_back(std::make_pair(p_current_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_current_epoch_start->dynafed_params.m_current.m_fedpegscript));
+        const CBlockIndex* p_epoch_start = pblockindex->GetAncestor(epoch_start_height-i*epoch_length);
+
+        // We're done here, for whatever reason.
+        if (!p_epoch_start) {
+            break;
+        }
+
+        if (!p_epoch_start->dynafed_params.IsNull()) {
+            fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_epoch_start->dynafed_params.m_current.m_fedpegscript));
         } else {
             fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
         }
     }
-
-    if (p_prev_epoch_start) {
-        if (!p_prev_epoch_start->dynafed_params.IsNull()) {
-            fedpegscripts.push_back(std::make_pair(p_prev_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_prev_epoch_start->dynafed_params.m_current.m_fedpegscript));
-        } else {
-            fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
-        }
-    }
-
     // Only return up to the latest two of three possible fedpegscripts, which are enforced
-    fedpegscripts.resize(std::min((int)fedpegscripts.size(), 2));
+    fedpegscripts.resize(std::min(fedpegscripts.size(), params.total_valid_epochs));
     return fedpegscripts;
 }

@@ -1384,6 +1384,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"current_signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data enforced on the next block.\n"
             "  \"max_block_witness\" : xx,     (numeric) maximum sized block witness serialized size for the next block.\n"
             "  \"epoch_length\" : xx,          (numeric) Length of dynamic federations epoch, or signaling period\n"
+            "  \"total_valid_epochs\" : xx,    (numeric) Number of epochs a given fedpscript is valid for, defined per chain.\n"
             "  \"epoch_age\" : xx,             (numeric) number of blocks into a dynamic federation epoch chain tip is. This number is between 0 to epoch_length-1\n"
             "  \"extension_space\" : [\"xxxx\", ...], (array) Array of extension fields in dynamic blockheader\n"
             "  \"pruneheight\": xxxxxx,        (numeric) lowest-height complete block stored (only present if pruning is enabled)\n"
@@ -1468,6 +1469,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             }
             obj.pushKV("extension_space", arr);
             obj.pushKV("epoch_length", (uint64_t)chainparams.GetConsensus().dynamic_epoch_length);
+            obj.pushKV("total_valid_epochs", (uint64_t)chainparams.GetConsensus().total_valid_epochs);
             obj.pushKV("epoch_age", (uint64_t)(chainActive.Tip()->nHeight % chainparams.GetConsensus().dynamic_epoch_length));
         }
     }

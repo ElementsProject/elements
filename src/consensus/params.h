@@ -105,6 +105,8 @@ struct Params {
     uint32_t dynamic_epoch_length = std::numeric_limits<uint32_t>::max();
     // Used to seed the extension space for first dynamic blocks
     std::vector<std::vector<unsigned char>> first_extension_space;
+    // Used to allow M-epoch-old peg-in addresses as deposits
+    size_t total_valid_epochs;
 };
 } // namespace Consensus
 

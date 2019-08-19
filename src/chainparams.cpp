@@ -134,6 +134,7 @@ public:
         g_signed_blocks = false;
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
+        consensus.total_valid_epochs = 0;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -263,6 +264,7 @@ public:
         g_signed_blocks = false;
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
+        consensus.total_valid_epochs = 0;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -366,6 +368,7 @@ public:
         g_signed_blocks = false;
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
+        consensus.total_valid_epochs = 0;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -581,6 +584,8 @@ class CCustomParams : public CRegTestParams {
         std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
         uint256 entropy;
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
+
+        consensus.total_valid_epochs = args.GetArg("-total_valid_epochs", 2);
 
         // Elements serialization uses derivation, bitcoin serialization uses 0x00
         if (g_con_elementsmode) {
