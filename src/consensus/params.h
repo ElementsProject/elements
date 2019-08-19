@@ -9,6 +9,7 @@
 #include "script/script.h"
 #include "uint256.h"
 #include "amount.h"
+#include "ethaddress.h"
 #include <map>
 #include <string>
 
@@ -67,6 +68,8 @@ struct Params {
     uint256 nMinimumChainWork;
     // The redeemscript that the peg uses. Uses p2sh-p2wsh
     CScript fedpegScript;
+    uint160 parentContract;
+    CEthAddress fedpegAddress;
     CAsset pegged_asset;
     CAsset freezelist_asset;
     CAsset burnlist_asset;

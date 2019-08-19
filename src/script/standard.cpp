@@ -63,7 +63,7 @@ static bool MatchLocked(const CScript& script, valtype& locktime)
     if (!script.GetOp(pc1, opcode1, vch1))
         return false;
     if (IsCheckLockTimeSize(opcode1)
-            && script.size() >= 3 + opcode1
+            && script.size() >= (size_t)(3 + opcode1)
             && script[1 + opcode1] == OP_CHECKLOCKTIMEVERIFY
             && script[2 + opcode1] == OP_DROP) {
         const CScriptNum nLockTime(vch1, true, 5);
