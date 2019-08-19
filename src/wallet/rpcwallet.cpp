@@ -4859,8 +4859,10 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
     // Get P2CH deposit address on mainchain from most recent fedpegscript.
     const auto& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
     CTxDestination mainchain_dest(WitnessV0ScriptHash(calculate_contract(fedpegscripts.front().second, dest_script)));
-    // P2SH-wrapped is the only valid choice for non-dynafed chains
-    if (!IsDynaFedEnabled(chainActive.Tip(), Params().GetConsensus())) {
+    // P2SH-wrapped is the only valid choice for non-dynafed chains but still an
+    // option for dynafed-enabled ones as well
+    if (!IsDynaFedEnabled(chainActive.Tip(), Params().GetConsensus()) ||
+                fedpegscripts.front().first.IsPayToScriptHash()) {
         mainchain_dest = ScriptHash(GetScriptForDestination(mainchain_dest));
     }
 
