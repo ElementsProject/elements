@@ -145,7 +145,7 @@ bool ShutdownRequested()
 /**
  * This is a minimally invasive approach to shutdown on LevelDB read errors from the
  * chainstate, while keeping user interface out of the common library, which is shared
- * between bitcoind, and bitcoin-qt and non-server tools.
+ * between bitcoind, and bitcoin-qt and npkhwhiteliston-server tools.
 */
 class CCoinsViewErrorCatcher : public CCoinsViewBacked
 {
@@ -1117,6 +1117,13 @@ bool AppInitParameterInteraction()
     fRequireWhitelistCheck = GetBoolArg("-pkhwhitelist", DEFAULT_WHITELIST_CHECK);
     fScanWhitelist = GetBoolArg("-pkhwhitelist-scan", DEFAULT_SCAN_WHITELIST);
     fWhitelistEncrypt = GetBoolArg("-pkhwhitelist-encrypt", DEFAULT_WHITELIST_ENCRYPT);  
+    if(fWhitelistEncrypt &! (fRequireWhitelistCheck || fScanWhitelist))
+        return InitError("-pkhwhitelist-encrypt requires either -pkhwhitelist or -pkhwhitelist-scan");
+    if(fScanWhitelist &! fWhitelistEncrypt)  
+        return InitError("-pkhwhitelist-scan requires -pkhwhitelist-encrypt");
+    if(fScanWhitelist && fRequireWhitelistCheck)  
+        return InitError("cannot enable both -pkhwhitelist and -pkhwhitelist-scan");
+
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
@@ -1455,6 +1462,10 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     fReindex = GetBoolArg("-reindex", false);
     bool fReindexChainState = GetBoolArg("-reindex-chainstate", false);
+
+    if((fRequireWhitelistCheck || fScanWhitelist) &! (fReindex || fReindexChainState))
+        return InitError("-pkhwhitelist or -pkhwhitelist-scan require either -reindex-chainstate or -reindex");
+
 
     // Upgrading to 0.8; hard-link the old blknnnn.dat files into /blocks/
     boost::filesystem::path blocksDir = GetDataDir() / "blocks";

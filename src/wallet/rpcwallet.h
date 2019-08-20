@@ -5,8 +5,12 @@
 #ifndef BITCOIN_WALLET_RPCWALLET_H
 #define BITCOIN_WALLET_RPCWALLET_H
 
+#include <univalue.h>
+
 class CRPCTable;
 
 void RegisterWalletRPCCommands(CRPCTable &t);
+
+UniValue RemoveKYCPubKey(const CPubKey& kycPubKey);
 
 #endif //BITCOIN_WALLET_RPCWALLET_H
