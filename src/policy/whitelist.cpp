@@ -488,7 +488,7 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             }
 
             if(remove_unassigned_kyc(kycPubKey))
-                LogPrintf("POLICY: deleted KYC pubkey from unassigned pubkey list"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+                LogPrintf("POLICY: removed KYC pubkey "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
         }
     }
 
@@ -511,10 +511,10 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             std::reverse(vKycPub.begin() + 3, vKycPub.end());
             CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
             if (!kycPubKey.IsFullyValid()) {
-                LogPrintf("POLICY: not adding invalid KYC pub key to whitelist"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+                LogPrintf("POLICY: not adding invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             } else {
                 add_unassigned_kyc(kycPubKey);    
-                LogPrintf("POLICY: registered new unassigned KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+                LogPrintf("POLICY: added KYC pub key "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             }
         }
     }

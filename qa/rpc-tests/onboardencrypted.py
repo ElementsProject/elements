@@ -246,9 +246,9 @@ class OnboardTest (BitcoinTestFramework):
 
         assert_equal(float(bal1),float(ntosend))
 
-        #Restart the nodes. The whitelist will be restored. 
-        wl1file=self.initfile(os.path.join(self.options.tmpdir,"wl1.dat"))
-        self.nodes[1].dumpwhitelist(wl1file)
+        #Restart one of the nodes. The whitelist will be restored.
+        wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs1)
         time.sleep(1)
         try:
             stop_node(self.nodes[1],1)
@@ -262,15 +262,13 @@ class OnboardTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         time.sleep(5)
-        wl1file_recon=self.initfile(os.path.join(self.options.tmpdir,"wl1_recon.dat"))
-        self.nodes[1].dumpwhitelist(wl1file_recon)
-        assert(filecmp.cmp(wl1file, wl1file_recon))
-
-            
-
-        
+        wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs2)
+        assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
 
         #Node 1 registers additional addresses to whitelist
+        wl1file=self.initfile(os.path.join(self.options.tmpdir,"wl1.dat"))
+        self.nodes[1].dumpwhitelist(wl1file)
         nadd=100
         saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
         time.sleep(5)
@@ -555,7 +553,12 @@ class OnboardTest (BitcoinTestFramework):
         self.cleanup_files()
         return
 
+
+
+
+    
 if __name__ == '__main__':
  OnboardTest().main()
 
 #  LocalWords:  ac
+

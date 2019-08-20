@@ -286,6 +286,52 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
     return ret;
 }
 
+UniValue getavailablekycpubkeys(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 0)
+        throw runtime_error(
+            "getavailablekycpubkeys ( \"address\" )\n"
+            "\nReturns the pubkeys available for kycfile encryption.\n"
+            "\nArguments: none\n"
+             "\nResult:\n"
+            "[                     (json array of string)\n"
+            "  \"kycpubkey\"         (string) an available kycpbukey\n"
+            "  ,...\n"
+            "]\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getavailablekycpubkeys", "\"test\"")
+            + HelpExampleRpc("getpavailablekycpubkeys", "\"test\"")
+        );
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    CPubKey kycPubKey;
+
+    if(request.params.size()==0){
+        kycPubKey=pwalletMain->GetKYCPubKey();
+        if(kycPubKey == CPubKey())
+            throw JSONRPCError(RPC_WALLET_ERROR, "KYC public key not found");
+        UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
+        return ret;
+    }
+
+    CBitcoinAddress address(request.params[0].get_str());
+    if (!address.IsValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+
+    CTxDestination addr = address.Get();
+    if(addr.which() == ((CTxDestination)CNoDestination()).which())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
+
+    if(!addressWhitelist->LookupKYCKey(addr, kycPubKey))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not found");
+
+    UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
+
+    return ret;
+}
 
 CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
 {
@@ -950,23 +996,49 @@ extern UniValue getrawtransaction(const JSONRPCRequest& request);
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
-UniValue blacklistkycpubkey(const JSONRPCRequest& request){
+UniValue removekycpubkey(const JSONRPCRequest& request){
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
     if (request.fHelp || request.params.size() != 1)
         throw runtime_error(
-            "blacklistkycpubkey \"kycpubkey\" \n"
+            "removekycpubkey \"kycpubkey\" \n"
             "\nArguments:\n"
 
-            "1. \"kycpubkey\"    (string, required) The KYC public key to be blacklisted\n"
+            "1. \"kycpubkey\"    (string, required) The KYC public key to be removed\n"
 
             "\nExamples:\n"
-            + HelpExampleCli("blacklistkycpubkey", "\"kycpubkey\"")
-            + HelpExampleRpc("blacklistkycpubkey", "\"kycpubkey\"")
+            + HelpExampleCli("removekycpubkey", "\"kycpubkey\"")
+            + HelpExampleRpc("removekycpubkey", "\"kycpubkey\"")
             );
-    if(!fWhitelistEncrypt)
-        throw JSONRPCError(RPC_MISC_ERROR, "Whitelist is not encrypted");
+    if(fWhitelistEncrypt)
+        throw JSONRPCError(RPC_MISC_ERROR, "not implemented for encrypted whitelist");
+
+    std::vector<unsigned char> pubKeyData(ParseHex(request.params[0].get_str()));
+    CPubKey kycPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    if(!kycPubKey.IsFullyValid())
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+
+}
+
+UniValue removekycpubkey(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "removekycpubkey \"kycpubkey\" \n"
+            "\nArguments:\n"
+
+            "1. \"kycpubkey\"    (string, required) The KYC public key to be removed from the list of available kycfile encryption keys\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("removekycpubkey", "\"kycpubkey\"")
+            + HelpExampleRpc("removekycpubkey", "\"kycpubkey\"")
+            );
+    if(fWhitelistEncrypt)
+        throw JSONRPCError(RPC_MISC_ERROR, "not implemented for encrypted whitelist");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -977,13 +1049,11 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     if(!kycPubKey.IsFullyValid())
          throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
-
-    CKeyID keyId = kycPubKey.GetID();
-
-    if(!addressWhitelist->find_kyc_whitelisted(keyId))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is not whitelisted");
+    return RemoveKYCPubKey(kycPubKey);
+}
 
 
+UniValue RemoveKYCPubKey(const CPubKey& kycPubKey){
     COutPoint outPoint;
 
     if(!addressWhitelist->get_kycpubkey_outpoint(keyId, outPoint))
@@ -1047,6 +1117,42 @@ UniValue blacklistkycpubkey(const JSONRPCRequest& request){
     varr3.push_back(result2["hex"]);
     request4.params = varr3;
     return sendrawtransaction(request4);
+}
+
+UniValue blacklistkycpubkey(const JSONRPCRequest& request){
+    if (!EnsureWalletIsAvailable(request.fHelp))
+        return NullUniValue;
+
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "blacklistkycpubkey \"kycpubkey\" \n"
+            "\nArguments:\n"
+
+            "1. \"kycpubkey\"    (string, required) The KYC public key to be blacklisted\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("blacklistkycpubkey", "\"kycpubkey\"")
+            + HelpExampleRpc("blacklistkycpubkey", "\"kycpubkey\"")
+            );
+    if(!fWhitelistEncrypt)
+        throw JSONRPCError(RPC_MISC_ERROR, "not implemented for unencrypted whitelist");
+
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    std::vector<unsigned char> pubKeyData(ParseHex(request.params[0].get_str()));
+    CPubKey kycPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
+    if(!kycPubKey.IsFullyValid())
+         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
+
+
+
+    if(!addressWhitelist->find_kyc_whitelisted(kycPubKey.GetID()))
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey is not whitelisted");
+
+
+    return RemoveKYCPubKey(kycPubKey);
 }
 
 

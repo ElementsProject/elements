@@ -64,14 +64,13 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes=[]
 
     def setup_network(self, split=False):
-        #Start a node, get the wallet file, stop the node and use the wallet file as the whitelisting wallet
         #Start nodes
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
         time.sleep(5)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
-        self.is_network_split=False
+        self.is_network_split=split
         self.sync_all()
 
     def linecount(self, file):
@@ -220,7 +219,27 @@ class OnboardTest (BitcoinTestFramework):
 
         self.nodes[1].dumpwhitelist(wl1file)
 
-        
+        #Restart one of the nodes. The whitelist will be restored.
+        wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs1)
+        time.sleep(1)
+        try:
+            stop_node(self.nodes[1],1)
+        except ConnectionResetError as e:
+            assert(False)
+        except ConnectionRefusedError as e:
+            assert(False)
+        time.sleep(5)
+        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+        time.sleep(5)
+        connect_nodes_bi(self.nodes,0,1)
+        connect_nodes_bi(self.nodes,1,2)
+        time.sleep(5)
+        wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs2)
+        assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
+
+                
         #Node 1 registers additional addresses to whitelist
         nadd=100
         try:
@@ -421,24 +440,6 @@ class OnboardTest (BitcoinTestFramework):
 
         self.blacklist_test(kycfile, keypool)
 
-        #Restart nodes and restore whitelist.
-        time.sleep(1)
-        try:
-            stop_node(self.nodes[1],1)
-        except ConnectionResetError as e:
-            assert(False)
-        except ConnectionRefusedError as e:
-            assert(False)
-        time.sleep(5)
-        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
-        time.sleep(5)
-        connect_nodes_bi(self.nodes,0,1)
-        connect_nodes_bi(self.nodes,1,2)
-        time.sleep(5)
-        wl1file_recon=self.initfile(os.path.join(self.options.tmpdir,"wl1_recon.dat"))
-        self.nodes[1].dumpwhitelist(wl1file_recon)
-        assert(filecmp.cmp(wl1file, wl1file_recon))
-
         
         self.cleanup_files()
         return
@@ -507,7 +508,6 @@ class OnboardTest (BitcoinTestFramework):
 
             assert(lendiff0 == 0)
             assert(lendiff2 == 0)
-            
 
 
     

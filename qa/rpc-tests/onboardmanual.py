@@ -42,6 +42,7 @@ class OnboardManualTest (BitcoinTestFramework):
         self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
+        self.files=[]
 
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
@@ -51,6 +52,26 @@ class OnboardManualTest (BitcoinTestFramework):
         self.is_network_split=False
         self.sync_all()
 
+    def linecount(self, file):
+        nlines=0
+        with open(file) as f:
+            for nlines, l in enumerate(f):
+                pass
+        return nlines
+
+    def initfile(self, filename):
+        self.files.append(filename)
+        self.removefileifexists(filename)
+        return filename
+
+    def removefileifexists(self, filename):
+        if(os.path.isfile(filename)):
+            os.remove(filename)
+
+    def cleanup_files(self):
+        for file in self.files:
+            self.removefileifexists(file)
+        
     def run_test (self):
         keypool=1
 
@@ -187,9 +208,9 @@ class OnboardManualTest (BitcoinTestFramework):
             assert(False)
         assert(iswl2)
 
-        wl1file=os.path.join(self.options.tmpdir,"wl1.dat")
-        self.nodes[1].dumpwhitelist(wl1file)
-        
+        #Restart one of the nodes. The whitelist will be restored.
+        wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs1)
         time.sleep(1)
         try:
             stop_node(self.nodes[1],1)
@@ -203,12 +224,12 @@ class OnboardManualTest (BitcoinTestFramework):
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         time.sleep(5)
-        wl1file_recon=os.path.join(self.options.tmpdir,"wl1_recon.dat")
-        self.nodes[1].dumpwhitelist(wl1file_recon)
-        assert(filecmp.cmp(wl1file, wl1file_recon))
+        wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs2)
+        assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
 
+        self.cleanup_files()
         return
 
 if __name__ == '__main__':
  OnboardManualTest().main()
-B
