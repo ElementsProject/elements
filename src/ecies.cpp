@@ -78,12 +78,13 @@ bool CECIES::Encrypt(uCharVec& em,
 
 
 	//Generate a pseudorandom initialization vector using sha1
-	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
-	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
+//	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
+//	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
 
 	//Copy the required number of bytes to _iv
 	unsigned char iv[AES_BLOCKSIZE];
-	memcpy(iv, &iv_tmp[0], sizeof(iv));
+	GetStrongRandBytes(iv,AES_BLOCKSIZE)
+//	memcpy(iv, &iv_tmp[0], sizeof(iv));
 
 	AES256CBCEncrypt encryptor(k, iv, true);
 		
@@ -97,6 +98,7 @@ bool CECIES::Encrypt(uCharVec& em,
 	uCharVec msg(_magic.begin(), _magic.end());
 	CPubKey ephemeralPub = privKey.GetPubKey();
 	msg.insert(msg.end(), ephemeralPub.begin(), ephemeralPub.end());
+	msg.insert(msg.end(), iv, &iv[AES_BLOCKSIZE]);
 	msg.insert(msg.end(), ciphertext.begin(), ciphertext.end());
 	//Generate MAC
 	unsigned char mac[CSHA256::OUTPUT_SIZE];

@@ -168,15 +168,19 @@ class OnboardManualTest (BitcoinTestFramework):
         #Restart one of the nodes. The whitelist will be restored.
         wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
         self.nodes[1].dumpwhitelist(wl1file_rs1)
-        time.sleep(1)
-        try:
-            stop_node(self.nodes[1],1)
-        except ConnectionResetError as e:
-            assert(False)
-        except ConnectionRefusedError as e:
-            assert(False)
         time.sleep(5)
-        ntries=100
+        ntries=10
+        success=True
+        for ntry in range(ntries):
+            try:
+                stop_node(self.nodes[1],1)
+            except ConnectionResetError as e:
+                success=False
+            except ConnectionRefusedError as e:
+                success=False
+            time.sleep(5)
+            if success is True:
+                break0
         for ntry in range(ntries):
             try:
                 success=True
