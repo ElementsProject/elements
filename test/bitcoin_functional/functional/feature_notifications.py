@@ -66,5 +66,7 @@ class NotificationsTest(BitcoinTestFramework):
             txids_rpc = list(map(lambda t: t['txid'], self.nodes[1].listtransactions("*", block_count)))
             assert_equal(sorted(txids_rpc), sorted(os.listdir(self.walletnotify_dir)))
 
+        # TODO: add test for `-alertnotify` large fork notifications
+
 if __name__ == '__main__':
     NotificationsTest().main()
