@@ -10,7 +10,7 @@ import struct
 import time
 
 from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment, WITNESS_COMMITMENT_HEADER
-from test_framework.key import ECKey, CPubKey
+from test_framework.key import ECKey, ECPubKey
 from test_framework.messages import (
     COIN,
     BIP125_SEQUENCE_NUMBER,

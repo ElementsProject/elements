@@ -28,7 +28,7 @@ class P2PBlocksOnly(BitcoinTestFramework):
             }],
             outputs=[{
                 self.nodes[0].get_deterministic_priv_key().address: 50 - 0.00125
-            }],
+            }, {"fee": 0.00125}],
         )
         sigtx = self.nodes[0].signrawtransactionwithkey(
             hexstring=rawtx,
