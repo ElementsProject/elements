@@ -13,7 +13,7 @@ ifneq ($(strip $(SINGLE_THREADED)),)
   CPPFLAGS := $(CPPFLAGS) -DSINGLE_THREADED
 endif
 
-CFLAGS := -I include
+CFLAGS := -I include $(LIBSIMPLICITY_INCLUDES)
 
 ifeq ($(strip $(SINGLE_THREADED)),)
   # SINGLE_THREADED is empty

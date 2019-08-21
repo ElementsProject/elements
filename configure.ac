@@ -1262,6 +1262,8 @@ AM_CONDITIONAL([EMBEDDED_UNIVALUE],[test x$need_bundled_univalue = xyes])
 AC_SUBST(UNIVALUE_CFLAGS)
 AC_SUBST(UNIVALUE_LIBS)
 
+SIMPLICITY_CFLAGS='-I$(srcdir)/simplicity/C/include'
+AC_SUBST(SIMPLICITY_CFLAGS)
 
 if test x$have_protobuf != xno &&
    test x$enable_bip70 != xno; then
