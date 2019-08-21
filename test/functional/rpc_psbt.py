@@ -6,7 +6,7 @@
 """
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes_bi, disconnect_nodes, find_output, sync_blocks
+from test_framework.util import assert_equal, assert_greater_than, assert_raises_rpc_error, connect_nodes_bi, disconnect_nodes, sync_blocks
 
 # These imports are used by commented-out tests.
 """
