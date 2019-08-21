@@ -19,10 +19,20 @@ else
 LIBUNIVALUE = $(UNIVALUE_LIBS)
 endif
 
+
+LIBSHA256COMPRESSION = $(exec_prefix)/lib/libsha256compression.so
+$(LIBSHA256COMPRESSION): $(wildcard simplicity/libsha256compression/*)
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C simplicity/libsha256compression out=$(exec_prefix) install
+
+LIBELEMENTSSIMPLICITY = simplicity/C/libElementsSimplicity.a
+$(LIBELEMENTSSIMPLICITY): $(wildcard simplicity/C/*) $(LIBSHA256COMPRESSION)
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) LIBSIMPLICITY_INCLUDES='-I ../libsha256compression/include' $(@F)
+
 BITCOIN_INCLUDES=-I$(builddir) $(BDB_CPPFLAGS) $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS)
 
 BITCOIN_INCLUDES += -I$(srcdir)/secp256k1/include
 BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
+BITCOIN_INCLUDES += $(SIMPLICITY_CFLAGS)
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
@@ -542,7 +552,8 @@ elementsd_LDADD = \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBELEMENTSSIMPLICITY) $(LIBSHA256COMPRESSION)
 
 elementsd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
 
@@ -581,7 +592,8 @@ elements_tx_LDADD = \
   $(LIBBITCOIN_UTIL) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBELEMENTSSIMPLICITY) $(LIBSHA256COMPRESSION)
 
 elements_tx_LDADD += $(BOOST_LIBS) $(CRYPTO_LIBS)
 #
@@ -608,7 +620,8 @@ elements_wallet_LDADD = \
   $(LIBLEVELDB) \
   $(LIBLEVELDB_SSE42) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBELEMENTSSIMPLICITY) $(LIBSHA256COMPRESSION)
 
 elements_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(EVENT_LIBS)
 #
@@ -624,7 +637,7 @@ endif
 
 libelementsconsensus_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
 libelementsconsensus_la_LIBADD = $(LIBSECP256K1)
-libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include -DBUILD_BITCOIN_INTERNAL
+libelementsconsensus_la_CPPFLAGS = $(AM_CPPFLAGS) -I$(builddir)/obj -I$(srcdir)/secp256k1/include $(SIMPLICITY_CFLAGS) -DBUILD_BITCOIN_INTERNAL
 libelementsconsensus_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 endif
