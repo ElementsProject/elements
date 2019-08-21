@@ -32,9 +32,6 @@
     <message>
         <source>Enter address or label to search</source>
         <translation>Introduzca la dirección o etiqueta para buscar
-                    
-                      
-                    
                   </translation>
     </message>
     <message>
