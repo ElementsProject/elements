@@ -1426,6 +1426,11 @@ AM_CONDITIONAL([EMBEDDED_UNIVALUE],[test x$need_bundled_univalue = xyes])
 AC_SUBST(UNIVALUE_CFLAGS)
 AC_SUBST(UNIVALUE_LIBS)
 
+dnl simplicity
+
+SIMPLICITY_CFLAGS='-I$(srcdir)/simplicity/C/include'
+AC_SUBST(SIMPLICITY_CFLAGS)
+
 dnl libmultiprocess library check
 
 libmultiprocess_found=no
