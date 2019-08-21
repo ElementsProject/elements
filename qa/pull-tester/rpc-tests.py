@@ -113,7 +113,7 @@ testScripts = [
     'whitelisting.py',
     'policytransactions.py',
     'onboard.py',
-    'onboard_cit.py'
+    'onboard_cit.py',
     'onboardencrypted.py',
     'onboardmanual.py',
     'onboardmanualencrypted.py',
