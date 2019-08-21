@@ -113,6 +113,7 @@ testScripts = [
     'whitelisting.py',
     'policytransactions.py',
     'onboard.py',
+    'onboard_cit.py',
     'onboardmanual.py',
     # Accounts not supported
     #'wallet-accounts.py',
@@ -163,7 +164,7 @@ testScripts = [
     #'p2p-segwit.py',
     #'importprunedfunds.py',
     'signmessages.py',
-    'signcontract.py',
+    'contractintx.py',
     #'nulldummy.py',
     # TODO reactivate this
     #'import-rescan.py',

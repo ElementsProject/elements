@@ -464,7 +464,7 @@ UniValue validatederivedkeys(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-        if (!contract.IsNull())
+        if (!contract.IsNull() && !Params().ContractInTx())
             pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
         CKeyID keyId;
         if (!address.GetKeyID(keyId))
@@ -870,7 +870,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
 
         std::vector<CPubKey> tweakedPubKeys = pubKeyVec;
 
-        if (!contract.IsNull()){
+        if (!contract.IsNull() && !Params().ContractInTx()){
             for (unsigned int it = 0; it < tweakedPubKeys.size(); ++it){
                 tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
             }

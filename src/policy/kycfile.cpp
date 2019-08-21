@@ -175,10 +175,12 @@ void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::s
 
     //Check the key tweaking
     CKeyID addressKeyId;
-    if(address.GetKeyID(addressKeyId) && !Params().ContractInTx()){
-        if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
-            _decryptedStream << line << ": invalid key tweaking\n";
-            return;
+    if(address.GetKeyID(addressKeyId)){
+        if(!Params().ContractInTx()){
+            if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
+                _decryptedStream << line << ": invalid key tweaking\n";
+                return;
+            }
         }
     }
     else{
@@ -226,10 +228,12 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     //Will throw an error if address is not a valid derived address.
     CTxDestination multiKeyId;
     multiKeyId = address.Get();
-    if (!(multiKeyId.which() == ((CTxDestination)CNoDestination()).which()) && !Params().ContractInTx()){
-        if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
-            _decryptedStream << line << ": invalid key tweaking\n";
-            return;
+    if (!(multiKeyId.which() == ((CTxDestination)CNoDestination()).which())) {
+        if(!Params().ContractInTx()){
+            if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
+                _decryptedStream << line << ": invalid key tweaking\n";
+                return;
+            }
         }
     }
     else{

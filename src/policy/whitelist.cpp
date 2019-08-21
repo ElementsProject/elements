@@ -128,7 +128,7 @@ void CWhiteList::add_derived(const CBitcoinAddress& address,  const CPubKey& pub
 
   CPubKey tweakedPubKey(pubKey);
    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-  if (!contract.IsNull())
+  if (!contract.IsNull() && !Params().ContractInTx())
     tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     _tweakedPubKeyMap[boost::get<CKeyID>(keyId)]=tweakedPubKey;
 

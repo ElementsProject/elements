@@ -18,6 +18,10 @@ class SignContractTest (BitcoinTestFramework):
         self.extra_args[1].append("-pkhwhitelist=1")
         self.extra_args[0].append("-contractintx=1")
         self.extra_args[1].append("-contractintx=1")
+        self.extra_args[0].append("-regtest=0")
+        self.extra_args[1].append("-regtest=0")
+        self.extra_args[2].append("-regtest=0")
+        self.extra_args[3].append("-regtest=0")       
 
 #Add keys from 'from_node' to the whitelist on 'whitelist_node'
     def add_keys_to_whitelist(self,from_node, whitelist_node):
@@ -84,6 +88,7 @@ class SignContractTest (BitcoinTestFramework):
         #expect a invalid key id error
         print(self.nodes[1].getcontract())
         print(self.nodes[1].getcontracthash())
+        assert(False)
         try:
             self.nodes[1].validatederivedkeys(fname)
         except JSONRPCException as e:
