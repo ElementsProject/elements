@@ -803,8 +803,12 @@ public:
      * keystore implementation
      * Generate a new key
      */
-    CPubKey GenerateNewKey();
-    void DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret);
+    CPubKey GenerateNewKey(const bool bEncryption=false);
+    void DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret, const unsigned int nExternalChain=0);
+    void DeriveNewEncryptionChildKey(CKeyMetadata& metadata, CKey& secret){
+        //Using externalChangeChildKey path = 2' for encryption keys.
+        DeriveNewChildKey(metadata, secret, 2);
+    }
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)

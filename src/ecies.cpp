@@ -53,8 +53,13 @@ bool CECIES::Encrypt(uCharVec& em,
 	return Encrypt(em, m, pubKey, ephemeralKey);
 }
 
-//Encryption: generate ephmeral private key, and include it's public key in the header.
-//Generate a dhared secret using the ephemeral private key and the recipient's public key.
+//Encryption: use the specified privKey as the "ephemeral" private key (the same 
+//privKey should only be used for ecnryption once).
+//Generate a shared secret (ecdh_key) using the ephemeral private key and the 
+//recipient's public key. The encryption key is the first 256 bytes of 
+//sha512(ecdh_key), and the MAC key is the remaining 256 bytes.
+//The initialization vector is the first AES_BLOCKSIZE bytes of the SHA1 of 
+//SHA512(ecdh_key)
 bool CECIES::Encrypt(uCharVec& em, 
  	const uCharVec& m, const CPubKey& pubKey, const CKey& privKey){
 

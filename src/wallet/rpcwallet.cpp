@@ -43,8 +43,6 @@
 
 #include <boost/assign/list_of.hpp>
 
-#include <univalue.h>
-
 using namespace std;
 
 int64_t nWalletUnlockTime;
@@ -1177,9 +1175,9 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
     CAsset wl_asset=Params().GetConsensus().whitelist_asset;
 
-    CAmount amountPerOutput=AmountFromValue(1);
+    CAmount amountPerOutput=1;
     CAmount spendAmount=amountPerOutput*kycPubKeys.size();
-    CAmount changeAmount = AmountFromValue(0);
+    CAmount changeAmount = 0;
 
 
     vector<COutput> vecOutputs;

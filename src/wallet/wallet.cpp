@@ -91,7 +91,7 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
     return &(it->second);
 }
 
-CPubKey CWallet::GenerateNewKey()
+CPubKey CWallet::GenerateNewKey(bool bEncryption)
 {
     AssertLockHeld(cs_wallet); // mapKeyMetadata
     bool fCompressed = CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
@@ -104,7 +104,11 @@ CPubKey CWallet::GenerateNewKey()
 
     // use HD key derivation if HD was enabled during wallet creation
     if (IsHDEnabled()) {
-        DeriveNewChildKey(metadata, secret);
+        if(bEncryption){
+            DeriveNewEncryptionChildKey(metadata, secret);
+        } else {
+            DeriveNewChildKey(metadata, secret);
+        }
     } else {
         secret.MakeNewKey(fCompressed);
     }
@@ -116,7 +120,7 @@ CPubKey CWallet::GenerateNewKey()
     CPubKey pubKeyPreTweak = secret.GetPubKey();
     metadata.derivedPubKey = pubKeyPreTweak;
 
-    if (Params().EmbedContract()) {
+    if (Params().EmbedContract() &! bEncryption) {
         // use the active block contract hash to generate keys - if this is not available use the local contract
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
         if (!contract.IsNull())
@@ -129,7 +133,7 @@ CPubKey CWallet::GenerateNewKey()
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
-    if (Params().EmbedContract())
+    if (Params().EmbedContract() &! bEncryption)
         assert(pubKeyPreTweak == pubkey);
 
     mapKeyMetadata[pubkey.GetID()] = metadata;
@@ -140,7 +144,8 @@ CPubKey CWallet::GenerateNewKey()
     return pubkey;
 }
 
-void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret)
+
+void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret, unsigned int nExternalChain)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
     CKey key;                      //master key seed (256bit)
@@ -160,7 +165,7 @@ void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret)
     masterKey.Derive(accountKey, BIP32_HARDENED_KEY_LIMIT);
 
     // derive m/0'/0'
-    accountKey.Derive(externalChainChildKey, BIP32_HARDENED_KEY_LIMIT);
+    accountKey.Derive(externalChainChildKey, BIP32_HARDENED_KEY_LIMIT + nExternalChain);
 
     // derive child key at next index, skip keys already known to the wallet
     do {

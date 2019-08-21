@@ -899,7 +899,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
             "\nDumps all wallet tweaked public keys in an encrypted format (p2sh multisig not supported).\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The filename\n"
-            "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption.\n"
+            "2. \"onboardpubkey\"    (string, optional) The public key to be used for kycfile encryption.\n"
             "return:\n"
             "User onboard public key."
             "\nExamples:\n"
@@ -940,7 +940,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     file << "\n";
 
     // add the onboarding public key 
-    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey(true);
     pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
@@ -1183,48 +1183,6 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     AuditLogPrintf("%s : dumpwallet %s\n", getUser(), request.params[0].get_str());
 
     return NullUniValue;
-}
-
-UniValue dumpavailablekycpubkeys(const JSONRPCRequest& request){
-    if (!EnsureWalletIsAvailable(request.fHelp))
-        return NullUniValue;
-
-    if (request.fHelp || request.params.size() != 0)
-        throw runtime_error(
-            "dumpavailablekycpubkeys ( \"address\" )\n"
-            "\nDumps the pubkeys available for kycfile encryption.\n"
-            "\nArguments: none\n"
-            "\nExamples:\n"
-            + HelpExampleCli("dumpavailablekycpubkeys", "\"test\"")
-            + HelpExampleRpc("dumpavailablekycpubkeys", "\"test\"")
-        );
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    CPubKey kycPubKey;
-
-    if(request.params.size()==0){
-        kycPubKey=pwalletMain->GetKYCPubKey();
-        if(kycPubKey == CPubKey())
-            throw JSONRPCError(RPC_WALLET_ERROR, "KYC public key not found");
-        UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
-        return ret;
-    }
-
-    CBitcoinAddress address(request.params[0].get_str());
-    if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
-
-    CTxDestination addr = address.Get();
-    if(addr.which() == ((CTxDestination)CNoDestination()).which())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Could not get key ID from Bitcoin address");
-
-    if(!addressWhitelist->LookupKYCKey(addr, kycPubKey))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "KYC public key not found");
-
-    UniValue ret(HexStr(kycPubKey.begin(), kycPubKey.end()));
-
-    return ret;
 }
 
 UniValue ProcessImport(const UniValue& data, const int64_t timestamp)

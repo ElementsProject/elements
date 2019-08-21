@@ -15,7 +15,9 @@ class WhitelistingTest (BitcoinTestFramework):
         self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100', '-txindex'] for i in range(self.num_nodes)]
 #Node 1 is a whitelist node. 
         self.extra_args[0].append("-pkhwhitelist=1")
+        self.extra_args[0].append("-reindex-chainstate=1")
         self.extra_args[1].append("-pkhwhitelist=1")
+        self.extra_args[1].append("-reindex-chainstate=1")
 
 #Add keys from 'from_node' to the whitelist on 'whitelist_node'
     def add_keys_to_whitelist(self,from_node, whitelist_node):

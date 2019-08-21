@@ -101,6 +101,11 @@ class OnboardManualTest (BitcoinTestFramework):
                     wltxid = txid
                     wlvalue = rawtx["vout"][0]["value"]
 
+        #Initial WHITELIST token balance
+        wb0_1=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
+        coin=float(1e8)
+        assert_equal(wb0_1*coin,float(50000000000000))
+                    
         #Whitelist node 0 addresses
         self.nodes[0].dumpderivedkeys("keys.main")
         self.nodes[0].readwhitelist("keys.main")
@@ -172,7 +177,18 @@ class OnboardManualTest (BitcoinTestFramework):
         except ConnectionRefusedError as e:
             assert(False)
         time.sleep(5)
-        self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+        ntries=100
+        for ntry in range(ntries):
+            try:
+                success=True
+                self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+            except Exception as e:
+                success=False
+                assert(e.args[0] == str('bitcoind exited with status -6 during initialization'))
+                stop_node(self.nodes[1],1)
+                time.sleep(5)
+            if success is True:
+                break
         time.sleep(5)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
@@ -230,6 +246,9 @@ class OnboardManualTest (BitcoinTestFramework):
             assert(False)
         assert(iswl2)
 
+        #Test that txs do not send WHITELIST tokens
+        wb0_2=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
+        assert_equal(wb0_1-float(wlvalue), wb0_2)
 
         self.cleanup_files()
         return
