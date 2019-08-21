@@ -100,8 +100,8 @@ void CWhiteListEncrypted::add_derived(const CBitcoinAddress& address,  const CPu
       throw std::invalid_argument(std::string(std::string(__func__) + 
       ": invalid key id"));
 
-  if(!Consensus::CheckValidTweakedAddress(keyId, pubKey))
-     throw std::invalid_argument(std::string(std::string(__func__) + 
+  if(!Params().ContractInTx() && !Consensus::CheckValidTweakedAddress(keyId, pubKey))
+    throw std::invalid_argument(std::string(std::string(__func__) + 
       ": address does not derive from public key when tweaked with contract hash"));
 
   CKeyID kycKeyID;
@@ -131,7 +131,7 @@ void CWhiteListEncrypted::add_derived(const CBitcoinAddress& address,  const CPu
   std::vector<CPubKey> pubkeyVec;
   CPubKey tweakedPubKey(pubKey);
   uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-  if (!contract.IsNull())
+  if (!contract.IsNull() && !Params().ContractInTx())
     tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
   pubkeyVec.push_back(tweakedPubKey);
   _tweakedPubKeysMap[keyId]=pubkeyVec;
@@ -190,7 +190,7 @@ void CWhiteListEncrypted::add_multisig_whitelist(const CBitcoinAddress& address,
         throw std::invalid_argument(std::string(std::string(__func__) + 
         ": invalid key id"));
 
-    if(!Consensus::CheckValidTweakedAddress(keyId, pubKeys, nMultisig))
+    if(!Params().ContractInTx() && !Consensus::CheckValidTweakedAddress(keyId, pubKeys, nMultisig))
         throw std::invalid_argument(std::string(std::string(__func__) + 
         ": address does not derive from public keys when tweaked with contract hash"));
 

@@ -123,7 +123,7 @@ CPubKey CWallet::GenerateNewKey(bool bEncryption)
     if (Params().EmbedContract() &! bEncryption) {
         // use the active block contract hash to generate keys - if this is not available use the local contract
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
-        if (!contract.IsNull())
+        if (!contract.IsNull() && !Params().ContractInTx())
         {
             pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
             secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
@@ -3355,6 +3355,16 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 nFeeRet = nFeeNeeded;
                 continue;
             }
+        }
+
+        //add contract hash to transaction if option selected
+        if(Params().ContractInTx()) {
+            uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+            CScript scriptPubKey;
+            scriptPubKey << OP_RETURN;
+            scriptPubKey << std::vector<unsigned char>(contract.begin(), contract.end());
+            CTxOut txoutcontract(feeAsset,0,scriptPubKey);
+            txNew.vout.push_back(txoutcontract);
         }
 
         // TODO Do actual blinding/caching here to allow for amount adjustments until end

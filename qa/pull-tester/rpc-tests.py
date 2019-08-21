@@ -113,6 +113,7 @@ testScripts = [
     'whitelisting.py',
     'policytransactions.py',
     'onboard.py',
+    'onboard_cit.py'
     'onboardencrypted.py',
     'onboardmanual.py',
     'onboardmanualencrypted.py',
@@ -165,6 +166,7 @@ testScripts = [
     #'p2p-segwit.py',
     #'importprunedfunds.py',
     'signmessages.py',
+    'contractintx.py',
     #'nulldummy.py',
     # TODO reactivate this
     #'import-rescan.py',

@@ -83,6 +83,7 @@ bool fHavePruned = false;
 bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
+bool fContractInTx = false;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
 bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
 bool fWhitelistEncrypt = DEFAULT_WHITELIST_ENCRYPT;  
@@ -1091,6 +1092,10 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
   if (fRequireWhitelistCheck)
     if (!IsAllBurn(tx) && !IsPolicy(tx) && !IsWhitelisted(tx) && !test_accept)
       return state.DoS(0, false, REJECT_NONSTANDARD, "non-whitelisted-address");
+  // Accept only transactions that include a hash of the latest contract
+  if (fContractInTx)
+      if(!IsAllBurn(tx) && !IsPolicy(tx) && !IsContractInTx(tx))
+        return state.DoS(0, false, REJECT_NONSTANDARD, "contract-missing");
   // Only accept nLockTime-using transactions that can be mined in the next
   // block; we don't want our mempool filled up with transactions that can't
   // be mined yet.

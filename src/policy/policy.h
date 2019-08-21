@@ -136,6 +136,11 @@ bool IsPolicy(const CTransaction& tx);
 bool IsAllPolicy(const CTransaction& tx);
 
 /**
+ * Check if the transaction contains the contract hash as an OP_RETURN output
+ */
+bool IsContractInTx(const CTransaction& tx);
+
+/**
  * Check all type and whitelist status of outputs of tx
  * Return true if all outputs of tx are type TX_PUBKEYHASH and all PUBKEYHASHes are present in the whitelist database
  */

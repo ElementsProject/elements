@@ -51,10 +51,10 @@ bool CRegisterAddressScript::Append(const CPubKey& pubKey){
 	uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
   	CPubKey tweakedPubKey(pubKey);
-    if (!contract.IsNull())
+    if (!contract.IsNull() && !Params().ContractInTx())
     	tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     CKeyID keyID=tweakedPubKey.GetID();
-    if(!Consensus::CheckValidTweakedAddress(keyID, pubKey))
+    if(!Params().ContractInTx() && !Consensus::CheckValidTweakedAddress(keyID, pubKey))
         return false;
     
     std::vector<unsigned char> vKeyIDNew = ToByteVector(keyID);
@@ -84,7 +84,7 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
     if(whitelistType != RA_MULTISIG && whitelistType != RA_ONBOARDING)
         return false;
 
-    if (!(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
+    if (!Params().ContractInTx() && !(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
         return false;
     
     _payload.insert(_payload.end(), 
