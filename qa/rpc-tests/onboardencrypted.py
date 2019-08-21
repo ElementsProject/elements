@@ -258,18 +258,7 @@ class OnboardTest (BitcoinTestFramework):
         self.sync_all()
 
         bal1=self.nodes[1].getwalletinfo()["balance"]["CBT"]
-
-
         assert_equal(float(bal1),float(ntosend))
-
-        time.sleep(5)
-        connect_nodes_bi(self.nodes,0,1)
-        time.sleep(5)
-        connect_nodes_bi(self.nodes,1,2)
-        time.sleep(5)
-        wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
-        self.nodes[1].dumpwhitelist(wl1file_rs2)
-        assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
 
         #Node 1 registers additional addresses to whitelist
         wl1file=self.initfile(os.path.join(self.options.tmpdir,"wl1.dat"))
