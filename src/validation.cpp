@@ -2990,12 +2990,14 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         //Don't update policy lists if this just a validity check.
         if(!fJustCheck){
+            LogPrintf("Updating Policy Lists\n");
+            int64_t nStart = GetTimeMillis();
             if(fRequireFreezelistCheck) {
                 if(tx.vout[0].nAsset.GetAsset() == freezelistAsset) UpdateFreezeList(tx,view);
             }
             if(fEnableBurnlistCheck) {
-             if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
-             }
+                if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
+            }
             if(fRequireWhitelistCheck || fScanWhitelist){
                 if(!addressWhitelist.RegisterAddress(tx, view)){
                     addressWhitelist.Update(tx,view);
@@ -3011,6 +3013,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 if(tx.vout[0].nAsset.GetAsset() == permissionAsset) UpdateRequestList(tx,chainActive.Height());
                 else UpdateRequestBidList(tx,chainActive.Height());
             }
+            LogPrintf(" policy lists update %15dms\n", GetTimeMillis() - nStart);
         }
 
         // GetTransactionSigOpCost counts 3 types of sigops:
