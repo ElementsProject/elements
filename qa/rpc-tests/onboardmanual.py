@@ -165,42 +165,6 @@ class OnboardManualTest (BitcoinTestFramework):
 
         os.remove(kycfile)
 
-        #Restart one of the nodes. The whitelist will be restored.
-        wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
-        self.nodes[1].dumpwhitelist(wl1file_rs1)
-        time.sleep(5)
-        ntries=10
-        success=True
-        for ntry in range(ntries):
-            try:
-                stop_node(self.nodes[1],1)
-            except ConnectionResetError as e:
-                success=False
-            except ConnectionRefusedError as e:
-                success=False
-            time.sleep(5)
-            if success is True:
-                break
-        for ntry in range(ntries):
-            try:
-                success=True
-                self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
-            except Exception as e:
-                success=False
-#                assert(e.args[0] == str('bitcoind exited with status -6 during initialization'))
-                stop_node(self.nodes[1],1)
-                time.sleep(5)
-            if success is True:
-                break
-        time.sleep(5)
-        connect_nodes_bi(self.nodes,0,1)
-        connect_nodes_bi(self.nodes,1,2)
-        time.sleep(5)
-        wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
-        self.nodes[1].dumpwhitelist(wl1file_rs2)
-        assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
-
-        
         time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
