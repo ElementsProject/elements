@@ -77,14 +77,8 @@ bool CECIES::Encrypt(uCharVec& em,
 	memcpy(_k_mac_encrypt, &arrKey[0]+sizeof(k), sizeof(_k_mac_encrypt));
 
 
-	//Generate a pseudorandom initialization vector using sha1
-//	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
-//	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
-
-	//Copy the required number of bytes to _iv
 	unsigned char iv[AES_BLOCKSIZE];
 	GetStrongRandBytes(iv,AES_BLOCKSIZE);
-//	memcpy(iv, &iv_tmp[0], sizeof(iv));
 
 	AES256CBCEncrypt encryptor(k, iv, true);
 		
@@ -149,8 +143,6 @@ bool CECIES::Decrypt(uCharVec& m,
 	it1=it2;
 	it2=it1+AES_BLOCKSIZE;
 	uCharVec iv(it1, it2);
-//	unsigned char iv[AES_BLOCKSIZE];
-//	memcpy(iv, it1, sizeof(iv));
 
 	it1=it2;
 	it2=decoded.end()-CSHA256::OUTPUT_SIZE;
@@ -162,16 +154,6 @@ bool CECIES::Decrypt(uCharVec& m,
 	unsigned char k[AES256_KEYSIZE];
 	memcpy(k, &arrKey[0], sizeof(k));
 	memcpy(_k_mac_decrypt, &arrKey[0]+sizeof(k), sizeof(_k_mac_decrypt));
-
-/*	
-	//Generate a pseudorandom initialization vector using sha1
-	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
-	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
-	//Copy the required number of bytes to _iv
-	unsigned char iv[AES_BLOCKSIZE];
-	memcpy(iv, &iv_tmp[0], sizeof(iv));
-*/
-
 
 	//Check the message authentication code (MAC)
 	uCharVec MAC_written(it2, decoded.end());
