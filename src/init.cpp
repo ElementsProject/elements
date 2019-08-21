@@ -1699,10 +1699,13 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
 
     if(chainActive.Height() > 1) {
+        LogPrintf("Loading Policy Lists\n");
+        nStart = GetTimeMillis();
         if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
         if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
         if (fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
         if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
+        LogPrintf(" policy lists load %15dms\n", GetTimeMillis() - nStart);
     }
 
     // ********************************************************* Step 11: start node
