@@ -57,7 +57,7 @@ class BlockSignTest(BitcoinTestFramework):
             k = key.ECKey()
             pk_bytes = hashlib.sha256(str(random.getrandbits(256)).encode('utf-8')).digest()
             #k.set_secretbytes(pk_bytes)
-            k.set(pk_bytes, True)
+            k.set(pk_bytes, False)
             w = wif(pk_bytes)
             print("generated key {}: \n pub: {}\n  wif: {}".format(
                 i+1, k.get_pubkey().get_bytes().hex(), w))
