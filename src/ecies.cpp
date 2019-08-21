@@ -87,7 +87,7 @@ bool CECIES::Encrypt(uCharVec& em,
 
 	int paddedSize=encryptor.Encrypt(m.data(), size, ciphertext.data());
 	ciphertext.resize(paddedSize);
-	//Payload: _magic + pubkey + ciphertext
+	//Payload: _magic + pubkey + iv + ciphertext
 
 	uCharVec msg(_magic.begin(), _magic.end());
 	CPubKey ephemeralPub = privKey.GetPubKey();
