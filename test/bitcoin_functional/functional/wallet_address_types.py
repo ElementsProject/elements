@@ -307,8 +307,7 @@ class AddressTypeTest(BitcoinTestFramework):
                 for utxo in self.nodes[to_node].listunspent():
                     if utxo['address'] == addresses[to_node][0]:
                         found = True
-                        #TODO(gwillen) turn back on after PSBT
-                        #self.test_desc(to_node, addresses[to_node][0], multisig, addresses[to_node][1], utxo)
+                        self.test_desc(to_node, addresses[to_node][0], multisig, addresses[to_node][1], utxo)
                         break
                 assert found
 

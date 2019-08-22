@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import codecs
 import hashlib
 import random
 
@@ -23,7 +22,7 @@ def make_signblockscript(num_nodes, required_signers, keys):
     for i in range(num_nodes):
         k = keys[i]
         script += "41"
-        script += codecs.encode(k.get_pubkey(), 'hex_codec').decode("utf-8")
+        script += k.get_pubkey().get_bytes().hex()
     script += "{}".format(50 + num_nodes) # num keys
     script += "ae" # OP_CHECKMULTISIG
     print('signblockscript', script)
@@ -55,13 +54,13 @@ class BlockSignTest(BitcoinTestFramework):
         self.keys = []
         self.wifs = []
         for i in range(num_keys):
-            k = key.CECKey()
+            k = key.ECKey()
             pk_bytes = hashlib.sha256(str(random.getrandbits(256)).encode('utf-8')).digest()
-            k.set_secretbytes(pk_bytes)
+            #k.set_secretbytes(pk_bytes)
+            k.set(pk_bytes, False)
             w = wif(pk_bytes)
-            print("generated key {}: \n pub: {}\n  wif: {}".format(i+1,
-                codecs.encode(k.get_pubkey(), 'hex_codec').decode("utf-8"),
-                w))
+            print("generated key {}: \n pub: {}\n  wif: {}".format(
+                i+1, k.get_pubkey().get_bytes().hex(), w))
             self.keys.append(k)
             self.wifs.append(wif(pk_bytes))
 

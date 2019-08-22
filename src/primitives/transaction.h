@@ -387,6 +387,11 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
                     s >> tx.witness.vtxinwit[i].m_pegin_witness.stack;
                 }
             }
+
+            if (!tx.HasWitness()) {
+                /* It's illegal to encode witnesses when all witness stacks are empty. */
+                throw std::ios_base::failure("Superfluous witness record");
+            }
         }
         s >> tx.nLockTime;
     }
