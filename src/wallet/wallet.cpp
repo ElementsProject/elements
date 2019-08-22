@@ -1633,9 +1633,6 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             CBlock block;
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
-                    if(fRequireWhitelistCheck || fScanWhitelist){
-                        addressWhitelist->RegisterAddress(*block.vtx[posInBlock], pindex);
-                    }
                     if(fRecordInflation){
                         UpdateAssetMap(*block.vtx[posInBlock]);
                         UpdateFreezeHistory(*block.vtx[posInBlock],pindex->nHeight);

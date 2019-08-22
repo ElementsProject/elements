@@ -40,49 +40,51 @@ void CWhiteList::init_defaults(){
 
 bool CWhiteList::Load(CCoinsView *view)
 {
-    std::unique_ptr<CCoinsViewCursor> pcursor(view->Cursor());
+    CCoinsViewCache coins(view);
+    std::unique_ptr<CCoinsViewCursor> pcursor(coins.Cursor());
     LOCK(cs_main);
-
-    //main loop over coins (transactions with > 0 unspent outputs
+  
+      //main loop over coins (transactions with > 0 unspent outputs
     while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
-        uint256 key;
-        CCoins coins;
-        if (pcursor->GetKey(key) && pcursor->GetValue(coins)) {
-            //loop over all vouts within a single transaction
-            for (unsigned int i=0; i<coins.vout.size(); i++) {
-                const CTxOut &out = coins.vout[i];
-                //null vouts are spent
-                if (!out.IsNull()) {
-                    if(out.nAsset.GetAsset() == _asset) {
-                        std::vector<std::vector<unsigned char> > vSolutions;
-                        txnouttype whichType;
-
-                        if (!Solver(out.scriptPubKey, whichType, vSolutions)) continue;
-
-                        // extract address from second multisig public key and add to the freezelist
-                        // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
-                        if (whichType == TX_MULTISIG && vSolutions.size() == 4){
-                            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 33);
-                            //The last bytes of the KYC public key are
-                            //in reverse to prevent spending, 
-                            std::reverse(vKycPub.begin() + 3, vKycPub.end());
-                            CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
-                            if (!kycPubKey.IsFullyValid()) {
-                                LogPrintf("POLICY: not adding invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                            }
-
-                            COutPoint outPoint(key, i);
-                            LogPrintf("POLICY: added unassigned KYC pub key "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-                            add_unassigned_kyc(kycPubKey);
-                        }
-                    }
-                }
+      boost::this_thread::interruption_point();
+      uint256 key;
+      CCoins coins;
+      if (!(pcursor->GetKey(key) && pcursor->GetValue(coins))) 
+        return error("%s: unable to read value", __func__);
+             
+      //loop over all vouts within a single transaction
+      for (unsigned int i=0; i<coins.vout.size(); i++) {
+        const CTxOut &out = coins.vout[i];
+        //null vouts are spent
+        if (!out.IsNull() && (out.nAsset.GetAsset() == _asset)) {
+          std::vector<std::vector<unsigned char> > vSolutions;
+          txnouttype whichType;
+        
+          if (!Solver(out.scriptPubKey, whichType, vSolutions)) 
+            continue;
+              
+          // extract address from second multisig public key and add to the freezelist
+          // encoding: 33 byte public key: address is encoded in the last 20 bytes (i.e. byte 14 to 33)
+          if (whichType == TX_MULTISIG && vSolutions.size() == 4){
+            std::vector<unsigned char> vKycPub(vSolutions[2].begin(), vSolutions[2].begin() + 33);
+            //The last bytes of the KYC public key are
+            //in reverse to prevent spending, 
+            std::reverse(vKycPub.begin() + 3, vKycPub.end());
+            CPubKey kycPubKey(vKycPub.begin(), vKycPub.end());
+            if (!kycPubKey.IsFullyValid()) {
+              //  LogPrintf("POLICY: not adding invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+            } else {
+              //LogPrintf("POLICY: added unassigned KYC pub key "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
+              add_unassigned_kyc(kycPubKey);
             }
-        } else {
-            return error("%s: unable to read value", __func__);
+          } else if ((whichType == TX_REGISTERADDRESS || 
+                      whichType == TX_DEREGISTERADDRESS)
+                      &! fReindex &! fReindexChainState ) {
+            ParseRegisterAddressOutput(out, whichType == TX_DEREGISTERADDRESS);
+          }
         }
-        pcursor->Next();
+      }
+      pcursor->Next();
     }
   return true;
 }
@@ -198,10 +200,15 @@ void CWhiteList::add_multisig_whitelist(const std::string& sAddress, const UniVa
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CBlockIndex* pindex){
+  #ifdef ENABLE_WALLET
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   CCoinsViewCache mapInputs(pcoinsTip);
   mapInputs.SetBestBlock(pindex->GetBlockHash());
   return RegisterAddress(tx, mapInputs);
+  #else //#ifdef ENABLE_WALLET
+    LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
+    return false;
+  #endif //#ifdef ENABLE_WALLET
 }
 
 bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs){
@@ -213,24 +220,49 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   if (tx.IsCoinBase())
     return false; // Coinbases don't use vin normally
 
+  return RegisterAddress(tx.vout);
+
+  #else //#ifdef ENABLE_WALLET
+    LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
+      return false;
+  #endif //#ifdef ENABLE_WALLET
+}
+
+bool CWhiteList::RegisterAddress(const std::vector<CTxOut>& vout){
+  #ifdef ENABLE_WALLET
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+
   LOCK2(cs_main, pwalletMain->cs_wallet);
   EnsureWalletIsUnlocked();
 
   //Check if this is a TX_REGISTERADDRESS or TX_DEREGISTERADDRESS. If so, read the data into a byte vector.
-  opcodetype opcode;
-  std::vector<unsigned char> bytes;
-
   txnouttype whichType;
+
   // For each TXOUT, if a TX_REGISTERADDRESS, read the data
-  BOOST_FOREACH (const CTxOut& txout, tx.vout) {
+  BOOST_FOREACH (const CTxOut& txout, vout) {
     std::vector<std::vector<unsigned char> > vSolutions;
     if (!Solver(txout.scriptPubKey, whichType, vSolutions)) return false;
     if(whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) {
-      CScript::const_iterator pc = txout.scriptPubKey.begin();
-      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return false;
-      break;
+      return ParseRegisterAddressOutput(txout, whichType == TX_DEREGISTERADDRESS);
     }
   }
+  return false;
+  #else //#ifdef ENABLE_WALLET
+    LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
+      return false;
+  #endif //#ifdef ENABLE_WALLET
+}
+
+bool CWhiteList::ParseRegisterAddressOutput(const CTxOut& txout, bool fBlacklist){
+  #ifdef ENABLE_WALLET
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+
+ if (!IsWhitelistAsset(txout)) return false;
+
+  opcodetype opcode;
+  std::vector<unsigned char> bytes;
+  CScript::const_iterator pc = txout.scriptPubKey.begin();
+  if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) return false;
 
   //Confirm data read from the TX_REGISTERADDRESS
   unsigned int minDataSize=CPubKey::COMPRESSED_PUBLIC_KEY_SIZE+addrSize;
@@ -239,18 +271,14 @@ bool CWhiteList::RegisterAddress(const CTransaction& tx, const CCoinsViewCache& 
   CPubKey inputPubKey;
   std::set<CPubKey> inputPubKeys;
 
-  // If the asset type is WHITELIST_ASSET then this is an onbaording TX.
-  if (!IsWhitelistAssetOnly(tx)) return false;
-
   //Read the message data
   std::vector<unsigned char> data(bytes.begin(), bytes.end());
-  return RegisterDecryptedAddresses(data, whichType == TX_DEREGISTERADDRESS);
+  return RegisterDecryptedAddresses(data, fBlacklist);
 
   #else //#ifdef ENABLE_WALLET
     LogPrintf("POLICY: wallet not enabled - unable to process registeraddress transaction.\n");
       return false;
   #endif //#ifdef ENABLE_WALLET
-  return true;
 }
 
 

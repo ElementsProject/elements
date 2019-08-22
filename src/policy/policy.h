@@ -117,7 +117,9 @@ bool IsPolicy(const CAsset& asset);
  * Check if a transaction has outputs that are all of whitelistAsset type
  */
 bool IsWhitelistAssetOnly(CTransaction const &tx);
+bool IsWhitelistAssetOnly(vector<CTxOut> const &vout);
 
+bool IsWhitelistAsset(CTxOut const &out);
 bool IsWhitelistAsset(CAsset const &asset);
 
 /**

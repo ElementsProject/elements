@@ -156,11 +156,19 @@ bool IsAllPolicy(CTransaction const &tx) {
     return true;
 }
 
-bool IsWhitelistAssetOnly(CTransaction const &tx){
-  for (CTxOut const &txout : tx.vout)
-        if (!IsWhitelistAsset(txout.nAsset.GetAsset()))
-            return false;
+bool IsWhitelistAssetOnly(vector<CTxOut> const &vout){
+  for (CTxOut const &txout : vout)
+    if (!IsWhitelistAsset(txout))
+      return false;
   return true;
+}
+
+bool IsWhitelistAssetOnly(CTransaction const &tx){
+  return IsWhitelistAssetOnly(tx.vout);
+}
+
+bool IsWhitelistAsset(CTxOut const &out){
+  return IsWhitelistAsset(out.nAsset.GetAsset());
 }
 
 bool IsWhitelistAsset(CAsset const &asset){

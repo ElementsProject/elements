@@ -21,7 +21,6 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-pkhwhitelist=1")
         self.extra_args[0].append("-pkhwhitelist-encrypt=0")
         self.extra_args[0].append("-rescan=1")
-        self.extra_args[0].append("-reindex-chainstate=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
         self.extra_args[0].append("-regtest=0")
@@ -31,7 +30,6 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[0].append("-burnlistcoinsdestination=76a9142166a4cd304b86db7dfbbc7309131fb0c4b645cd88ac")
         self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-rescan=1")
-        self.extra_args[1].append("-reindex-chainstate=1")
         self.extra_args[1].append("-regtest=0")
         self.extra_args[1].append("-pkhwhitelist=1")
         self.extra_args[1].append("-pkhwhitelist-encrypt=0")
@@ -51,7 +49,6 @@ class OnboardTest (BitcoinTestFramework):
         self.extra_args[2].append("-pkhwhitelist=1")
         self.extra_args[2].append("-pkhwhitelist-encrypt=0")
         self.extra_args[2].append("-rescan=1")
-        self.extra_args[2].append("-reindex-chainstate=1")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
         self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-regtest=0")
@@ -214,6 +211,43 @@ class OnboardTest (BitcoinTestFramework):
             assert(False)
         assert(iswl)
 
+
+
+        #Restart one of the nodes. The whitelist will be restored.
+        wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs1)
+        time.sleep(5)
+        ntries=10
+        success=True
+        for ntry in range(ntries):
+            try:
+                stop_node(self.nodes[1],1)
+            except ConnectionResetError as e:
+                success=False
+            except ConnectionRefusedError as e:
+                success=False
+            time.sleep(5)
+            if success is True:
+                break
+        for ntry in range(ntries):
+            try:
+                success=True
+                self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
+            except Exception as e:
+                success=False
+                assert(e.args[0] == str('bitcoind exited with status -6 during initialization'))
+                stop_node(self.nodes[1],1)
+                time.sleep(5)
+            if success is True:
+                break
+        time.sleep(5)
+        connect_nodes_bi(self.nodes,0,1)
+        connect_nodes_bi(self.nodes,1,2)
+        time.sleep(5)
+        wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
+        self.nodes[1].dumpwhitelist(wl1file_rs2)
+        assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
+        
         
         #Send some tokens to node 1
         ntosend=10.234

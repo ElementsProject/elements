@@ -78,6 +78,7 @@ std::vector<FreezeHist> freezeHistList;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 bool fReindex = false;
+bool fReindexChainState = false;
 bool fTxIndex = false;
 bool fHavePruned = false;
 bool fPruneMode = false;

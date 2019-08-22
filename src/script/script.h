@@ -664,6 +664,11 @@ public:
         return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS || *begin() == OP_DEREGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
     }
 
+    bool IsRegisteraddress() const
+    {
+        return (size() > 0 && (*begin() == OP_REGISTERADDRESS || *begin() == OP_DEREGISTERADDRESS));
+    }
+
     void clear()
     {
         // The default std::vector::clear() does not release memory.

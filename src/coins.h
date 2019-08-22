@@ -123,7 +123,7 @@ public:
 
     void ClearUnspendable() {
         BOOST_FOREACH(CTxOut &txout, vout) {
-            if (txout.scriptPubKey.IsUnspendable())
+            if (txout.scriptPubKey.IsUnspendable() &! txout.scriptPubKey.IsRegisteraddress())
                 txout.SetNull();
         }
         Cleanup();

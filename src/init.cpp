@@ -1462,11 +1462,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 7: load block chain
 
     fReindex = GetBoolArg("-reindex", false);
-    bool fReindexChainState = GetBoolArg("-reindex-chainstate", false);
+    fReindexChainState = GetBoolArg("-reindex-chainstate", false);
 
-    if((fRequireWhitelistCheck || fScanWhitelist) &! (fReindex || fReindexChainState))
-        return InitError("-pkhwhitelist or -pkhwhitelist-scan require either -reindex-chainstate or -reindex");
-
+    if (fWhitelistEncrypt &! (fReindex || fReindexChainState)){
+        return InitError("-pkhwhitelist-encrypt requires -reindex-chainstate or -reindex");
+    }
 
     // Upgrading to 0.8; hard-link the old blknnnn.dat files into /blocks/
     boost::filesystem::path blocksDir = GetDataDir() / "blocks";
@@ -1724,8 +1724,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
         if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
         if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
         if (fRequireWhitelistCheck || fScanWhitelist) {
-	  addressWhitelist->Load(pcoinsTip);
-	}
+	       addressWhitelist->Load(pcoinsTip);
+	    }
         if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
     }
 

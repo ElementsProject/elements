@@ -57,6 +57,11 @@ public:
   	
 	virtual bool RegisterAddress(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 	
+	virtual bool RegisterAddress(const std::vector<CTxOut>& vout);
+
+	bool ParseRegisterAddressOutput(const CTxOut& txout, bool fBlacklist);
+  
+
   	//Update from transaction
   	virtual bool Update(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
