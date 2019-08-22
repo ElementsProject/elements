@@ -70,10 +70,12 @@ class OnboardTest (BitcoinTestFramework):
         #Set up wallet path and dump the wallet
         wlwalletname="wlwallet.dat"
         wlwalletpath=os.path.join(self.options.tmpdir,wlwalletname)
+        time.sleep(5)
         self.nodes[0].backupwallet(wlwalletpath)
         
         #Stop the nodes
         stop_nodes(self.nodes)
+        time.sleep(5)
 
         #Copy the wallet file to the node 0 and 2 data dirs
         #Give nodes 0 and 2 the same wallet (whitelist wallet)
@@ -89,10 +91,14 @@ class OnboardTest (BitcoinTestFramework):
         shutil.copyfile(wlwalletpath,dest0)
         shutil.copyfile(wlwalletpath,dest2)
         
+        time.sleep(5)
+
         #Start the nodes again with a different wallet path argument
         self.extra_args[0].append("-wallet="+wlwalletname)
         self.extra_args[2].append("-wallet="+wlwalletname)
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
+
+        time.sleep(5)
 
         #Node0 and node2 wallets should be the same
         addr0=self.nodes[0].getnewaddress()
@@ -194,6 +200,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].topupkycpubkeys(nkyckeys)
         self.nodes[0].generate(101)
         self.sync_all()
+        time.sleep(5)
 
         wb0_1=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
         assert_equal(wb0_1*coin,float(50000000000000-nkyckeys))
@@ -215,8 +222,10 @@ class OnboardTest (BitcoinTestFramework):
 
         self.nodes[0].generate(101)
         self.sync_all()
+        time.sleep(5)
 
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
+        time.sleep(1)
         self.nodes[0].onboarduser(kycfile)
 
         self.nodes[0].generate(101)
@@ -256,6 +265,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[1].dumpwhitelist(wl1file)
         nadd=100
         saveres=self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
         nwhitelisted+=nadd
@@ -272,6 +282,7 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
         self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
         self.nodes[1].sendaddtowhitelisttx(nadd,"CBT")
+        time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
         nwhitelisted+=(3*nadd)
@@ -291,9 +302,11 @@ class OnboardTest (BitcoinTestFramework):
         #Testing Multisig whitelisting registeraddress transaction
         multitx = self.nodes[1].sendaddmultitowhitelisttx(multiAddress2['address'],[clientAddress2['derivedpubkey'],clientAddress3['derivedpubkey'],clientAddress4['derivedpubkey']],2,"CBT")
 
+        time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
         nwhitelisted+=1
+        time.sleep(1)
         wl1file_4=self.initfile(os.path.join(self.options.tmpdir,"wl1_4.dat"))
         self.nodes[1].dumpwhitelist(wl1file_4)
         nlines4=self.linecount(wl1file_4)
