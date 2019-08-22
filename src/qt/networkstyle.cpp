@@ -83,7 +83,8 @@ const NetworkStyle* NetworkStyle::instantiate(const std::string& networkId)
     std::string titleAddText = networkId == "liquidv1" ? "" : strprintf("[%s]", networkId);
     for (unsigned x=0; x<network_styles_count; ++x)
     {
-        if (networkId == network_styles[x].networkId)
+        // If it doesn't match any, use regtest since it's a custom chain
+        if (networkId == network_styles[x].networkId || x == network_styles_count - 1)
         {
             return new NetworkStyle(
                     network_styles[x].appName,
@@ -92,5 +93,4 @@ const NetworkStyle* NetworkStyle::instantiate(const std::string& networkId)
                     titleAddText.c_str());
         }
     }
-    return nullptr;
 }
