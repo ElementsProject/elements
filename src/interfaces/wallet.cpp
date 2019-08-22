@@ -276,7 +276,7 @@ public:
             }
         }
         if (!m_wallet->CreateTransaction(*locked_chain, recipients, pending->m_tx, pending->m_keys, fee, change_pos,
-                fail_reason, coin_control, sign)) {
+                fail_reason, coin_control, sign, gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) ? &pending->m_blind_details : nullptr)) {
             return {};
         }
         out_amounts = pending->m_blind_details.o_amounts;
