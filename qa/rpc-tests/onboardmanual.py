@@ -162,10 +162,8 @@ class OnboardManualTest (BitcoinTestFramework):
 
         os.remove(kycfile)
 
-        time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
-        time.sleep(1)
 
         balance_2=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         #Make sure the onboard transaction fee was zero

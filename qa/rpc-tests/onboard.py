@@ -63,7 +63,6 @@ class OnboardTest (BitcoinTestFramework):
     def setup_network(self, split=False):
         #Start nodes
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
-        time.sleep(5)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
         connect_nodes_bi(self.nodes,0,2)
@@ -156,7 +155,6 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].topupkycpubkeys(1)
         self.nodes[0].generate(101)
         self.sync_all()
-        time.sleep(5)
 
         wb0_1=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
         assert_equal(wb0_1*coin,float(50000000000000-1))
@@ -186,10 +184,8 @@ class OnboardTest (BitcoinTestFramework):
 
         self.nodes[0].generate(101)
         self.sync_all()
-        time.sleep(5)
 
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
-        time.sleep(1)
         self.nodes[0].onboarduser(kycfile)
 
         self.nodes[0].generate(101)
@@ -216,7 +212,6 @@ class OnboardTest (BitcoinTestFramework):
         #Restart one of the nodes. The whitelist will be restored.
         wl1file_rs1=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs1.dat"))
         self.nodes[1].dumpwhitelist(wl1file_rs1)
-        time.sleep(5)
         ntries=10
         success=True
         for ntry in range(ntries):
@@ -226,7 +221,6 @@ class OnboardTest (BitcoinTestFramework):
                 success=False
             except ConnectionRefusedError as e:
                 success=False
-            time.sleep(5)
             if success is True:
                 break
         for ntry in range(ntries):
@@ -237,13 +231,10 @@ class OnboardTest (BitcoinTestFramework):
                 success=False
                 assert(e.args[0] == str('bitcoind exited with status -6 during initialization'))
                 stop_node(self.nodes[1],1)
-                time.sleep(5)
             if success is True:
                 break
-        time.sleep(5)
         connect_nodes_bi(self.nodes,0,1)
         connect_nodes_bi(self.nodes,1,2)
-        time.sleep(5)
         wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
         self.nodes[1].dumpwhitelist(wl1file_rs2)
         assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
@@ -286,10 +277,8 @@ class OnboardTest (BitcoinTestFramework):
             assert("Not implemented for unencrypted whitelist" in e.error['message'])
 
             
-        time.sleep(5)
         self.nodes[0].generate(101)
         self.sync_all()
-        time.sleep(1)
         wl1file_2=self.initfile(os.path.join(self.options.tmpdir,"wl1_2.dat"))
         self.nodes[1].dumpwhitelist(wl1file_2)
         nlines2=self.linecount(wl1file_2)
