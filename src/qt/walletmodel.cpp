@@ -285,12 +285,12 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::vector<CReserveKey> vkeyChange;
         vkeyChange.emplace_back(CReserveKey(wallet));
         std::vector<CAmount> outAmounts;
-        bool fCreated = wallet->CreateTransaction(vecSend, *newTx, vkeyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl, true, &outAmounts);
+        std::vector<CWalletTx> createResult = wallet->CreateTransaction(vecSend, *newTx, vkeyChange, nFeeRequired, nChangePosRet, strFailReason, coinControl, true, &outAmounts);
         transaction.setTransactionFee(nFeeRequired);
-        if (fSubtractFeeFromAmount && fCreated)
+        if (fSubtractFeeFromAmount && createResult.size() > 0)
             transaction.reassignAmounts(outAmounts, nChangePosRet);
 
-        if(!fCreated)
+        if(!createResult.size() > 0)
         {
             if(!fSubtractFeeFromAmount && (total + nFeeRequired) > nBalance)
             {
