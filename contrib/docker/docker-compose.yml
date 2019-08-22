@@ -2,7 +2,7 @@
 version: '3.6'
 services:
   node:
-    image: commerceblock/ocean:latest
+    image: commerceblock/ocean:cbacfdfb1
     ports:
       - "18332"
       - "7042"
