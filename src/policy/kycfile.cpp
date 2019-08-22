@@ -247,9 +247,9 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     _decryptedStream << line << "\n";
 }
 
-bool CKYCFile::getOnboardingScript(CScript& script, bool bBlacklist){
+bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
     COnboardingScript obScript;
-    obScript.SetDeregister(bBlacklist);
+    obScript.SetDeregister(fBlacklist);
 
     // Lookup the KYC public key assigned to the user from the whitelist
     //addressWhiteList.

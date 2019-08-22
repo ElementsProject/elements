@@ -287,7 +287,6 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
           CBitcoinAddress addrNew;
           std::vector<unsigned char> addrChars(itData1,itData2);
           CTxDestination addr = CKeyID(uint160(addrChars));
-//          addrNew.Set(CKeyID(uint160(addrChars)));  
           itData1 = itData2;
           for(unsigned int i=0; i<CPubKey::COMPRESSED_PUBLIC_KEY_SIZE; ++i){
             if(itData2++ == pend){
@@ -296,7 +295,6 @@ bool CWhiteList::RegisterDecryptedAddresses(const std::vector<unsigned char>& da
               break;
             }
           }
-  //        std::string addrStr=addrNew.ToString();
             try{
                 CPubKey pubKeyNew = CPubKey(itData1,itData2);
                 itData1=itData2;
