@@ -2801,7 +2801,26 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
     // using sendtoaddress a single asset is send and fees are received from it
     if (feeAsset.IsNull())
     {
-        feeAsset = vecSend[0].asset;
+        CAsset newFeeAsset = vecSend[0].asset;
+        if (vecSend.size() > 1) {
+            CAmountMap balanceMap = pwalletMain->GetBalance();
+            for (const auto& itRecipients : vecSend) {
+                if (balanceMap[itRecipients.asset] > balanceMap[newFeeAsset])
+                    newFeeAsset = itRecipients.asset;
+            }
+
+            CRecipient lastRecipient = vecSend.back();
+            if (lastRecipient.asset != newFeeAsset) {
+                CAmount lastBalance = balanceMap[lastRecipient.asset];
+                CAmount usedLastBalance = mapValue[lastRecipient.asset];
+                CAmount largestBalance = mapValue[newFeeAsset];
+                CAmount requiredLastBalance = lastBalance - usedLastBalance;
+
+                mapValue[lastRecipient.asset] = lastBalance;
+                mapValue[newFeeAsset] -= requiredLastBalance;
+            }
+        }
+        feeAsset = newFeeAsset;
     }
 
     wtxNew.fTimeReceivedIsTxTime = true;
@@ -2939,8 +2958,64 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
                 setCoins.clear();
                 if (!SelectCoins(vAvailableCoins, mapValueToSelect, setCoins, mapValueIn, coinControl, feeAsset))
                 {
-                    strFailReason = _("Insufficient funds");
-                    return std::vector<CWalletTx>();
+                    //Attempt to seek other assets to cover the fee
+                    //Edge case for sendanytoaddress
+                    if (fFindFeeAsset && nSubtractFeeFromAmount == 0) {
+                        std::set<CAsset> balanceSet;
+                        for (const auto& itRecipients : vecSend) {
+                            balanceSet.insert(itRecipients.asset);
+                        }
+                        CAmount amountHave = 0;
+                        for (const auto& itHave : mapValueToSelect) {
+                            amountHave += itHave.second;
+                        }
+                        CAmount amountNeeded = 0;
+                        for (const auto& itNeeded : mapValueIn) {
+                            amountNeeded += itNeeded.second;
+                        }
+                        CAmount amountMissing = amountNeeded - amountHave;
+                        if (amountMissing > 0) {
+                            //Fee in send any is based on the largest balance. If its bigger than the largest balance then this transaction is invalid.
+                            if (mapValue[feeAsset] <= amountMissing) {
+                                strFailReason = _("Required fee is larger than the owned non-policy asset with the biggest balance.");
+                                return std::vector<CWalletTx>();
+                            }
+                            CAmountMap balanceMap = pwalletMain->GetBalance();
+                            bool alternativeFound = false;
+                            for (const auto& it : balanceMap) {
+                                if (!IsPolicy(it.first)) {
+                                    if (balanceSet.find(it.first) == balanceSet.end()) {
+                                        CAmount outputValue = it.second;
+                                        if (outputValue >= amountMissing) {
+                                            if (mapValue[feeAsset] > outputValue) {
+                                                mapValue[feeAsset] -= outputValue;
+                                                mapValue[it.first] = outputValue;
+                                            } else {
+                                                mapValue[it.first] = mapValue[feeAsset];
+                                                mapValue[feeAsset] = 0;
+                                            }
+                                            alternativeFound = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (!alternativeFound) {
+                                strFailReason = _("Could not find another asset with sufficient balance to cover the fees.");
+                                return std::vector<CWalletTx>();
+                            } else {
+                                continue;
+                            }
+                        }
+                        else {
+                            strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
+                            return std::vector<CWalletTx>();
+                        }
+                    }
+                    else {
+                        strFailReason = _("Insufficient funds");
+                        return std::vector<CWalletTx>();
+                    }
                 }
                 BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
                 {
@@ -3453,38 +3528,27 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
                     assetSet.insert(recipient.asset);
                 }
 
+                typedef std::function<bool(COutput, COutput)> OutputComparison;
+                OutputComparison outputComparisonFunction =
+                    [](COutput left, COutput right) {
+                        return left.tx->GetOutputValueOut(left.i) < right.tx->GetOutputValueOut(right.i);
+                    };
+
+                typedef std::function<bool(CRecipient, CRecipient)> RecipientComparison;
+                RecipientComparison recipientComparisonFunction =
+                    [](CRecipient left, CRecipient right) {
+                        return left.nAmount < right.nAmount;
+                    };
+
                 //Sort the inputs according to value
                 for (const auto& itAsset : assetSet) {
                     std::vector<COutput> curAssetInputs = inputAssetMap[itAsset];
-                    std::vector<CRecipient> curRecipients = recipientMap[itAsset];
-                    int i, j, min;
-                    int n = curAssetInputs.size();
-                    for (i = 0; i < n - 1; i++) {
-                        min = i;
-                        for (j = i + 1; j < n; j++)
-                            if (curAssetInputs[j].tx->GetOutputValueOut(curAssetInputs[j].i) < 
-                                curAssetInputs[min].tx->GetOutputValueOut(curAssetInputs[min].i)) {
-                                min = j;
-                            }
-                        COutput temp = curAssetInputs[i];
-                        curAssetInputs[i] = curAssetInputs[min];
-                        curAssetInputs[min] = temp;
-                    }
+                    std::sort(curAssetInputs.begin(), curAssetInputs.end(), outputComparisonFunction);
                     inputAssetMap[itAsset] = curAssetInputs;
 
-                    CRecipient tempRec;
-                    n = curRecipients.size();
-                    for (i = 0; i < n - 1; i++) {
-                        min = i;
-                        for (j = i + 1; j < n; j++)
-                            if (curRecipients[j].nAmount < curRecipients[min].nAmount) {
-                                min = j;
-                            }
-                        tempRec = curRecipients[i];
-                        curRecipients[i] = curRecipients[min];
-                        curRecipients[min] = tempRec;
-                   }
-                   recipientMap[itAsset] = curRecipients;
+                    std::vector<CRecipient> curRecipients = recipientMap[itAsset];
+                    std::sort(curRecipients.begin(), curRecipients.end(), recipientComparisonFunction);
+                    recipientMap[itAsset] = curRecipients;
                 }
 
                 std::vector<CRecipient> leftRecipients;
