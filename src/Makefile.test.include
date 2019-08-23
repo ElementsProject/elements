@@ -120,6 +120,7 @@ BITCOIN_TESTS =\
   test/pegin_witness_tests.cpp \
   test/pmt_tests.cpp \
   test/policy_tests.cpp \
+  test/address_whitelist_tests.cpp \	
   test/policyestimator_tests.cpp \
   test/pow_tests.cpp \
   test/prevector_tests.cpp \

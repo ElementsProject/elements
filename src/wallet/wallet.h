@@ -18,6 +18,7 @@
 #include "wallet/crypter.h"
 #include "wallet/walletdb.h"
 #include "wallet/rpcwallet.h"
+#include "base58.h"
 
 #include <algorithm>
 #include <atomic>
@@ -802,8 +803,12 @@ public:
      * keystore implementation
      * Generate a new key
      */
-    CPubKey GenerateNewKey();
-    void DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret);
+    CPubKey GenerateNewKey(const bool bEncryption=false);
+    void DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret, const unsigned int nExternalChain=0);
+    void DeriveNewEncryptionChildKey(CKeyMetadata& metadata, CKey& secret){
+        //Using externalChangeChildKey path = 2' for encryption keys.
+        DeriveNewChildKey(metadata, secret, 2);
+    }
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
@@ -847,8 +852,9 @@ public:
     void GetKeyBirthTimes(std::map<CTxDestination, int64_t> &mapKeyBirth) const;
 
     //The KYC public key used for address whitelist registration by the user.
-    CPubKey GetKYCPubKey(){return _kycPubKey;}
-    void SetKYCPubKey(CPubKey val){_kycPubKey = val;}
+    CPubKey GetKYCPubKey(){return _kycPubKey;}\
+    void SetKYCPubKey(const CPubKey& val){_kycPubKey = val;}
+    void SetKYCPubKeyIfMine(const CBitcoinAddress& addr, const CPubKey& val);
 
     //The onboarding public key, to be read from the blockchain.
     CPubKey GetOnboardPubKey(){return _onboardPubKey;}

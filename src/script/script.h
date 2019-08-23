@@ -187,7 +187,7 @@ enum opcodetype
     OP_WITHDRAWPROOFVERIFY = OP_NOP4,
     OP_NOP5 = 0xb4,
     OP_NOP6 = 0xb5,
-    OP_NOP7 = 0xb6,
+    OP_DEREGISTERADDRESS = 0xb6,
     OP_NOP8 = 0xb7,
     OP_REGISTERADDRESS = 0xb8,
     OP_NOP10  = 0xb9,
@@ -661,7 +661,12 @@ public:
      */
     bool IsUnspendable() const
     {
-        return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
+        return (size() > 0 && (*begin() == OP_RETURN || *begin() == OP_REGISTERADDRESS || *begin() == OP_DEREGISTERADDRESS)) || (size() > MAX_SCRIPT_SIZE) || (size() == 0);
+    }
+
+    bool IsRegisteraddress() const
+    {
+        return (size() > 0 && (*begin() == OP_REGISTERADDRESS || *begin() == OP_DEREGISTERADDRESS));
     }
 
     void clear()

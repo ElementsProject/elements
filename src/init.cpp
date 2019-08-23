@@ -8,7 +8,7 @@
 #endif
 
 #include "init.h"
-
+#include "policy/whitelistEncrypted.h"
 #include "addrman.h"
 #include "amount.h"
 #include "callrpc.h"
@@ -385,6 +385,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-onion=<ip:port>", strprintf(_("Use separate SOCKS5 proxy to reach peers via Tor hidden services (default: %s)"), "-proxy"));
     strUsage += HelpMessageOpt("-onlynet=<net>", _("Only connect to nodes in network <net> (ipv4, ipv6 or onion)"));
     strUsage += HelpMessageOpt("-permitbaremultisig", strprintf(_("Relay non-P2SH multisig (default: %u)"), DEFAULT_PERMIT_BAREMULTISIG));
+    strUsage += HelpMessageOpt("-pkhwhitelist-encrypt", strprintf(_("Encrypted address whitelisting. (default: %u)"), DEFAULT_WHITELIST_ENCRYPT));
     strUsage += HelpMessageOpt("-pkhwhitelist", strprintf(_("Enable node mempool address whitelisting (default: %u)"), DEFAULT_WHITELIST_CHECK));
     strUsage += HelpMessageOpt("-pkhwhitelist-scan", strprintf(_("Keep local whitelist updated with own wallet's whitelisted addresses (default: %u)"), DEFAULT_SCAN_WHITELIST));
     strUsage += HelpMessageOpt("-peerbloomfilters", strprintf(_("Support filtering of blocks and transaction with bloom filters (default: %u)"), DEFAULT_PEERBLOOMFILTERS));
@@ -503,6 +504,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-embedmapping", _("Embed asset mapping object in the block header"));
     strUsage += HelpMessageOpt("-issuecontrolscript", _("Embed the issuance controller script in the genesis block"));
     strUsage += HelpMessageOpt("-recordinflation", _("Record issuance data and freeze history"));
+    strUsage += HelpMessageOpt("-contractintx", _("Enforce contract in transaction with null tweaking"));
 
     strUsage += HelpMessageGroup(_("RPC server options:"));
     strUsage += HelpMessageOpt("-server", _("Accept command line and JSON-RPC commands"));
@@ -1115,6 +1117,14 @@ bool AppInitParameterInteraction()
     //address whitelisting
     fRequireWhitelistCheck = GetBoolArg("-pkhwhitelist", DEFAULT_WHITELIST_CHECK);
     fScanWhitelist = GetBoolArg("-pkhwhitelist-scan", DEFAULT_SCAN_WHITELIST);
+    fWhitelistEncrypt = GetBoolArg("-pkhwhitelist-encrypt", DEFAULT_WHITELIST_ENCRYPT);  
+    if(fWhitelistEncrypt &! (fRequireWhitelistCheck || fScanWhitelist))
+        return InitError("-pkhwhitelist-encrypt requires either -pkhwhitelist or -pkhwhitelist-scan");
+    if(fScanWhitelist &! fWhitelistEncrypt)  
+        return InitError("-pkhwhitelist-scan requires -pkhwhitelist-encrypt");
+    if(fScanWhitelist && fRequireWhitelistCheck)  
+        return InitError("cannot enable both -pkhwhitelist and -pkhwhitelist-scan");
+
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
     fEnableBurnlistCheck = GetBoolArg("-burnlist", DEFAULT_BURNLIST_CHECK);
     fblockissuancetx = GetBoolArg("-issuanceblock", DEFAULT_BLOCK_ISSUANCE);
@@ -1123,7 +1133,7 @@ bool AppInitParameterInteraction()
     //Acceptance of data in OP_RETURN
     fAcceptDatacarrier = GetBoolArg("-datacarrier", DEFAULT_ACCEPT_DATACARRIER);
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
-    //Acceptance of OP_REGISTERADDRESS
+    //Acceptance of OP_REGISTERADDRESS and OP_DEREGISTERADDRESS
     fAcceptRegisteraddress = GetBoolArg("-registeraddress", DEFAULT_ACCEPT_REGISTERADDRESS);
     nMaxRegisteraddressBytes = GetArg("-registeraddresssize", nMaxRegisteraddressBytes);
 
@@ -1143,6 +1153,14 @@ bool AppInitParameterInteraction()
     } catch (const std::exception& e) {
         return InitError(strprintf("Error in -assetdir: %s\n", e.what()));
     }
+
+    if(fWhitelistEncrypt){
+        addressWhitelist = new CWhiteListEncrypted();
+    } else {
+        addressWhitelist = new CWhiteList();
+    }
+    addressWhitelist->init_defaults();
+    
     if (mapMultiArgs.count("-bip9params")) {
         // Allow overriding BIP9 parameters for testing
         if (!chainparams.MineBlocksOnDemand()) {
@@ -1444,7 +1462,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 7: load block chain
 
     fReindex = GetBoolArg("-reindex", false);
-    bool fReindexChainState = GetBoolArg("-reindex-chainstate", false);
+    fReindexChainState = GetBoolArg("-reindex-chainstate", false);
+
+    if (fWhitelistEncrypt &! (fReindex || fReindexChainState)){
+        return InitError("-pkhwhitelist-encrypt requires -reindex-chainstate or -reindex");
+    }
 
     // Upgrading to 0.8; hard-link the old blknnnn.dat files into /blocks/
     boost::filesystem::path blocksDir = GetDataDir() / "blocks";
@@ -1703,7 +1725,9 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
         nStart = GetTimeMillis();
         if (fRequireFreezelistCheck) LoadFreezeList(pcoinsTip);
         if (fEnableBurnlistCheck) LoadBurnList(pcoinsTip);
-        if (fRequireWhitelistCheck || fScanWhitelist) addressWhitelist.Load(pcoinsTip);
+        if (fRequireWhitelistCheck || fScanWhitelist) {
+	       addressWhitelist->Load(pcoinsTip);
+	    }
         if (fRequestList) requestList.Load(pcoinsTip, chainActive.Height());
         LogPrintf(" policy lists load %15dms\n", GetTimeMillis() - nStart);
     }

@@ -1756,9 +1756,9 @@ UniValue addtowhitelist(const JSONRPCRequest& request)
                         );
 try{
     if(nparams == 2){
-        addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str());
+        addressWhitelist->add_derived(request.params[0].get_str(), request.params[1].get_str());
     } else {
-        addressWhitelist.add_derived(request.params[0].get_str(), request.params[1].get_str(),
+        addressWhitelist->add_derived(request.params[0].get_str(), request.params[1].get_str(),
         request.params[2].get_str());
     }
 } catch(std::invalid_argument e){
@@ -1788,14 +1788,18 @@ UniValue addmultitowhitelist(const JSONRPCRequest& request)
             + HelpExampleCli("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"038f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\",\\\"028f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
             + HelpExampleRpc("addmultitowhitelist", "\"1dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB \"[\\\"038f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\",\\\"028f9c608ded55e89aef8ade69b90612510dbd333c8d63cbe1072de9049731bb58\\\"]\" 1, \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
                         );
+
+if(!fWhitelistEncrypt && nparams == 4)
+    throw JSONRPCError(RPC_MISC_ERROR, "kycaddress argument not implemented for unencrypted whitelist");
+
 #ifdef ENABLE_WALLET
     if (request.params[1].isNull())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, argument 2 must be non-null");
     try{
         if(nparams == 3){
-            addressWhitelist.add_multisig_whitelist(request.params[0].get_str(), request.params[1].get_array(), request.params[2].get_int());
+            addressWhitelist->add_multisig_whitelist(request.params[0].get_str(), request.params[1].get_array(), request.params[2].get_int());
         } else {
-            addressWhitelist.add_multisig_whitelist(request.params[0].get_str(), request.params[1].get_array(),
+            addressWhitelist->add_multisig_whitelist(request.params[0].get_str(), request.params[1].get_array(),
             request.params[3].get_str(), request.params[2].get_int());
         }
     } catch(std::invalid_argument e){
@@ -1815,7 +1819,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
             "Read in derived keys and tweaked addresses from key dump file (see dumpderivedkeys) into the address whitelist.\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The key file\n"
-            "2. \"kycpubkey\"  (string, optional) The hex-encoded KYC public key of the file owner\n"
+            "2. \"kycpubkey\"  (string, optional) The hex-encoded KYC public key of the file owner (encrypted whitelist only)\n"
             "\nExamples:\n"
             "\nDump the keys\n"
             + HelpExampleCli("readwhitelist", "\"test\", \"2dncVuBznaXPDNv8YXCKmpfvoDPNZ288MhB\"")
@@ -1824,8 +1828,10 @@ UniValue readwhitelist(const JSONRPCRequest& request)
 
     std::string sKYCPubKey="";
     if(request.params.size()==2){
+        if(!fWhitelistEncrypt)
+              throw JSONRPCError(RPC_INVALID_PARAMETER, "kycpubkey argument not implemented for unencrypted whitelist");
         sKYCPubKey=request.params[1].get_str();
-        addressWhitelist.whitelist_kyc(CPubKey(ParseHex(sKYCPubKey)).GetID());
+        addressWhitelist->whitelist_kyc(CPubKey(ParseHex(sKYCPubKey)));
     }
 
     std::ifstream file;
@@ -1847,7 +1853,7 @@ UniValue readwhitelist(const JSONRPCRequest& request)
         if (vstr.size() < 2)
             continue;
 
-	   addressWhitelist.add_derived(vstr[0], vstr[1], sKYCPubKey);
+	   addressWhitelist->add_derived(vstr[0], vstr[1], sKYCPubKey);
     }
 
     file.close();
@@ -1881,7 +1887,7 @@ UniValue querywhitelist(const JSONRPCRequest& request)
       throw std::invalid_argument(std::string(std::string(__func__) +
       ": invalid key id"));
 
-  return addressWhitelist.is_whitelisted(keyId);
+  return addressWhitelist->is_whitelisted(keyId);
 }
 
 UniValue removefromwhitelist(const JSONRPCRequest& request)
@@ -1909,7 +1915,7 @@ UniValue removefromwhitelist(const JSONRPCRequest& request)
       throw std::invalid_argument(std::string(std::string(__func__) +
       ": invalid key id"));
 
-  addressWhitelist.remove(keyId);
+  addressWhitelist->remove(keyId);
   return NullUniValue;
 }
 
@@ -1936,15 +1942,18 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
   file << strprintf("# Whitelisted address dump - format: [address] [kyckey]");
   file << "\n";
 
-  for(auto it=addressWhitelist.begin(); it!=addressWhitelist.end(); ++it){
+  for(auto it=addressWhitelist->begin(); it!=addressWhitelist->end(); ++it){
     //Check KYC status (owner may be in blacklist)
-    if(!addressWhitelist.is_whitelisted(*it)) continue;
+    if(!addressWhitelist->is_whitelisted(*it)) continue;
      std::string strAddr = CBitcoinAddress(*it).ToString();
      CKeyID kycKey;
-     addressWhitelist.LookupKYCKey(CTxDestination(*it), kycKey);
-     std::string strKYCKey = CBitcoinAddress(kycKey).ToString();
-     file << strprintf("%s %s\n",
-              strAddr, strKYCKey);
+     if(fWhitelistEncrypt){
+        addressWhitelist->LookupKYCKey(*it, kycKey);        
+        std::string strKYCKey = CBitcoinAddress(kycKey).ToString();
+        file << strprintf("%s %s\n", strAddr, strKYCKey);
+     } else {
+         file << strprintf("%s\n", strAddr);
+     }
   }
 
   file << "\n";
@@ -1966,7 +1975,7 @@ UniValue clearwhitelist(const JSONRPCRequest& request)
             + HelpExampleRpc("clearwhitelist", "\"true\"")
 			);
 
-  addressWhitelist.clear();
+  addressWhitelist->clear();
 
   return NullUniValue;
 }

@@ -464,7 +464,7 @@ UniValue validatederivedkeys(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-        if (!contract.IsNull())
+        if (!contract.IsNull() && !Params().ContractInTx())
             pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
         CKeyID keyId;
         if (!address.GetKeyID(keyId))
@@ -627,51 +627,6 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
     return CBitcoinSecret(vchSecret).ToString();
 }
 
-UniValue dumpkycpubkey(const JSONRPCRequest& request){
-  if (!EnsureWalletIsAvailable(request.fHelp))
-        return NullUniValue;
-    
-if (request.fHelp || request.params.size() > 1)
-    throw runtime_error(
-            "dumpkycpubkey \"kycuseronboardpubkey\"\n"
-            "\nReturn the KYC pub key corresponding to this wallet, or the supplied user onboarding pub key.\n"
-            "\nArguments:\n"
-            "1. \"address\"    (string, required) The bitcoin address for the kyc pub key.\n"
-            "\nExamples:\n"
-            + HelpExampleCli("dumpkycpubkey", "\"0388e5a973de7671654125c9cb7e3c42a3e5459a7d509ec374bbd0849f14caba8c\"")
-            + HelpExampleRpc("dumpkycpubkey", "\"0388e5a973de7671654125c9cb7e3c42a3e5459a7d509ec374bbd0849f14caba8c\"")
-        );
-
-
-
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-
-    EnsureWalletIsUnlocked();
-
-    string strUserOnboardPubKey;
-    CPubKey userOnboardPubKey;
-    CPubKey kycPubKey;
-    UniValue result;
-    if(request.params.size()==1){
-        std::vector<unsigned char> pubKeyData(ParseHex(request.params[0].get_str()));
-        userOnboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
-        if(!userOnboardPubKey.IsFullyValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
-        if(!addressWhitelist.kycFromUserOnboard(userOnboardPubKey, kycPubKey))
-            throw JSONRPCError(RPC_TYPE_ERROR, "User onboarding key does not refer to a KYC key");
-    } else {
-        kycPubKey=pwalletMain->GetKYCPubKey();
-    }
-
-    result = HexStr(kycPubKey.begin(), kycPubKey.end());
-
-
-    AuditLogPrintf("%s : dumpkycpubkey %s\n", getUser(), request.params[0].get_str());
-    return result;
-}
-
-
-
 UniValue getderivedkeys(const JSONRPCRequest& request)
 {
     if (!EnsureWalletIsAvailable(request.fHelp))
@@ -771,7 +726,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
         onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
     } else {
         // Use one of the unassigned KYC public keys
-        if(!addressWhitelist.peek_unassigned_kyc(onboardPubKey))
+        if(!addressWhitelist->peek_unassigned_kyc(onboardPubKey))
              throw JSONRPCError(RPC_INVALID_PARAMETER, "No unassigned KYC public keys available.");
     }
     pwalletMain->SetOnboardPubKey(onboardPubKey);
@@ -870,7 +825,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
 
         std::vector<CPubKey> tweakedPubKeys = pubKeyVec;
 
-        if (!contract.IsNull()){
+        if (!contract.IsNull() && !Params().ContractInTx()){
             for (unsigned int it = 0; it < tweakedPubKeys.size(); ++it){
                 tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
             }
@@ -944,7 +899,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
             "\nDumps all wallet tweaked public keys in an encrypted format (p2sh multisig not supported).\n"
             "\nArguments:\n"
             "1. \"filename\"    (string, required) The filename\n"
-            "2. \"onboardpubkey\"    (string, optional) The public key issued by the server for onboarding encryption.\n"
+            "2. \"onboardpubkey\"    (string, optional) The public key to be used for kycfile encryption.\n"
             "return:\n"
             "User onboard public key."
             "\nExamples:\n"
@@ -963,7 +918,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
         onboardPubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
     } else {
         // Use one of the unassigned KYC public keys
-        if(!addressWhitelist.peek_unassigned_kyc(onboardPubKey))
+        if(!addressWhitelist->peek_unassigned_kyc(onboardPubKey))
              throw JSONRPCError(RPC_INVALID_PARAMETER, "No unassigned KYC public keys available.");
     }
     pwalletMain->SetOnboardPubKey(onboardPubKey);
@@ -985,7 +940,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     file << "\n";
 
     // add the onboarding public key 
-    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey(true);
     pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
@@ -1229,7 +1184,6 @@ UniValue dumpwallet(const JSONRPCRequest& request)
 
     return NullUniValue;
 }
-
 
 UniValue ProcessImport(const UniValue& data, const int64_t timestamp)
 {

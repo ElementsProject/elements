@@ -135,6 +135,7 @@ static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 /** Maximum age of our tip in seconds for us to be considered current for fee estimation */
 static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 3 * 60 * 60;
 
+static const bool DEFAULT_WHITELIST_ENCRYPT = false;
 static const bool DEFAULT_WHITELIST_CHECK = false;
 static const bool DEFAULT_SCAN_WHITELIST = false;
 static const bool DEFAULT_BLOCK_ISSUANCE = false;
@@ -165,7 +166,7 @@ struct BlockHasher
     size_t operator()(const uint256& hash) const { return hash.GetCheapHash(); }
 };
 
-extern CWhiteList addressWhitelist;
+extern CWhiteList* addressWhitelist;
 //freezelist address list
 extern CPolicyList addressFreezelist;
 //burnlist address list
@@ -212,9 +213,11 @@ extern CWaitableCriticalSection csBestBlock;
 extern CConditionVariable cvBlockChange;
 extern std::atomic_bool fImporting;
 extern bool fReindex;
+extern bool fReindexChainState;
 extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern bool fIsBareMultisigStd;
+extern bool fWhitelistEncrypt;
 extern bool fRequireWhitelistCheck;
 extern bool fScanWhitelist;
 extern bool fRequireFreezelistCheck;
@@ -224,6 +227,7 @@ extern bool fblockissuancetx;
 extern bool fRecordInflation;
 extern bool fRequestList;
 extern bool fRequireStandard;
+extern bool fContractInTx;
 extern bool fCheckBlockIndex;
 extern bool fCheckpointsEnabled;
 extern size_t nCoinCacheUsage;

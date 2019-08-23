@@ -20,7 +20,7 @@
 struct BasicTestingSetup {
     ECCVerifyHandle globalVerifyHandle;
 
-    BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "");
+    BasicTestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "", const std::string& con_mandatorycoinbase="");
     ~BasicTestingSetup();
 };
 
@@ -35,7 +35,7 @@ struct TestingSetup: public BasicTestingSetup {
     CConnman* connman;
     CKey coinbaseKey; // private/public key needed to spend coinbase transactions
 
-    TestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "");
+    TestingSetup(const std::string& chainName = CBaseChainParams::MAIN, const std::string& fedpegscript = "", const std::string& con_mandatorycoinbase = "");
     ~TestingSetup();
 };
 

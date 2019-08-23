@@ -6,18 +6,22 @@
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import *
 
-class WhitelistingTest (BitcoinTestFramework):
+class SignContractTest (BitcoinTestFramework):
 
     def __init__(self):
         super().__init__()
         self.setup_clean_chain = True
         self.num_nodes = 4
-        self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100', '-txindex'] for i in range(self.num_nodes)]
+        self.extra_args = [['-usehd={:d}'.format(i%2==0), '-keypool=100'] for i in range(self.num_nodes)]
 #Node 1 is a whitelist node. 
         self.extra_args[0].append("-pkhwhitelist=1")
-        self.extra_args[0].append("-reindex-chainstate=1")
         self.extra_args[1].append("-pkhwhitelist=1")
-        self.extra_args[1].append("-reindex-chainstate=1")
+        self.extra_args[0].append("-contractintx=1")
+        self.extra_args[1].append("-contractintx=1")
+        self.extra_args[0].append("-regtest=0")
+        self.extra_args[1].append("-regtest=0")
+        self.extra_args[2].append("-regtest=0")
+        self.extra_args[3].append("-regtest=0")       
 
 #Add keys from 'from_node' to the whitelist on 'whitelist_node'
     def add_keys_to_whitelist(self,from_node, whitelist_node):
@@ -73,17 +77,22 @@ class WhitelistingTest (BitcoinTestFramework):
         #dumo derived keys to file and validate 
         fname = self.options.tmpdir + 'node1derived'
         self.nodes[1].dumpderivedkeys(fname)
+        with open(fname, 'r') as myfile:
+            print(myfile.read())
         self.nodes[1].validatederivedkeys(fname)
         #add in invalid key/addesss pair to the file and validate again 
-        a_key='11caPoYB9NbtcG6cMAk5j3dPF2eFaD483'
-        a_key_address_invalid='03c8847ab88a1a207ea74356a53f858535ebd3f3f5499f7da1ec5dad00d2adbcbe'
+        a_key='2dZbsQ9Wbgck2HVeJcnUHRKPgFqf1fRbDvs'
+        a_key_address_invalid='0289666bb0ccafc11ba82c057e6a7599fdb5a1be2e348f1db33e3c6af2fc27550c'
         with open(fname, 'a') as myfile:
             myfile.write(a_key + " " + a_key_address_invalid)
         #expect a invalid key id error
+        print(self.nodes[1].getcontract())
+        print(self.nodes[1].getcontracthash())
+        assert(False)
         try:
             self.nodes[1].validatederivedkeys(fname)
         except JSONRPCException as e:
-            assert("Invalid key id" in e.error['message'])
+            assert("Invalid key idx" in e.error['message'])
           
         # Check that there's 100 UTXOs on each of the nodes
         assert_equal(len(self.nodes[0].listunspent()), 100)
@@ -133,11 +142,12 @@ class WhitelistingTest (BitcoinTestFramework):
             print("Raw trans:")
             print(rawtx1)
         except JSONRPCException as e:
-            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
+            assert("No such mempool transaction" in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid1)
         else:
             raise AssertionError("Output accepted to non-whitelisted address.")
+
 
         txid2 = self.nodes[0].sendtoaddress(self.nodes[2].getnewaddress(), 10,"","",False,issue["asset"])
         txout2v0 = self.nodes[0].gettxout(txid2, 0)
@@ -146,7 +156,7 @@ class WhitelistingTest (BitcoinTestFramework):
         try:
             rawtx2 = self.nodes[1].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
-            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
+            assert("No such mempool transaction" in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid2)
         else:
@@ -221,7 +231,7 @@ class WhitelistingTest (BitcoinTestFramework):
             rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
             print(rawtx1)
         except JSONRPCException as e:
-            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
+            assert("No such mempool transaction" in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid1)
         else:
@@ -232,7 +242,7 @@ class WhitelistingTest (BitcoinTestFramework):
         try:
             rawtx2 = self.nodes[0].getrawtransaction(txid2, 1)
         except JSONRPCException as e:
-            assert("No such mempool or blockchain transaction. Use gettransaction for wallet transactions." in e.error['message'])
+            assert("No such mempool transaction" in e.error['message'])
             #Abandon the transaction to allow the output to be respent
             self.nodes[0].abandontransaction(txid2)
         else:
@@ -279,4 +289,4 @@ class WhitelistingTest (BitcoinTestFramework):
         print("End.")
 
 if __name__ == '__main__':
-    WhitelistingTest().main()
+    SignContractTest().main()

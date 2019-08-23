@@ -15,7 +15,7 @@ typedef std::vector<unsigned char> uCharVec;
 class CECIES{
 public:
 	CECIES();
-	~CECIES();
+	virtual ~CECIES();
 	
 	/**
     * Encrypt/decrypt a message string.

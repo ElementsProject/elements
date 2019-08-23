@@ -78,13 +78,16 @@ std::vector<FreezeHist> freezeHistList;
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 bool fReindex = false;
+bool fReindexChainState = false;
 bool fTxIndex = false;
 bool fHavePruned = false;
 bool fPruneMode = false;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
+bool fContractInTx = false;
 bool fRequireWhitelistCheck = DEFAULT_WHITELIST_CHECK;
 bool fScanWhitelist = DEFAULT_SCAN_WHITELIST;
+bool fWhitelistEncrypt = DEFAULT_WHITELIST_ENCRYPT;  
 bool fEnableBurnlistCheck = DEFAULT_BURNLIST_CHECK;
 bool fRequireFreezelistCheck = DEFAULT_BURNLIST_CHECK;
 bool fblockissuancetx = DEFAULT_BLOCK_ISSUANCE;
@@ -101,7 +104,7 @@ uint256 hashAssumeValid;
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
-CWhiteList addressWhitelist;
+CWhiteList* addressWhitelist = nullptr;
 CPolicyList addressBurnlist;
 CPolicyList addressFreezelist;
 CRequestList requestList;
@@ -1090,6 +1093,10 @@ bool AcceptToMemoryPoolWorker(CTxMemPool &pool, CValidationState &state,
   if (fRequireWhitelistCheck)
     if (!IsAllBurn(tx) && !IsPolicy(tx) && !IsWhitelisted(tx) && !test_accept)
       return state.DoS(0, false, REJECT_NONSTANDARD, "non-whitelisted-address");
+  // Accept only transactions that include a hash of the latest contract
+  if (fContractInTx)
+      if(!IsAllBurn(tx) && !IsPolicy(tx) && !IsContractInTx(tx))
+        return state.DoS(0, false, REJECT_NONSTANDARD, "contract-missing");
   // Only accept nLockTime-using transactions that can be mined in the next
   // block; we don't want our mempool filled up with transactions that can't
   // be mined yet.
@@ -2999,8 +3006,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 if(tx.vout[0].nAsset.GetAsset() == burnlistAsset) UpdateBurnList(tx,view);
             }
             if(fRequireWhitelistCheck || fScanWhitelist){
-                if(!addressWhitelist.RegisterAddress(tx, view)){
-                    addressWhitelist.Update(tx,view);
+                if(!addressWhitelist->RegisterAddress(tx, view)){
+                    addressWhitelist->Update(tx,view);
                 }
             }
 

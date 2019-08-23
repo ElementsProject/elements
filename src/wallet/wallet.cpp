@@ -5,7 +5,6 @@
 
 #include "wallet/wallet.h"
 
-#include "base58.h"
 #include "checkpoints.h"
 #include "chain.h"
 #include "wallet/coincontrol.h"
@@ -27,6 +26,7 @@
 #include "util.h"
 #include "ui_interface.h"
 #include "utilmoneystr.h"
+#include "script/ismine.h"
 
 #include <assert.h>
 
@@ -91,7 +91,7 @@ const CWalletTx* CWallet::GetWalletTx(const uint256& hash) const
     return &(it->second);
 }
 
-CPubKey CWallet::GenerateNewKey()
+CPubKey CWallet::GenerateNewKey(bool bEncryption)
 {
     AssertLockHeld(cs_wallet); // mapKeyMetadata
     bool fCompressed = CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
@@ -104,7 +104,11 @@ CPubKey CWallet::GenerateNewKey()
 
     // use HD key derivation if HD was enabled during wallet creation
     if (IsHDEnabled()) {
-        DeriveNewChildKey(metadata, secret);
+        if(bEncryption){
+            DeriveNewEncryptionChildKey(metadata, secret);
+        } else {
+            DeriveNewChildKey(metadata, secret);
+        }
     } else {
         secret.MakeNewKey(fCompressed);
     }
@@ -116,10 +120,10 @@ CPubKey CWallet::GenerateNewKey()
     CPubKey pubKeyPreTweak = secret.GetPubKey();
     metadata.derivedPubKey = pubKeyPreTweak;
 
-    if (Params().EmbedContract()) {
+    if (Params().EmbedContract() &! bEncryption) {
         // use the active block contract hash to generate keys - if this is not available use the local contract
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash(); // for BIP-175
-        if (!contract.IsNull())
+        if (!contract.IsNull() && !Params().ContractInTx())
         {
             pubKeyPreTweak.AddTweakToPubKey((unsigned char*)contract.begin()); //tweak pubkey for reverse testing
             secret.AddTweakToPrivKey((unsigned char*)contract.begin()); //do actual tweaking of private key
@@ -129,7 +133,7 @@ CPubKey CWallet::GenerateNewKey()
     CPubKey pubkey = secret.GetPubKey();
     assert(secret.VerifyPubKey(pubkey));
 
-    if (Params().EmbedContract())
+    if (Params().EmbedContract() &! bEncryption)
         assert(pubKeyPreTweak == pubkey);
 
     mapKeyMetadata[pubkey.GetID()] = metadata;
@@ -140,7 +144,8 @@ CPubKey CWallet::GenerateNewKey()
     return pubkey;
 }
 
-void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret)
+
+void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret, unsigned int nExternalChain)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
     CKey key;                      //master key seed (256bit)
@@ -160,7 +165,7 @@ void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret)
     masterKey.Derive(accountKey, BIP32_HARDENED_KEY_LIMIT);
 
     // derive m/0'/0'
-    accountKey.Derive(externalChainChildKey, BIP32_HARDENED_KEY_LIMIT);
+    accountKey.Derive(externalChainChildKey, BIP32_HARDENED_KEY_LIMIT + nExternalChain);
 
     // derive child key at next index, skip keys already known to the wallet
     do {
@@ -1628,9 +1633,6 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool f
             CBlock block;
             if (ReadBlockFromDisk(block, pindex, Params().GetConsensus())) {
                 for (size_t posInBlock = 0; posInBlock < block.vtx.size(); ++posInBlock) {
-                    if(fRequireWhitelistCheck || fScanWhitelist){
-                        addressWhitelist.RegisterAddress(*block.vtx[posInBlock], pindex);
-                    }
                     if(fRecordInflation){
                         UpdateAssetMap(*block.vtx[posInBlock]);
                         UpdateFreezeHistory(*block.vtx[posInBlock],pindex->nHeight);
@@ -2592,7 +2594,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
 
                 if(ExtractDestination(script, dest)){
                     CKeyID keyId = boost::get<CKeyID>(dest);
-                    if(!addressWhitelist.is_whitelisted(keyId)) continue;
+                    if(!addressWhitelist->is_whitelisted(keyId)) continue;
                 }
             }
             
@@ -2757,7 +2759,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         // TODO - should also do this for the case where bytes are appended to OP_RETURN?
         // Just like issuance/re-issuance, when destroying assets pay policyAsset fees
         if (recipient.scriptPubKey == CScript(OP_RETURN) || 
-            recipient.scriptPubKey == CScript(OP_REGISTERADDRESS))
+            recipient.scriptPubKey == CScript(OP_REGISTERADDRESS) ||
+            recipient.scriptPubKey == CScript(OP_DEREGISTERADDRESS))
             feeAsset =  policyAsset;
 
         if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset.IsNull())
@@ -2855,6 +2858,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
             AvailableCoins(vAvailableCoins, true, coinControl);
 
 	    nFeeRet = 1;
+        if (IsPolicy(feeAsset))
+            nFeeRet = 0;
             // Start with tiny non-zero or zero fee for issuance entropy and loop until there is enough fee
             while (true)
             {
@@ -3347,6 +3352,16 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 nFeeRet = nFeeNeeded;
                 continue;
             }
+        }
+
+        //add contract hash to transaction if option selected
+        if(Params().ContractInTx()) {
+            uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+            CScript scriptPubKey;
+            scriptPubKey << OP_RETURN;
+            scriptPubKey << std::vector<unsigned char>(contract.begin(), contract.end());
+            CTxOut txoutcontract(feeAsset,0,scriptPubKey);
+            txNew.vout.push_back(txoutcontract);
         }
 
         // TODO Do actual blinding/caching here to allow for amount adjustments until end
@@ -4800,4 +4815,16 @@ std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes()
         }
     }
     return tokenMap;
+}
+
+void CWallet::SetKYCPubKeyIfMine(const CBitcoinAddress& addr, const CPubKey& pubKey){
+    isminetype mine = ::IsMine(*this, addr.Get());
+    if (mine != ISMINE_NO && addr.IsBlinded() && addr.GetBlindingKey() 
+        != GetBlindingPubKey(GetScriptForDestination(addr.Get()))) {
+        // Note: this will fail to return ismine for deprecated static blinded addresses.
+        mine = ISMINE_NO;
+    }
+    if((mine & ISMINE_SPENDABLE) ? true : false) {
+        SetKYCPubKey(pubKey);
+    }
 }

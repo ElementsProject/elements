@@ -53,8 +53,13 @@ bool CECIES::Encrypt(uCharVec& em,
 	return Encrypt(em, m, pubKey, ephemeralKey);
 }
 
-//Encryption: generate ephmeral private key, and include it's public key in the header.
-//Generate a dhared secret using the ephemeral private key and the recipient's public key.
+//Encryption: use the specified privKey as the "ephemeral" private key (the same 
+//privKey should only be used for ecnryption once).
+//Generate a shared secret (ecdh_key) using the ephemeral private key and the 
+//recipient's public key. The encryption key is the first 256 bytes of 
+//sha512(ecdh_key), and the MAC key is the remaining 256 bytes.
+//The initialization vector is the first AES_BLOCKSIZE bytes of the SHA1 of 
+//SHA512(ecdh_key)
 bool CECIES::Encrypt(uCharVec& em, 
  	const uCharVec& m, const CPubKey& pubKey, const CKey& privKey){
 
@@ -72,13 +77,8 @@ bool CECIES::Encrypt(uCharVec& em,
 	memcpy(_k_mac_encrypt, &arrKey[0]+sizeof(k), sizeof(_k_mac_encrypt));
 
 
-	//Generate a pseudorandom initialization vector using sha1
-	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
-	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
-
-	//Copy the required number of bytes to _iv
 	unsigned char iv[AES_BLOCKSIZE];
-	memcpy(iv, &iv_tmp[0], sizeof(iv));
+	GetStrongRandBytes(iv,AES_BLOCKSIZE);
 
 	AES256CBCEncrypt encryptor(k, iv, true);
 		
@@ -87,11 +87,12 @@ bool CECIES::Encrypt(uCharVec& em,
 
 	int paddedSize=encryptor.Encrypt(m.data(), size, ciphertext.data());
 	ciphertext.resize(paddedSize);
-	//Payload: _magic + pubkey + ciphertext
+	//Payload: _magic + pubkey + iv + ciphertext
 
 	uCharVec msg(_magic.begin(), _magic.end());
 	CPubKey ephemeralPub = privKey.GetPubKey();
 	msg.insert(msg.end(), ephemeralPub.begin(), ephemeralPub.end());
+	msg.insert(msg.end(), iv, &iv[AES_BLOCKSIZE]);
 	msg.insert(msg.end(), ciphertext.begin(), ciphertext.end());
 	//Generate MAC
 	unsigned char mac[CSHA256::OUTPUT_SIZE];
@@ -140,6 +141,10 @@ bool CECIES::Decrypt(uCharVec& m,
 	uint256 ecdh_key = privKey.ECDH(ephemeralPub);
 	
 	it1=it2;
+	it2=it1+AES_BLOCKSIZE;
+	uCharVec iv(it1, it2);
+
+	it1=it2;
 	it2=decoded.end()-CSHA256::OUTPUT_SIZE;
 
 	//sha512 hash of the elliptic curve diffie-hellman key to produce an encryption key and a MAC key
@@ -149,13 +154,6 @@ bool CECIES::Decrypt(uCharVec& m,
 	unsigned char k[AES256_KEYSIZE];
 	memcpy(k, &arrKey[0], sizeof(k));
 	memcpy(_k_mac_decrypt, &arrKey[0]+sizeof(k), sizeof(_k_mac_decrypt));
-	
-	//Generate a pseudorandom initialization vector using sha1
-	unsigned char iv_tmp[CSHA1::OUTPUT_SIZE];
-	CSHA1().Write(&arrKey[0], sizeof(arrKey)).Finalize(iv_tmp);
-	//Copy the required number of bytes to _iv
-	unsigned char iv[AES_BLOCKSIZE];
-	memcpy(iv, &iv_tmp[0], sizeof(iv));
 
 	//Check the message authentication code (MAC)
 	uCharVec MAC_written(it2, decoded.end());
@@ -168,7 +166,7 @@ bool CECIES::Decrypt(uCharVec& m,
 	uCharVec MAC_calculated(&mac[0], &mac[0]+sizeof(mac));
 	if(MAC_written != MAC_calculated) return false;
 	
-	AES256CBCDecrypt decryptor(k, iv, true);
+	AES256CBCDecrypt decryptor(k, iv.data(), true);
 
 	ciphertext=uCharVec(it1, it2);
 

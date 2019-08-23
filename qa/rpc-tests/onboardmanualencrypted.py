@@ -16,31 +16,34 @@ class OnboardManualTest (BitcoinTestFramework):
         self.num_nodes = 3
         self.extra_args = [['-txindex'] for i in range(3)]
         self.extra_args[0].append("-pkhwhitelist=1")
-        self.extra_args[0].append("-pkhwhitelist-encrypt=0")
+        self.extra_args[0].append("-pkhwhitelist-encrypt=1")
         self.extra_args[0].append("-rescan=1")
+        self.extra_args[0].append("-reindex-chainstate=1")
         self.extra_args[0].append("-initialfreecoins=2100000000000000")
         self.extra_args[0].append("-policycoins=50000000000000")
         self.extra_args[0].append("-regtest=0")
         self.extra_args[0].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[0].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[1].append("-rescan=1")
+        self.extra_args[1].append("-reindex-chainstate=1")
         self.extra_args[1].append("-regtest=0")
-        self.extra_args[1].append("-pkhwhitelist=1")
-        self.extra_args[1].append("-pkhwhitelist-encrypt=0")
+        self.extra_args[1].append("-pkhwhitelist-scan=1")
+        self.extra_args[1].append("-pkhwhitelist-encrypt=1")
         self.extra_args[1].append("-initialfreecoins=2100000000000000")
         self.extra_args[1].append("-policycoins=50000000000000")
         self.extra_args[1].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[1].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.extra_args[2].append("-rescan=1")
+        self.extra_args[2].append("-reindex-chainstate=1")
         self.extra_args[2].append("-regtest=0")
-        self.extra_args[2].append("-pkhwhitelist=1")
-        self.extra_args[2].append("-pkhwhitelist-encrypt=0")
+        self.extra_args[2].append("-pkhwhitelist-scan=1")
+        self.extra_args[2].append("-pkhwhitelist-encrypt=1")
         self.extra_args[2].append("-initialfreecoins=2100000000000000")
         self.extra_args[2].append("-policycoins=50000000000000")
         self.extra_args[2].append("-initialfreecoinsdestination=76a914bc835aff853179fa88f2900f9003bb674e17ed4288ac")
         self.extra_args[2].append("-whitelistcoinsdestination=76a914427bf8530a3962ed77fd3c07d17fd466cb31c2fd88ac")
         self.files=[]
-
+        
     def setup_network(self, split=False):
         self.nodes = start_nodes(3, self.options.tmpdir, self.extra_args[:3])
         connect_nodes_bi(self.nodes,0,1)
@@ -68,6 +71,7 @@ class OnboardManualTest (BitcoinTestFramework):
     def cleanup_files(self):
         for file in self.files:
             self.removefileifexists(file)
+
         
     def run_test (self):
         keypool=1
@@ -211,7 +215,7 @@ class OnboardManualTest (BitcoinTestFramework):
         #Test that txs do not send WHITELIST tokens
         wb0_2=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
         assert_equal(wb0_1-float(wlvalue), wb0_2)
-        
+
         self.cleanup_files()
         return
 

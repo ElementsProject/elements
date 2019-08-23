@@ -31,7 +31,7 @@ bool CRegisterAddressScript::Finalize(CScript& script, const CPubKey& ePubKey, c
     sendData.insert(sendData.end(), _encrypted.begin(), _encrypted.end()); 
     //Assemble the script and return
     script.clear();
-    script << OP_REGISTERADDRESS << sendData; 
+    script << _opcode << sendData; 
     return true;
 }
 
@@ -40,7 +40,7 @@ bool CRegisterAddressScript::FinalizeUnencrypted(CScript& script){
     sendData.resize(AES_BLOCKSIZE);
     sendData.insert(sendData.end(), _payload.begin(), _payload.end()); 
     script.clear();
-    script << OP_REGISTERADDRESS << sendData; 
+    script << _opcode << sendData; 
     return true;
 }
 
@@ -51,10 +51,10 @@ bool CRegisterAddressScript::Append(const CPubKey& pubKey){
 	uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
 
   	CPubKey tweakedPubKey(pubKey);
-    if (!contract.IsNull())
+    if (!contract.IsNull() && !Params().ContractInTx())
     	tweakedPubKey.AddTweakToPubKey((unsigned char*)contract.begin());
     CKeyID keyID=tweakedPubKey.GetID();
-    if(!Consensus::CheckValidTweakedAddress(keyID, pubKey))
+    if(!Params().ContractInTx() && !Consensus::CheckValidTweakedAddress(keyID, pubKey))
         return false;
     
     std::vector<unsigned char> vKeyIDNew = ToByteVector(keyID);
@@ -84,7 +84,7 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
     if(whitelistType != RA_MULTISIG && whitelistType != RA_ONBOARDING)
         return false;
 
-    if (!(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
+    if (!Params().ContractInTx() && !(Consensus::CheckValidTweakedAddress(keyID, keys, nMultisig)))
         return false;
     
     _payload.insert(_payload.end(), 
@@ -98,7 +98,7 @@ bool CRegisterAddressScript::Append(const uint8_t nMultisig, const CTxDestinatio
                     scriptID.begin(), 
                     scriptID.end());
 
-    for(int i = 0; i < keys.size(); ++i){
+    for(unsigned int i = 0; i < keys.size(); ++i){
         _payload.insert(_payload.end(), 
                 keys[i].begin(), 
                 keys[i].end());

@@ -62,7 +62,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     } else if (whichType == TX_NULL_DATA &&
                (!fAcceptDatacarrier || scriptPubKey.size() > nMaxDatacarrierBytes))
           return false;
-    else if (whichType == TX_REGISTERADDRESS &&
+    else if ( (whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) &&
                (!fAcceptRegisteraddress || scriptPubKey.size() > nMaxRegisteraddressBytes))
           return false;
     else if (whichType == TX_TRUE)
@@ -124,7 +124,7 @@ bool IsAnyBurn(const CTransaction &tx) {
   vector<vector<uint8_t>> vSolutions;
   for (CTxOut const &txout : tx.vout) {
     if(Solver(txout.scriptPubKey, whichType, vSolutions)) {
-      if ((whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS) && txout.nValue.GetAmount() != 0) return true;
+      if ((whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) && txout.nValue.GetAmount() != 0) return true;
     } else {
       return true;
     }
@@ -156,11 +156,19 @@ bool IsAllPolicy(CTransaction const &tx) {
     return true;
 }
 
-bool IsWhitelistAssetOnly(CTransaction const &tx){
-  for (CTxOut const &txout : tx.vout)
-        if (!IsWhitelistAsset(txout.nAsset.GetAsset()))
-            return false;
+bool IsWhitelistAssetOnly(vector<CTxOut> const &vout){
+  for (CTxOut const &txout : vout)
+    if (!IsWhitelistAsset(txout))
+      return false;
   return true;
+}
+
+bool IsWhitelistAssetOnly(CTransaction const &tx){
+  return IsWhitelistAssetOnly(tx.vout);
+}
+
+bool IsWhitelistAsset(CTxOut const &out){
+  return IsWhitelistAsset(out.nAsset.GetAsset());
 }
 
 bool IsWhitelistAsset(CAsset const &asset){
@@ -182,6 +190,28 @@ bool IsPolicy(const CAsset& asset){
     return false;
 }
 
+bool IsContractInTx(CTransaction const &tx) {
+  txnouttype whichType;
+  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+
+  for (CTxOut const &txout : tx.vout) {
+    opcodetype opcode;
+    std::vector<unsigned char> bytes;
+    vector<vector<uint8_t>> vSolutions;
+    if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+      return false;
+    if(whichType == TX_NULL_DATA) {
+      CScript::const_iterator pc = txout.scriptPubKey.begin();
+      if (!txout.scriptPubKey.GetOp(++pc, opcode, bytes)) continue;
+      if(bytes.size() == 32) {
+        uint256 data(bytes);
+        if(data == contract) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // @fn IsWhitelisted
 // @brief determines that all outputs of a transaction are P2PKH,
 //        all output addresses must be in the whitelist database.
@@ -195,34 +225,41 @@ bool IsPolicy(const CAsset& asset){
 // @retrun true == successful process.
 // @retrun false == failed process.
 bool IsWhitelisted(CTransaction const &tx) {
-  CKeyID keyId;
-  txnouttype whichType;
+    txnouttype whichType;
 
-  uint160 frzInt;
-  frzInt.SetHex("0x0000000000000000000000000000000000000000");
-  for (CTxOut const &txout : tx.vout) {
-    vector<vector<uint8_t>> vSolutions;
-    if (!Solver(txout.scriptPubKey, whichType, vSolutions))
-      return false;
-    // skip whitelist check if issuance transaction
-    // skip whitelist check if output is TX_FEE
-    // skip whitelist check if output is OP_RETURN
-    // skip whitelist check if output is OP_REGISTERADDRESS
-    if (!tx.vin[0].assetIssuance.IsNull() || whichType == TX_FEE ||
-        whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS)
-      continue;
-    // return false if not P2PKH
-    if (!(whichType == TX_PUBKEYHASH))
-      return false;
-
-    CKeyID keyId;
-    keyId = CKeyID(uint160(vSolutions[0]));
-    // Search in whitelist for the presence of each output address.
-    // If one is not found, return false.
-    if (!addressWhitelist.is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
-      return false;
-  }
-  return true;
+    uint160 frzInt;
+    frzInt.SetHex("0x0000000000000000000000000000000000000000");
+    for (CTxOut const &txout : tx.vout) {
+        vector<vector<uint8_t>> vSolutions;
+        if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+            return false;
+        // skip whitelist check if issuance transaction
+        // skip whitelist check if output is TX_FEE
+        // skip whitelist check if output is OP_RETURN
+    // skip whitelist check if output is OP_REGISTERADDRESS or OP_DEREGISTERADDRESS
+        if (!tx.vin[0].assetIssuance.IsNull() || whichType == TX_FEE ||
+        whichType == TX_NULL_DATA || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS )
+            continue;
+        // return false if not P2PKH or P2SH
+        if (whichType == TX_PUBKEYHASH) {
+            CKeyID keyId;
+            keyId = CKeyID(uint160(vSolutions[0]));
+            // Search in whitelist for the presence of each output address.
+            // If one is not found, return false.
+    if (!addressWhitelist->is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
+                return false;
+        } else if (whichType == TX_SCRIPTHASH) {
+            CScriptID keyId;
+            keyId = CScriptID(uint160(vSolutions[0]));
+            // Search in whitelist for the presence of each output address.
+            // If one is not found, return false.
+            if (!addressWhitelist->is_whitelisted(keyId) && uint160(vSolutions[0]) != frzInt)
+                return false;
+        } else {
+            return false;
+        }
+    }
+    return true;
 }
 // @fn IsRedemption.
 // @brief check if the transaction is tagged as a redemption transaction.
@@ -234,7 +271,7 @@ bool IsRedemption(CTransaction const &tx) {
   vector<vector<uint8_t>> vSolutions;
   for (uint32_t itr = 0; itr < tx.vout.size(); ++itr) {
     if (Solver(tx.vout[itr].scriptPubKey, whichType, vSolutions)) {
-      if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS)
+      if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS)
         continue;
       //set freeze-flag key
       uint160 frzInt;
@@ -284,7 +321,7 @@ bool IsFreezelisted(CTransaction const &tx, CCoinsViewCache const &mapInputs) {
       CKeyID keyId = CKeyID(uint160(vSolutions[0]));
       // search in freezelist for the presence of keyid
       if (!addressFreezelist.find(keyId)) return false;
-    } else if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS) {
+    } else if (whichType == TX_FEE || whichType == TX_REGISTERADDRESS || whichType == TX_DEREGISTERADDRESS) {
       continue;
      } else {
       return false;

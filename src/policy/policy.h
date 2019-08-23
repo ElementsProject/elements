@@ -117,7 +117,9 @@ bool IsPolicy(const CAsset& asset);
  * Check if a transaction has outputs that are all of whitelistAsset type
  */
 bool IsWhitelistAssetOnly(CTransaction const &tx);
+bool IsWhitelistAssetOnly(vector<CTxOut> const &vout);
 
+bool IsWhitelistAsset(CTxOut const &out);
 bool IsWhitelistAsset(CAsset const &asset);
 
 /**
@@ -134,6 +136,11 @@ bool IsPolicy(const CTransaction& tx);
  * Check if all outputs of a transaction are of a policy asset type
  */
 bool IsAllPolicy(const CTransaction& tx);
+
+/**
+ * Check if the transaction contains the contract hash as an OP_RETURN output
+ */
+bool IsContractInTx(const CTransaction& tx);
 
 /**
  * Check all type and whitelist status of outputs of tx

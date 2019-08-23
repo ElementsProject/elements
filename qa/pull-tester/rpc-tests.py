@@ -113,7 +113,10 @@ testScripts = [
     'whitelisting.py',
     'policytransactions.py',
     'onboard.py',
+    'onboard_cit.py',
+    'onboardencrypted.py',
     'onboardmanual.py',
+    'onboardmanualencrypted.py',
     # Accounts not supported
     #'wallet-accounts.py',
     # TODO fix mininode
@@ -163,6 +166,7 @@ testScripts = [
     #'p2p-segwit.py',
     #'importprunedfunds.py',
     'signmessages.py',
+    'contractintx.py',
     #'nulldummy.py',
     # TODO reactivate this
     #'import-rescan.py',

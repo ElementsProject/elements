@@ -126,6 +126,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   policy/policylist.h \
   policy/whitelist.h \
+  policy/whitelistEncrypted.h \
   policy/kycfile.h \
   policy/requestlist.h \
   pow.h \
@@ -208,6 +209,7 @@ libbitcoin_server_a_SOURCES = \
   policy/policy.cpp \
   policy/policylist.cpp \
   policy/whitelist.cpp \
+  policy/whitelistEncrypted.cpp \
   policy/requestlist.cpp \
   pow.cpp \
   rest.cpp \
@@ -247,6 +249,8 @@ libbitcoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libbitcoin_wallet_a_SOURCES = \
   global/common.cpp \
   policy/kycfile.cpp \
+  ecies.cpp \
+  ecies_hex.cpp \
   script/registeraddressscript.cpp \
   script/onboardingscript.cpp \
   ethaddress.cpp \

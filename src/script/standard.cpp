@@ -37,6 +37,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
     case TX_REGISTERADDRESS: return "registeraddress";
+    case TX_DEREGISTERADDRESS: return "deregisteraddress";
     case TX_WITNESS_V0_KEYHASH: return "witness_v0_keyhash";
     case TX_WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TX_TRUE: return "true";
@@ -176,6 +177,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         }
     }
 
+    if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_DEREGISTERADDRESS){
+        if(scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)){
+            typeRet = TX_DEREGISTERADDRESS;
+            return true;
+        }
+    }
+
     if (scriptPubKey == CScript() << OP_TRUE) {
         typeRet = TX_TRUE;
         return true;
@@ -256,7 +264,8 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    if (typeRet == TX_NULL_DATA || typeRet == TX_FEE || typeRet == TX_REGISTERADDRESS){
+    if (typeRet == TX_NULL_DATA || typeRet == TX_FEE || typeRet == TX_REGISTERADDRESS 
+        || typeRet == TX_DEREGISTERADDRESS){
         // This is data, not addresses
         return false;
     }

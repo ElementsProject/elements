@@ -176,9 +176,11 @@ void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::s
     //Check the key tweaking
     CKeyID addressKeyId;
     if(address.GetKeyID(addressKeyId)){
-        if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
-            _decryptedStream << line << ": invalid key tweaking\n";
-            return;
+        if(!Params().ContractInTx()){
+            if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
+                _decryptedStream << line << ": invalid key tweaking\n";
+                return;
+            }
         }
     }
     else{
@@ -226,10 +228,12 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     //Will throw an error if address is not a valid derived address.
     CTxDestination multiKeyId;
     multiKeyId = address.Get();
-    if (!(multiKeyId.which() == ((CTxDestination)CNoDestination()).which())){
-        if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
-            _decryptedStream << line << ": invalid key tweaking\n";
-            return;
+    if (!(multiKeyId.which() == ((CTxDestination)CNoDestination()).which())) {
+        if(!Params().ContractInTx()){
+            if(!Consensus::CheckValidTweakedAddress(multiKeyId, pubKeys, nMultisig)){
+                _decryptedStream << line << ": invalid key tweaking\n";
+                return;
+            }
         }
     }
     else{
@@ -243,8 +247,9 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
     _decryptedStream << line << "\n";
 }
 
-bool CKYCFile::getOnboardingScript(CScript& script){
+bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
     COnboardingScript obScript;
+    obScript.SetDeregister(fBlacklist);
 
     // Lookup the KYC public key assigned to the user from the whitelist
     //addressWhiteList.
@@ -252,29 +257,36 @@ bool CKYCFile::getOnboardingScript(CScript& script){
     if (!pwalletMain->IsLocked())
         pwalletMain->TopUpKeyPool();
 
-    // Get an unassigned KYC key from the addressWhitelist
-    CPubKey kycPubKey;
-    if(!addressWhitelist.get_unassigned_kyc(kycPubKey))
-        throw std::system_error(
-        std::error_code(CKYCFile::Errc::WHITELIST_KEY_ACCESS_ERROR, std::system_category()),
-        std::string(std::string(__func__) +  ": no unassigned whitelist KYC keys available"));
-
-    CKeyID kycKeyID(kycPubKey.GetID());
-    // Look up the public key
-    CKey kycKey;
-    if(!pwalletMain->GetKey(kycKeyID, kycKey)){
-        addressWhitelist.add_unassigned_kyc(kycPubKey);
-        throw std::system_error(
-        std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
-        std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
-    }
     if(_addressKeys.size() != 0)
         if(!obScript.Append(_addressKeys)) return false;
 
     if(_multisigData.size() != 0)
         if(!obScript.Append(_multisigData)) return false;
 
-    if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;
+
+    // Get an unassigned KYC key from the addressWhitelist
+    if(fWhitelistEncrypt){
+        CPubKey kycPubKey;
+
+        if(!addressWhitelist->get_unassigned_kyc(kycPubKey))
+            throw std::system_error(
+            std::error_code(CKYCFile::Errc::WHITELIST_KEY_ACCESS_ERROR, std::system_category()),
+            std::string(std::string(__func__) +  ": no unassigned whitelist KYC keys available"));
+
+        CKeyID kycKeyID(kycPubKey.GetID());
+        // Look up the public key
+        CKey kycKey;
+        if(!pwalletMain->GetKey(kycKeyID, kycKey)){
+            addressWhitelist->add_unassigned_kyc(kycPubKey);
+            throw std::system_error(
+            std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
+            std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
+        }
+        if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;
+    } else {
+        if(!obScript.FinalizeUnencrypted(script)) return false;
+    }
+
     return true;
 }
 
