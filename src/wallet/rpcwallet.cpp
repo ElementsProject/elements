@@ -581,28 +581,27 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asse
     SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail, fSplitTransactions, coinControl);
 }
 
-static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, int iSortingMethod = 0, CCoinControl* coinControl = NULL)
+static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, int iSortingMethod = 1, CCoinControl* coinControl = NULL)
 {
     CAmountMap balanceMap = pwalletMain->GetBalance();
-    //Default 0 unsorted 
+    //Default 0 unsorted, 1 descending, 2 ascending
     typedef std::function<bool(std::pair<CAsset, CAmount>, std::pair<CAsset, CAmount>)> Comparison;
-    std::set<std::pair<CAsset, CAmount>, Comparison> balanceSet;
-    if (iSortingMethod == 0) {
-        balanceSet = std::set<std::pair<CAsset, CAmount>, Comparison>(balanceMap.begin(), balanceMap.end(), NULL);
-    } else if (iSortingMethod == 1) {
+    std::vector<std::pair<CAsset, CAmount>> balanceSet = std::vector<std::pair<CAsset, CAmount>>(balanceMap.begin(),
+            balanceMap.end());
+    if (iSortingMethod == 1) {
         Comparison comparisonFunction =
                 [](std::pair<CAsset, CAmount> left, std::pair<CAsset, CAmount> right) {
                     return left.second > right.second;
                 };
-        balanceSet = std::set<std::pair<CAsset, CAmount>, Comparison>(balanceMap.begin(),
-            balanceMap.end(), comparisonFunction);
+        std::sort(balanceSet.begin(),
+            balanceSet.end(), comparisonFunction);
     } else if (iSortingMethod == 2){
         Comparison comparisonFunction =
                 [](std::pair<CAsset, CAmount> left, std::pair<CAsset, CAmount> right) {
                     return left.second < right.second;
                 };
-        balanceSet = std::set<std::pair<CAsset, CAmount>, Comparison>(balanceMap.begin(),
-            balanceMap.end(), comparisonFunction);
+        std::sort(balanceSet.begin(),
+            balanceSet.end(), comparisonFunction);
     }
     CAmount totalBalance = 0;
 
@@ -617,7 +616,7 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
     if (nValue > totalBalance)
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds for sendany");
 
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
@@ -636,7 +635,7 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
 
     
     bool outputsFilled = false;
-    for (const auto& it : balanceMap) {
+    for (const auto& it : balanceSet) {
         if (!IsPolicy(it.first)) {
             CAmount outputValue = it.second;
             if (nValue <= coveredValue + outputValue) {
@@ -647,6 +646,8 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
             vecSend.push_back(recipient);
             if (outputsFilled)
                 break;
+            else
+                coveredValue += outputValue;
         }
     }
 
@@ -1676,7 +1677,7 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
         throw runtime_error(
             "sendanytoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount ignoreblindfail splitlargetxs balanceSortType)\n"
             "\nSend an amount to a given address with as many non-policy assets as needed.\n"
@@ -1694,7 +1695,7 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
             "                             The recipient will receive less bitcoins than you enter in the amount field.\n"
             "6. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
             "7. \"splitlargetxs\"\"   (bool, default=false) Split a transaction that goes over the size limit into smaller transactions.\n"
-            "8. \"balanceSortType\"\"   (numeric, default=0) Choose which balances should be used first. 0 - unsorted, 1 - descending, 2 - ascending\n"
+            "8. \"balanceSortType\"\"   (numeric, default=1) Choose which balances should be used first. 1 - descending, 2 - ascending\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -1740,9 +1741,13 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
     if (request.params.size() > 6)
         fSplitTransactions = request.params[6].get_bool();
 
-    bool fSortingType = 0;
+    int fSortingType = 1;
     if (request.params.size() > 7)
         fSortingType = request.params[7].get_int();
+
+    if (!(fSortingType == 1 || fSortingType == 2)) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid sendany sorting type.");
+    }
 
     EnsureWalletIsUnlocked();
 

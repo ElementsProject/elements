@@ -2737,7 +2737,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     return true;
 }
 
-std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey>& vChangeKey, CAmount& nFeeRet,
+std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey>& vChangeKey, CAmount& nFeeRet,
                                 int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts,
                                 bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, CAsset feeAsset,
                                 bool fIgnoreBlindFail, bool fSplitTransactions, std::vector<COutput> vInputPool, bool fFindFeeAsset)
@@ -2804,9 +2804,12 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
         CAsset newFeeAsset = vecSend[0].asset;
         if (vecSend.size() > 1) {
             CAmountMap balanceMap = pwalletMain->GetBalance();
-            for (const auto& itRecipients : vecSend) {
-                if (balanceMap[itRecipients.asset] > balanceMap[newFeeAsset])
-                    newFeeAsset = itRecipients.asset;
+            int newFeeRecipient = 0;
+            for (int i = 0; i < vecSend.size(); ++i) {
+                if (balanceMap[vecSend[i].asset] > balanceMap[newFeeAsset]) {
+                    newFeeAsset = vecSend[i].asset;
+                    newFeeRecipient = i;
+                }
             }
 
             CRecipient lastRecipient = vecSend.back();
@@ -2818,6 +2821,9 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
 
                 mapValue[lastRecipient.asset] = lastBalance;
                 mapValue[newFeeAsset] -= requiredLastBalance;
+
+                vecSend[newFeeRecipient].nAmount = mapValue[newFeeAsset];
+                vecSend[vecSend.size() - 1].nAmount = mapValue[lastRecipient.asset];
             }
         }
         feeAsset = newFeeAsset;
@@ -2965,24 +2971,30 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
                         for (const auto& itRecipients : vecSend) {
                             balanceSet.insert(itRecipients.asset);
                         }
+                        CAmountMap validAmounts;
                         CAmount amountHave = 0;
-                        for (const auto& itHave : mapValueToSelect) {
-                            amountHave += itHave.second;
+                        BOOST_FOREACH(const COutput& out, vAvailableCoins)
+                        {
+                            if (!out.fSpendable)
+                                continue;
+                            if (balanceSet.find(out.tx->GetOutputAsset(out.i)) != balanceSet.end())
+                                amountHave += out.tx->GetOutputValueOut(out.i);
+                            validAmounts[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
                         }
                         CAmount amountNeeded = 0;
-                        for (const auto& itNeeded : mapValueIn) {
+                        for (const auto& itNeeded : mapValueToSelect) {
                             amountNeeded += itNeeded.second;
                         }
                         CAmount amountMissing = amountNeeded - amountHave;
                         if (amountMissing > 0) {
+                            CAmountMap balanceMap = pwalletMain->GetBalance();
                             //Fee in send any is based on the largest balance. If its bigger than the largest balance then this transaction is invalid.
-                            if (mapValue[feeAsset] <= amountMissing) {
+                            if (mapValue[feeAsset] < nFeeRet) {
                                 strFailReason = _("Required fee is larger than the owned non-policy asset with the biggest balance.");
                                 return std::vector<CWalletTx>();
                             }
-                            CAmountMap balanceMap = pwalletMain->GetBalance();
                             bool alternativeFound = false;
-                            for (const auto& it : balanceMap) {
+                            for (const auto& it : validAmounts) {
                                 if (!IsPolicy(it.first)) {
                                     if (balanceSet.find(it.first) == balanceSet.end()) {
                                         CAmount outputValue = it.second;
@@ -2994,6 +3006,15 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
                                                 mapValue[it.first] = mapValue[feeAsset];
                                                 mapValue[feeAsset] = 0;
                                             }
+
+                                            for (int j = 0; j < vecSend.size(); ++j) {
+                                                if (vecSend[j].asset == feeAsset) {
+                                                    vecSend[j].nAmount = mapValue[feeAsset];
+                                                    vecSend.push_back({vecSend[j].scriptPubKey, mapValue[it.first], it.first, vecSend[j].confidentiality_key, vecSend[j].fSubtractFeeFromAmount});
+                                                    break;
+                                                }
+                                            }
+
                                             alternativeFound = true;
                                             break;
                                         }
@@ -3001,7 +3022,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(const vector<CRecipient>& vecS
                                 }
                             }
                             if (!alternativeFound) {
-                                strFailReason = _("Could not find another asset with sufficient balance to cover the fees.");
+                                strFailReason = _("Could not find another asset with sufficient balance to cover the fees. ");
                                 return std::vector<CWalletTx>();
                             } else {
                                 continue;
