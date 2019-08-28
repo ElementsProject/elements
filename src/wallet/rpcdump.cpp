@@ -951,8 +951,10 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
 
     //Contract hash
     if(Params().ContractInKYCFile()){
-     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-     ss << "contracthash: " << contract.ToString() << "\n";
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if(!contract.IsNull()){
+            ss << "contracthash: " << contract.ToString() << "\n";
+        }
     }
 
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream

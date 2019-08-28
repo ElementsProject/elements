@@ -191,7 +191,7 @@ bool CKYCFile::parseMAC(const std::vector<std::string> vstr, const std::string l
     CPubKey tweaked(_addressKeys[0]);
 
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-    if (!contract.IsNull() && !Params().ContractInTx())
+    if (!contract.IsNull() &!Params().ContractInTx())
         tweaked.AddTweakToPubKey((unsigned char*)contract.begin());
 
     CECIES::GetMAC(tweaked, *onboardPrivKey, vDataNoMAC, _mac_calc);
@@ -312,7 +312,8 @@ bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
         throw std::invalid_argument(std::string(std::string(__func__) +  
                 ": signature (MAC) invalid in kycfile"));
 
-    if(Params().ContractInKYCFile()){
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    if(!contract.IsNull() && Params().ContractInKYCFile()){
         if(!_fContractHash_parsed) 
             throw std::invalid_argument(std::string(std::string(__func__) +  
                 ": no contract hash in kycfile"));
