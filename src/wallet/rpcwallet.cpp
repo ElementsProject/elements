@@ -622,10 +622,6 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
     // Create and send the transaction
-    std::vector<CReserveKey> vChangeKey;
-    vChangeKey.reserve(2);
-    vChangeKey.emplace_back(pwalletMain);
-    vChangeKey.emplace_back(pwalletMain);
 
     CAmount nFeeRequired;
     std::string strError;
@@ -635,21 +631,38 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
 
     
     bool outputsFilled = false;
+    CReserveKey hackKey = CReserveKey(pwalletMain);
+    CPubKey hackPubKey;
+    hackKey.GetReservedKey(hackPubKey);
+    CScript hackScript = GetScriptForDestination(hackPubKey.GetID());
+    hackKey.ReturnKey();
+
     for (const auto& it : balanceSet) {
         if (!IsPolicy(it.first)) {
-            CAmount outputValue = it.second;
-            if (nValue <= coveredValue + outputValue) {
-                outputValue = nValue - coveredValue;
-                outputsFilled = true;
+            CTxOut hackDustEstimator = CTxOut(it.first, it.second, hackScript);
+            if (!hackDustEstimator.IsDust(::minRelayTxFee)) {
+                CAmount outputValue = it.second;
+                if (nValue <= coveredValue + outputValue) {
+                    outputValue = nValue - coveredValue;
+                    outputsFilled = true;
+                }
+                CRecipient recipient = {scriptPubKey, outputValue, it.first, confidentiality_key, fSubtractFeeFromAmount};
+                vecSend.push_back(recipient);
+                if (outputsFilled)
+                    break;
+                else
+                    coveredValue += outputValue;
             }
-            CRecipient recipient = {scriptPubKey, outputValue, it.first, confidentiality_key, fSubtractFeeFromAmount};
-            vecSend.push_back(recipient);
-            if (outputsFilled)
-                break;
-            else
-                coveredValue += outputValue;
         }
     }
+
+    // Create and send the transaction
+    std::vector<CReserveKey> vChangeKey;
+    vChangeKey.reserve(vecSend.size() + 1);
+    for (int j = 0; j < vecSend.size() + 1; ++j) {
+        vChangeKey.emplace_back(pwalletMain);
+    }
+
 
     std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
 

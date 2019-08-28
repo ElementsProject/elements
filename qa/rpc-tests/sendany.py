@@ -53,33 +53,16 @@ class WalletTest (BitcoinTestFramework):
         self.nodes[2].generate(101)
         self.sync_all()
 
+        # Issue some assets to use for sendany different cases
+        self.nodes[2].issueasset('5.0','0', False)
         self.nodes[2].generate(101)
         self.sync_all()
 
-        # Issue some assets to use for sendany
-        self.nodes[2].issueasset('5.0','0', False)
+        self.nodes[2].issueasset('4.99999999','0', False)
         self.nodes[2].generate(101)
         self.sync_all()
 
         self.nodes[2].issueasset('4.0','0', False)
-        self.nodes[2].generate(101)
-        self.sync_all()
-
-        addr1 = self.nodes[0].getnewaddress();
-
-        # Edge case where first asset is 5 and output is 5. Fee makes the asset go over the limit and an extra ones has to be chosen.
-        tx = self.nodes[2].sendanytoaddress(addr1, 5, "", "", False, True, False, 1)
-        assert(tx in self.nodes[2].getrawmempool())
-        self.nodes[2].generate(101)
-        self.sync_all()
-
-        self.nodes[2].issueasset('5.0','0', False)
-        self.nodes[2].generate(101)
-        self.sync_all()
-
-        #Descending asset balances for sendany selection
-        tx2 = self.nodes[2].sendanytoaddress(addr1, 5.5, "", "", False, True, False, 1)
-        assert(tx2 in self.nodes[2].getrawmempool())
         self.nodes[2].generate(101)
         self.sync_all()
 
@@ -88,6 +71,28 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
 
         self.nodes[2].issueasset('1.0','0', False)
+        self.nodes[2].generate(101)
+        self.sync_all()
+
+        self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), self.nodes[2].getbalance()["CBT"], "", "", True, "CBT")
+        assert_equal(self.nodes[1].getbalance("", 0, False, "CBT"), 20790000.00000000)
+        assert_equal(self.nodes[2].getbalance("", 0, False, "CBT"), 0)
+        self.nodes[2].generate(101)
+        self.sync_all()
+
+        addr1 = self.nodes[0].getnewaddress();
+
+        print(self.nodes[2].getbalance())
+
+        # Edge case where first asset is 5 and output is 5. Fee makes the asset go over the limit and an extra ones has to be chosen.
+        tx = self.nodes[2].sendanytoaddress(addr1, 5, "", "", False, True, False)
+        assert(tx in self.nodes[2].getrawmempool())
+        self.nodes[2].generate(101)
+        self.sync_all()
+
+        #Descending asset balances for sendany selection
+        tx2 = self.nodes[2].sendanytoaddress(addr1, 5.5, "", "", False, True, False, 1)
+        assert(tx2 in self.nodes[2].getrawmempool())
         self.nodes[2].generate(101)
         self.sync_all()
 

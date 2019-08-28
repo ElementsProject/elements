@@ -2822,8 +2822,43 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                 mapValue[lastRecipient.asset] = lastBalance;
                 mapValue[newFeeAsset] -= requiredLastBalance;
 
-                vecSend[newFeeRecipient].nAmount = mapValue[newFeeAsset];
+                bool feeRecipientErased = false;
+                if (mapValue[newFeeAsset] == 0) {
+                    vecSend.erase(vecSend.begin() + newFeeRecipient);
+                    feeRecipientErased = true;
+                } else
+                    vecSend[newFeeRecipient].nAmount = mapValue[newFeeAsset];
                 vecSend[vecSend.size() - 1].nAmount = mapValue[lastRecipient.asset];
+
+                if (!feeRecipientErased) {
+                    CRecipient feeAssetRecipient = vecSend[newFeeRecipient];
+                    CTxOut dummyOutput = CTxOut(feeAssetRecipient.asset, feeAssetRecipient.nAmount, feeAssetRecipient.scriptPubKey);
+                    if (dummyOutput.IsDust(::minRelayTxFee)) {
+                        CAmount nDust = dummyOutput.GetDustThreshold(::minRelayTxFee) - dummyOutput.nValue.GetAmount();
+                        if (nDust > 0) {
+                            vecSend[newFeeRecipient].nAmount += nDust;
+                            mapValue[newFeeAsset] += nDust; // raise change until no more dust
+                            bool refillFound = false;
+                            for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from a recipient who has enough
+                            {
+                                if (i != newFeeRecipient) {
+                                    CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
+                                    if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
+                                        dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
+                                        vecSend[i].nAmount -= nDust;
+                                        mapValue[vecSend[i].asset] -= nDust;
+                                        refillFound = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (refillFound == false) {
+                                strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                                return std::vector<CWalletTx>();
+                            }
+                        }
+                    }
+                }
             }
         }
         feeAsset = newFeeAsset;
@@ -2947,8 +2982,9 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                             else
                                 strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
                         }
-                        else
+                        else {
                             strFailReason = _("Transaction amount too small");
+                        }
                         return std::vector<CWalletTx>();
                     }
                     txNew.vout.push_back(txout);
@@ -3007,11 +3043,49 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                                                 mapValue[feeAsset] = 0;
                                             }
 
+                                            bool feeRecipientErased = false;
+                                            int feeRecipientId = 0;
                                             for (int j = 0; j < vecSend.size(); ++j) {
                                                 if (vecSend[j].asset == feeAsset) {
-                                                    vecSend[j].nAmount = mapValue[feeAsset];
+                                                    feeRecipientId = j;
                                                     vecSend.push_back({vecSend[j].scriptPubKey, mapValue[it.first], it.first, vecSend[j].confidentiality_key, vecSend[j].fSubtractFeeFromAmount});
+                                                    if (mapValue[feeAsset] == 0) {
+                                                        vecSend.erase(vecSend.begin() + j);
+                                                        feeRecipientErased = true;
+                                                    }
+                                                    else
+                                                        vecSend[j].nAmount = mapValue[feeAsset];
                                                     break;
+                                                }
+                                            }
+
+                                            if (!feeRecipientErased) {
+                                                CRecipient feeAssetRecipient = vecSend[feeRecipientId];
+                                                CTxOut dummyOutput = CTxOut(feeAssetRecipient.asset, feeAssetRecipient.nAmount, feeAssetRecipient.scriptPubKey);
+                                                if (dummyOutput.IsDust(::minRelayTxFee)) {
+                                                    CAmount nDust = dummyOutput.GetDustThreshold(::minRelayTxFee) - dummyOutput.nValue.GetAmount();
+                                                    if (nDust > 0) {
+                                                        vecSend[feeRecipientId].nAmount += nDust;
+                                                        mapValue[vecSend[feeRecipientId].asset] += nDust; // raise change until no more dust
+                                                        bool refillFound = false;
+                                                        for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from a recipient who has enough
+                                                        {
+                                                            if (i != feeRecipientId) {
+                                                                CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
+                                                                if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
+                                                                    dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
+                                                                    vecSend[i].nAmount -= nDust;
+                                                                    mapValue[vecSend[i].asset] -= nDust;
+                                                                    refillFound = true;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                        if (refillFound == false) {
+                                                            strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                                                            return std::vector<CWalletTx>();
+                                                        }
+                                                    }
                                                 }
                                             }
 
