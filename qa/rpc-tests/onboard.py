@@ -165,7 +165,9 @@ class OnboardTest (BitcoinTestFramework):
 
         #Onboard node0
         kycfile0=self.initfile(os.path.join(self.options.tmpdir,"kycfile0.dat"))
+        kycfile0_plain=self.initfile(os.path.join(self.options.tmpdir,"kycfile0_plain.dat"))
         userOnboardPubKey=self.nodes[0].dumpkycfile(kycfile0)
+        self.nodes[0].readkycfile(kycfile0, kycfile0_plain)
         self.nodes[0].onboarduser(kycfile0)
         self.nodes[0].generate(101)
         self.sync_all()
@@ -229,13 +231,15 @@ class OnboardTest (BitcoinTestFramework):
                 self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
             except Exception as e:
                 success=False
-                assert(e.args[0] == str('bitcoind exited with status -6 during initialization'))
-                stop_node(self.nodes[1],1)
             if success is True:
                 break
+        time.sleep(1)
         connect_nodes_bi(self.nodes,0,1)
+        time.sleep(1)
         connect_nodes_bi(self.nodes,1,2)
+        time.sleep(1)
         wl1file_rs2=self.initfile(os.path.join(self.options.tmpdir,"wl1_rs2.dat"))
+        time.sleep(1)
         self.nodes[1].dumpwhitelist(wl1file_rs2)
         assert(filecmp.cmp(wl1file_rs1, wl1file_rs2))
         

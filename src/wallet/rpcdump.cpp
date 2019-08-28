@@ -949,7 +949,17 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     //Padding
     ss.str("00000000000000000000000000000000");
 
+    //Contract hash
+//    if(Params().ContractInKYC()){
+   //  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+//     ss << contract.ToString();
+//    }
+
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
+    
+
+
+    CKeyID* firstKeyID=nullptr;
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
         const CKeyID &keyid = *it;
         std::string strAddr = CBitcoinAddress(keyid).ToString();
@@ -961,22 +971,37 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
             ss << strprintf("%s %s\n",
                 strAddr,
                 HexStr(pubKey.begin(), pubKey.end()));
+            if(!firstKeyID){
+                firstKeyID = new CKeyID(keyid);
+            }
         }
     }
-    
 
-    //Encrypt the above string
-    CECIES encryptor;
+    if(!firstKeyID)
+         throw JSONRPCError(RPC_WALLET_ERROR, "Key pool empty.");
     
     std::string encrypted;
-    //Remove new line character from end of string
 
-//    std::string bareHex=HexStr(bare);
-    std::string sRaw=ss.str();
-    std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
+    //std::string bareHex=HexStr(bare);
+    std::vector<unsigned char> vRaw(ss.str().begin(), ss.str().end());
     std::vector<unsigned char> vEnc;
 
-if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
+    //Append a message authetication code signed with the key of the first wallet address
+    unsigned char mac[CECIES::MACSIZE];
+    CKey* keyMAC = new CKey();
+    if(!pwalletMain->GetKey(*firstKeyID, *keyMAC))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Could not get key for message authentication code.");
+    CECIES::GetMAC(onboardPubKey, *keyMAC, vRaw, mac);
+    delete keyMAC;
+    delete firstKeyID;
+    std::string mac_str = std::string("MAC: ") + HexStr(std::begin(mac), std::end(mac));
+    vRaw.insert(vRaw.end(),mac_str.begin(), mac_str.end());
+    vRaw.push_back('\n');
+
+    
+    //Encrypt the above string
+    CECIES encryptor;
+    if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Encryption failed.");
     
 
