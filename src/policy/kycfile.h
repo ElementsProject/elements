@@ -38,8 +38,6 @@ class CKYCFile{
 		bool parsePubkeyPair(const std::vector<std::string> vstr, const std::string line);
 		bool parseContractHash(const std::vector<std::string> vstr, const std::string line);
 		void parseMultisig(const std::vector<std::string> vstr, const std::string line);
-		bool parseMAC(const std::vector<std::string> vstr, const std::string line, 
-			const std::vector<unsigned char>& vData);
 
 		const std::stringstream& getStream() const {return _decryptedStream;}
 
@@ -63,9 +61,6 @@ class CKYCFile{
     	std::string _filename;
 
     	unsigned char _mac_calc[CECIES::MACSIZE];
-
-    	bool _fMAC = false;
-    	bool _fMAC_parsed = false;
 
     	bool _fContractHash = false;
     	bool _fContractHash_parsed = false;

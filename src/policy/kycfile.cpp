@@ -133,8 +133,6 @@ bool CKYCFile::read(){
                         continue;
                     }
                     else if (vstr.size() == 2){
-                        if(parseMAC(vstr,line,vdata))
-                            continue;
                         if(parseContractHash(vstr,line))
                             continue;
                         parsePubkeyPair(vstr,line);
@@ -168,40 +166,6 @@ bool CKYCFile::parseContractHash(const std::vector<std::string> vstr, const std:
 
     if(!_fContractHash){
         _decryptedStream << line << ": incorrect contract hash - expected " + contract.ToString() +  "\n";
-    } else {
-        _decryptedStream << line << "\n";
-    }
-    return true;
-}
-
-bool CKYCFile::parseMAC(const std::vector<std::string> vstr, const std::string line, 
-    const std::vector<unsigned char>& vData){
-    if(vstr[0].compare("MAC:"))
-        return false;
-    if(_fMAC_parsed)
-        return true;
-    _fMAC_parsed = true;
-
-    CKey* onboardPrivKey = new CKey();
-    pwalletMain->GetKey(_onboardPubKey->GetID(), *onboardPrivKey);
-    auto it2 = vData.end();
-    it2 -= line.size();
-    it2 -= 1;
-    std::vector<unsigned char> vDataNoMAC(vData.begin(), it2);
-    CPubKey tweaked(_addressKeys[0]);
-
-    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-    if (!contract.IsNull() &!Params().ContractInTx())
-        tweaked.AddTweakToPubKey((unsigned char*)contract.begin());
-
-    CECIES::GetMAC(tweaked, *onboardPrivKey, vDataNoMAC, _mac_calc);
-    std::stringstream ss_mac;
-    ss_mac.str("");
-    ss_mac << HexStr(std::begin(_mac_calc), std::end(_mac_calc));
-    //_fMAC true if the MAC code is correct.
-    _fMAC = (vstr[1].compare(ss_mac.str())==0);
-    if(!_fMAC){
-        _decryptedStream << line << ": invalid kycfile signature (MAC) - expected " + ss_mac.str() +  "\n";
     } else {
         _decryptedStream << line << "\n";
     }
@@ -304,14 +268,6 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
 }
 
 bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
-    if(!_fMAC_parsed) 
-        throw std::invalid_argument(std::string(std::string(__func__) +  
-                ": no signature (MAC) in kycfile"));
-    
-    if(!_fMAC) 
-        throw std::invalid_argument(std::string(std::string(__func__) +  
-                ": signature (MAC) invalid in kycfile"));
-
     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
     if(!contract.IsNull() && Params().ContractInKYCFile()){
         if(!_fContractHash_parsed) 

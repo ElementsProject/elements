@@ -754,7 +754,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
     file << "\n";
 
     // add the onboarding public key 
-    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey(true);
     pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
@@ -763,6 +763,15 @@ UniValue createkycfile(const JSONRPCRequest& request)
     //Padding
     ss.str("00000000000000000000000000000000");
 
+    //Contract hash
+    if(Params().ContractInKYCFile()){
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if(!contract.IsNull()){
+            ss << "contracthash: " << contract.ToString() << "\n";
+        }
+    }
+
+    CPubKey* firstPubKey = nullptr;
     // add the tweaked bitcoin address and untweaked pubkey hex to a stringstream
     for(unsigned int i = 0; i < pubKeyList.size(); ++i) {
         UniValue pubkeyObj = pubKeyList[i];
@@ -782,6 +791,10 @@ UniValue createkycfile(const JSONRPCRequest& request)
 
         if(!pubKey.IsFullyValid())
             continue;
+
+        if(!firstPubKey){
+            firstPubKey = new CPubKey(pubKey);
+        }
 
         ss << strprintf("%s %s\n",
                 addrStr,
@@ -818,6 +831,9 @@ UniValue createkycfile(const JSONRPCRequest& request)
                 break;
             }
             pubKeyVec.push_back(pubKey);
+            if(!firstPubKey){
+                firstPubKey = new CPubKey(pubKey);
+            }
         }
 
         if(shouldContinue)
@@ -985,19 +1001,6 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
     std::vector<unsigned char> vEnc;
 
-    //Append a message authetication code signed with the key of the first wallet address
-    unsigned char mac[CECIES::MACSIZE];
-    CKey* keyMAC = new CKey();
-    if(!pwalletMain->GetKey(*firstKeyID, *keyMAC))
-        throw JSONRPCError(RPC_WALLET_ERROR, "Could not get key for message authentication code.");
-    CECIES::GetMAC(onboardPubKey, *keyMAC, vRaw, mac);
-    delete keyMAC;
-    delete firstKeyID;
-    std::string mac_str = std::string("MAC: ") + HexStr(std::begin(mac), std::end(mac));
-    vRaw.insert(vRaw.end(),mac_str.begin(), mac_str.end());
-    vRaw.push_back('\n');
-
-    
     //Encrypt the above string
     CECIES encryptor;
     if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
