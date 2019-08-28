@@ -505,6 +505,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-issuecontrolscript", _("Embed the issuance controller script in the genesis block"));
     strUsage += HelpMessageOpt("-recordinflation", _("Record issuance data and freeze history"));
     strUsage += HelpMessageOpt("-contractintx", _("Enforce contract in transaction with null tweaking"));
+    strUsage += HelpMessageOpt("-contractinkycfile", _("Include/enforce contract in KYC file"));
 
     strUsage += HelpMessageGroup(_("RPC server options:"));
     strUsage += HelpMessageOpt("-server", _("Accept command line and JSON-RPC commands"));

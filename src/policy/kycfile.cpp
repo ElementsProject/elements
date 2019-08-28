@@ -135,6 +135,8 @@ bool CKYCFile::read(){
                     else if (vstr.size() == 2){
                         if(parseMAC(vstr,line,vdata))
                             continue;
+                        if(parseContractHash(vstr,line))
+                            continue;
                         parsePubkeyPair(vstr,line);
                     }
                     //Current line is a multisig line if there are more than two elements
@@ -152,10 +154,34 @@ bool CKYCFile::read(){
     return true;
 }
 
+bool CKYCFile::parseContractHash(const std::vector<std::string> vstr, const std::string line){
+    if(vstr[0].compare("contracthash:"))
+        return false;
+    if(_fContractHash_parsed)
+        return true;
+    _fContractHash_parsed = true;
+
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    if(!contract.ToString().compare(vstr[1])){
+        _fContractHash=true;
+    }
+
+    if(!_fContractHash){
+        _decryptedStream << line << ": incorrect contract hash - expected " + contract.ToString() +  "\n";
+    } else {
+        _decryptedStream << line << "\n";
+    }
+    return true;
+}
+
 bool CKYCFile::parseMAC(const std::vector<std::string> vstr, const std::string line, 
     const std::vector<unsigned char>& vData){
     if(vstr[0].compare("MAC:"))
         return false;
+    if(_fMAC_parsed)
+        return true;
+    _fMAC_parsed = true;
+
     CKey* onboardPrivKey = new CKey();
     pwalletMain->GetKey(_onboardPubKey->GetID(), *onboardPrivKey);
     auto it2 = vData.end();
@@ -224,7 +250,13 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
         return;
     }
 
-    uint8_t nMultisig = std::stoi(vstr[0]);
+     uint8_t nMultisig = 0;
+    try{
+        nMultisig = std::stoi(vstr[0]);
+    } catch (const std::exception& e){
+        _decryptedStream << line << ": invalid nmultisig size\n";
+        return;
+    }
 
     if(nMultisig < 1 || nMultisig > MAX_P2SH_SIGOPS){
         _decryptedStream << line << ": invalid nmultisig size\n";
@@ -272,10 +304,23 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
 }
 
 bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
+    if(!_fMAC_parsed) 
+        throw std::invalid_argument(std::string(std::string(__func__) +  
+                ": no signature (MAC) in kycfile"));
+    
     if(!_fMAC) 
         throw std::invalid_argument(std::string(std::string(__func__) +  
-                ": signature (MAC)invalid"));
-        
+                ": signature (MAC) invalid in kycfile"));
+
+    if(Params().ContractInKYCFile()){
+        if(!_fContractHash_parsed) 
+            throw std::invalid_argument(std::string(std::string(__func__) +  
+                ": no contract hash in kycfile"));
+    
+        if(!_fContractHash) 
+            throw std::invalid_argument(std::string(std::string(__func__) +  
+                ": contract hash incorrect in kycfile"));
+    }
 
     COnboardingScript obScript;
     obScript.SetDeregister(fBlacklist);

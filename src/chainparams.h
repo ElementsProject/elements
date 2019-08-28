@@ -40,6 +40,7 @@ struct ChainTxData {
 
 static const bool DEFAULT_EMBED_CONTRACT = true;
 static const bool DEFAULT_CONTRACT_INTX = false;
+static const bool DEFAULT_CONTRACT_INKYCFILE = true;
 static const bool DEFAULT_EMBED_MAPPING = true;
 
 /**
@@ -86,6 +87,8 @@ public:
     bool RequireStandard() const { return fRequireStandard; }
     /** Configuration option to include the contract in transactions and enforce as a mempool policy */
     bool ContractInTx() const { return fContractInTx; }
+    /** Configuration option to include/enforce the contract in the KYC file */
+    bool ContractInKYCFile() const { return fContractInKYCFile; }
     /** Configuration option to include the contract hash in block and address generation */
     bool EmbedContract() const { return fEmbedContract; }    
     /** Configuration option to include the mapping hash in block */
@@ -132,6 +135,7 @@ protected:
     bool fRequireStandard;
     bool fMineBlocksOnDemand;
     bool fContractInTx;
+    bool fContractInKYCFile;
     bool fEmbedContract;
     bool fEmbedMapping;
     CCheckpointData checkpointData;

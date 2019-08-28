@@ -950,15 +950,12 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     ss.str("00000000000000000000000000000000");
 
     //Contract hash
-//    if(Params().ContractInKYC()){
-   //  uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-//     ss << contract.ToString();
-//    }
+    if(Params().ContractInKYCFile()){
+     uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+     ss << "contracthash: " << contract.ToString() << "\n";
+    }
 
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
-    
-
-
     CKeyID* firstKeyID=nullptr;
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
         const CKeyID &keyid = *it;
@@ -982,8 +979,8 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     
     std::string encrypted;
 
-    //std::string bareHex=HexStr(bare);
-    std::vector<unsigned char> vRaw(ss.str().begin(), ss.str().end());
+    std::string sRaw=ss.str();
+    std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
     std::vector<unsigned char> vEnc;
 
     //Append a message authetication code signed with the key of the first wallet address

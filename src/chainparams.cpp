@@ -169,6 +169,7 @@ protected:
         fRequireStandard = GetBoolArg("-frequirestandard", false);
         fEmbedContract = GetBoolArg("-embedcontract", DEFAULT_EMBED_CONTRACT);
         fContractInTx = GetBoolArg("-contractintx", DEFAULT_CONTRACT_INTX);
+        fContractInKYCFile = GetBoolArg("-contractinkycfile", DEFAULT_CONTRACT_INKYCFILE);
         fEmbedMapping = GetBoolArg("-embedmapping", DEFAULT_EMBED_MAPPING);
         fMineBlocksOnDemand = GetBoolArg("-fmineblocksondemand", true);
         anyonecanspend_aremine = GetBoolArg("-anyonecanspendaremine", true);
