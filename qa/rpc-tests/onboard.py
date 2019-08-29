@@ -170,9 +170,12 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[0].readkycfile(kycfile0, kycfile0_plain)
 
         self.nodes[0].onboarduser(kycfile0)
+        time.sleep(5)
         self.nodes[0].generate(101)
+        time.sleep(5)
         self.sync_all()
-        
+        time.sleep(5)
+                
         wl1file=self.initfile(os.path.join(self.options.tmpdir,"wl1.dat"))
         self.nodes[1].dumpwhitelist(wl1file)
         nlines=self.linecount(wl1file)
@@ -190,9 +193,12 @@ class OnboardTest (BitcoinTestFramework):
 
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         self.nodes[0].onboarduser(kycfile)
-
+        time.sleep(5)
         self.nodes[0].generate(101)
+        time.sleep(5)
         self.sync_all()
+        time.sleep(5)
+
         balance_2=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         #Make sure the onboard transaction fee was zero
         assert((balance_1-balance_2) == 0)
