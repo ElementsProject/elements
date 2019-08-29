@@ -581,7 +581,7 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asse
     SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail, fSplitTransactions, coinControl);
 }
 
-static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, int iSortingMethod = 1, CCoinControl* coinControl = NULL)
+static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, int iSortingMethod = 1, CCoinControl* coinControl = NULL)
 {
     CAmountMap balanceMap = pwalletMain->GetBalance();
     //Default 0 unsorted, 1 descending, 2 ascending
@@ -646,7 +646,7 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
                     outputValue = nValue - coveredValue;
                     outputsFilled = true;
                 }
-                CRecipient recipient = {scriptPubKey, outputValue, it.first, confidentiality_key, fSubtractFeeFromAmount};
+                CRecipient recipient = {scriptPubKey, outputValue, it.first, confidentiality_key, false};
                 vecSend.push_back(recipient);
                 if (outputsFilled)
                     break;
@@ -667,7 +667,7 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
     std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
 
     if (!createResult.size() > 0) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > totalBalance)
+        if (nValue + nFeeRequired > totalBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -680,9 +680,9 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, bool fSubt
     }
 }
 
-static void SendAnyMoney(const CTxDestination &address, CAmount nValue, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions, int iSortingMethod, CCoinControl* coinControl = NULL)
+static void SendAnyMoney(const CTxDestination &address, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions, int iSortingMethod, CCoinControl* coinControl = NULL)
 {
-    SendAnyMoney(GetScriptForDestination(address), nValue, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail, fSplitTransactions, iSortingMethod, coinControl);
+    SendAnyMoney(GetScriptForDestination(address), nValue, confidentiality_key, wtxNew, fIgnoreBlindFail, fSplitTransactions, iSortingMethod, coinControl);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -1690,9 +1690,9 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
         throw runtime_error(
-            "sendanytoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount ignoreblindfail splitlargetxs balanceSortType)\n"
+            "sendanytoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" ignoreblindfail splitlargetxs balanceSortType)\n"
             "\nSend an amount to a given address with as many non-policy assets as needed.\n"
             "\nWarning! Only use this RPC in ocean chains in which all non-policy assets are fungible!!\n"
             + HelpRequiringPassphrase() +
@@ -1704,17 +1704,15 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
             "4. \"comment_to\"         (string, optional) A comment to store the name of the person or organization \n"
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
-            "5. subtractfeefromamount  (boolean, optional, default=false) The fee will be deducted from the amount being sent.\n"
-            "                             The recipient will receive less bitcoins than you enter in the amount field.\n"
-            "6. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
-            "7. \"splitlargetxs\"\"   (bool, default=false) Split a transaction that goes over the size limit into smaller transactions.\n"
-            "8. \"balanceSortType\"\"   (numeric, default=1) Choose which balances should be used first. 1 - descending, 2 - ascending\n"
+            "5. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
+            "6. \"splitlargetxs\"\"   (bool, default=false) Split a transaction that goes over the size limit into smaller transactions.\n"
+            "7. \"balanceSortType\"\"   (numeric, default=1) Choose which balances should be used first. 1 - descending, 2 - ascending\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
             + HelpExampleCli("sendanytoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
             + HelpExampleCli("sendanytoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
-            + HelpExampleCli("sendanytoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
+            + HelpExampleCli("sendanytoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true true 2")
             + HelpExampleCli("sendanytoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"\" \"\" true")
             + HelpExampleRpc("sendanytoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\", 0.1, \"donation\", \"seans outpost\"")
         );
@@ -1742,21 +1740,17 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
     if (request.params.size() > 3 && !request.params[3].isNull() && !request.params[3].get_str().empty())
         wtx.mapValue["to"]      = request.params[3].get_str();
 
-    bool fSubtractFeeFromAmount = false;
-    if (request.params.size() > 4)
-        fSubtractFeeFromAmount = request.params[4].get_bool();
-
     bool fIgnoreBlindFail = true;
-    if (request.params.size() > 5)
-        fIgnoreBlindFail = request.params[5].get_bool();
+    if (request.params.size() > 4)
+        fIgnoreBlindFail = request.params[4].get_bool();
 
     bool fSplitTransactions = false;
-    if (request.params.size() > 6)
-        fSplitTransactions = request.params[6].get_bool();
+    if (request.params.size() > 5)
+        fSplitTransactions = request.params[5].get_bool();
 
     int fSortingType = 1;
-    if (request.params.size() > 7)
-        fSortingType = request.params[7].get_int();
+    if (request.params.size() > 6)
+        fSortingType = request.params[6].get_int();
 
     if (!(fSortingType == 1 || fSortingType == 2)) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid sendany sorting type.");
@@ -1764,7 +1758,7 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked();
 
-    SendAnyMoney(address.Get(), nAmount, fSubtractFeeFromAmount, confidentiality_pubkey, wtx, fIgnoreBlindFail, fSplitTransactions, fSortingType);
+    SendAnyMoney(address.Get(), nAmount, confidentiality_pubkey, wtx, fIgnoreBlindFail, fSplitTransactions, fSortingType);
 
     std::string blinds;
     for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {

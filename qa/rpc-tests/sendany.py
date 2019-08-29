@@ -82,22 +82,20 @@ class WalletTest (BitcoinTestFramework):
 
         addr1 = self.nodes[0].getnewaddress();
 
-        print(self.nodes[2].getbalance())
-
         # Edge case where first asset is 5 and output is 5. Fee makes the asset go over the limit and an extra ones has to be chosen.
-        tx = self.nodes[2].sendanytoaddress(addr1, 5, "", "", False, True, False)
+        tx = self.nodes[2].sendanytoaddress(addr1, 5, "", "", True, False)
         assert(tx in self.nodes[2].getrawmempool())
         self.nodes[2].generate(101)
         self.sync_all()
 
         #Descending asset balances for sendany selection
-        tx2 = self.nodes[2].sendanytoaddress(addr1, 5.5, "", "", False, True, False, 1)
+        tx2 = self.nodes[2].sendanytoaddress(addr1, 5.5, "", "", True, False, 1)
         assert(tx2 in self.nodes[2].getrawmempool())
         self.nodes[2].generate(101)
         self.sync_all()
 
         #Ascending asset balances for sendany selection
-        tx3 = self.nodes[2].sendanytoaddress(addr1, 2.5, "", "", False, True, False, 2)
+        tx3 = self.nodes[2].sendanytoaddress(addr1, 2.5, "", "", True, False, 2)
         assert(tx3 in self.nodes[2].getrawmempool())
         self.nodes[2].generate(101)
         self.sync_all()
