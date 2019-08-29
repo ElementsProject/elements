@@ -30,8 +30,7 @@ bool CKYCFile::open(std::string filename){
     close();
     _file.open(filename, std::ios::in | std::ios::ate);
     if (!_file.is_open())
-        throw std::system_error(
-          std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
+        throw std::invalid_argument(
           std::string(std::string(__func__) +  ": cannot open kyc file"));
 
     _file.seekg(0, _file.beg);
@@ -76,28 +75,24 @@ bool CKYCFile::read(){
             std::vector<std::string> vstr;
             boost::split(vstr, line, boost::is_any_of(" "));
             if (vstr.size() != 3)
-                throw std::system_error(
-                    std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
+                throw std::invalid_argument(
                     std::string(std::string(__func__) +  ": invalid KYC file"));
 
             std::vector<unsigned char> pubKeyData(ParseHex(vstr[0]));      
             _onboardPubKey = new CPubKey(pubKeyData.begin(), pubKeyData.end());
 
             if(!_onboardPubKey->IsFullyValid())
-                        throw std::system_error(
-                        std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+                        throw std::invalid_argument(
                         std::string(std::string(__func__) +  ": invalid kyc pub key in KYC file"));
 
             if(!pwalletMain->GetKey(_onboardPubKey->GetID(), onboardPrivKey))
-                throw std::system_error(
-                        std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
+                throw std::invalid_argument(
                         std::string(std::string(__func__) +  ": cannot get onboard private key"));
   
             std::vector<unsigned char> userPubKeyData(ParseHex(vstr[1]));    
             _onboardUserPubKey = new CPubKey(userPubKeyData.begin(), userPubKeyData.end());
             if(!_onboardUserPubKey->IsFullyValid())
-                 throw std::system_error(
-                        std::error_code(CKYCFile::Errc::INVALID_ADDRESS_OR_KEY, std::system_category()),
+                 throw std::invalid_argument(
                         std::string(std::string(__func__) +  ": invalid onboard user pub key in kyc file"));
 
             std::stringstream ssNBytes;
@@ -111,8 +106,7 @@ bool CKYCFile::read(){
         ss << line;        
         unsigned long size = ss.str().size();
         if(size > nBytesTotal){
-            throw std::system_error(
-            std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
+            throw std::invalid_argument(
             std::string(std::string(__func__) +  ": invalid KYC file: encrypted data stream too long"));
         }
         if(size == nBytesTotal){
@@ -121,8 +115,7 @@ bool CKYCFile::read(){
                 std::vector<unsigned char> vch(str.begin(), str.end());
                 std::vector<unsigned char> vdata;
                 if(!encryptor.Decrypt(vdata, vch, onboardPrivKey))
-                    throw std::system_error(
-                        std::error_code(CKYCFile::Errc::ENCRYPTION_ERROR, std::system_category()),
+                    throw std::invalid_argument(
                         std::string(std::string(__func__) +  ": KYC file decryption failed"));
         
                 data = std::string(vdata.begin(), vdata.end());
@@ -139,8 +132,9 @@ bool CKYCFile::read(){
                     if (vstr.size() < 2){
                         continue;
                     }
-
-                    if (vstr.size() == 2){
+                    else if (vstr.size() == 2){
+                        if(parseContractHash(vstr,line))
+                            continue;
                         parsePubkeyPair(vstr,line);
                     }
                     //Current line is a multisig line if there are more than two elements
@@ -152,25 +146,44 @@ bool CKYCFile::read(){
         }
     }
     if(ss.str().size() < nBytesTotal || ss.str().size() == 0){
-         throw std::system_error(
-                        std::error_code(CKYCFile::Errc::FILE_IO_ERROR, std::system_category()),
+         throw std::invalid_argument(
                         std::string(std::string(__func__) +  ": invalid KYC file: encrypted data stream too short"));
     }
     return true;
 }
 
-void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::string line){
+bool CKYCFile::parseContractHash(const std::vector<std::string> vstr, const std::string line){
+    if(vstr[0].compare("contracthash:"))
+        return false;
+    if(_fContractHash_parsed)
+        return true;
+    _fContractHash_parsed = true;
+
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    if(!contract.ToString().compare(vstr[1])){
+        _fContractHash=true;
+    }
+
+    if(!_fContractHash){
+        _decryptedStream << line << ": incorrect contract hash - expected " + contract.ToString() +  "\n";
+    } else {
+        _decryptedStream << line << "\n";
+    }
+    return true;
+}
+
+bool CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::string line){
     CBitcoinAddress address;
     if (!address.SetString(vstr[0])) {
         _decryptedStream << line << ": invalid base58check address: "  << vstr[0] << "\n";
-        return;
+        return false;
     }
 
     std::vector<unsigned char> pubKeyData(ParseHex(vstr[1]));
     CPubKey pubKey = CPubKey(pubKeyData.begin(), pubKeyData.end());
     if(!pubKey.IsFullyValid()){
         _decryptedStream << line << ": invalid public key\n";
-       return;
+       return false;
     }
 
     //Check the key tweaking
@@ -179,19 +192,20 @@ void CKYCFile::parsePubkeyPair(const std::vector<std::string> vstr, const std::s
         if(!Params().ContractInTx()){
             if(!Consensus::CheckValidTweakedAddress(addressKeyId, pubKey)){
                 _decryptedStream << line << ": invalid key tweaking\n";
-                return;
+                return false;
             }
         }
     }
     else{
         _decryptedStream << line << ": invalid keyid\n";
-        return;
+        return false;
     }
 
 
     //Addresses valid, write to map
     _addressKeys.push_back(pubKey);
     _decryptedStream << line << "\n";
+    return true;
 }
 
 void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::string line){
@@ -200,7 +214,13 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
         return;
     }
 
-    uint8_t nMultisig = std::stoi(vstr[0]);
+     uint8_t nMultisig = 0;
+    try{
+        nMultisig = std::stoi(vstr[0]);
+    } catch (const std::exception& e){
+        _decryptedStream << line << ": invalid nmultisig size\n";
+        return;
+    }
 
     if(nMultisig < 1 || nMultisig > MAX_P2SH_SIGOPS){
         _decryptedStream << line << ": invalid nmultisig size\n";
@@ -248,6 +268,17 @@ void CKYCFile::parseMultisig(const std::vector<std::string> vstr, const std::str
 }
 
 bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
+    uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    if(!contract.IsNull() && Params().ContractInKYCFile()){
+        if(!_fContractHash_parsed) 
+            throw std::invalid_argument(std::string(std::string(__func__) +  
+                ": no contract hash in kycfile"));
+    
+        if(!_fContractHash) 
+            throw std::invalid_argument(std::string(std::string(__func__) +  
+                ": contract hash incorrect in kycfile"));
+    }
+
     COnboardingScript obScript;
     obScript.SetDeregister(fBlacklist);
 
@@ -269,8 +300,7 @@ bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
         CPubKey kycPubKey;
 
         if(!addressWhitelist->get_unassigned_kyc(kycPubKey))
-            throw std::system_error(
-            std::error_code(CKYCFile::Errc::WHITELIST_KEY_ACCESS_ERROR, std::system_category()),
+            throw std::invalid_argument(
             std::string(std::string(__func__) +  ": no unassigned whitelist KYC keys available"));
 
         CKeyID kycKeyID(kycPubKey.GetID());
@@ -278,8 +308,7 @@ bool CKYCFile::getOnboardingScript(CScript& script, bool fBlacklist){
         CKey kycKey;
         if(!pwalletMain->GetKey(kycKeyID, kycKey)){
             addressWhitelist->add_unassigned_kyc(kycPubKey);
-            throw std::system_error(
-            std::error_code(CKYCFile::Errc::WALLET_KEY_ACCESS_ERROR, std::system_category()),
+            throw std::invalid_argument(
             std::string(std::string(__func__) +  ": cannot get KYC private key from wallet"));
         }
         if(!obScript.Finalize(script, *_onboardUserPubKey, kycKey)) return false;

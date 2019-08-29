@@ -754,7 +754,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
     file << "\n";
 
     // add the onboarding public key 
-    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey();
+    CPubKey onboardUserPubKey = pwalletMain->GenerateNewKey(true);
     pwalletMain->SetOnboardUserPubKey(onboardUserPubKey);
     CKey onboardUserKey; 
     pwalletMain->GetKey(onboardUserPubKey.GetID(), onboardUserKey);
@@ -763,6 +763,15 @@ UniValue createkycfile(const JSONRPCRequest& request)
     //Padding
     ss.str("00000000000000000000000000000000");
 
+    //Contract hash
+    if(Params().ContractInKYCFile()){
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if(!contract.IsNull()){
+            ss << "contracthash: " << contract.ToString() << "\n";
+        }
+    }
+
+    CPubKey* firstPubKey = nullptr;
     // add the tweaked bitcoin address and untweaked pubkey hex to a stringstream
     for(unsigned int i = 0; i < pubKeyList.size(); ++i) {
         UniValue pubkeyObj = pubKeyList[i];
@@ -782,6 +791,10 @@ UniValue createkycfile(const JSONRPCRequest& request)
 
         if(!pubKey.IsFullyValid())
             continue;
+
+        if(!firstPubKey){
+            firstPubKey = new CPubKey(pubKey);
+        }
 
         ss << strprintf("%s %s\n",
                 addrStr,
@@ -818,6 +831,9 @@ UniValue createkycfile(const JSONRPCRequest& request)
                 break;
             }
             pubKeyVec.push_back(pubKey);
+            if(!firstPubKey){
+                firstPubKey = new CPubKey(pubKey);
+            }
         }
 
         if(shouldContinue)
@@ -949,7 +965,16 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
     //Padding
     ss.str("00000000000000000000000000000000");
 
+    //Contract hash
+    if(Params().ContractInKYCFile()){
+        uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+        if(!contract.IsNull()){
+            ss << "contracthash: " << contract.ToString() << "\n";
+        }
+    }
+
     // add the base58check encoded tweaked public key and untweaked pubkey hex to a stringstream
+    CKeyID* firstKeyID=nullptr;
     for(std::set<CKeyID>::const_iterator it = setKeyPool.begin(); it != setKeyPool.end(); ++it) {
         const CKeyID &keyid = *it;
         std::string strAddr = CBitcoinAddress(keyid).ToString();
@@ -961,22 +986,24 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
             ss << strprintf("%s %s\n",
                 strAddr,
                 HexStr(pubKey.begin(), pubKey.end()));
+            if(!firstKeyID){
+                firstKeyID = new CKeyID(keyid);
+            }
         }
     }
-    
 
-    //Encrypt the above string
-    CECIES encryptor;
+    if(!firstKeyID)
+         throw JSONRPCError(RPC_WALLET_ERROR, "Key pool empty.");
     
     std::string encrypted;
-    //Remove new line character from end of string
 
-//    std::string bareHex=HexStr(bare);
     std::string sRaw=ss.str();
     std::vector<unsigned char> vRaw(sRaw.begin(), sRaw.end());
     std::vector<unsigned char> vEnc;
 
-if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
+    //Encrypt the above string
+    CECIES encryptor;
+    if(!encryptor.Encrypt(vEnc, vRaw, onboardPubKey, onboardUserKey))
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Encryption failed.");
     
 

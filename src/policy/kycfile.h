@@ -35,19 +35,11 @@ class CKYCFile{
 		const CPubKey* getOnboardPubKey() const {return _onboardPubKey;}
 		const CPubKey* getOnboardUserPubKey() const {return _onboardUserPubKey;}
 
-		void parsePubkeyPair(const std::vector<std::string> vstr, const std::string line);
+		bool parsePubkeyPair(const std::vector<std::string> vstr, const std::string line);
+		bool parseContractHash(const std::vector<std::string> vstr, const std::string line);
 		void parseMultisig(const std::vector<std::string> vstr, const std::string line);
-		
-		const std::stringstream& getStream() const {return _decryptedStream;}
 
-		enum Errc{
-   		 	FILE_IO_ERROR,
-   		 	INVALID_ADDRESS_OR_KEY,
-   		 	WALLET_KEY_ACCESS_ERROR,
-   		 	WHITELIST_KEY_ACCESS_ERROR,
-   		 	INVALID_PARAMETER,
-   		 	ENCRYPTION_ERROR
-  		};
+		const std::stringstream& getStream() const {return _decryptedStream;}
 
 	 	bool getOnboardingScript(CScript& script, bool fBlacklist=false);
 
@@ -67,6 +59,11 @@ class CKYCFile{
     	std::stringstream _decryptedStream;
 
     	std::string _filename;
+
+    	unsigned char _mac_calc[CECIES::MACSIZE];
+
+    	bool _fContractHash = false;
+    	bool _fContractHash_parsed = false;
 };
 
 std::ostream& operator<<(std::ostream& os, const CKYCFile& fl); 
