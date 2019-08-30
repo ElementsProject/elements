@@ -2641,6 +2641,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
 bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool overrideEstimatedFeeRate, const CFeeRate& specificFeeRate, int& nChangePosInOut, std::string& strFailReason, bool includeWatching, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, bool keepReserveKey, const CTxDestination& destChange)
 {
     vector<CRecipient> vecSend;
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     std::vector<CReserveKey> vChangeKey;
     // Avoid copying CReserveKeys which causes badness
     vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
@@ -2680,6 +2681,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     if (setAssets.count(policyAsset) == 0) {
         vChangeKey.push_back(CReserveKey(this));
     }
+    vChangeKeys.push_back(vChangeKey);
 
     CCoinControl coinControl;
     coinControl.destChange = destChange;
@@ -2693,9 +2695,9 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 
     CWalletTx wtx;
 
-    std::vector<CWalletTx> createResult = CreateTransaction(vecSend, wtx, vChangeKey, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false, NULL, true, NULL, NULL, NULL, feeAsset, true);
+    std::vector<CWalletTx> createResult = CreateTransaction(vecSend, wtx, vChangeKeys, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false, NULL, true, NULL, NULL, NULL, feeAsset, true);
 
-    if (!createResult.size() > 0)
+    if (!(createResult.size() > 0))
         return false;
 
     // Wipe outputs and output witness and re-add one by one
@@ -2730,17 +2732,17 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 
     // optionally keep the change output key
     if (keepReserveKey) {
-        for (auto& changekey : vChangeKey) {
+        for (auto& changekey : vChangeKeys[0]) {
             changekey.KeepKey();
         }
     }
     return true;
 }
 
-std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey>& vChangeKey, CAmount& nFeeRet,
+std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<std::vector<CReserveKey>>& vChangeKeys, CAmount& nFeeRet,
                                 int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts,
                                 bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, CAsset feeAsset,
-                                bool fIgnoreBlindFail, bool fSplitTransactions, std::vector<COutput> vInputPool, bool fFindFeeAsset)
+                                bool fIgnoreBlindFail, bool fSplitTransactions, std::vector<COutput> vInputPool, bool fFindFeeAsset, std::map<CAsset, std::vector<COutput>>* mAvailableInputs)
 {
     // TODO re-enable to support multiple assets in a logical fashion, since the number of possible
     // change positions are number of assets being spent.
@@ -2803,9 +2805,14 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
     {
         CAsset newFeeAsset = vecSend[0].asset;
         if (vecSend.size() > 1) {
-            CAmountMap balanceMap = pwalletMain->GetBalance();
+            CAmountMap balanceMap;
+            if (mAvailableInputs && mAvailableInputs->size() > 0) {
+                balanceMap = GetBalanceFromOutputs(*mAvailableInputs);
+            }
+            else
+                balanceMap = pwalletMain->GetBalance();
             int newFeeRecipient = 0;
-            for (int i = 0; i < vecSend.size(); ++i) {
+            for (unsigned int i = 0; i < vecSend.size(); ++i) {
                 if (balanceMap[vecSend[i].asset] > balanceMap[newFeeAsset]) {
                     newFeeAsset = vecSend[i].asset;
                     newFeeRecipient = i;
@@ -2816,7 +2823,6 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
             if (lastRecipient.asset != newFeeAsset) {
                 CAmount lastBalance = balanceMap[lastRecipient.asset];
                 CAmount usedLastBalance = mapValue[lastRecipient.asset];
-                CAmount largestBalance = mapValue[newFeeAsset];
                 CAmount requiredLastBalance = lastBalance - usedLastBalance;
 
                 mapValue[lastRecipient.asset] = lastBalance;
@@ -2831,32 +2837,9 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                 vecSend[vecSend.size() - 1].nAmount = mapValue[lastRecipient.asset];
 
                 if (!feeRecipientErased) {
-                    CRecipient feeAssetRecipient = vecSend[newFeeRecipient];
-                    CTxOut dummyOutput = CTxOut(feeAssetRecipient.asset, feeAssetRecipient.nAmount, feeAssetRecipient.scriptPubKey);
-                    if (dummyOutput.IsDust(::minRelayTxFee)) {
-                        CAmount nDust = dummyOutput.GetDustThreshold(::minRelayTxFee) - dummyOutput.nValue.GetAmount();
-                        if (nDust > 0) {
-                            vecSend[newFeeRecipient].nAmount += nDust;
-                            mapValue[newFeeAsset] += nDust; // raise change until no more dust
-                            bool refillFound = false;
-                            for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from a recipient who has enough
-                            {
-                                if (i != newFeeRecipient) {
-                                    CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
-                                    if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
-                                        dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
-                                        vecSend[i].nAmount -= nDust;
-                                        mapValue[vecSend[i].asset] -= nDust;
-                                        refillFound = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (refillFound == false) {
-                                strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
-                                return std::vector<CWalletTx>();
-                            }
-                        }
+                    if (!PreventDustForNewOutput(mapValue, vecSend, newFeeRecipient)) {
+                        strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                        return std::vector<CWalletTx>();
                     }
                 }
             }
@@ -3007,15 +2990,22 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         for (const auto& itRecipients : vecSend) {
                             balanceSet.insert(itRecipients.asset);
                         }
-                        CAmountMap validAmounts;
+                        
                         CAmount amountHave = 0;
-                        BOOST_FOREACH(const COutput& out, vAvailableCoins)
-                        {
-                            if (!out.fSpendable)
-                                continue;
-                            if (balanceSet.find(out.tx->GetOutputAsset(out.i)) != balanceSet.end())
-                                amountHave += out.tx->GetOutputValueOut(out.i);
-                            validAmounts[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
+                        CAmountMap validAmounts;
+                        if (vInputPool.size() > 0) {
+                            for (const auto& receivedCoin : vAvailableCoins) {
+                                amountHave += receivedCoin.tx->GetOutputValueOut(receivedCoin.i);
+                            }
+                        } else {
+                            BOOST_FOREACH(const COutput& out, vAvailableCoins)
+                            {
+                                if (!out.fSpendable)
+                                    continue;
+                                if (balanceSet.find(out.tx->GetOutputAsset(out.i)) != balanceSet.end())
+                                    amountHave += out.tx->GetOutputValueOut(out.i);
+                                validAmounts[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
+                            }
                         }
                         CAmount amountNeeded = 0;
                         for (const auto& itNeeded : mapValueToSelect) {
@@ -3025,72 +3015,43 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         if (amountMissing > 0) {
                             CAmountMap balanceMap = pwalletMain->GetBalance();
                             //Fee in send any is based on the largest balance. If its bigger than the largest balance then this transaction is invalid.
-                            if (mapValue[feeAsset] < nFeeRet) {
+                            if (balanceMap[feeAsset] < nFeeRet) {
                                 strFailReason = _("Required fee is larger than the owned non-policy asset with the biggest balance.");
                                 return std::vector<CWalletTx>();
                             }
                             bool alternativeFound = false;
-                            for (const auto& it : validAmounts) {
-                                if (!IsPolicy(it.first)) {
-                                    if (balanceSet.find(it.first) == balanceSet.end()) {
-                                        CAmount outputValue = it.second;
-                                        if (outputValue >= amountMissing) {
-                                            if (mapValue[feeAsset] > outputValue) {
-                                                mapValue[feeAsset] -= outputValue;
-                                                mapValue[it.first] = outputValue;
-                                            } else {
-                                                mapValue[it.first] = mapValue[feeAsset];
-                                                mapValue[feeAsset] = 0;
-                                            }
 
-                                            bool feeRecipientErased = false;
-                                            int feeRecipientId = 0;
-                                            for (int j = 0; j < vecSend.size(); ++j) {
-                                                if (vecSend[j].asset == feeAsset) {
-                                                    feeRecipientId = j;
-                                                    vecSend.push_back({vecSend[j].scriptPubKey, mapValue[it.first], it.first, vecSend[j].confidentiality_key, vecSend[j].fSubtractFeeFromAmount});
-                                                    if (mapValue[feeAsset] == 0) {
-                                                        vecSend.erase(vecSend.begin() + j);
-                                                        feeRecipientErased = true;
-                                                    }
-                                                    else
-                                                        vecSend[j].nAmount = mapValue[feeAsset];
-                                                    break;
-                                                }
-                                            }
+                            if (mAvailableInputs && mAvailableInputs->size() > 0) {
+                                CAmountMap tempAvailableBalances = GetBalanceFromOutputs(*mAvailableInputs);
 
-                                            if (!feeRecipientErased) {
-                                                CRecipient feeAssetRecipient = vecSend[feeRecipientId];
-                                                CTxOut dummyOutput = CTxOut(feeAssetRecipient.asset, feeAssetRecipient.nAmount, feeAssetRecipient.scriptPubKey);
-                                                if (dummyOutput.IsDust(::minRelayTxFee)) {
-                                                    CAmount nDust = dummyOutput.GetDustThreshold(::minRelayTxFee) - dummyOutput.nValue.GetAmount();
-                                                    if (nDust > 0) {
-                                                        vecSend[feeRecipientId].nAmount += nDust;
-                                                        mapValue[vecSend[feeRecipientId].asset] += nDust; // raise change until no more dust
-                                                        bool refillFound = false;
-                                                        for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from a recipient who has enough
-                                                        {
-                                                            if (i != feeRecipientId) {
-                                                                CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
-                                                                if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
-                                                                    dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
-                                                                    vecSend[i].nAmount -= nDust;
-                                                                    mapValue[vecSend[i].asset] -= nDust;
-                                                                    refillFound = true;
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
-                                                        if (refillFound == false) {
-                                                            strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
-                                                            return std::vector<CWalletTx>();
-                                                        }
-                                                    }
-                                                }
-                                            }
-
+                                for (const auto& freeBalances : tempAvailableBalances) {
+                                    CAmount outputValue = freeBalances.second;
+                                    if (outputValue >= amountMissing) {
+                                        std::vector<COutput>* extraAvailableCoins = new std::vector<COutput>();
+                                        if (DistributeFeeToNewBalance(mapValue, feeAsset, vecSend, vChangeKeys[0], freeBalances.first, amountMissing, extraAvailableCoins, mAvailableInputs)) {
+                                            vAvailableCoins.insert(vAvailableCoins.end(), (*extraAvailableCoins).begin(), (*extraAvailableCoins).end());
                                             alternativeFound = true;
                                             break;
+                                        } else {
+                                            strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust in split transactions.");
+                                            return std::vector<CWalletTx>();
+                                        }
+                                    }
+                                }
+                            } else {
+                                for (const auto& it : validAmounts) {
+                                    if (!IsPolicy(it.first)) {
+                                        if (balanceSet.find(it.first) == balanceSet.end()) {
+                                            CAmount outputValue = it.second;
+                                            if (outputValue >= amountMissing) {
+                                                if (DistributeFeeToNewBalance(mapValue, feeAsset, vecSend, vChangeKeys[0], it.first, outputValue)) {
+                                                    alternativeFound = true;
+                                                    break;
+                                                } else {
+                                                    strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                                                    return std::vector<CWalletTx>();
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -3099,9 +3060,19 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                                 strFailReason = _("Could not find another asset with sufficient balance to cover the fees. ");
                                 return std::vector<CWalletTx>();
                             } else {
+                                vChangeKeys[0].emplace_back(pwalletMain);
                                 continue;
                             }
                         }
+                        /*else if (fFindFeeAsset == false && vInputPool.size() > 0) {
+                            std::vector<COutput> tempAvailableCoins;
+                            AvailableCoins(newAvailableCoins, true, coinControl);
+                            std::vector<COutput> unusedInputs
+
+                            std::binary_search()
+
+                            vAvailableCoins = vInputPool;
+                        }*/
                         else {
                             strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
                             return std::vector<CWalletTx>();
@@ -3154,7 +3125,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                             // Reserve a new key pair from key pool
                             CPubKey vchPubKey;
                             bool ret;
-                            ret = vChangeKey[changeCounter].GetReservedKey(vchPubKey);
+                            ret = vChangeKeys[0][changeCounter].GetReservedKey(vchPubKey);
                             if (!ret)
                             {
                                 strFailReason = _("Keypool ran out, please call keypoolrefill first");
@@ -3194,7 +3165,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         {
                             nChangePosInOut = -1;
                             nFeeRet += it->second;
-                            vChangeKey[changeCounter].ReturnKey();
+                            vChangeKeys[0][changeCounter].ReturnKey();
                         }
                         else
                         {
@@ -3224,7 +3195,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         }
                     }
                     else {
-                        vChangeKey[changeCounter].ReturnKey();
+                        vChangeKeys[0][changeCounter].ReturnKey();
                     }
                     changeCounter++;
                 }
@@ -3580,21 +3551,48 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
         if (GetTransactionWeight(wtxNew) >= MAX_STANDARD_TX_WEIGHT)
         {
             if (fSplitTransactions) {
+                typedef std::function<bool(COutput, COutput)> OutputComparison;
                 std::vector<COutput> inputPool; 
                 std::map<CAsset, std::vector<COutput>> inputAssetMap;
                 std::map<const CWalletTx* const, COutput> availableOutputMap;
                 std::set<CAsset> assetSet;
+                CAmountMap balanceMap = pwalletMain->GetBalance();
 
                 for (const auto& coin : vAvailableCoins) {
                     availableOutputMap[coin.tx] = coin;
                 }
 
                 for (const auto& coin : setCoins) {
-                    if (availableOutputMap.find(coin.first) != availableOutputMap.end())
+                    if (availableOutputMap.find(coin.first) != availableOutputMap.end()) {
                         inputPool.push_back(availableOutputMap[coin.first]);
+                        availableOutputMap.erase(coin.first);
+                    }
                     else {
                         strFailReason = _("Coin selected input did not match an input from the available list.");
                         return std::vector<CWalletTx>();
+                    }
+                }
+
+                if (mAvailableInputs && mAvailableInputs->size() == 0) {
+                        OutputComparison outputDescendingComparison =
+                            [](COutput left, COutput right) {
+                                return left.tx->GetOutputValueOut(left.i) > right.tx->GetOutputValueOut(right.i);
+                            };
+                    for (const auto& remaining : availableOutputMap) {
+                        if(mAvailableInputs->find(remaining.second.tx->GetOutputAsset(remaining.second.i)) != 
+                                mAvailableInputs->end()) {
+                            mAvailableInputs->at(remaining.second.tx->GetOutputAsset(remaining.second.i)).push_back(remaining.second);
+                        } else {
+                            std::vector<COutput> initVec;
+                            initVec.push_back(remaining.second);
+                            mAvailableInputs->insert({remaining.second.tx->GetOutputAsset(remaining.second.i), initVec});
+                        }
+                    }
+                    std::map<CAsset, std::vector<COutput>> unsortedMap = *mAvailableInputs;
+                    for (const auto& toSort : unsortedMap) {
+                        std::vector<COutput> sortedAssetInputs = toSort.second;
+                        std::sort(sortedAssetInputs.begin(), sortedAssetInputs.end(), outputDescendingComparison);
+                        mAvailableInputs->at(toSort.first) = sortedAssetInputs;
                     }
                 }
 
@@ -3609,7 +3607,6 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                 }
 
                 std::map<CAsset, std::vector<CRecipient>> recipientMap;
-                int numRecipients = vecSend.size();
                 for (const auto& recipient : vecSend)
                 {
                     if(recipientMap.find(recipient.asset) != recipientMap.end())
@@ -3623,8 +3620,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                     assetSet.insert(recipient.asset);
                 }
 
-                typedef std::function<bool(COutput, COutput)> OutputComparison;
-                OutputComparison outputComparisonFunction =
+                OutputComparison outputAscendingComparison =
                     [](COutput left, COutput right) {
                         return left.tx->GetOutputValueOut(left.i) < right.tx->GetOutputValueOut(right.i);
                     };
@@ -3638,7 +3634,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                 //Sort the inputs according to value
                 for (const auto& itAsset : assetSet) {
                     std::vector<COutput> curAssetInputs = inputAssetMap[itAsset];
-                    std::sort(curAssetInputs.begin(), curAssetInputs.end(), outputComparisonFunction);
+                    std::sort(curAssetInputs.begin(), curAssetInputs.end(), outputAscendingComparison);
                     inputAssetMap[itAsset] = curAssetInputs;
 
                     std::vector<CRecipient> curRecipients = recipientMap[itAsset];
@@ -3672,10 +3668,10 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         continue;
                     }
 
-                    int requiredInputs = inputsUsed + curVecInputs.size() - ceil(inputPool.size() / 2);
+                    unsigned int requiredInputs = inputsUsed + curVecInputs.size() - ceil(inputPool.size() / 2);
                     
                     long halfSpend = 0;
-                    for (int i = 0; i < requiredInputs; ++i) {
+                    for (unsigned int i = 0; i < requiredInputs; ++i) {
                         halfSpend += curVecInputs[i].tx->GetOutputValueOut(curVecInputs[i].i);
                         leftInputs.push_back(curVecInputs[i]);
                     }
@@ -3683,7 +3679,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
 
                     long reqSpend = 0;
                     int halfRecipientIndex = 0;
-                    for (int i = 0; i < curVecRecipients.size(); ++i) {
+                    for (unsigned int i = 0; i < curVecRecipients.size(); ++i) {
                         CRecipient curRecipient = curVecRecipients[i];
                         reqSpend += curRecipient.nAmount;
                         if (reqSpend > halfSpend) {
@@ -3710,11 +3706,38 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                 CWalletTx dummyLeft, dummyRight;
                 int dummyPosLeft = -1;
                 int dummyPosRight = -1;
-                std::vector<CWalletTx> leftRes = CreateTransaction(leftRecipients, dummyLeft, vChangeKey, feeLeft, dummyPosLeft, strFailReason, coinControl, true, NULL, true, NULL, NULL, NULL, feeAsset, fIgnoreBlindFail, fSplitTransactions, leftInputs);
-                std::vector<CWalletTx> rightRes = CreateTransaction(rightRecipients, dummyRight, vChangeKey, feeRight, dummyPosRight, strFailReason, coinControl, true, NULL, true, NULL, NULL, NULL, feeAsset, fIgnoreBlindFail, fSplitTransactions, rightInputs);
+
+                for (unsigned int i = 0; i < vChangeKeys[0].size(); ++i) {
+                    vChangeKeys[0][i].ReturnKey();
+                }
+                // Create and send the transaction
+                std::vector<std::vector<CReserveKey>> vChangeKeysLeft;
+                std::vector<std::vector<CReserveKey>> vChangeKeysRight;
+                std::vector<CReserveKey> vChangeLeft;
+                std::vector<CReserveKey> vChangeRight;
+                vChangeLeft.reserve(leftRecipients.size() + 1);
+                for (int j = 0; j < vecSend.size() + 1; ++j) {
+                    vChangeLeft.emplace_back(pwalletMain);
+                }
+                vChangeKeysLeft.push_back(vChangeLeft);
+
+                vChangeRight.reserve(rightRecipients.size() + 1);
+                for (int j = 0; j < vecSend.size() + 1; ++j) {
+                    vChangeRight.emplace_back(pwalletMain);
+                }
+                vChangeKeysRight.push_back(vChangeRight);
+
+                std::vector<CWalletTx> leftRes = CreateTransaction(leftRecipients, dummyLeft, vChangeKeysLeft,
+                    feeLeft, dummyPosLeft, strFailReason, coinControl, true, NULL, true, NULL, NULL, NULL,
+                    CAsset(), fIgnoreBlindFail, fSplitTransactions, leftInputs, fFindFeeAsset, mAvailableInputs);
+                std::vector<CWalletTx> rightRes = CreateTransaction(rightRecipients, dummyRight, vChangeKeysRight,
+                    feeRight, dummyPosRight, strFailReason, coinControl, true, NULL, true, NULL, NULL, NULL,
+                    CAsset(), fIgnoreBlindFail, fSplitTransactions, rightInputs, fFindFeeAsset, mAvailableInputs);
                 if(leftRes.size() > 0 && rightRes.size() > 0) {
                     leftRes.insert( leftRes.end(), rightRes.begin(), rightRes.end() );
                     nFeeRet = feeLeft + feeRight;
+                    vChangeKeys = vChangeKeysLeft;
+                    vChangeKeys.insert(vChangeKeys.begin(), vChangeKeysRight.begin(), vChangeKeysRight.end());
                     return leftRes;
                 } else {
                     //Fail case, vector is len 0
@@ -3748,6 +3771,121 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
     std::vector<CWalletTx> finalVec;
     finalVec.push_back(wtxNew);
     return finalVec;
+}
+
+CAmountMap CWallet::GetBalanceFromOutputs(std::map<CAsset, std::vector<COutput>> outputMap) {
+    CAmountMap tempAvailableBalances;
+    for (const auto& freeInputList : outputMap) {
+        std::vector<COutput> freeOutputs = freeInputList.second;
+        CAmount tempAssetAmount = 0;
+        for (unsigned int i = 0; i < freeOutputs.size(); ++i) {
+            tempAssetAmount += freeOutputs[i].tx->GetOutputValueOut(freeOutputs[i].i);
+        }
+        tempAvailableBalances[freeInputList.first] = tempAssetAmount;
+    }
+    return tempAvailableBalances;
+}
+
+bool CWallet::PreventDustForNewOutput(CAmountMap& mapValue, std::vector<CRecipient>& vecSend, unsigned int feeRecipientId) {
+    CRecipient feeAssetRecipient = vecSend[feeRecipientId];
+    CTxOut dummyOutput = CTxOut(feeAssetRecipient.asset, feeAssetRecipient.nAmount, feeAssetRecipient.scriptPubKey);
+    if (dummyOutput.IsDust(::minRelayTxFee)) {
+        CAmount nDust = dummyOutput.GetDustThreshold(::minRelayTxFee) - dummyOutput.nValue.GetAmount();
+        if (nDust > 0) {
+            vecSend[feeRecipientId].nAmount += nDust;
+            mapValue[vecSend[feeRecipientId].asset] += nDust; // raise change until no more dust
+            bool refillFound = false;
+            for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from a recipient who has enough
+            {
+                if (i != feeRecipientId) {
+                    CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
+                    if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
+                        dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
+                        vecSend[i].nAmount -= nDust;
+                        mapValue[vecSend[i].asset] -= nDust;
+                        refillFound = true;
+                        break;
+                    }
+                }
+            }
+            if (refillFound == false) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool CWallet::DistributeFeeToNewBalance(CAmountMap& mapValue, CAsset feeAsset, std::vector<CRecipient>& vecSend,
+    std::vector<CReserveKey>& vChangeKey, CAsset newAsset, CAmount newAssetValue,
+    std::vector<COutput>* vAvailableCoins, std::map<CAsset, std::vector<COutput>>* mAvailableInputs) {
+    
+    if (mAvailableInputs && vAvailableCoins &&
+        mAvailableInputs->size() > 0) {
+
+        std::vector<COutput> freeInputVector = mAvailableInputs->at(newAsset);
+        CAmount amountFound = 0;
+        int inputsUsed = 0;
+        bool amountSatisfied = false;
+        for (unsigned int i = 0; i < freeInputVector.size(); ++i) {
+            amountFound += freeInputVector[i].tx->GetOutputValueOut(freeInputVector[i].i);
+            ++inputsUsed;
+            vAvailableCoins->push_back(freeInputVector[i]);
+            if (amountFound >= newAssetValue) {
+                amountSatisfied = true;
+                break;
+            }
+        }
+
+        mAvailableInputs->at(newAsset).erase(freeInputVector.begin(), freeInputVector.begin() + inputsUsed);
+
+        if (inputsUsed == 0 || !amountSatisfied)
+            return false;
+
+        if (mapValue[feeAsset] > amountFound) {
+            mapValue[feeAsset] -= amountFound;
+            mapValue[newAsset] = amountFound;
+        } else {
+            mapValue[newAsset] = mapValue[feeAsset];
+            mapValue[feeAsset] = 0;
+        }
+    }
+    else {
+        if (mapValue[feeAsset] > newAssetValue) {
+            mapValue[feeAsset] -= newAssetValue;
+            mapValue[newAsset] = newAssetValue;
+        } else {
+            mapValue[newAsset] = mapValue[feeAsset];
+            mapValue[feeAsset] = 0;
+        }
+    }
+
+    bool feeRecipientErased = false;
+    unsigned int feeRecipientId = 0;
+    for (unsigned int j = 0; j < vecSend.size(); ++j) {
+        if (vecSend[j].asset == feeAsset) {
+            feeRecipientId = j;
+            vecSend.push_back({vecSend[j].scriptPubKey, mapValue[newAsset], newAsset, vecSend[j].confidentiality_key, vecSend[j].fSubtractFeeFromAmount});
+            if (mapValue[feeAsset] == 0) {
+                vecSend.erase(vecSend.begin() + j);
+                feeRecipientErased = true;
+            }
+            else
+                vecSend[j].nAmount = mapValue[feeAsset];
+            break;
+        }
+    }
+
+    if (!feeRecipientErased) {
+        if (!PreventDustForNewOutput(mapValue, vecSend, feeRecipientId))
+            return false;
+    }
+    else {
+        vChangeKey[feeRecipientId].ReturnKey();
+        vChangeKey.erase(vChangeKey.begin() + feeRecipientId);
+    }
+
+    return true;
 }
 
 /**

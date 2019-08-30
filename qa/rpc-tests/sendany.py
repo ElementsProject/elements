@@ -55,23 +55,27 @@ class WalletTest (BitcoinTestFramework):
 
         # Issue some assets to use for sendany different cases
         self.nodes[2].issueasset('5.0','0', False)
-        self.nodes[2].generate(101)
+        self.nodes[2].generate(10)
         self.sync_all()
 
         self.nodes[2].issueasset('4.99999999','0', False)
-        self.nodes[2].generate(101)
+        self.nodes[2].generate(10)
+        self.sync_all()
+
+        self.nodes[2].issueasset('0.00000001','0', False)
+        self.nodes[2].generate(10)
         self.sync_all()
 
         self.nodes[2].issueasset('4.0','0', False)
-        self.nodes[2].generate(101)
+        self.nodes[2].generate(10)
         self.sync_all()
 
         self.nodes[2].issueasset('2.0','0', False)
-        self.nodes[2].generate(101)
+        self.nodes[2].generate(10)
         self.sync_all()
 
         self.nodes[2].issueasset('1.0','0', False)
-        self.nodes[2].generate(101)
+        self.nodes[2].generate(10)
         self.sync_all()
 
         self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), self.nodes[2].getbalance()["CBT"], "", "", True, "CBT")

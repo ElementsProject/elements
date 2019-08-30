@@ -545,6 +545,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     // Create and send the transaction
     std::vector<CReserveKey> vChangeKey;
     vChangeKey.reserve(2);
@@ -552,6 +553,7 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     if (policyAsset != asset) {
         vChangeKey.emplace_back(pwalletMain);
     }
+    vChangeKeys.push_back(vChangeKey);
 
     CAmount nFeeRequired;
     std::string strError;
@@ -560,16 +562,17 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions);
+    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions);
 
     if (!createResult.size() > 0) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
+    wtxNew = createResult[0];
     for (int i = 0; i < createResult.size(); ++i) {
         CValidationState state;
-        if (!pwalletMain->CommitTransaction(createResult[i], vChangeKey, g_connman.get(), state)) {
+        if (!pwalletMain->CommitTransaction(createResult[i], vChangeKeys[0], g_connman.get(), state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
@@ -657,23 +660,26 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPub
     }
 
     // Create and send the transaction
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     std::vector<CReserveKey> vChangeKey;
     vChangeKey.reserve(vecSend.size() + 1);
     for (int j = 0; j < vecSend.size() + 1; ++j) {
         vChangeKey.emplace_back(pwalletMain);
     }
+    vChangeKeys.push_back(vChangeKey);
 
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
+    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
 
     if (!createResult.size() > 0) {
         if (nValue + nFeeRequired > totalBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
+    wtxNew = createResult[0];
     for (int i = 0; i < createResult.size(); ++i) {
         CValidationState state;
-        if (!pwalletMain->CommitTransaction(createResult[i], vChangeKey, g_connman.get(), state)) {
+        if (!pwalletMain->CommitTransaction(createResult[i], vChangeKeys[i], g_connman.get(), state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
@@ -694,6 +700,7 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "No available reissuance tokens in wallet.");
     }
 
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     // Create and send the transaction
     std::vector<CReserveKey> vChangeKey;
     // Need to be careful to not copy CReserveKeys or bad things happen
@@ -704,6 +711,7 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
     if (!reissuanceAsset.IsNull()) {
         vChangeKey.emplace_back(pwalletMain);
     }
+    vChangeKeys.push_back(vChangeKey);
 
     CAmount nFeeRequired;
     std::string strError;
@@ -725,13 +733,13 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         vecSend.push_back(recipient);
     }
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken);
+    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken);
 
     if (!createResult.size() > 0) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state))
+    if (!pwalletMain->CommitTransaction(wtxNew, vChangeKeys[0], g_connman.get(), state))
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
 }
 
@@ -856,10 +864,12 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
 
 
     // Create a dummy transaction in order to calculate the required fee
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     std::vector<CReserveKey> vChangeKey;
     vChangeKey.reserve(2);
     vChangeKey.emplace_back(pwalletMain);
     vChangeKey.emplace_back(pwalletMain);
+    vChangeKeys.push_back(vChangeKey);
 
     CAmount nFeeRequired = 1;
     std::string strError;
@@ -871,7 +881,7 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
 
 
     CWalletTx wtxDummy;
-    std::vector<CWalletTx> dummyResult = pwalletMain->CreateTransaction(vecSendDummy, wtxDummy, vChangeKey, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true);
+    std::vector<CWalletTx> dummyResult = pwalletMain->CreateTransaction(vecSendDummy, wtxDummy, vChangeKeys, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true);
 
     if (!dummyResult.size() > 0) {
         strError = strprintf("Error: failed to create transaction.");
@@ -947,7 +957,7 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
 
     CAsset asset;
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKey, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, asset, true);
+    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, asset, true);
 
     //Create the transacrtion again. This time, the script is encrypted.
     if (!createResult.size() > 0) {
@@ -956,7 +966,7 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
     }
 
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtxNew, vChangeKey, g_connman.get(), state)) {
+    if (!pwalletMain->CommitTransaction(wtxNew, vChangeKeys[0], g_connman.get(), state)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -2457,6 +2467,7 @@ UniValue sendmany(const JSONRPCRequest& request)
     if (totalAmount > nBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     // Send
     std::vector<CReserveKey> vChangeKey;
     std::set<CAsset> setAssets;
@@ -2468,16 +2479,17 @@ UniValue sendmany(const JSONRPCRequest& request)
     for (unsigned int i = 0; i < setAssets.size(); i++) {
         vChangeKey.emplace_back(pwalletMain);
     }
+    vChangeKeys.push_back(vChangeKey);
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     string strFailReason;
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtx, vChangeKey, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, feeAsset, fIgnoreBlindFail);
+    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtx, vChangeKeys, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, feeAsset, fIgnoreBlindFail);
 
     if (!createResult.size() > 0)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
-    if (!pwalletMain->CommitTransaction(wtx, vChangeKey, g_connman.get(), state)) {
+    if (!pwalletMain->CommitTransaction(wtx, vChangeKeys[0], g_connman.get(), state)) {
         strFailReason = strprintf("Transaction commit failed:: %s", state.GetRejectReason());
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
