@@ -3063,22 +3063,49 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                                 vChangeKeys[0].emplace_back(pwalletMain);
                                 continue;
                             }
-                        }
-                        /*else if (fFindFeeAsset == false && vInputPool.size() > 0) {
-                            std::vector<COutput> tempAvailableCoins;
-                            AvailableCoins(newAvailableCoins, true, coinControl);
-                            std::vector<COutput> unusedInputs
-
-                            std::binary_search()
-
-                            vAvailableCoins = vInputPool;
-                        }*/
-                        else {
+                        } else {
                             strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
                             return std::vector<CWalletTx>();
                         }
-                    }
-                    else {
+                    //If sendtoaddress is used and large txs are split
+                    } else if (fFindFeeAsset == false && vInputPool.size() > 0 && nSubtractFeeFromAmount == 0) {
+                        CAmount amountHave = 0;
+                        for (const auto& receivedCoin : vAvailableCoins) {
+                            amountHave += receivedCoin.tx->GetOutputValueOut(receivedCoin.i);
+                        }
+                        CAmount amountNeeded = 0;
+                        for (const auto& itNeeded : mapValueToSelect) {
+                            amountNeeded += itNeeded.second;
+                        }
+                        CAmount amountMissing = amountNeeded - amountHave;
+                        if (amountMissing > 0) {
+                            std::vector<COutput> freeInputVector = mAvailableInputs->at(feeAsset);
+                            CAmount amountFound = 0;
+                            int inputsUsed = 0;
+                            bool amountSatisfied = false;
+                            for (unsigned int i = 0; i < freeInputVector.size(); ++i) {
+                                amountFound += freeInputVector[i].tx->GetOutputValueOut(freeInputVector[i].i);
+                                ++inputsUsed;
+                                vAvailableCoins.push_back(freeInputVector[i]);
+                                if (amountFound >= amountMissing) {
+                                    amountSatisfied = true;
+                                    break;
+                                }
+                            }
+
+                            mAvailableInputs->at(feeAsset).erase(freeInputVector.begin(), freeInputVector.begin() + inputsUsed);
+
+                            if (inputsUsed == 0 || !amountSatisfied) {
+                                strFailReason = _("Did not find sufficient inputs to satisfy a split sendtoaddress transaction.");
+                                return std::vector<CWalletTx>();
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
+                            return std::vector<CWalletTx>();
+                        }
+                    } else {
                         strFailReason = _("Insufficient funds");
                         return std::vector<CWalletTx>();
                     }

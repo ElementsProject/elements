@@ -71,7 +71,7 @@ class WalletTest (BitcoinTestFramework):
         self.sync_all()
         assert(self.nodes[1].getbalance("", 0, False, "CBT") > 20999999)
 
-        tx4 = self.nodes[2].sendanytoaddress(addr1, numOutputs-1.5, "", "", True, True)
+        tx4 = self.nodes[2].sendanytoaddress(addr1, numOutputs-9.5, "", "", True, True)
         assert(tx4 in self.nodes[2].getrawmempool())
         self.nodes[2].generate(10)
         self.sync_all()
