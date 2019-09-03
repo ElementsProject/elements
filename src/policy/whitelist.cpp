@@ -11,6 +11,8 @@
 #include "policy/policy.h"
 #include "rpc/server.h"
 #include "random.h"
+#include <fstream>
+#include <iostream>
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
