@@ -634,7 +634,10 @@ void CWhiteList::dump_unassigned_kyc(std::ofstream& fStream){
         const CKeyID keyid = pubKey.GetID();
         const CBitcoinAddress address(keyid);
         std::string strAddr = address.ToString();
-        fStream << strAddr << " " << HexStr(pubKey.begin(), pubKey.end()) << " ";
+        fStream << strAddr;
+        fStream << " ";
+        fStream << std::string(HexStr(pubKey.begin(), pubKey.end()));
+        fStream << " ";
         isminetype mine = pwalletMain ? IsMine(*pwalletMain, keyid) : ISMINE_NO;
         if (mine != ISMINE_NO && address.IsBlinded() && address.GetBlindingKey() 
             != pwalletMain->GetBlindingPubKey(GetScriptForDestination(keyid))) {
@@ -642,7 +645,8 @@ void CWhiteList::dump_unassigned_kyc(std::ofstream& fStream){
             mine = ISMINE_NO;
         }
         bool bMine =  (mine & ISMINE_SPENDABLE) ? true : false;
-        fStream << bMine << std::endl;
+        fStream << std::string(bMine);
+        fStream << std::endl;
     }
 }
 
