@@ -90,10 +90,6 @@ public:
 
   	virtual void add_unassigned_kyc(const CPubKey& pubKey);
 
-	virtual bool get_kycpubkey_outpoint(const CKeyID& kycPubKeyId, COutPoint& outPoint);
-
-	virtual bool get_kycpubkey_outpoint(const CPubKey& kycPubKey, COutPoint& outPoint);
-
 
 private:
 	bool LookupTweakedPubKeys(const CTxDestination& address, 
@@ -111,9 +107,7 @@ private:
 	//Map KYC key ID to public key
 	std::map<CKeyID, CPubKey> _kycPubkeyMap;
 
-	//Map KYC key ID to its latest policy transaction (required for blacklisting)
-	std::map<CKeyID, COutPoint> _kycPubkeyOutPointMap;
-
+	
 	std::stringstream _datastream;
 
 

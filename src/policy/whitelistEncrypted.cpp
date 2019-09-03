@@ -782,20 +782,6 @@ void CWhiteListEncrypted::whitelist_kyc(const CPubKey& pubKey, const COutPoint* 
   _kycUnassignedSet.erase(pubKey);
 }
 
-bool CWhiteListEncrypted::get_kycpubkey_outpoint(const CKeyID& keyId, COutPoint& outPoint){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  auto it = _kycPubkeyOutPointMap.find(keyId);
-  if (it == _kycPubkeyOutPointMap.end()) return false;
-  outPoint = it->second;
-  return true;
-}
-
-bool CWhiteListEncrypted::get_kycpubkey_outpoint(const CPubKey& pubKey, COutPoint& outPoint){
-  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-  if(!pubKey.IsFullyValid())
-    return false;
-  return get_kycpubkey_outpoint(pubKey.GetID(), outPoint);
-}
 
 bool CWhiteListEncrypted::set_kyc_status(const CKeyID& keyId, const CWhiteListEncrypted::status& status){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
@@ -865,14 +851,14 @@ void CWhiteListEncrypted::add_unassigned_kyc(const CPubKey& id){
     CKey privKey;
     int nTries=0;
     while(!pwalletMain->GetKey(kycKey, privKey)){
-      pwalletMain->GenerateNewKey();
+      pwalletMain->GenerateNewKey(true);
       if(++nTries > MAX_UNASSIGNED_KYCPUBKEYS){
          LogPrintf("ERROR: kyc privkey not in whitelisting node wallet"+HexStr(id.begin(), id.end())+"\n");
         break;
         }
       }
     }
-    #endif //ENABLE_WALLET  
+  #endif //ENABLE_WALLET  
  
   _kycUnassignedSet.insert(id);
   _kycUnassignedQueue.push(id);

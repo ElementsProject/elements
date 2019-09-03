@@ -1359,7 +1359,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     JSONRPCRequest request2;
 
     for(unsigned int i=0; i<nKeysToAdd; i++){
-        CPubKey kycPubKey = pwalletMain->GenerateNewKey();
+        CPubKey kycPubKey = pwalletMain->GenerateNewKey(true);
         std::vector<unsigned char> datavec = ToByteVector(kycPubKey);
         kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
         if(kycpubkeys.size() == nMaxPerTx || (i==iMax && kycpubkeys.size()>0)){
@@ -5703,8 +5703,9 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpkycfile",              &dumpkycfile,               true,   {"filename"} },
     { "wallet",             "readkycfile",              &readkycfile,               true,   {"filename", "outfilename", "onboardpubkey"} },
     { "wallet",             "onboarduser",              &onboarduser,               false,  {"filename"} },
-    { "wallet",             "blacklistuser",            &blacklistuser,            false,  {"filename"} },
+    { "wallet",             "blacklistuser",            &blacklistuser,             false,  {"filename"} },
     { "wallet",             "topupkycpubkeys",          &topupkycpubkeys,           false,  {"nkeys"} },
+    { "wallet",             "removekycpubkey",          &removekycpubkey,           false,  {"kycpubkey"} },
     { "wallet",             "blacklistkycpubkey",       &blacklistkycpubkey,        false,  {"kycpubkey"} },
     { "wallet",             "whitelistkycpubkeys",      &whitelistkycpubkeys,       false,  {"kycpubkeys"} },
     { "wallet",             "validatederivedkeys",      &validatederivedkeys,       true,   {"filename"} },

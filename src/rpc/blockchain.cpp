@@ -1963,6 +1963,39 @@ UniValue dumpwhitelist(const JSONRPCRequest& request)
   return NullUniValue;
 }
 
+UniValue dumpkycpubkeys(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw runtime_error(
+            "dumpkycpubkeys \"filename\"\n"
+            "\nDumps all KYC public keys in a human-readable format.\n"
+            "\nArguments:\n"
+            "1. \"filename\"    (string, required) The filename\n"
+            "\nExamples:\n"
+            + HelpExampleCli("dumpkycpubkeys", "\"test\"")
+            + HelpExampleRpc("dumpkycpubkeys", "\"test\"")
+        );
+
+    std::ofstream file;
+    file.open(request.params[0].get_str().c_str());
+    if (!file.is_open())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open key dump file");
+
+    // produce output
+    file << strprintf("# KYC public key dump - format: [address] [kycPubKey] [ismine]\n");
+
+    addressWhitelist->dump_unassigned_kyc(file);
+
+    file << "\n";
+    file << "# End of dump\n";
+    file.close();
+
+    AuditLogPrintf("%s : dumpkycpubkeys %s\n", getUser(), request.params[0].get_str());
+
+    return NullUniValue;
+}
+
+
 
 UniValue clearwhitelist(const JSONRPCRequest& request)
 {
@@ -2647,6 +2680,8 @@ static const CRPCCommand commands[] =
         {"blockchain", "querywhitelist", &querywhitelist, true, {"address"}},
         {"blockchain", "removefromwhitelist", &removefromwhitelist, true, {"address"}},
         {"blockchain", "dumpwhitelist", &dumpwhitelist, true, {}},
+        {"blockchain", "dumpkycpubkeys", &dumpkycpubkeys, true,   {"filename"} },
+
         {"blockchain", "clearwhitelist", &clearwhitelist, true, {}},
 
 

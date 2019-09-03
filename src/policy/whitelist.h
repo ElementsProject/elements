@@ -16,7 +16,8 @@ public:
 	CWhiteList();
 	virtual ~CWhiteList();
 
-	static const int64_t MAX_UNASSIGNED_KYCPUBKEYS=10000;
+	static const int64_t MAX_UNASSIGNED_KYCPUBKEYS=1000;
+	static const int64_t MAX_KYCPUBKEY_GAP=MAX_UNASSIGNED_KYCPUBKEYS;
 
 
     void init_defaults();
@@ -73,6 +74,8 @@ public:
 
   	virtual bool peek_unassigned_kyc(CPubKey& pubKey);
 
+  	void dump_unassigned_kyc(std::ofstream& fStream);
+
 	virtual bool LookupKYCKey(const CTxDestination& keyId, CKeyID& kycKeyIdFound){return false;}
   	virtual bool LookupKYCKey(const CTxDestination& keyId, CPubKey& pubKeyFound){return false;}
   	virtual bool LookupKYCKey(const CTxDestination& keyId, CKeyID& kycKeyIdFound, CPubKey& kycPubKeyFound){return false;}
@@ -98,15 +101,17 @@ public:
     //Does nothing for unencrypted whitelist.
     virtual void whitelist_kyc(const CPubKey& pubKey, const COutPoint* outPoint=nullptr){;}
 
-  	virtual void add_unassigned_kyc(const CPubKey& pubKey);
+    bool get_kycpubkey_outpoint(const CKeyID& kycPubKeyId, COutPoint& outPoint);
 
-  	virtual bool get_kycpubkey_outpoint(const CKeyID& kycPubKeyId, COutPoint& outPoint){
-  		return false;
-  	}
+	bool get_kycpubkey_outpoint(const CPubKey& kycPubKey, COutPoint& outPoint);
 
-	virtual bool get_kycpubkey_outpoint(const CPubKey& kycPubKey, COutPoint& outPoint){
-		return false;
-	}
+ 	virtual void add_unassigned_kyc(const CPubKey& pubKey){
+ 		;
+ 	}
+
+	void sync_whitelist_wallet(std::vector<CPubKey>& keysNotFound);
+
+	void sync_whitelist_wallet();
 
 
 protected:
@@ -127,4 +132,10 @@ protected:
   	const unsigned int nMultisigSize=1;
   	const unsigned int minPayloadSize=2;
 
+    std::map<CKeyID, COutPoint> _kycPubkeyOutPointMap;
+
+
+
+private:
+	void add_unassigned_kyc(const CPubKey& pubKey, const COutPoint& outPoint);
 };

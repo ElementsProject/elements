@@ -11,6 +11,8 @@
 #include "policy/policy.h"
 #include "rpc/server.h"
 #include "random.h"
+#include <fstream>
+#include <iostream>
 
 CWhiteList::CWhiteList(){
   _asset=whitelistAsset;
@@ -43,7 +45,7 @@ bool CWhiteList::Load(CCoinsView *view)
     CCoinsViewCache coins(view);
     std::unique_ptr<CCoinsViewCursor> pcursor(coins.Cursor());
     LOCK(cs_main);
-  
+
       //main loop over coins (transactions with > 0 unspent outputs
     while (pcursor->Valid()) {
       boost::this_thread::interruption_point();
@@ -75,7 +77,8 @@ bool CWhiteList::Load(CCoinsView *view)
               //  LogPrintf("POLICY: not adding invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             } else {
               //LogPrintf("POLICY: added unassigned KYC pub key "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
-              add_unassigned_kyc(kycPubKey);
+              COutPoint outPoint(key, i);
+              add_unassigned_kyc(kycPubKey, outPoint);
             }
           } else if ((whichType == TX_REGISTERADDRESS || 
                       whichType == TX_DEREGISTERADDRESS)
@@ -86,8 +89,48 @@ bool CWhiteList::Load(CCoinsView *view)
       }
       pcursor->Next();
     }
+
+  sync_whitelist_wallet();
+
   return true;
 }
+
+//Modifies a vector of the kyc public keys whose private keys were not found in the wallet.
+void CWhiteList::sync_whitelist_wallet(std::vector<CPubKey>& keysNotFound){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);  
+  #ifndef ENABLE_WALLET
+    return false;
+  #endif
+  LOCK2(cs_main, pwalletMain->cs_wallet);
+  EnsureWalletIsUnlocked();
+  keysNotFound.clear();
+  int nTries = 0;
+  int nKeys = _kycUnassignedSet.size();
+  int nTriesMax = MAX_KYCPUBKEY_GAP + nKeys;
+  bool bKeyFound = true;
+  for(auto key : _kycUnassignedSet){
+    bKeyFound=true;
+    CKeyID kycKey=key.GetID();
+    CKey privKey;
+    while(!pwalletMain->GetKey(kycKey, privKey)){
+      pwalletMain->GenerateNewKey(true);
+      if(++nTries > nTriesMax){
+        keysNotFound.push_back(key);
+        bKeyFound=false;
+        break;
+      }
+    }
+    //Reset the gap if a key was found.
+    if(bKeyFound) nTries=std::min(nTries, nKeys);
+  }
+}
+
+void CWhiteList::sync_whitelist_wallet(){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);  
+  std::vector<CPubKey> keysNotFound;
+  sync_whitelist_wallet(keysNotFound);
+}
+  
 
 void CWhiteList::add_destination(const CTxDestination& dest){
     boost::recursive_mutex::scoped_lock scoped_lock(_mtx);  
@@ -539,7 +582,8 @@ bool CWhiteList::Update(const CTransaction& tx, const CCoinsViewCache& mapInputs
             if (!kycPubKey.IsFullyValid()) {
                 LogPrintf("POLICY: not adding invalid KYC pub key"+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             } else {
-                add_unassigned_kyc(kycPubKey);    
+                COutPoint outPoint(tx.GetHash(), i);
+                add_unassigned_kyc(kycPubKey, outPoint);    
                 LogPrintf("POLICY: added KYC pub key "+HexStr(kycPubKey.begin(), kycPubKey.end())+"\n");
             }
         }
@@ -571,14 +615,41 @@ bool CWhiteList::is_unassigned_kyc(const CPubKey& kycPubKey){
   return true;
 }
 
-void CWhiteList::add_unassigned_kyc(const CPubKey& id){
+void CWhiteList::add_unassigned_kyc(const CPubKey& kycPubKey, const COutPoint& outPoint){
     boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
-    _kycUnassignedSet.insert(id);
+    CKeyID kycKey=kycPubKey.GetID();    
+    _kycPubkeyOutPointMap[kycKey]=outPoint;
+    _kycUnassignedSet.insert(kycPubKey);
 }
 
 bool CWhiteList::remove_unassigned_kyc(const CPubKey& id){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return _kycUnassignedSet.erase(id);
+}
+
+
+void CWhiteList::dump_unassigned_kyc(std::ofstream& fStream){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  // add the base58check encoded tweaked public key and untweaked pubkey hex
+  for(auto it = _kycUnassignedSet.begin(); it != _kycUnassignedSet.end(); ++it) {
+        const CPubKey &pubKey = *it;
+        const CKeyID keyid = pubKey.GetID();
+        const CBitcoinAddress address(keyid);
+        std::string strAddr = address.ToString();
+        fStream << strAddr;
+        fStream << " ";
+        fStream << std::string(HexStr(pubKey.begin(), pubKey.end()));
+        fStream << " ";
+        isminetype mine = pwalletMain ? IsMine(*pwalletMain, keyid) : ISMINE_NO;
+        if (mine != ISMINE_NO && address.IsBlinded() && address.GetBlindingKey() 
+            != pwalletMain->GetBlindingPubKey(GetScriptForDestination(keyid))) {
+            // Note: this will fail to return ismine for deprecated static blinded addresses.
+            mine = ISMINE_NO;
+        }
+        bool bMine =  (mine & ISMINE_SPENDABLE) ? true : false;
+        fStream << bMine;
+        fStream << std::endl;
+    }
 }
 
 void CWhiteList::clear(){
@@ -610,5 +681,21 @@ unsigned int CWhiteList::n_my_pending(){
   boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
   return _myPending.size();
 }
+
+bool CWhiteList::get_kycpubkey_outpoint(const CKeyID& keyId, COutPoint& outPoint){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  auto it = _kycPubkeyOutPointMap.find(keyId);
+  if (it == _kycPubkeyOutPointMap.end()) return false;
+  outPoint = it->second;
+  return true;
+}
+
+bool CWhiteList::get_kycpubkey_outpoint(const CPubKey& pubKey, COutPoint& outPoint){
+  boost::recursive_mutex::scoped_lock scoped_lock(_mtx);
+  if(!pubKey.IsFullyValid())
+    return false;
+  return get_kycpubkey_outpoint(pubKey.GetID(), outPoint);
+}
+
 
 
