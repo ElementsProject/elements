@@ -989,10 +989,10 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
         CKey key;
         if (pwalletMain->GetKey(keyid, key)) { // verify exists
             CPubKey pubKey;
-            if(Params().EmbedContract() && Params().ContractInTx() &! contract.IsNull()){
-                pubKey=key.GetPubKey();
-            } else {
+            if(Params().EmbedContract() &! Params().ContractInTx() &! contract.IsNull()){
                 pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
+            } else {
+                pubKey=key.GetPubKey();
             }
             ss << strprintf("%s %s\n",
                 strAddr,
