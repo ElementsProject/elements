@@ -2810,9 +2810,9 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
             CAmountMap balanceMap;
             if (mAvailableInputs && mAvailableInputs->size() > 0) {
                 balanceMap = GetBalanceFromOutputs(*mAvailableInputs);
-            }
-            else
+            } else {
                 balanceMap = pwalletMain->GetBalance();
+            }
             int newFeeRecipient = 0;
             for (unsigned int i = 0; i < vecSend.size(); ++i) {
                 if (balanceMap[vecSend[i].asset] > balanceMap[newFeeAsset]) {
@@ -2825,24 +2825,17 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
             if (lastRecipient.asset != newFeeAsset) {
                 CAmount lastBalance = balanceMap[lastRecipient.asset];
                 CAmount usedLastBalance = mapValue[lastRecipient.asset];
-                CAmount requiredLastBalance = lastBalance - usedLastBalance;
+                CAmount unusedLastBalance = lastBalance - usedLastBalance;
 
                 mapValue[lastRecipient.asset] = lastBalance;
-                mapValue[newFeeAsset] -= requiredLastBalance;
+                mapValue[newFeeAsset] -= unusedLastBalance;
 
-                bool feeRecipientErased = false;
-                if (mapValue[newFeeAsset] == 0) {
-                    vecSend.erase(vecSend.begin() + newFeeRecipient);
-                    feeRecipientErased = true;
-                } else
-                    vecSend[newFeeRecipient].nAmount = mapValue[newFeeAsset];
+                vecSend[newFeeRecipient].nAmount = mapValue[newFeeAsset];
                 vecSend[vecSend.size() - 1].nAmount = mapValue[lastRecipient.asset];
 
-                if (!feeRecipientErased) {
-                    if (!PreventDustForNewOutput(mapValue, vecSend, newFeeRecipient)) {
-                        strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
-                        return std::vector<CWalletTx>();
-                    }
+                if (!PreventDustForNewOutput(mapValue, vecSend, newFeeRecipient)) {
+                    strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                    return std::vector<CWalletTx>();
                 }
             }
         }
@@ -2885,9 +2878,8 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
     assert(txNew.nLockTime <= (unsigned int)chainActive.Height());
     assert(txNew.nLockTime < LOCKTIME_THRESHOLD);
 
-    set<pair<const CWalletTx*,unsigned int> > setCoins;
-    std::vector<COutput> vAvailableCoins;
     {
+        set<pair<const CWalletTx*,unsigned int> > setCoins;
         // We need to store an unblinded and unsigned version of the transaction
         // in case of !sign
         CMutableTransaction txUnblindedAndUnsigned;
@@ -2903,6 +2895,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
         std::vector<uint256> output_asset_blinds;
         std::vector<CAsset> output_assets;
 
+        std::vector<COutput> vAvailableCoins;
         LOCK2(cs_main, cs_wallet);
         {
             if (vInputPool.size() > 0)
@@ -2966,8 +2959,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                                 strFailReason = _("The transaction amount is too small to pay the fee");
                             else
                                 strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
-                        }
-                        else {
+                        } else {
                             strFailReason = _("Transaction amount too small");
                         }
                         return std::vector<CWalletTx>();
@@ -3745,13 +3737,13 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                 std::vector<CReserveKey> vChangeLeft;
                 std::vector<CReserveKey> vChangeRight;
                 vChangeLeft.reserve(leftRecipients.size() + 1);
-                for (int j = 0; j < vecSend.size() + 1; ++j) {
+                for (unsigned int j = 0; j < vecSend.size() + 1; ++j) {
                     vChangeLeft.emplace_back(pwalletMain);
                 }
                 vChangeKeysLeft.push_back(vChangeLeft);
 
                 vChangeRight.reserve(rightRecipients.size() + 1);
-                for (int j = 0; j < vecSend.size() + 1; ++j) {
+                for (unsigned int j = 0; j < vecSend.size() + 1; ++j) {
                     vChangeRight.emplace_back(pwalletMain);
                 }
                 vChangeKeysRight.push_back(vChangeRight);
@@ -3823,23 +3815,18 @@ bool CWallet::PreventDustForNewOutput(CAmountMap& mapValue, std::vector<CRecipie
         if (nDust > 0) {
             vecSend[feeRecipientId].nAmount += nDust;
             mapValue[vecSend[feeRecipientId].asset] += nDust; // raise change until no more dust
-            bool refillFound = false;
-            for (unsigned int i = 0; i < vecSend.size(); i++) // subtract from a recipient who has enough
-            {
+            for (unsigned int i = 0; i < vecSend.size(); i++) { // subtract from a recipient who has enough
                 if (i != feeRecipientId) {
                     CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
                     if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
                         dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
                         vecSend[i].nAmount -= nDust;
                         mapValue[vecSend[i].asset] -= nDust;
-                        refillFound = true;
-                        break;
+                        return true;
                     }
                 }
             }
-            if (refillFound == false) {
-                return false;
-            }
+            return false;
         }
     }
     return true;
