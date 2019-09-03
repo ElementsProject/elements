@@ -464,7 +464,7 @@ UniValue validatederivedkeys(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid public key");
 
         uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
-        if (Params.EmbedContract() &! contract.IsNull() && !Params().ContractInTx())
+        if (Params().EmbedContract() &! contract.IsNull() && !Params().ContractInTx())
             pubKey.AddTweakToPubKey((unsigned char*)contract.begin());
         CKeyID keyId;
         if (!address.GetKeyID(keyId))
@@ -841,7 +841,7 @@ UniValue createkycfile(const JSONRPCRequest& request)
 
         std::vector<CPubKey> tweakedPubKeys = pubKeyVec;
 
-        if (Params.EmbedContract() &! contract.IsNull() && !Params().ContractInTx()){
+        if (Params().EmbedContract() &! contract.IsNull() && !Params().ContractInTx()){
             for (unsigned int it = 0; it < tweakedPubKeys.size(); ++it){
                 tweakedPubKeys[it].AddTweakToPubKey((unsigned char*)contract.begin());
             }
@@ -967,9 +967,12 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
 
     //Contract hash
     uint256 contract;
-    if(Params.EmbedContact()){
+    if(Params().EmbedContract()){
         contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
+    } else {
+        contract.SetNull();
     }
+
     if(Params().ContractInKYCFile()){
         if(!contract.IsNull()){
             ss << "contracthash: " << contract.ToString() << "\n";
@@ -986,7 +989,7 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
         CKey key;
         if (pwalletMain->GetKey(keyid, key)) { // verify exists
             CPubKey pubKey;
-            if(Params.EmbedContact() && Params().ContractInTx() &! contract.IsNull()){
+            if(Params().EmbedContract() && Params().ContractInTx() &! contract.IsNull()){
                 pubKey=key.GetPubKey();
             } else {
                 pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
