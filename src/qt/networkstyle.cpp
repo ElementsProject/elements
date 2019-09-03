@@ -93,4 +93,5 @@ const NetworkStyle* NetworkStyle::instantiate(const std::string& networkId)
                     titleAddText.c_str());
         }
     }
+    return nullptr;
 }
