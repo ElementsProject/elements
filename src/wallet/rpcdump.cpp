@@ -982,7 +982,12 @@ UniValue dumpkycfile(const JSONRPCRequest& request)
         if(!addrCheck.SetString(strAddr)) continue;
         CKey key;
         if (pwalletMain->GetKey(keyid, key)) { // verify exists
-            CPubKey pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
+            CPubKey pubKey;
+            if(Params().ContractInTx()){
+                pubKey=key.GetPubKey();
+            } else {
+                pubKey = pwalletMain->mapKeyMetadata[keyid].derivedPubKey;
+            }
             ss << strprintf("%s %s\n",
                 strAddr,
                 HexStr(pubKey.begin(), pubKey.end()));
@@ -1118,6 +1123,7 @@ UniValue dumpderivedkeys(const JSONRPCRequest& request)
 
     return NullUniValue;
 }
+
 
 UniValue dumpwallet(const JSONRPCRequest& request)
 {

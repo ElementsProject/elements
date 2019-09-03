@@ -2553,7 +2553,7 @@ bool CWallet::SelectCoinsMinConf(const CAmountMap& mapTargetValue, const int nCo
     return true;
 }
 
-bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& mapValueRet, const CCoinControl* coinControl, const CAsset& feeAsset) const
+bool CWallet:: SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmountMap& mapValueRet, const CCoinControl* coinControl, const CAsset& feeAsset) const
 {
     vector<COutput> vCoins(vAvailableCoins);
 

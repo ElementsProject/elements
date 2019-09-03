@@ -154,10 +154,59 @@ class OnboardTest (BitcoinTestFramework):
         except JSONRPCException as e:
             assert("No unassigned KYC public keys available" in e.error['message'])
 
+        kycpkfile=self.initfile(os.path.join(self.options.tmpdir,"kycpkfile.dat"))
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,2)
+            
+        #Register a KYC public key
+        nkyckeys=50
+        self.nodes[0].topupkycpubkeys(nkyckeys)
+        self.nodes[0].generate(101)
+        self.sync_all()
+
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,2+nkyckeys)
+
+        #Register more keys (top up to 100)
+        nkyckeys=100
+        self.nodes[0].topupkycpubkeys(nkyckeys)
+        self.nodes[0].generate(101)
+        self.sync_all()
+        
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,2+nkyckeys)
+
+        
+        #Remove all kycpubkeys
+        with open(kycpkfile) as fp:
+            for line in fp:
+                x=line.split()
+                if len(x) == 3:
+                    try:
+                        self.nodes[0].removekycpubkey(x[1])
+                    except JSONRPCException as e:
+                        print(e.error['message'])
+                        assert(False)
+
+        time.sleep(5)
+        self.nodes[0].generate(101)
+        self.sync_all()
+
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,2)
+            
         #Register a KYC public key
         self.nodes[0].topupkycpubkeys(1)
         self.nodes[0].generate(101)
         self.sync_all()
+
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,3)
 
         wb0_1=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
         assert_equal(wb0_1*coin,float(50000000000000-1))
@@ -166,6 +215,15 @@ class OnboardTest (BitcoinTestFramework):
         wl1file_empty=self.initfile(os.path.join(self.options.tmpdir,"wl1_empty.dat"))
         self.nodes[1].dumpwhitelist(wl1file_empty)
 
+        #Assert node1 address not in whitelist yet
+        node1addr=self.nodes[1].getnewaddress()
+        try:
+            iswl=self.nodes[0].querywhitelist(node1addr)
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
+        assert_equal(iswl, False)
+        
         #Onboard node0
         kycfile0=self.initfile(os.path.join(self.options.tmpdir,"kycfile0.dat"))
         userOnboardPubKey=self.nodes[0].dumpkycfile(kycfile0)
@@ -179,7 +237,6 @@ class OnboardTest (BitcoinTestFramework):
         nlines_empty=self.linecount(wl1file_empty)
         assert_equal(nlines-nlines_empty,keypool)
 
-
         #Onboard node1
         userOnboardPubKey=self.nodes[1].dumpkycfile(kycfile)
         kycfile_plain=self.initfile(os.path.join(self.options.tmpdir,"kycfile_plain.dat"))
@@ -190,9 +247,24 @@ class OnboardTest (BitcoinTestFramework):
 
         balance_1=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         self.nodes[0].onboarduser(kycfile)
-
         self.nodes[0].generate(101)
         self.sync_all()
+        
+        with open(kycfile_plain) as fp:
+            nline=0
+            for nline, line in enumerate(fp):
+                x=line.split()
+                if nline > 6 and len(x) > 1 and len(x[0]) > 1  and x[0][0] != '#':
+                    try:
+                        validate=self.nodes[1].validateaddress(x[0])
+                        assert_equal(validate['isvalid'],True)
+                        ismine=validate['ismine']
+                        assert_equal(ismine, True)
+                    except JSONRPCException as e:
+                        print(e.error['message'])
+                        assert(False)
+        
+
         balance_2=self.nodes[0].getwalletinfo()["balance"]["WHITELIST"]
         #Make sure the onboard transaction fee was zero
         assert((balance_1-balance_2) == 0)
@@ -200,15 +272,23 @@ class OnboardTest (BitcoinTestFramework):
         self.nodes[1].dumpwhitelist(wl1file)
         nlines=self.linecount(wl1file)
         assert_equal(nlines-nlines_empty,2*keypool)
-        
-        node1addr=self.nodes[1].getnewaddress()
 
+        node1addr=self.nodes[1].getnewaddress()
         try:
             iswl=self.nodes[0].querywhitelist(node1addr)
         except JSONRPCException as e:
             print(e.error['message'])
             assert(False)
-        assert(iswl)
+        assert_equal(iswl, True)
+
+        node2addr=self.nodes[2].getnewaddress()
+        
+        try:
+            iswl=self.nodes[0].querywhitelist(node2addr)
+        except JSONRPCException as e:
+            print(e.error['message'])
+            assert(False)
+        assert_equal(iswl, False)
 
         
         #Send some tokens to node 1

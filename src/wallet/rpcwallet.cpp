@@ -1359,7 +1359,7 @@ UniValue topupkycpubkeys(const JSONRPCRequest& request){
     JSONRPCRequest request2;
 
     for(unsigned int i=0; i<nKeysToAdd; i++){
-        CPubKey kycPubKey = pwalletMain->GenerateNewKey();
+        CPubKey kycPubKey = pwalletMain->GenerateNewKey(true);
         std::vector<unsigned char> datavec = ToByteVector(kycPubKey);
         kycpubkeys.push_back(HexStr(datavec.begin(), datavec.end()));
         if(kycpubkeys.size() == nMaxPerTx || (i==iMax && kycpubkeys.size()>0)){

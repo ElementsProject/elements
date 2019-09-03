@@ -151,11 +151,22 @@ class OnboardTest (BitcoinTestFramework):
         except JSONRPCException as e:
             assert("No unassigned KYC public keys available" in e.error['message'])
 
-        #Register a KYC public key
-        self.nodes[0].topupkycpubkeys(1)
+        kycpkfile=self.initfile(os.path.join(self.options.tmpdir,"kycpkfile.dat"))
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,2)
+            
+        #Top up to one KYC public key
+        nkyckeys=1
+        self.nodes[0].topupkycpubkeys(nkyckeys)
         self.nodes[0].generate(101)
         self.sync_all()
-
+        
+        self.nodes[0].dumpkycpubkeys(kycpkfile)
+        nlines=self.linecount(kycpkfile)
+        assert_equal(nlines,2+nkyckeys)
+                    
+                
         wb0_1=float(self.nodes[0].getbalance("", 1, False, "WHITELIST"))
         assert_equal(wb0_1*coin,float(50000000000000-1))
         
