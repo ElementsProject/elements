@@ -645,7 +645,7 @@ void CWhiteList::dump_unassigned_kyc(std::ofstream& fStream){
             mine = ISMINE_NO;
         }
         bool bMine =  (mine & ISMINE_SPENDABLE) ? true : false;
-        fStream << std::string(bMine);
+        fStream << bMine;
         fStream << std::endl;
     }
 }
