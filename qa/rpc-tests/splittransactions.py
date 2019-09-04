@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2016 The Bitcoin Core developers
+# Copyright (c) 2019 CommerceBlock developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -61,7 +61,7 @@ class WalletTest (BitcoinTestFramework):
             if i % 100 == 0:
                 self.nodes[2].generate(1)
                 self.sync_all()
-            
+
         self.nodes[2].generate(10)
         self.sync_all()
 
