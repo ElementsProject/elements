@@ -253,7 +253,7 @@ UniValue getkycpubkey(const JSONRPCRequest& request){
         );
 
     if(!fWhitelistEncrypt)
-        throw JSONRPCError(RPC_MISC_ERROR, 
+        throw JSONRPCError(RPC_MISC_ERROR,
             "Not implemented for unencrypted whitelist");
 
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -1390,8 +1390,8 @@ UniValue whitelistkycpubkeys(const JSONRPCRequest& request){
 
     rawTx.vout.push_back(
             CTxOut(
-                wl_asset, 
-                changeAmount, 
+                wl_asset,
+                changeAmount,
                 GetScriptForDestination(adminPubKey.GetID())
             )
         );
@@ -1592,7 +1592,7 @@ UniValue sendaddmultitowhitelisttx(const JSONRPCRequest& request){
     CPubKey* kycPubKey = nullptr;
     if(fWhitelistEncrypt){
         kycPubKey = new CPubKey(pwalletMain->GetKYCPubKey());
-    } 
+    }
     SendAddNextMultiToWhitelistTx(feeasset, kycPubKey, address, request.params[1].get_array(), (uint8_t)nMultisig, wtx);
     return wtx.GetHash().GetHex();
 }
