@@ -65,7 +65,7 @@ class SendAnyTest (BitcoinTestFramework):
         self.nodes[2].generate(1)
         self.sync_all()
 
-        addr1 = self.nodes[0].getnewaddress();
+        addr1 = self.nodes[1].getnewaddress();
 
         # Edge case where first asset is 5 and output is 5. Fee makes the asset go over the limit and an extra ones has to be chosen.
         tx = self.nodes[2].sendanytoaddress(addr1, 5, "", "", True, False)
@@ -74,14 +74,14 @@ class SendAnyTest (BitcoinTestFramework):
         self.sync_all()
 
         # Descending asset balances for sendany selection
-        tx2 = self.nodes[2].sendanytoaddress(addr1, 5.5, "", "", True, False, 1)
-        assert(tx2 in self.nodes[2].getrawmempool())
+        tx = self.nodes[2].sendanytoaddress(addr1, 5.5, "", "", True, False, 1)
+        assert(tx in self.nodes[2].getrawmempool())
         self.nodes[2].generate(1)
         self.sync_all()
 
         # Ascending asset balances for sendany selection
-        tx3 = self.nodes[2].sendanytoaddress(addr1, 2.5, "", "", True, False, 2)
-        assert(tx3 in self.nodes[2].getrawmempool())
+        tx = self.nodes[2].sendanytoaddress(addr1, 2.5, "", "", True, False, 2)
+        assert(tx in self.nodes[2].getrawmempool())
         self.nodes[2].generate(1)
         self.sync_all()
 
@@ -89,9 +89,27 @@ class SendAnyTest (BitcoinTestFramework):
         balance = 0
         for _, val in self.nodes[2].getbalance().items():
             balance += val
-        tx3 = self.nodes[2].sendanytoaddress(addr1, balance - Decimal('0.001'), "", "", True, False, 2)
-        assert(tx3 in self.nodes[2].getrawmempool())
+        tx = self.nodes[2].sendanytoaddress(addr1, balance - Decimal('0.0002'), "", "", True, False, 2)
+        assert(tx in self.nodes[2].getrawmempool())
         self.nodes[2].generate(1)
+        self.sync_all()
+
+        # Issue some assets and send them to node 0
+        issue = self.nodes[1].issueasset('10.0','0', False)
+        self.nodes[1].generate(1)
+        self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 9, "", "", False, issue["asset"])
+        self.nodes[1].generate(1)
+
+        issue = self.nodes[1].issueasset('10.0','0', False)
+        self.nodes[1].generate(1)
+        self.nodes[1].sendtoaddress(self.nodes[0].getnewaddress(), 9, "", "", False, issue["asset"])
+        self.nodes[1].generate(1)
+        self.sync_all()
+
+        # Two balances of 9; send 9
+        tx = self.nodes[0].sendanytoaddress(addr1, 9, "", "", True, False)
+        assert(tx in self.nodes[0].getrawmempool())
+        self.nodes[0].generate(1)
         self.sync_all()
 
 if __name__ == '__main__':
