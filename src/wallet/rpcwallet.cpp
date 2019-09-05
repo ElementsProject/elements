@@ -531,7 +531,8 @@ UniValue getaddressesbyaccount(const JSONRPCRequest& request)
     return ret;
 }
 
-static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, CCoinControl* coinControl = NULL)
+static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key,
+    CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, CCoinControl* coinControl = NULL)
 {
     CAmount curBalance = pwalletMain->GetBalance()[asset];
 
@@ -562,99 +563,92 @@ static void SendMoney(const CScript& scriptPubKey, CAmount nValue, CAsset asset,
     CRecipient recipient = {scriptPubKey, nValue, asset, confidentiality_key, fSubtractFeeFromAmount};
     vecSend.push_back(recipient);
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions);
+    std::vector<CWalletTx> vecRes = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet,
+        strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions);
 
-    if (!createResult.size() > 0) {
+    if (!(vecRes.size() > 0)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
-    wtxNew = createResult[0];
-    for (int i = 0; i < createResult.size(); ++i) {
+    wtxNew = vecRes[0];
+    for (unsigned int i = 0; i < vecRes.size(); ++i) {
         CValidationState state;
-        if (!pwalletMain->CommitTransaction(createResult[i], vChangeKeys[0], g_connman.get(), state)) {
+        if (!pwalletMain->CommitTransaction(vecRes[i], vChangeKeys[0], g_connman.get(), state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
     }
 }
 
-static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions, CCoinControl* coinControl = NULL)
+static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asset, bool fSubtractFeeFromAmount,
+    const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions, CCoinControl* coinControl = NULL)
 {
-    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew, fIgnoreBlindFail, fSplitTransactions, coinControl);
+    SendMoney(GetScriptForDestination(address), nValue, asset, fSubtractFeeFromAmount, confidentiality_key, wtxNew,
+        fIgnoreBlindFail, fSplitTransactions, coinControl);
 }
 
-static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions = false, int iSortingMethod = 1, CCoinControl* coinControl = NULL)
+static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew,
+    bool fIgnoreBlindFail, bool fSplitTransactions = false, int nSortingMethod = 1, CCoinControl* coinControl = NULL)
 {
-    CAmountMap balanceMap = pwalletMain->GetBalance();
-    //Default 0 unsorted, 1 descending, 2 ascending
-    typedef std::function<bool(std::pair<CAsset, CAmount>, std::pair<CAsset, CAmount>)> Comparison;
-    std::vector<std::pair<CAsset, CAmount>> balanceSet = std::vector<std::pair<CAsset, CAmount>>(balanceMap.begin(),
-            balanceMap.end());
-    if (iSortingMethod == 1) {
-        Comparison comparisonFunction =
-                [](std::pair<CAsset, CAmount> left, std::pair<CAsset, CAmount> right) {
-                    return left.second > right.second;
-                };
-        std::sort(balanceSet.begin(),
-            balanceSet.end(), comparisonFunction);
-    } else if (iSortingMethod == 2){
-        Comparison comparisonFunction =
-                [](std::pair<CAsset, CAmount> left, std::pair<CAsset, CAmount> right) {
-                    return left.second < right.second;
-                };
-        std::sort(balanceSet.begin(),
-            balanceSet.end(), comparisonFunction);
-    }
-    CAmount totalBalance = 0;
-
-    for (const auto& it : balanceSet) {
-        if (!IsPolicy(it.first)) {
-            totalBalance += it.second;
-        }
-    }
-
     // Check amount
     if (nValue < 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
 
-    if (nValue > totalBalance)
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds for sendany");
-
     if (pwalletMain->GetBroadcastTransactions() && !g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
-    // Create and send the transaction
+    CAmountMap balanceMap = pwalletMain->GetBalance();
+    std::vector<std::pair<CAsset, CAmount>> vecBalanceMap =
+        std::vector<std::pair<CAsset, CAmount>>(balanceMap.begin(), balanceMap.end());
 
+    // Default 0 unsorted, 1 descending, 2 ascending
+    typedef std::function<bool(std::pair<CAsset, CAmount>, std::pair<CAsset, CAmount>)> Comparator;
+    if (nSortingMethod == 1) {
+        Comparator compFunc =
+            [](std::pair<CAsset, CAmount> left, std::pair<CAsset, CAmount> right) {
+                return left.second > right.second;
+            };
+        std::sort(vecBalanceMap.begin(), vecBalanceMap.end(), compFunc);
+    } else if (nSortingMethod == 2) {
+        Comparator compFunc =
+            [](std::pair<CAsset, CAmount> left, std::pair<CAsset, CAmount> right) {
+                return left.second < right.second;
+            };
+        std::sort(vecBalanceMap.begin(), vecBalanceMap.end(), compFunc);
+    }
+
+    CAmount totalBalance = 0;
+    for (const auto& it : vecBalanceMap) {
+        if (!IsPolicy(it.first)) {
+            totalBalance += it.second;
+        }
+    }
+    if (nValue > totalBalance)
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds for sendany");
+
+    // Create and send the transaction
     CAmount nFeeRequired;
     std::string strError;
-    vector<CRecipient> vecSend;
     int nChangePosRet = -1;
+
+    vector<CRecipient> vecSend;
     CAmount coveredValue = 0;
-
-    
-    bool outputsFilled = false;
-    CReserveKey hackKey = CReserveKey(pwalletMain);
-    CPubKey hackPubKey;
-    hackKey.GetReservedKey(hackPubKey);
-    CScript hackScript = GetScriptForDestination(hackPubKey.GetID());
-    hackKey.ReturnKey();
-
-    for (const auto& it : balanceSet) {
+    bool fOutputsFilled = false;
+    for (const auto& it : vecBalanceMap) {
         if (!IsPolicy(it.first)) {
-            CTxOut hackDustEstimator = CTxOut(it.first, it.second, hackScript);
+            CTxOut hackDustEstimator = CTxOut(it.first, it.second, CScript());
             if (!hackDustEstimator.IsDust(::minRelayTxFee)) {
                 CAmount outputValue = it.second;
                 if (nValue <= coveredValue + outputValue) {
                     outputValue = nValue - coveredValue;
-                    outputsFilled = true;
+                    fOutputsFilled = true;
                 }
                 CRecipient recipient = {scriptPubKey, outputValue, it.first, confidentiality_key, false};
                 vecSend.push_back(recipient);
-                if (outputsFilled)
+                coveredValue += outputValue;
+                if (fOutputsFilled)
                     break;
-                else
-                    coveredValue += outputValue;
             }
         }
     }
@@ -663,32 +657,34 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPub
     std::vector<std::vector<CReserveKey>> vChangeKeys;
     std::vector<CReserveKey> vChangeKey;
     vChangeKey.reserve(vecSend.size() + 1);
-    for (int j = 0; j < vecSend.size() + 1; ++j) {
+    for (unsigned int j = 0; j < vecSend.size() + 1; ++j) {
         vChangeKey.emplace_back(pwalletMain);
     }
     vChangeKeys.push_back(vChangeKey);
 
+    std::vector<CWalletTx> vecRes = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet,
+        strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
-
-    if (!createResult.size() > 0) {
+    if (!(vecRes.size() > 0)) {
         if (nValue + nFeeRequired > totalBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
-    wtxNew = createResult[0];
-    for (int i = 0; i < createResult.size(); ++i) {
+    wtxNew = vecRes[0];
+    for (unsigned int i = 0; i < vecRes.size(); ++i) {
         CValidationState state;
-        if (!pwalletMain->CommitTransaction(createResult[i], vChangeKeys[i], g_connman.get(), state)) {
+        if (!pwalletMain->CommitTransaction(vecRes[i], vChangeKeys[i], g_connman.get(), state)) {
             strError = strprintf("Error: The transaction was rejected! Reason given: %s %s", state.GetRejectReason(), state.GetDebugMessage());
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
     }
 }
 
-static void SendAnyMoney(const CTxDestination &address, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions, int iSortingMethod, CCoinControl* coinControl = NULL)
+static void SendAnyMoney(const CTxDestination &address, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew,
+    bool fIgnoreBlindFail, bool fSplitTransactions, int nSortingMethod, CCoinControl* coinControl = NULL)
 {
-    SendAnyMoney(GetScriptForDestination(address), nValue, confidentiality_key, wtxNew, fIgnoreBlindFail, fSplitTransactions, iSortingMethod, coinControl);
+    SendAnyMoney(GetScriptForDestination(address), nValue, confidentiality_key, wtxNew, fIgnoreBlindFail,
+        fSplitTransactions, nSortingMethod, coinControl);
 }
 
 static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CPubKey &assetKey, const CScript& tokenScriptPubKey, const CPubKey &tokenKey, CAmount nAmountAsset, CAmount nTokens, bool fBlindIssuances, uint256& entropy, CAsset& reissuanceAsset, CAsset& reissuanceToken, CWalletTx& wtxNew)
@@ -733,9 +729,9 @@ static void SendGenerationTransaction(const CScript& assetScriptPubKey, const CP
         vecSend.push_back(recipient);
     }
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken);
+    std::vector<CWalletTx> vesRes = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, fBlindIssuances, &entropy, &reissuanceAsset, &reissuanceToken);
 
-    if (!createResult.size() > 0) {
+    if (!(vesRes.size() > 0)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
@@ -862,7 +858,6 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
     CScript dummyScript;
     raScript->FinalizeUnencrypted(dummyScript);
 
-
     // Create a dummy transaction in order to calculate the required fee
     std::vector<std::vector<CReserveKey>> vChangeKeys;
     std::vector<CReserveKey> vChangeKey;
@@ -878,12 +873,11 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
     CRecipient recipientDummy = {dummyScript, CAmount(0), feeAsset, CPubKey(), false};
     vecSendDummy.push_back(recipientDummy);
 
-
-
     CWalletTx wtxDummy;
-    std::vector<CWalletTx> dummyResult = pwalletMain->CreateTransaction(vecSendDummy, wtxDummy, vChangeKeys, nFeeRequired, nChangePosRet, strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true);
+    std::vector<CWalletTx> vecResDummy = pwalletMain->CreateTransaction(vecSendDummy, wtxDummy, vChangeKeys, nFeeRequired, nChangePosRet,
+        strError, NULL, true, NULL, true, NULL, NULL, NULL, CAsset(), true);
 
-    if (!dummyResult.size() > 0) {
+    if (!(vecResDummy.size() > 0)) {
         strError = strprintf("Error: failed to create transaction.");
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -907,15 +901,12 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
     CTxDestination inputAddr;
     CCoinControl coinControl;
     coinControl.fAllowOtherInputs=false;
-//    BOOST_FOREACH(const COutput& out, setCoins) {
-
 
     //Create the script using the selected input address to encrypt it
     CKeyID fromKeyID;
     CKey key;
 
     EnsureWalletIsUnlocked();
-
 
     for(auto coin : setCoins) {
         const CWalletTx* pcoin = coin.first;
@@ -957,10 +948,11 @@ static UniValue FinalizeRegisterAddressTx(CRegisterAddressScript* raScript, cons
 
     CAsset asset;
 
-    std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet, strError, &coinControl, true, NULL, true, NULL, NULL, NULL, asset, true);
+    std::vector<CWalletTx> vecRes = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet,
+        strError, &coinControl, true, NULL, true, NULL, NULL, NULL, asset, true);
 
     //Create the transacrtion again. This time, the script is encrypted.
-    if (!createResult.size() > 0) {
+    if (!(vecRes.size() > 0)) {
         strError = strprintf("Error: failed to create transaction.");
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -1610,7 +1602,7 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     if (!EnsureWalletIsAvailable(request.fHelp))
         return NullUniValue;
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 7)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 8)
         throw runtime_error(
             "sendtoaddress \"bitcoinaddress\" amount ( \"comment\" \"comment-to\" subtractfeefromamount assetlabel ignoreblindfail splitlargetxs)\n"
             "\nSend an amount to a given address.\n"
@@ -1627,7 +1619,7 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
             "                             The recipient will receive less bitcoins than you enter in the amount field.\n"
             "6. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
             "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
-            "8. \"splitlargetxs\"\"   (bool, default=false) Split a transaction that goes over the size limit into smaller transactions.\n"
+            "8. \"splitlargetxs\"\"     (bool, default=false) Split a transaction that goes over the size limit into smaller transactions.\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -2486,7 +2478,7 @@ UniValue sendmany(const JSONRPCRequest& request)
 
     std::vector<CWalletTx> createResult = pwalletMain->CreateTransaction(vecSend, wtx, vChangeKeys, nFeeRequired, nChangePosRet, strFailReason, NULL, true, NULL, false, NULL, NULL, NULL, feeAsset, fIgnoreBlindFail);
 
-    if (!createResult.size() > 0)
+    if (!(createResult.size() > 0))
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     CValidationState state;
     if (!pwalletMain->CommitTransaction(wtx, vChangeKeys[0], g_connman.get(), state)) {

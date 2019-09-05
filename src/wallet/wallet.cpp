@@ -1060,7 +1060,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlockIndex
 {
     {
         AssertLockHeld(cs_wallet);
-        
+
         if (posInBlock != -1) {
             BOOST_FOREACH(const CTxIn& txin, tx.vin) {
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
@@ -2587,7 +2587,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
 
-            //Reject non-whitelisted 
+            //Reject non-whitelisted
             if(fRequireWhitelistCheck){
                 const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
                 CTxDestination dest;
@@ -2597,10 +2597,10 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
                     if(!addressWhitelist->is_whitelisted(keyId)) continue;
                 }
             }
-            
+
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
-        
+
 
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -2739,10 +2739,12 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     return true;
 }
 
-std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<std::vector<CReserveKey>>& vChangeKeys, CAmount& nFeeRet,
-                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts,
-                                bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, CAsset feeAsset,
-                                bool fIgnoreBlindFail, bool fSplitTransactions, std::vector<COutput> vInputPool, bool fFindFeeAsset, std::map<CAsset, std::vector<COutput>>* mAvailableInputs)
+std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, CWalletTx& wtxNew,
+    std::vector<std::vector<CReserveKey>>& vChangeKeys, CAmount& nFeeRet, int& nChangePosInOut,
+    std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts,
+    bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset,
+    const CAsset* reissuanceToken, CAsset feeAsset, bool fIgnoreBlindFail, bool fSplitTransactions,
+    std::vector<COutput> vInputPool, bool fFindFeeAsset, std::map<CAsset, std::vector<COutput>>* mAvailableInputs)
 {
     // TODO re-enable to support multiple assets in a logical fashion, since the number of possible
     // change positions are number of assets being spent.
@@ -2765,7 +2767,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
 
         // TODO - should also do this for the case where bytes are appended to OP_RETURN?
         // Just like issuance/re-issuance, when destroying assets pay policyAsset fees
-        if (recipient.scriptPubKey == CScript(OP_RETURN) || 
+        if (recipient.scriptPubKey == CScript(OP_RETURN) ||
             recipient.scriptPubKey == CScript(OP_REGISTERADDRESS) ||
             recipient.scriptPubKey == CScript(OP_DEREGISTERADDRESS))
             feeAsset =  policyAsset;
@@ -2990,7 +2992,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         for (const auto& itRecipients : vecSend) {
                             balanceSet.insert(itRecipients.asset);
                         }
-                        
+
                         CAmount amountHave = 0;
                         CAmountMap validAmounts;
                         if (vInputPool.size() > 0) {
@@ -3507,8 +3509,8 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                         change_position->nValue = CConfidentialValue(change_position->nValue.GetAmount() + extraFeePaid);
                         nFeeRet -= extraFeePaid;
                     } */
-                   
-                    break; // Done, enough fee included.              
+
+                    break; // Done, enough fee included.
                 }
                 /* TODO Push actual blinding outside of loop and reactivate this logic
                 // Try to reduce change to include necessary fee
@@ -3579,7 +3581,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
         {
             if (fSplitTransactions) {
                 typedef std::function<bool(COutput, COutput)> OutputComparison;
-                std::vector<COutput> inputPool; 
+                std::vector<COutput> inputPool;
                 std::map<CAsset, std::vector<COutput>> inputAssetMap;
                 std::map<const CWalletTx* const, COutput> availableOutputMap;
                 std::set<CAsset> assetSet;
@@ -3606,7 +3608,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                                 return left.tx->GetOutputValueOut(left.i) > right.tx->GetOutputValueOut(right.i);
                             };
                     for (const auto& remaining : availableOutputMap) {
-                        if(mAvailableInputs->find(remaining.second.tx->GetOutputAsset(remaining.second.i)) != 
+                        if(mAvailableInputs->find(remaining.second.tx->GetOutputAsset(remaining.second.i)) !=
                                 mAvailableInputs->end()) {
                             mAvailableInputs->at(remaining.second.tx->GetOutputAsset(remaining.second.i)).push_back(remaining.second);
                         } else {
@@ -3696,7 +3698,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                     }
 
                     unsigned int requiredInputs = inputsUsed + curVecInputs.size() - ceil(inputPool.size() / 2);
-                    
+
                     long halfSpend = 0;
                     for (unsigned int i = 0; i < requiredInputs; ++i) {
                         halfSpend += curVecInputs[i].tx->GetOutputValueOut(curVecInputs[i].i);
@@ -3770,7 +3772,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                     //Fail case, vector is len 0
                     return std::vector<CWalletTx>();
                 }
-                
+
             } else {
                 strFailReason = _("Transaction too large");
                 return std::vector<CWalletTx>();
@@ -3846,7 +3848,7 @@ bool CWallet::PreventDustForNewOutput(CAmountMap& mapValue, std::vector<CRecipie
 bool CWallet::DistributeFeeToNewBalance(CAmountMap& mapValue, CAsset feeAsset, std::vector<CRecipient>& vecSend,
     std::vector<CReserveKey>& vChangeKey, CAsset newAsset, CAmount newAssetValue,
     std::vector<COutput>* vAvailableCoins, std::map<CAsset, std::vector<COutput>>* mAvailableInputs) {
-    
+
     if (mAvailableInputs && vAvailableCoins &&
         mAvailableInputs->size() > 0) {
 
@@ -5307,7 +5309,7 @@ std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes()
 
 void CWallet::SetKYCPubKeyIfMine(const CBitcoinAddress& addr, const CPubKey& pubKey){
     isminetype mine = ::IsMine(*this, addr.Get());
-    if (mine != ISMINE_NO && addr.IsBlinded() && addr.GetBlindingKey() 
+    if (mine != ISMINE_NO && addr.IsBlinded() && addr.GetBlindingKey()
         != GetBlindingPubKey(GetScriptForDestination(addr.Get()))) {
         // Note: this will fail to return ismine for deprecated static blinded addresses.
         mine = ISMINE_NO;
