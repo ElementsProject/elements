@@ -19,6 +19,7 @@
 #include <indirectmap.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
+#include <primitives/pak.h>
 #include <sync.h>
 #include <random.h>
 
@@ -588,7 +589,7 @@ public:
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
     void removeConflicts(const CTransaction &tx) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight,
-                        bool pak_transition=false);
+                        const CBlockIndex* p_block_index_new = nullptr);
 
     void clear();
     void _clear() EXCLUSIVE_LOCKS_REQUIRED(cs); //lock free

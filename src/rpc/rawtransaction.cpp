@@ -754,7 +754,7 @@ static UniValue decodescript(const JSONRPCRequest& request)
         r.pushKV("p2sh", EncodeDestination(ScriptHash(CScriptID(script))));
         // P2SH and witness programs cannot be wrapped in P2WSH, if this script
         // is a witness program, don't return addresses for a segwit programs.
-        if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard") {
+        if (type.get_str() == "pubkey" || type.get_str() == "pubkeyhash" || type.get_str() == "multisig" || type.get_str() == "nonstandard" || type.get_str() == "true") {
             std::vector<std::vector<unsigned char>> solutions_data;
             txnouttype which_type = Solver(script, solutions_data);
             // Uncompressed pubkeys cannot be used with segwit checksigs.
@@ -988,6 +988,8 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
     // Script verification errors
     UniValue vErrors(UniValue::VARR);
 
+    const auto& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+
     // ELEMENTS:
     // Track an immature peg-in that's otherwise valid, give warning
     bool immature_pegin = false;
@@ -1006,12 +1008,12 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         if (!txin.m_is_pegin && coin.IsSpent()) {
             TxInErrorToJSON(txin, inWitness, vErrors, "Input not found or already spent");
             continue;
-        } else if (txin.m_is_pegin && (txConst.witness.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, txin.prevout, err, false))) {
+        } else if (txin.m_is_pegin && (txConst.witness.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false))) {
             TxInErrorToJSON(txin, inWitness, vErrors, "Peg-in input has invalid proof.");
             continue;
         }
         // Report warning about immature peg-in though
-        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, txin.prevout, err, true)) {
+        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true)) {
             assert(err == "Needs more confirmations.");
             immature_pegin = true;
         }
@@ -2460,6 +2462,8 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
             "Invalid parameter: one (potentially empty) input asset blind for each input must be provided");
     }
 
+    const auto& fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+
     std::vector<CAmount> input_amounts;
     std::vector<uint256> input_blinds;
     std::vector<uint256> input_asset_blinds;
@@ -2472,7 +2476,7 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
         // Special handling for pegin inputs: no blinds and explicit amount/asset.
         if (tx.vin[nIn].m_is_pegin) {
             std::string err;
-            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, tx.vin[nIn].prevout, err, false)) {
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, fedpegscripts, tx.vin[nIn].prevout, err, false)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
             }
             CTxOut pegin_output = GetPeginOutputFromWitness(tx.witness.vtxinwit[nIn].m_pegin_witness);
