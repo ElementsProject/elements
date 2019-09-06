@@ -1685,14 +1685,14 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     UniValue arr(UniValue::VARR);
     for (const auto &tx : wtxs) {
         if (strComment != "") {
-            wtx.mapValue["comment"] = strComment;
+            tx.mapValue["comment"] = strComment;
         }
         if (strTo != "") {
-            wtx.mapValue["to"] = strTo;
+            tx.mapValue["to"] = strTo;
         }
         for (unsigned int i=0; i<tx.tx->vout.size(); i++) {
-            blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
-            blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+            blinds += "blind:" + tx.GetOutputBlindingFactor(i).ToString() + "\n";
+            blinds += "assetblind:" + tx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
         }
         AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), request.params[0].get_str(),
             request.params[1].getValStr(), tx.GetHash().GetHex(), blinds);
@@ -1786,14 +1786,14 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
     UniValue arr(UniValue::VARR);
     for (const auto &tx : wtxs) {
         if (strComment != "") {
-            wtx.mapValue["comment"] = strComment;
+            tx.mapValue["comment"] = strComment;
         }
         if (strTo != "") {
-            wtx.mapValue["to"] = strTo;
+            tx.mapValue["to"] = strTo;
         }
         for (unsigned int i=0; i<tx.tx->vout.size(); i++) {
-            blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
-            blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+            blinds += "blind:" + tx.GetOutputBlindingFactor(i).ToString() + "\n";
+            blinds += "assetblind:" + tx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
         }
         AuditLogPrintf("%s : sendanytoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), request.params[0].get_str(),
             request.params[1].getValStr(), tx.GetHash().GetHex(), blinds);
