@@ -19,21 +19,18 @@ bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, con
     }
 }
 
-void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
+static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_block_signature_size, const CScript& challenge, const CScript& scriptSig, const CScriptWitness& witness)
 {
-    block.proof.challenge = indexLast.proof.challenge;
-}
-
-static bool CheckProofGeneric(const CBlockHeader& block, const Consensus::Params& params, const CScript& challenge)
-{
-    if (block.GetHash() == params.hashGenesisBlock)
-       return true;
-
-    if (block.proof.solution.size() > params.max_block_signature_size) {
+    // scriptSig or witness will be nonempty, but not both, so just compare both limits
+    if (scriptSig.size() > max_block_signature_size) {
         return false;
     }
 
-    // Some anti-DoS flags, though consensus.max_block_signature_size caps the possible
+    if (witness.GetSerializedSize() > max_block_signature_size) {
+        return false;
+    }
+
+    // Some anti-DoS flags, though max_block_signature_size caps the possible
     // danger in malleation of the block witness data.
     unsigned int proof_flags = SCRIPT_VERIFY_P2SH // For cleanstack evalution under segwit flag
         | SCRIPT_VERIFY_STRICTENC // Minimally-sized DER sigs
@@ -42,15 +39,20 @@ static bool CheckProofGeneric(const CBlockHeader& block, const Consensus::Params
         | SCRIPT_VERIFY_MINIMALDATA // Pushes are minimally-sized
         | SCRIPT_VERIFY_SIGPUSHONLY // Witness is push-only
         | SCRIPT_VERIFY_LOW_S // Stop easiest signature fiddling
-        | SCRIPT_VERIFY_WITNESS // Required for cleanstack eval in VerifyScript
+        | SCRIPT_VERIFY_WITNESS // Witness and to enforce cleanstack
         | SCRIPT_NO_SIGHASH_BYTE; // non-Check(Multi)Sig signatures will not have sighash byte
-    return GenericVerifyScript(block.proof.solution, challenge, proof_flags, block);
+    return GenericVerifyScript(scriptSig, witness, challenge, proof_flags, block);
 }
 
 bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 {
     if (g_signed_blocks) {
-        return CheckProofGeneric(block, params, params.signblockscript);
+        const DynaFedParams& dynafed_params = block.m_dynafed_params;
+        if (dynafed_params.IsNull()) {
+            return CheckProofGeneric(block, params.max_block_signature_size, params.signblockscript, block.proof.solution, CScriptWitness());
+        } else {
+            return CheckProofGeneric(block, dynafed_params.m_current.m_signblock_witness_limit, dynafed_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
+        }
     } else {
         return CheckProofOfWork(block.GetHash(), block.nBits, params);
     }
@@ -58,10 +60,15 @@ bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
 
 bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params)
 {
-    return CheckProofGeneric(block, params, params.parent_chain_signblockscript);
-}
-
-void ResetProof(CBlockHeader& block)
-{
-    block.proof.solution.clear();
+    const DynaFedParams& dynafed_params = block.m_dynafed_params;
+    if (dynafed_params.IsNull()) {
+        return CheckProofGeneric(block, params.max_block_signature_size, params.parent_chain_signblockscript, block.proof.solution, CScriptWitness());
+    } else {
+        // Dynamic federations means we cannot validate the signer set
+        // at least without tracking the parent chain more directly.
+        // Note that we do not even serialize dynamic federation block witness data
+        // currently for merkle proofs which is the only context in which
+        // this function is currently used.
+        return true;
+    }
 }
