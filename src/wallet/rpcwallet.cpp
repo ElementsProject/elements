@@ -588,7 +588,7 @@ static void SendMoney(const CTxDestination &address, CAmount nValue, CAsset asse
         fIgnoreBlindFail, fSplitTransactions, coinControl);
 }
 
-static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew,
+static vector<CWalletTx> SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew,
     bool fIgnoreBlindFail, bool fSplitTransactions = false, int nSortingMethod = 1, CCoinControl* coinControl = NULL)
 {
     // Check amount
@@ -664,7 +664,6 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPub
 
     std::vector<CWalletTx> vecRes = pwalletMain->CreateTransaction(vecSend, wtxNew, vChangeKeys, nFeeRequired, nChangePosRet,
         strError, coinControl, true, NULL, true, NULL, NULL, NULL, CAsset(), fIgnoreBlindFail, fSplitTransactions, std::vector<COutput>(), true);
-
     if (!(vecRes.size() > 0)) {
         if (nValue + nFeeRequired > totalBalance)
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
@@ -678,12 +677,13 @@ static void SendAnyMoney(const CScript& scriptPubKey, CAmount nValue, const CPub
             throw JSONRPCError(RPC_WALLET_ERROR, strError);
         }
     }
+    return vecRes;
 }
 
-static void SendAnyMoney(const CTxDestination &address, CAmount nValue, const CPubKey &confidentiality_key, CWalletTx& wtxNew,
-    bool fIgnoreBlindFail, bool fSplitTransactions, int nSortingMethod, CCoinControl* coinControl = NULL)
+static vector<CWalletTx> SendAnyMoney(const CTxDestination &address, CAmount nValue, const CPubKey &confidentiality_key,
+    CWalletTx& wtxNew, bool fIgnoreBlindFail, bool fSplitTransactions, int nSortingMethod, CCoinControl* coinControl = NULL)
 {
-    SendAnyMoney(GetScriptForDestination(address), nValue, confidentiality_key, wtxNew, fIgnoreBlindFail,
+    return SendAnyMoney(GetScriptForDestination(address), nValue, confidentiality_key, wtxNew, fIgnoreBlindFail,
         fSplitTransactions, nSortingMethod, coinControl);
 }
 
@@ -1736,11 +1736,12 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
     }
 
     // Wallet comments
-    CWalletTx wtx;
+    string strComment;
+    string strTo;
     if (request.params.size() > 2 && !request.params[2].isNull() && !request.params[2].get_str().empty())
-        wtx.mapValue["comment"] = request.params[2].get_str();
+        strComment = request.params[2].get_str();
     if (request.params.size() > 3 && !request.params[3].isNull() && !request.params[3].get_str().empty())
-        wtx.mapValue["to"]      = request.params[3].get_str();
+        strTo = request.params[3].get_str();
 
     bool fIgnoreBlindFail = true;
     if (request.params.size() > 4)
@@ -1760,17 +1761,28 @@ UniValue sendanytoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked();
 
-    SendAnyMoney(address.Get(), nAmount, confidentiality_pubkey, wtx, fIgnoreBlindFail, fSplitTransactions, fSortingType);
+    CWalletTx wtx;
+    vector<CWalletTx> wtxs =
+        SendAnyMoney(address.Get(), nAmount, confidentiality_pubkey, wtx, fIgnoreBlindFail, fSplitTransactions, fSortingType);
 
     std::string blinds;
-    for (unsigned int i=0; i<wtx.tx->vout.size(); i++) {
-        blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
-        blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+    UniValue arr(UniValue::VARR);
+    for (const auto &tx : wtxs) {
+        if (strComment != "") {
+            wtx.mapValue["comment"] = strComment;
+        }
+        if (strTo != "") {
+            wtx.mapValue["to"] = strTo;
+        }
+        for (unsigned int i=0; i<tx.tx->vout.size(); i++) {
+            blinds += "blind:" + wtx.GetOutputBlindingFactor(i).ToString() + "\n";
+            blinds += "assetblind:" + wtx.GetOutputAssetBlindingFactor(i).ToString() + "\n";
+        }
+        AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), request.params[0].get_str(),
+            request.params[1].getValStr(), tx.GetHash().GetHex(), blinds);
+        arr.push_back(tx.GetHash().GetHex());
     }
-
-    AuditLogPrintf("%s : sendtoaddress %s %s txid:%s\nblinds:\n%s\n", getUser(), request.params[0].get_str(), request.params[1].getValStr(), wtx.GetHash().GetHex(), blinds);
-
-    return wtx.GetHash().GetHex();
+    return arr;
 }
 
 UniValue destroyamount(const JSONRPCRequest& request)

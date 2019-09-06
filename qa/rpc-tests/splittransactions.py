@@ -52,7 +52,8 @@ class SplitTxTest (BitcoinTestFramework):
         assert(self.nodes[1].getbalance("", 0, False, "CBT") > 20999999)
 
         addr1 = self.nodes[0].getnewaddress();
-        self.nodes[2].sendanytoaddress(addr1, 495, "", "", True, True, 1)
+        txids = self.nodes[2].sendanytoaddress(addr1, 495, "", "", True, True, 1)
+        assert(len(txids) == 2)
 
         valPaid = 0
         valFee = 0
