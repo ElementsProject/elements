@@ -14,6 +14,12 @@ class SplitTxTest (BitcoinTestFramework):
         assert_fee_amount(fee, tx_size, fee_per_byte * 1000)
         return curr_balance
 
+    def get_balance_sum(self, balance_map):
+        balance = 0
+        for _, v in balance_map.items():
+            balance += v
+        return balance
+
     def __init__(self):
         super().__init__()
         self.setup_clean_chain = True
@@ -47,15 +53,25 @@ class SplitTxTest (BitcoinTestFramework):
 
         addr1 = self.nodes[0].getnewaddress();
         self.nodes[2].sendanytoaddress(addr1, 495, "", "", True, True, 1)
-        val = 0
+
+        valPaid = 0
+        valFee = 0
+        valFree = 0
         for txid in self.nodes[2].getrawmempool():
             tx = self.nodes[2].getrawtransaction(txid, True)
             for vout in tx['vout']:
-                val += vout['value']
-        assert(val == 497)
+                scriptPub = vout['scriptPubKey']
+                if 'addresses' in scriptPub and addr1 in scriptPub['addresses']:
+                    valPaid += vout['value']
 
+        assert(valPaid == 495)
+        self.sync_all()
         newblock = self.nodes[0].generate(1)
         self.sync_all()
+        assert(len(self.nodes[2].getblock(newblock[0], True)['tx']) == 3)
+        balanceAfter = self.get_balance_sum(self.nodes[2].getbalance())
+        assert(self.get_balance_sum(self.nodes[0].getbalance()) == 495)
+
 
 if __name__ == '__main__':
     SplitTxTest().main()
