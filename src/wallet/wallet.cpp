@@ -3063,45 +3063,6 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                             strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
                             return std::vector<CWalletTx>();
                         }
-                    // If sendtoaddress is used and large txs are split
-                    } else if (fFindFeeAsset == false && vInputPool.size() > 0 && nSubtractFeeFromAmount == 0) {
-                        CAmount amountHave = 0;
-                        for (const auto& receivedCoin : vAvailableCoins) {
-                            amountHave += receivedCoin.tx->GetOutputValueOut(receivedCoin.i);
-                        }
-                        CAmount amountNeeded = 0;
-                        for (const auto& itNeeded : mapValueToSelect) {
-                            amountNeeded += itNeeded.second;
-                        }
-                        CAmount amountMissing = amountNeeded - amountHave;
-                        if (amountMissing > 0) {
-                            if (mAvailableInputs->find(feeAsset) == mAvailableInputs->end()) {
-                                strFailReason = _("Available input missing on sendtoaddress split");
-                                return std::vector<CWalletTx>();
-                            }
-                            auto &freeInputVector = mAvailableInputs->at(feeAsset);
-                            CAmount amountFound = 0;
-                            int inputsUsed = 0;
-                            bool amountSatisfied = false;
-                            for (unsigned int i = 0; i < freeInputVector.size(); ++i) {
-                                amountFound += freeInputVector[i].tx->GetOutputValueOut(freeInputVector[i].i);
-                                ++inputsUsed;
-                                vAvailableCoins.push_back(freeInputVector[i]);
-                                if (amountFound >= amountMissing) {
-                                    amountSatisfied = true;
-                                    break;
-                                }
-                            }
-                            freeInputVector.erase(freeInputVector.begin(), freeInputVector.begin() + inputsUsed);
-                            if (inputsUsed == 0 || !amountSatisfied) {
-                                strFailReason = _("Did not find sufficient inputs to satisfy a split sendtoaddress transaction.");
-                                return std::vector<CWalletTx>();
-                            }
-                            continue;
-                        } else {
-                            strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
-                            return std::vector<CWalletTx>();
-                        }
                     } else {
                         strFailReason = _("Insufficient funds");
                         return std::vector<CWalletTx>();
@@ -3590,12 +3551,15 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                     assetSet.insert(recipient.asset);
                     nRecipients += 1;
                 }
+                if (assetSet.size() == 1) {
+                    strFailReason = _("Transaction too large and could not be split as only a single asset is transacted");
+                    return std::vector<CWalletTx>();
+                }
 
                 // Then create an output map of the assets that will be used
                 // and a map of outputs that can be shared between split txs
                 std::map<CAsset, std::vector<COutput>> usedOutputAssetMap;   // used outputs
                 std::map<const CWalletTx* const, COutput> availableOutputMap;   // available outputs
-
                 for (const auto& coin : vAvailableCoins) {
                     const CAsset &asset = coin.tx->GetOutputAsset(coin.i);
                     if (assetSet.find(asset) == assetSet.end()) {
@@ -3706,7 +3670,6 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                     vChangeKeys.insert(vChangeKeys.begin(), vChangeKeysRight.begin(), vChangeKeysRight.end());
                     return leftRes;
                 } else {
-                    //Fail case, vector is len 0
                     return std::vector<CWalletTx>();
                 }
             } else {

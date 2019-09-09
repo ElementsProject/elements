@@ -1621,7 +1621,6 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
             "                             The recipient will receive less bitcoins than you enter in the amount field.\n"
             "6. \"assetlabel\"               (string, optional) Hex asset id or asset label for balance.\n"
             "7. \"ignoreblindfail\"\"   (bool, default=true) Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs.\n"
-            "8. \"splitlargetxs\"\"     (bool, default=false) Split a transaction that goes over the size limit into smaller transactions.\n"
             "\nResult:\n"
             "\"txid\"                  (string) The transaction id.\n"
             "\nExamples:\n"
@@ -1669,17 +1668,13 @@ UniValue sendtoaddress(const JSONRPCRequest& request)
     if (request.params.size() > 6)
         fIgnoreBlindFail = request.params[6].get_bool();
 
-    bool fSplitTransactions = false;
-    if (request.params.size() > 7)
-        fSplitTransactions = request.params[7].get_bool();
-
     CAsset asset = GetAssetFromString(strasset);
 
     EnsureWalletIsUnlocked();
 
     CWalletTx wtx;
     std::vector<CWalletTx> wtxs = SendMoney(address.Get(), nAmount, asset, fSubtractFeeFromAmount,
-        confidentiality_pubkey, wtx, fIgnoreBlindFail, fSplitTransactions);
+        confidentiality_pubkey, wtx, fIgnoreBlindFail, false);
 
     std::string blinds;
     UniValue arr(UniValue::VARR);
