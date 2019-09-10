@@ -123,6 +123,11 @@ bool IsWhitelistAsset(CTxOut const &out);
 bool IsWhitelistAsset(CAsset const &asset);
 
 /**
+ * Check if a transaction is spam - i.e. it has more than one OP_RETURN or outputs of the same token type to the same address
+ */
+bool IsSpam(const CTransaction& tx);
+
+/**
  * Check if an asset is of permission type
  */
 bool IsPermissionAsset(CAsset const &asset);

@@ -470,6 +470,8 @@ std::string HelpMessage(HelpMessageMode mode)
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)));
     strUsage += HelpMessageOpt("-maxtxfee=<amt>", strprintf(_("Maximum total fees (in %s) to use in a single wallet transaction or raw transaction; setting this too low may abort large transactions (default: %s)"),
         CURRENCY_UNIT, FormatMoney(DEFAULT_TRANSACTION_MAXFEE)));
+    strUsage += HelpMessageOpt("-fixedtxfee=<amt>", strprintf(_("Fixed transaction fee (in %s) applied to all wallet transactions and mempool policy (default: %s)"),
+        CURRENCY_UNIT, FormatMoney(0)));
     strUsage += HelpMessageOpt("-printtoconsole", _("Send trace/debug info to console instead of debug.log file"));
     strUsage += HelpMessageOpt("-printtoall", _("Send trace/debug info to all logging mechanisms (i.e. console, debug.log file"));
     if (showDebug)
@@ -1068,6 +1070,8 @@ bool AppInitParameterInteraction()
     if (GetArg("-issuancecoinsdestination", "").size() > 0) {
         issuanceAsset = CAsset(uint256S(chainparams.GetConsensus().issuance_asset.GetHex()));
     }
+
+    fixedTxFee = GetArg("-fixedtxfee", 0);
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:
     // if you set it to zero then

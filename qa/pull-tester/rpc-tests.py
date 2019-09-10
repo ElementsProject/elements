@@ -117,6 +117,7 @@ testScripts = [
     'onboardencrypted.py',
     'onboardmanual.py',
     'onboardmanualencrypted.py',
+    'fixedfee.py',
     # Accounts not supported
     #'wallet-accounts.py',
     # TODO fix mininode
