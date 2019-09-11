@@ -392,7 +392,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-port=<port>", strprintf(_("Listen for connections on <port> (default: %u)"), defaultChainParams->GetDefaultPort()));
     strUsage += HelpMessageOpt("-proxy=<ip:port>", _("Connect through SOCKS5 proxy"));
     strUsage += HelpMessageOpt("-proxyrandomize", strprintf(_("Randomize credentials for every proxy connection. This enables Tor stream isolation (default: %u)"), DEFAULT_PROXYRANDOMIZE));
-    strUsage += HelpMessageOpt("-requestlist", strprintf(_("Store the list of service requests"), DEFAULT_REQUEST_LIST));
+    strUsage += HelpMessageOpt("-requestlist", strprintf(_("Store the list of service requests (default: %u)"), DEFAULT_REQUEST_LIST));
     strUsage += HelpMessageOpt("-rpcserialversion", strprintf(_("Sets the serialization of raw transaction or block hex returned in non-verbose mode, non-segwit(0) or segwit(1) (default: %d)"), DEFAULT_RPC_SERIALIZE_VERSION));
     strUsage += HelpMessageOpt("-seednode=<ip>", _("Connect to a node to retrieve peer addresses, and disconnect"));
     strUsage += HelpMessageOpt("-timeout=<n>", strprintf(_("Specify connection timeout in milliseconds (minimum: 1, default: %d)"), DEFAULT_CONNECT_TIMEOUT));
@@ -470,6 +470,8 @@ std::string HelpMessage(HelpMessageMode mode)
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)));
     strUsage += HelpMessageOpt("-maxtxfee=<amt>", strprintf(_("Maximum total fees (in %s) to use in a single wallet transaction or raw transaction; setting this too low may abort large transactions (default: %s)"),
         CURRENCY_UNIT, FormatMoney(DEFAULT_TRANSACTION_MAXFEE)));
+    strUsage += HelpMessageOpt("-fixedtxfee=<amt>", strprintf(_("Fixed transaction fee (in %s) applied to all wallet transactions and mempool policy (default: %s)"),
+        CURRENCY_UNIT, FormatMoney(0)));
     strUsage += HelpMessageOpt("-printtoconsole", _("Send trace/debug info to console instead of debug.log file"));
     strUsage += HelpMessageOpt("-printtoall", _("Send trace/debug info to all logging mechanisms (i.e. console, debug.log file"));
     if (showDebug)
@@ -1068,6 +1070,8 @@ bool AppInitParameterInteraction()
     if (GetArg("-issuancecoinsdestination", "").size() > 0) {
         issuanceAsset = CAsset(uint256S(chainparams.GetConsensus().issuance_asset.GetHex()));
     }
+
+    fixedTxFee = GetArg("-fixedtxfee", 0);
     // Fee-per-kilobyte amount considered the same as "free"
     // If you are mining, be careful setting this:
     // if you set it to zero then
@@ -1118,12 +1122,12 @@ bool AppInitParameterInteraction()
     //address whitelisting
     fRequireWhitelistCheck = GetBoolArg("-pkhwhitelist", DEFAULT_WHITELIST_CHECK);
     fScanWhitelist = GetBoolArg("-pkhwhitelist-scan", DEFAULT_SCAN_WHITELIST);
-    fWhitelistEncrypt = GetBoolArg("-pkhwhitelist-encrypt", DEFAULT_WHITELIST_ENCRYPT);  
+    fWhitelistEncrypt = GetBoolArg("-pkhwhitelist-encrypt", DEFAULT_WHITELIST_ENCRYPT);
     if(fWhitelistEncrypt &! (fRequireWhitelistCheck || fScanWhitelist))
         return InitError("-pkhwhitelist-encrypt requires either -pkhwhitelist or -pkhwhitelist-scan");
-    if(fScanWhitelist &! fWhitelistEncrypt)  
+    if(fScanWhitelist &! fWhitelistEncrypt)
         return InitError("-pkhwhitelist-scan requires -pkhwhitelist-encrypt");
-    if(fScanWhitelist && fRequireWhitelistCheck)  
+    if(fScanWhitelist && fRequireWhitelistCheck)
         return InitError("cannot enable both -pkhwhitelist and -pkhwhitelist-scan");
 
     fRequireFreezelistCheck = GetBoolArg("-freezelist", DEFAULT_FREEZELIST_CHECK);
@@ -1161,7 +1165,7 @@ bool AppInitParameterInteraction()
         addressWhitelist = new CWhiteList();
     }
     addressWhitelist->init_defaults();
-    
+
     if (mapMultiArgs.count("-bip9params")) {
         // Allow overriding BIP9 parameters for testing
         if (!chainparams.MineBlocksOnDemand()) {
