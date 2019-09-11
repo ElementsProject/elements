@@ -1060,7 +1060,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlockIndex
 {
     {
         AssertLockHeld(cs_wallet);
-        
+
         if (posInBlock != -1) {
             BOOST_FOREACH(const CTxIn& txin, tx.vin) {
                 std::pair<TxSpends::const_iterator, TxSpends::const_iterator> range = mapTxSpends.equal_range(txin.prevout);
@@ -2587,7 +2587,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
             if (pcoin->tx->vout.size() <= outpoint.n)
                 return false;
 
-            //Reject non-whitelisted 
+            //Reject non-whitelisted
             if(fRequireWhitelistCheck){
                 const CScript& script = pcoin->tx->vout[outpoint.n].scriptPubKey;
                 CTxDestination dest;
@@ -2597,10 +2597,10 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
                     if(!addressWhitelist->is_whitelisted(keyId)) continue;
                 }
             }
-            
+
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += pcoin->GetOutputValueOut(outpoint.n);
             setPresetCoins.insert(make_pair(pcoin, outpoint.n));
-        
+
 
         } else
             return false; // TODO: Allow non-wallet inputs
@@ -2641,6 +2641,7 @@ bool CWallet::SelectCoins(const vector<COutput>& vAvailableCoins, const CAmountM
 bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool overrideEstimatedFeeRate, const CFeeRate& specificFeeRate, int& nChangePosInOut, std::string& strFailReason, bool includeWatching, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, bool keepReserveKey, const CTxDestination& destChange)
 {
     vector<CRecipient> vecSend;
+    std::vector<std::vector<CReserveKey>> vChangeKeys;
     std::vector<CReserveKey> vChangeKey;
     // Avoid copying CReserveKeys which causes badness
     vChangeKey.reserve((tx.vin.size()+tx.vout.size())*2);
@@ -2680,6 +2681,7 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
     if (setAssets.count(policyAsset) == 0) {
         vChangeKey.push_back(CReserveKey(this));
     }
+    vChangeKeys.push_back(vChangeKey);
 
     CCoinControl coinControl;
     coinControl.destChange = destChange;
@@ -2692,7 +2694,10 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
         coinControl.Select(txin.prevout);
 
     CWalletTx wtx;
-    if (!CreateTransaction(vecSend, wtx, vChangeKey, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false, NULL, true, NULL, NULL, NULL, feeAsset, true))
+
+    std::vector<CWalletTx> createResult = CreateTransaction(vecSend, wtx, vChangeKeys, nFeeRet, nChangePosInOut, strFailReason, &coinControl, false, NULL, true, NULL, NULL, NULL, feeAsset, true);
+
+    if (!(createResult.size() > 0))
         return false;
 
     // Wipe outputs and output witness and re-add one by one
@@ -2727,21 +2732,28 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, bool ov
 
     // optionally keep the change output key
     if (keepReserveKey) {
-        for (auto& changekey : vChangeKey) {
+        for (auto& changekey : vChangeKeys[0]) {
             changekey.KeepKey();
         }
     }
     return true;
 }
 
-bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey>& vChangeKey, CAmount& nFeeRet,
-                                int& nChangePosInOut, std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts, bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset, const CAsset* reissuanceToken, CAsset feeAsset, bool fIgnoreBlindFail)
+std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, CWalletTx& wtxNew,
+    std::vector<std::vector<CReserveKey>>& vChangeKeys, CAmount& nFeeRet, int& nChangePosInOut,
+    std::string& strFailReason, const CCoinControl* coinControl, bool sign, std::vector<CAmount> *outAmounts,
+    bool fBlindIssuances, const uint256* issuanceEntropy, const CAsset* reissuanceAsset,
+    const CAsset* reissuanceToken, CAsset feeAsset, bool fIgnoreBlindFail, bool fSplitTransactions,
+    std::vector<COutput> vInputPool, bool fFindFeeAsset, std::map<CAsset, std::vector<COutput>>* mAvailableInputs)
 {
+    // original unchanged recipient vector
+    const vector<CRecipient> vecSendOriginal = vecSend;
+
     // TODO re-enable to support multiple assets in a logical fashion, since the number of possible
     // change positions are number of assets being spent.
     if (nChangePosInOut != -1) {
         strFailReason = _("change position argument has been disabled");
-        return false;
+        return std::vector<CWalletTx>();
     }
 
     CAmountMap mapValue;
@@ -2758,7 +2770,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
         // TODO - should also do this for the case where bytes are appended to OP_RETURN?
         // Just like issuance/re-issuance, when destroying assets pay policyAsset fees
-        if (recipient.scriptPubKey == CScript(OP_RETURN) || 
+        if (recipient.scriptPubKey == CScript(OP_RETURN) ||
             recipient.scriptPubKey == CScript(OP_REGISTERADDRESS) ||
             recipient.scriptPubKey == CScript(OP_DEREGISTERADDRESS))
             feeAsset =  policyAsset;
@@ -2766,7 +2778,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         if (mapValue[recipient.asset] < 0 || recipient.nAmount < 0 || recipient.asset.IsNull())
         {
             strFailReason = _("Transaction amounts must not be negative");
-            return false;
+            return std::vector<CWalletTx>();
         }
         mapValue[recipient.asset] += recipient.nAmount;
 
@@ -2787,7 +2799,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     if (vecSend.empty())
     {
         strFailReason = _("Transaction must have at least one recipient");
-        return false;
+        return std::vector<CWalletTx>();
     }
 
     // If the asset fee is still not set it means that there is no issuance/reissuance
@@ -2796,7 +2808,46 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     // using sendtoaddress a single asset is send and fees are received from it
     if (feeAsset.IsNull())
     {
-        feeAsset = vecSend[0].asset;
+        CAsset newFeeAsset = vecSend[0].asset;
+        if (vecSend.size() > 1) {
+            CAmountMap balanceMap;
+            if (vInputPool.size() > 0) {
+                for (auto const& out: vInputPool) {
+                    balanceMap[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
+                }
+            } else {
+                balanceMap = pwalletMain->GetBalance();
+            }
+            int newFeeRecipient = 0;
+            for (unsigned int i = 1; i < vecSend.size(); ++i) {
+                if (balanceMap[vecSend[i].asset] > balanceMap[newFeeAsset]) {
+                    newFeeAsset = vecSend[i].asset;
+                    newFeeRecipient = i;
+                }
+            }
+
+            // I don't understand the purpose of this
+            // maybe in case a recipient is dust, which only the last can be?
+            // maybe SendAnyMoney should handle that
+            CRecipient lastRecipient = vecSend.back();
+            if (lastRecipient.asset != newFeeAsset) {
+                CAmount lastBalance = balanceMap[lastRecipient.asset];
+                CAmount usedLastBalance = mapValue[lastRecipient.asset];
+                CAmount unusedLastBalance = lastBalance - usedLastBalance;
+
+                mapValue[lastRecipient.asset] = lastBalance;
+                mapValue[newFeeAsset] -= unusedLastBalance;
+
+                vecSend[newFeeRecipient].nAmount = mapValue[newFeeAsset];
+                vecSend[vecSend.size() - 1].nAmount = mapValue[lastRecipient.asset];
+
+                if (!PreventDustForNewOutput(mapValue, vecSend, newFeeRecipient)) {
+                    strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                    return std::vector<CWalletTx>();
+                }
+            }
+        }
+        feeAsset = newFeeAsset;
     }
 
     wtxNew.fTimeReceivedIsTxTime = true;
@@ -2852,14 +2903,16 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         std::vector<uint256> output_asset_blinds;
         std::vector<CAsset> output_assets;
 
+        std::vector<COutput> vAvailableCoins;
         LOCK2(cs_main, cs_wallet);
         {
-            std::vector<COutput> vAvailableCoins;
-            AvailableCoins(vAvailableCoins, true, coinControl);
-
-	    nFeeRet = 1;
-        if (IsPolicy(feeAsset))
-            nFeeRet = 0;
+            if (vInputPool.size() > 0)
+                vAvailableCoins = vInputPool;
+            else
+                AvailableCoins(vAvailableCoins, true, coinControl);
+    	    nFeeRet = 1;
+            if (IsPolicy(feeAsset))
+                nFeeRet = 0;
             // Start with tiny non-zero or zero fee for issuance entropy and loop until there is enough fee
             while (true)
             {
@@ -2895,7 +2948,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                     {
                         if (recipient.asset != feeAsset) {
                             strFailReason = strprintf(_("Wallet does not support more than one type of fee at a time, therefore can not subtract fee from address amount, which is of a different asset id. fee asset: %s recipient asset: %s"), feeAsset.GetHex(), recipient.asset.GetHex());
-                            return false;
+                            return std::vector<CWalletTx>();
                         }
                         txout.nValue = recipient.nAmount - (nFeeRet / nSubtractFeeFromAmount); // Subtract fee equally from each selected recipient
 
@@ -2914,10 +2967,10 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                                 strFailReason = _("The transaction amount is too small to pay the fee");
                             else
                                 strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
-                        }
-                        else
+                        } else {
                             strFailReason = _("Transaction amount too small");
-                        return false;
+                        }
+                        return std::vector<CWalletTx>();
                     }
                     txNew.vout.push_back(txout);
                     output_pubkeys.push_back(recipient.confidentiality_key);
@@ -2932,8 +2985,88 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 setCoins.clear();
                 if (!SelectCoins(vAvailableCoins, mapValueToSelect, setCoins, mapValueIn, coinControl, feeAsset))
                 {
-                    strFailReason = _("Insufficient funds");
-                    return false;
+                    // Attempt to seek other assets to cover the fee
+                    // Edge case for sendanytoaddress
+                    if (fFindFeeAsset && nSubtractFeeFromAmount == 0) {
+                        std::set<CAsset> balanceSet;
+                        for (const auto& itRecipients : vecSend) {
+                            balanceSet.insert(itRecipients.asset);
+                        }
+                        CAmount amountHave = 0;
+                        CAmountMap validAmounts;
+                        if (vInputPool.size() > 0) {
+                            for (const auto& receivedCoin : vAvailableCoins) {
+                                amountHave += receivedCoin.tx->GetOutputValueOut(receivedCoin.i);
+                            }
+                        } else {
+                            for (const auto& out : vAvailableCoins) {
+                                if (!out.fSpendable)
+                                    continue;
+                                if (balanceSet.find(out.tx->GetOutputAsset(out.i)) != balanceSet.end())
+                                    amountHave += out.tx->GetOutputValueOut(out.i);
+                                else
+                                    validAmounts[out.tx->GetOutputAsset(out.i)] += out.tx->GetOutputValueOut(out.i);
+                            }
+                        }
+                        CAmount amountNeeded = 0;
+                        for (const auto& itNeeded : mapValueToSelect) {
+                            amountNeeded += itNeeded.second;
+                        }
+                        CAmount amountMissing = amountNeeded - amountHave;
+                        if (amountMissing > 0) {
+                            CAmountMap balanceMap = pwalletMain->GetBalance();
+                            // Fee in send any is based on the largest balance.
+                            // If its bigger than the largest balance then this transaction is invalid.
+                            if (balanceMap[feeAsset] < nFeeRet) {
+                                strFailReason = _("Required fee is larger than the owned non-policy asset with the biggest balance.");
+                                return std::vector<CWalletTx>();
+                            }
+                            bool alternativeFound = false;
+                            if (mAvailableInputs && mAvailableInputs->size() > 0) {
+                                CAmountMap tempAvailableBalances = GetBalanceFromOutputs(*mAvailableInputs);
+                                for (const auto& freeBalances : tempAvailableBalances) {
+                                    if (freeBalances.second >= amountMissing) {
+                                        std::vector<COutput>* extraAvailableCoins = new std::vector<COutput>();
+                                        if (DistributeFeeToNewBalance(mapValue, feeAsset, vecSend, vChangeKeys[0], freeBalances.first, amountMissing, extraAvailableCoins, mAvailableInputs)) {
+                                            vAvailableCoins.insert(vAvailableCoins.end(), (*extraAvailableCoins).begin(), (*extraAvailableCoins).end());
+                                            alternativeFound = true;
+                                            break;
+                                        } else {
+                                            strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust in split transactions.");
+                                            return std::vector<CWalletTx>();
+                                        }
+                                    }
+                                }
+                            } else {
+                                for (const auto& it : validAmounts) {
+                                    if (!IsPolicy(it.first)) {
+                                        CAmount outputValue = it.second;
+                                        if (outputValue >= amountMissing) {
+                                            if (DistributeFeeToNewBalance(mapValue, feeAsset, vecSend, vChangeKeys[0], it.first, outputValue)) {
+                                                alternativeFound = true;
+                                                break;
+                                            } else {
+                                                strFailReason = _("Output with the same asset as the fee could not find another asset which could be deducted from to make it not dust.");
+                                                return std::vector<CWalletTx>();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (!alternativeFound) {
+                                strFailReason = _("Could not find another asset with sufficient balance to cover the fees. ");
+                                return std::vector<CWalletTx>();
+                            }
+                            vChangeKeys[0].emplace_back(pwalletMain);
+                            continue;
+                        } else {
+                            strFailReason = _("Selecting coins error. Amount needed was not larger than the amount owned.");
+                            return std::vector<CWalletTx>();
+                        }
+                    } else {
+                        strFailReason = _("Insufficient funds");
+                        return std::vector<CWalletTx>();
+                    }
                 }
                 BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
                 {
@@ -2977,11 +3110,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             // Reserve a new key pair from key pool
                             CPubKey vchPubKey;
                             bool ret;
-                            ret = vChangeKey[changeCounter].GetReservedKey(vchPubKey);
+                            ret = vChangeKeys[0][changeCounter].GetReservedKey(vchPubKey);
                             if (!ret)
                             {
                                 strFailReason = _("Keypool ran out, please call keypoolrefill first");
-                                return false;
+                                return std::vector<CWalletTx>();
                             }
 
                                 scriptChange = GetScriptForDestination(vchPubKey.GetID());
@@ -3004,7 +3137,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                                     if (txNew.vout[i].IsDust(dustRelayFee))
                                     {
                                         strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
-                                        return false;
+                                        return std::vector<CWalletTx>();
                                     }
                                     break;
                                 }
@@ -3017,7 +3150,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         {
                             nChangePosInOut = -1;
                             nFeeRet += it->second;
-                            vChangeKey[changeCounter].ReturnKey();
+                            vChangeKeys[0][changeCounter].ReturnKey();
                         }
                         else
                         {
@@ -3029,7 +3162,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             else if ((unsigned int)nChangePosInOut > txNew.vout.size())
                             {
                                 strFailReason = _("Change index out of range");
-                                return false;
+                                return std::vector<CWalletTx>();
                             }
 
                             vector<CTxOut>::iterator position = txNew.vout.begin()+nChangePosInOut;
@@ -3047,7 +3180,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         }
                     }
                     else {
-                        vChangeKey[changeCounter].ReturnKey();
+                        vChangeKeys[0][changeCounter].ReturnKey();
                     }
                     changeCounter++;
                 }
@@ -3222,7 +3355,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             output_asset_blinds[onlyChangePos] = uint256();
                         } else {
                             strFailReason = _("Change output could not be blinded as there are no blinded inputs and no other blinded outputs.");
-                            return false;
+                            return std::vector<CWalletTx>();
                         }
                     } else {
                         // 1 blinded destination
@@ -3236,7 +3369,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                             output_asset_blinds[onlyRecipientBlindIndex] = uint256();
                         } else {
                             strFailReason = _("Transaction output could not be blinded as there are no blinded inputs and no other blinded outputs.");
-                            return false;
+                            return std::vector<CWalletTx>();
                         }
                     }
                 }
@@ -3248,13 +3381,13 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 assert(ret != -1);
                 if (ret != numToBlind) {
                     strFailReason = _("Unable to blind the transaction properly. This should not happen.");
-                    return false;
+                    return std::vector<CWalletTx>();
                 }
 
                 // Fill in dummy signatures for fee calculation.
                 if (!DummySignTx(txNew, setCoins)) {
                     strFailReason = _("Signing transaction failed");
-                    return false;
+                    return std::vector<CWalletTx>();
                 }
 
                 unsigned int nBytes = GetVirtualTransactionSize(txNew);
@@ -3293,6 +3426,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 }
 
                 CAmount nFeeNeeded;
+
                 if(!IsPolicy(feeAsset)){
                     nFeeNeeded = GetMinimumFee(nBytes, currentConfirmationTarget, mempool);
                     if (coinControl && nFeeNeeded > 0 && coinControl->nMinimumTotalFee > nFeeNeeded) {
@@ -3303,12 +3437,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
 
                     // If we made it here and we aren't even able to meet the relay fee on the next pass, give up
                     // because we must be at the maximum allowed fee, if this is not a policy Tx
-                    if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes)))
-                    {
-		          if(!IsAllPolicy(txUnblindedAndUnsigned)){
-			         strFailReason = _("Transaction too large for fee policy");
-			         return false;
-		          }
+                    if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))) {
+                        if (!IsAllPolicy(txUnblindedAndUnsigned)) {
+                            strFailReason = _("Transaction too large for fee policy");
+                            return std::vector<CWalletTx>();
+                        }
                     }
                 } else {
                     nFeeNeeded = 0;
@@ -3334,8 +3467,8 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                         change_position->nValue = CConfidentialValue(change_position->nValue.GetAmount() + extraFeePaid);
                         nFeeRet -= extraFeePaid;
                     } */
-                   
-                    break; // Done, enough fee included.              
+
+                    break; // Done, enough fee included.
                 }
                 /* TODO Push actual blinding outside of loop and reactivate this logic
                 // Try to reduce change to include necessary fee
@@ -3357,7 +3490,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         }
 
         //add contract hash to transaction if option selected
-        if(Params().ContractInTx()) {
+        if (Params().ContractInTx()) {
             uint256 contract = chainActive.Tip() ? chainActive.Tip()->hashContract : GetContractHash();
             CScript scriptPubKey;
             scriptPubKey << OP_RETURN;
@@ -3379,7 +3512,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 if (!ProduceSignature(TransactionSignatureCreator(this, &txNewConst, nIn, coin.first->tx->vout[coin.second].nValue, SIGHASH_ALL), scriptPubKey, sigdata))
                 {
                     strFailReason = _("Signing transaction failed");
-                    return false;
+                    return std::vector<CWalletTx>();
                 } else {
                     UpdateTransaction(txNew, nIn, sigdata);
                 }
@@ -3404,8 +3537,148 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         // Limit size
         if (GetTransactionWeight(wtxNew) >= MAX_STANDARD_TX_WEIGHT)
         {
-            strFailReason = _("Transaction too large");
-            return false;
+            if (fSplitTransactions) {
+                // First create a map of assets and recipients
+                // and a set of the required assets
+                std::set<CAsset> assetSet;
+                std::map<CAsset, std::vector<CRecipient>> recipientMap;
+                unsigned int nRecipients = 0;
+                for (const auto& recipient : vecSendOriginal) {
+                    if (recipientMap.find(recipient.asset) != recipientMap.end())
+                        recipientMap[recipient.asset].push_back(recipient);
+                    else {
+                        std::vector<CRecipient> initVec;
+                        initVec.push_back(recipient);
+                        recipientMap[recipient.asset] = initVec;
+                    }
+                    assetSet.insert(recipient.asset);
+                    nRecipients += 1;
+                }
+                if (assetSet.size() == 1) {
+                    strFailReason = _("Transaction too large and could not be split as only a single asset is transacted");
+                    return std::vector<CWalletTx>();
+                }
+
+                // Then create an output map of the assets that will be used
+                // and a map of outputs that can be shared between split txs
+                std::map<CAsset, std::vector<COutput>> usedOutputAssetMap;   // used outputs
+                std::map<const CWalletTx* const, COutput> availableOutputMap;   // available outputs
+                for (const auto& coin : vAvailableCoins) {
+                    const CAsset &asset = coin.tx->GetOutputAsset(coin.i);
+                    if (assetSet.find(asset) == assetSet.end()) {
+                        availableOutputMap[coin.tx] = coin;
+                    } else {
+                        if (usedOutputAssetMap.find(asset) != usedOutputAssetMap.end())
+                            usedOutputAssetMap[asset].push_back(coin);
+                        else {
+                            std::vector<COutput> initVec;
+                            initVec.push_back(coin);
+                            usedOutputAssetMap[asset] = initVec;
+                        }
+                    }
+                }
+
+                // Fill mAvailableInputs with the outputs of the unused assets
+                typedef std::function<bool(COutput, COutput)> OutputComparison;
+                if (mAvailableInputs && mAvailableInputs->size() == 0) {
+                    OutputComparison outputDescendingComparison =
+                        [](COutput left, COutput right) {
+                            return left.tx->GetOutputValueOut(left.i) > right.tx->GetOutputValueOut(right.i);
+                        };
+                    for (const auto& remaining : availableOutputMap) {
+                        if (mAvailableInputs->find(remaining.second.tx->GetOutputAsset(remaining.second.i)) != mAvailableInputs->end()) {
+                            mAvailableInputs->at(remaining.second.tx->GetOutputAsset(remaining.second.i)).push_back(remaining.second);
+                        } else {
+                            std::vector<COutput> initVec;
+                            initVec.push_back(remaining.second);
+                            mAvailableInputs->insert({remaining.second.tx->GetOutputAsset(remaining.second.i), initVec});
+                        }
+                    }
+                    std::map<CAsset, std::vector<COutput>> unsortedMap = *mAvailableInputs;
+                    for (const auto& toSort : unsortedMap) {
+                        std::vector<COutput> sortedAssetInputs = toSort.second;
+                        std::sort(sortedAssetInputs.begin(), sortedAssetInputs.end(), outputDescendingComparison);
+                        mAvailableInputs->at(toSort.first) = sortedAssetInputs;
+                    }
+                }
+
+                // Split recipients and inputs (per asset) in (approximately) half
+                std::vector<CRecipient> leftRecipients;
+                std::vector<CRecipient> rightRecipients;
+                std::vector<COutput> leftInputs;
+                std::vector<COutput> rightInputs;
+                unsigned int nRecipientsUsed = 0;
+                bool fCenterReached = false;
+                for (const auto& itAsset : assetSet) {
+                    std::vector<CRecipient> curVecRecipients = recipientMap[itAsset];
+                    std::vector<COutput> curVecInputs = usedOutputAssetMap[itAsset];
+                    if (!fCenterReached) {
+                        leftRecipients.insert(leftRecipients.end(), curVecRecipients.begin(), curVecRecipients.end());
+                        leftInputs.insert(leftInputs.end(), curVecInputs.begin(), curVecInputs.end());
+                        nRecipientsUsed += curVecRecipients.size();
+                        if (nRecipientsUsed >= ceil(nRecipients / 2)) {
+                            fCenterReached = true;
+                        }
+                    } else {
+                        rightRecipients.insert(rightRecipients.end(), curVecRecipients.begin(), curVecRecipients.end());
+                        rightInputs.insert(rightInputs.end(), curVecInputs.begin(), curVecInputs.end());
+                    }
+                }
+
+                // sort recipients in descending order
+                typedef std::function<bool(CRecipient, CRecipient)> RecipientComparison;
+                RecipientComparison recipientComparisonFunction =
+                    [](CRecipient left, CRecipient right) {
+                        return left.nAmount < right.nAmount;
+                    };
+                sort(leftRecipients.begin(), leftRecipients.end(), recipientComparisonFunction);
+                sort(rightRecipients.begin(), rightRecipients.end(), recipientComparisonFunction);
+
+                // Unreserve and reserve change keys
+                for (unsigned int i = 0; i < vChangeKeys[0].size(); ++i) {
+                    vChangeKeys[0][i].ReturnKey();
+                }
+                std::vector<std::vector<CReserveKey>> vChangeKeysLeft;
+                std::vector<std::vector<CReserveKey>> vChangeKeysRight;
+                std::vector<CReserveKey> vChangeLeft;
+                std::vector<CReserveKey> vChangeRight;
+                vChangeLeft.reserve(leftRecipients.size() + 1);
+                for (unsigned int j = 0; j < leftRecipients.size() + 1; ++j) {
+                    vChangeLeft.emplace_back(pwalletMain);
+                }
+                vChangeKeysLeft.push_back(vChangeLeft);
+
+                vChangeRight.reserve(rightRecipients.size() + 1);
+                for (unsigned int j = 0; j < rightRecipients.size() + 1; ++j) {
+                    vChangeRight.emplace_back(pwalletMain);
+                }
+                vChangeKeysRight.push_back(vChangeRight);
+
+                // Create and send the transaction
+                CAmount feeLeft;
+                CAmount feeRight;
+                CWalletTx dummyLeft, dummyRight;
+                int dummyPosLeft = -1;
+                int dummyPosRight = -1;
+                std::vector<CWalletTx> leftRes = CreateTransaction(leftRecipients, dummyLeft, vChangeKeysLeft,
+                    feeLeft, dummyPosLeft, strFailReason, coinControl, true, NULL, true, NULL, NULL, NULL,
+                    CAsset(), fIgnoreBlindFail, fSplitTransactions, leftInputs, fFindFeeAsset, mAvailableInputs);
+                std::vector<CWalletTx> rightRes = CreateTransaction(rightRecipients, dummyRight, vChangeKeysRight,
+                    feeRight, dummyPosRight, strFailReason, coinControl, true, NULL, true, NULL, NULL, NULL,
+                    CAsset(), fIgnoreBlindFail, fSplitTransactions, rightInputs, fFindFeeAsset, mAvailableInputs);
+                if (leftRes.size() > 0 && rightRes.size() > 0) {
+                    leftRes.insert( leftRes.end(), rightRes.begin(), rightRes.end() );
+                    nFeeRet = feeLeft + feeRight;
+                    vChangeKeys = vChangeKeysLeft;
+                    vChangeKeys.insert(vChangeKeys.begin(), vChangeKeysRight.begin(), vChangeKeysRight.end());
+                    return leftRes;
+                } else {
+                    return std::vector<CWalletTx>();
+                }
+            } else {
+                strFailReason = _("Transaction too large");
+                return std::vector<CWalletTx>();
+            }
         }
 
     }
@@ -3423,9 +3696,121 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
         std::string errString;
         if (!mempool.CalculateMemPoolAncestors(entry, setAncestors, nLimitAncestors, nLimitAncestorSize, nLimitDescendants, nLimitDescendantSize, errString)) {
             strFailReason = _("Transaction has too long of a mempool chain");
+            return std::vector<CWalletTx>();
+        }
+    }
+    std::vector<CWalletTx> finalVec;
+    finalVec.push_back(wtxNew);
+    return finalVec;
+}
+
+CAmountMap CWallet::GetBalanceFromOutputs(std::map<CAsset, std::vector<COutput>> outputMap)
+{
+    CAmountMap tempAvailableBalances;
+    for (const auto& freeInputList : outputMap) {
+        std::vector<COutput> freeOutputs = freeInputList.second;
+        CAmount tempAssetAmount = 0;
+        for (unsigned int i = 0; i < freeOutputs.size(); ++i) {
+            tempAssetAmount += freeOutputs[i].tx->GetOutputValueOut(freeOutputs[i].i);
+        }
+        tempAvailableBalances[freeInputList.first] = tempAssetAmount;
+    }
+    return tempAvailableBalances;
+}
+
+bool CWallet::PreventDustForNewOutput(CAmountMap& mapValue, std::vector<CRecipient>& vecSend, unsigned int feeRecipientId)
+{
+    CRecipient feeAssetRecipient = vecSend[feeRecipientId];
+    CTxOut dummyOutput = CTxOut(feeAssetRecipient.asset, feeAssetRecipient.nAmount, feeAssetRecipient.scriptPubKey);
+    if (dummyOutput.IsDust(::minRelayTxFee)) {
+        CAmount nDust = dummyOutput.GetDustThreshold(::minRelayTxFee) - dummyOutput.nValue.GetAmount();
+        if (nDust > 0) {
+            vecSend[feeRecipientId].nAmount += nDust;
+            mapValue[vecSend[feeRecipientId].asset] += nDust; // raise change until no more dust
+            for (unsigned int i = 0; i < vecSend.size(); i++) { // subtract from a recipient who has enough
+                if (i != feeRecipientId) {
+                    CTxOut dummyOutputForRefill = CTxOut(vecSend[i].asset, vecSend[i].nAmount, vecSend[i].scriptPubKey);
+                    if (!dummyOutputForRefill.IsDust(::minRelayTxFee) &&
+                        dummyOutputForRefill.GetDustThreshold(::minRelayTxFee) <= (dummyOutputForRefill.nValue.GetAmount() - nDust)) {
+                        vecSend[i].nAmount -= nDust;
+                        mapValue[vecSend[i].asset] -= nDust;
+                        return true;
+                    }
+                }
+            }
             return false;
         }
     }
+    return true;
+}
+
+bool CWallet::DistributeFeeToNewBalance(CAmountMap& mapValue, CAsset feeAsset, std::vector<CRecipient>& vecSend,
+    std::vector<CReserveKey>& vChangeKey, CAsset newAsset, CAmount newAssetValue, std::vector<COutput>* vAvailableCoins,
+    std::map<CAsset, std::vector<COutput>>* mAvailableInputs)
+{
+    if (mAvailableInputs && vAvailableCoins && mAvailableInputs->size() > 0) {
+        if (mAvailableInputs->find(newAsset) == mAvailableInputs->end())
+            return false;
+        auto &freeInputVector = mAvailableInputs->at(newAsset);
+        CAmount amountFound = 0;
+        int inputsUsed = 0;
+        bool amountSatisfied = false;
+        for (unsigned int i = 0; i < freeInputVector.size(); ++i) {
+            amountFound += freeInputVector[i].tx->GetOutputValueOut(freeInputVector[i].i);
+            ++inputsUsed;
+            vAvailableCoins->push_back(freeInputVector[i]);
+            if (amountFound >= newAssetValue) {
+                amountSatisfied = true;
+                break;
+            }
+        }
+
+        freeInputVector.erase(freeInputVector.begin(), freeInputVector.begin() + inputsUsed);
+
+        if (inputsUsed == 0 || !amountSatisfied)
+            return false;
+
+        if (mapValue[feeAsset] > amountFound) {
+            mapValue[feeAsset] -= amountFound;
+            mapValue[newAsset] = amountFound;
+        } else {
+            mapValue[newAsset] = mapValue[feeAsset];
+            mapValue[feeAsset] = 0;
+        }
+    } else {
+        if (mapValue[feeAsset] > newAssetValue) {
+            mapValue[feeAsset] -= newAssetValue;
+            mapValue[newAsset] = newAssetValue;
+        } else {
+            mapValue[newAsset] = mapValue[feeAsset];
+            mapValue[feeAsset] = 0;
+        }
+    }
+
+    bool feeRecipientErased = false;
+    unsigned int feeRecipientId = 0;
+    for (unsigned int j = 0; j < vecSend.size(); ++j) {
+        if (vecSend[j].asset == feeAsset) {
+            feeRecipientId = j;
+            vecSend.push_back({vecSend[j].scriptPubKey, mapValue[newAsset], newAsset, vecSend[j].confidentiality_key, vecSend[j].fSubtractFeeFromAmount});
+            if (mapValue[feeAsset] == 0) {
+                vecSend.erase(vecSend.begin() + j);
+                feeRecipientErased = true;
+            } else {
+                vecSend[j].nAmount = mapValue[feeAsset];
+            }
+            break;
+        }
+    }
+
+    if (!feeRecipientErased) {
+        if (!PreventDustForNewOutput(mapValue, vecSend, feeRecipientId))
+            return false;
+    } else {
+        vChangeKey[feeRecipientId].ReturnKey();
+        vChangeKey.erase(vChangeKey.begin() + feeRecipientId);
+    }
+
     return true;
 }
 
@@ -4821,7 +5206,7 @@ std::map<uint256, std::pair<CAsset, CAsset> > CWallet::GetReissuanceTokenTypes()
 
 void CWallet::SetKYCPubKeyIfMine(const CBitcoinAddress& addr, const CPubKey& pubKey){
     isminetype mine = ::IsMine(*this, addr.Get());
-    if (mine != ISMINE_NO && addr.IsBlinded() && addr.GetBlindingKey() 
+    if (mine != ISMINE_NO && addr.IsBlinded() && addr.GetBlindingKey()
         != GetBlindingPubKey(GetScriptForDestination(addr.Get()))) {
         // Note: this will fail to return ismine for deprecated static blinded addresses.
         mine = ISMINE_NO;

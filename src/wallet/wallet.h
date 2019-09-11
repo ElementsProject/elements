@@ -490,6 +490,8 @@ public:
     bool fSpendable;
     bool fSolvable;
 
+    COutput() {}
+
     COutput(const CWalletTx *txIn, int iIn, int nDepthIn, bool fSpendableIn, bool fSolvableIn)
     {
         tx = txIn; i = iIn; nDepth = nDepthIn; fSpendable = fSpendableIn; fSolvable = fSolvableIn;
@@ -902,10 +904,18 @@ public:
      * selected by SelectCoins(); Also create the change output, when needed
      * @note passing nChangePosInOut as -1 will result in setting a random position
      */
-    bool CreateTransaction(const std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<CReserveKey>& vChangeKey, CAmount& nFeeRet, int& nChangePosInOut,
-                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, std::vector<CAmount> *outAmounts = NULL, bool fBlindIssuances = true, const uint256* issuanceEntropy = NULL, const CAsset* reissuanceAsset = NULL, const CAsset* reissuanceToken = NULL, CAsset feeAsset = CAsset(), bool fIgnoreBlindFail = true);
+    std::vector<CWalletTx> CreateTransaction(std::vector<CRecipient>& vecSend, CWalletTx& wtxNew, std::vector<std::vector<CReserveKey>>& vChangeKeys, CAmount& nFeeRet, int& nChangePosInOut,
+                           std::string& strFailReason, const CCoinControl *coinControl = NULL, bool sign = true, std::vector<CAmount> *outAmounts = NULL,
+                           bool fBlindIssuances = true, const uint256* issuanceEntropy = NULL, const CAsset* reissuanceAsset = NULL, const CAsset* reissuanceToken = NULL,
+                           CAsset feeAsset = CAsset(), bool fIgnoreBlindFail = true, bool fSplitTransactions = false, std::vector<COutput> vInputPool = std::vector<COutput>(),
+                           bool fFindFeeAsset = false, std::map<CAsset, std::vector<COutput>>* mAvailableInputs = new std::map<CAsset, std::vector<COutput>>());
     bool CommitTransaction(CWalletTx& wtxNew, std::vector<CReserveKey>& reservekey, CConnman* connman, CValidationState& state);
 
+    bool DistributeFeeToNewBalance(CAmountMap& mapValue, CAsset feeAsset, std::vector<CRecipient>& vecSend,
+    std::vector<CReserveKey>& vChangeKey, CAsset newAsset, CAmount newAssetValue, std::vector<COutput>* vAvailableCoins = new std::vector<COutput>(),
+    std::map<CAsset, std::vector<COutput>>* mAvailableInputs = new std::map<CAsset, std::vector<COutput>>());
+    CAmountMap GetBalanceFromOutputs(std::map<CAsset, std::vector<COutput>> outputMap);
+    bool PreventDustForNewOutput(CAmountMap& mapValue, std::vector<CRecipient>& vecSend, unsigned int feeRecipientId);
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& entries);
     bool AddAccountingEntry(const CAccountingEntry&);
     bool AddAccountingEntry(const CAccountingEntry&, CWalletDB *pwalletdb);
