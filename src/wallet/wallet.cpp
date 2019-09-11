@@ -3440,7 +3440,7 @@ std::vector<CWalletTx> CWallet::CreateTransaction(vector<CRecipient>& vecSend, C
                     if ((nFeeNeeded < ::minRelayTxFee.GetFee(nBytes))) {
                         if (!IsAllPolicy(txUnblindedAndUnsigned)) {
                             strFailReason = _("Transaction too large for fee policy");
-                            return false;
+                            return std::vector<CWalletTx>();
                         }
                     }
                 } else {
