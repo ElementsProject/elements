@@ -16,7 +16,7 @@ Then install [Homebrew](http://brew.sh).
 Dependencies
 ----------------------
 
-    brew install automake berkeley-db4 libtool boost --c++11 miniupnpc openssl pkg-config protobuf --c++11 qt5 libevent
+    brew install automake berkeley-db4 libtool boost miniupnpc openssl pkg-config protobuf qt5 libevent
 
 In case you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG
 
@@ -24,7 +24,7 @@ In case you want to build the disk image with `make deploy` (.dmg / optional), y
 
 NOTE: Building with Qt4 is still supported, however, could result in a broken UI. Building with Qt5 is recommended.
 
-Build `Element`
+Build `Ocean`
 ------------------------
 
 1. Clone the ocean source code and cd into `ocean`
@@ -53,7 +53,7 @@ Build `Element`
 Running
 -------
 
-Element is now available at `./src/ocean`
+Ocean is now available at `./src/oceand`
 
 Before running, it's recommended you create an RPC configuration file.
 
@@ -65,7 +65,7 @@ The first time you run oceand, it will start downloading the blockchain. This pr
 
 You can monitor the download process by looking at the debug.log file:
 
-    tail -f $HOME/Library/Application\ Support/ocean/debug.log
+    tail -f $HOME/Library/Application\ Support/Bitcoin/debug.log
 
 Other commands:
 -------

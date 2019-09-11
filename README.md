@@ -1,7 +1,7 @@
 Launch Ocean in your AWS account
 =================================
 
-| AWS Region | Short name | | 
+| AWS Region | Short name | |
 | -- | -- | -- |
 | US East (Ohio) | us-east-2 | [![cloudformation-launch-button](images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/new?stackName=Ocean&templateURL=https://s3.eu-west-2.amazonaws.com/cb-awsocs/ocean-network.template.yaml) |
 | US East (N. Virginia) | us-east-1 | [![cloudformation-launch-button](images/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=Ocean&templateURL=https://s3.eu-west-2.amazonaws.com/cb-awsocs/ocean-network.template.yaml) |
@@ -17,7 +17,7 @@ Run Ocean node with Docker
 Docker engine release: 18.02.0 or latest
 docker-compose: 1.20.0 or latest
 
-### Download docker-compose.yml 
+### Download docker-compose.yml
 from commerceblock/ocean/contrib/docker/docker-compose.yml or
 
 `curl -O https://raw.githubusercontent.com/commerceblock/ocean/master/contrib/docker/docker-compose.yml`
@@ -69,7 +69,7 @@ edit: docker-compose.yml, adding:
 ```
     image: commerceblock/ocean:latest
     volumes:
-      - /home/your_username/ocean_full_node:/home/bitcoin/.bitcoin
+      - /$HOME/ocean_full_node:/home/bitcoin/.bitcoin
 ```
 
 ### Using docker secrets
