@@ -145,7 +145,7 @@ class PAKTest (BitcoinTestFramework):
         self.log.info("Test various RPC arguments")
 
         # Fail to peg-out too-small value
-        assert_raises_rpc_error(-8, "Invalid amount for send, must send more than 0.0001 BTC", self.nodes[1].sendtomainchain, "", Decimal('0.0009'))
+        assert_raises_rpc_error(-8, "Invalid amount for send, must send more than 0.00100000 BTC", self.nodes[1].sendtomainchain, "", Decimal('0.0009'))
 
         # Use wrong network's extended pubkey
         mainnetxpub = "xpub6AATBi58516uxLogbuaG3jkom7x1qyDoZzMN2AePBuQnMFKUV9xC2BW9vXsFJ9rELsvbeGQcFWhtbyM4qDeijM22u3AaSiSYEvuMZkJqtLn"
