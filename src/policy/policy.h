@@ -185,6 +185,12 @@ bool UpdateFreezeList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 */
 bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
+/**
+ * Check if an issuance is valid
+ * Only used when fblockissuancetx is enabled,
+ * where issuances require usage of the issuance asset
+ */
+bool IsValidIssuance(const CTransaction &tx, const CCoinsViewCache &view, std::string &reason);
 
 /** Check if Request is valid */
 bool IsValidRequest(const CRequest &request, uint32_t nHeight);

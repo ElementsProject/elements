@@ -466,6 +466,33 @@ bool UpdateBurnList(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     return true;
 }
 
+bool IsValidIssuance(const CTransaction &tx, const CCoinsViewCache &view, std::string &reason)
+{
+    const CAssetIssuance &issuance = tx.vin[0].assetIssuance;
+    if (!issuance.IsNull() && !issuance.IsReissuance()) {
+        const CTxOut &prev = view.GetOutputFor(tx.vin[0]);
+        if (prev.nAsset.GetAsset() != issuanceAsset) {
+            reason = "non-issuance-asset";
+            return false;
+        }
+        if (fRequireWhitelistCheck) {
+            txnouttype whichType;
+            vector<vector<uint8_t>> vSolutions;
+            bool fWhitelisted = false;
+            if (Solver(tx.vout[0].scriptPubKey, whichType, vSolutions) && whichType == TX_PUBKEYHASH) {
+                CKeyID keyId;
+                keyId = CKeyID(uint160(vSolutions[0]));
+                fWhitelisted = addressWhitelist->is_whitelisted(keyId);
+            }
+            if (!fWhitelisted) {
+                reason = "non-whitelisted-address";
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool GetRequest(const CTxOut &out, uint256 hash, uint32_t nConfirmedHeight, CRequest &request)
 {
     vector<vector<unsigned char>> vSolutions;
