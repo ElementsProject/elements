@@ -196,25 +196,12 @@ class RawIssuance (BitcoinTestFramework):
         # Now test a raw issuance with whitelisting enabled
         issuance_addr = self.nodes[1].getnewaddress()
         pa_txid = self.nodes[2].sendtoaddress(issuance_addr,1,"","",False,"ISSUANCE")
-        self.nodes[1].generate(1)
+        self.nodes[2].generate(1)
         self.sync_all()
+        # get the vout output
+        vout = self.nodes[1].listunspent(1, 9999999, [], True, "ISSUANCE")[0]['vout']
 
-        # get the vout and scriptPubKey of the multisig output
-        vout = 0
-        pa_tx = self.nodes[1].getrawtransaction(pa_txid,1)
-
-        for val in pa_tx["vout"]:
-            for i,j in val.items():
-                if i == "n": vout_t = j
-            for i,j in val.items():
-                if i == "scriptPubKey":
-                    for i2,j2 in j.items():
-                        if i2 == "hex": script_t = j2
-                    for i2,j2 in j.items():
-                        if(i2 == "type" and j2 == "scripthash"):
-                            script_pk = script_t
-                            vout = vout_t
-
+        # stop and apply whitelisting
         self.stop_node(1)
         self.extra_args[1].append("-pkhwhitelist=1")
         self.nodes[1] = start_node(1, self.options.tmpdir, self.extra_args[1])
