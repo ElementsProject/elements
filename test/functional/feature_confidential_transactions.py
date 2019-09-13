@@ -28,6 +28,11 @@ from test_framework.util import (
 import os
 import re
 
+from test_framework.liquid_addr import (
+    encode,
+    decode,
+)
+
 class CTTest (BitcoinTestFramework):
 
     def set_test_params(self):
@@ -103,6 +108,15 @@ class CTTest (BitcoinTestFramework):
 
         print("Testing wallet secret recovery")
         self.test_wallet_recovery()
+
+        print("Test blech32 python roundtrip")
+        # blech/bech are aliased, both are blech32
+        for addrtype in ["bech32", "blech32"]:
+            addr_to_rt = self.nodes[0].getnewaddress("", addrtype)
+            hrp = addr_to_rt[:2]
+            assert_equal(hrp, "el")
+            (witver, witprog) = decode(hrp, addr_to_rt)
+            assert_equal(encode(hrp, witver, witprog), addr_to_rt)
 
         # Test that "blech32" gives a blinded segwit address.
         blech32_addr = self.nodes[0].getnewaddress("", "blech32")
