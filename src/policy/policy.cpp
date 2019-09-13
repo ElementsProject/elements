@@ -309,16 +309,19 @@ bool IsRedemptionListed(CTransaction const &tx) {
     vector<vector<uint8_t>> vSolutions;
     if (!Solver(txout.scriptPubKey, whichType, vSolutions))
       return false;
+    // skip op_return
+    if (whichType == TX_NULL_DATA) continue;
     // return false if not P2PKH
-    if (!(whichType == TX_PUBKEYHASH))
+    if (whichType == TX_PUBKEYHASH) {
+      CKeyID keyId;
+      keyId = CKeyID(uint160(vSolutions[0]));
+      // Search in whitelist for the presence of each output address.
+      // If one is not found, return false.
+      if(uint160(vSolutions[0]).IsNull()) continue;
+      if (!addressFreezelist.find(keyId)) return false;
+    } else {
       return false;
-    CKeyID keyId;
-    keyId = CKeyID(uint160(vSolutions[0]));
-    // Search in whitelist for the presence of each output address.
-    // If one is not found, return false.
-    if(uint160(vSolutions[0]).IsNull()) continue;
-    if (!addressFreezelist.find(keyId))
-      return false;
+    }
   }
   return true;
 }
