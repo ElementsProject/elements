@@ -686,7 +686,13 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 
     if (result == DB_LOAD_OK && pwallet->blinding_derivation_key.IsNull()) {
         CKey key;
-        key.MakeNewKey(true);
+        if (pwallet->IsHDEnabled()) {
+            int64_t nCreationTime = GetTime();
+            CKeyMetadata metadata(nCreationTime);
+            pwallet->DeriveBlindingKey(metadata, key);
+        } else {
+            key.MakeNewKey(true);
+        }
         uint256 keybin;
         memcpy(keybin.begin(), key.begin(), key.size());
         pwallet->blinding_derivation_key = keybin;

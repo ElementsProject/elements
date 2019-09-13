@@ -123,6 +123,33 @@ CPubKey CWallet::GenerateNewKey()
     return pubkey;
 }
 
+void CWallet::DeriveBlindingKey(CKeyMetadata& metadata, CKey& secret)
+{
+    // Key is derived at m/0'/2' to avoid collision with hd split wallets
+    CKey key;                      //master key seed (256bit)
+    CExtKey masterKey;             //hd master key
+    CExtKey accountKey;            //key at m/0'
+    CExtKey externalChainChildKey; //key at m/0'/2'
+
+    // try to get the master key
+    if (!GetKey(hdChain.masterKeyID, key))
+        throw std::runtime_error(std::string(__func__) + ": Master key not found");
+
+    masterKey.SetMaster(key.begin(), key.size());
+
+    // derive m/0'
+    // use hardened derivation (child keys >= 0x80000000 are hardened after bip32)
+    masterKey.Derive(accountKey, BIP32_HARDENED_KEY_LIMIT);
+
+    // derive m/0'/2'
+    accountKey.Derive(externalChainChildKey, 2 | BIP32_HARDENED_KEY_LIMIT);
+
+    metadata.hdKeypath = "m/0'/2'";
+    metadata.hdMasterKeyID = hdChain.masterKeyID;
+    secret = externalChainChildKey.key;
+    return;
+}
+
 void CWallet::DeriveNewChildKey(CKeyMetadata& metadata, CKey& secret)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
