@@ -1908,6 +1908,8 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
         flags |= SCRIPT_VERIFY_NULLDUMMY;
     }
 
+    flags |= SCRIPT_VERIFY_SIMPLICITY;
+
     return flags;
 }
 
