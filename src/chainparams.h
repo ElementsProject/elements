@@ -122,6 +122,7 @@ protected:
     uint256 attestationHash;
     CAmount initialFreeCoins;
     CAmount policyCoins;
+    uint32_t genesisTimeStamp;
     CScript initialFreeCoinsDestination;
     CScript freezeListCoinsDestination;
     CScript burnListCoinsDestination;

@@ -153,6 +153,7 @@ protected:
         parentGenesisBlockHash = uint256S(GetArg("-parentgenesisblockhash", "d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"));
         initialFreeCoins = GetArg("-initialfreecoins", 0);
         policyCoins = GetArg("-policycoins", 0);
+        genesisTimeStamp = GetArg("-genesistimestamp", 1514764800);
         initialFreeCoinsDestination = StrHexToScriptWithDefault(GetArg("-initialfreecoinsdestination", ""), CScript() << OP_TRUE);
         freezeListCoinsDestination = StrHexToScriptWithDefault(GetArg("-freezelistcoinsdestination", ""), CScript() << OP_RETURN);
         burnListCoinsDestination = StrHexToScriptWithDefault(GetArg("-burnlistcoinsdestination", ""), CScript() << OP_RETURN);
@@ -212,7 +213,7 @@ public:
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
         CalculateAsset(consensus.pegged_asset, entropy);
 
-        genesis = CreateGenesisBlock(consensus, strNetworkID, 1514764800, genesisChallengeScript, 1);
+        genesis = CreateGenesisBlock(consensus, strNetworkID, genesisTimeStamp, genesisChallengeScript, 1);
         int nOut = 0;
         if (initialFreeCoins != 0) {
             AppendInitialIssuance(genesis, COutPoint(uint256(commit), nOut), parentGenesisBlockHash, 100, initialFreeCoins/100, 0, 0, initialFreeCoinsDestination);

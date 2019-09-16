@@ -538,6 +538,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-peginconfirmationdepth", strprintf(_("Pegin claims must be this deep to be considered valid. (default: %d)"), DEFAULT_PEGIN_CONFIRMATION_DEPTH));
         strUsage += HelpMessageOpt("-initialfreecoins", strprintf(_("The amount of OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-policycoins", strprintf(_("The amount of policy coins created in the genesis block. (default: %d)"), 0));
+        strUsage += HelpMessageOpt("-genesistimestamp", strprintf(_("The unix epoch time included in the genesis block. (default: %d)"), 1514764800));
         strUsage += HelpMessageOpt("-initialfreecoinsdestination", strprintf(_("The destination of the OP_TRUE coins created in the genesis block. Primarily for testing. (default: %d)"), 0));
         strUsage += HelpMessageOpt("-freezelistcoinsdestination", strprintf(_("The destination of the tokens for controlling the freezelist (default: %d)"), 0));
         strUsage += HelpMessageOpt("-burnlistcoinsdestination", strprintf(_("The destination of the tokens for controlling the burnlist. (default: %d)"), 0));
