@@ -609,7 +609,7 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             "getreceivedbyaddress \"address\" ( minconf )\n"
             "\nReturns the total amount received by the given address in transactions with at least minconf confirmations.\n"
@@ -692,7 +692,7 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             "getreceivedbylabel \"label\" ( minconf )\n"
             "\nReturns the total amount received by addresses with <label> in transactions with at least [minconf] confirmations.\n"
@@ -1285,7 +1285,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
 
     bool has_filtered_address = false;
     CTxDestination filtered_address = CNoDestination();
-    if (!by_label && params.size() > 3 && params[3].get_str() != "") {
+    if (!by_label && params[3].isStr() && params[3].get_str() != "") {
         if (!IsValidDestinationString(params[3].get_str())) {
             throw JSONRPCError(RPC_WALLET_ERROR, "address_filter parameter was invalid");
         }
@@ -1395,7 +1395,7 @@ static UniValue ListReceived(CWallet * const pwallet, const UniValue& params, bo
             if(fIsWatchonly)
                 obj.pushKV("involvesWatchonly", true);
             obj.pushKV("address",       EncodeDestination(address));
-            obj.pushKV("amount",        AmountMapToUniv(mapAmount, ""));
+            obj.pushKV("amount",        AmountMapToUniv(mapAmount, strasset));
             obj.pushKV("confirmations", (nConf == std::numeric_limits<int>::max() ? 0 : nConf));
             obj.pushKV("label", label);
             UniValue transactions(UniValue::VARR);
@@ -1894,13 +1894,14 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
         throw std::runtime_error(
             "gettransaction \"txid\" ( include_watchonly )\n"
             "\nGet detailed information about in-wallet transaction <txid>\n"
             "\nArguments:\n"
             "1. \"txid\"                  (string, required) The transaction id\n"
             "2. \"include_watchonly\"     (bool, optional, default=false) Whether to include watch-only addresses in balance calculation and details[]\n"
+            "3. \"assetlabel\"            (string, optional) Hex asset id or asset label for balance.\n"
             "\nResult:\n"
             "{\n"
             "  \"amount\" : x.xxx,        (numeric) The transaction amount in " + CURRENCY_UNIT + "\n"
@@ -1952,6 +1953,11 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         if(request.params[1].get_bool())
             filter = filter | ISMINE_WATCH_ONLY;
 
+    std::string asset = "";
+    if (request.params[2].isStr() && !request.params[2].get_str().empty()) {
+        asset = request.params[2].get_str();
+    }
+
     UniValue entry(UniValue::VOBJ);
     auto it = pwallet->mapWallet.find(hash);
     if (it == pwallet->mapWallet.end()) {
@@ -1973,7 +1979,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
         nFee[::policyAsset] = wtx.IsFromMe(filter) ? total_out - nDebit[::policyAsset] : 0;
     }
 
-    entry.pushKV("amount", AmountMapToUniv(nNet - nFee, ""));
+    entry.pushKV("amount", AmountMapToUniv(nNet - nFee, asset));
     if (wtx.IsFromMe(filter))
         entry.pushKV("fee", AmountMapToUniv(nFee, ""));
 
@@ -6251,12 +6257,12 @@ static const CRPCCommand commands[] =
     { "wallet",             "encryptwallet",                    &encryptwallet,                 {"passphrase"} },
     { "wallet",             "getaddressesbylabel",              &getaddressesbylabel,           {"label"} },
     { "wallet",             "getaddressinfo",                   &getaddressinfo,                {"address"} },
-    { "wallet",             "getbalance",                       &getbalance,                    {"dummy","minconf","include_watchonly"} },
+    { "wallet",             "getbalance",                       &getbalance,                    {"dummy","minconf","include_watchonly","assetlabel"} },
     { "wallet",             "getnewaddress",                    &getnewaddress,                 {"label","address_type"} },
     { "wallet",             "getrawchangeaddress",              &getrawchangeaddress,           {"address_type"} },
-    { "wallet",             "getreceivedbyaddress",             &getreceivedbyaddress,          {"address","minconf"} },
-    { "wallet",             "getreceivedbylabel",               &getreceivedbylabel,            {"label","minconf"} },
-    { "wallet",             "gettransaction",                   &gettransaction,                {"txid","include_watchonly"} },
+    { "wallet",             "getreceivedbyaddress",             &getreceivedbyaddress,          {"address","minconf","assetlabel"} },
+    { "wallet",             "getreceivedbylabel",               &getreceivedbylabel,            {"label","minconf","assetlabel"} },
+    { "wallet",             "gettransaction",                   &gettransaction,                {"txid","include_watchonly","assetlabel"} },
     { "wallet",             "getunconfirmedbalance",            &getunconfirmedbalance,         {} },
     { "wallet",             "getwalletinfo",                    &getwalletinfo,                 {} },
     { "wallet",             "importaddress",                    &importaddress,                 {"address","label","rescan","p2sh"} },
@@ -6269,7 +6275,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listaddressgroupings",             &listaddressgroupings,          {} },
     { "wallet",             "listlabels",                       &listlabels,                    {"purpose"} },
     { "wallet",             "listlockunspent",                  &listlockunspent,               {} },
-    { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter"} },
+    { "wallet",             "listreceivedbyaddress",            &listreceivedbyaddress,         {"minconf","include_empty","include_watchonly","address_filter","assetlabel"} },
     { "wallet",             "listreceivedbylabel",              &listreceivedbylabel,           {"minconf","include_empty","include_watchonly"} },
     { "wallet",             "listsinceblock",                   &listsinceblock,                {"blockhash","target_confirmations","include_watchonly","include_removed"} },
     { "wallet",             "listtransactions",                 &listtransactions,              {"dummy","count","skip","include_watchonly"} },
