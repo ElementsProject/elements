@@ -5550,7 +5550,8 @@ UniValue createrawreissuance(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() !=7)
         throw runtime_error(
-            "createrawissuance assetaddress assetamount tokenaddress tokenamount changeaddress feeamount inputtxid vout\n"
+
+            "createrawreissuance assetaddress assetamount tokenaddress tokenamount inputtxid vout entropy\n"
             "\nCreate a raw unsigned asset issuance transaction to specified addresses with a policyAsset outpoint as input.\n"
             "\nArguments:\n"
             "1. \"assetaddress\"          (string, required) Address to send re-issued asset to.\n"
@@ -5567,8 +5568,8 @@ UniValue createrawreissuance(const JSONRPCRequest& request)
             "  \"token\":\"<token>\",   (string) Re-issuance token ID\n"
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("createrawissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 0.01 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 c8213b3ee67b02bcca0148d8581d0f616b822d317d5b26432d2f1f03beda2fa7")
-            + HelpExampleRpc("createrawissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 0.01 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 c8213b3ee67b02bcca0148d8581d0f616b822d317d5b26432d2f1f03beda2fa7")
+            + HelpExampleCli("createrawreissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 0.01 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 c8213b3ee67b02bcca0148d8581d0f616b822d317d5b26432d2f1f03beda2fa7")
+            + HelpExampleRpc("createrawreissuance", "\"2dhfx249gZKqMGKtKAgceuCyDiHVEeVZWzU\" 0.01 \"2dp5EWgkc4RyzVvBvAyRAMuJ1hS84BgSBLj\" 1.0 \"42b7101f4596d39cfb5f5e5ca7b6873474607b04f365590f478261ad74dae717\" 1 c8213b3ee67b02bcca0148d8581d0f616b822d317d5b26432d2f1f03beda2fa7")
             );
 
     //Get the output addresses
