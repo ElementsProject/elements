@@ -719,6 +719,9 @@ public:
 
         g_con_blockheightinheader = true;
         g_con_elementsmode = true;
+        // TODO: Pick appropriate value for this network.
+        consensus.total_valid_epochs = 2;
+
 
         consensus.genesis_subsidy = 0;
 
