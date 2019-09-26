@@ -1024,6 +1024,10 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
                 }
             }.ToString());
 
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
+
     int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
     if (required_wait < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "min_tx_age must be non-negative.");
@@ -1200,6 +1204,10 @@ UniValue getcompactsketch(const JSONRPCRequest& request)
                 }
             }.ToString());
 
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
+
     CBlock block;
     std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
     CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
@@ -1237,6 +1245,10 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
                     HelpExampleCli("consumecompactsketch", "<sketch>"),
                 }
             }.ToString());
+
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
 
     UniValue ret(UniValue::VOBJ);
 
@@ -1307,6 +1319,10 @@ UniValue consumegetblocktxn(const JSONRPCRequest& request)
                 }
             }.ToString());
 
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
+
     CBlock block;
     std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
     CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
@@ -1351,6 +1367,10 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
                     HelpExampleCli("finalizecompactblock", "<compact_hex> <block_transactions> <found_transactions>")
                 }
             }.ToString());
+
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
 
     // Compact block
     std::vector<unsigned char> compact_block_bytes(ParseHex(request.params[0].get_str()));
@@ -1405,6 +1425,10 @@ UniValue testproposedblock(const JSONRPCRequest& request)
                     HelpExampleCli("testproposedblock", "<hex>")
                 }
             }.ToString());
+
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
 
     CBlock block;
     if (!DecodeHexBlk(block, request.params[0].get_str()))
