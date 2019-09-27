@@ -492,7 +492,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
             fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
         }
     }
-    // Only return up to the latest two of three possible fedpegscripts, which are enforced
+    // Only return up to the latest total_valid_epochs fedpegscripts, which are enforced
     fedpegscripts.resize(std::min(fedpegscripts.size(), params.total_valid_epochs));
     return fedpegscripts;
 }
