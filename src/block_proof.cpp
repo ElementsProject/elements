@@ -21,12 +21,15 @@ bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, con
 
 static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_block_signature_size, const CScript& challenge, const CScript& scriptSig, const CScriptWitness& witness)
 {
-    // scriptSig or witness will be nonempty, but not both, so just compare both limits
-    if (scriptSig.size() > max_block_signature_size) {
-        return false;
-    }
+    // Legacy blocks have empty witness, dynafed blocks have empty scriptSig
+    bool is_dyna = !witness.stack.empty();
 
-    if (witness.GetSerializedSize() > max_block_signature_size) {
+    // Check signature limits for blocks
+    if (scriptSig.size() > max_block_signature_size) {
+        assert(!is_dyna);
+        return false;
+    } else if (witness.GetSerializedSize() > max_block_signature_size) {
+        assert(is_dyna);
         return false;
     }
 
@@ -40,7 +43,7 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
         | SCRIPT_VERIFY_SIGPUSHONLY // Witness is push-only
         | SCRIPT_VERIFY_LOW_S // Stop easiest signature fiddling
         | SCRIPT_VERIFY_WITNESS // Witness and to enforce cleanstack
-        | SCRIPT_NO_SIGHASH_BYTE; // non-Check(Multi)Sig signatures will not have sighash byte
+        | (is_dyna ? 0 : SCRIPT_NO_SIGHASH_BYTE); // Non-dynafed blocks do not have sighash byte
     return GenericVerifyScript(scriptSig, witness, challenge, proof_flags, block);
 }
 
