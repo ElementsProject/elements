@@ -63,6 +63,8 @@ class PAKTest (BitcoinTestFramework):
 
         assert_raises_rpc_error(-8, "bip32_counter must be between 0 and 1,000,000,000, inclusive.", self.nodes[1].initpegoutwallet, xpub, 1000000001)
 
+        # Make sure we can also prepend the key origin to the xpub.
+        self.nodes[1].initpegoutwallet("pkh([deadbeef/44h/0h/0h]"+xpub+"/0/*)")
         new_init = self.nodes[1].initpegoutwallet(xpub, 2)
         assert_equal(self.nodes[1].getwalletpakinfo()["bip32_counter"], "2")
         assert_equal(new_init["address_lookahead"][0], init_results[1]["address_lookahead"][2])
@@ -167,6 +169,8 @@ class PAKTest (BitcoinTestFramework):
 
         # Peg out with each new type, check that destination script matches
         wpkh_desc = "wpkh("+xpub+"/0/*)"
+        # add a valid checksum
+        wpkh_desc = self.nodes[1].getdescriptorinfo(wpkh_desc)["descriptor"]
         wpkh_info = self.nodes[1].initpegoutwallet(wpkh_desc)
         wpkh_pak_info = self.nodes[1].getwalletpakinfo()
 
