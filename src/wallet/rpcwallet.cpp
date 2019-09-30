@@ -5013,7 +5013,7 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
 
     // Strip off leading key origin
     if (xpub_str.find("]") != std::string::npos) {
-        xpub_str = xpub_str.substr(xpub_str.find("]"), std::string::npos);
+        xpub_str = xpub_str.substr(xpub_str.find("]")+1, std::string::npos);
     }
 
     // Strip off following range
