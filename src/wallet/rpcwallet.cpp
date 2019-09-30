@@ -4977,11 +4977,17 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     }
 
     FlatSigningProvider provider;
-    auto desc = Parse(bitcoin_desc, provider);
+    auto desc = Parse(bitcoin_desc, provider, false); // don't require checksum
     if (!desc) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not a valid descriptor string.");
     } else if (!desc->IsRange()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor must be a ranged descriptor.");
+    }
+
+    // For our manual pattern matching, we don't want the checksum part.
+    auto checksum_char = bitcoin_desc.find('#');
+    if (checksum_char != std::string::npos) {
+        bitcoin_desc = bitcoin_desc.substr(0, checksum_char);
     }
 
     // Three acceptable descriptors:

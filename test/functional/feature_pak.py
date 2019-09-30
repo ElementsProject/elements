@@ -167,6 +167,8 @@ class PAKTest (BitcoinTestFramework):
 
         # Peg out with each new type, check that destination script matches
         wpkh_desc = "wpkh("+xpub+"/0/*)"
+        # add a valid checksum
+        wpkh_desc = self.nodes[1].getdescriptorinfo(wpkh_desc)["descriptor"]
         wpkh_info = self.nodes[1].initpegoutwallet(wpkh_desc)
         wpkh_pak_info = self.nodes[1].getwalletpakinfo()
 
