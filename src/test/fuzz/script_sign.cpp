@@ -42,7 +42,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
         } catch (const std::ios_base::failure&) {
         }
         CDataStream serialized{SER_NETWORK, PROTOCOL_VERSION};
-        SerializeHDKeypaths(serialized, hd_keypaths, fuzzed_data_provider.ConsumeIntegral<uint8_t>());
+        SerializeHDKeypaths(serialized, hd_keypaths, CompactSizeWriter(fuzzed_data_provider.ConsumeIntegral<uint8_t>()));
     }
 
     {
@@ -60,7 +60,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
         }
         CDataStream serialized{SER_NETWORK, PROTOCOL_VERSION};
         try {
-            SerializeHDKeypaths(serialized, hd_keypaths, fuzzed_data_provider.ConsumeIntegral<uint8_t>());
+            SerializeHDKeypaths(serialized, hd_keypaths, CompactSizeWriter(fuzzed_data_provider.ConsumeIntegral<uint8_t>()));
         } catch (const std::ios_base::failure&) {
         }
         std::map<CPubKey, KeyOriginInfo> deserialized_hd_keypaths;
