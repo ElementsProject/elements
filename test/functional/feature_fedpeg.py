@@ -6,7 +6,6 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     connect_nodes_bi,
-    disconnect_nodes,
     get_auth_cookie,
     get_datadir_path,
     rpc_port,
@@ -579,6 +578,8 @@ class FedPegTest(BitcoinTestFramework):
         blind_addr = sidechain.getnewaddress("", "blech32")
         sidechain.sendtoaddress(blind_addr, 15)
         sidechain.generate(6)
+        # Make sure sidechain2 knows about the same input
+        self.sync_all(self.node_groups)
         unspent = [u for u in sidechain.listunspent(6, 6) if u["amount"] == 15][0]
         assert(unspent["spendable"])
         assert("amountcommitment" in unspent)
@@ -615,23 +616,14 @@ class FedPegTest(BitcoinTestFramework):
             assert(final_decoded["vout"][1]["commitmentnonce_fully_valid"])
             assert("value" in final_decoded["vout"][2])
             assert("asset" in final_decoded["vout"][2])
-            # check that it is accepted in the mempool
+            # check that it is accepted in either mempool
             accepted = sidechain.testmempoolaccept([pegin_signed["hex"]])[0]
             if not accepted["allowed"]:
                 raise Exception(accepted["reject-reason"])
+            accepted = sidechain2.testmempoolaccept([pegin_signed["hex"]])[0]
+            if not accepted["allowed"]:
+                raise Exception(accepted["reject-reason"])
             print("Blinded transaction looks ok!") # need this print to distinguish failures in for loop
-        # check if they get mined; since we're trying to mine two double spends, disconnect the nodes
-        disconnect_nodes(sidechain, 3)
-        disconnect_nodes(sidechain2, 2)
-        txid1 = sidechain.sendrawtransaction(pegin_signed1["hex"])
-        blocks = sidechain.generate(3)
-        assert_equal(sidechain.getrawtransaction(txid1, True, blocks[0])["confirmations"], 3)
-        txid2 = sidechain2.sendrawtransaction(pegin_signed2["hex"])
-        blocks = sidechain2.generate(3)
-        assert_equal(sidechain2.getrawtransaction(txid2, True, blocks[0])["confirmations"], 3)
-        # reconnect in case we extend the test
-        connect_nodes_bi(self.nodes, 2, 3)
-        sidechain.generate(10)
 
         print('Success!')
 
