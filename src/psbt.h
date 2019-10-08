@@ -665,7 +665,11 @@ struct PartiallySignedTransaction
     inline void Serialize(Stream& s) const {
 
         // magic bytes
-        s << PSBT_MAGIC_BYTES;
+        if (g_con_elementsmode) {
+            s << PSBT_ELEMENTS_MAGIC_BYTES;
+        } else {
+            s << PSBT_MAGIC_BYTES;
+        }
 
         // unsigned tx flag
         SerializeToVector(s, PSBT_GLOBAL_UNSIGNED_TX);
@@ -699,8 +703,14 @@ struct PartiallySignedTransaction
         // Read the magic bytes
         uint8_t magic[5];
         s >> magic;
-        if (!std::equal(magic, magic + 5, PSBT_MAGIC_BYTES)) {
-            throw std::ios_base::failure("Invalid PSBT magic bytes");
+        if (g_con_elementsmode) {
+            if (!std::equal(magic, magic + 5, PSBT_ELEMENTS_MAGIC_BYTES)) {
+                throw std::ios_base::failure("Invalid PSBT magic bytes");
+            }
+        } else  {
+            if (!std::equal(magic, magic + 5, PSBT_MAGIC_BYTES)) {
+                throw std::ios_base::failure("Invalid PSBT magic bytes");
+            }
         }
 
         // Read global data
