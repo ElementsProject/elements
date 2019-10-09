@@ -537,6 +537,7 @@ class FedPegTest(BitcoinTestFramework):
         # Watch the address so we can get tx without txindex
         parent.importaddress(mainchain_addr)
         claim_block = parent.generatetoaddress(50, mainchain_addr)[0]
+        self.sync_all(self.node_groups)
         block_coinbase = parent.getblock(claim_block, 2)["tx"][0]
         claim_txid = block_coinbase["txid"]
         claim_tx = block_coinbase["hex"]
@@ -552,11 +553,13 @@ class FedPegTest(BitcoinTestFramework):
 
         # 50 more blocks to allow wallet to make it succeed by relay and consensus
         parent.generatetoaddress(50, parent.getnewaddress())
+        self.sync_all(self.node_groups)
         # Wallet still doesn't want to for 2 more confirms
         assert_equal(sidechain.createrawpegin(claim_tx, claim_proof)["mature"], False)
         # But we can just shoot it off
         claim_txid = sidechain.sendrawtransaction(signed_pegin)
         sidechain.generatetoaddress(1, sidechain.getnewaddress())
+        self.sync_all(self.node_groups)
         assert_equal(sidechain.gettransaction(claim_txid)["confirmations"], 1)
 
         # Test a confidential pegin.
@@ -568,6 +571,7 @@ class FedPegTest(BitcoinTestFramework):
         txid_fund = parent.sendtoaddress(pegin_addr, 10)
         # 10+2 confirms required to get into mempool and confirm
         parent.generate(11)
+        self.sync_all(self.node_groups)
         proof = parent.gettxoutproof([txid_fund])
         raw = parent.gettransaction(txid_fund)["hex"]
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
