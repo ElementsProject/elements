@@ -1382,8 +1382,14 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
 
     const std::vector<std::pair<uint256, CTransactionRef>> dummy;
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
-    if (partialBlock.InitData(cmpctblock, dummy) != READ_STATUS_OK || partialBlock.FillBlock(*pblock, found, false /* pow_check*/) != READ_STATUS_OK) {
+    if (partialBlock.InitData(cmpctblock, dummy) != READ_STATUS_OK) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "compact_hex appears malformed.");
+    }
+    auto result = partialBlock.FillBlock(*pblock, found, false /* pow_check*/);
+    if (result == READ_STATUS_FAILED) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found. Could be random short ID collision; requires full block instead.");
+    } else if (result != READ_STATUS_OK) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found.");
     }
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
