@@ -189,8 +189,10 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
     size_t tx_missing_offset = 0;
     for (size_t i = 0; i < txn_available.size(); i++) {
         if (!txn_available[i]) {
-            if (vtx_missing.size() <= tx_missing_offset)
+            if (vtx_missing.size() <= tx_missing_offset) {
+                LogPrint(BCLog::CMPCTBLOCK, "Transactions missing arg mismatches offset in loop: %zu %zu\n", vtx_missing.size(), tx_missing_offset);
                 return READ_STATUS_INVALID;
+            }
             block.vtx[i] = vtx_missing[tx_missing_offset++];
         } else
             block.vtx[i] = std::move(txn_available[i]);
@@ -200,8 +202,10 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
     header.SetNull();
     txn_available.clear();
 
-    if (vtx_missing.size() != tx_missing_offset)
+    if (vtx_missing.size() != tx_missing_offset) {
+        LogPrint(BCLog::CMPCTBLOCK, "Transactions missing arg mismatches offset: %zu %zu\n", vtx_missing.size(), tx_missing_offset);
         return READ_STATUS_INVALID;
+    }
 
     CValidationState state;
     if (!CheckBlock(block, state, Params().GetConsensus(), check_pow)) {
@@ -209,8 +213,12 @@ ReadStatus PartiallyDownloadedBlock::FillBlock(CBlock& block, const std::vector<
         // but that is expensive, and CheckBlock caches a block's
         // "checked-status" (in the CBlock?). CBlock should be able to
         // check its own merkle root and cache that check.
-        if (state.CorruptionPossible())
+        if (state.CorruptionPossible()) {
+            LogPrint(BCLog::CMPCTBLOCK, "Corrupted compact block? Possible shortid collision: %s\n", state.GetRejectReason());
             return READ_STATUS_FAILED; // Possible Short ID collision
+        }
+
+        LogPrint(BCLog::CMPCTBLOCK, "CheckBlock fail: %s\n", state.GetRejectReason());
         return READ_STATUS_CHECKBLOCK_FAILED;
     }
 
