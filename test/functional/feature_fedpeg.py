@@ -6,7 +6,6 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     connect_nodes_bi,
-    disconnect_nodes,
     get_auth_cookie,
     get_datadir_path,
     rpc_port,
@@ -538,6 +537,7 @@ class FedPegTest(BitcoinTestFramework):
         # Watch the address so we can get tx without txindex
         parent.importaddress(mainchain_addr)
         claim_block = parent.generatetoaddress(50, mainchain_addr)[0]
+        self.sync_all(self.node_groups)
         block_coinbase = parent.getblock(claim_block, 2)["tx"][0]
         claim_txid = block_coinbase["txid"]
         claim_tx = block_coinbase["hex"]
@@ -553,11 +553,13 @@ class FedPegTest(BitcoinTestFramework):
 
         # 50 more blocks to allow wallet to make it succeed by relay and consensus
         parent.generatetoaddress(50, parent.getnewaddress())
+        self.sync_all(self.node_groups)
         # Wallet still doesn't want to for 2 more confirms
         assert_equal(sidechain.createrawpegin(claim_tx, claim_proof)["mature"], False)
         # But we can just shoot it off
         claim_txid = sidechain.sendrawtransaction(signed_pegin)
         sidechain.generatetoaddress(1, sidechain.getnewaddress())
+        self.sync_all(self.node_groups)
         assert_equal(sidechain.gettransaction(claim_txid)["confirmations"], 1)
 
         # Test a confidential pegin.
@@ -569,6 +571,7 @@ class FedPegTest(BitcoinTestFramework):
         txid_fund = parent.sendtoaddress(pegin_addr, 10)
         # 10+2 confirms required to get into mempool and confirm
         parent.generate(11)
+        self.sync_all(self.node_groups)
         proof = parent.gettxoutproof([txid_fund])
         raw = parent.gettransaction(txid_fund)["hex"]
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
@@ -579,6 +582,8 @@ class FedPegTest(BitcoinTestFramework):
         blind_addr = sidechain.getnewaddress("", "blech32")
         sidechain.sendtoaddress(blind_addr, 15)
         sidechain.generate(6)
+        # Make sure sidechain2 knows about the same input
+        self.sync_all(self.node_groups)
         unspent = [u for u in sidechain.listunspent(6, 6) if u["amount"] == 15][0]
         assert(unspent["spendable"])
         assert("amountcommitment" in unspent)
@@ -615,23 +620,14 @@ class FedPegTest(BitcoinTestFramework):
             assert(final_decoded["vout"][1]["commitmentnonce_fully_valid"])
             assert("value" in final_decoded["vout"][2])
             assert("asset" in final_decoded["vout"][2])
-            # check that it is accepted in the mempool
+            # check that it is accepted in either mempool
             accepted = sidechain.testmempoolaccept([pegin_signed["hex"]])[0]
             if not accepted["allowed"]:
                 raise Exception(accepted["reject-reason"])
+            accepted = sidechain2.testmempoolaccept([pegin_signed["hex"]])[0]
+            if not accepted["allowed"]:
+                raise Exception(accepted["reject-reason"])
             print("Blinded transaction looks ok!") # need this print to distinguish failures in for loop
-        # check if they get mined; since we're trying to mine two double spends, disconnect the nodes
-        disconnect_nodes(sidechain, 3)
-        disconnect_nodes(sidechain2, 2)
-        txid1 = sidechain.sendrawtransaction(pegin_signed1["hex"])
-        blocks = sidechain.generate(3)
-        assert_equal(sidechain.getrawtransaction(txid1, True, blocks[0])["confirmations"], 3)
-        txid2 = sidechain2.sendrawtransaction(pegin_signed2["hex"])
-        blocks = sidechain2.generate(3)
-        assert_equal(sidechain2.getrawtransaction(txid2, True, blocks[0])["confirmations"], 3)
-        # reconnect in case we extend the test
-        connect_nodes_bi(self.nodes, 2, 3)
-        sidechain.generate(10)
 
         print('Success!')
 
