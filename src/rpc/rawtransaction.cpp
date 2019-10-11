@@ -1660,6 +1660,10 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "      \"value_blinding_factor\": \"hex\" ,   (string) The value blinding factor from the output being spent\n"
             "      \"asset\": \"hex\" ,                   (string) The (unblinded) asset id of the input\n"
             "      \"asset_blinding_factor\": \"hex\" ,   (string) The asset blinding factor from the output being spent\n"
+            "      \"pegin_bitcoin_tx\": \"hex\",         (string) The tx providing the peg-in in the format of the getrawtransaction RPC.\n"
+            "      \"pegin_claim_script\": \"hex\",       (string) The claim script for the peg-in input\n"
+            "      \"pegin_txout_proof\": \"hex\",        (string) The tx providing the peg-in input\n"
+            "      \"pegin_genesis_hash\": \"hex\",       (string) The hash of the genesis block for this peg-in\n"
             "      \"unknown\" : {                (json object) The unknown input fields\n"
             "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
             "        ...\n"
@@ -1834,6 +1838,49 @@ UniValue decodepsbt(const JSONRPCRequest& request)
         // Asset blinder
         if (!input.asset_blinding_factor.IsNull()) {
             in.pushKV("asset_blinding_factor", input.asset_blinding_factor.GetHex());
+        }
+
+        // Peg-in stuff
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            if (input.peg_in_tx.which() > 0) {
+                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
+                if (btc_peg_in_tx) {
+                    CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+                    ss_tx << btc_peg_in_tx;
+                    in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx.begin(), ss_tx.end()));
+                }
+            }
+            if (input.txout_proof.which() > 0) {
+                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
+                if (!btc_txout_proof.header.IsNull()) {
+                    CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+                    ss_mb << btc_txout_proof;
+                    in.pushKV("pegin_txout_proof", HexStr(ss_mb.begin(), ss_mb.end()));
+                }
+            }
+        } else {
+            if (input.peg_in_tx.which() > 0) {
+                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
+                if (elem_peg_in_tx) {
+                    CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+                    ss_tx << elem_peg_in_tx;
+                    in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx.begin(), ss_tx.end()));
+                }
+            }
+            if (input.txout_proof.which() > 0) {
+                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
+                if (!elem_txout_proof.header.IsNull()) {
+                    CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+                    ss_mb << elem_txout_proof;
+                    in.pushKV("pegin_txout_proof", HexStr(ss_mb.begin(), ss_mb.end()));
+                }
+            }
+        }
+        if (!input.claim_script.empty()) {
+            in.pushKV("pegin_claim_script", HexStr(input.claim_script.begin(), input.claim_script.end()));
+        }
+        if (!input.genesis_hash.IsNull()) {
+            in.pushKV("pegin_genesis_hash", input.genesis_hash.GetHex());
         }
 
         // Unknown data
