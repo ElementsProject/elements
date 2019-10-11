@@ -83,6 +83,7 @@ class FedPegTest(BitcoinTestFramework):
                     "-keypool=1",
                     "-listenonion=0",
                     "-addresstype=legacy", # To make sure bitcoind gives back p2pkh no matter version
+                    "-fallbackfee=0.0002"
                 ])
             else:
                 extra_args.extend([
@@ -290,6 +291,17 @@ class FedPegTest(BitcoinTestFramework):
         # Check the createrawtransaction makes the same unsigned peg-in transaction
         raw_pegin2 = sidechain.createrawtransaction([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
         assert_equal(raw_pegin, raw_pegin2)
+        # Check that createpsbt makes the correct unsigned peg-in
+        pegin_psbt = sidechain.createpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
+        decoded_psbt = sidechain.decodepsbt(pegin_psbt)
+        # Check that pegin_bitcoin_tx == raw, but due to stripping witnesses, we need to compare their txids
+        txid1 = parent.decoderawtransaction(decoded_psbt['inputs'][0]['pegin_bitcoin_tx'])['txid']
+        txid2 = parent.decoderawtransaction(raw)['txid']
+        assert_equal(txid1, txid2)
+        # Check the rest
+        assert_equal(decoded_psbt['inputs'][0]['pegin_claim_script'], addrs["claim_script"])
+        assert_equal(decoded_psbt['inputs'][0]['pegin_txout_proof'], proof)
+        assert_equal(decoded_psbt['inputs'][0]['pegin_genesis_hash'], parent.getblockhash(0))
 
         sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization
