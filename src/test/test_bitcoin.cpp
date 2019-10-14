@@ -60,6 +60,9 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     // Set policy asset for correct fee output generation
     policyAsset = CAsset();
 
+    // For unit tests, increase minrelay to "normal" 1000 sat/vkB
+    incrementalRelayFee = CFeeRate(1000);
+
     noui_connect();
 }
 
