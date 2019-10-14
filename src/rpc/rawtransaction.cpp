@@ -21,6 +21,8 @@
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
+#include <primitives/bitcoin/merkleblock.h>
+#include <primitives/bitcoin/transaction.h>
 #include <psbt.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
@@ -361,6 +363,124 @@ static UniValue verifytxoutproof(const JSONRPCRequest& request)
     }
 
     return res;
+}
+
+template<typename T_tx>
+unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
+{
+    for (const auto & scripts : fedpegscripts) {
+        CScript mainchain_script = GetScriptForWitness(calculate_contract(scripts.second, witnessProgram));
+        if (scripts.first.IsPayToScriptHash()) {
+            mainchain_script = GetScriptForDestination(ScriptHash(mainchain_script));
+        }
+        for (unsigned int nOut = 0; nOut < txn.vout.size(); nOut++)
+            if (txn.vout[nOut].scriptPubKey == mainchain_script) {
+                return nOut;
+            }
+        }
+    return txn.vout.size();
+}
+
+// Modifies an existing transaction input in-place to be a valid peg-in input, and inserts the witness if deemed valid.
+template<typename T_tx_ref, typename T_merkle_block>
+static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, T_tx_ref& txBTCRef, T_merkle_block& merkleBlock, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData)
+{
+    if ((mtx.vin.size() > input_idx && !mtx.vin[input_idx].scriptSig.empty()) || (mtx.witness.vtxinwit.size() > input_idx && !mtx.witness.vtxinwit[input_idx].IsNull())) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Attempting to add a peg-in to an input that already has a scriptSig or witness");
+    }
+
+    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
+    try {
+        ssTx >> txBTCRef;
+    }
+    catch (...) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
+    }
+
+    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    try {
+        ssTxOutProof >> merkleBlock;
+    }
+    catch (...) {
+        throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
+    }
+
+    if (!ssTxOutProof.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+    }
+
+    std::vector<uint256> txHashes;
+    std::vector<unsigned int> txIndices;
+    if (merkleBlock.txn.ExtractMatches(txHashes, txIndices) != merkleBlock.header.hashMerkleRoot)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
+
+    if (txHashes.size() != 1 || txHashes[0] != txBTCRef->GetHash())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The txoutproof must contain bitcoinTx and only bitcoinTx");
+
+    CScript witness_script;
+    unsigned int nOut = txBTCRef->vout.size();
+    const auto fedpegscripts = GetValidFedpegScripts(chainActive.Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    for (const CScript& script : claim_scripts) {
+        nOut = GetPeginTxnOutputIndex(*txBTCRef, script, fedpegscripts);
+        if (nOut != txBTCRef->vout.size()) {
+            witness_script = script;
+            break;
+        }
+    }
+    if (nOut == txBTCRef->vout.size()) {
+        if (claim_scripts.size() == 1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
+        }
+    }
+    assert(witness_script != CScript());
+
+    int version = -1;
+    std::vector<unsigned char> witness_program;
+    if (!witness_script.IsWitnessProgram(version, witness_program) || version != 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a v0 witness program.");
+    }
+
+    CAmount value = 0;
+    if (!GetAmountFromParentChainPegin(value, *txBTCRef, nOut)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
+    }
+
+    // Add/replace input in mtx
+    if (mtx.vin.size() <= input_idx) {
+        mtx.vin.resize(input_idx + 1);
+    }
+    mtx.vin[input_idx] = CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0);
+
+    // Construct pegin proof
+    CScriptWitness pegin_witness = CreatePeginWitness(value, Params().GetConsensus().pegged_asset, Params().ParentGenesisBlockHash(), witness_script, txBTCRef, merkleBlock);
+
+    // Peg-in witness isn't valid, even though the block header is(without depth check)
+    // We re-check depth before returning with more descriptive result
+    std::string err;
+    if (!IsValidPeginWitness(pegin_witness, fedpegscripts, mtx.vin[input_idx].prevout, err, false)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Constructed peg-in witness is invalid: %s", err));
+    }
+
+    // Put input witness in transaction
+    mtx.vin[input_idx].m_is_pegin = true;
+    CTxInWitness txinwit;
+    txinwit.m_pegin_witness = pegin_witness;
+
+    if (mtx.witness.vtxinwit.size() <= input_idx) {
+        mtx.witness.vtxinwit.resize(input_idx + 1);
+    }
+    mtx.witness.vtxinwit[input_idx] = txinwit;
+}
+
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData)
+{
+    CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData);
+}
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData)
+{
+    CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData);
 }
 
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out)

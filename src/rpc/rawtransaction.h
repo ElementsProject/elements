@@ -21,4 +21,8 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
     Assets output pubkeys in nonces will be used. */
 CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out = nullptr);
 
+/** Create a peg-in input */
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
+void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
+
 #endif // BITCOIN_RPC_RAWTRANSACTION_H
