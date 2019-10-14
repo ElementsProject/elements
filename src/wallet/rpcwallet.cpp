@@ -5530,19 +5530,6 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
     }
 
-    CDataStream stream(0, 0);
-    try {
-        stream << value;
-    } catch (...) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Amount serialization is invalid.");
-    }
-    // Need to reinterpret bytes as unsigned chars before adding to witness
-    char* buf = stream.data();
-    unsigned char* membuf = reinterpret_cast<unsigned char*>(buf);
-    std::vector<unsigned char> value_bytes(membuf, membuf + stream.size());
-
-    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
-
     // Manually construct peg-in transaction, sign it, and send it off.
     // Decrement the output value as much as needed given the total vsize to
     // pay the fees.
@@ -5566,20 +5553,8 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
-    // Strip witness data for proof inclusion since only TXID-covered fields matters
-    CDataStream ssTxBack(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    ssTxBack << txBTC;
-    std::vector<unsigned char> tx_data_stripped(ssTxBack.begin(), ssTxBack.end());
-
     // Construct pegin proof
-    CScriptWitness pegin_witness;
-    std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
-    stack.push_back(value_bytes);
-    stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
-    stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
-    stack.push_back(std::vector<unsigned char>(witness_script.begin(), witness_script.end()));
-    stack.push_back(tx_data_stripped);
-    stack.push_back(txOutProofData);
+    CScriptWitness pegin_witness = CreatePeginWitness(value, Params().GetConsensus().pegged_asset, Params().ParentGenesisBlockHash(), witness_script, txBTCRef, merkleBlock);
 
     // Peg-in witness isn't valid, even though the block header is(without depth check)
     // We re-check depth before returning with more descriptive result
