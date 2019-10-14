@@ -4672,7 +4672,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"], NullUniValue /* CA: assets_in */);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"], NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, false /* allow_peg_in */);
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
     // Make a blank psbt
