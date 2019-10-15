@@ -2138,7 +2138,7 @@ class SegWitTest(BitcoinTestFramework):
 
         raw = self.nodes[0].createrawtransaction([{"txid":"00"*32, "vout":0}], {self.nodes[0].getnewaddress():1})
         tx = FromHex(CTransaction(), raw)
-        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, serialize_with_bogus_witness(tx).hex())
+        assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, bytes_to_hex_str(serialize_with_bogus_witness(tx)))
 
 if __name__ == '__main__':
     SegWitTest().main()
