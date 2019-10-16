@@ -159,6 +159,11 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (value_blinding_factor.IsNull() && !input.value_blinding_factor.IsNull()) value_blinding_factor = input.value_blinding_factor;
     if (asset.IsNull() && !input.asset.IsNull()) asset = input.asset;
     if (asset_blinding_factor.IsNull() && !input.asset_blinding_factor.IsNull()) asset_blinding_factor = input.asset_blinding_factor;
+
+    if (peg_in_tx.which() == 0 && peg_in_tx.which() > 0) peg_in_tx = input.peg_in_tx;
+    if (txout_proof.which() == 0 && peg_in_tx.which() > 0) txout_proof = input.txout_proof;
+    if (claim_script.empty() && !input.claim_script.empty()) claim_script = input.claim_script;
+    if (genesis_hash.IsNull() && !input.genesis_hash.IsNull()) genesis_hash = input.genesis_hash;
 }
 
 bool PSBTInput::IsSane() const

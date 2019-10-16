@@ -302,6 +302,15 @@ class FedPegTest(BitcoinTestFramework):
         assert_equal(decoded_psbt['inputs'][0]['pegin_claim_script'], addrs["claim_script"])
         assert_equal(decoded_psbt['inputs'][0]['pegin_txout_proof'], proof)
         assert_equal(decoded_psbt['inputs'][0]['pegin_genesis_hash'], parent.getblockhash(0))
+        # Make a psbt without those peg-in data and merge them
+        merge_pegin_psbt = sidechain.createpsbt([{"txid":txid1, "vout": vout}], outputs)
+        decoded_psbt = sidechain.decodepsbt(merge_pegin_psbt)
+        assert 'pegin_bitcoin_tx' not in decoded_psbt['inputs'][0]
+        assert 'pegin_claim_script' not in decoded_psbt['inputs'][0]
+        assert 'pegin_txout_proof' not in decoded_psbt['inputs'][0]
+        assert 'pegin_genesis_hash' not in decoded_psbt['inputs'][0]
+        merged_pegin_psbt = sidechain.combinepsbt([pegin_psbt, merge_pegin_psbt])
+        assert_equal(pegin_psbt, merged_pegin_psbt)
 
         sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization
