@@ -7,7 +7,9 @@
 
 #include <amount.h>
 #include <consensus/params.h>
+#include <merkleblock.h>
 #include <primitives/bitcoin/transaction.h>
+#include <primitives/bitcoin/merkleblock.h>
 #include <primitives/transaction.h>
 #include <script/script.h>
 #include <chain.h>
@@ -37,5 +39,10 @@ bool MatchLiquidWatchman(const CScript& script);
  * or "lookahead" purposes. Newest epochs first. The first returned element is the
  * scriptPubKey for the script, the second is the witnessScript. */
 std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex* pblockindex, const Consensus::Params& params, bool nextblock_validation);
+
+/** Create the peg-in witness stack */
+CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const CTransactionRef& tx_ref, const CMerkleBlock& merkle_block);
+CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const Sidechain::Bitcoin::CTransactionRef& tx_ref, const Sidechain::Bitcoin::CMerkleBlock& merkle_block);
+
 
 #endif // BITCOIN_PEGINS_H
