@@ -262,7 +262,7 @@ class FedPegTest(BitcoinTestFramework):
         raw_pegin = sidechain.createrawpegin(raw, proof)["hex"]
         raw_pegin = FromHex(CTransaction(), raw_pegin)
         raw_pegin.vin.append(raw_pegin.vin[0]) # duplicate the pegin input
-        raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin.serialize().hex())["hex"]
+        raw_pegin = sidechain.signrawtransactionwithwallet(bytes_to_hex_str(raw_pegin.serialize()))["hex"]
         assert_raises_rpc_error(-26, "bad-txns-inputs-duplicate", sidechain.sendrawtransaction, raw_pegin)
         # Also try including this tx in a block manually and submitting it.
         doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
@@ -279,7 +279,7 @@ class FedPegTest(BitcoinTestFramework):
 
         sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization
-        assert_equal(signed_pegin["hex"], sample_pegin_struct.serialize().hex())
+        assert_equal(signed_pegin["hex"], bytes_to_hex_str(sample_pegin_struct.serialize()))
         # Store this for later (evil laugh)
         sample_pegin_witness = sample_pegin_struct.wit.vtxinwit[0].peginWitness
 
@@ -503,11 +503,11 @@ class FedPegTest(BitcoinTestFramework):
         if len(signed_struct.wit.vtxinwit) == 0:
             signed_struct.wit.vtxinwit = [CTxInWitness()]
         signed_struct.wit.vtxinwit[0].peginWitness.stack = sample_pegin_witness.stack
-        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["allowed"], False)
-        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["reject-reason"], "68: extra-pegin-witness")
+        assert_equal(sidechain.testmempoolaccept([bytes_to_hex_str(signed_struct.serialize())])[0]["allowed"], False)
+        assert_equal(sidechain.testmempoolaccept([bytes_to_hex_str(signed_struct.serialize())])[0]["reject-reason"], "68: extra-pegin-witness")
         signed_struct.wit.vtxinwit[0].peginWitness.stack = [b'\x00'*100000] # lol
-        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["allowed"], False)
-        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["reject-reason"], "68: extra-pegin-witness")
+        assert_equal(sidechain.testmempoolaccept([bytes_to_hex_str(signed_struct.serialize())])[0]["allowed"], False)
+        assert_equal(sidechain.testmempoolaccept([bytes_to_hex_str(signed_struct.serialize())])[0]["reject-reason"], "68: extra-pegin-witness")
 
         peg_out_txid = sidechain.sendtomainchain(some_btc_addr, 1)
 
