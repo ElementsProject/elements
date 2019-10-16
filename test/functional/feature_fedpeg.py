@@ -311,6 +311,11 @@ class FedPegTest(BitcoinTestFramework):
         assert 'pegin_genesis_hash' not in decoded_psbt['inputs'][0]
         merged_pegin_psbt = sidechain.combinepsbt([pegin_psbt, merge_pegin_psbt])
         assert_equal(pegin_psbt, merged_pegin_psbt)
+        # Now sign the psbt
+        signed_psbt = sidechain.walletsignpsbt(pegin_psbt)
+        # Finalize and extract and compare
+        fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
+        assert_equal(fin_psbt, signed_pegin)
 
         sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization
