@@ -3212,7 +3212,7 @@ static UniValue listunspent(const JSONRPCRequest& request)
     return results;
 }
 
-void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options)
+void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& fee_out, int& change_position, UniValue options, const UniValue& solving_data)
 {
     // Make sure the results are valid at least up to the most recent block
     // the user could have gotten from another RPC command prior to now
@@ -3330,6 +3330,40 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
       }
     }
 
+    if (!solving_data.isNull()) {
+        if (solving_data.exists("pubkeys")) {
+            UniValue pubkey_strs = solving_data["pubkeys"].get_array();
+            for (unsigned int i = 0; i < pubkey_strs.size(); ++i) {
+                std::vector<unsigned char> data(ParseHex(pubkey_strs[i].get_str()));
+                CPubKey pubkey(data.begin(), data.end());
+                if (!pubkey.IsFullyValid()) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("%s is not a valid public key", pubkey_strs[i].get_str()));
+                }
+                coinControl.m_external_provider.pubkeys.emplace(pubkey.GetID(), pubkey);
+                // Add witnes script for pubkeys
+                CScript wit_script = GetScriptForDestination(WitnessV0KeyHash(pubkey.GetID()));
+                coinControl.m_external_provider.scripts.emplace(CScriptID(wit_script), wit_script);
+            }
+        }
+
+        if (solving_data.exists("scripts")) {
+            UniValue script_strs = solving_data["scripts"].get_array();
+            for (unsigned int i = 0; i < script_strs.size(); ++i) {
+                CScript script = ParseScript(script_strs[i].get_str());
+                coinControl.m_external_provider.scripts.emplace(CScriptID(script), script);
+            }
+        }
+
+        if (solving_data.exists("descriptors")) {
+            UniValue desc_strs = solving_data["descriptors"].get_array();
+            for (unsigned int i = 0; i < desc_strs.size(); ++i) {
+                FlatSigningProvider desc_out;
+                std::unique_ptr<Descriptor> desc = Parse(desc_strs[i].get_str(), desc_out, true);
+                coinControl.m_external_provider = Merge(coinControl.m_external_provider, desc_out);
+            }
+        }
+    }
+
     if (tx.vout.size() == 0)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "TX must have at least one output");
 
@@ -3345,6 +3379,30 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
         if (pos >= int(tx.vout.size()))
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid parameter, position too large: %d", pos));
         setSubtractFeeFromOutputs.insert(pos);
+    }
+
+    // Fetch specified UTXOs from the UTXO set
+    std::map<COutPoint, Coin> coins;
+    for (const CTxIn& txin : tx.vin) {
+        coins[txin.prevout]; // Create empty map entry keyed by prevout.
+    }
+    CCoinsView viewDummy;
+    CCoinsViewCache view(&viewDummy);
+    {
+        LOCK2(cs_main, mempool.cs);
+        CCoinsViewCache& chain_view = *pcoinsTip;
+        CCoinsViewMemPool mempool_view(&chain_view, mempool);
+        for (auto& coin : coins) {
+            if (!mempool_view.GetCoin(coin.first, coin.second)) {
+                // Either the coin is not in the CCoinsViewCache or is spent. Clear it.
+                coin.second.Clear();
+            }
+        }
+    }
+    for (const auto& coin : coins) {
+        if (!coin.second.out.IsNull()) {
+            coinControl.SelectExternal(coin.first, coin.second.out);
+        }
     }
 
     std::string strFailReason;
@@ -3363,7 +3421,7 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 3)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw std::runtime_error(
             RPCHelpMan{"fundrawtransaction",
                 "\nAdd inputs to a transaction until it has enough in value to meet its out value.\n"
@@ -3406,6 +3464,25 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
                         "options"},
                     {"iswitness", RPCArg::Type::BOOL, /* default */ "depends on heuristic tests", "Whether the transaction hex is a serialized witness transaction \n"
                             "                              If iswitness is not present, heuristic tests will be used in decoding"},
+                    {"solving_data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "Keys and scripts needed for producing a final transaction with a dummy signature. Used for fee estimation during coin selection.\n",
+                        {
+                            {"pubkeys", RPCArg::Type::ARR, /* default */ "empty array", "A json array of public keys.\n",
+                                {
+                                    {"pubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A public key"},
+                                },
+                            },
+                            {"scripts", RPCArg::Type::ARR, /* default */ "empty array", "A json array of scripts.\n",
+                                {
+                                    {"script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A script"},
+                                },
+                            },
+                            {"descriptors", RPCArg::Type::ARR, /* default */ "empty array", "A json array of descriptors.\n",
+                                {
+                                    {"descriptor", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A descriptor"},
+                                },
+                            }
+                        }
+                    },
                 },
                 RPCResult{
                             "{\n"
@@ -3438,7 +3515,7 @@ static UniValue fundrawtransaction(const JSONRPCRequest& request)
 
     CAmount fee;
     int change_position;
-    FundTransaction(pwallet, tx, fee, change_position, request.params[1]);
+    FundTransaction(pwallet, tx, fee, change_position, request.params[1], request.params[3]);
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(CTransaction(tx)));
@@ -4581,7 +4658,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 5)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 6)
         throw std::runtime_error(
             RPCHelpMan{"walletcreatefundedpsbt",
                 "\nCreates and funds a transaction in the Partially Signed Transaction format. Inputs will be added if supplied inputs are not enough\n"
@@ -4642,6 +4719,25 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                         },
                         "options"},
                     {"bip32derivs", RPCArg::Type::BOOL, /* default */ "false", "If true, includes the BIP 32 derivation paths for public keys if we know them"},
+                    {"solving_data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "Keys and scripts needed for producing a final transaction with a dummy signature. Used for fee estimation during coin selection.\n",
+                        {
+                            {"pubkeys", RPCArg::Type::ARR, /* default */ "empty array", "A json array of public keys.\n",
+                                {
+                                    {"pubkey", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A public key"},
+                                },
+                            },
+                            {"scripts", RPCArg::Type::ARR, /* default */ "empty array", "A json array of scripts.\n",
+                                {
+                                    {"script", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A script"},
+                                },
+                            },
+                            {"descriptors", RPCArg::Type::ARR, /* default */ "empty array", "A json array of descriptors.\n",
+                                {
+                                    {"descriptor", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A descriptor"},
+                                },
+                            }
+                        }
+                    },
                 },
                 RPCResult{
                             "{\n"
@@ -4673,7 +4769,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3]["replaceable"], NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, false /* allow_peg_in */);
-    FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
+    FundTransaction(pwallet, rawTx, fee, change_position, request.params[3], request.params[5]);
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
@@ -6567,7 +6663,7 @@ static const CRPCCommand commands[] =
     //  --------------------- ------------------------          -----------------------         ----------
     { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
     { "hidden",             "resendwallettransactions",         &resendwallettransactions,      {} },
-    { "rawtransactions",    "fundrawtransaction",               &fundrawtransaction,            {"hexstring","options","iswitness"} },
+    { "rawtransactions",    "fundrawtransaction",               &fundrawtransaction,            {"hexstring","options","iswitness","solving_data"} },
     { "wallet",             "abandontransaction",               &abandontransaction,            {"txid"} },
     { "wallet",             "abortrescan",                      &abortrescan,                   {} },
     { "wallet",             "addmultisigaddress",               &addmultisigaddress,            {"nrequired","keys","label","address_type"} },
@@ -6616,7 +6712,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "signmessage",                      &signmessage,                   {"address","message"} },
     { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype"} },
     { "wallet",             "unloadwallet",                     &unloadwallet,                  {"wallet_name"} },
-    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs"} },
+    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs","solving_data"} },
     { "wallet",             "walletlock",                       &walletlock,                    {} },
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
