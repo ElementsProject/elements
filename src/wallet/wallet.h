@@ -1084,14 +1084,13 @@ public:
                            std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, BlindDetails* blind_details = nullptr, const IssuanceDetails* issuance_details = nullptr);
     bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<CReserveKey>>& reservekey, CConnman* connman, CValidationState& state, const BlindDetails* blind_details = nullptr);
 
-    bool DummySignTx(CMutableTransaction &txNew, const std::set<CTxOut> &txouts, bool use_max_sig = false) const
+    bool DummySignTx(CMutableTransaction &txNew, const std::set<CTxOut> &txouts, const CCoinControl* coin_control = nullptr) const
     {
         std::vector<CTxOut> v_txouts(txouts.size());
         std::copy(txouts.begin(), txouts.end(), v_txouts.begin());
-        return DummySignTx(txNew, v_txouts, use_max_sig);
+        return DummySignTx(txNew, v_txouts, coin_control);
     }
-    bool DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, bool use_max_sig = false) const;
-    bool DummySignInput(CMutableTransaction &tx, const size_t nIn, const CTxOut &txout, bool use_max_sig = false) const;
+    bool DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, const CCoinControl* coin_control = nullptr) const;
 
     CFeeRate m_pay_tx_fee{DEFAULT_PAY_TX_FEE};
     unsigned int m_confirm_target{DEFAULT_TX_CONFIRM_TARGET};
@@ -1445,8 +1444,6 @@ public:
 
 // Calculate the size of the transaction assuming all signatures are max size
 // Use DummySignatureCreator, which inserts 71 byte signatures everywhere.
-// NOTE: this requires that all inputs must be in mapWallet (eg the tx should
-// be IsAllFromMe).
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig = false) EXCLUSIVE_LOCKS_REQUIRED(wallet->cs_wallet);
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, bool use_max_sig = false);
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const CCoinControl* coin_control = nullptr) EXCLUSIVE_LOCKS_REQUIRED(wallet->cs_wallet);
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, const CCoinControl* coin_control = nullptr);
 #endif // BITCOIN_WALLET_WALLET_H
