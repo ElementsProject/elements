@@ -83,6 +83,16 @@ public:
         m_external_txouts.emplace(outpoint, txout);
     }
 
+    void Select(const COutPoint& outpoint, const Sidechain::Bitcoin::CTxOut& txout_in)
+    {
+        setSelected.insert(outpoint);
+        CTxOut txout;
+        txout.scriptPubKey = txout_in.scriptPubKey;
+        txout.nValue.SetToAmount(txout_in.nValue);
+        txout.nAsset.SetToAsset(Params().GetConsensus().pegged_asset);
+        m_external_txouts.emplace(outpoint, txout);
+    }
+
     void UnSelect(const COutPoint& output)
     {
         setSelected.erase(output);

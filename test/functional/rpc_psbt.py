@@ -524,11 +524,6 @@ class PSBTTest(BitcoinTestFramework):
         # Some Confidential-Assets-specific tests
         self.run_ca_tests()
 
-        # Check that peg-ins are disallowed for walletcreatefundedpsbt
-        assert_raises_rpc_error(-8, 'pegin_ arguments provided but this command does not support peg-ins', self.nodes[0].walletcreatefundedpsbt, [{"txid": "0000000000000000000000000000000000000000000000000000000000000000", "vout": 0, "pegin_bitcoin_tx": "00"}], [{self.nodes[0].getnewaddress(): 1}])
-        assert_raises_rpc_error(-8, 'pegin_ arguments provided but this command does not support peg-ins', self.nodes[0].walletcreatefundedpsbt, [{"txid": "0000000000000000000000000000000000000000000000000000000000000000", "vout": 0, "pegin_txout_proof": "00"}], [{self.nodes[0].getnewaddress(): 1}])
-        assert_raises_rpc_error(-8, 'pegin_ arguments provided but this command does not support peg-ins', self.nodes[0].walletcreatefundedpsbt, [{"txid": "0000000000000000000000000000000000000000000000000000000000000000", "vout": 0, "pegin_claim_script": "00"}], [{self.nodes[0].getnewaddress(): 1}])
-
         # Tests added in the 0.18 rebase don't pass on Elements yet.
 
         """
