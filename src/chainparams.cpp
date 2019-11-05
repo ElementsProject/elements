@@ -488,7 +488,7 @@ class CCustomParams : public CRegTestParams {
         // TODO: Embed in genesis block in nTime field with new genesis block type
         consensus.dynamic_epoch_length = args.GetArg("-dynamic_epoch_length", 10);
         // Default junk keys for testing
-        consensus.first_extension_space = {ParseHex("03fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
+        consensus.first_extension_space = {ParseHex("02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
         std::vector<std::string> pak_list_str = args.GetArgs("-pak");
         if (!pak_list_str.empty()) {
             consensus.first_extension_space.clear();
