@@ -91,12 +91,13 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
     const uint32_t epoch_length = consensus.dynamic_epoch_length;
     uint32_t epoch_age = next_height % epoch_length;
 
-    // Return appropriate format based on epoch age
-    if (epoch_age > 0) {
-        // TODO implement "prune" function to remove fields in place and change serialize type
-        return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit, entry.CalculateExtraRoot());
-    } else {
+    // Return appropriate format based on epoch age or if we *just* activated
+    // dynafed via BIP9
+    if (epoch_age == 0 || pindexPrev->dynafed_params.IsNull()) {
         return entry;
+    } else {
+        return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit, entry.CalculateExtraRoot());
+
     }
 }
 
