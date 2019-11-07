@@ -94,7 +94,7 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
     // Return appropriate format based on epoch age
     if (epoch_age > 0) {
         // TODO implement "prune" function to remove fields in place and change serialize type
-        return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit);
+        return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit, entry.CalculateExtraRoot());
     } else {
         return entry;
     }

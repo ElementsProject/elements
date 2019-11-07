@@ -216,14 +216,16 @@ class BlockSignTest(BitcoinTestFramework):
 
         # Next let's activate dynafed
         blocks_til_dynafed = 431 - self.nodes[0].getblockcount()
+        self.log.info("Activating dynafed")
         self.mine_blocks(blocks_til_dynafed, False)
         self.check_height(111+blocks_til_dynafed)
 
         assert_equal(self.nodes[0].getblockchaininfo()['bip9_softforks']['dynafed']['status'], "active")
 
-        self.log.info("Mine some dynamic federation blocks without and with txns")
-        self.mine_blocks(50, False)
-        self.mine_blocks(50, True)
+        self.log.info("Mine some dynamic federation blocks without txns")
+        self.mine_blocks(10, False)
+        self.log.info("Mine some dynamic federation blocks with txns")
+        self.mine_blocks(10, True)
 
 if __name__ == '__main__':
     BlockSignTest().main()

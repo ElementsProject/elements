@@ -836,13 +836,13 @@ class CProof:
             % (self.challenge, self.solution)
 
 class DynaFedParamEntry:
-    __slots__ = ("m_serialize_type", "m_signblockscript", "m_signblock_witness_limit", "m_fedpeg_program", "m_fedpegscript", "m_extension_space")
+    __slots__ = ("m_serialize_type", "m_signblockscript", "m_signblock_witness_limit", "m_fedpeg_program", "m_fedpegscript", "m_extension_space", "m_elided_root")
 
     # Constructor args will define serialization type:
     # null = 0
     # signblock-related fields = 1, required for m_current on non-epoch-starts
     # all fields = 2, required for epoch starts
-    def __init__(self, m_signblockscript=b"", m_signblock_witness_limit=0, m_fedpeg_program=b"", m_fedpegscript=b"", m_extension_space=[]):
+    def __init__(self, m_signblockscript=b"", m_signblock_witness_limit=0, m_fedpeg_program=b"", m_fedpegscript=b"", m_extension_space=[], m_elided_root=0):
         self.m_signblockscript = m_signblockscript
         self.m_signblock_witness_limit = m_signblock_witness_limit
         self.m_fedpeg_program = m_fedpeg_program
@@ -850,8 +850,10 @@ class DynaFedParamEntry:
         self.m_extension_space = m_extension_space
         if self.is_null():
             self.m_serialize_type = 0
-        elif m_fedpegscript==b"" and m_extension_space == []:
+        elif m_fedpegscript==b"" and m_fedpeg_program==b"" and m_extension_space == []:
             self.m_serialize_type = 1
+            # We also set the "extra root" in this case
+            self.m_elided_root = m_elided_root
         else:
             self.m_serialize_type = 2
 
@@ -862,6 +864,7 @@ class DynaFedParamEntry:
         self.m_fedpegscript = b""
         self.m_extension_space = []
         self.m_serialize_type = 0
+        self.m_elided_root = 0
 
     def is_null(self):
         return self.m_signblockscript == b"" and self.m_signblock_witness_limit == 0 and \
@@ -874,6 +877,7 @@ class DynaFedParamEntry:
         if self.m_serialize_type == 1:
             r += ser_string(self.m_signblockscript)
             r += struct.pack("<I", self.m_signblock_witness_limit)
+            r += ser_uint256(self.m_elided_root)
         elif self.m_serialize_type == 2:
             r += ser_string(self.m_signblockscript)
             r += struct.pack("<I", self.m_signblock_witness_limit)
@@ -889,6 +893,7 @@ class DynaFedParamEntry:
         if self.m_serialize_type == 1:
             self.m_signblockscript = deser_string(f)
             self.m_signblock_witness_limit = struct.unpack("<I", f.read(4))[0]
+            self.m_elided_root = deser_uint256(f)
         elif self.m_serialize_type == 2:
             self.m_signblockscript = deser_string(f)
             self.m_signblock_witness_limit = struct.unpack("<I", f.read(4))[0]
