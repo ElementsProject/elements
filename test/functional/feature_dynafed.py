@@ -50,8 +50,7 @@ def validate_no_vote_op_true(node, block, first_dynafed_active_block):
     else:
         assert_equal(dynamic_parameters["current"]["fedpegscript"], "")
         assert_equal(dynamic_parameters["current"]["extension_space"], [])
-    # TODO workshop this bump, or commit to new value in chainparams instead
-    assert_equal(dynamic_parameters["current"]["max_block_witness"], 75)
+    assert_equal(dynamic_parameters["current"]["max_block_witness"], 74)
     # nothing was proposed, null fields make impossible to be valid blockheader
     # due to script rules requiring bool true on stack
     assert_equal(dynamic_parameters["proposed"]["signblockscript"], "")
@@ -193,7 +192,7 @@ class DynaFedTest(BitcoinTestFramework):
                 chain_info = self.nodes[i].getblockchaininfo()
                 fedpeg_info = self.nodes[i].getsidechaininfo()
                 assert_equal(chain_info["current_signblock_hex"], WSH_OP_TRUE)
-                assert_equal(chain_info["max_block_witness"], 75)
+                assert_equal(chain_info["max_block_witness"], 74)
                 assert_equal(chain_info["extension_space"], initial_extension)
                 assert_equal(fedpeg_info["current_fedpegscripts"], ["51", "51"])
 
@@ -211,7 +210,7 @@ class DynaFedTest(BitcoinTestFramework):
             chain_info = self.nodes[i].getblockchaininfo()
             fedpeg_info = self.nodes[i].getsidechaininfo()
             assert_equal(chain_info["current_signblock_hex"], WSH_OP_TRUE)
-            assert_equal(chain_info["max_block_witness"], 75)
+            assert_equal(chain_info["max_block_witness"], 74)
             assert_equal(chain_info["extension_space"], initial_extension)
             assert_equal(fedpeg_info["current_fedpegscripts"], ["51", "51"])
 
