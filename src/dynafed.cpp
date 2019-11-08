@@ -73,7 +73,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
 
         // Put them in winning proposal
-        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size+consensus.signblockscript.size(), sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
     } else {
         winning_proposal = p_epoch_start->dynafed_params.m_current;
     }
