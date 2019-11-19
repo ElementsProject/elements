@@ -188,10 +188,13 @@ void ReceiveRequestDialog::update()
                 split_address.insert((chars_per_line * i) + i, '\n');
             }
 
-            QImage qrAddrImage = QImage(QR_IMAGE_SIZE, QR_IMAGE_SIZE + 16 + fm.height(), QImage::Format_RGB32);
+            // Elements: Hack to get QR address to print right
+            const size_t MORE_WIDTH = 80;
+
+            QImage qrAddrImage = QImage(QR_IMAGE_SIZE + MORE_WIDTH, QR_IMAGE_SIZE + 16 + fm.height(), QImage::Format_RGB32);
             qrAddrImage.fill(0xffffff);
             QPainter painter(&qrAddrImage);
-            painter.drawImage(0, 0, qrImage.scaled(QR_IMAGE_SIZE, QR_IMAGE_SIZE));
+            painter.drawImage(MORE_WIDTH/2, 0, qrImage.scaled(QR_IMAGE_SIZE, QR_IMAGE_SIZE));
             QRect paddedRect = qrAddrImage.rect();
             paddedRect.setHeight(QR_IMAGE_SIZE + 8 + fm.height());
             painter.drawText(paddedRect, Qt::AlignBottom | Qt::AlignCenter | Qt::TextWordWrap, split_address);
