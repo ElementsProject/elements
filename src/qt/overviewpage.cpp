@@ -119,11 +119,6 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
 
     m_balances.balance[::policyAsset] = -1;
 
-    // Move the "Recent Transactions" view below "Balances"
-    ui->verticalLayout_3->removeWidget(ui->frame_2);
-    ui->verticalLayout_2->addWidget(ui->frame_2);
-    ui->horizontalLayout->removeItem(ui->verticalLayout_3);
-
     // use a SingleColorIcon for the "out of sync warning" icon
     QIcon icon = platformStyle->SingleColorIcon(":/icons/warning");
     icon.addPixmap(icon.pixmap(QSize(64,64), QIcon::Normal), QIcon::Disabled); // also set the disabled icon because we are using a disabled QPushButton to work around missing HiDPI support of QLabel (https://bugreports.qt.io/browse/QTBUG-42503)
