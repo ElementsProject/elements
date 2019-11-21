@@ -184,6 +184,10 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
     ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature);
     ui->labelImmatureText->setVisible(showImmature || showWatchOnlyImmature);
     ui->labelWatchImmature->setVisible(!walletModel->privateKeysDisabled() && showWatchOnlyImmature); // show watch-only immature balance
+
+    // Resize the QScrollArea content widget
+    QSize grid_size = ui->gridLayout->sizeHint();
+    ui->scrollAreaWidgetContents->setMinimumSize(grid_size);
 }
 
 // show/hide watch-only labels
