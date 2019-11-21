@@ -3029,6 +3029,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
             if (det->ignore_blind_failure) {
                 det->num_to_blind--;
                 det->change_to_blind--;
+                assert(det->only_change_pos != -1);
                 txNew.vout[det->only_change_pos].nNonce.SetNull();
                 det->o_pubkeys[det->only_change_pos] = CPubKey();
                 det->o_amount_blinds[det->only_change_pos] = uint256();
@@ -3359,24 +3360,26 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             }
 
                             vChangePosInOut[assetChange.first] = newPos;
+
+                            // Now that change placement is assured, put in place
+                            // blinding details
+                            if (blind_details) {
+                                CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
+                                blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], blind_pub);
+                                assert(blind_pub.IsFullyValid());
+                                blind_details->num_to_blind++;
+                                blind_details->change_to_blind++;
+                                blind_details->only_change_pos = vChangePosInOut[assetChange.first];
+                                // Place the blinding pubkey here in case of fundraw calls
+                                newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                            }
                         }
                         else if ((unsigned int)itPos->second > txNew.vout.size())
                         {
                             strFailReason = _("Change index out of range");
                             return false;
                         }
-
                         std::vector<CTxOut>::iterator position = txNew.vout.begin()+vChangePosInOut[assetChange.first];
-                        if (blind_details) {
-                            CPubKey blind_pub = GetBlindingPubKey(itScript->second.second);
-                            blind_details->o_pubkeys.insert(blind_details->o_pubkeys.begin() + vChangePosInOut[assetChange.first], blind_pub);
-                            assert(blind_pub.IsFullyValid());
-                            blind_details->num_to_blind++;
-                            blind_details->change_to_blind++;
-                            blind_details->only_change_pos = vChangePosInOut[assetChange.first];
-                            // Place the blinding pubkey here in case of fundraw calls
-                            newTxOut.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
-                        }
                         txNew.vout.insert(position, newTxOut);
                     }
                 }
