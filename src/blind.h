@@ -14,8 +14,8 @@
 #include <secp256k1_rangeproof.h>
 #include <secp256k1_surjectionproof.h>
 
-//! ELEMENTS: 36-bit rangeproof size
-static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
+//! ELEMENTS: 52-bit rangeproof size
+static const size_t DEFAULT_RANGEPROOF_SIZE = 4174;
 
 /*
  * Unblind a pair of confidential asset and value.
