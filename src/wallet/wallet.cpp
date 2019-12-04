@@ -1626,13 +1626,13 @@ int64_t CWalletTx::GetTxTime() const
 
 // Helper for producing a max-sized low-S low-R signature (eg 71 bytes)
 // or a max-sized low-S signature (e.g. 72 bytes) if use_max_sig is true
-bool CWallet::DummySignInput(CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, bool use_max_sig) const
+static bool DummySignInput(const SigningProvider* provider, CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, bool use_max_sig)
 {
     // Fill in dummy signatures for fee calculation.
     const CScript& scriptPubKey = txout.scriptPubKey;
     SignatureData sigdata;
 
-    if (!ProduceSignature(*this, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
+    if (!ProduceSignature(*provider, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
         return false;
     }
     UpdateTransaction(tx, nIn, sigdata);
@@ -1640,14 +1640,18 @@ bool CWallet::DummySignInput(CMutableTransaction& tx, const size_t nIn, const CT
 }
 
 // Helper for producing a bunch of max-sized low-S low-R signatures (eg 71 bytes)
-bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, bool use_max_sig) const
+bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, const CCoinControl* coin_control) const
 {
     // Fill in dummy signatures for fee calculation.
     int nIn = 0;
     for (const auto& txout : txouts)
     {
-        if (!DummySignInput(txNew, nIn, txout, use_max_sig)) {
-            return false;
+        // Use max sig if watch only inputs were used or if this particular input is an external input
+        bool use_max_sig = coin_control && (coin_control->fAllowWatchOnly || (coin_control && coin_control->IsExternalSelected(txNew.vin[nIn].prevout)));
+        if (!DummySignInput(this, txNew, nIn, txout, use_max_sig)) {
+            if (!coin_control || !DummySignInput(&coin_control->m_external_provider, txNew, nIn, txout, use_max_sig)) {
+                return false;
+            }
         }
 
         nIn++;
@@ -1655,28 +1659,33 @@ bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> 
     return true;
 }
 
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig)
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const CCoinControl* coin_control)
 {
     std::vector<CTxOut> txouts;
-    // Look up the inputs.  We should have already checked that this transaction
-    // IsAllFromMe(ISMINE_SPENDABLE), so every input should already be in our
-    // wallet, with a valid index into the vout array, and the ability to sign.
+    // Look up the inputs. The inputs are either in the wallet, or in coin_control.
     for (const CTxIn& input : tx.vin) {
         const auto mi = wallet->mapWallet.find(input.prevout.hash);
-        if (mi == wallet->mapWallet.end()) {
+        if (mi != wallet->mapWallet.end()) {
+            assert(input.prevout.n < mi->second.tx->vout.size());
+            txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
+        } else if (coin_control) {
+            CTxOut txout;
+            if (!coin_control->GetExternalOutput(input.prevout, txout)) {
+                return -1;
+            }
+            txouts.emplace_back(txout);
+        } else {
             return -1;
         }
-        assert(input.prevout.n < mi->second.tx->vout.size());
-        txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
     }
-    return CalculateMaximumSignedTxSize(tx, wallet, txouts, use_max_sig);
+    return CalculateMaximumSignedTxSize(tx, wallet, txouts, coin_control);
 }
 
 // txouts needs to be in the order of tx.vin
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, bool use_max_sig)
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, const CCoinControl* coin_control)
 {
     CMutableTransaction txNew(tx);
-    if (!wallet->DummySignTx(txNew, txouts, use_max_sig)) {
+    if (!wallet->DummySignTx(txNew, txouts, coin_control)) {
         // This should never happen, because IsAllFromMe(ISMINE_SPENDABLE)
         // implies that we can sign for every input.
         return -1;
@@ -1688,7 +1697,7 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, 
 {
     CMutableTransaction txn;
     txn.vin.push_back(CTxIn(COutPoint()));
-    if (!wallet->DummySignInput(txn, 0, txout, use_max_sig)) {
+    if (!DummySignInput(wallet, txn, 0, txout, use_max_sig)) {
         // This should never happen, because IsAllFromMe(ISMINE_SPENDABLE)
         // implies that we can sign for every input.
         return -1;
@@ -2690,8 +2699,18 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             }
             mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += amt;
             setPresetCoins.insert(CInputCoin(pcoin, outpoint.n));
-        } else
-            return false; // TODO: Allow non-wallet inputs
+        } else {
+            CTxOut txout;
+            if (coin_control.GetExternalOutput(outpoint, txout)) {
+                if (!txout.nValue.IsExplicit() || !txout.nAsset.IsExplicit()) {
+                    return false; // We can't get its value, so abort
+                }
+                mapValueFromPresetInputs[txout.nAsset.GetAsset()] += txout.nValue.GetAmount();
+                setPresetCoins.insert(CInputCoin(outpoint, txout));
+            } else {
+                return false;
+            }
+        }
     }
 
     // remove preset inputs from vCoins
@@ -2824,8 +2843,11 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     coinControl.ListSelected(vPresetInputs);
     for (const COutPoint& presetInput : vPresetInputs) {
         std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(presetInput.hash);
+        CTxOut txout;
         if (it != mapWallet.end()) {
             setAssets.insert(it->second.GetOutputAsset(presetInput.n));
+        } else if (coinControl.GetExternalOutput(presetInput, txout)) {
+            setAssets.insert(txout.nAsset.GetAsset());
         }
     }
 
@@ -3162,13 +3184,18 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 std::vector<COutPoint> vPresetInputs;
                 coin_control.ListSelected(vPresetInputs);
                 for (const COutPoint& presetInput : vPresetInputs) {
+                    CAsset asset;
                     std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(presetInput.hash);
-                    if (it == mapWallet.end()) {
+                    CTxOut txout;
+                    if (it != mapWallet.end()) {
+                         asset = it->second.GetOutputAsset(presetInput.n);
+                    } else if (coin_control.GetExternalOutput(presetInput, txout)) {
+                        asset = txout.nAsset.GetAsset();
+                    } else {
                         // Ignore this here, will fail more gracefully later.
                         continue;
                     }
 
-                    CAsset asset = it->second.GetOutputAsset(presetInput.n);
                     if (mapScriptChange.find(asset) != mapScriptChange.end()) {
                         // This asset already has a change script.
                         continue;
@@ -3509,9 +3536,9 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     }
                 }
 
-                nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly);
+                nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, &coin_control);
                 if (nBytes < 0) {
-                    strFailReason = _("Signing transaction failed");
+                    strFailReason = _("Missing solving data for estimating transaction size");
                     return false;
                 }
 

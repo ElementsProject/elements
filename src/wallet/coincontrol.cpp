@@ -19,5 +19,7 @@ void CCoinControl::SetNull()
     m_confirm_target.reset();
     m_signal_bip125_rbf.reset();
     m_fee_mode = FeeEstimateMode::UNSET;
+    m_external_txouts.clear();
+    m_external_provider = FlatSigningProvider();
 }
 

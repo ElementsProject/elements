@@ -6,7 +6,9 @@
 #define BITCOIN_WALLET_COINSELECTION_H
 
 #include <amount.h>
+#include <chainparams.h>
 #include <primitives/transaction.h>
+#include <primitives/bitcoin/transaction.h>
 #include <random.h>
 
 //! target minimum change amount
@@ -22,6 +24,41 @@ public:
     CInputCoin(const CWalletTx* wtx, unsigned int i);
 
     CInputCoin(const CWalletTx* wtx, unsigned int i, int input_bytes) : CInputCoin(wtx, i)
+    {
+        m_input_bytes = input_bytes;
+    }
+
+    CInputCoin(const COutPoint& outpoint_in, const CTxOut& txout_in)
+    {
+        outpoint = outpoint_in;
+        txout = txout_in;
+        if (txout.nValue.IsExplicit()) {
+            effective_value = txout_in.nValue.GetAmount();
+            value = txout.nValue.GetAmount();
+            asset = txout.nAsset.GetAsset();
+        } else {
+            effective_value = 0;
+        }
+    }
+
+    CInputCoin(const COutPoint& outpoint_in, const CTxOut& txout_in, int input_bytes) : CInputCoin(outpoint_in, txout_in)
+    {
+        m_input_bytes = input_bytes;
+    }
+
+    CInputCoin(const COutPoint& outpoint_in, const Sidechain::Bitcoin::CTxOut& txout_in)
+    {
+        outpoint = outpoint_in;
+        effective_value = txout_in.nValue;
+        txout.SetNull();
+        txout.scriptPubKey = txout_in.scriptPubKey;
+        txout.nValue.SetToAmount(txout_in.nValue);
+        txout.nAsset.SetToAsset(Params().GetConsensus().pegged_asset);
+        asset = Params().GetConsensus().pegged_asset;
+        value = txout_in.nValue;
+    }
+
+    CInputCoin(const COutPoint& outpoint_in, const Sidechain::Bitcoin::CTxOut& txout_in, int input_bytes) : CInputCoin(outpoint_in, txout_in)
     {
         m_input_bytes = input_bytes;
     }

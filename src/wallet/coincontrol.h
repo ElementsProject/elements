@@ -37,6 +37,8 @@ public:
     bool m_avoid_partial_spends;
     //! Fee estimation mode to control arguments to estimateSmartFee
     FeeEstimateMode m_fee_mode;
+    //! SigningProvider that has pubkeys and scripts to do spend size estimation for external inputs
+    FlatSigningProvider m_external_provider;
 
     CCoinControl()
     {
@@ -55,9 +57,40 @@ public:
         return (setSelected.count(output) > 0);
     }
 
+    bool IsExternalSelected(const COutPoint& output) const
+    {
+        return (m_external_txouts.count(output) > 0);
+    }
+
+    bool GetExternalOutput(const COutPoint& outpoint, CTxOut& txout) const
+    {
+        const auto ext_it = m_external_txouts.find(outpoint);
+        if (ext_it == m_external_txouts.end()) {
+            return false;
+        }
+        txout = ext_it->second;
+        return true;
+    }
+
     void Select(const COutPoint& output)
     {
         setSelected.insert(output);
+    }
+
+    void SelectExternal(const COutPoint& outpoint, const CTxOut& txout)
+    {
+        setSelected.insert(outpoint);
+        m_external_txouts.emplace(outpoint, txout);
+    }
+
+    void Select(const COutPoint& outpoint, const Sidechain::Bitcoin::CTxOut& txout_in)
+    {
+        setSelected.insert(outpoint);
+        CTxOut txout;
+        txout.scriptPubKey = txout_in.scriptPubKey;
+        txout.nValue.SetToAmount(txout_in.nValue);
+        txout.nAsset.SetToAsset(Params().GetConsensus().pegged_asset);
+        m_external_txouts.emplace(outpoint, txout);
     }
 
     void UnSelect(const COutPoint& output)
@@ -77,6 +110,7 @@ public:
 
 private:
     std::set<COutPoint> setSelected;
+    std::map<COutPoint, CTxOut> m_external_txouts;
 };
 
 #endif // BITCOIN_WALLET_COINCONTROL_H
