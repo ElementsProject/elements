@@ -1,0 +1,104 @@
+
+Context:
+
+[Correct re-export of Stock.bend.
+Russell O'Connor <roconnor@theorem.ca>**20181116071239
+ Ignore-this: 8532f2e2fe636869283de36e19ca7d75
+] 
+
+[Start version 2.0.
+roconnor@theorem.ca**20181112072734
+ Ignore-this: 7e7548cb6d9ef4b3b57229236dac16d6
+] 
+
+[TAG 1.2.4
+roconnor@theorem.ca**20181112064328
+ Ignore-this: 30806aa6f3959fc642899ab3c63dfbd9
+] 
+
+[Update source location to darcs hub.
+roconnor@theorem.ca**20181112064206
+ Ignore-this: f003492dfecc990d5afe62dbbec1f787
+] 
+
+[Update Stock module.
+roconnor@theorem.ca**20181112064002
+ Ignore-this: 614905adc853bcc0b14defdab7d9ab84
+] 
+
+[Add support for AdapterLike things: Adapters and Prisms.
+roconnor@theorem.ca**20181112013308
+ Ignore-this: dde36036bc2ff5db334827293abd9de9
+] 
+
+[Add support for Grates and GrateLike things: Resetter and Reviewer.
+roconnor@theorem.ca**20181110013530
+ Ignore-this: e1b6484e88b536f66d89b3f96fb4e655
+] 
+
+[Modernize the module import/export lists.
+roconnor@theorem.ca**20181108224619
+ Ignore-this: 545879eddd782104ac1c1fe658bc0b01
+ Now requires base 4.11.
+] 
+
+[Remove dependency on Data.Monoid.First and Data.Monoid.Last.
+roconnor@theorem.ca**20181108081228
+ Ignore-this: c739f820a2bb6f0d6b0c915ab3c8143f
+] 
+
+[Move backwards into Stock module.
+roconnor@theorem.ca**20181107015224
+ Ignore-this: e575e1f1143ee3790f3712c8463013bf
+] 
+
+[Change type variables to the s-t-a-b standard.
+roconnor@theorem.ca**20181107015013
+ Ignore-this: b6c1f92b36cf30f85872180dec9c0d47
+] 
+
+[Documentation correction.
+roconnor@theorem.ca**20181107014029
+ Ignore-this: 27868a94a60250007dba0f390894415a
+] 
+
+[Lens-family 1.2.4 release.
+roconnor@theorem.ca**20181014163621
+ Ignore-this: 9e7ba3e938d0469a7bab0f329a9c5f78
+] 
+
+[Add 'matching' function.
+roconnor@theorem.ca**20181014162552
+ Ignore-this: d386b7cb1b865cd9ddc946275288149c
+ Unlike 'firstOf', 'matching' can return a proof when it fails on a traversal.
+] 
+
+[Add Applicative import for wider compatability.
+roconnor@theorem.ca**20181014162501
+ Ignore-this: 88023cf33c4949b5fdcb106ad471ca8f
+] 
+
+[Correct lower bound on transformers library.
+roconnor@theorem.ca**20181014162405
+ Ignore-this: 615abab62d0160594021792dfa4c6bf9
+] 
+
+[Bump upperbounds on containers dependency
+roconnor@theorem.ca**20180927024644
+ Ignore-this: 3fedcbd5342b6953552f13a0950b4e6c
+] 
+
+[Remove duplicate description fields from cabal files.
+roconnor@theorem.ca**20180926023244
+ Ignore-this: 540f04b087194b8bce161db2514cd01a
+] 
+
+[Oops, forgot to update the CHANGELOG prior to the 1.2.2 release.
+roconnor@theorem.ca**20171008171034
+ Ignore-this: c6a09626fdb266a7c79256b81cb65d61
+] 
+
+[TAG 1.2.2
+roconnor@theorem.ca**20171008170734
+ Ignore-this: cb13f38afbf9219f06c0dd5f0ea57fea
+] 
