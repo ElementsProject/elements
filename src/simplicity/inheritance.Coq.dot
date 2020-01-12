@@ -1,0 +1,23 @@
+digraph {
+node [fontname=Courier,shape=box]
+rankdir="BT"
+
+Core
+Assertion->Core
+Primitive->Assertion
+Jet->Primitive
+Witness->Core
+AssertionWitness->Assertion
+AssertionWitness->Witness
+FullSimplicity->Jet
+FullSimplicity->AssertionWitness
+Delegation->Witness
+AssertionDelegation->AssertionWitness
+AssertionDelegation->Delegation
+FullSimplicityWithDelegation->FullSimplicity
+FullSimplicityWithDelegation->AssertionDelegation
+
+{rank=same; Assertion Witness}
+{rank=same; Primitive AssertionWitness Delegation}
+{rank=same; FullSimplicity AssertionDelegation}
+}

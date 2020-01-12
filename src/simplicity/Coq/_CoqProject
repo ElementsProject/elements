@@ -1,0 +1,23 @@
+-Q Simplicity Simplicity
+Simplicity/StaticAnalysis.v
+Simplicity/MerkleRoot.v
+Simplicity/Core.v
+Simplicity/Digest.v
+Simplicity/BitMachine.v
+Simplicity/Alg.v
+Simplicity/Word.v
+Simplicity/Primitive.v
+Simplicity/Ty.v
+Simplicity/SHA256.v
+Simplicity/Bit.v
+Simplicity/Primitive/Bitcoin.v
+Simplicity/Translate.v
+Simplicity/Delegation.v
+-Q Util Util
+Util/Monad.v
+Util/Thrist.v
+Util/List.v
+Util/Option.v
+Util/Arith.v
+Util/Monad/Reader.v
+Util/PackedClass.v
