@@ -359,25 +359,6 @@ const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
     return unsuitables;
 }
 
-
-const std::set<std::string> ArgsManager::GetUnrecognizedSections() const
-{
-    // Section names to be recognized in the config file.
-    static const std::set<std::string> available_sections{
-        CBaseChainParams::REGTEST,
-        CBaseChainParams::TESTNET,
-        CBaseChainParams::MAIN
-    };
-    std::set<std::string> diff;
-
-    LOCK(cs_args);
-    std::set_difference(
-        m_config_sections.begin(), m_config_sections.end(),
-        available_sections.begin(), available_sections.end(),
-        std::inserter(diff, diff.end()));
-    return diff;
-}
-
 void ArgsManager::SelectConfigNetwork(const std::string& network)
 {
     LOCK(cs_args);
