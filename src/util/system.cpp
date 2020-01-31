@@ -174,7 +174,7 @@ public:
      *  See also comments around ArgsManager::ArgsManager() below. */
     static inline bool UseDefaultSection(const ArgsManager& am, const std::string& arg) EXCLUSIVE_LOCKS_REQUIRED(am.cs_args)
     {
-        return (am.m_network == CBaseChainParams::MAIN || am.m_network_only_args.count(arg) == 0);
+        return (am.m_network == CBaseChainParams::DEFAULT || am.m_network_only_args.count(arg) == 0);
     }
 
     /** Convert regular argument into the network-specific setting */
@@ -336,7 +336,7 @@ const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
     if (m_network.empty()) return std::set<std::string> {};
 
     // if it's okay to use the default section for this network, don't worry
-    if (m_network == CBaseChainParams::MAIN) return std::set<std::string> {};
+    if (m_network == CBaseChainParams::DEFAULT) return std::set<std::string> {};
 
     for (const auto& arg : m_network_only_args) {
         std::pair<bool, std::string> found_result;
@@ -357,25 +357,6 @@ const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
         unsuitables.insert(arg);
     }
     return unsuitables;
-}
-
-
-const std::set<std::string> ArgsManager::GetUnrecognizedSections() const
-{
-    // Section names to be recognized in the config file.
-    static const std::set<std::string> available_sections{
-        CBaseChainParams::REGTEST,
-        CBaseChainParams::TESTNET,
-        CBaseChainParams::MAIN
-    };
-    std::set<std::string> diff;
-
-    LOCK(cs_args);
-    std::set_difference(
-        m_config_sections.begin(), m_config_sections.end(),
-        available_sections.begin(), available_sections.end(),
-        std::inserter(diff, diff.end()));
-    return diff;
 }
 
 void ArgsManager::SelectConfigNetwork(const std::string& network)
@@ -1001,7 +982,7 @@ std::string ArgsManager::GetChainName() const
     if (fTestNet)
         return CBaseChainParams::TESTNET;
 
-    std::string default_chain = "liquidv1";
+    std::string default_chain = CBaseChainParams::DEFAULT;
     return GetArg("-chain", default_chain);
 }
 

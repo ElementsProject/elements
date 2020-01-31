@@ -547,9 +547,11 @@ fs::path static StartupShortcutPath()
     std::string chain = gArgs.GetChainName();
     if (chain == CBaseChainParams::MAIN)
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
+    if (chain == CBaseChainParams::LIQUID1)
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Liquid.lnk";
     if (chain == CBaseChainParams::TESTNET) // Remove this special case when CBaseChainParams::TESTNET = "testnet4"
         return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (testnet).lnk";
-    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
+    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Elements (%s).lnk", chain);
 }
 
 bool GetStartOnSystemStartup()
@@ -630,7 +632,9 @@ fs::path static GetAutostartFilePath()
     std::string chain = gArgs.GetChainName();
     if (chain == CBaseChainParams::MAIN)
         return GetAutostartDir() / "bitcoin.desktop";
-    return GetAutostartDir() / strprintf("bitcoin-%s.lnk", chain);
+    if (chain == CBaseChainParams::LIQUID1)
+        return GetAutostartDir() / "liquid.desktop";
+    return GetAutostartDir() / strprintf("elements-%s.lnk", chain);
 }
 
 bool GetStartOnSystemStartup()
@@ -675,8 +679,10 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         optionFile << "Type=Application\n";
         if (chain == CBaseChainParams::MAIN)
             optionFile << "Name=Bitcoin\n";
+        else if (chain == CBaseChainParams::LIQUID1)
+            optionFile << "Name=Liquid\n";
         else
-            optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
+            optionFile << strprintf("Name=Elements (%s)\n", chain);
         optionFile << "Exec=" << pszExePath << strprintf(" -min -chain=%s\n", chain);
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
