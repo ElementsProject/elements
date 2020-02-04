@@ -50,6 +50,9 @@ Previous elements that have been integrated into Bitcoin:
 Elements deferred for additional research and standardization:
  * [Schnorr Signatures][schnorr-signatures]
 
+Additional RPC commands and parameters:
+* [RPC Docs](https://github.com/ElementsProject/elementsbp-api-reference/blob/master/api.md)
+
 License
 -------
 Elements is released under the terms of the MIT license. See [COPYING](COPYING) for more
