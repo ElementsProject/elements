@@ -225,6 +225,14 @@ class FedPegTest(BitcoinTestFramework):
 
         raw = parent.gettransaction(txid1)["hex"]
 
+        # Create a wallet in order to test that multi-wallet support works correctly for claimpegin
+        #   (Regression test for https://github.com/ElementsProject/elements/issues/812 .)
+        sidechain.createwallet("throwaway")
+        # Set up our sidechain RPCs to use the first wallet (with empty name). We do this by
+        #   overriding the RPC object in a hacky way, to avoid breaking a different hack on TestNode
+        #   that enables generate() to work despite the deprecation of the generate RPC.
+        sidechain.rpc = sidechain.get_wallet_rpc("")
+
         print("Attempting peg-ins")
         # First attempt fails the consensus check but gives useful result
         try:
