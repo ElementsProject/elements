@@ -1877,7 +1877,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     SetRPCWarmupFinished();
 
     // ELEMENTS:
-    uiInterface.InitMessage(_("Awaiting mainchain RPC warmup"));
     if (!MainchainRPCCheck(true)) { //Initial check only
         const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
         // We fail immediately if this node has RPC server enabled
