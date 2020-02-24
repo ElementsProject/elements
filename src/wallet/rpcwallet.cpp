@@ -6184,7 +6184,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         if (!pwallet->GetKeyFromPool(newKey)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         }
-        asset_dest = PKHash(newKey.GetID());
+        asset_dest = WitnessV0KeyHash(newKey.GetID());
         pwallet->SetAddressBook(asset_dest, "", "receive");
         asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
     }
@@ -6192,7 +6192,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         if (!pwallet->GetKeyFromPool(newKey)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         }
-        token_dest = PKHash(newKey.GetID());
+        token_dest = WitnessV0KeyHash(newKey.GetID());
         pwallet->SetAddressBook(token_dest, "", "receive");
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
@@ -6291,7 +6291,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
     if (!pwallet->GetKeyFromPool(newAssetKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    CTxDestination asset_dest = PKHash(newAssetKey.GetID());
+    CTxDestination asset_dest = WitnessV0KeyHash(newAssetKey.GetID());
     pwallet->SetAddressBook(asset_dest, "", "receive");
     CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
 
@@ -6300,7 +6300,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
     if (!pwallet->GetKeyFromPool(newTokenKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    CTxDestination token_dest = PKHash(newTokenKey.GetID());
+    CTxDestination token_dest = WitnessV0KeyHash(newTokenKey.GetID());
     pwallet->SetAddressBook(token_dest, "", "receive");
     CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 
