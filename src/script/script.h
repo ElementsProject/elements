@@ -184,6 +184,9 @@ enum opcodetype
     OP_DETERMINISTICRANDOM = 0xc0,
     OP_CHECKSIGFROMSTACK = 0xc1,
     OP_CHECKSIGFROMSTACKVERIFY = 0xc2,
+    OP_SHA256INITIALIZE = 0xc4,
+    OP_SHA256UPDATE = 0xc5,
+    OP_SHA256FINALIZE = 0xc6,
 
     // expansion
     OP_NOP1 = 0xb0,
@@ -203,7 +206,7 @@ enum opcodetype
 };
 
 // Maximum value that an opcode can be
-static const unsigned int MAX_OPCODE = OP_SUBSTR_LAZY; // 0xc3
+static const unsigned int MAX_OPCODE = OP_SHA256FINALIZE; // 0xc6
 
 const char* GetOpName(opcodetype opcode);
 

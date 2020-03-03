@@ -130,6 +130,9 @@ const char* GetOpName(opcodetype opcode)
     case OP_DETERMINISTICRANDOM    : return "OP_DETERMINISTICRANDOM";
     case OP_CHECKSIGFROMSTACK      : return "OP_CHECKSIGFROMSTACK";
     case OP_CHECKSIGFROMSTACKVERIFY: return "OP_CHECKSIGFROMSTACKVERIFY";
+    case OP_SHA256INITIALIZE       : return "OP_SHA256INITIALIZE";
+    case OP_SHA256UPDATE           : return "OP_SHA256UPDATE";
+    case OP_SHA256FINALIZE         : return "OP_SHA256FINALIZE";
 
     // expansion
     case OP_NOP1                   : return "OP_NOP1";
