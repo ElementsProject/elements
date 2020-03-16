@@ -178,8 +178,11 @@ bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vecto
     memcpy(asset_message+32, asset_blindptrs[asset_blindptrs.size()-1], 32);
 
     // Sign rangeproof
+    int ct_exponent = std::min(std::max((int)gArgs.GetArg("-ct_exponent", 0), -1), 18);
+    int ct_bits = (int)gArgs.GetArg("-ct_bits", 52);
     // If min_value is 0, scriptPubKey must be unspendable
-    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &nRangeProofLen, scriptPubKey.IsUnspendable() ? 0 : 1, &value_commit, value_blindptrs.back(), nonce.begin(), std::min(std::max((int)gArgs.GetArg("-ct_exponent", 0), -1),18), (int)gArgs.GetArg("-ct_bits", 51), amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
+    uint64_t min_value = scriptPubKey.IsUnspendable() ? 0 : 1;
+    int res = secp256k1_rangeproof_sign(secp256k1_blind_context, rangeproof.data(), &nRangeProofLen, min_value, &value_commit, value_blindptrs.back(), nonce.begin(), ct_exponent, ct_bits, amount, asset_message, sizeof(asset_message), scriptPubKey.size() ? &scriptPubKey.front() : NULL, scriptPubKey.size(), &gen);
     rangeproof.resize(nRangeProofLen);
     return (res == 1);
 }
