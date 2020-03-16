@@ -138,5 +138,37 @@ class WalletTest(BitcoinTestFramework):
         # getbalance with minconf=2 will show the new balance.
         assert_equal(self.nodes[1].getbalance(minconf=2)['bitcoin'], Decimal('0'))
 
+        # Balances of assets
+        for blind in [True, False]:
+            self.log.info("Testing {} issued asset balances".format("blinded" if blind else "unblinded"))
+            asset = self.nodes[0].issueasset(100, 0, blind)["asset"]
+
+            # Balances with unconfirmed issuance.
+            # They are indicated as confirmed because they are sent by the RPC and thus "trusted".
+            walletinfo = self.nodes[0].getwalletinfo()
+            assert_equal(walletinfo["balance"].get(asset, 0), Decimal('100'))
+            assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('0'))
+
+            # Balances with confirmed issuance.
+            self.nodes[0].generatetoaddress(1, RANDOM_COINBASE_ADDRESS)
+            walletinfo = self.nodes[0].getwalletinfo()
+            assert_equal(walletinfo["balance"].get(asset, 0), Decimal('100'))
+            assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('0'))
+
+            # Sending coins to other wallet.
+            self.nodes[0].sendtoaddress(address=self.nodes[1].getnewaddress(), amount="50", assetlabel=asset)
+            self.sync_all()
+
+            # Balances with unconfirmed receive
+            walletinfo = self.nodes[1].getwalletinfo()
+            assert_equal(walletinfo["balance"].get(asset, 0), Decimal('0'))
+            assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('50'))
+
+            # Balances with confirmed receive
+            self.nodes[1].generatetoaddress(1, RANDOM_COINBASE_ADDRESS)
+            walletinfo = self.nodes[1].getwalletinfo()
+            assert_equal(walletinfo["balance"].get(asset, 0), Decimal('50'))
+            assert_equal(walletinfo["unconfirmed_balance"].get(asset, 0), Decimal('0'))
+
 if __name__ == '__main__':
     WalletTest().main()
