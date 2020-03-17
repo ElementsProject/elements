@@ -273,7 +273,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         uint64_t max_value = 0;
         BOOST_CHECK(secp256k1_rangeproof_info(ctx, &exp, &mantissa, &min_value, &max_value, tx4.witness.vtxoutwit[2].vchRangeproof.data(), proof_size) == 1);
         BOOST_CHECK_EQUAL(exp, 0);
-        BOOST_CHECK_EQUAL(mantissa, 52); // 36 bit default
+        BOOST_CHECK_EQUAL(mantissa, 52); // 52 bit default
         BOOST_CHECK_EQUAL(min_value, 1);
         BOOST_CHECK_EQUAL(max_value, 4503599627370496);
     }
