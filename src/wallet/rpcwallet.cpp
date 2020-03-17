@@ -4970,8 +4970,7 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
         throw std::runtime_error(
             RPCHelpMan{"getpeginaddress",
                 "\nReturns information needed for claimpegin to move coins to the sidechain.\n"
-                "The user should send coins from their Bitcoin wallet to the mainchain_address returned.\n"
-                "IMPORTANT: Like getaddress, getpeginaddress adds new secrets to wallet.dat, necessitating backup on a regular basis.\n",
+                "The user should send coins from their Bitcoin wallet to the mainchain_address returned.\n",
                 {},
                 RPCResult{
             "\"mainchain_address\"           (string) Mainchain Bitcoin deposit address to send bitcoin to\n"
