@@ -15,8 +15,8 @@
 #include <secp256k1_surjectionproof.h>
 
 //! ELEMENTS:
-// 36-bit rangeproof size
-static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
+// 52-bit rangeproof size
+static const size_t DEFAULT_RANGEPROOF_SIZE = 4174;
 // 32 bytes of asset type, 32 bytes of asset blinding factor in sidechannel
 static const size_t SIDECHANNEL_MSG_SIZE = 64;
 

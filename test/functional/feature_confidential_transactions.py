@@ -381,7 +381,9 @@ class CTTest (BitcoinTestFramework):
 
         # Send some bitcoin and other assets over as well to fund wallet
         addr = self.nodes[2].getnewaddress()
-        self.nodes[0].sendtoaddress(addr, 5)
+        txid = self.nodes[0].sendtoaddress(addr, 5)
+        # Make sure we're doing 52 bits of hiding which covers 21M BTC worth
+        assert_equal(self.nodes[0].getrawtransaction(txid, 1)["vout"][0]["ct-bits"], 52)
         self.nodes[0].sendmany("", {addr: 1, self.nodes[2].getnewaddress(): 13}, 0, "", [], False, 1, "UNSET", {addr: test_asset})
 
         self.sync_all()
