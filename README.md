@@ -51,7 +51,7 @@ Elements deferred for additional research and standardization:
  * [Schnorr Signatures][schnorr-signatures]
 
 Additional RPC commands and parameters:
-* [RPC Docs](https://github.com/ElementsProject/elementsbp-api-reference/blob/master/api.md)
+* [RPC Docs](https://elementsproject.org/en/doc/)
 
 License
 -------
