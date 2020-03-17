@@ -16,7 +16,7 @@ def process_raw_issuance(node, issuance_list):
         raise Exception('Issuance list too long')
     # Make enough outputs for any subsequent spend
     next_destinations = {}
-    output_values = (node.getbalance()['bitcoin']-1)/5
+    output_values = Decimal('%.8f' % ((node.getbalance()['bitcoin']-1)/5))
     for i in range(5):
         next_destinations[node.getnewaddress()] = output_values
 
@@ -382,7 +382,7 @@ class IssuanceTest(BitcoinTestFramework):
                 assert_equal(blinded_multisig, self.nodes[0].getaddressinfo(utxo_info["address"])["confidential"])
                 break
         assert(utxo_info is not None)
-        assert(utxo_info["amountblinder"] is not "0000000000000000000000000000000000000000000000000000000000000000")
+        assert(utxo_info["amountblinder"] != "0000000000000000000000000000000000000000000000000000000000000000")
 
         # Now make transaction spending that input
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
