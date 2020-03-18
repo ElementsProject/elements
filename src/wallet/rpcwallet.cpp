@@ -4984,6 +4984,19 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor must be a ranged descriptor.");
     }
 
+    // Check if we can actually generate addresses(catches hardened derivation steps etc) before
+    // writing to cache
+    UniValue address_list(UniValue::VARR);
+    for (int i = counter; i < counter+3; i++) {
+        std::vector<CScript> scripts;
+        if (!desc->Expand(i, provider, scripts, provider)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. Are there hardened derivations after the xpub?");
+        }
+        CTxDestination destination;
+        ExtractDestination(scripts[0], destination);
+        address_list.push_back(EncodeParentDestination(destination));
+    }
+
     // For our manual pattern matching, we don't want the checksum part.
     auto checksum_char = bitcoin_desc.find('#');
     if (checksum_char != std::string::npos) {
@@ -5052,16 +5065,6 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     assert(len == 33);
     assert(negatedpubkeybytes.size() == 33);
 
-    UniValue address_list(UniValue::VARR);
-    for (int i = counter; i < counter+3; i++) {
-        std::vector<CScript> scripts;
-        if (!desc->Expand(i, provider, scripts, provider)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. This is a bug.");
-        }
-        CTxDestination destination;
-        ExtractDestination(scripts[0], destination);
-        address_list.push_back(EncodeParentDestination(destination));
-    }
     UniValue pak(UniValue::VOBJ);
     pak.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey));
     pak.pushKV("liquid_pak", HexStr(online_pubkey));
@@ -5418,6 +5421,12 @@ unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgr
 template<typename T_tx_ref, typename T_tx, typename T_merkle_block>
 static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef, T_tx& tx_aux, T_merkle_block& merkleBlock)
 {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
+        return NullUniValue;
+
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
             RPCHelpMan{"createrawpegin",
@@ -5440,9 +5449,6 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
             + HelpExampleRpc("createrawpegin", "\"0200000002b80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f000000006a473044022031ffe1d76decdfbbdb7e2ee6010e865a5134137c261e1921da0348b95a207f9e02203596b065c197e31bcc2f80575154774ac4e80acd7d812c91d93c4ca6a3636f27012102d2130dfbbae9bd27eee126182a39878ac4e117d0850f04db0326981f43447f9efeffffffb80a99d63ca943d72141750d983a3eeda3a5c5a92aa962884ffb141eb49ffb4f010000006b483045022100cf041ce0eb249ae5a6bc33c71c156549c7e5ad877ae39e2e3b9c8f1d81ed35060220472d4e4bcc3b7c8d1b34e467f46d80480959183d743dad73b1ed0e93ec9fd14f012103e73e8b55478ab9c5de22e2a9e73c3e6aca2c2e93cd2bad5dc4436a9a455a5c44feffffff0200e1f5050000000017a914da1745e9b549bd0bfa1a569971c77eba30cd5a4b87e86cbe00000000001976a914a25fe72e7139fd3f61936b228d657b2548b3936a88acc0020000\", \"00000020976e918ed537b0f99028648f2a25c0bd4513644fb84d9cbe1108b4df6b8edf6ba715c424110f0934265bf8c5763d9cc9f1675a0f728b35b9bc5875f6806be3d19cd5b159ffff7f2000000000020000000224eab3da09d99407cb79f0089e3257414c4121cb85a320e1fd0f88678b6b798e0713a8d66544b6f631f9b6d281c71633fb91a67619b189a06bab09794d5554a60105\", \"0014058c769ffc7d12c35cddec87384506f536383f9c\"")
                 },
             }.ToString());
-
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -5640,6 +5646,11 @@ UniValue createrawpegin(const JSONRPCRequest& request)
 
 UniValue claimpegin(const JSONRPCRequest& request)
 {
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp))
+        return NullUniValue;
 
     if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
@@ -5661,8 +5672,6 @@ UniValue claimpegin(const JSONRPCRequest& request)
                 },
             }.ToString());
 
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
     CTransactionRef tx_ref;
     CMutableTransaction mtx;
 
@@ -5673,8 +5682,17 @@ UniValue claimpegin(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Peg-ins cannot be completed during initial sync or reindexing.");
     }
 
+    // NOTE: Making an RPC from within another RPC is not generally a good idea. In particular, it
+    //   is necessary to copy the URI, which contains the wallet if one was given; otherwise
+    //   multi-wallet support will silently break. The resulting request object is still missing a
+    //   bunch of other fields, although they are usually not used by RPC handlers. This is a
+    //   brittle hack, and further examples of this pattern should not be introduced.
+
     // Get raw peg-in transaction
-    UniValue ret(createrawpegin(request));
+    JSONRPCRequest req;
+    req.URI = request.URI;
+    req.params = request.params;
+    UniValue ret(createrawpegin(req));  // See the note above, on why this is a bad idea.
 
     // Make sure it can be propagated and confirmed
     if (!ret["mature"].isNull() && ret["mature"].get_bool() == false) {
@@ -5682,11 +5700,12 @@ UniValue claimpegin(const JSONRPCRequest& request)
     }
 
     // Sign it
-    JSONRPCRequest request2;
+    JSONRPCRequest req2;
+    req2.URI = request.URI;
     UniValue varr(UniValue::VARR);
     varr.push_back(ret["hex"]);
-    request2.params = varr;
-    UniValue result = signrawtransactionwithwallet(request2);
+    req2.params = varr;
+    UniValue result = signrawtransactionwithwallet(req2);  // See the note above, on why this is a bad idea.
 
     if (!DecodeHexTx(mtx, result["hex"].get_str(), false, true)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
@@ -6168,7 +6187,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         if (!pwallet->GetKeyFromPool(newKey)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         }
-        asset_dest = PKHash(newKey.GetID());
+        asset_dest = WitnessV0KeyHash(newKey.GetID());
         pwallet->SetAddressBook(asset_dest, "", "receive");
         asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
     }
@@ -6176,7 +6195,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         if (!pwallet->GetKeyFromPool(newKey)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
         }
-        token_dest = PKHash(newKey.GetID());
+        token_dest = WitnessV0KeyHash(newKey.GetID());
         pwallet->SetAddressBook(token_dest, "", "receive");
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
@@ -6275,7 +6294,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
     if (!pwallet->GetKeyFromPool(newAssetKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    CTxDestination asset_dest = PKHash(newAssetKey.GetID());
+    CTxDestination asset_dest = WitnessV0KeyHash(newAssetKey.GetID());
     pwallet->SetAddressBook(asset_dest, "", "receive");
     CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
 
@@ -6284,7 +6303,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
     if (!pwallet->GetKeyFromPool(newTokenKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    CTxDestination token_dest = PKHash(newTokenKey.GetID());
+    CTxDestination token_dest = WitnessV0KeyHash(newTokenKey.GetID());
     pwallet->SetAddressBook(token_dest, "", "receive");
     CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 

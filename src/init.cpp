@@ -591,7 +591,7 @@ void SetupServerArgs()
     gArgs.AddArg("-feeasset=<hex>", strprintf("Asset ID (hex) for mempool/relay fees (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-subsidyasset=<hex>", strprintf("Asset ID (hex) for the block subsidy (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-initialreissuancetokens=<n>", "The amount of reissuance tokens created in the genesis block. (default: 0)", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-ct_bits", strprintf("The default number of hiding bits in a rangeproof. Will be exceeded to cover amounts exceeding the maximum hiding value. (default: %d)", 36), false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-ct_bits", strprintf("The default number of hiding bits in a rangeproof. Will be exceeded to cover amounts exceeding the maximum hiding value. (default: %d)", 52), false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-ct_exponent", strprintf("The hiding exponent. (default: %s)", 0), false, OptionsCategory::CHAINPARAMS);
 
     // Add the hidden options
@@ -1877,7 +1877,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     SetRPCWarmupFinished();
 
     // ELEMENTS:
-    uiInterface.InitMessage(_("Awaiting mainchain RPC warmup"));
     if (!MainchainRPCCheck(true)) { //Initial check only
         const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
         // We fail immediately if this node has RPC server enabled
