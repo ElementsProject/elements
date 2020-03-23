@@ -16,7 +16,7 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         # First node doesn't connect coinbase output to db, second does
-        self.extra_args = [["-con_connect_genesis_outputs=0", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN)],
+        self.extra_args = [["-con_connect_genesis_outputs=0", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-txindex=1'],
                            ["-con_connect_genesis_outputs=1", "-initialfreecoins={}".format(NUM_INITIAL_COINS * COIN), '-anyonecanspendaremine=1']]
 
     def skip_test_if_missing_module(self):
@@ -49,15 +49,22 @@ class ConnectGenesisTest(BitcoinTestFramework):
         assert_equal(unspent[0]["amount"], NUM_INITIAL_COINS)
         assert_equal(unspent[0]["confirmations"], 1)
 
-        # Test rpc getraw functionality
+        # Test rpc getraw functionality.
 
-        # Coinbase transaction is provably unspendable (OP_RETURN), so even AddCoin won't add it
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, coinbase_tx)
+        # Node 0 has txindex.
+        self.nodes[0].getrawtransaction(coinbase_tx, False)
+        self.nodes[0].getrawtransaction(issuance_tx, False)
+
+        # Node 1 doesn't.
         assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, coinbase_tx)
-
-        # Issuance transaction is an OP_TRUE, so will be available to second node
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, issuance_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, issuance_tx)
+        # But it can still access them by providing the genesis block hash.
+        self.nodes[1].getrawtransaction(coinbase_tx, False, self.nodes[0].getblockhash(0))
         self.nodes[1].getrawtransaction(issuance_tx, False, self.nodes[0].getblockhash(0))
+
+        # Because the issuance tx is OP_TRUE, node 1 (with anyonecanspendaremine) has them in the wallet.
+        assert_raises_rpc_error(-5, "Invalid or non-wallet transaction id", self.nodes[0].gettransaction, issuance_tx)
+        self.nodes[1].gettransaction(issuance_tx)
 
 if __name__ == '__main__':
     ConnectGenesisTest().main()
