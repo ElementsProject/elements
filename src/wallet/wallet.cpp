@@ -3194,6 +3194,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 change_prototype_txout.nAsset.vchCommitment.resize(33);
                 coin_selection_params.change_output_size = GetSerializeSize(change_prototype_txout);
                 coin_selection_params.change_output_size += DEFAULT_RANGEPROOF_SIZE/WITNESS_SCALE_FACTOR;
+                coin_selection_params.change_output_size += SURJECTION_PROOF_SIZE/WITNESS_SCALE_FACTOR;
             }
 
             CFeeRate discard_rate = GetDiscardRate(*this, ::feeEstimator);
@@ -3237,6 +3238,14 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
                 // vouts to the payees
                 coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
+
+                // Account for the fee output in the tx.
+                if (g_con_elementsmode) {
+                    CTxOut fee(::policyAsset, nFeeRet, CScript());
+                    assert(fee.IsFee());
+                    coin_selection_params.tx_noinputs_size += ::GetSerializeSize(fee, PROTOCOL_VERSION);
+                }
+
                 for (const CRecipient& recipient : vecSend)
                 {
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
@@ -3258,8 +3267,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             txout.nValue = txout.nValue.GetAmount() - nFeeRet % nSubtractFeeFromAmount;
                         }
                     }
-                    // Include the fee cost for outputs. Note this is only used for BnB right now
-                    coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
                     // ELEMENTS: Core's logic isn't great here. We should be computing
                     // cost of making output + future spend. We're not as concerned
                     // about dust anyways, so let's focus upstream.
@@ -3276,12 +3283,18 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             strFailReason = _("Transaction amount too small");
                         return false;
                     }
+
+                    // Include the fee cost for outputs. Note this is only used for BnB right now
+                    coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
                     txNew.vout.push_back(txout);
+
                     if (blind_details) {
                         blind_details->o_pubkeys.push_back(recipient.confidentiality_key);
                         if (blind_details->o_pubkeys.back().IsFullyValid()) {
                             blind_details->num_to_blind++;
                             blind_details->only_recipient_blind_index = txNew.vout.size()-1;
+                            coin_selection_params.tx_noinputs_size += DEFAULT_RANGEPROOF_SIZE/WITNESS_SCALE_FACTOR;
+                            coin_selection_params.tx_noinputs_size += SURJECTION_PROOF_SIZE/WITNESS_SCALE_FACTOR;
                         }
                     }
                 }
