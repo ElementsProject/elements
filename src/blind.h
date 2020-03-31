@@ -61,6 +61,4 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
  */
 void RawFillBlinds(CMutableTransaction& tx, std::vector<uint256>& output_value_blinds, std::vector<uint256>& output_asset_blinds, std::vector<CPubKey>& output_pubkeys);
 
-size_t GetNumIssuances(const CTransaction& tx);
-
 #endif //BITCOIN_BLIND_H

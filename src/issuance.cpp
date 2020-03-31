@@ -4,6 +4,22 @@
 #include <primitives/transaction.h>
 #include <amount.h>
 
+size_t GetNumIssuances(const CTransaction& tx)
+{
+    unsigned int num_issuances = 0;
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        if (!tx.vin[i].assetIssuance.IsNull()) {
+            if (!tx.vin[i].assetIssuance.nAmount.IsNull()) {
+                num_issuances++;
+            }
+            if (!tx.vin[i].assetIssuance.nInflationKeys.IsNull()) {
+                num_issuances++;
+            }
+        }
+    }
+    return num_issuances;
+}
+
 void GenerateAssetEntropy(uint256& entropy, const COutPoint& prevout, const uint256& contracthash)
 {
     // E : entropy

@@ -8,6 +8,11 @@
 #include <consensus/merkle.h>
 
 /**
+ * Get the number of issuances in the given transaction.
+ */
+size_t GetNumIssuances(const CTransaction& tx);
+
+/**
  * Calculate the asset entropy from an COutPoint and a tx-author specified
  * Ricardian contract. See Definition 18 of the confidential assets paper.
  *
