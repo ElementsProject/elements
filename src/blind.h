@@ -17,6 +17,8 @@
 //! ELEMENTS:
 // 52-bit rangeproof size
 static const size_t DEFAULT_RANGEPROOF_SIZE = 4174;
+// constant-size surjection proof
+static const size_t SURJECTION_PROOF_SIZE = 67;
 // 32 bytes of asset type, 32 bytes of asset blinding factor in sidechannel
 static const size_t SIDECHANNEL_MSG_SIZE = 64;
 

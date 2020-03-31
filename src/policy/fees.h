@@ -174,8 +174,8 @@ private:
      * invalidates old estimates files. So leave it at 1000 unless it becomes
      * necessary to lower it, and then lower it substantially.
      */
-    static constexpr double MIN_BUCKET_FEERATE = 1000;
-    static constexpr double MAX_BUCKET_FEERATE = 1e7;
+    static constexpr double MIN_BUCKET_FEERATE = 100;
+    static constexpr double MAX_BUCKET_FEERATE = 1e6;
 
     /** Spacing of FeeRate buckets
      * We have to lump transactions into buckets based on feerate, but we want to be able
