@@ -180,7 +180,7 @@ bool GenerateRangeproof(std::vector<unsigned char>& rangeproof, const std::vecto
     memcpy(asset_message+32, asset_blindptrs[asset_blindptrs.size()-1], 32);
 
     // Sign rangeproof
-    int ct_exponent = std::min(std::max((int)gArgs.GetArg("-ct_exponent", 0), -1), 18);
+    int ct_exponent = (int)gArgs.GetArg("-ct_exponent", 0);
     int ct_bits = (int)gArgs.GetArg("-ct_bits", 52);
     // If min_value is 0, scriptPubKey must be unspendable
     uint64_t min_value = scriptPubKey.IsUnspendable() ? 0 : 1;
