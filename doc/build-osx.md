@@ -20,9 +20,9 @@ Dependencies
 
 See [dependencies.md](dependencies.md) for a complete overview.
 
-If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG:
+If you want to build the disk image with `make deploy` (.dmg / optional), you need image manipulation tools:
 
-    brew install librsvg
+    brew install librsvg libicns imagemagick
 
 Berkeley DB
 -----------
