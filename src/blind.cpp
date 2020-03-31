@@ -226,8 +226,8 @@ int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const 
 {
     // Sanity check input data and output_pubkey size, clear other output data
     assert(tx.vout.size() >= output_pubkeys.size());
-    assert(tx.vin.size()+GetNumIssuances(CTransaction(tx)) >= issuance_blinding_privkey.size());
-    assert(tx.vin.size()+GetNumIssuances(CTransaction(tx)) >= token_blinding_privkey.size());
+    assert(tx.vin.size() >= issuance_blinding_privkey.size());
+    assert(tx.vin.size() >= token_blinding_privkey.size());
     out_val_blind_factors.clear();
     out_val_blind_factors.resize(tx.vout.size());
     out_asset_blind_factors.clear();
