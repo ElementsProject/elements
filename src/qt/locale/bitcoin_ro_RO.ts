@@ -857,8 +857,8 @@
         <translation>Aproximativ %1 GB de date vor fi stocate in acest director.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 va descarca si stoca o copie a blockchainului Bitcoin</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 va descarca si stoca o copie a blockchainului %2.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

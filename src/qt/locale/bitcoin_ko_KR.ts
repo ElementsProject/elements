@@ -913,8 +913,8 @@
         <translation>약 %1 GB의 데이터가 이 디렉토리에 저장됩니다.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1은 비트코인 블록체인의 사본을 다운로드하여 저장합니다.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1은 %2 블록 체인의 사본을 다운로드하여 저장합니다.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
