@@ -149,8 +149,7 @@ Intro::Intro(QWidget *parent, uint64_t blockchain_size, uint64_t chain_state_siz
     }
     requiredSpace += m_chain_state_size;
     ui->sizeWarningLabel->setText(
-        //ELEMENTS: the Bitcoin mention is removed here which breaks translations
-        tr("%1 will download and store a copy of the block chain.").arg(tr(PACKAGE_NAME)) + " " +
+        tr("%1 will download and store a copy of the %2 block chain.").arg(tr(PACKAGE_NAME)).arg(tr("Liquid")) + " " +
         storageRequiresMsg.arg(requiredSpace) + " " +
         tr("The wallet will also be stored in this directory.")
     );

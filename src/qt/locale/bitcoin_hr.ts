@@ -872,8 +872,8 @@
         <translation>Otprilike %1 GB podataka bit će spremljeno u ovoj mapi.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 preuzet će i pohraniti kopiju Bitcoinovog lanca blokova.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 preuzet će i pohraniti kopiju %2ovog lanca blokova.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

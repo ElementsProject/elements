@@ -873,8 +873,8 @@
         <translation>おおむね%1GBのデータがこのディレクトリに保存されます。</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1はBitcoinのブロックチェーンの複製をダウンロードし保存します。</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1は%2のブロックチェーンの複製をダウンロードし保存します。</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

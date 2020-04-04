@@ -844,8 +844,8 @@
         <translation>Aproximadamente %1 GB de información será almacenado en este directorio.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 descargará y almacenará una copia del blockchain de Bitcoin.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 descargará y almacenará una copia del blockchain de %2.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
