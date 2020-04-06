@@ -865,8 +865,8 @@
         <translation>Verranno salvati circa %1 GB di dati in questa cartella.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 scaricherà e salverà una copia della block chain di Bitcoin.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 scaricherà e salverà una copia della block chain di %2.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

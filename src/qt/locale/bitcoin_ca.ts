@@ -873,8 +873,8 @@
         <translation>Aproximadament %1 GB de dades s'emmagatzemaran en aquest directori.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 descarregarà i emmagatzemarà una còpia de la cadena de blocs Bitcoin.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 descarregarà i emmagatzemarà una còpia de la cadena de blocs %2.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
