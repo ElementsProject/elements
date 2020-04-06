@@ -16,6 +16,8 @@
 
 //! ELEMENTS: 52-bit rangeproof size
 static const size_t DEFAULT_RANGEPROOF_SIZE = 4174;
+// constant-size surjection proof
+static const size_t SURJECTION_PROOF_SIZE = 67;
 
 /*
  * Unblind a pair of confidential asset and value.
