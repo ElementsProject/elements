@@ -877,8 +877,8 @@
         <translation>Noin %1 GB tietoa varastoidaan tähän hakemistoon.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 lataa ja tallentaa kopion Bitcoinin lohkoketjusta.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 lataa ja tallentaa kopion %2in lohkoketjusta.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

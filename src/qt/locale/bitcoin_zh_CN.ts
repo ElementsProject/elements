@@ -908,8 +908,8 @@
         <translation>会在此目录中存储约 %1 GB 的数据。</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 将会下载并存储比特币区块链。</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

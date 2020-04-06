@@ -853,8 +853,8 @@
         <translation>מידע בנפח של כ-%1 ג׳יגה-בייט יאוחסן בתיקייה זו.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 תוריד ותאחסן עותק של שרשרת הבלוקים של ביטקוין.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>

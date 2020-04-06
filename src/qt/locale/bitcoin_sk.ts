@@ -913,7 +913,7 @@
         <translation>Približne %1 GB dát bude uložených v tejto zložke.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
         <translation>%1 bude sťahovať kopiu reťazca blokov.</translation>
     </message>
     <message>

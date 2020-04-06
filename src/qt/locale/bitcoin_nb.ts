@@ -897,8 +897,8 @@
         <translation>Omtrent %1GB data vil bli lagret i denne mappen.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 vil laste ned og lagre en kopi av Bitcoin blokkjeden.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 vil laste ned og lagre en kopi av %2 blokkjeden.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
