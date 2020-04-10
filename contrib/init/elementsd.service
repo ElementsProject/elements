@@ -1,47 +1,53 @@
 # It is not recommended to modify this file in-place, because it will
 # be overwritten during package upgrades. If you want to add further
 # options or overwrite existing ones then use
-# $ systemctl edit bitcoind.service
+# $ systemctl edit elementsd.service
 # See "man systemd.service" for details.
 
 # Note that almost all daemon options could be specified in
-# /etc/bitcoin/bitcoin.conf, except for those explicitly specified as arguments
-# in ExecStart=
+# /etc/elements/elements.conf, but keep in mind those explicitly
+# specified as arguments in ExecStart= will override those in the
+# config file.
 
 [Unit]
-Description=Bitcoin daemon
+Description=Elements daemon
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/bitcoind -daemon \
-                            -pid=/run/bitcoind/bitcoind.pid \
-                            -conf=/etc/bitcoin/bitcoin.conf \
-                            -datadir=/var/lib/bitcoind
+ExecStart=/usr/bin/elementsd -daemon \
+                            -pid=/run/elementsd/elementsd.pid \
+                            -conf=/etc/elements/elements.conf \
+                            -datadir=/var/lib/elementsd \
+
+# Make sure the config directory is readable by the service user
+PermissionsStartOnly=true
+ExecStartPre=/bin/chgrp elements /etc/elements
 
 # Process management
 ####################
 
 Type=forking
-PIDFile=/run/bitcoind/bitcoind.pid
+PIDFile=/run/elementsd/elementsd.pid
 Restart=on-failure
+TimeoutStopSec=600
 
 # Directory creation and permissions
 ####################################
 
-# Run as bitcoin:bitcoin
-User=bitcoin
-Group=bitcoin
+# Run as elements:elements
+User=elements
+Group=elements
 
-# /run/bitcoind
-RuntimeDirectory=bitcoind
+# /run/elementsd
+RuntimeDirectory=elementsd
 RuntimeDirectoryMode=0710
 
-# /etc/bitcoin
-ConfigurationDirectory=bitcoin
+# /etc/elements
+ConfigurationDirectory=elements
 ConfigurationDirectoryMode=0710
 
-# /var/lib/bitcoind
-StateDirectory=bitcoind
+# /var/lib/elementsd
+StateDirectory=elementsd
 StateDirectoryMode=0710
 
 # Hardening measures
@@ -52,6 +58,9 @@ PrivateTmp=true
 
 # Mount /usr, /boot/ and /etc read-only for the process.
 ProtectSystem=full
+
+# Deny access to /home, /root and /run/user
+ProtectHome=true
 
 # Disallow the process and all of its children to gain
 # new privileges through execve().
