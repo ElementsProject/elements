@@ -306,6 +306,9 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false, "value in != value out");
         }
         fee_map += GetFeeMap(tx);
+        if (!MoneyRange(fee_map)) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-block-total-fee-outofrange");
+        }
     } else {
         const CAmount value_out = tx.GetValueOutMap()[CAsset()];
         if (nValueIn < value_out) {
