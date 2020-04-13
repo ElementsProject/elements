@@ -169,6 +169,7 @@ BASE_SCRIPTS = [
     'rpc_invalidateblock.py',
     'feature_rbf.py',
     'mempool_packages.py',
+    'rpc_createrawtxoutputs.py',
     'rpc_createmultisig.py',
     # ELEMENTS: no versionbits in use
     #'feature_versionbits_warning.py',
