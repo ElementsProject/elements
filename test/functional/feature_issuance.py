@@ -290,6 +290,20 @@ class IssuanceTest(BitcoinTestFramework):
         # Default "blind" value is true, omitting explicit argument for last
         process_raw_issuance(self.nodes[0], [{"asset_amount": 1, "asset_address": nonblind_addr, "token_amount":2, "token_address":blind_addr, "blind":True}, {"asset_amount":3, "asset_address":nonblind_addr, "blind":True}, {"asset_amount":4, "asset_address":nonblind_addr, "token_amount":5, "token_address":blind_addr, "blind":True}, {"asset_amount":6, "asset_address":nonblind_addr, "token_amount":7, "token_address":blind_addr, "blind":True}, {"asset_amount":8, "asset_address":nonblind_addr, "token_amount":9, "token_address":blind_addr}])
 
+        # Make sure that invalid addresses are rejected.
+        valid_addr = self.nodes[0].getnewaddress()
+        raw_tx = self.nodes[0].createrawtransaction([], {valid_addr: Decimal("1")})
+        funded_tx = raw_tx #self.nodes[0].fundrawtransaction(raw_tx, {"feeRate": Decimal('0.00050000')})['hex']
+        assert_raises_rpc_error(-8, "Invalid asset address provided: foobar",
+                self.nodes[0].rawissueasset, funded_tx, [{"asset_amount": 1, "asset_address": "foobar"}])
+        assert_raises_rpc_error(-8, "Invalid token address provided: foobar",
+                self.nodes[0].rawissueasset, funded_tx, [{"token_amount": 1, "token_address": "foobar"}])
+        # Also test for missing value.
+        assert_raises_rpc_error(-8, "Invalid parameter, missing corresponding asset_address",
+                self.nodes[0].rawissueasset, funded_tx, [{"asset_amount": 1, "token_address": valid_addr}])
+        assert_raises_rpc_error(-8, "Invalid parameter, missing corresponding token_address",
+                self.nodes[0].rawissueasset, funded_tx, [{"token_amount": 1, "asset_address": valid_addr}])
+
         # Make sure contract hash is being interpreted as expected, resulting in different asset ids
         raw_tx = self.nodes[0].createrawtransaction([], {nonblind_addr:self.nodes[0].getbalance()['bitcoin']-1})
         funded_tx = self.nodes[0].fundrawtransaction(raw_tx)['hex']
