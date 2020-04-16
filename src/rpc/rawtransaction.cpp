@@ -2808,13 +2808,10 @@ struct RawIssuanceDetails
 
 // Appends a single issuance to the first input that doesn't have one, and includes
 // a single output per asset type in shuffled positions.
-void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const std::string& asset_address_str, const std::string& token_address_str, const bool blind_issuance, const uint256& contract_hash)
+void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const CTxDestination& asset_dest, const CTxDestination& token_dest, const bool blind_issuance, const uint256& contract_hash)
 {
-
-    CTxDestination asset_address(DecodeDestination(asset_address_str));
-    CTxDestination token_address(DecodeDestination(token_address_str));
-    CScript asset_destination = GetScriptForDestination(asset_address);
-    CScript token_destination = GetScriptForDestination(token_address);
+    CScript asset_script = GetScriptForDestination(asset_dest);
+    CScript token_script = GetScriptForDestination(token_dest);
 
     // Find an input with no issuance field
     size_t issuance_input_index = 0;
@@ -2848,29 +2845,30 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
     int asset_place = GetRandInt(mtx.vout.size()-1);
     int token_place = GetRandInt(mtx.vout.size()); // Don't bias insertion
 
-    CTxOut asset_out(asset, asset_amount, asset_destination);
-    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
-    if (IsBlindDestination(asset_address)) {
-        CPubKey asset_blind = GetDestinationBlindingKey(asset_address);
-        asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
+    assert(asset_amount > 0 || token_amount > 0);
+    if (asset_amount > 0) {
+        CTxOut asset_out(asset, asset_amount, asset_script);
+        // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
+        if (IsBlindDestination(asset_dest)) {
+            CPubKey asset_blind = GetDestinationBlindingKey(asset_dest);
+            asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
+        }
+
+        mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
     }
     // Explicit 0 is represented by a null value, don't set to non-null in that case
     if (blind_issuance || asset_amount != 0) {
         mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
     }
-    // Don't make zero value output(impossible by consensus)
-    if (asset_amount > 0) {
-        mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
-    }
 
-    CTxOut token_out(token, token_amount, token_destination);
-    // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
-    if (IsBlindDestination(token_address)) {
-        CPubKey token_blind = GetDestinationBlindingKey(token_address);
-        token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
-    }
-    // Explicit 0 is represented by a null value, don't set to non-null in that case
     if (token_amount > 0) {
+        CTxOut token_out(token, token_amount, token_script);
+        // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
+        if (IsBlindDestination(token_dest)) {
+            CPubKey token_blind = GetDestinationBlindingKey(token_dest);
+            token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
+        }
+
         mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
         mtx.vout.insert(mtx.vout.begin()+token_place, token_out);
     }
@@ -2878,11 +2876,9 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
 
 // Appends a single reissuance to the specified input if none exists,
 // and the corresponding output in a shuffled position. Errors otherwise.
-void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, const CAmount asset_amount, const std::string& asset_address_str, const uint256& asset_blinder, const uint256& entropy)
+void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, const CAmount asset_amount, const CTxDestination& asset_dest, const uint256& asset_blinder, const uint256& entropy)
 {
-
-    CTxDestination asset_address(DecodeDestination(asset_address_str));
-    CScript asset_destination = GetScriptForDestination(asset_address);
+    CScript asset_script = GetScriptForDestination(asset_dest);
 
     // Check if issuance already exists, error if already exists
     if ((size_t)issuance_input_index >= mtx.vin.size() || !mtx.vin[issuance_input_index].assetIssuance.IsNull()) {
@@ -2901,10 +2897,10 @@ void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, cons
     assert(mtx.vout.size() >= 1);
     int asset_place = GetRandInt(mtx.vout.size()-1);
 
-    CTxOut asset_out(asset, asset_amount, asset_destination);
+    CTxOut asset_out(asset, asset_amount, asset_script);
     // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
-    if (IsBlindDestination(asset_address)) {
-        CPubKey asset_blind = GetDestinationBlindingKey(asset_address);
+    if (IsBlindDestination(asset_dest)) {
+        CPubKey asset_blind = GetDestinationBlindingKey(asset_dest);
         asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
     }
     assert(asset_amount > 0);
@@ -2957,9 +2953,6 @@ UniValue rawissueasset(const JSONRPCRequest& request)
 
     UniValue issuances = request.params[1].get_array();
 
-    std::string asset_address_str = "";
-    std::string token_address_str = "";
-
     UniValue ret(UniValue::VARR);
 
     // Count issuances, only append hex to final one
@@ -2968,6 +2961,9 @@ UniValue rawissueasset(const JSONRPCRequest& request)
     for (unsigned int idx = 0; idx < issuances.size(); idx++) {
         const UniValue& issuance = issuances[idx];
         const UniValue& issuance_o = issuance.get_obj();
+
+        CTxDestination asset_dest = CNoDestination();
+        CTxDestination token_dest = CNoDestination();
 
         CAmount asset_amount = 0;
         const UniValue& asset_amount_uni = issuance_o["asset_amount"];
@@ -2980,7 +2976,10 @@ UniValue rawissueasset(const JSONRPCRequest& request)
             if (!asset_address_uni.isStr()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding asset_address");
             }
-            asset_address_str = asset_address_uni.get_str();
+            asset_dest = DecodeDestination(asset_address_uni.get_str());
+            if (boost::get<CNoDestination>(&asset_dest)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
+            }
         }
 
         CAmount token_amount = 0;
@@ -2994,8 +2993,12 @@ UniValue rawissueasset(const JSONRPCRequest& request)
             if (!token_address_uni.isStr()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing corresponding token_address");
             }
-            token_address_str = token_address_uni.get_str();
+            token_dest = DecodeDestination(token_address_uni.get_str());
+            if (boost::get<CNoDestination>(&token_dest)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid token address provided: %s", token_address_uni.get_str()));
+            }
         }
+
         if (asset_amount == 0 && token_amount == 0) {
             throw JSONRPCError(RPC_TYPE_ERROR, "Issuance must have one non-zero component");
         }
@@ -3012,7 +3015,7 @@ UniValue rawissueasset(const JSONRPCRequest& request)
 
         RawIssuanceDetails details;
 
-        issueasset_base(mtx, details, asset_amount, token_amount, asset_address_str, token_address_str, blind_issuance, contract_hash);
+        issueasset_base(mtx, details, asset_amount, token_amount, asset_dest, token_dest, blind_issuance, contract_hash);
         if (details.input_index == -1) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find enough blank inputs for listed issuances.");
         }
@@ -3096,7 +3099,10 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
         if (!asset_address_uni.isStr()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Reissuance missing asset_address");
         }
-        std::string asset_address_str = asset_address_uni.get_str();
+        CTxDestination asset_dest = DecodeDestination(asset_address_uni.get_str());
+        if (boost::get<CNoDestination>(&asset_dest)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
+        }
 
         int input_index = -1;
         const UniValue& input_index_o = issuance_o["input_index"];
@@ -3113,7 +3119,7 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
 
         uint256 entropy = ParseHashV(issuance_o["entropy"], "entropy");
 
-        reissueasset_base(mtx, input_index, asset_amount, asset_address_str, asset_blinder, entropy);
+        reissueasset_base(mtx, input_index, asset_amount, asset_dest, asset_blinder, entropy);
         if (input_index == -1) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Selected transaction input already has issuance data.");
         }
