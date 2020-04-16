@@ -718,7 +718,7 @@ EXTRA_DIST += $(RES_RENDERED_ICON_SRC) $(RES_ALL_RENDERED_ICONS)
 if CAN_RENDER_ICONS
 
 qt/res/rendered_icons/about.png: qt/res/rendered_icons/about.svg
-	$(RSVG_CONVERT) -f png -d 142 -p 142 < $< | $(IMAGEMAGICK_CONVERT) - -crop 64x78+0+31 -bordercolor transparent -border 7x0 -colorspace Gray -strip $@
+	$(RSVG_CONVERT) -f png -d 142 -p 142 < $< | $(IMAGEMAGICK_CONVERT) - -bordercolor transparent -colorspace Gray -strip $@
 
 qt/res/rendered_icons/about.svg: qt/res/src/bitcoin.svg
 	@$(MKDIR_P) $(@D)
@@ -739,14 +739,14 @@ qt/res/rendered_icons/bitcoin.ico: qt/res/rendered_icons/bitcoin32d8.gif $(patsu
 	$(IMAGEMAGICK_CONVERT) $^ $@
 
 qt/res/rendered_icons/bitcoin_testnet.ico: qt/res/rendered_icons/bitcoin.ico
-	$(IMAGEMAGICK_CONVERT) $^ -modulate 100,87,9 $@
+	$(IMAGEMAGICK_CONVERT) $^ $@
 
 qt/res/rendered_icons/nsis-wizard.svg: qt/res/src/bitcoin.svg
 	@$(MKDIR_P) $(@D)
 	sed '/fill="#000"/d' < $< > $@
 
 qt/res/rendered_icons/nsis-wizard.bmp: qt/res/rendered_icons/nsis-wizard.svg
-	$(RSVG_CONVERT) -f png -d 360 -p 360 < $< | $(IMAGEMAGICK_CONVERT) - -crop 164x290+0+35 -border 0x12 -strip BMP3:$@
+	$(RSVG_CONVERT) -f png -d 360 -p 360 < $< | $(IMAGEMAGICK_CONVERT) - -strip BMP3:$@
 
 endif
 
