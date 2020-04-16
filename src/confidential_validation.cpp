@@ -33,9 +33,12 @@ bool HasValidFee(const CTransaction& tx) {
             if (fee == 0 || !MoneyRange(fee))
                 return false;
             totalFee[tx.vout[i].nAsset.GetAsset()] += fee;
+            if (!MoneyRange(totalFee)) {
+                return false;
+            }
         }
     }
-    return MoneyRange(totalFee);
+    return true;
 }
 
 CAmountMap GetFeeMap(const CTransaction& tx) {
