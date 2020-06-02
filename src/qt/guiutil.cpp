@@ -59,9 +59,10 @@
 #if defined(Q_OS_MAC)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <QProcess>
 
-#include <objc/objc-runtime.h>
-#include <CoreServices/CoreServices.h>
+void ForceActivation();
+
 #endif
 
 namespace GUIUtil {
@@ -359,10 +360,7 @@ bool isObscured(QWidget *w)
 void bringToFront(QWidget* w)
 {
 #ifdef Q_OS_MAC
-    // Force application activation on macOS. With Qt 5.4 this is required when
-    // an action in the dock menu is triggered.
-    id app = objc_msgSend((id) objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
-    objc_msgSend(app, sel_registerName("activateIgnoringOtherApps:"), YES);
+    ForceActivation();
 #endif
 
     if (w) {
