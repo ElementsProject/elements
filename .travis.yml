@@ -65,13 +65,7 @@ jobs:
       script:
         - set -o errexit; source ./ci/lint/06_script.sh
 
-# Disabled due to new Travis restrictions; will be removed as part of 0.22 rebase
-#    - stage: test
-#      name: '32-bit + dash  [GOAL: install]  [CentOS 7]  [gui]'
-#      env: >-
-#        FILE_ENV="./ci/test/00_setup_env_i686_centos.sh"
-
     - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no wallet]'
+      name: '32-bit + dash  [GOAL: install]  [CentOS 8]  [gui]'
       env: >-
-        FILE_ENV="./ci/test/00_setup_env_native_nowallet.sh"
+        FILE_ENV="./ci/test/00_setup_env_i686_centos.sh"
