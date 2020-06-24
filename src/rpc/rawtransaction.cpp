@@ -2842,7 +2842,7 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
 
     // Place assets into randomly placed output slots, just insert in place
     // -1 due to fee output being at the end no matter what.
-    int asset_place = GetRandInt(mtx.vout.size()-1);
+    int asset_place = mtx.vout.size() > 1 ? GetRandInt(mtx.vout.size()-1) : 0;
     int token_place = GetRandInt(mtx.vout.size()); // Don't bias insertion
 
     assert(asset_amount > 0 || token_amount > 0);
@@ -2895,7 +2895,7 @@ void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, cons
 
     // Place assets into randomly placed output slots, before change output, inserted in place
     assert(mtx.vout.size() >= 1);
-    int asset_place = GetRandInt(mtx.vout.size()-1);
+    int asset_place = mtx.vout.size() > 1 ? GetRandInt(mtx.vout.size()-1) : 0;
 
     CTxOut asset_out(asset, asset_amount, asset_script);
     // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
