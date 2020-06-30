@@ -1159,9 +1159,10 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
 
     // Check the header
     const uint256 block_hash = block.GetHash();
+    CValidationState state;
     if (block_hash != consensusParams.hashGenesisBlock &&
-            !CheckProof(block, consensusParams)) {
-        return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+            !CheckProof(block, state, consensusParams)) {
+        return error("ReadBlockFromDisk: Errors in block header at %s: %s", pos.ToString(), FormatStateMessage(state));
     }
 
     return true;
@@ -3304,9 +3305,8 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
     // Check proof of work matches claimed amount
-    if (fCheckPOW && block.GetHash() != consensusParams.hashGenesisBlock
-            && !CheckProof(block, consensusParams)) {
-        return state.DoS(50, false, REJECT_INVALID, g_signed_blocks ? "block-proof-invalid" : "high-hash", false, "proof of work failed");
+    if (fCheckPOW && block.GetHash() != consensusParams.hashGenesisBlock) {
+        return CheckProof(block, state, consensusParams);
     }
     return true;
 }
@@ -3389,7 +3389,7 @@ bool IsNullDummyEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& 
 bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
 {
     LOCK(cs_main);
-    return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_DYNA_FED, versionbitscache) == ThresholdState::ACTIVE);
+    return VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_DYNA_FED, versionbitscache) == ThresholdState::ACTIVE;
 }
 
 // Compute at which vout of the block's coinbase transaction the witness

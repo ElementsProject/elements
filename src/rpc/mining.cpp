@@ -1189,7 +1189,8 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     ssBlock << block;
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", HexStr(ssBlock.begin(), ssBlock.end()));
-    result.pushKV("complete", CheckProof(block, params));
+    CValidationState state;  // ignored
+    result.pushKV("complete", CheckProof(block, state, params));
     return result;
 }
 

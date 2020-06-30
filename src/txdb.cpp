@@ -6,6 +6,7 @@
 #include <txdb.h>
 
 #include <chainparams.h>
+#include <consensus/validation.h>
 #include <hash.h>
 #include <random.h>
 #include <pow.h>
@@ -13,6 +14,7 @@
 #include <uint256.h>
 #include <util/system.h>
 #include <ui_interface.h>
+#include <validation.h>
 
 #include <stdint.h>
 
@@ -323,10 +325,11 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
 
                 const uint256 block_hash = pindexNew->GetBlockHash();
                 // Only validate one of every 1000 block header for sanity check
+                CValidationState state;
                 if (pindexNew->nHeight % 1000 == 0 &&
                         block_hash != consensusParams.hashGenesisBlock &&
-                        !CheckProof(pindexNew->GetBlockHeader(), consensusParams)) {
-                    return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
+                        !CheckProof(pindexNew->GetBlockHeader(), state, consensusParams)) {
+                    return error("%s: CheckProof: (%s, %s): %s", __func__, block_hash.ToString(), pindexNew->ToString(), FormatStateMessage(state));
                 }
                 pcursor->Next();
             } else {
