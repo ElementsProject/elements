@@ -3026,6 +3026,56 @@ static RPCHelpMan rawreissueasset()
     };
 }
 
+static RPCHelpMan calculateasset()
+{
+    return RPCHelpMan{"calculateasset",
+            "\nCalculate the asset tags and reissuance asset tags for a given prevout and contract hash\n",
+            {
+                {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Transaction id of the output that will be spent for this issuance."},
+                {"vout", RPCArg::Type::NUM, RPCArg::Optional::NO, "Output index of the output that will be spent for this issuance."},
+                {"asset_entropy", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "Additional asset entropy to be included in the asset tag. This is the contract hash."},
+                {"blind_reissuance", RPCArg::Type::STR_HEX, /* default */ "true", "Whether the reissuance asset tag will be blinded"},
+            },
+            RPCResult{
+                RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR_HEX, "asset_tag", "Calculated asset tag."},
+                    {RPCResult::Type::STR_HEX, "reissuance_asset_tag", "Asset tag for the reissuance tokens."},
+                    {RPCResult::Type::STR_HEX, "final_asset_entropy", "The calculated asset entropy that is needed for reissuance."},
+                },
+            },
+            RPCExamples{""},
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VNUM, UniValue::VSTR, UniValue::VBOOL}, true);
+
+    uint256 txid = ParseHashV(request.params[0], "txid");
+    uint32_t vout = request.params[1].get_int();
+
+    uint256 asset_entropy;
+    if (!request.params[2].isNull()) {
+        asset_entropy = ParseHashV(request.params[2], "asset_entropy");
+    }
+
+    bool blind_reissuance = request.params[3].isNull() ? true : request.params[3].get_bool();
+
+    uint256 entropy;
+    CAsset asset;
+    CAsset token;
+    COutPoint outpoint(txid, vout);
+    GenerateAssetEntropy(entropy, outpoint, asset_entropy);
+    CalculateAsset(asset, entropy);
+    CalculateReissuanceToken(token, entropy, blind_reissuance);
+
+    UniValue out(UniValue::VOBJ);
+    out.pushKV("asset_tag", asset.GetHex());
+    out.pushKV("reissuance_asset_tag", token.GetHex());
+    out.pushKV("final_asset_entropy", entropy.GetHex());
+    return out;
+},
+    };
+}
+
 // END ELEMENTS
 //
 
@@ -3058,6 +3108,7 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "rawissueasset",                &rawissueasset,             {"transaction","issuances"}},
     { "rawtransactions",    "rawreissueasset",              &rawreissueasset,           {"transaction","reissuances"}},
     { "rawtransactions",    "rawblindrawtransaction",       &rawblindrawtransaction,    {"hexstring","inputamountblinders","inputamounts","inputassets","inputassetblinders","totalblinder","ignoreblindfail"} },
+    { "rawtransactions",    "calculateasset",               &calculateasset,            {"txid", "vout", "asset_entropy", "blind_reissuance"} },
 };
 // clang-format on
     for (const auto& c : commands) {

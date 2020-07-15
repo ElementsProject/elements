@@ -324,22 +324,34 @@ class IssuanceTest(BitcoinTestFramework):
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"])
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
 
         # Again with 00..00 argument, which match the no-argument case
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"00"*32}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 1)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"], "00"*32)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
 
         # Random contract string should again differ
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeef"*8}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 2)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"], "deadbeef"*8)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
         issued_tx = self.nodes[2].rawissueasset(funded_tx, [{"asset_amount":1, "asset_address":nonblind_addr, "contract_hash":"deadbeee"*8}])[0]["hex"]
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 3)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][0]["txid"], decode_tx["vin"][0]["vout"], "deadbeee"*8)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][0]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][0]["issuance"]["asset"])
 
         # Finally, append an issuance on top of an already-"issued" raw tx
         # Same contract, different utxo being spent results in new asset type
@@ -348,6 +360,10 @@ class IssuanceTest(BitcoinTestFramework):
         decode_tx = self.nodes[0].decoderawtransaction(issued_tx)
         id_set.add(decode_tx["vin"][1]["issuance"]["asset"])
         assert_equal(len(id_set), 4)
+        calc_asset = self.nodes[0].calculateasset(decode_tx["vin"][1]["txid"], decode_tx["vin"][1]["vout"], None, False)
+        assert_equal(calc_asset["final_asset_entropy"], decode_tx["vin"][1]["issuance"]["assetEntropy"])
+        assert_equal(calc_asset["asset_tag"], decode_tx["vin"][1]["issuance"]["asset"])
+        assert_equal(calc_asset["reissuance_asset_tag"], decode_tx["vin"][1]["issuance"]["token"])
         # This issuance should not have changed
         id_set.add(decode_tx["vin"][0]["issuance"]["asset"])
         assert_equal(len(id_set), 4)
