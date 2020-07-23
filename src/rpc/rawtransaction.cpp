@@ -2964,11 +2964,11 @@ UniValue rawissueasset(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have at least one output.");
     }
     if (!mtx.vout[mtx.vout.size() - 1].IsFee()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have exactly one fee output, which must be last");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Last transaction output must be fee.");
     }
     for (size_t i = 0; i < mtx.vout.size() - 1; i++) {
         if (mtx.vout[i].IsFee()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have exactly one fee output, which must be last");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction can only have one fee output.");
         }
     }
 
@@ -3092,11 +3092,11 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
 
     // Validate fee output location, required by the implementation of reissueasset_base
     if (!mtx.vout[mtx.vout.size() - 1].IsFee()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have exactly one fee output, which must be last");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Last transaction output must be fee.");
     }
     for (size_t i = 0; i < mtx.vout.size() - 1; i++) {
         if (mtx.vout[i].IsFee()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have exactly one fee output, which must be last");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction can only have one fee output.");
         }
     }
 

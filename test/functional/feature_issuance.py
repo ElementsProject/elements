@@ -297,7 +297,7 @@ class IssuanceTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "Transaction must have at least one output.",
                 self.nodes[0].rawissueasset, raw_tx, [{"asset_amount": 1, "asset_address": valid_addr}])
         raw_tx = self.nodes[0].createrawtransaction([], {valid_addr: Decimal("1")})
-        assert_raises_rpc_error(-8, "Transaction must have exactly one fee output, which must be last",
+        assert_raises_rpc_error(-8, "Last transaction output must be fee.",
                 self.nodes[0].rawissueasset, raw_tx, [{"asset_amount": 1, "asset_address": valid_addr}])
 
         # Make sure that invalid addresses are rejected.
