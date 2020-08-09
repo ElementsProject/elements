@@ -28,7 +28,8 @@ packages:
 remotes:
 - "url": "https://github.com/ElementsProject/elements.git"
   "dir": "elements"
-files: []
+files:
+- "librsvg2-2_2.40.13-3_amd64.deb"
 script: |
   WRAP_DIR=$HOME/wrapped
   HOSTS="i686-w64-mingw32 x86_64-w64-mingw32"
