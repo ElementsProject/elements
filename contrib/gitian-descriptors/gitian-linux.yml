@@ -25,6 +25,7 @@ packages:
 - "git"
 - "icnsutils"
 - "imagemagick"
+- "librsvg2-2"
 - "librsvg2-bin"
 - "pkg-config"
 - "autoconf"
@@ -62,10 +63,6 @@ script: |
     export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
     mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
   fi
-
-  ls librsvg*.deb || wget http://mirrors.kernel.org/ubuntu/pool/main/libr/librsvg/librsvg2-2_2.40.13-3_amd64.deb
-  dpkg -x librsvg*.deb new-rsvg
-  export LD_LIBRARY_PATH="$(echo $PWD/new-rsvg/usr/lib/*/)"
 
   function create_global_faketime_wrappers {
   for prog in ${FAKETIME_PROGS}; do
