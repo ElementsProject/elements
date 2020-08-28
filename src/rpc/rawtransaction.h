@@ -13,6 +13,9 @@ namespace interfaces {
 class Chain;
 } // namespace interfaces
 
+/** Check that the blinder did not tamper with the values in a blinded PSBT. */
+void RPCCheckPSBTBlinding(const PartiallySignedTransaction& psbtx);
+
 /** Sign a transaction with the given keystore and previous transactions */
 UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxs, CBasicKeyStore *keystore, bool tempKeystore, const UniValue& hashType);
 
