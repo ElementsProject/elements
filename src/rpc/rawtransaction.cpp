@@ -71,6 +71,41 @@ static void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& 
     }
 }
 
+void RPCCheckPSBTBlinding(const PartiallySignedTransaction& psbtx) {
+    // Plausibly, we may want a way to let the user continue anyway. However, we
+    //   want to fail by default, to make it as hard as possible to do something
+    //   really dangerous. And since this way of handling blinded PSBTs is going
+    //   away "real soon now" in favor of a better one, no sense in trying too
+    //   hard about it.
+
+    for (size_t i = 0; i < psbtx.outputs.size(); ++i) {
+        const PSBTOutput& output = psbtx.outputs[i];
+        const CTxOut& txo = psbtx.tx->vout[i];
+
+        if (txo.nValue.IsCommitment() || txo.nAsset.IsCommitment()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "PSBT's 'tx' field may not have pre-blinded outputs.");
+        }
+
+        if (!output.value_commitment.IsCommitment() &&
+            !output.asset_commitment.IsCommitment() &&
+            output.value_blinding_factor.IsNull() &&
+            output.asset_blinding_factor.IsNull()) {
+            // Nothing blinded, nothing to check.
+            continue;
+        } else if (!output.value_commitment.IsCommitment() ||
+            !output.asset_commitment.IsCommitment() ||
+            output.value_blinding_factor.IsNull() ||
+            output.asset_blinding_factor.IsNull()) {
+            // Something blinded, but not everything? That's not expected.
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "PSBT has a partially-blinded output. Blinded outputs must be fully blinded.");
+        }
+
+        if (!VerifyConfidentialPair(output.value_commitment, output.asset_commitment, txo.nValue.GetAmount(), txo.nAsset.GetAsset(), output.value_blinding_factor, output.asset_blinding_factor)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "PSBT's 'tx' field output values do not match blinded output values (or are invalid in some way)! Either there is a bug, or the blinder is attacking you.");
+        }
+    }
+}
+
 static UniValue getrawtransaction(const JSONRPCRequest& request)
 {
     const RPCHelpMan help{
@@ -1572,6 +1607,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
+    RPCCheckPSBTBlinding(psbtx);
 
     UniValue result(UniValue::VOBJ);
 

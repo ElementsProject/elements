@@ -4464,6 +4464,7 @@ UniValue walletsignpsbt(const JSONRPCRequest& request)
     if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
+    RPCCheckPSBTBlinding(psbtx);
 
     // Get the sighash type
     int nHashType = ParseSighashString(request.params[1]);
