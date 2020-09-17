@@ -11,7 +11,7 @@
 #include <random.h>
 #include <util/system.h>
 
-static secp256k1_context* secp256k1_blind_context = NULL;
+secp256k1_context* secp256k1_blind_context = NULL;
 
 class Blind_ECC_Init {
 public:
