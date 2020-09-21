@@ -5294,7 +5294,6 @@ bool MainchainRPCCheck(const bool init)
 
     // Next, check for working and valid rpc
     if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
-        uiInterface.InitMessage(_("Awaiting mainchain RPC warmup"));
         // During init try until a non-RPC_IN_WARMUP result
         while (true) {
             try {
