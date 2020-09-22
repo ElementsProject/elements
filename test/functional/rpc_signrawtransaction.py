@@ -5,7 +5,7 @@
 """Test transaction signing using the signrawtransaction* RPCs."""
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_raises_rpc_error, bytes_to_hex_str, connect_nodes_bi, hex_str_to_bytes
 from test_framework.messages import sha256
 from test_framework.script import CScript, OP_0
 
@@ -14,12 +14,19 @@ from decimal import Decimal
 class SignRawTransactionsTest(BitcoinTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
-        self.num_nodes = 2
+        self.num_nodes = 3
         prefix_args = ["-pubkeyprefix=111", "-scriptprefix=196", "-secretprefix=239", "-extpubkeyprefix=043587CF", "-extprvkeyprefix=04358394", "-bech32_hrp=bcrt"]
-        self.extra_args = [["-deprecatedrpc=signrawtransaction"] + prefix_args, [] + prefix_args]
+        elements_args =  ["-blindedaddresses=1", "-initialfreecoins=2100000000000000", "-con_connect_genesis_outputs=1", "-anyonecanspendaremine=1", "-txindex=1"]
+        self.extra_args = [["-deprecatedrpc=signrawtransaction"] + prefix_args, [] + prefix_args, elements_args]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
+
+    def setup_network(self):
+        # Start with split network:
+        self.setup_nodes()
+        connect_nodes_bi(self.nodes, 0, 1)
+        self.sync_all([self.nodes[:2], self.nodes[2:]])
 
     def successful_signing_test(self):
         """Create and sign a valid raw transaction with one input.
@@ -157,7 +164,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.nodes[0].generate(101)
         self.nodes[0].sendtoaddress(p2sh_p2wsh_address["address"], 49.999)
         self.nodes[0].generate(1)
-        self.sync_all()
+        self.sync_all([self.nodes[:2]])
         # Find the UTXO for the transaction node[1] should have received, check witnessScript matches
         unspent_output = self.nodes[1].listunspent(0, 999999, [p2sh_p2wsh_address["address"]])[0]
         assert_equal(unspent_output["witnessScript"], p2sh_p2wsh_address["redeemScript"])
@@ -170,6 +177,74 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert 'complete' in spending_tx_signed
         assert_equal(spending_tx_signed['complete'], True)
 
+
+    def witness_blind_pubkey_test(self):
+        """Create and compare signatures in multiple ways for a valid raw transaction with one input.
+
+        Expected results:
+        1) The transaction has a complete set of signatures
+        2) No script verification error occurred
+        3) The signature of signrawtransactionwithwallet and
+           the signature of signrawtransactionwithkey are equal.
+        4) The signature of signrawtransactionwithwallet by inputs and
+           the signature of signrawtransactionwithwallet by utxos are equal.
+        5) The signed transaction can broadcast."""
+        utxo_address = self.nodes[2].getnewaddress('', 'bech32')
+        utxo_address_info = self.nodes[2].getaddressinfo(utxo_address)
+        uc_addr = utxo_address_info['unconfidential']
+        utxo_address_privkey = self.nodes[2].dumpprivkey(uc_addr)
+        utxo_script_pk = utxo_address_info['scriptPubKey']
+        utxo_amount = 0.1
+        utxo_txid = self.nodes[2].sendtoaddress(utxo_address, utxo_amount)
+        self.nodes[2].generate(1)
+
+        tx = self.nodes[2].getrawtransaction(utxo_txid, True)
+        vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr in v['scriptPubKey'].get('addresses',[])]
+        assert len(vout) == 1
+        utxo_vout = vout[0]
+        assert 'valuecommitment' in tx['vout'][utxo_vout]
+        utxo_amountcommitment = tx["vout"][utxo_vout]['valuecommitment']
+        assert len(utxo_amountcommitment) == 66
+
+        inputs = [{'txid': utxo_txid, 'vout': utxo_vout}]
+        outputs = [{utxo_address: 0.09998}, {'fee': 0.00002}]
+        raw_tx = self.nodes[2].createrawtransaction(inputs, outputs)
+        raw_blindtx = self.nodes[2].blindrawtransaction(raw_tx)
+
+        privkeys = [utxo_address_privkey]
+        scripts = [
+            {'txid': utxo_txid, 'vout': utxo_vout, 'scriptPubKey': utxo_script_pk,
+             'amountcommitment': utxo_amountcommitment},
+        ]
+        signed_tx = self.nodes[2].signrawtransactionwithkey(raw_blindtx, privkeys, scripts)
+        # 1) The transaction has a complete set of signatures
+        assert signed_tx['complete']
+        # 2) No script verification error occurred
+        assert 'errors' not in signed_tx
+
+        wallet_signed_tx = self.nodes[2].signrawtransactionwithwallet(raw_blindtx, scripts)
+        assert wallet_signed_tx['complete']
+        assert 'errors' not in wallet_signed_tx
+
+        wallet_signed_tx2 = self.nodes[2].signrawtransactionwithwallet(raw_blindtx)
+        assert wallet_signed_tx2['complete']
+        assert 'errors' not in wallet_signed_tx2
+
+        # 3) The signature of signrawtransactionwithwallet and
+        #    the signature of signrawtransactionwithkey are equal.
+        assert signed_tx['hex'] == wallet_signed_tx['hex']
+        # 4) The signature of signrawtransactionwithwallet by inputs and
+        #    the signature of signrawtransactionwithwallet by utxos are equal.
+        assert wallet_signed_tx['hex'] == wallet_signed_tx2['hex']
+
+        # 5) The signed transaction can broadcast.
+        txid = self.nodes[2].sendrawtransaction(signed_tx['hex'])
+        self.nodes[2].generate(1)
+
+        tx = self.nodes[2].getrawtransaction(txid, True)
+        vout = [v['n'] for v in tx['vout'] if 'scriptPubKey' in v and uc_addr in v['scriptPubKey'].get('addresses',[])]
+        assert len(vout) == 1
+
     def run_test(self):
         self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
         self.nodes[0].importprivkey("cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ")
@@ -178,6 +253,8 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.script_verification_error_test()
         self.witness_script_test()
         self.test_with_lock_outputs()
+
+        self.witness_blind_pubkey_test()
 
 
 if __name__ == '__main__':
