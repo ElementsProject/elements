@@ -883,9 +883,9 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
         // Not active yet.
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 1000000;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
 
         // Finally, create genesis block
