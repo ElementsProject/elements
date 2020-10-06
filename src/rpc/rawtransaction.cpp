@@ -2583,9 +2583,13 @@ struct RawIssuanceDetails
 };
 
 // Appends a single issuance to the first input that doesn't have one, and includes
-// a single output per asset type in shuffled positions.
+// a single output per asset type in shuffled positions. Requires at least one output
+// to exist (the fee output, which must be last).
 void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const CTxDestination& asset_dest, const CTxDestination& token_dest, const bool blind_issuance, const uint256& contract_hash)
 {
+    assert(asset_amount > 0 || token_amount > 0);
+    assert(mtx.vout.size() > 0);
+
     CScript asset_script = GetScriptForDestination(asset_dest);
     CScript token_script = GetScriptForDestination(token_dest);
 
@@ -2616,13 +2620,10 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
 
     mtx.vin[issuance_input_index].assetIssuance.assetEntropy = contract_hash;
 
-    // Place assets into randomly placed output slots, just insert in place
-    // -1 due to fee output being at the end no matter what.
-    int asset_place = GetRandInt(mtx.vout.size()-1);
-    int token_place = GetRandInt(mtx.vout.size()); // Don't bias insertion
-
-    assert(asset_amount > 0 || token_amount > 0);
     if (asset_amount > 0) {
+        // Fee output is required to be last. We will insert _before_ the selected position, which preserves that.
+        int asset_place = GetRandInt(mtx.vout.size());
+
         CTxOut asset_out(asset, asset_amount, asset_script);
         // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
         if (IsBlindDestination(asset_dest)) {
@@ -2638,6 +2639,9 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
     }
 
     if (token_amount > 0) {
+        // Calculate this _after_ we conditionally insert the asset output, which changes mtx.vout.size().
+        int token_place = GetRandInt(mtx.vout.size());
+
         CTxOut token_out(token, token_amount, token_script);
         // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
         if (IsBlindDestination(token_dest)) {
@@ -2650,17 +2654,16 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
     }
 }
 
-// Appends a single reissuance to the specified input if none exists,
-// and the corresponding output in a shuffled position. Errors otherwise.
-void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, const CAmount asset_amount, const CTxDestination& asset_dest, const uint256& asset_blinder, const uint256& entropy)
+// Appends a single reissuance to the specified input if none exists, and the
+// corresponding output in a shuffled position. Errors otherwise. Requires at
+// least one output to exist (the fee output, which must be last).
+void reissueasset_base(CMutableTransaction& mtx, size_t issuance_input_index, const CAmount asset_amount, const CTxDestination& asset_dest, const uint256& asset_blinder, const uint256& entropy)
 {
-    CScript asset_script = GetScriptForDestination(asset_dest);
+    assert(mtx.vout.size() > 0);
+    assert(asset_amount > 0);
+    assert(mtx.vin[issuance_input_index].assetIssuance.IsNull());
 
-    // Check if issuance already exists, error if already exists
-    if ((size_t)issuance_input_index >= mtx.vin.size() || !mtx.vin[issuance_input_index].assetIssuance.IsNull()) {
-        issuance_input_index = -1;
-        return;
-    }
+    CScript asset_script = GetScriptForDestination(asset_dest);
 
     CAsset asset;
     CalculateAsset(asset, entropy);
@@ -2670,8 +2673,7 @@ void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, cons
     mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
 
     // Place assets into randomly placed output slots, before change output, inserted in place
-    assert(mtx.vout.size() >= 1);
-    int asset_place = GetRandInt(mtx.vout.size()-1);
+    int asset_place = GetRandInt(mtx.vout.size());
 
     CTxOut asset_out(asset, asset_amount, asset_script);
     // If blinded address, insert the pubkey into the nonce field for later substitution by blinding
@@ -2679,7 +2681,6 @@ void reissueasset_base(CMutableTransaction& mtx, int& issuance_input_index, cons
         CPubKey asset_blind = GetDestinationBlindingKey(asset_dest);
         asset_out.nNonce.vchCommitment = std::vector<unsigned char>(asset_blind.begin(), asset_blind.end());
     }
-    assert(asset_amount > 0);
     mtx.vout.insert(mtx.vout.begin()+asset_place, asset_out);
     mtx.vin[issuance_input_index].assetIssuance.nAmount = asset_amount;
 }
@@ -2733,6 +2734,19 @@ UniValue rawissueasset(const JSONRPCRequest& request)
 
     // Count issuances, only append hex to final one
     unsigned int issuances_til_now = 0;
+
+    // Validate fee output location, required by the implementation of issueasset_base
+    if (mtx.vout.size() == 0){
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have at least one output.");
+    }
+    if (!mtx.vout[mtx.vout.size() - 1].IsFee()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Last transaction output must be fee.");
+    }
+    for (size_t i = 0; i < mtx.vout.size() - 1; i++) {
+        if (mtx.vout[i].IsFee()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction can only have one fee output.");
+        }
+    }
 
     for (unsigned int idx = 0; idx < issuances.size(); idx++) {
         const UniValue& issuance = issuances[idx];
@@ -2852,9 +2866,17 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction must have at least one output.");
     }
 
-    UniValue issuances = request.params[1].get_array();
+    // Validate fee output location, required by the implementation of reissueasset_base
+    if (!mtx.vout[mtx.vout.size() - 1].IsFee()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Last transaction output must be fee.");
+    }
+    for (size_t i = 0; i < mtx.vout.size() - 1; i++) {
+        if (mtx.vout[i].IsFee()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction can only have one fee output.");
+        }
+    }
 
-    unsigned int num_issuances = 0;
+    UniValue issuances = request.params[1].get_array();
 
     for (unsigned int idx = 0; idx < issuances.size(); idx++) {
         const UniValue& issuance = issuances[idx];
@@ -2880,31 +2902,24 @@ UniValue rawreissueasset(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
         }
 
-        int input_index = -1;
+        size_t input_index = -1;
         const UniValue& input_index_o = issuance_o["input_index"];
         if (input_index_o.isNum()) {
             input_index = input_index_o.get_int();
             if (input_index < 0) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must be non-negative.");
+            } else if (input_index >= mtx.vin.size()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must exist in transaction.");
+            } else if (!mtx.vin[input_index].assetIssuance.IsNull()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Selected transaction input already has issuance data.");
             }
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Input indexes for all reissuances are required.");
         }
 
         uint256 asset_blinder = ParseHashV(issuance_o["asset_blinder"], "asset_blinder");
-
         uint256 entropy = ParseHashV(issuance_o["entropy"], "entropy");
-
         reissueasset_base(mtx, input_index, asset_amount, asset_dest, asset_blinder, entropy);
-        if (input_index == -1) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Selected transaction input already has issuance data.");
-        }
-
-        num_issuances++;
-    }
-
-    if (num_issuances != issuances.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find enough blank inputs for listed issuances.");
     }
 
     UniValue ret(UniValue::VOBJ);
