@@ -23,6 +23,14 @@ static const size_t SURJECTION_PROOF_SIZE = 67;
 static const size_t SIDECHANNEL_MSG_SIZE = 64;
 
 /*
+ * Verify a pair of confidential asset and value, given the blinding factors for both.
+ * Unlike UnblindConfidentialPair, this does _not_ require the recipient's blinding
+ * key, but it _does_ require the blinding factors be provided (rather than extracting
+ * them from the rangeproof.)
+*/
+bool VerifyConfidentialPair(const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CAmount& claimed_value, const CAsset& claimed_asset, const uint256& value_blinding_factor, const uint256& asset_blinding_factor);
+
+/*
  * Unblind a pair of confidential asset and value.
  * Note that unblinded data will only be outputted if *BOTH* asset and value could be unblinded.
  *
