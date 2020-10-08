@@ -6,6 +6,7 @@
 #include <amount.h>
 #include <asset.h>
 #include <assetsdir.h>
+#include <blindpsbt.h>
 #include <block_proof.h>
 #include <consensus/validation.h>
 #include <core_io.h>
@@ -4865,6 +4866,55 @@ static RPCHelpMan walletprocesspsbt()
     };
 }
 
+static RPCHelpMan walletblindpsbt()
+{
+    return RPCHelpMan{"walletblindpsbt",
+            "\nUpdate a PSBT with input information from our wallet and then sign inputs\n"
+            "that we can sign for.\n\n" +
+            HELP_REQUIRING_PASSPHRASE,
+            {
+                {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
+            },
+            RPCResult{
+                RPCResult::Type::OBJ, "", "",
+                {
+                    {RPCResult::Type::STR, "psbt", "The resulting raw transaction (base64-encoded string)"},
+                }
+            },
+            RPCExamples{
+                HelpExampleCli("walletblindpsbt", "\"psbt\"")
+            },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
+    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
+    CWallet* const pwallet = wallet.get();
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR});
+
+    // Unserialize the transaction
+    PartiallySignedTransaction psbtx;
+    std::string error;
+    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    if (pwallet->WalletBlindPSBT(psbtx) != BlindingStatus::OK) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Something went wrong");
+    }
+
+    UniValue result(UniValue::VOBJ);
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << psbtx;
+    result.pushKV("psbt", EncodeBase64(ssTx.str()));
+
+    return result;
+},
+    };
+}
+
 static RPCHelpMan walletcreatefundedpsbt()
 {
     return RPCHelpMan{"walletcreatefundedpsbt",
@@ -7106,6 +7156,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
     { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment", "verbose"} },
+    { "wallet",             "walletblindpsbt",                  &walletblindpsbt,               {"psbt"} },
     { "hidden",             "generatepegoutproof",              &generatepegoutproof,           {"sumkey", "btcpubkey", "onlinepubkey"} },
     { "hidden",             "getpegoutkeys",                    &getpegoutkeys,                 {"btcprivkey", "offlinepubkey"} },
 };

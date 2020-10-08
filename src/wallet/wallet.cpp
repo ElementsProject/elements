@@ -1258,16 +1258,21 @@ void CWallet::BlockUntilSyncedToCurrentChain() const {
     chain().waitForNotificationsIfTipChanged(last_block_hash);
 }
 
-
-isminetype CWallet::IsMine(const CTxIn &txin) const
+isminetype CWallet::IsMine(const CTxIn& txin) const
 {
     AssertLockHeld(cs_wallet);
-    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(txin.prevout.hash);
+    return IsMine(txin.prevout);
+}
+
+isminetype CWallet::IsMine(const COutPoint &outpoint) const
+{
+    AssertLockHeld(cs_wallet);
+    std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(outpoint.hash);
     if (mi != mapWallet.end())
     {
         const CWalletTx& prev = (*mi).second;
-        if (txin.prevout.n < prev.tx->vout.size())
-            return IsMine(prev.tx->vout[txin.prevout.n]);
+        if (outpoint.n < prev.tx->vout.size())
+            return IsMine(prev.tx->vout[outpoint.n]);
     }
     return ISMINE_NO;
 }
@@ -2792,6 +2797,41 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     return TransactionError::OK;
 }
 
+BlindingStatus CWallet::WalletBlindPSBT(PartiallySignedTransaction& psbtx) const
+{
+    // Gather our input data
+    LOCK(cs_wallet);
+    std::map<uint32_t, std::tuple<CAmount, CAsset, uint256, uint256>> our_input_data;
+    std::map<uint32_t, std::pair<CKey, CKey>> our_issuances_to_blind;
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
+        PSBTInput& input = psbtx.inputs[i];
+
+        if (input.m_peg_in_value && !input.m_peg_in_claim_script.empty()) {
+            if (!IsMine(CTxOut(Params().GetConsensus().pegged_asset, *input.m_peg_in_value, input.m_peg_in_claim_script))) continue;
+            our_input_data[i] = std::make_tuple(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, uint256(), uint256());
+        } else {
+            if (!IsMine(COutPoint(input.prev_txid, *input.prev_out))) continue;
+            const CWalletTx* wtx = GetWalletTx(input.prev_txid);
+            if (!wtx) continue;
+            CPubKey blinding_pubkey;
+            CAmount amount;
+            uint256 value_blinder;
+            CAsset asset;
+            uint256 asset_blinder;
+            wtx->GetNonIssuanceBlindingData(*input.prev_out, &blinding_pubkey, &amount, &value_blinder, &asset, &asset_blinder);
+            our_input_data[i] = std::make_tuple(amount, asset, asset_blinder, value_blinder);
+        }
+
+        // Blind issuances on our inputs
+        if (input.m_issuance_value || input.m_issuance_inflation_keys_amount) {
+            CScript blinding_script(CScript() << OP_RETURN << std::vector<unsigned char>(input.prev_txid.begin(), input.prev_txid.end()) << *input.prev_out);
+            our_issuances_to_blind[i] = std::make_pair(GetBlindingKey(&blinding_script), GetBlindingKey(&blinding_script));
+        }
+    }
+
+    // Blind the PSBT
+    return BlindPSBT(psbtx, our_input_data, our_issuances_to_blind);
+}
 TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs, size_t* n_signed) const
 {
 /*
