@@ -19,21 +19,21 @@ NOTE: I'm not currently sure whether the proposed new process (see below) would 
 * Our branches:
   * `master` (main elements development)
   * (proposed) `merged-master` (contains a merged combination of all commits from _both_ elements `master` _and_ bitcoin `master`)
-  * (proposed) `merged-0.XX` (contains a merged combination of all commits from both elements `master` and bitcoin's `0.XX` release branch)
-    * We should only bother with this for the latest bitcoin major release, and retire the older release branches. If there are bugfix releases for those older versions, better for us to just say that we don't support them, and people should upgrade, to reduce the overhead of this process.
+  * `0.XX` / `0.XX.Y` -- release branches
+    * Each of these is based on `master`. We do not directly pull in any commits from the upstream release branches; for each cherry-pick into the upstream release branches, we cherry-pick from our `merged-master` branch instead. For administrivia (bumping version numbers, updating changelogs, etc.), we do this ourselves, to reduce merge conflicts.
 
-* Some automated process constantly (for each new commit) merges each bitcoin branch into the corresponding `merged-` branch, and constantly (for each new commit) merges elements `master` into _every_ `merged-` branch.
-  * This will generally happen at the granularity of pull-requests / merge-requests, because the branches on each side are made up almost exclusively of merge commits.
+* Some automated process merges each merged upstream pull request, and each merged Elements merge request, into the `merged-master` branch.
   * If the automated process fails, an issue is created, and someone has to do the merge manually, and fix the conflicts. (This is the same work someone would have to do in the current process, but without batching it all up to the very end like we do now.)
-  * (There was a proposal to only test the merge from the bitcoin side, and then throw it away if it's clean; and only keep it if it's nontrivial and requires human intervention. But while that reduces the total number of merges, it also means that Elements-side changes are not getting tested against the current bitcoin master immediately.)
 
-* When Bitcoin Core branches off for a major release, creating a new `0.XX` release branch, we branch off `merged-0.XX` to follow it.
-  * We _wait_ until Core finalizes the `0.XX.0` release, then we prepare a corresponding `0.XX` Elements release based on the `merged-0.XX` branch.
-  * (This next part is the trickiest part of the whole thing, and I'm not totally clear on how it should work.)
-  * We then take the _last_ commit _before_ Bitcoin 0.XX.0 branched off of Bitcoin master, and merge _that_ into the Elements master branch for further development.
-    * We will need to apply human judgement on what to do with the additional commits on the 0.XX release branch. Historically when merging in a Bitcoin release, we've pulled those in as well, as described above. However, some of those commits will be cherry-picked/rebased from the master branch, which means we are going to end up getting them twice. (Git seems to handle that well, as long as it can see that the two changes are the same.)
-    * This same issue will apply for each Bitcoin 0.XX.1, .2, etc. release. Those seem to also be made by cherry-picking / rebasing commits from the Bitcoin master branch, so the same issue exists.
+* When Bitcoin Core branches off for a major release, creating a new `0.XX` release branch, we take the last commit _before_ the upstream release branch -- which has already been merged into our `merged-master` branch -- and merge that into our local `master` elements development branch.
+  * This means we will always be developing based on the latest major release from Core.
+    * (If anything is too broken at this point on the upstream `master` branch to even be able to develop, we may have to cherry-pick fixes from the upstream release branch.)
+  * We _wait_ until Core finalizes the `0.XX.0` release, then we prepare a corresponding `0.XX` Elements release.
+    * We create our own parallel release branch, and make the same cherry-picks that Core does on their release branch, but we do it from our `merged-master` branch (where any merge conflicts between Core's work and ours have already been resolved.) For any administrative changes, such as version bumps and changelog edits, we do those ourselves on our own release branch.
 
+* When we want to make a minor release, we will repeat the release process, branching from the Elements development `master` branch.
+  * We will need to cherry-pick any changes from the Core release branch again, since they are not in our dev branch.
+  * If Core has made any minor releases, it will be a matter of judgement to decide what exactly we cherry-pick for our minor release; most likely we will want to take everything from the Core release branch, corresponding to the latest Core minor release.
 
 ### Proposed additional changes to the Elements development process
 
