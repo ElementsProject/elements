@@ -382,7 +382,7 @@ class IssuanceTest(BitcoinTestFramework):
                 assert_equal(blinded_multisig, self.nodes[0].getaddressinfo(utxo_info["address"])["confidential"])
                 break
         assert(utxo_info is not None)
-        assert(utxo_info["amountblinder"] is not "0000000000000000000000000000000000000000000000000000000000000000")
+        assert(utxo_info["amountblinder"] != "0000000000000000000000000000000000000000000000000000000000000000")
 
         # Now make transaction spending that input
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
