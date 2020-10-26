@@ -18,6 +18,6 @@ endif
 
 if ENABLE_WALLET
 if BUILD_BITCOIN_WALLET
-  dist_man1_MANS+=bitcoin-wallet.1
+  dist_man1_MANS+=elements-wallet.1
 endif
 endif
