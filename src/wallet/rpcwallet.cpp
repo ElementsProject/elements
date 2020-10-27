@@ -140,8 +140,7 @@ static void WalletTxToJSON(interfaces::Chain& chain, interfaces::Chain::Lock& lo
     // Add opt-in RBF status
     std::string rbfStatus = "no";
     if (confirms <= 0) {
-        LOCK(mempool.cs);
-        RBFTransactionState rbfState = IsRBFOptIn(*wtx.tx, mempool);
+        RBFTransactionState rbfState = chain.isRBFOptIn(*wtx.tx);
         if (rbfState == RBFTransactionState::UNKNOWN)
             rbfStatus = "unknown";
         else if (rbfState == RBFTransactionState::REPLACEABLE_BIP125)
@@ -347,7 +346,7 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     if (nValue > curBalance[asset])
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
 
-    if (pwallet->GetBroadcastTransactions() && !g_connman) {
+    if (pwallet->GetBroadcastTransactions() && !pwallet->chain().p2pEnabled()) {
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
     }
 
@@ -379,7 +378,7 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reserveKeys, g_connman.get(), state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reserveKeys, state, blind_details)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -465,7 +464,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     }
 
     if (!request.params[6].isNull()) {
-        coin_control.m_confirm_target = ParseConfirmTarget(request.params[6]);
+        coin_control.m_confirm_target = ParseConfirmTarget(request.params[6], pwallet->chain().estimateMaxBlocks());
     }
 
     if (!request.params[7].isNull()) {
@@ -662,7 +661,6 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    LockAnnotation lock(::cs_main); // Temporary, for CheckFinalTx below. Removed in upcoming commit.
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
@@ -685,8 +683,9 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     CAmountMap amounts;
     for (auto& pairWtx : pwallet->mapWallet) {
         CWalletTx& wtx = pairWtx.second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
+        if (wtx.IsCoinBase() || !locked_chain->checkFinalTx(*wtx.tx)) {
             continue;
+        }
 
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
             const CTxOut& txout = wtx.tx->vout[i];
@@ -750,7 +749,6 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
     // the user could have gotten from another RPC command prior to now
     pwallet->BlockUntilSyncedToCurrentChain();
 
-    LockAnnotation lock(::cs_main); // Temporary, for CheckFinalTx below. Removed in upcoming commit.
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
@@ -767,8 +765,9 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
     CAmountMap amounts;
     for (auto& pairWtx : pwallet->mapWallet) {
         CWalletTx& wtx = pairWtx.second;
-        if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
+        if (wtx.IsCoinBase() || !locked_chain->checkFinalTx(*wtx.tx)) {
             continue;
+        }
 
         for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
             const CTxOut& txout = wtx.tx->vout[i];
@@ -956,7 +955,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    if (pwallet->GetBroadcastTransactions() && !g_connman) {
+    if (pwallet->GetBroadcastTransactions() && !pwallet->chain().p2pEnabled()) {
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
     }
 
@@ -982,7 +981,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     }
 
     if (!request.params[6].isNull()) {
-        coin_control.m_confirm_target = ParseConfirmTarget(request.params[6]);
+        coin_control.m_confirm_target = ParseConfirmTarget(request.params[6], pwallet->chain().estimateMaxBlocks());
     }
 
     if (!request.params[7].isNull()) {
@@ -1089,7 +1088,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, g_connman.get(), state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, state, blind_details)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -1249,8 +1248,6 @@ struct tallyitem
 
 static UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)
 {
-    LockAnnotation lock(::cs_main); // Temporary, for CheckFinalTx below. Removed in upcoming commit.
-
     // Minimum confirmations
     int nMinDepth = 1;
     if (!params[0].isNull())
@@ -1290,8 +1287,9 @@ static UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * co
     for (const std::pair<const uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
         const CWalletTx& wtx = pairWtx.second;
 
-        if (wtx.IsCoinBase() || !CheckFinalTx(*wtx.tx))
+        if (wtx.IsCoinBase() || !locked_chain.checkFinalTx(*wtx.tx)) {
             continue;
+        }
 
         int nDepth = wtx.GetDepthInMainChain(locked_chain);
         if (nDepth < nMinDepth)
@@ -2933,8 +2931,9 @@ static UniValue resendwallettransactions(const JSONRPCRequest& request)
              }.ToString()
             );
 
-    if (!g_connman)
+    if (!pwallet->chain().p2pEnabled()) {
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+    }
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
@@ -2943,7 +2942,7 @@ static UniValue resendwallettransactions(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Wallet transaction broadcasting is disabled with -walletbroadcast");
     }
 
-    std::vector<uint256> txids = pwallet->ResendWalletTransactionsBefore(*locked_chain, GetTime(), g_connman.get());
+    std::vector<uint256> txids = pwallet->ResendWalletTransactionsBefore(*locked_chain, GetTime());
     UniValue result(UniValue::VARR);
     for (const uint256& txid : txids)
     {
@@ -3293,7 +3292,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             if (options.exists("feeRate")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot specify both conf_target and feeRate");
             }
-            coinControl.m_confirm_target = ParseConfirmTarget(options["conf_target"]);
+            coinControl.m_confirm_target = ParseConfirmTarget(options["conf_target"], pwallet->chain().estimateMaxBlocks());
         }
         if (options.exists("estimate_mode")) {
             if (options.exists("feeRate")) {
@@ -3585,7 +3584,7 @@ static UniValue bumpfee(const JSONRPCRequest& request)
         if (options.exists("confTarget") && options.exists("totalFee")) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "confTarget and totalFee options should not both be set. Please provide either a confirmation target for fee estimation or an explicit total fee for the transaction.");
         } else if (options.exists("confTarget")) { // TODO: alias this to conf_target
-            coin_control.m_confirm_target = ParseConfirmTarget(options["confTarget"]);
+            coin_control.m_confirm_target = ParseConfirmTarget(options["confTarget"], pwallet->chain().estimateMaxBlocks());
         } else if (options.exists("totalFee")) {
             totalFee = options["totalFee"].get_int64();
             if (totalFee <= 0) {
@@ -4232,7 +4231,7 @@ UniValue sethdseed(const JSONRPCRequest& request)
             }.ToString());
     }
 
-    if (IsInitialBlockDownload()) {
+    if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot set a new HD seed while still in Initial Block Download");
     }
 
@@ -5386,7 +5385,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
         (1+1+72+1+33/WITNESS_SCALE_FACTOR);
     CCoinControl coin_control;
-    CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, mempool, ::feeEstimator, nullptr);
+    CAmount nFeeNeeded = GetMinimumFee(*pwallet, nBytes, coin_control, nullptr);
 
     mtx.vout[0].nValue = mtx.vout[0].nValue.GetAmount() - nFeeNeeded;
     mtx.vout[1].nValue = mtx.vout[1].nValue.GetAmount() + nFeeNeeded;
@@ -5501,7 +5500,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     mapValue_t mapValue;
     std::vector<std::unique_ptr<CReserveKey>> reservekeys;
     reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
-    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservekeys, g_connman.get(), state)) {
+    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservekeys, state)) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -5875,7 +5874,7 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
 
     CValidationState state;
     mapValue_t map_value;
-    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, g_connman.get(), state, &blind_details)) {
+    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, state, &blind_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
     }
 

@@ -369,7 +369,7 @@ public:
         CCoinControl dummy;
         BOOST_CHECK(wallet->CreateTransaction(*m_locked_chain, {recipient}, tx, reservekeys, fee, changePos, error, dummy));
         CValidationState state;
-        BOOST_CHECK(wallet->CommitTransaction(tx, {}, {}, reservekeys, nullptr, state));
+        BOOST_CHECK(wallet->CommitTransaction(tx, {}, {}, reservekeys, state));
         CMutableTransaction blocktx;
         {
             LOCK(wallet->cs_wallet);

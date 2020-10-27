@@ -38,7 +38,7 @@ bool IsBlindDestination(const CTxDestination& dest);
 UniValue AmountMapToUniv(const CAmountMap& balanceOrig, std::string strasset);
 
 //! Parse a confirm target option and raise an RPC error if it is invalid.
-unsigned int ParseConfirmTarget(const UniValue& value);
+unsigned int ParseConfirmTarget(const UniValue& value, unsigned int max_target);
 
 RPCErrorCode RPCErrorFromTransactionError(TransactionError terr);
 UniValue JSONRPCTransactionError(TransactionError terr, const std::string& err_string = "");
