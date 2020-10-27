@@ -18,7 +18,7 @@ def wif(pk):
 
 # The signblockscript is a Bitcoin Script k-of-n multisig script.
 def make_signblockscript(num_nodes, required_signers, keys):
-    assert(num_nodes >= required_signers)
+    assert num_nodes >= required_signers
     script = "{}".format(50 + required_signers)
     for i in range(num_nodes):
         k = keys[i]
@@ -176,10 +176,10 @@ class BlockSignTest(BitcoinTestFramework):
         block = self.nodes[0].getblock(tip)
         info = self.nodes[0].getblockchaininfo()
 
-        assert('signblock_witness_asm' in header)
-        assert('signblock_witness_hex' in header)
-        assert('signblock_witness_asm' in block)
-        assert('signblock_witness_hex' in block)
+        assert 'signblock_witness_asm' in header
+        assert 'signblock_witness_hex' in header
+        assert 'signblock_witness_asm' in block
+        assert 'signblock_witness_hex' in block
 
         signblockscript = make_signblockscript(self.num_keys, self.required_signers, self.keys)
         assert_equal(info['signblock_asm'], self.nodes[0].decodescript(signblockscript)['asm'])

@@ -16,7 +16,7 @@
 
 from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, uint256_from_str, CTxOut, ToHex, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
+from test_framework.util import assert_equal, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
 from test_framework import util
 from test_framework.blocktools import get_witness_script
 
@@ -40,7 +40,7 @@ class TxWitnessTest(BitcoinTestFramework):
 
         unsigned_decoded = self.nodes[0].decoderawtransaction(raw)
         assert_equal(len(unsigned_decoded["vin"]), 1)
-        assert('txinwitness' not in unsigned_decoded["vin"][0])
+        assert 'txinwitness' not in unsigned_decoded["vin"][0]
 
         # Cross-check python serialization
         tx = CTransaction()
@@ -49,34 +49,34 @@ class TxWitnessTest(BitcoinTestFramework):
         assert_equal(len(tx.vin), len(unsigned_decoded["vin"]))
         assert_equal(len(tx.vout), len(unsigned_decoded["vout"]))
         # assert re-encoding
-        serialized = bytes_to_hex_str(tx.serialize())
+        serialized = tx.serialize().hex()
         assert_equal(serialized, raw)
 
         # Now sign and repeat tests
         signed_raw = self.nodes[0].signrawtransactionwithwallet(raw)["hex"]
         signed_decoded = self.nodes[0].decoderawtransaction(signed_raw)
         assert_equal(len(signed_decoded["vin"]), 1)
-        assert(("txinwitness" in signed_decoded["vin"][0]) == segwit)
+        assert ("txinwitness" in signed_decoded["vin"][0]) == segwit
 
         # Cross-check python serialization
         tx = CTransaction()
         tx.deserialize(BytesIO(hex_str_to_bytes(signed_raw)))
         assert_equal(tx.vin[0].prevout.hash, int("0x"+utxo["txid"], 0))
-        assert_equal(bytes_to_hex_str(tx.vin[0].scriptSig), signed_decoded["vin"][0]["scriptSig"]["hex"])
+        assert_equal(tx.vin[0].scriptSig.hex(), signed_decoded["vin"][0]["scriptSig"]["hex"])
         # test witness
         if segwit:
             wit_decoded = signed_decoded["vin"][0]["txinwitness"]
             for i in range(len(wit_decoded)):
-                assert_equal(bytes_to_hex_str(tx.wit.vtxinwit[0].scriptWitness.stack[i]), wit_decoded[i])
+                assert_equal(tx.wit.vtxinwit[0].scriptWitness.stack[i].hex(), wit_decoded[i])
         # assert re-encoding
-        serialized = bytes_to_hex_str(tx.serialize())
+        serialized = tx.serialize().hex()
         assert_equal(serialized, signed_raw)
 
         txid = self.nodes[0].sendrawtransaction(serialized)
         nodetx = self.nodes[0].getrawtransaction(txid, 1)
         assert_equal(nodetx["txid"], tx.rehash())
         # cross-check wtxid report from node
-        wtxid = bytes_to_hex_str(ser_uint256(tx.calc_sha256(True))[::-1])
+        wtxid = ser_uint256(tx.calc_sha256(True))[::-1].hex()
         assert_equal(nodetx["wtxid"], wtxid)
         assert_equal(nodetx["hash"], wtxid)
 
@@ -114,20 +114,20 @@ class TxWitnessTest(BitcoinTestFramework):
         block_details = self.nodes[0].getblock(blockhash, 2)
         block = CBlock()
         block.deserialize(BytesIO(hex_str_to_bytes(hexblock)))
-        assert(len(block.vtx) == len(submitted_txids) + 1)
+        assert len(block.vtx) == len(submitted_txids) + 1
         assert_equal(len(block_details["tx"]), len(block.vtx))
         for tx1, tx2 in zip(block.vtx[1:], block_details["tx"][1:]):
             # no tuple wildcard, just re-used tx2 on first one
-            assert((tx1.rehash(), tx2["wtxid"]) in submitted_txids)
-            assert((tx2["txid"], tx2["hash"]) in submitted_txids)
-            assert((tx2["txid"], tx2["wtxid"]) in submitted_txids)
+            assert (tx1.rehash(), tx2["wtxid"]) in submitted_txids
+            assert (tx2["txid"], tx2["hash"]) in submitted_txids
+            assert (tx2["txid"], tx2["wtxid"]) in submitted_txids
         block.rehash()
         assert_equal(block.hash, self.nodes[0].getbestblockhash())
 
     def test_coinbase_witness(self):
 
         def WitToHex(obj):
-            return bytes_to_hex_str(obj.serialize(with_witness=True))
+            return obj.serialize(with_witness=True).hex()
 
         block = self.nodes[0].getnewblockhex()
         block_struct = FromHex(CBlock(), block)
@@ -210,7 +210,7 @@ class TxWitnessTest(BitcoinTestFramework):
         bad_coinbase_ser_size = len(block_witness_stuffed.vtx[0].vin[0].serialize())
         # 32+32+9+1 should be serialized for each assetIssuance field
         assert_equal(bad_coinbase_ser_size, coinbase_ser_size+32+32+9+1)
-        assert(not block_witness_stuffed.vtx[0].vin[0].assetIssuance.isNull())
+        assert not block_witness_stuffed.vtx[0].vin[0].assetIssuance.isNull()
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].decoderawtransaction, ToHex(block_witness_stuffed.vtx[0]))
 
     def run_test(self):

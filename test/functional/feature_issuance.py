@@ -43,13 +43,13 @@ def process_raw_issuance(node, issuance_list):
         issuance_details = tx_input["issuance"]
         if "blind" not in issuance_req or issuance_req["blind"] == True:
 
-            assert("assetamount" not in issuance_details)
-            assert("tokenamount" not in issuance_details)
+            assert "assetamount" not in issuance_details
+            assert "tokenamount" not in issuance_details
             assert_equal(issuance_details["assetBlindingNonce"], "00"*32)
             if "asset_amount" in issuance_req:
-                assert("assetamountcommitment" in issuance_details)
+                assert "assetamountcommitment" in issuance_details
             if "token_amount" in issuance_req:
-                assert("tokenamountcommitment" in issuance_details)
+                assert "tokenamountcommitment" in issuance_details
         else:
             if "asset_amount" in issuance_req:
                 assert_equal(issuance_details["assetamount"], issuance_req["asset_amount"])
@@ -83,7 +83,7 @@ def process_raw_issuance(node, issuance_list):
                         asset_found = True
 
             # Find the asset type if it was created
-            assert(asset_found if issuance_type+"_address" in issuance_req else True)
+            assert asset_found if issuance_type+"_address" in issuance_req else True
 
     assert_equal(num_issuance, len(issuance_list))
 
@@ -149,7 +149,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         self.nodes[0].generate(1)
         self.sync_all()
-        assert(issued["token"] not in self.nodes[0].getwalletinfo()['balance'])
+        assert issued["token"] not in self.nodes[0].getwalletinfo()['balance']
 
         # Test various issuance and auditing paths
 
@@ -247,7 +247,7 @@ class IssuanceTest(BitcoinTestFramework):
 
         # Check for value accounting when asset issuance is null but token not, ie unblinded
         issued = self.nodes[0].issueasset(0, 1, False)
-        assert(issued["asset"] not in self.nodes[0].getwalletinfo()["balance"])
+        assert issued["asset"] not in self.nodes[0].getwalletinfo()["balance"]
         assert_equal(self.nodes[0].getwalletinfo()["balance"][issued["token"]], 1)
 
 
@@ -336,7 +336,7 @@ class IssuanceTest(BitcoinTestFramework):
             if utxo["asset"] == issued_asset["token"]:
                 utxo_info = utxo
                 break
-        assert(utxo_info is not None)
+        assert utxo_info is not None
 
         issued_address = self.nodes[0].getnewaddress()
         # Create transaction spending the reissuance token
@@ -348,7 +348,7 @@ class IssuanceTest(BitcoinTestFramework):
             if tx_input["txid"] == utxo_info["txid"] and tx_input["vout"] == utxo_info["vout"]:
                 reissuance_index = i
                 break
-        assert(reissuance_index != -1)
+        assert reissuance_index != -1
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(blind_tx)
@@ -381,8 +381,8 @@ class IssuanceTest(BitcoinTestFramework):
                 utxo_info = utxo
                 assert_equal(blinded_multisig, self.nodes[0].getaddressinfo(utxo_info["address"])["confidential"])
                 break
-        assert(utxo_info is not None)
-        assert(utxo_info["amountblinder"] != "0000000000000000000000000000000000000000000000000000000000000000")
+        assert utxo_info is not None 
+        assert utxo_info["amountblinder"] != "0000000000000000000000000000000000000000000000000000000000000000" 
 
         # Now make transaction spending that input
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_asset["token"]})
@@ -393,7 +393,7 @@ class IssuanceTest(BitcoinTestFramework):
             if tx_input["txid"] == utxo_info["txid"] and tx_input["vout"] == utxo_info["vout"]:
                 reissuance_index = i
                 break
-        assert(reissuance_index != -1)
+        assert reissuance_index != -1
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_asset["entropy"]}])
 
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"])
@@ -419,7 +419,7 @@ class IssuanceTest(BitcoinTestFramework):
             if utxo["asset"] == issued_tx["token"]:
                 utxo_info = utxo
                 break
-        assert(utxo_info is not None)
+        assert utxo_info is not None
 
         # Now spend the token, and create reissuance
         raw_tx = self.nodes[0].createrawtransaction([], {issued_address:1}, 0, False, {issued_address:issued_tx["token"]})
@@ -430,7 +430,7 @@ class IssuanceTest(BitcoinTestFramework):
             if tx_input["txid"] == utxo_info["txid"] and tx_input["vout"] == utxo_info["vout"]:
                 reissuance_index = i
                 break
-        assert(reissuance_index != -1)
+        assert reissuance_index != -1
         reissued_tx = self.nodes[0].rawreissueasset(funded_tx, [{"asset_amount":3, "asset_address":self.nodes[0].getnewaddress(), "input_index":reissuance_index, "asset_blinder":utxo_info["assetblinder"], "entropy":issued_tx["entropy"]}])
 
         blind_tx = self.nodes[0].blindrawtransaction(reissued_tx["hex"], False)

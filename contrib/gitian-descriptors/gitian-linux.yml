@@ -33,7 +33,7 @@ packages:
 - "faketime"
 - "bsdmainutils"
 - "ca-certificates"
-- "python"
+- "python3"
 remotes:
 - "url": "https://github.com/ElementsProject/elements.git"
   "dir": "elements"

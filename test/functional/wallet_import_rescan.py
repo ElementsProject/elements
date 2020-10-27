@@ -89,7 +89,7 @@ class Variant(collections.namedtuple("Variant", "call data rescan prune")):
             assert_equal("trusted" not in tx, True)
 
             address, = [ad for ad in addresses if txid in ad["txids"]]
-            assert(address["address"] == self.address["address"] or address["address"] == unconfidential_address)
+            assert address["address"] == self.address["address"] or address["address"] == unconfidential_address
             assert_equal(address["amount"], {"bitcoin": self.expected_balance})
             assert_equal(address["confirmations"], confirmations)
             # Verify the transaction is correctly marked watchonly depending on

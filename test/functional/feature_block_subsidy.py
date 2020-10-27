@@ -49,7 +49,7 @@ class BlockSubsidyTest(BitcoinTestFramework):
             else:
                 raise Exception("Invalid output amount in coinbase")
 
-        assert(found_ten)
+        assert found_ten
 
         # Block will have 0 satoshis outputs only at height 1
         no_sub_block = self.nodes[1].generatetoaddress(1, addr)

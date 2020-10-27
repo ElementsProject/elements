@@ -48,7 +48,7 @@ class TweakFedpegTest(BitcoinTestFramework):
             assert_equal(len(nontweak), len(tweak)) # same opcodes/push sizes
             # All pubkeys must be different
             if len(nontweak) == 66:
-                assert(nontweak != tweak)
+                assert nontweak != tweak
             else:
                 assert_equal(tweak, nontweak)
 
@@ -69,7 +69,7 @@ class TweakFedpegTest(BitcoinTestFramework):
                 tweak_match = True
             # All pubkeys must be different
             if len(nontweak) == 66:
-                assert(tweak_match == (nontweak == tweak))
+                assert tweak_match == (nontweak == tweak)
             else:
                 assert_equal(tweak, nontweak)
 

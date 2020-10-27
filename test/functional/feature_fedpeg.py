@@ -12,7 +12,6 @@ from test_framework.util import (
     p2p_port,
     assert_raises_rpc_error,
     assert_equal,
-    bytes_to_hex_str,
 )
 from test_framework import util
 from test_framework.messages import (
@@ -158,8 +157,8 @@ class FedPegTest(BitcoinTestFramework):
         for output in raw_pegout['vout']:
             scriptPubKey = output['scriptPubKey']
             if 'type' in scriptPubKey and scriptPubKey['type'] == 'nulldata':
-                assert ('pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey)
-                assert ('pegout_chain' in scriptPubKey and 'pegout_reqSigs' in scriptPubKey and 'pegout_addresses' in scriptPubKey)
+                assert 'pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey
+                assert 'pegout_chain' in scriptPubKey and 'pegout_reqSigs' in scriptPubKey and 'pegout_addresses' in scriptPubKey
                 assert scriptPubKey['pegout_chain'] == self.parentgenesisblockhash
                 assert scriptPubKey['pegout_reqSigs'] == 1
                 assert parent_chain_addr in scriptPubKey['pegout_addresses']
@@ -199,7 +198,7 @@ class FedPegTest(BitcoinTestFramework):
             pegtxid = sidechain.claimpegin(raw, proof)
             raise Exception("Peg-in should not be mature enough yet, need another block.")
         except JSONRPCException as e:
-            assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
+            assert "Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"]
 
         # Second attempt simply doesn't hit mempool bar
         parent.generate(10)
@@ -207,13 +206,13 @@ class FedPegTest(BitcoinTestFramework):
             pegtxid = sidechain.claimpegin(raw, proof)
             raise Exception("Peg-in should not be mature enough yet, need another block.")
         except JSONRPCException as e:
-            assert("Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"])
+            assert "Peg-in Bitcoin transaction needs more confirmations to be sent." in e.error["message"]
 
         try:
             pegtxid = sidechain.createrawpegin(raw, proof, 'AEIOU')
             raise Exception("Peg-in with non-hex claim_script should fail.")
         except JSONRPCException as e:
-            assert("Given claim_script is not hex." in e.error["message"])
+            assert "Given claim_script is not hex." in e.error["message"]
 
         # Should fail due to non-matching wallet address
         try:
@@ -221,7 +220,7 @@ class FedPegTest(BitcoinTestFramework):
             pegtxid = sidechain.claimpegin(raw, proof, scriptpubkey)
             raise Exception("Peg-in with non-matching claim_script should fail.")
         except JSONRPCException as e:
-            assert("Given claim_script does not match the given Bitcoin transaction." in e.error["message"])
+            assert "Given claim_script does not match the given Bitcoin transaction." in e.error["message"]
 
         # 12 confirms allows in mempool
         parent.generate(1)
@@ -238,7 +237,7 @@ class FedPegTest(BitcoinTestFramework):
         doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
         add_witness_commitment(doublespendblock)
         doublespendblock.solve()
-        block_hex = bytes_to_hex_str(doublespendblock.serialize(True))
+        block_hex = doublespendblock.serialize(True).hex()
         assert_raises_rpc_error(-25, "bad-txns-inputs-duplicate", sidechain.testproposedblock, block_hex, True)
 
         # Should succeed via wallet lookup for address match, and when given
@@ -291,12 +290,12 @@ class FedPegTest(BitcoinTestFramework):
         raw_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)["hex"]
         raw_pegin = FromHex(CTransaction(), raw_pegin)
         doublespendblock = FromHex(CBlock(), sidechain.getnewblockhex())
-        assert(len(doublespendblock.vtx) == 2) # coinbase and pegin
+        assert len(doublespendblock.vtx) == 2 # coinbase and pegin
         doublespendblock.vtx.append(raw_pegin)
         doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
         add_witness_commitment(doublespendblock)
         doublespendblock.solve()
-        block_hex = bytes_to_hex_str(doublespendblock.serialize(True))
+        block_hex = doublespendblock.serialize(True).hex()
         assert_raises_rpc_error(-25, "bad-txns-double-pegin", sidechain.testproposedblock, block_hex, True)
 
         # Re-enters block
@@ -317,7 +316,7 @@ class FedPegTest(BitcoinTestFramework):
         doublespendblock.hashMerkleRoot = doublespendblock.calc_merkle_root()
         add_witness_commitment(doublespendblock)
         doublespendblock.solve()
-        block_hex = bytes_to_hex_str(doublespendblock.serialize(True))
+        block_hex = doublespendblock.serialize(True).hex()
         assert_raises_rpc_error(-25, "bad-txns-double-pegin", sidechain.testproposedblock, block_hex, True)
 
         # Do multiple claims in mempool
@@ -351,8 +350,8 @@ class FedPegTest(BitcoinTestFramework):
                 sidechain.createrawpegin(raw, proof, addrs["claim_script"])
                 sidechain.createrawpegin(raw, proof)
                 signed_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)
-                assert(signed_pegin["complete"])
-                assert("warning" in signed_pegin) # warning for immature peg-in
+                assert signed_pegin["complete"]
+                assert "warning" in signed_pegin # warning for immature peg-in
                 # fully mature them now
                 parent.generate(1)
                 pegtxs += [sidechain.sendrawtransaction(signed_pegin["hex"])]
@@ -384,7 +383,7 @@ class FedPegTest(BitcoinTestFramework):
             self.test_pegout(parent_chain_addr, sidechain)
             raise Exception("A garbage address should fail.")
         except JSONRPCException as e:
-            assert("Invalid Bitcoin address" in e.error["message"])
+            assert "Invalid Bitcoin address" in e.error["message"]
 
         print("Test pegout Garbage valid")
         prev_txid = sidechain.sendtoaddress(sidechain.getnewaddress(), 1)
@@ -401,8 +400,8 @@ class FedPegTest(BitcoinTestFramework):
         for output in raw_pegout['vout']:
             scriptPubKey = output['scriptPubKey']
             if 'type' in scriptPubKey and scriptPubKey['type'] == 'nulldata':
-                assert ('pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey)
-                assert ('pegout_chain' in scriptPubKey and 'pegout_reqSigs' not in scriptPubKey and 'pegout_addresses' not in scriptPubKey)
+                assert 'pegout_hex' in scriptPubKey and 'pegout_asm' in scriptPubKey and 'pegout_type' in scriptPubKey
+                assert 'pegout_chain' in scriptPubKey and 'pegout_reqSigs' not in scriptPubKey and 'pegout_addresses' not in scriptPubKey
                 assert scriptPubKey['pegout_type'] == 'nonstandard'
                 assert scriptPubKey['pegout_chain'] == pegout_chain
                 assert scriptPubKey['pegout_hex'] == pegout_hex
@@ -421,7 +420,7 @@ class FedPegTest(BitcoinTestFramework):
         print("Waiting to ensure block is being rejected by sidechain2")
         time.sleep(5)
 
-        assert(sidechain.getblockcount() != sidechain2.getblockcount())
+        assert sidechain.getblockcount() != sidechain2.getblockcount()
 
         print("Restarting parent2")
         self.start_node(1)
@@ -440,23 +439,23 @@ class FedPegTest(BitcoinTestFramework):
             sidechain.sendtomainchain(some_btc_addr, bal_1 + 1)
             raise Exception("Sending out too much; should have failed")
         except JSONRPCException as e:
-            assert("Insufficient funds" in e.error["message"])
+            assert "Insufficient funds" in e.error["message"]
 
-        assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
+        assert sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1
         try:
             sidechain.sendtomainchain(some_btc_addr+"b", bal_1 - 1)
             raise Exception("Sending to invalid address; should have failed")
         except JSONRPCException as e:
-            assert("Invalid Bitcoin address" in e.error["message"])
+            assert "Invalid Bitcoin address" in e.error["message"]
 
-        assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
+        assert sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1
         try:
             sidechain.sendtomainchain("1Nro9WkpaKm9axmcfPVp79dAJU1Gx7VmMZ", bal_1 - 1)
             raise Exception("Sending to mainchain address when should have been testnet; should have failed")
         except JSONRPCException as e:
-            assert("Invalid Bitcoin address" in e.error["message"])
+            assert "Invalid Bitcoin address" in e.error["message"]
 
-        assert(sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1)
+        assert sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1
 
         # Test superfluous peg-in witness data on regular spend before we have no funds
         raw_spend = sidechain.createrawtransaction([], {sidechain.getnewaddress():1})
@@ -477,21 +476,21 @@ class FedPegTest(BitcoinTestFramework):
 
         peg_out_details = sidechain.decoderawtransaction(sidechain.getrawtransaction(peg_out_txid))
         # peg-out, change, fee
-        assert(len(peg_out_details["vout"]) == 3)
+        assert len(peg_out_details["vout"]) == 3
         found_pegout_value = False
         for output in peg_out_details["vout"]:
             if "value" in output and output["value"] == 1:
                 found_pegout_value = True
-        assert(found_pegout_value)
+        assert found_pegout_value
 
         bal_2 = sidechain.getwalletinfo()["balance"]["bitcoin"]
         # Make sure balance went down
-        assert(bal_2 + 1 < bal_1)
+        assert bal_2 + 1 < bal_1
 
         # Send rest of coins using subtractfee from output arg
         sidechain.sendtomainchain(some_btc_addr, bal_2, True)
 
-        assert(sidechain.getwalletinfo()["balance"]['bitcoin'] == 0)
+        assert sidechain.getwalletinfo()["balance"]['bitcoin'] == 0
 
         print('Test coinbase peg-in maturity rules')
 
