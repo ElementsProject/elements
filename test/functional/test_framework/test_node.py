@@ -61,7 +61,7 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir, chain, *, rpchost, timewait, bitcoind, bitcoin_cli, mocktime, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, chain_in_args=True):
+    def __init__(self, i, datadir, chain, *, rpchost, timewait, bitcoind, bitcoin_cli, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, chain_in_args=True):
         """
         Kwargs:
             start_perf (bool): If True, begin profiling the node with `perf` as soon as
@@ -91,8 +91,7 @@ class TestNode():
             "-debug",
             "-debugexclude=libevent",
             "-debugexclude=leveldb",
-            "-mocktime=" + str(mocktime),
-            "-uacomment=testnode%d" % i
+            "-uacomment=testnode%d" % i,
         ]
         if chain_in_args:
             self.args += ["-chain=" + self.chain]
