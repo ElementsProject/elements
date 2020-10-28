@@ -172,7 +172,7 @@ QString Intro::getDataDirectory()
 void Intro::setDataDirectory(const QString &dataDir)
 {
     ui->dataDirectory->setText(dataDir);
-    if(dataDir == getDefaultDataDirectory())
+    if(dataDir == GUIUtil::getDefaultDataDirectory())
     {
         ui->dataDirDefault->setChecked(true);
         ui->dataDirectory->setEnabled(false);
@@ -184,11 +184,6 @@ void Intro::setDataDirectory(const QString &dataDir)
     }
 }
 
-QString Intro::getDefaultDataDirectory()
-{
-    return GUIUtil::boostPathToQString(GetDefaultDataDir());
-}
-
 bool Intro::pickDataDirectory(interfaces::Node& node)
 {
     QSettings settings;
@@ -197,7 +192,7 @@ bool Intro::pickDataDirectory(interfaces::Node& node)
     if(!gArgs.GetArg("-datadir", "").empty())
         return true;
     /* 1) Default data directory for operating system */
-    QString dataDir = getDefaultDataDirectory();
+    QString dataDir = GUIUtil::getDefaultDataDirectory();
     /* 2) Allow QSettings to override default dir */
     dataDir = settings.value("strDataDir", dataDir).toString();
 
@@ -243,7 +238,7 @@ bool Intro::pickDataDirectory(interfaces::Node& node)
      * override -datadir in the bitcoin.conf file in the default data directory
      * (to be consistent with bitcoind behavior)
      */
-    if(dataDir != getDefaultDataDirectory()) {
+    if(dataDir != GUIUtil::getDefaultDataDirectory()) {
         node.softSetArg("-datadir", GUIUtil::qstringToBoostPath(dataDir).string()); // use OS locale for path setting
     }
     return true;
@@ -297,7 +292,7 @@ void Intro::on_ellipsisButton_clicked()
 
 void Intro::on_dataDirDefault_clicked()
 {
-    setDataDirectory(getDefaultDataDirectory());
+    setDataDirectory(GUIUtil::getDefaultDataDirectory());
 }
 
 void Intro::on_dataDirCustom_clicked()
