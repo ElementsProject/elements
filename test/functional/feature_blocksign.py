@@ -14,7 +14,7 @@ from test_framework import (
 # Generate wallet import format from private key.
 def wif(pk):
     # Base58Check version for regtest WIF keys is 0xef = 239
-    return address.byte_to_base58(pk, 239)
+    return address.byte_to_base58(pk + b'\01', 239)
 
 # The signblockscript is a Bitcoin Script k-of-n multisig script.
 def make_signblockscript(num_nodes, required_signers, keys):
@@ -22,8 +22,8 @@ def make_signblockscript(num_nodes, required_signers, keys):
     script = "{}".format(50 + required_signers)
     for i in range(num_nodes):
         k = keys[i]
-        script += "41"
-        script += codecs.encode(k.get_pubkey(), 'hex_codec').decode("utf-8")
+        script += "21"
+        script += codecs.encode(k.get_pubkey().get_bytes(), 'hex_codec').decode("utf-8")
     script += "{}".format(50 + num_nodes) # num keys
     script += "ae" # OP_CHECKMULTISIG
     print('signblockscript', script)
@@ -55,15 +55,14 @@ class BlockSignTest(BitcoinTestFramework):
         self.keys = []
         self.wifs = []
         for i in range(num_keys):
-            k = key.CECKey()
-            pk_bytes = hashlib.sha256(str(random.getrandbits(256)).encode('utf-8')).digest()
-            k.set_secretbytes(pk_bytes)
-            w = wif(pk_bytes)
+            k = key.ECKey()
+            k.generate()
+            w = wif(k.get_bytes())
             print("generated key {}: \n pub: {}\n  wif: {}".format(i+1,
-                codecs.encode(k.get_pubkey(), 'hex_codec').decode("utf-8"),
+                codecs.encode(k.get_pubkey().get_bytes(), 'hex_codec').decode("utf-8"),
                 w))
             self.keys.append(k)
-            self.wifs.append(wif(pk_bytes))
+            self.wifs.append(w)
 
     def set_test_params(self):
         self.num_nodes = 5
