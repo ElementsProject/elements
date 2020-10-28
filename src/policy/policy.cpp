@@ -71,7 +71,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
     whichType = Solver(scriptPubKey, vSolutions);
 
     CChainParams params = Params();
-    if (whichType == TX_NONSTANDARD || whichType == TX_WITNESS_UNKNOWN) {
+    if (whichType == TX_NONSTANDARD) {
         return false;
     } else if (whichType == TX_MULTISIG) {
         unsigned char m = vSolutions.front()[0];
