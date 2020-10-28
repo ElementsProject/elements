@@ -791,7 +791,7 @@ private:
     bool AddWatchOnly(const CScript& dest) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /** Interface for accessing chain state. */
-    interfaces::Chain& m_chain;
+    interfaces::Chain* m_chain;
 
     /** Wallet location which includes wallet name (see WalletLocation). */
     WalletLocation m_location;
@@ -854,7 +854,7 @@ public:
     unsigned int nMasterKeyMaxID = 0;
 
     /** Construct wallet with specified name and database implementation. */
-    CWallet(interfaces::Chain& chain, const WalletLocation& location, std::unique_ptr<WalletDatabase> database) : m_chain(chain), m_location(location), database(std::move(database))
+    CWallet(interfaces::Chain* chain, const WalletLocation& location, std::unique_ptr<WalletDatabase> database) : m_chain(chain), m_location(location), database(std::move(database))
     {
     }
 
@@ -882,7 +882,7 @@ public:
     std::unique_ptr<interfaces::Handler> m_chain_notifications_handler;
 
     /** Interface for accessing chain state. */
-    interfaces::Chain& chain() const { return m_chain; }
+    interfaces::Chain& chain() const { assert(m_chain); return *m_chain; }
 
     // ELEMENTS //
     //! The online PAK aka `liquid_pak` in the wallet set by `initpegoutwallet`

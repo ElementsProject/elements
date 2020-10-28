@@ -1998,7 +1998,7 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     ListTransactions(*locked_chain, pwallet, wtx, 0, false, details, filter, nullptr /* filter_label */);
     entry.pushKV("details", details);
 
-    std::string strHex = EncodeHexTx(*wtx.tx, RPCSerializationFlags());
+    std::string strHex = EncodeHexTx(*wtx.tx, pwallet->chain().rpcSerializationFlags());
     entry.pushKV("hex", strHex);
 
     return entry;
@@ -2216,7 +2216,7 @@ static UniValue walletpassphrase(const JSONRPCRequest& request)
     // wallet before the following callback is called. If a valid shared pointer
     // is acquired in the callback then the wallet is still loaded.
     std::weak_ptr<CWallet> weak_wallet = wallet;
-    RPCRunLater(strprintf("lockwallet(%s)", pwallet->GetName()), [weak_wallet] {
+    pwallet->chain().rpcRunLater(strprintf("lockwallet(%s)", pwallet->GetName()), [weak_wallet] {
         if (auto shared_wallet = weak_wallet.lock()) {
             LOCK(shared_wallet->cs_wallet);
             shared_wallet->Lock();
@@ -3778,7 +3778,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         CScript subscript;
         if (pwallet && pwallet->GetCScript(scriptID, subscript)) {
-            ProcessSubScript(subscript, obj, IsDeprecatedRPCEnabled("validateaddress"));
+            ProcessSubScript(subscript, obj, pwallet->chain().rpcEnableDeprecated("validateaddress"));
         }
         return obj;
     }

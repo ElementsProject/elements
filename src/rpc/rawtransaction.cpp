@@ -21,6 +21,7 @@
 #include <node/transaction.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
+#include <policy/settings.h>
 #include <primitives/transaction.h>
 #include <psbt.h>
 #include <rpc/rawtransaction_util.h>
