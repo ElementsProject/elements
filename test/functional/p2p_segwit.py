@@ -80,8 +80,6 @@ from test_framework.util import (
     disconnect_nodes,
     get_bip9_status,
     hex_str_to_bytes,
-    sync_blocks,
-    sync_mempools,
     assert_raises_rpc_error,
 )
 from test_framework import util
@@ -290,7 +288,7 @@ class SegWitTest(BitcoinTestFramework):
             func(self, *args, **kwargs)
             # Each subtest should leave some utxos for the next subtest
             assert self.utxo
-            sync_blocks(self.nodes)
+            self.sync_blocks()
             # Assert segwit status is as expected at end of subtest
             assert_equal(get_bip9_status(self.nodes[0], 'segwit')['status'], self.segwit_status)
 
@@ -659,7 +657,7 @@ class SegWitTest(BitcoinTestFramework):
         # Mine it on test_node to create the confirmed output.
         test_transaction_acceptance(self.nodes[0], self.test_node, p2sh_tx, with_witness=True, accepted=True)
         self.nodes[0].generate(1)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Now test standardness of v0 P2WSH outputs.
         # Start by creating a transaction with two outputs.
@@ -692,7 +690,7 @@ class SegWitTest(BitcoinTestFramework):
         tx3 = CTransaction()
         # tx and tx2 were both accepted.  Don't bother trying to reclaim the
         # P2PKH output; just send tx's first output back to an anyone-can-spend.
-        sync_mempools([self.nodes[0], self.nodes[1]])
+        self.sync_mempools([self.nodes[0], self.nodes[1]])
         tx3.vin = [CTxIn(COutPoint(tx.sha256, 0), b"")]
         tx3.vout = [CTxOut(tx.vout[0].nValue.getAmount() - 1000, CScript([OP_TRUE, OP_DROP] * 15 + [OP_TRUE]))]
         tx3.vout.append(CTxOut(1000)) # fee
@@ -713,7 +711,7 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[0], self.test_node, tx3, with_witness=True, accepted=True)
 
         self.nodes[0].generate(1)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         self.utxo.pop(0)
         self.utxo.append(UTXO(tx3.sha256, 0, tx3.vout[0].nValue.getAmount()))
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
@@ -752,7 +750,7 @@ class SegWitTest(BitcoinTestFramework):
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx])
         test_witness_block(self.nodes[0], self.test_node, block, accepted=True, with_witness=True)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Now test attempts to spend the output.
         spend_tx = CTransaction()
@@ -1420,7 +1418,7 @@ class SegWitTest(BitcoinTestFramework):
             for i in range(NUM_SEGWIT_VERSIONS):
                 self.utxo.append(UTXO(tx.sha256, i, split_value))
 
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         temp_utxo = []
         tx = CTransaction()
         witness_program = CScript([OP_TRUE])
@@ -1439,7 +1437,7 @@ class SegWitTest(BitcoinTestFramework):
             temp_utxo.append(UTXO(tx.sha256, 0, tx.vout[0].nValue.getAmount()))
 
         self.nodes[0].generate(1)  # Mine all the transactions
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         assert len(self.nodes[0].getrawmempool()) == 0
 
         # Finally, verify that version 0 -> version 1 transactions
@@ -1478,7 +1476,7 @@ class SegWitTest(BitcoinTestFramework):
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx2, tx3])
         test_witness_block(self.nodes[0], self.test_node, block, accepted=True)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Add utxo to our list
         self.utxo.append(UTXO(tx3.sha256, 0, tx3.vout[0].nValue.getAmount()))
@@ -1506,7 +1504,7 @@ class SegWitTest(BitcoinTestFramework):
 
         # Now test a premature spend.
         self.nodes[0].generate(98)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         block2 = self.build_next_block()
         self.update_witness_block_with_transactions(block2, [spend_tx])
         test_witness_block(self.nodes[0], self.test_node, block2, accepted=False)
@@ -1516,7 +1514,7 @@ class SegWitTest(BitcoinTestFramework):
         block2 = self.build_next_block()
         self.update_witness_block_with_transactions(block2, [spend_tx])
         test_witness_block(self.nodes[0], self.test_node, block2, accepted=True)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
     @subtest
     def test_uncompressed_pubkey(self):
@@ -1652,7 +1650,7 @@ class SegWitTest(BitcoinTestFramework):
         block = self.build_next_block()
         self.update_witness_block_with_transactions(block, [tx])
         test_witness_block(self.nodes[0], self.test_node, block, accepted=True)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         self.utxo.pop(0)
 
         # Test each hashtype
@@ -1841,7 +1839,7 @@ class SegWitTest(BitcoinTestFramework):
         tx.rehash()
         test_transaction_acceptance(self.nodes[0], self.test_node, tx, False, True)
         self.nodes[0].generate(1)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # We'll add an unnecessary witness to this transaction that would cause
         # it to be non-standard, to test that violating policy with a witness
@@ -1872,7 +1870,7 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[0], self.test_node, tx3, False, True)
 
         self.nodes[0].generate(1)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Update our utxo list; we spent the first entry.
         self.utxo.pop(0)
@@ -1909,7 +1907,7 @@ class SegWitTest(BitcoinTestFramework):
         test_transaction_acceptance(self.nodes[0], self.test_node, tx, with_witness=False, accepted=True)
 
         self.nodes[0].generate(1)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Creating transactions for tests
         p2wsh_txs = []
@@ -1975,7 +1973,7 @@ class SegWitTest(BitcoinTestFramework):
 
         self.nodes[0].generate(1)  # Mine and clean up the mempool of non-standard node
         # Valid but non-standard transactions in a block should be accepted by standard node
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
         assert_equal(len(self.nodes[1].getrawmempool()), 0)
 
@@ -1990,7 +1988,7 @@ class SegWitTest(BitcoinTestFramework):
         self.start_node(2, extra_args=["-vbparams=segwit:0:999999999999"])
         connect_nodes(self.nodes[0], 2)
 
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Make sure that this peer thinks segwit has activated.
         assert get_bip9_status(self.nodes[2], 'segwit')['status'] == "active"
@@ -2091,7 +2089,7 @@ class SegWitTest(BitcoinTestFramework):
         test_witness_block(self.nodes[0], self.test_node, block_4, accepted=True)
 
         # Reset the tip back down for the next test
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         for x in self.nodes:
             x.invalidateblock(block_4.hash)
 

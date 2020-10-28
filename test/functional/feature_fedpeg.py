@@ -146,7 +146,8 @@ class FedPegTest(BitcoinTestFramework):
         # We only connect the same-chain nodes, so sync_all works correctly
         connect_nodes_bi(self.nodes, 2, 3)
         self.node_groups = [[self.nodes[0], self.nodes[1]], [self.nodes[2], self.nodes[3]]]
-        self.sync_all(self.node_groups)
+        for node_group in self.node_groups:
+            self.sync_all(node_group)
         print("Setting up network done")
 
     def test_pegout(self, parent_chain_addr, sidechain):
@@ -256,9 +257,11 @@ class FedPegTest(BitcoinTestFramework):
         assert_raises_rpc_error(-4, "txn-mempool-conflict", sidechain.claimpegin, raw, proof)
 
         # Will invalidate the block that confirms this transaction later
-        self.sync_all(self.node_groups)
+        for node_group in self.node_groups:
+            self.sync_all(node_group)
         blockhash = sidechain2.generate(1)
-        self.sync_all(self.node_groups)
+        for node_group in self.node_groups:
+            self.sync_all(node_group)
         sidechain.generate(5)
 
         tx1 = sidechain.gettransaction(pegtxid1)
@@ -356,7 +359,8 @@ class FedPegTest(BitcoinTestFramework):
                 parent.generate(1)
                 pegtxs += [sidechain.sendrawtransaction(signed_pegin["hex"])]
 
-        self.sync_all(self.node_groups)
+        for node_group in self.node_groups:
+            self.sync_all(node_group)
         sidechain2.generate(1)
         for i, pegtxid in enumerate(pegtxs):
             if i % 2 == 0:
@@ -430,7 +434,8 @@ class FedPegTest(BitcoinTestFramework):
         # is awaiting further validation, nodes reject subsequent blocks
         # even ones they create
         print("Now waiting for node to re-evaluate peg-in witness failed block... should take a few seconds")
-        self.sync_all(self.node_groups)
+        for node_group in self.node_groups:
+            self.sync_all(node_group)
         print("Completed!\n")
         print("Now send funds out in two stages, partial, and full")
         some_btc_addr = get_new_unconfidential_address(parent)
