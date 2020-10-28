@@ -2231,84 +2231,32 @@ void CWallet::ResendWalletTransactions(interfaces::Chain::Lock& locked_chain, in
  */
 
 
-CAmountMap CWallet::GetBalance(const isminefilter& filter, const int min_depth) const
+CWallet::Balance CWallet::GetBalance(const int min_depth) const
 {
-    CAmountMap nTotal;
+    Balance ret;
     {
         auto locked_chain = chain().lock();
         LOCK(cs_wallet);
         for (const auto& entry : mapWallet)
         {
             const CWalletTx& wtx = entry.second;
-            if (wtx.IsTrusted(*locked_chain) && wtx.GetDepthInMainChain(*locked_chain) >= min_depth) {
-                nTotal += wtx.GetAvailableCredit(*locked_chain, true, filter);
+            const bool is_trusted{wtx.IsTrusted(*locked_chain)};
+            const int tx_depth{wtx.GetDepthInMainChain(*locked_chain)};
+            const CAmountMap tx_credit_mine{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_SPENDABLE)};
+            const CAmountMap tx_credit_watchonly{wtx.GetAvailableCredit(*locked_chain, /* fUseCache */ true, ISMINE_WATCH_ONLY)};
+            if (is_trusted && tx_depth >= min_depth) {
+                ret.m_mine_trusted += tx_credit_mine;
+                ret.m_watchonly_trusted += tx_credit_watchonly;
             }
+            if (!is_trusted && tx_depth == 0 && wtx.InMempool()) {
+                ret.m_mine_untrusted_pending += tx_credit_mine;
+                ret.m_watchonly_untrusted_pending += tx_credit_watchonly;
+            }
+            ret.m_mine_immature += wtx.GetImmatureCredit(*locked_chain);
+            ret.m_watchonly_immature += wtx.GetImmatureWatchOnlyCredit(*locked_chain);
         }
     }
-
-    return nTotal;
-}
-
-CAmountMap CWallet::GetUnconfirmedBalance() const
-{
-    CAmountMap nTotal;
-    {
-        auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
-        for (const auto& entry : mapWallet)
-        {
-            const CWalletTx& wtx = entry.second;
-            if (!wtx.IsTrusted(*locked_chain) && wtx.GetDepthInMainChain(*locked_chain) == 0 && wtx.InMempool())
-                nTotal += wtx.GetAvailableCredit(*locked_chain);
-        }
-    }
-    return nTotal;
-}
-
-CAmountMap CWallet::GetImmatureBalance() const
-{
-    CAmountMap nTotal;
-    {
-        auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
-        for (const auto& entry : mapWallet)
-        {
-            const CWalletTx& wtx = entry.second;
-            nTotal += wtx.GetImmatureCredit(*locked_chain);
-        }
-    }
-    return nTotal;
-}
-
-CAmountMap CWallet::GetUnconfirmedWatchOnlyBalance() const
-{
-    CAmountMap nTotal;
-    {
-        auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
-        for (const auto& entry : mapWallet)
-        {
-            const CWalletTx& wtx = entry.second;
-            if (!wtx.IsTrusted(*locked_chain) && wtx.GetDepthInMainChain(*locked_chain) == 0 && wtx.InMempool())
-                nTotal += wtx.GetAvailableCredit(*locked_chain, true, ISMINE_WATCH_ONLY);
-        }
-    }
-    return nTotal;
-}
-
-CAmountMap CWallet::GetImmatureWatchOnlyBalance() const
-{
-    CAmountMap nTotal;
-    {
-        auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
-        for (const auto& entry : mapWallet)
-        {
-            const CWalletTx& wtx = entry.second;
-            nTotal += wtx.GetImmatureWatchOnlyCredit(*locked_chain);
-        }
-    }
-    return nTotal;
+    return ret;
 }
 
 CAmountMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const

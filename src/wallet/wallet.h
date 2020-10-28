@@ -1055,11 +1055,15 @@ public:
     void TransactionRemovedFromMempool(const CTransactionRef &ptx) override;
     void ReacceptWalletTransactions(interfaces::Chain::Lock& locked_chain) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void ResendWalletTransactions(interfaces::Chain::Lock& locked_chain, int64_t nBestBlockTime) override;
-    CAmountMap GetBalance(const isminefilter& filter=ISMINE_SPENDABLE, const int min_depth=0) const;
-    CAmountMap GetUnconfirmedBalance() const;
-    CAmountMap GetImmatureBalance() const;
-    CAmountMap GetUnconfirmedWatchOnlyBalance() const;
-    CAmountMap GetImmatureWatchOnlyBalance() const;
+    struct Balance {
+        CAmountMap m_mine_trusted;           //!< Trusted, at depth=GetBalance.min_depth or more
+        CAmountMap m_mine_untrusted_pending; //!< Untrusted, but in mempool (pending)
+        CAmountMap m_mine_immature;          //!< Immature coinbases in the main chain
+        CAmountMap m_watchonly_trusted;
+        CAmountMap m_watchonly_untrusted_pending;
+        CAmountMap m_watchonly_immature;
+    };
+    Balance GetBalance(int min_depth = 0) const;
     CAmountMap GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
 
     OutputType TransactionChangeType(OutputType change_type, const std::vector<CRecipient>& vecSend);

@@ -337,7 +337,7 @@ static UniValue setlabel(const JSONRPCRequest& request)
 
 static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet * const pwallet, const CTxDestination &address, CAmount nValue, const CAsset& asset, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, bool ignore_blind_fail)
 {
-    CAmountMap curBalance = pwallet->GetBalance();
+    CAmountMap curBalance = pwallet->GetBalance().m_mine_trusted;
 
     // Check amount
     if (nValue <= 0)
@@ -846,9 +846,9 @@ static UniValue getbalance(const JSONRPCRequest& request)
         min_depth = request.params[1].get_int();
     }
 
-    isminefilter filter = ISMINE_SPENDABLE;
+    bool include_watchonly = false;
     if (!request.params[2].isNull() && request.params[2].get_bool()) {
-        filter = filter | ISMINE_WATCH_ONLY;
+        include_watchonly = true;
     }
 
     std::string asset = "";
@@ -856,7 +856,12 @@ static UniValue getbalance(const JSONRPCRequest& request)
         asset = request.params[3].get_str();
     }
 
-    return AmountMapToUniv(pwallet->GetBalance(filter, min_depth), asset);
+    const auto bal = pwallet->GetBalance(min_depth);
+    if (include_watchonly) {
+        return AmountMapToUniv(bal.m_mine_trusted + bal.m_watchonly_trusted, asset);
+    } else {
+        return AmountMapToUniv(bal.m_mine_trusted, asset);
+    }
 }
 
 static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
@@ -884,7 +889,7 @@ static UniValue getunconfirmedbalance(const JSONRPCRequest &request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    return AmountMapToUniv(pwallet->GetUnconfirmedBalance(), "");
+    return AmountMapToUniv(pwallet->GetBalance().m_mine_untrusted_pending, "");
 }
 
 
@@ -2655,11 +2660,12 @@ static UniValue getwalletinfo(const JSONRPCRequest& request)
     UniValue obj(UniValue::VOBJ);
 
     size_t kpExternalSize = pwallet->KeypoolCountExternalKeys();
+    const auto bal = pwallet->GetBalance();
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
-    obj.pushKV("balance",       AmountMapToUniv(pwallet->GetBalance(), ""));
-    obj.pushKV("unconfirmed_balance", AmountMapToUniv(pwallet->GetUnconfirmedBalance(), ""));
-    obj.pushKV("immature_balance",    AmountMapToUniv(pwallet->GetImmatureBalance(), ""));
+    obj.pushKV("balance", AmountMapToUniv(bal.m_mine_trusted, ""));
+    obj.pushKV("unconfirmed_balance", AmountMapToUniv(bal.m_mine_untrusted_pending, ""));
+    obj.pushKV("immature_balance", AmountMapToUniv(bal.m_mine_immature,  ""));
     obj.pushKV("txcount",       (int)pwallet->mapWallet.size());
     obj.pushKV("keypoololdest", pwallet->GetOldestKeyPoolTime());
     obj.pushKV("keypoolsize", (int64_t)kpExternalSize);
@@ -5765,7 +5771,7 @@ static UniValue unblindrawtransaction(const JSONRPCRequest& request)
 static CTransactionRef SendGenerationTransaction(const CScript& asset_script, const CPubKey &asset_pubkey, const CScript& token_script, const CPubKey &token_pubkey, CAmount asset_amount, CAmount token_amount, IssuanceDetails* issuance_details, interfaces::Chain::Lock& locked_chain, CWallet* pwallet)
 {
     CAsset reissue_token = issuance_details->reissuance_token;
-    CAmount curBalance = pwallet->GetBalance()[reissue_token];
+    CAmount curBalance = pwallet->GetBalance().m_mine_trusted[reissue_token];
 
     if (!reissue_token.IsNull() && curBalance <= 0) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "No available reissuance tokens in wallet.");
