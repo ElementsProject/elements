@@ -2239,9 +2239,9 @@ CAmountMap CWallet::GetBalance(const isminefilter& filter, const int min_depth) 
         LOCK(cs_wallet);
         for (const auto& entry : mapWallet)
         {
-            const CWalletTx* pcoin = &entry.second;
-            if (pcoin->IsTrusted(*locked_chain) && pcoin->GetDepthInMainChain(*locked_chain) >= min_depth) {
-                nTotal += pcoin->GetAvailableCredit(*locked_chain, true, filter);
+            const CWalletTx& wtx = entry.second;
+            if (wtx.IsTrusted(*locked_chain) && wtx.GetDepthInMainChain(*locked_chain) >= min_depth) {
+                nTotal += wtx.GetAvailableCredit(*locked_chain, true, filter);
             }
         }
     }
@@ -2257,9 +2257,9 @@ CAmountMap CWallet::GetUnconfirmedBalance() const
         LOCK(cs_wallet);
         for (const auto& entry : mapWallet)
         {
-            const CWalletTx* pcoin = &entry.second;
-            if (!pcoin->IsTrusted(*locked_chain) && pcoin->GetDepthInMainChain(*locked_chain) == 0 && pcoin->InMempool())
-                nTotal += pcoin->GetAvailableCredit(*locked_chain);
+            const CWalletTx& wtx = entry.second;
+            if (!wtx.IsTrusted(*locked_chain) && wtx.GetDepthInMainChain(*locked_chain) == 0 && wtx.InMempool())
+                nTotal += wtx.GetAvailableCredit(*locked_chain);
         }
     }
     return nTotal;
@@ -2273,8 +2273,8 @@ CAmountMap CWallet::GetImmatureBalance() const
         LOCK(cs_wallet);
         for (const auto& entry : mapWallet)
         {
-            const CWalletTx* pcoin = &entry.second;
-            nTotal += pcoin->GetImmatureCredit(*locked_chain);
+            const CWalletTx& wtx = entry.second;
+            nTotal += wtx.GetImmatureCredit(*locked_chain);
         }
     }
     return nTotal;
@@ -2288,9 +2288,9 @@ CAmountMap CWallet::GetUnconfirmedWatchOnlyBalance() const
         LOCK(cs_wallet);
         for (const auto& entry : mapWallet)
         {
-            const CWalletTx* pcoin = &entry.second;
-            if (!pcoin->IsTrusted(*locked_chain) && pcoin->GetDepthInMainChain(*locked_chain) == 0 && pcoin->InMempool())
-                nTotal += pcoin->GetAvailableCredit(*locked_chain, true, ISMINE_WATCH_ONLY);
+            const CWalletTx& wtx = entry.second;
+            if (!wtx.IsTrusted(*locked_chain) && wtx.GetDepthInMainChain(*locked_chain) == 0 && wtx.InMempool())
+                nTotal += wtx.GetAvailableCredit(*locked_chain, true, ISMINE_WATCH_ONLY);
         }
     }
     return nTotal;
@@ -2304,60 +2304,11 @@ CAmountMap CWallet::GetImmatureWatchOnlyBalance() const
         LOCK(cs_wallet);
         for (const auto& entry : mapWallet)
         {
-            const CWalletTx* pcoin = &entry.second;
-            nTotal += pcoin->GetImmatureWatchOnlyCredit(*locked_chain);
+            const CWalletTx& wtx = entry.second;
+            nTotal += wtx.GetImmatureWatchOnlyCredit(*locked_chain);
         }
     }
     return nTotal;
-}
-
-// Calculate total balance in a different way from GetBalance. The biggest
-// difference is that GetBalance sums up all unspent TxOuts paying to the
-// wallet, while this sums up both spent and unspent TxOuts paying to the
-// wallet, and then subtracts the values of TxIns spending from the wallet. This
-// also has fewer restrictions on which unconfirmed transactions are considered
-// trusted.
-CAmountMap CWallet::GetLegacyBalance(const isminefilter& filter, int minDepth) const
-{
-    auto locked_chain = chain().lock();
-    LOCK(cs_wallet);
-
-    CAmountMap balance;
-    for (const auto& entry : mapWallet) {
-        const CWalletTx& wtx = entry.second;
-        const int depth = wtx.GetDepthInMainChain(*locked_chain);
-        if (depth < 0 || !locked_chain->checkFinalTx(*wtx.tx) || wtx.IsImmatureCoinBase(*locked_chain)) {
-            continue;
-        }
-
-        // Loop through tx outputs and add incoming payments. For outgoing txs,
-        // treat change outputs specially, as part of the amount debited.
-        CAmountMap debit = wtx.GetDebit(filter);
-        const bool outgoing = debit > CAmountMap();
-        for (unsigned int i = 0; i < wtx.tx->vout.size(); ++i) {
-            const CTxOut& out = wtx.tx->vout[i];
-            if (outgoing && IsChange(out)) {
-                CAmount amt = wtx.GetOutputValueOut(i);
-                if (amt < 0) {
-                    continue;
-                }
-                debit[wtx.GetOutputAsset(i)] -= amt;
-            } else if (IsMine(out) & filter && depth >= minDepth) {
-                CAmount amt = wtx.GetOutputValueOut(i);
-                if (amt < 0) {
-                    continue;
-                }
-                balance[wtx.GetOutputAsset(i)] += amt;
-            }
-        }
-
-        // For outgoing txs, subtract amount debited.
-        if (outgoing) {
-            balance -= debit;
-        }
-    }
-
-    return balance;
 }
 
 CAmountMap CWallet::GetAvailableBalance(const CCoinControl* coinControl) const
@@ -2390,25 +2341,25 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
     for (const auto& entry : mapWallet)
     {
         const uint256& wtxid = entry.first;
-        const CWalletTx* pcoin = &entry.second;
+        const CWalletTx& wtx = entry.second;
 
-        if (!locked_chain.checkFinalTx(*pcoin->tx)) {
+        if (!locked_chain.checkFinalTx(*wtx.tx)) {
             continue;
         }
 
-        if (pcoin->IsImmatureCoinBase(locked_chain))
+        if (wtx.IsImmatureCoinBase(locked_chain))
             continue;
 
-        int nDepth = pcoin->GetDepthInMainChain(locked_chain);
+        int nDepth = wtx.GetDepthInMainChain(locked_chain);
         if (nDepth < 0)
             continue;
 
         // We should not consider coins which aren't at least in our mempool
         // It's possible for these to be conflicted via ancestors which we may never be able to detect
-        if (nDepth == 0 && !pcoin->InMempool())
+        if (nDepth == 0 && !wtx.InMempool())
             continue;
 
-        bool safeTx = pcoin->IsTrusted(locked_chain);
+        bool safeTx = wtx.IsTrusted(locked_chain);
 
         // We should not consider coins from transactions that are replacing
         // other transactions.
@@ -2425,7 +2376,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
         // be a 1-block reorg away from the chain where transactions A and C
         // were accepted to another chain where B, B', and C were all
         // accepted.
-        if (nDepth == 0 && pcoin->mapValue.count("replaces_txid")) {
+        if (nDepth == 0 && wtx.mapValue.count("replaces_txid")) {
             safeTx = false;
         }
 
@@ -2437,7 +2388,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
         // intending to replace A', but potentially resulting in a scenario
         // where A, A', and D could all be accepted (instead of just B and
         // D, or just A and A' like the user would want).
-        if (nDepth == 0 && pcoin->mapValue.count("replaced_by_txid")) {
+        if (nDepth == 0 && wtx.mapValue.count("replaced_by_txid")) {
             safeTx = false;
         }
 
@@ -2448,9 +2399,9 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
         if (nDepth < nMinDepth || nDepth > nMaxDepth)
             continue;
 
-        for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++) {
-            CAmount outValue = pcoin->GetOutputValueOut(i);
-            CAsset asset = pcoin->GetOutputAsset(i);
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+            CAmount outValue = wtx.GetOutputValueOut(i);
+            CAsset asset = wtx.GetOutputAsset(i);
             if (asset_filter && asset != *asset_filter) {
                 continue;
             }
@@ -2466,16 +2417,16 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
             if (IsSpent(locked_chain, wtxid, i))
                 continue;
 
-            isminetype mine = IsMine(pcoin->tx->vout[i]);
+            isminetype mine = IsMine(wtx.tx->vout[i]);
 
             if (mine == ISMINE_NO) {
                 continue;
             }
 
-            bool solvable = IsSolvable(*this, pcoin->tx->vout[i].scriptPubKey);
+            bool solvable = IsSolvable(*this, wtx.tx->vout[i].scriptPubKey);
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
 
-            vCoins.push_back(COutput(pcoin, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
+            vCoins.push_back(COutput(&wtx, i, nDepth, spendable, solvable, safeTx, (coinControl && coinControl->fAllowWatchOnly)));
 
             // Checks the sum amount of all UTXO's.
             if (nMinimumSumAmount != MAX_MONEY) {
@@ -2666,18 +2617,18 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(outpoint.hash);
         if (it != mapWallet.end())
         {
-            const CWalletTx* pcoin = &it->second;
+            const CWalletTx& wtx = it->second;
             // Clearly invalid input, fail
-            if (pcoin->tx->vout.size() <= outpoint.n)
+            if (wtx.tx->vout.size() <= outpoint.n)
                 return false;
 
             // Just to calculate the marginal byte size
-            CAmount amt = pcoin->GetOutputValueOut(outpoint.n);
+            CAmount amt = wtx.GetOutputValueOut(outpoint.n);
             if (amt < 0) {
                 continue;
             }
-            mapValueFromPresetInputs[pcoin->GetOutputAsset(outpoint.n)] += amt;
-            setPresetCoins.insert(CInputCoin(pcoin, outpoint.n));
+            mapValueFromPresetInputs[wtx.GetOutputAsset(outpoint.n)] += amt;
+            setPresetCoins.insert(CInputCoin(&wtx, outpoint.n));
         } else
             return false; // TODO: Allow non-wallet inputs
     }
@@ -4252,27 +4203,27 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances(interfaces::Chain:
         LOCK(cs_wallet);
         for (const auto& walletEntry : mapWallet)
         {
-            const CWalletTx *pcoin = &walletEntry.second;
+            const CWalletTx& wtx = walletEntry.second;
 
-            if (!pcoin->IsTrusted(locked_chain))
+            if (!wtx.IsTrusted(locked_chain))
                 continue;
 
-            if (pcoin->IsImmatureCoinBase(locked_chain))
+            if (wtx.IsImmatureCoinBase(locked_chain))
                 continue;
 
-            int nDepth = pcoin->GetDepthInMainChain(locked_chain);
-            if (nDepth < (pcoin->IsFromMe(ISMINE_ALL) ? 0 : 1))
+            int nDepth = wtx.GetDepthInMainChain(locked_chain);
+            if (nDepth < (wtx.IsFromMe(ISMINE_ALL) ? 0 : 1))
                 continue;
 
-            for (unsigned int i = 0; i < pcoin->tx->vout.size(); i++)
+            for (unsigned int i = 0; i < wtx.tx->vout.size(); i++)
             {
                 CTxDestination addr;
-                if (!IsMine(pcoin->tx->vout[i]))
+                if (!IsMine(wtx.tx->vout[i]))
                     continue;
-                if(!ExtractDestination(pcoin->tx->vout[i].scriptPubKey, addr))
+                if(!ExtractDestination(wtx.tx->vout[i].scriptPubKey, addr))
                     continue;
 
-                CAmount n = IsSpent(locked_chain, walletEntry.first, i) ? 0 : pcoin->GetOutputValueOut(i);
+                CAmount n = IsSpent(locked_chain, walletEntry.first, i) ? 0 : wtx.GetOutputValueOut(i);
 
                 if (!balances.count(addr))
                     balances[addr] = 0;
@@ -4296,13 +4247,13 @@ std::set< std::set<CTxDestination> > CWallet::GetAddressGroupings()
 
     for (const auto& walletEntry : mapWallet)
     {
-        const CWalletTx *pcoin = &walletEntry.second;
+        const CWalletTx& wtx = walletEntry.second;
 
-        if (pcoin->tx->vin.size() > 0)
+        if (wtx.tx->vin.size() > 0)
         {
             bool any_mine = false;
             // group all input addresses with each other
-            for (const CTxIn& txin : pcoin->tx->vin)
+            for (const CTxIn& txin : wtx.tx->vin)
             {
                 CTxDestination address;
                 if(!IsMine(txin)) /* If this input isn't mine, ignore it */
@@ -4316,7 +4267,7 @@ std::set< std::set<CTxDestination> > CWallet::GetAddressGroupings()
             // group change with input addresses
             if (any_mine)
             {
-               for (const CTxOut& txout : pcoin->tx->vout)
+               for (const CTxOut& txout : wtx.tx->vout)
                    if (IsChange(txout))
                    {
                        CTxDestination txoutAddr;
@@ -4333,7 +4284,7 @@ std::set< std::set<CTxDestination> > CWallet::GetAddressGroupings()
         }
 
         // group lone addrs by themselves
-        for (const auto& txout : pcoin->tx->vout)
+        for (const auto& txout : wtx.tx->vout)
             if (IsMine(txout))
             {
                 CTxDestination address;

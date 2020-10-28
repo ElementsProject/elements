@@ -1060,7 +1060,6 @@ public:
     CAmountMap GetImmatureBalance() const;
     CAmountMap GetUnconfirmedWatchOnlyBalance() const;
     CAmountMap GetImmatureWatchOnlyBalance() const;
-    CAmountMap GetLegacyBalance(const isminefilter& filter, int minDepth) const;
     CAmountMap GetAvailableBalance(const CCoinControl* coinControl = nullptr) const;
 
     OutputType TransactionChangeType(OutputType change_type, const std::vector<CRecipient>& vecSend);
