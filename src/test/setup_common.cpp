@@ -58,7 +58,11 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     // Set policy asset for correct fee output generation
     policyAsset = CAsset();
 
-    noui_connect();
+    static bool noui_connected = false;
+    if (!noui_connected) {
+        noui_connect();
+        noui_connected = true;
+    }
 }
 
 BasicTestingSetup::~BasicTestingSetup()
