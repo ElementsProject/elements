@@ -1281,6 +1281,10 @@ void CWallet::BlockDisconnected(const CBlock& block) {
     }
 }
 
+void CWallet::UpdatedBlockTip()
+{
+    m_best_block_time = GetTime();
+}
 
 
 void CWallet::BlockUntilSyncedToCurrentChain() {
@@ -2187,8 +2191,21 @@ CAmountMap CWalletTx::GetIssuanceAssets(unsigned int input_index) const {
     return ret;
 }
 
-void CWallet::ResendWalletTransactions(interfaces::Chain::Lock& locked_chain, int64_t nBestBlockTime)
+// Rebroadcast transactions from the wallet. We do this on a random timer
+// to slightly obfuscate which transactions come from our wallet.
+//
+// Ideally, we'd only resend transactions that we think should have been
+// mined in the most recent block. Any transaction that wasn't in the top
+// blockweight of transactions in the mempool shouldn't have been mined,
+// and so is probably just sitting in the mempool waiting to be confirmed.
+// Rebroadcasting does nothing to speed up confirmation and only damages
+// privacy.
+void CWallet::ResendWalletTransactions()
 {
+    // During reindex, importing and IBD, old wallet transactions become
+    // unconfirmed. Don't resend them as that would spam other nodes.
+    if (!chain().isReadyToBroadcast()) return;
+
     // Do this infrequently and randomly to avoid giving away
     // that these are our transactions.
     if (GetTime() < nNextResend || !fBroadcastTransactions) return;
@@ -2197,12 +2214,13 @@ void CWallet::ResendWalletTransactions(interfaces::Chain::Lock& locked_chain, in
     if (fFirst) return;
 
     // Only do it if there's been a new block since last time
-    if (nBestBlockTime < nLastResend) return;
+    if (m_best_block_time < nLastResend) return;
     nLastResend = GetTime();
 
     int relayed_tx_count = 0;
 
-    { // cs_wallet scope
+    { // locked_chain and cs_wallet scope
+        auto locked_chain = chain().lock();
         LOCK(cs_wallet);
 
         // Relay transactions
@@ -2210,10 +2228,10 @@ void CWallet::ResendWalletTransactions(interfaces::Chain::Lock& locked_chain, in
             CWalletTx& wtx = item.second;
             // only rebroadcast unconfirmed txes older than 5 minutes before the
             // last block was found
-            if (wtx.nTimeReceived > nBestBlockTime - 5 * 60) continue;
-            relayed_tx_count += wtx.RelayWalletTransaction(locked_chain) ? 1 : 0;
+            if (wtx.nTimeReceived > m_best_block_time - 5 * 60) continue;
+            if (wtx.RelayWalletTransaction(*locked_chain)) ++relayed_tx_count;
         }
-    } // cs_wallet
+    } // locked_chain and cs_wallet
 
     if (relayed_tx_count > 0) {
         WalletLogPrintf("%s: rebroadcast %u unconfirmed transactions\n", __func__, relayed_tx_count);
@@ -2222,7 +2240,12 @@ void CWallet::ResendWalletTransactions(interfaces::Chain::Lock& locked_chain, in
 
 /** @} */ // end of mapWallet
 
-
+void MaybeResendWalletTxs()
+{
+    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+        pwallet->ResendWalletTransactions();
+    }
+}
 
 
 /** @defgroup Actions
