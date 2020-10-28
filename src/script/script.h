@@ -605,13 +605,4 @@ struct CScriptWitness
     std::string ToString() const;
 };
 
-class CReserveScript
-{
-public:
-    CScript reserveScript;
-    virtual void KeepScript() {}
-    CReserveScript() {}
-    virtual ~CReserveScript() {}
-};
-
 #endif // BITCOIN_SCRIPT_SCRIPT_H
