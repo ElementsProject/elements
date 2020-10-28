@@ -375,24 +375,11 @@ public:
     std::multimap<int64_t, CWalletTx*>::const_iterator m_it_wtxOrdered;
 
     // memory only
-    mutable bool fDebitCached;
-    mutable bool fCreditCached;
-    mutable bool fImmatureCreditCached;
-    mutable bool fAvailableCreditCached;
-    mutable bool fWatchDebitCached;
-    mutable bool fWatchCreditCached;
-    mutable bool fImmatureWatchCreditCached;
-    mutable bool fAvailableWatchCreditCached;
+    enum AmountType { DEBIT, CREDIT, IMMATURE_CREDIT, AVAILABLE_CREDIT, AMOUNTTYPE_ENUM_ELEMENTS };
+    CAmountMap GetCachableAmount(AmountType type, const isminefilter& filter, bool recalculate = false) const;
+    mutable CachableAmountMap m_amounts[AMOUNTTYPE_ENUM_ELEMENTS];
     mutable bool fChangeCached;
     mutable bool fInMempool;
-    mutable CAmountMap nDebitCached;
-    mutable CAmountMap nCreditCached;
-    mutable CAmountMap nImmatureCreditCached;
-    mutable CAmountMap nAvailableCreditCached;
-    mutable CAmountMap nWatchDebitCached;
-    mutable CAmountMap nWatchCreditCached;
-    mutable CAmountMap nImmatureWatchCreditCached;
-    mutable CAmountMap nAvailableWatchCreditCached;
     mutable CAmountMap nChangeCached;
 
     CWalletTx(const CWallet* pwalletIn, CTransactionRef arg) : CMerkleTx(std::move(arg))
@@ -409,24 +396,8 @@ public:
         nTimeReceived = 0;
         nTimeSmart = 0;
         fFromMe = false;
-        fDebitCached = false;
-        fCreditCached = false;
-        fImmatureCreditCached = false;
-        fAvailableCreditCached = false;
-        fWatchDebitCached = false;
-        fWatchCreditCached = false;
-        fImmatureWatchCreditCached = false;
-        fAvailableWatchCreditCached = false;
         fChangeCached = false;
         fInMempool = false;
-        nDebitCached = CAmountMap();
-        nCreditCached = CAmountMap();
-        nImmatureCreditCached = CAmountMap();
-        nAvailableCreditCached = CAmountMap();
-        nWatchDebitCached = CAmountMap();
-        nWatchCreditCached = CAmountMap();
-        nAvailableWatchCreditCached = CAmountMap();
-        nImmatureWatchCreditCached = CAmountMap();
         nChangeCached = CAmountMap();
         nOrderPos = -1;
     }
@@ -470,14 +441,10 @@ public:
     //! make sure balances are recalculated
     void MarkDirty()
     {
-        fCreditCached = false;
-        fAvailableCreditCached = false;
-        fImmatureCreditCached = false;
-        fWatchDebitCached = false;
-        fWatchCreditCached = false;
-        fAvailableWatchCreditCached = false;
-        fImmatureWatchCreditCached = false;
-        fDebitCached = false;
+        m_amounts[DEBIT].Reset();
+        m_amounts[CREDIT].Reset();
+        m_amounts[IMMATURE_CREDIT].Reset();
+        m_amounts[AVAILABLE_CREDIT].Reset();
         fChangeCached = false;
         WipeUnknownBlindingData();
     }
