@@ -5448,7 +5448,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     CValidationState acceptState;
     LockAnnotation lock(::cs_main); //TODO(stevenroose) replace with locked_chain later
     bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx), nullptr /* pfMissingInputs */,
-                            nullptr /* plTxnReplaced */, false /* bypass_limits */, maxTxFee, true /* test_accept */);
+                            nullptr /* plTxnReplaced */, false /* bypass_limits */, pwallet->m_default_max_tx_fee, true /* test_accept */);
     if (!accepted) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(acceptState));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
