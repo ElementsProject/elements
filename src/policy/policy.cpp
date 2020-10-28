@@ -8,9 +8,10 @@
 #include <policy/policy.h>
 
 #include <consensus/validation.h>
-#include <validation.h>
 #include <coins.h>
 #include <pegins.h>
+#include <policy/settings.h>
+#include <primitives/pak.h>
 #include <tinyformat.h>
 #include <util/system.h>
 #include <util/strencodings.h>
@@ -268,10 +269,6 @@ bool IsWitnessStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs)
     }
     return true;
 }
-
-CFeeRate incrementalRelayFee = CFeeRate(DEFAULT_INCREMENTAL_RELAY_FEE);
-CFeeRate dustRelayFee = CFeeRate(DUST_RELAY_TX_FEE);
-unsigned int nBytesPerSigOp = DEFAULT_BYTES_PER_SIGOP;
 
 int64_t GetVirtualTransactionSize(int64_t nWeight, int64_t nSigOpCost)
 {
