@@ -16,7 +16,7 @@
 #include <util/strencodings.h>
 #include <validation.h>
 #include <streams.h>
-#include <test/test_bitcoin.h>
+#include <test/setup_common.h>
 #include <util/system.h>
 
 #include <boost/algorithm/string/classification.hpp>

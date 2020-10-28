@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The Bitcoin Core developers
+// Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,7 +10,7 @@
 #include <miner.h>
 #include <pow.h>
 #include <random.h>
-#include <test/test_bitcoin.h>
+#include <test/setup_common.h>
 #include <validation.h>
 #include <validationinterface.h>
 
@@ -61,6 +61,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
 
     CMutableTransaction txCoinbase(*pblock->vtx[0]);
     txCoinbase.vout.resize(1);
+    txCoinbase.witness.vtxoutwit.resize(1);
     txCoinbase.witness.vtxinwit.resize(1);
     txCoinbase.witness.vtxinwit[0].scriptWitness.SetNull();
     pblock->vtx[0] = MakeTransactionRef(std::move(txCoinbase));
