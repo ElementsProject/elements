@@ -6,7 +6,6 @@
 #include <wallet/wallet.h>
 
 #include <chain.h>
-#include <checkpoints.h>
 #include <consensus/consensus.h>
 #include <consensus/validation.h>
 #include <fs.h>
