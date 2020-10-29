@@ -135,7 +135,7 @@ static fs::path GetMainchainAuthCookieFile()
         cookie_file = ".cookie";
     }
     boost::filesystem::path path(gArgs.GetArg("-mainchainrpccookiefile", cookie_file));
-    if (!path.is_complete()) path = GetDataDir(false) / path;
+    if (!path.is_absolute()) path = GetDataDir(false) / path;
     return path;
 }
 
