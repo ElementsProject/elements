@@ -29,7 +29,7 @@ def create_transactions(node, address, amt, fees):
         assert utxo['asset'] == BITCOIN_ASSET
         inputs.append({"txid": utxo["txid"], "vout": utxo["vout"]})
         ins_total += utxo['amount']
-        if ins_total + max(fees) > amt:
+        if ins_total >= amt + max(fees):
             break
     # make sure there was enough utxos
     assert ins_total >= amt + max(fees)
