@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
     {
         CBasicKeyStore keystore;
 
-        CScript redeemscript = GetScriptForDestination(ScriptHash(PKHash(pubkeys[0])));
+        CScript redeemscript = GetScriptForDestination(PKHash(pubkeys[0]));
         CScript witnessscript = GetScriptForDestination(ScriptHash(redeemscript));
         scriptPubKey = GetScriptForDestination(WitnessV0ScriptHash(witnessscript));
 
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(script_standard_IsMine)
         BOOST_CHECK(keystore.AddKey(keys[1]));
 
         CScript redeemScript = GetScriptForMultisig(2, {uncompressedPubkey, pubkeys[1]});
-        scriptPubKey = GetScriptForDestination(ScriptHash(CScriptID(redeemScript)));
+        scriptPubKey = GetScriptForDestination(ScriptHash(redeemScript));
 
         // Keystore has no redeemScript
         result = IsMine(keystore, scriptPubKey);
