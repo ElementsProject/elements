@@ -67,13 +67,23 @@ class WalletTest(BitcoinTestFramework):
         assert_equal(len(self.nodes[0].listunspent()), 0)
         assert_equal(len(self.nodes[1].listunspent()), 0)
 
-        self.log.info("Mining blocks ...")
+        self.log.info("Check that only node 0 is watching an address")
+        assert 'watchonly' in self.nodes[0].getbalances()
+        assert 'watchonly' not in self.nodes[1].getbalances()
 
+        self.log.info("Mining blocks ...")
         self.nodes[0].generate(1)
         self.sync_all()
         self.nodes[1].generate(1)
         self.nodes[1].generatetoaddress(101, ADDRESS_WATCHONLY)
         self.sync_all()
+
+        assert_equal(self.nodes[0].getbalances()['mine']['trusted']['bitcoin'], 50)
+        assert_equal(self.nodes[0].getwalletinfo()['balance']['bitcoin'], 50)
+        assert_equal(self.nodes[1].getbalances()['mine']['trusted']['bitcoin'], 50)
+
+        assert_equal(self.nodes[0].getbalances()['watchonly']['immature']['bitcoin'], 5000)
+        assert 'watchonly' not in self.nodes[1].getbalances()
 
         assert_equal(self.nodes[0].getbalance()['bitcoin'], 50)
         assert_equal(self.nodes[1].getbalance()['bitcoin'], 50)
@@ -115,8 +125,11 @@ class WalletTest(BitcoinTestFramework):
             assert_equal(self.nodes[1].getbalance(minconf=1)['bitcoin'], Decimal('0'))
             # getunconfirmedbalance
             assert_equal(self.nodes[0].getunconfirmedbalance()['bitcoin'], Decimal('60'))  # output of node 1's spend
+            assert_equal(self.nodes[0].getbalances()['mine']['untrusted_pending']['bitcoin'], Decimal('60'))
             assert_equal(self.nodes[0].getwalletinfo()["unconfirmed_balance"]['bitcoin'], Decimal('60'))
+
             assert_equal(self.nodes[1].getunconfirmedbalance()['bitcoin'], Decimal('0'))  # Doesn't include output of node 0's send since it was spent
+            assert_equal(self.nodes[1].getbalances()['mine']['untrusted_pending']['bitcoin'], Decimal('0'))
             assert_equal(self.nodes[1].getwalletinfo()["unconfirmed_balance"]['bitcoin'], Decimal('0'))
 
         test_balances(fee_node_1=Decimal('0.01'))
