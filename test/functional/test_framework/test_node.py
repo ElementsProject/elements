@@ -23,6 +23,7 @@ import sys
 
 from .authproxy import JSONRPCException
 from .util import (
+    MAX_NODES,
     append_config,
     delete_cookie_file,
     get_rpc_proxy,
@@ -120,11 +121,8 @@ class TestNode():
         AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
         self.deterministic_priv_key = AddressKeyPair(address, privkey)
 
-    def get_deterministic_priv_key(self):
-        """Return a deterministic priv key in base58, that only depends on the node's index"""
-
-        AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
-        PRIV_KEYS = [
+    AddressKeyPair = collections.namedtuple('AddressKeyPair', ['address', 'key'])
+    PRIV_KEYS = [
             # address , privkey
             AddressKeyPair('2doncj41FX6LahE2aspuLuQcnmgrLtfvvma', 'cQ1PxVTn5J3qCzUqXzpNeHiPVxZcwwaJkFmZcokescXwmHWAdBoe'),
             AddressKeyPair('2dv4oTKjmi3TF6dRq2TmasMdNtTeuqHNcPb', 'cRuGzyZjb5zQQg1TbAiGK1UJBuK1UQHaFf4DXBUcPZNZ3WomNoxW'),
@@ -135,14 +133,21 @@ class TestNode():
             AddressKeyPair('2dxjmBn21SQjhffXzzi1hz5nKA4quM7jtsT', 'cVpzWr59KE7DsWaSJkySSPSvkrr6huUsjYBF3wcwCMhW4cEPNmU1'),
             AddressKeyPair('2dpFhgNeWqm7LVbvZo29bvXPEzwWTVfzVSY', 'cRPF2Kfm21BWf3GPHMKGGMQN1a6sNJPGsyYSz8VWQhsoVUr42q4r'),
             AddressKeyPair('2df8FzAJJtPcHsvXYRh4BTmnhSUUVE5zNhE', 'cU9yBKyGyRNBpzSmVavoh9szgaFUjKbPG9P3CPtycXAxmdwnKxiL'),
-        ]
+            AddressKeyPair('2N7XEbmyLeviPkfiTMEcnEFrdcwfrW2nypj', 'cSpjeQMdDAD6Kr6g4T4HwFX1jMoiMKw5iBjHUSNgVTEdiZbrSa8o'),
+            AddressKeyPair('2N5epYpqDw55w9HBpU97tNRUdwHXtFQ1kHs', 'cNEfBggwDGdf27hitveT75RicFtjeZX7pN4fsV3KjKEamScPzh63'),
+            AddressKeyPair('2N1hYBmCYcYNjUwiSAxricmwEgqpxhXeBHo', 'cMrjzHT5XvEYob52zEHLgpC2jbSTiRYRAJgPvFDdeQTMy7AM5L3N'),
+    ]
+
+    def get_deterministic_priv_key(self):
+        """Return a deterministic priv key in base58, that only depends on the node's index"""
+        assert len(self.PRIV_KEYS) == MAX_NODES
 
         # ELEMENTS: this allows overriding the default for parent nodes in fedpeg test
         if self.deterministic_priv_key is not None:
             self.log.debug("Custom deterministic_priv_key: {}".format(self.deterministic_priv_key))
             return self.deterministic_priv_key
 
-        return PRIV_KEYS[self.index]
+        return self.PRIV_KEYS[self.index]
 
     def get_mem_rss_kilobytes(self):
         """Get the memory usage (RSS) per `ps`.
