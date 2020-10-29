@@ -68,7 +68,6 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/thread.hpp>
-#include <openssl/crypto.h>
 
 #include <primitives/pak.h> // CPAKList
 #include <assetsdir.h> // InitGlobalAssetDir
