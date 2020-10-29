@@ -11,28 +11,28 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
 {
     // Basic checks that don't depend on any context
     if (tx.vin.empty())
-        return state.DoS(10, false, REJECT_INVALID, "bad-txns-vin-empty");
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vin-empty");
     if (tx.vout.empty())
-        return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vout-empty");
     // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
     if (::GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-oversize");
 
     // Check for negative or overflow output values
     CAmount nValueOutExplicit = 0;
     for (const auto& txout : tx.vout)
     {
         if (!txout.nValue.IsValid())
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
         if (!txout.nValue.IsExplicit())
             continue;
         if (txout.nValue.GetAmount() < 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vout-negative");
         if (txout.nValue.GetAmount() > MAX_MONEY)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-toolarge");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-vout-toolarge");
         nValueOutExplicit += txout.nValue.GetAmount();
         if (!MoneyRange(nValueOutExplicit))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Check for duplicate inputs - note that this check is slow so we skip it in CheckBlock
@@ -41,18 +41,18 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
         for (const auto& txin : tx.vin)
         {
             if (!vInOutPoints.insert(txin.prevout).second)
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputs-duplicate");
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputs-duplicate");
         }
     }
 
     if (tx.IsCoinBase())
     {
         if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
-            return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-length");
 
         for (unsigned int i = 0; i < tx.vout.size(); i++) {
             if (tx.vout[i].IsFee()) {
-                return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-fee");
             }
         }
     }
@@ -60,7 +60,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fChe
     {
         for (const auto& txin : tx.vin)
             if (txin.prevout.IsNull())
-                return state.DoS(10, false, REJECT_INVALID, "bad-txns-prevout-null");
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-prevout-null");
     }
 
     return true;
