@@ -4630,7 +4630,7 @@ UniValue signblock(const JSONRPCRequest& request)
     if (mi != mapBlockIndex.end())
         throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
-    CBlockIndex* const pindexPrev = chainActive.Tip();
+    CBlockIndex* const pindexPrev = ::ChainActive().Tip();
     // TestBlockValidity only supports blocks built on the current Tip
     if (block.hashPrevBlock != pindexPrev->GetBlockHash())
         throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
