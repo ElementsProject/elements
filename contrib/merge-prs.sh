@@ -5,6 +5,8 @@ exit 1
 
 set -eo pipefail
 
+GITROOT=$(git rev-parse --show-toplevel)
+
 BASE=merged-master
 
 if [[ "$1" == "" ]]; then
@@ -17,7 +19,7 @@ if [[ "$1" == "" ]]; then
 fi
 
 if [[ "$1" != "list-only" ]]; then
-    if [[ -f ".git/MERGE_MSG" ]]; then
+    if [[ -f "${GITROOT}/.git/MERGE_MSG" ]]; then
         echo "It looks like you're in the middle of a merge. Finish fixing"
         echo "things then run 'git commit' before running this program."
         exit 1
