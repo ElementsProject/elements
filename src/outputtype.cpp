@@ -16,6 +16,7 @@
 static const std::string OUTPUT_TYPE_STRING_LEGACY = "legacy";
 static const std::string OUTPUT_TYPE_STRING_P2SH_SEGWIT = "p2sh-segwit";
 static const std::string OUTPUT_TYPE_STRING_BECH32 = "bech32";
+static const std::string OUTPUT_TYPE_STRING_BLECH32 = "blech32";
 
 bool ParseOutputType(const std::string& type, OutputType& output_type)
 {
@@ -25,7 +26,7 @@ bool ParseOutputType(const std::string& type, OutputType& output_type)
     } else if (type == OUTPUT_TYPE_STRING_P2SH_SEGWIT) {
         output_type = OutputType::P2SH_SEGWIT;
         return true;
-    } else if (type == OUTPUT_TYPE_STRING_BECH32) {
+    } else if (type == OUTPUT_TYPE_STRING_BECH32 || type == OUTPUT_TYPE_STRING_BLECH32) {
         output_type = OutputType::BECH32;
         return true;
     }

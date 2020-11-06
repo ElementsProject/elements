@@ -103,6 +103,12 @@ class CTTest (BitcoinTestFramework):
         print("Testing wallet secret recovery")
         self.test_wallet_recovery()
 
+        # Test that "blech32" gives a blinded segwit address.
+        blech32_addr = self.nodes[0].getnewaddress("", "blech32")
+        blech32_addr_info = self.nodes[0].getaddressinfo(blech32_addr)
+        assert_equal(blech32_addr_info["iswitness"], True)
+        assert_equal(blech32_addr_info["confidential"], blech32_addr)
+
         print("General Confidential tests")
         # Running balances
         node0 = self.nodes[0].getbalance()["bitcoin"]
