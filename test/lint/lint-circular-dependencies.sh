@@ -31,6 +31,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "qt/guiutil -> qt/walletmodel -> qt/optionsmodel -> qt/guiutil"
     "txmempool -> validation -> validationinterface -> txmempool"
     "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
+    "wallet/ismine -> wallet/wallet -> wallet/ismine"
 )
 
 EXIT_CODE=0

@@ -9,6 +9,7 @@
 #include <key_io.h>
 #include <policy/policy.h>
 #include <validation.h>
+#include <wallet/ismine.h>
 
 #include <stdint.h>
 
