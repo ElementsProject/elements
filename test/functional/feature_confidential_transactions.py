@@ -608,6 +608,11 @@ class CTTest (BitcoinTestFramework):
         except JSONRPCException:
             pass
 
+        # Make sure RPC throws when an invalid blinding factor is provided.
+        bad_blinder = 'FF'*32
+        assert_raises_rpc_error(-8, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?", self.nodes[0].rawblindrawtransaction, rawtx, [unspent[0]["amountblinder"], bad_blinder], [unspent[0]["amount"], unspent[1]["amount"]], [unspent[0]["asset"], unspent[1]["asset"]], [unspent[0]["assetblinder"], unspent[1]["assetblinder"]])
+        assert_raises_rpc_error(-8, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?", self.nodes[0].rawblindrawtransaction, rawtx, [unspent[0]["amountblinder"], unspent[1]["amountblinder"]], [unspent[0]["amount"], unspent[1]["amount"]], [unspent[0]["asset"], unspent[1]["asset"]], [unspent[0]["assetblinder"], bad_blinder])
+
         blindtx = self.nodes[0].rawblindrawtransaction(rawtx, [unspent[0]["amountblinder"], unspent[1]["amountblinder"]], [unspent[0]["amount"], unspent[1]["amount"]], [unspent[0]["asset"], unspent[1]["asset"]], [unspent[0]["assetblinder"], unspent[1]["assetblinder"]])
         signtx = self.nodes[0].signrawtransactionwithwallet(blindtx)
         txid = self.nodes[0].sendrawtransaction(signtx["hex"])
