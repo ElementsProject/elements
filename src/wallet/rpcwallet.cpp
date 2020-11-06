@@ -5982,8 +5982,8 @@ UniValue issueasset(const JSONRPCRequest& request)
                 "For more fine-grained control such as non-empty contract-hashes to commit\n"
                 "to an issuance policy, see `rawissueasset` RPC call.\n",
                 {
-                    {"assetamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of asset to generate."},
-                    {"tokenamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of reissuance tokens to generate. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance."},
+                    {"assetamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of asset to generate. Note that the amount is BTC-like, with 8 decimal places."},
+                    {"tokenamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of reissuance tokens to generate. Note that the amount is BTC-like, with 8 decimal places. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance."},
                     {"blind", RPCArg::Type::BOOL , /* default */ "true", "Whether to blind the issuances."},
                 },
                 RPCResult{
@@ -6082,7 +6082,7 @@ UniValue reissueasset(const JSONRPCRequest& request)
                 "For more fine-grained control such as reissuing from a multi-signature address cold wallet, see `rawreissueasset` RPC call.\n",
                 {
                     {"asset", RPCArg::Type::STR, RPCArg::Optional::NO, "The asset you want to re-issue. The corresponding token must be in your wallet."},
-                    {"assetamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of additional asset to generate."},
+                    {"assetamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of additional asset to generate. Note that the amount is BTC-like, with 8 decimal places."},
                 },
                 RPCResult{
             "{                        (json object)\n"
