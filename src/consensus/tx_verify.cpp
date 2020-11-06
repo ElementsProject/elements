@@ -162,7 +162,8 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
         CTxOut prevout;
         if (tx.vin[i].m_is_pegin) {
             std::string err;
-            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err, true)) {
+            // Make sure witness exists and is properly formatted
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err, false)) {
                 continue;
             }
             prevout = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
