@@ -1349,19 +1349,22 @@ isminetype CWallet::IsMine(const CTxOut& txout) const
     return ::IsMine(*this, txout.scriptPubKey);
 }
 
-CAmountMap CWallet::GetCredit(const CTxOut& txout, const isminefilter& filter) const
+CAmountMap CWallet::GetCredit(const CTransaction& tx, const size_t out_index, const isminefilter& filter) const
 {
-    assert(false && "CWallet::GetCredit(const CTxOut&, const isminefilter&): this method should not be used anymore");
-
-    CAmountMap credit;
-    if (txout.nAsset.IsExplicit() && txout.nValue.IsExplicit()) {
-        credit[txout.nAsset.GetAsset()] = txout.nValue.GetAmount();
-    } else {
-        WalletLogPrintf("WARNING: Calculating credit of blinded transaction.\n");
+    {
+        LOCK(cs_wallet);
+        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(tx.GetHash());
+        if (mi != mapWallet.end())
+        {
+            const CWalletTx& wtx = (*mi).second;
+            if (out_index < wtx.tx->vout.size() && IsMine(wtx.tx->vout[out_index]) & filter) {
+                CAmountMap amounts;
+                amounts[wtx.GetOutputAsset(out_index)] = std::max<CAmount>(0, wtx.GetOutputValueOut(out_index));
+                return amounts;
+            }
+        }
     }
-    if (!MoneyRange(credit))
-        throw std::runtime_error(std::string(__func__) + ": value out of range");
-    return ((IsMine(txout) & filter) ? credit : CAmountMap());
+    return CAmountMap();
 }
 
 bool CWallet::IsChange(const CTxOut& txout) const
@@ -1458,20 +1461,6 @@ CAmountMap CWallet::GetCredit(const CWalletTx& wtx, const isminefilter& filter) 
             if (!MoneyRange(nCredit))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
         }
-    }
-    return nCredit;
-}
-
-CAmountMap CWallet::GetCredit(const CTransaction& tx, const isminefilter& filter) const
-{
-    assert(false && "CWallet::GetCredit(const CTransaction&, const isminefilter&): this method should not be used anymore");
-
-    CAmountMap nCredit;
-    for (const CTxOut& txout : tx.vout)
-    {
-        nCredit += GetCredit(txout, filter);
-        if (!MoneyRange(nCredit))
-            throw std::runtime_error(std::string(__func__) + ": value out of range");
     }
     return nCredit;
 }

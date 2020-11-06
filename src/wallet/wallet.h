@@ -1238,7 +1238,7 @@ public:
      */
     CAmountMap GetDebit(const CTxIn& txin, const isminefilter& filter) const;
     isminetype IsMine(const CTxOut& txout) const;
-    CAmountMap GetCredit(const CTxOut& txout, const isminefilter& filter) const;
+    CAmountMap GetCredit(const CTransaction& tx, const size_t out_index, const isminefilter& filter) const;
     bool IsChange(const CTxOut& txout) const;
     bool IsChange(const CScript& script) const;
     CAmountMap GetChange(const CTxOut& txout) const;
@@ -1248,7 +1248,6 @@ public:
     CAmountMap GetDebit(const CTransaction& tx, const isminefilter& filter) const;
     /** Returns whether all of the inputs match the filter */
     bool IsAllFromMe(const CTransaction& tx, const isminefilter& filter) const;
-    CAmountMap GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmountMap GetChange(const CTransaction& tx) const;
 
     // ELEMENTS:

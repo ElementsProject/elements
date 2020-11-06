@@ -439,11 +439,11 @@ public:
         LOCK(m_wallet->cs_wallet);
         return m_wallet->GetDebit(txin, filter);
     }
-    CAmountMap getCredit(const CTxOut& txout, isminefilter filter) override
+    CAmountMap getCredit(const CTransaction& tx, const size_t out_index, isminefilter filter) override
     {
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
-        return m_wallet->GetCredit(txout, filter);
+        return m_wallet->GetCredit(tx, out_index, filter);
     }
     CoinsList listCoins() override
     {
