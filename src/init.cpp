@@ -184,6 +184,7 @@ static std::unique_ptr<ECCVerifyHandle> globalVerifyHandle;
 
 static boost::thread_group threadGroup;
 static CScheduler scheduler;
+static CScheduler reverification_scheduler;
 
 void Interrupt()
 {
@@ -1987,10 +1988,14 @@ bool AppInitMain(InitInterfaces& interfaces)
         + strprintf(_("If you haven't setup a %s please get the latest stable version from %s or if you do not need to validate pegins set in your elements configuration %s"), "bitcoind", "https://bitcoincore.org/en/download/", "validatepegin=0"));
     }
 
+    // Start the lightweight block re-evaluation scheduler thread
+    CScheduler::Function reevaluationLoop = std::bind(&CScheduler::serviceQueue, &reverification_scheduler);
+    threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "reevaluation_scheduler", reevaluationLoop));
+
     CScheduler::Function f2 = boost::bind(&MainchainRPCCheck, false);
-    unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120);
+    unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120) * 1000;
     if (check_rpc_every) {
-        scheduler.scheduleEvery(f2, check_rpc_every);
+        reverification_scheduler.scheduleEvery(f2, check_rpc_every);
     }
 
     uiInterface.InitMessage(_("Done loading"));
