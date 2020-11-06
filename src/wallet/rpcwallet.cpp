@@ -5547,7 +5547,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    if (IsInitialBlockDownload()) {
+    if (::ChainstateActive().IsInitialBlockDownload()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Peg-ins cannot be completed during initial sync or reindexing.");
     }
 
