@@ -187,7 +187,9 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
             RPCHelpMan{"getnewaddress",
                 "\nReturns a new Bitcoin address for receiving payments.\n"
                 "If 'label' is specified, it is added to the address book \n"
-                "so payments received with the address will be associated with 'label'.\n",
+                "so payments received with the address will be associated with 'label'.\n"
+                "When the wallet doesn't give blinded addresses by default (-blindedaddresses=0), \n"
+                "the address type \"blech32\" can still be used to get a blinded address.\n",
                 {
                     {"label", RPCArg::Type::STR, /* default */ "\"\"", "The label name for the address to be linked to. It can also be set to the empty string \"\" to represent the default label. The label does not need to exist, it will be created if there is no label by the given name."},
                     {"address_type", RPCArg::Type::STR, /* default */ "set by -addresstype", "The address type to use. Options are \"legacy\", \"p2sh-segwit\", and \"bech32\". Default is set by -addresstype."},
@@ -213,9 +215,14 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
         label = LabelFromValue(request.params[0]);
 
     OutputType output_type = pwallet->m_default_address_type;
+    bool force_blind = false;
     if (!request.params[1].isNull()) {
         if (!ParseOutputType(request.params[1].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[1].get_str()));
+        }
+        // Special case for "blech32" when `-blindedaddresses=0` in the config.
+        if (request.params[1].get_str() == "blech32") {
+            force_blind = true;
         }
     }
 
@@ -230,7 +237,7 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
     }
     pwallet->LearnRelatedScripts(newKey, output_type);
     CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode)) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) || force_blind) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
     }
@@ -277,9 +284,14 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
     }
 
     OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
+    bool force_blind = false;
     if (!request.params[0].isNull()) {
         if (!ParseOutputType(request.params[0].get_str(), output_type)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, strprintf("Unknown address type '%s'", request.params[0].get_str()));
+        }
+        // Special case for "blech32" when `-blindedaddresses=0` in the config.
+        if (request.params[0].get_str() == "blech32") {
+            force_blind = true;
         }
     }
 
@@ -292,7 +304,7 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
 
     pwallet->LearnRelatedScripts(vchPubKey, output_type);
     CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
-    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode)) {
+    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) || force_blind) {
         CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
         dest = GetDestinationForKey(vchPubKey, output_type, blinding_pubkey);
     }
@@ -3167,6 +3179,11 @@ static UniValue listunspent(const JSONRPCRequest& request)
             "    \"label\" : \"label\",        (string) The associated label, or \"\" for the default label\n"
             "    \"scriptPubKey\" : \"key\",   (string) the script key\n"
             "    \"amount\" : x.xxx,         (numeric) the transaction output amount in " + CURRENCY_UNIT + "\n"
+            "    \"amountcommitment\" : \"hex\", (string) the transaction output commitment in hex\n"
+            "    \"asset\" : \"hex\",          (string) the transaction output asset in hex\n"
+            "    \"assetcommitment\" : \"hex\", (string) the transaction output asset commitment in hex\n"
+            "    \"amountblinder\" : \"hex\",  (string) the transaction output amount blinding factor in hex\n"
+            "    \"assetblinder\" : \"hex\",   (string) the transaction output asset blinding factor in hex\n"
             "    \"confirmations\" : n,      (numeric) The number of confirmations\n"
             "    \"redeemScript\" : \"script\" (string) The redeemScript if scriptPubKey is P2SH\n"
             "    \"witnessScript\" : \"script\" (string) witnessScript if the scriptPubKey is P2WSH or P2SH-P2WSH\n"
@@ -5898,6 +5915,20 @@ UniValue blindrawtransaction(const JSONRPCRequest& request)
     int n_blinded_ins = 0;
     for (size_t nIn = 0; nIn < tx.vin.size(); ++nIn) {
         COutPoint prevout = tx.vin[nIn].prevout;
+
+        // Special handling for pegin inputs: no blinds and explicit amount/asset.
+        if (tx.vin[nIn].m_is_pegin) {
+            std::string err;
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, prevout, err, false)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
+            }
+            CTxOut pegin_output = GetPeginOutputFromWitness(tx.witness.vtxinwit[nIn].m_pegin_witness);
+            input_blinds.push_back(uint256());
+            input_asset_blinds.push_back(uint256());
+            input_assets.push_back(pegin_output.nAsset.GetAsset());
+            input_amounts.push_back(pegin_output.nValue.GetAmount());
+            continue;
+        }
 
         std::map<uint256, CWalletTx>::iterator it = pwallet->mapWallet.find(prevout.hash);
         if (it == pwallet->mapWallet.end() || pwallet->IsMine(tx.vin[nIn]) == ISMINE_NO) {

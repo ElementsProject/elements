@@ -6,19 +6,27 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     connect_nodes_bi,
+    disconnect_nodes,
     get_auth_cookie,
     get_datadir_path,
     rpc_port,
     p2p_port,
     assert_raises_rpc_error,
     assert_equal,
+    hex_str_to_bytes,
 )
 from test_framework import util
 from test_framework.messages import (
+    COIN,
     CBlock,
+    COutPoint,
     CTransaction,
+    CTxIn,
     CTxInWitness,
+    CTxOut,
+    CTxOutNonce,
     FromHex,
+    ToHex,
 )
 from test_framework.blocktools import (
     add_witness_commitment,
@@ -527,6 +535,79 @@ class FedPegTest(BitcoinTestFramework):
         claim_txid = sidechain.sendrawtransaction(signed_pegin)
         sidechain.generatetoaddress(1, sidechain.getnewaddress())
         assert_equal(sidechain.gettransaction(claim_txid)["confirmations"], 1)
+
+        # Test a confidential pegin.
+        print("Performing a confidential pegin.")
+        # start pegin
+        pegin_addrs = sidechain.getpeginaddress()
+        assert_equal(sidechain.decodescript(pegin_addrs["claim_script"])["type"], "witness_v0_keyhash")
+        pegin_addr = addrs["mainchain_address"]
+        txid_fund = parent.sendtoaddress(pegin_addr, 10)
+        # 10+2 confirms required to get into mempool and confirm
+        parent.generate(11)
+        proof = parent.gettxoutproof([txid_fund])
+        raw = parent.gettransaction(txid_fund)["hex"]
+        raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
+        pegin = FromHex(CTransaction(), raw_pegin)
+        # add new blinding pubkey for the pegin output
+        pegin.vout[0].nNonce = CTxOutNonce(hex_str_to_bytes(sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))["confidential_key"]))
+        # now add an extra input and output from listunspent; we need a blinded output for this
+        blind_addr = sidechain.getnewaddress("", "blech32")
+        sidechain.sendtoaddress(blind_addr, 15)
+        sidechain.generate(6)
+        unspent = [u for u in sidechain.listunspent(6, 6) if u["amount"] == 15][0]
+        assert(unspent["spendable"])
+        assert("amountcommitment" in unspent)
+        pegin.vin.append(CTxIn(COutPoint(int(unspent["txid"], 16), unspent["vout"])))
+        # insert corresponding output before fee output
+        new_destination = sidechain.getaddressinfo(sidechain.getnewaddress("", "blech32"))
+        new_dest_script_pk = hex_str_to_bytes(new_destination["scriptPubKey"])
+        new_dest_nonce = CTxOutNonce(hex_str_to_bytes(new_destination["confidential_key"]))
+        new_dest_asset = pegin.vout[0].nAsset
+        pegin.vout.insert(1, CTxOut(int(unspent["amount"]*COIN) - 10000, new_dest_script_pk, new_dest_asset, new_dest_nonce))
+        # add the 10 ksat fee
+        pegin.vout[2].nValue.setToAmount(pegin.vout[2].nValue.getAmount() + 10000)
+        pegin_hex = ToHex(pegin)
+        # test with both blindraw and rawblindraw
+        raw_pegin_blinded1 = sidechain.blindrawtransaction(pegin_hex)
+        raw_pegin_blinded2 = sidechain.rawblindrawtransaction(pegin_hex, ["", unspent["amountblinder"]], [10, 15], [unspent["asset"]]*2, ["", unspent["assetblinder"]], "", False)
+        pegin_signed1 = sidechain.signrawtransactionwithwallet(raw_pegin_blinded1)
+        pegin_signed2 = sidechain.signrawtransactionwithwallet(raw_pegin_blinded2)
+        for pegin_signed in [pegin_signed1, pegin_signed2]:
+            final_decoded = sidechain.decoderawtransaction(pegin_signed["hex"])
+            assert(final_decoded["vin"][0]["is_pegin"])
+            assert(not final_decoded["vin"][1]["is_pegin"])
+            assert("assetcommitment" in final_decoded["vout"][0])
+            assert("valuecommitment" in final_decoded["vout"][0])
+            assert("commitmentnonce" in final_decoded["vout"][0])
+            assert("value" not in final_decoded["vout"][0])
+            assert("asset" not in final_decoded["vout"][0])
+            assert(final_decoded["vout"][0]["commitmentnonce_fully_valid"])
+            assert("assetcommitment" in final_decoded["vout"][1])
+            assert("valuecommitment" in final_decoded["vout"][1])
+            assert("commitmentnonce" in final_decoded["vout"][1])
+            assert("value" not in final_decoded["vout"][1])
+            assert("asset" not in final_decoded["vout"][1])
+            assert(final_decoded["vout"][1]["commitmentnonce_fully_valid"])
+            assert("value" in final_decoded["vout"][2])
+            assert("asset" in final_decoded["vout"][2])
+            # check that it is accepted in the mempool
+            accepted = sidechain.testmempoolaccept([pegin_signed["hex"]])[0]
+            if not accepted["allowed"]:
+                raise Exception(accepted["reject-reason"])
+            print("Blinded transaction looks ok!") # need this print to distinguish failures in for loop
+        # check if they get mined; since we're trying to mine two double spends, disconnect the nodes
+        disconnect_nodes(sidechain, 3)
+        disconnect_nodes(sidechain2, 2)
+        txid1 = sidechain.sendrawtransaction(pegin_signed1["hex"])
+        blocks = sidechain.generate(3)
+        assert_equal(sidechain.getrawtransaction(txid1, True, blocks[0])["confirmations"], 3)
+        txid2 = sidechain2.sendrawtransaction(pegin_signed2["hex"])
+        blocks = sidechain2.generate(3)
+        assert_equal(sidechain2.getrawtransaction(txid2, True, blocks[0])["confirmations"], 3)
+        # reconnect in case we extend the test
+        connect_nodes_bi(self.nodes, 2, 3)
+        sidechain.generate(10)
 
         print('Success!')
 

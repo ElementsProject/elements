@@ -367,5 +367,15 @@ class AddressTypeTest(BitcoinTestFramework):
         self.test_address(4, self.nodes[4].getrawchangeaddress(), multisig=False, typ='p2sh-segwit')
         self.test_address(4, self.nodes[4].getrawchangeaddress('bech32'), multisig=False, typ='bech32')
 
+        # test blech32 addresses
+        info_unblinded = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "bech32"))
+        assert(len(info_unblinded["confidential_key"]) == 0)
+        # getnewaddress
+        info1 = self.nodes[0].getaddressinfo(self.nodes[0].getnewaddress("", "blech32"))
+        assert(len(info1["confidential_key"]) > 0)
+        # getrawchangeaddress
+        info2 = self.nodes[0].getaddressinfo(self.nodes[0].getrawchangeaddress("blech32"))
+        assert(len(info2["confidential_key"]) > 0)
+
 if __name__ == '__main__':
     AddressTypeTest().main()

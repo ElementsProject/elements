@@ -17,6 +17,7 @@
 #include <node/coin.h>
 #include <node/psbt.h>
 #include <node/transaction.h>
+#include <pegins.h>
 #include <policy/rbf.h>
 #include <primitives/transaction.h>
 #include <psbt.h>
@@ -1870,6 +1871,20 @@ UniValue rawblindrawtransaction(const JSONRPCRequest& request)
     std::vector<CAsset> output_assets;
     std::vector<CPubKey> output_pubkeys;
     for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+        // Special handling for pegin inputs: no blinds and explicit amount/asset.
+        if (tx.vin[nIn].m_is_pegin) {
+            std::string err;
+            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, tx.vin[nIn].prevout, err, false)) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Transaction contains invalid peg-in input: %s", err));
+            }
+            CTxOut pegin_output = GetPeginOutputFromWitness(tx.witness.vtxinwit[nIn].m_pegin_witness);
+            input_blinds.push_back(uint256());
+            input_asset_blinds.push_back(uint256());
+            input_assets.push_back(pegin_output.nAsset.GetAsset());
+            input_amounts.push_back(pegin_output.nValue.GetAmount());
+            continue;
+        }
+
         if (!inputBlinds[nIn].isStr())
             throw JSONRPCError(RPC_INVALID_PARAMETER, "input blinds must be an array of hex strings");
         if (!inputAssetBlinds[nIn].isStr())
