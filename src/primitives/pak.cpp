@@ -185,7 +185,7 @@ bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash)
     std::vector<unsigned char> extracted_pubkey_hash;
 
     // Get full pubkey
-    if (!script.GetOp(pc, opcode, data) || opcode != 33 || data.size() != 33) {
+    if (!script.GetOp(pc, opcode, data) || data.size() != 33 || opcode > OP_PUSHDATA4) {
         return false;
     }
     CPubKey full_pubkey(data.begin(), data.end());
