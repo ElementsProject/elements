@@ -80,7 +80,7 @@ BASE_SCRIPTS = [
     'feature_fedpeg.py',
     'feature_mandatory_coinbase.py',
     'feature_block_subsidy.py',
-    'feature_connect_coinbase.py',
+    'feature_connect_genesis_outputs.py',
     'feature_block_v4.py',
     'feature_pak.py',
     'feature_blocksign.py',

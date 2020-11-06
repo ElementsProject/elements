@@ -319,7 +319,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("validatepegin=0\n")
         f.write("con_parent_pegged_asset=" + BITCOIN_ASSET + "\n")
         f.write("con_blocksubsidy=5000000000\n")
-        f.write("con_connect_coinbase=0\n")
+        f.write("con_connect_genesis_outputs=0\n")
         f.write("anyonecanspendaremine=0\n")
         f.write("walletrbf=0\n") # Default is 1 in Elements
         f.write("con_bip34height=500\n")

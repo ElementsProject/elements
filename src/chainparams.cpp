@@ -547,7 +547,7 @@ class CCustomParams : public CRegTestParams {
         consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
 
         // Custom chains connect coinbase outputs to db by default
-        consensus.connect_genesis_outputs = args.GetArg("-con_connect_coinbase", true);
+        consensus.connect_genesis_outputs = args.GetArg("-con_connect_genesis_outputs", true);
 
         initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
 
