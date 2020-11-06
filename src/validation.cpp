@@ -114,8 +114,6 @@ bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
-bool fEnableReplacement = DEFAULT_ENABLE_REPLACEMENT;
-bool fReplacementHonourOptOut = DEFAULT_REPLACEMENT_HONOUR_OPTOUT;
 
 uint256 hashAssumeValid;
 arith_uint256 nMinimumChainWork;
@@ -503,20 +501,13 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // unconfirmed ancestors anyway; doing otherwise is hopelessly
                 // insecure.
                 bool fReplacementOptOut = true;
-                if (fEnableReplacement)
+                for (const CTxIn &_txin : ptxConflicting->vin)
                 {
-                  if (fReplacementHonourOptOut) {
-                    for (const CTxIn &_txin : ptxConflicting->vin)
+                    if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
                     {
-                        if (_txin.nSequence <= MAX_BIP125_RBF_SEQUENCE)
-                        {
-                            fReplacementOptOut = false;
-                            break;
-                        }
-                    }
-                  } else {
                         fReplacementOptOut = false;
-                  }
+                        break;
+                    }
                 }
                 if (fReplacementOptOut) {
                     return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_DUPLICATE, "txn-mempool-conflict");
