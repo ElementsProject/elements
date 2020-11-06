@@ -2003,11 +2003,8 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
         token_out.nNonce.vchCommitment = std::vector<unsigned char>(token_blind.begin(), token_blind.end());
     }
     // Explicit 0 is represented by a null value, don't set to non-null in that case
-    if (blind_issuance || token_amount != 0) {
-        mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
-    }
-    // Don't make zero value output(impossible by consensus)
     if (token_amount > 0) {
+        mtx.vin[issuance_input_index].assetIssuance.nInflationKeys = token_amount;
         mtx.vout.insert(mtx.vout.begin()+token_place, token_out);
     }
 }
