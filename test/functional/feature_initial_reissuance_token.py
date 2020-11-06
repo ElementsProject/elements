@@ -47,7 +47,7 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
 
         # Claim all anyone-can-spend reissuance tokens, which also blinds the token output
         # which is required for re-issuance: https://github.com/ElementsProject/elements/issues/259
-        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 2, "", "", False, False, 6, "UNSET", token)
+        self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 2, "", "", False, False, 6, "UNSET", False, token)
         self.nodes[0].generate(101)
         self.sync_all()
 
@@ -69,7 +69,7 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False)
 
         #Send a reissuance token to node 2 so they can reissue the default asset
-        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False, False, 6, "UNSET", token)
+        self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1, "", "", False, False, 6, "UNSET", False, token)
         self.nodes[0].generate(101)
         self.sync_all()
 

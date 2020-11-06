@@ -131,7 +131,7 @@ class IssuanceTest(BitcoinTestFramework):
         self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 4)
         self.nodes[0].generate(1)
         self.sync_all()
-        self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3, "", "", False, False, 1, "UNSET", "", False)
+        self.nodes[1].sendtoaddress(self.nodes[2].getnewaddress(), 3, "", "", False, False, 1, "UNSET", False, "", False)
         self.sync_all()
         self.nodes[0].generate(1)
         self.sync_all()
@@ -180,7 +180,7 @@ class IssuanceTest(BitcoinTestFramework):
         issuancedata = self.nodes[2].issueasset(0, Decimal('0.00000006')) #0 of asset, 6 reissuance token
 
         # Node 2 will send node 1 a reissuance token, both will generate assets
-        self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), Decimal('0.00000001'), "", "", False, False, 1, "UNSET", issuancedata["token"])
+        self.nodes[2].sendtoaddress(self.nodes[1].getnewaddress(), Decimal('0.00000001'), "", "", False, False, 1, "UNSET", False, issuancedata["token"])
         # node 1 needs to know about a (re)issuance to reissue itself
         self.nodes[1].importaddress(self.nodes[2].gettransaction(issuancedata["txid"])["details"][0]["address"])
         # also send some bitcoin
@@ -370,7 +370,7 @@ class IssuanceTest(BitcoinTestFramework):
         # Import blinding key to be able to decrypt values sent to it
         self.nodes[0].importblindingkey(blinded_multisig, blinding_privkey)
         # Sending to this address must achieve blinding to reissue from this address
-        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["token"]], "", "", False, False, 1, "UNSET", issued_asset["token"], False)
+        self.nodes[0].sendtoaddress(blinded_multisig, self.nodes[0].getbalance()[issued_asset["token"]], "", "", False, False, 1, "UNSET", False, issued_asset["token"], False)
         self.nodes[0].generate(1)
 
         # Get that multisig output
