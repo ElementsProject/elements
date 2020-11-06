@@ -7,3 +7,9 @@ unselect
 useable
 mut
 wit
+unparseable
+copyable
+cachable
+errorstring
+keyserver
+homogenous
