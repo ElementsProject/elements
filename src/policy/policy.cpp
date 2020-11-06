@@ -10,11 +10,7 @@
 #include <consensus/validation.h>
 #include <coins.h>
 #include <pegins.h>
-#include <policy/settings.h>
 #include <primitives/pak.h>
-#include <tinyformat.h>
-#include <util/system.h>
-#include <util/strencodings.h>
 #include <chainparams.h> // Peg-out enforcement
 
 // ELEMENTS:

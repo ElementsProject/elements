@@ -14,7 +14,6 @@
 #include <streams.h>
 #include <univalue.h>
 #include <util/system.h>
-#include <util/moneystr.h>
 #include <util/strencodings.h>
 
 #include <secp256k1_rangeproof.h>

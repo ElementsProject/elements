@@ -16,11 +16,8 @@
 #include <assetsdir.h>
 #include <core_io.h>
 #include <interfaces/handler.h>
-#include <interfaces/node.h>
-#include <sync.h>
 #include <uint256.h>
 #include <util/system.h>
-#include <validation.h>
 #include <policy/policy.h>
 
 #include <QColor>

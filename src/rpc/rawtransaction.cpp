@@ -7,12 +7,9 @@
 #include <chain.h>
 #include <coins.h>
 #include <compat/byteswap.h>
-#include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <index/txindex.h>
-#include <init.h>
-#include <interfaces/chain.h>
 #include <key_io.h>
 #include <keystore.h>
 #include <merkleblock.h>
@@ -20,9 +17,7 @@
 #include <node/coin.h>
 #include <node/psbt.h>
 #include <node/transaction.h>
-#include <policy/policy.h>
 #include <policy/rbf.h>
-#include <policy/settings.h>
 #include <primitives/transaction.h>
 #include <psbt.h>
 #include <rpc/rawtransaction_util.h>
@@ -33,7 +28,6 @@
 #include <script/sign.h>
 #include <script/standard.h>
 #include <uint256.h>
-#include <util/bip32.h>
 #include <util/moneystr.h>
 #include <util/strencodings.h>
 #include <validation.h>

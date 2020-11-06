@@ -7,7 +7,6 @@
 #include <asset.h>
 #include <assetsdir.h>
 #include <block_proof.h>
-#include <chain.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <init.h>
@@ -15,7 +14,6 @@
 #include <key_io.h>
 #include <mainchainrpc.h>
 #include <merkleblock.h>
-#include <net.h>
 #include <node/transaction.h>
 #include <outputtype.h>
 #include <pegins.h>
@@ -32,8 +30,6 @@
 #include <script/descriptor.h>
 #include <script/sign.h>
 #include <secp256k1.h>
-#include <shutdown.h>
-#include <timedata.h>
 #include <util/bip32.h>
 #include <util/fees.h>
 #include <util/moneystr.h>

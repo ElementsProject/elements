@@ -20,7 +20,6 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
-#include <ui_interface.h>
 #include <util/validation.h>
 #include <validation.h>
 
