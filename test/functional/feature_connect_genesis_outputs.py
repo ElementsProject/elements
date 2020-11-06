@@ -52,11 +52,11 @@ class ConnectGenesisTest(BitcoinTestFramework):
         # Test rpc getraw functionality
 
         # Coinbase transaction is provably unspendable (OP_RETURN), so even AddCoin won't add it
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, coinbase_tx)
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, coinbase_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex or provide a block hash to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, coinbase_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex or provide a block hash to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, coinbase_tx)
 
         # Issuance transaction is an OP_TRUE, so will be available to second node
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, issuance_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex or provide a block hash to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[0].getrawtransaction, issuance_tx)
         self.nodes[1].getrawtransaction(issuance_tx, False, self.nodes[0].getblockhash(0))
 
 if __name__ == '__main__':
