@@ -5439,6 +5439,11 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
     mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
+    // Strip witness data for proof inclusion since only TXID-covered fields matters
+    CDataStream ssTxBack(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    ssTxBack << txBTC;
+    std::vector<unsigned char> tx_data_stripped(ssTxBack.begin(), ssTxBack.end());
+
     // Construct pegin proof
     CScriptWitness pegin_witness;
     std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
@@ -5446,7 +5451,7 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
     stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
     stack.push_back(std::vector<unsigned char>(witness_script.begin(), witness_script.end()));
-    stack.push_back(txData);
+    stack.push_back(tx_data_stripped);
     stack.push_back(txOutProofData);
 
     // Peg-in witness isn't valid, even though the block header is(without depth check)
