@@ -590,7 +590,8 @@ class ImportMultiTest(BitcoinTestFramework):
 
         # Test ranged descriptor fails if range is not specified
         xpriv = "tprv8ZgxMBicQKsPeuVhWwi6wuMQGfPKi9Li5GtX35jVNknACgqe3CY4g5xgkfDDJcmtF7o1QnxWDRYw4H5P26PXq7sbcUkEqeR4fg3Kxp2tigg"
-        addresses = ["2N7yv4p8G8yEaPddJxY41kPihnWvs39qCMf", "2MsHxyb2JS3pAySeNUsJ7mNnurtpeenDzLA"] # hdkeypath=m/0'/0'/0' and 1'
+        addresses = ["XS5vvg4QE9AZSBkpzmkT5DnWdUkj2uCcx5", "2dg1V1zPSoF2RQkiZyDDPvF1CRnLkW4YyGb"] # hdkeypath=m/0'/0'/0' and 1'
+        addresses += ["ert1qrd3n235cj2czsfmsuvqqpr3lu6lg0ju7gv2ekn", "ert1qfqeppuvj0ww98r6qghmdkj70tv8qpche0daak8"] # wpkh subscripts corresponding to the above addresses
         desc = "sh(wpkh(" + xpriv + "/0'/0'/*'" + "))"
         self.log.info("Ranged descriptor import should fail without a specified range")
         self.test_importmulti({"desc": descsum_create(desc),
@@ -599,17 +600,17 @@ class ImportMultiTest(BitcoinTestFramework):
                               error_code=-8,
                               error_message='Descriptor is ranged, please specify the range')
 
-        # Test importing of a ranged descriptor without keys
+        # Test importing of a ranged descriptor with xpriv
         self.log.info("Should import the ranged descriptor with specified range as solvable")
         self.test_importmulti({"desc": descsum_create(desc),
                                "timestamp": "now",
                                "range": 1},
-                              success=True,
-                              warnings=["Some private keys are missing, outputs will be considered watchonly. If this is intentional, specify the watchonly flag."])
+                              success=True)
         for address in addresses:
             test_address(self.nodes[1],
-                         key.p2sh_p2wpkh_addr,
-                         solvable=True)
+                         address,
+                         solvable=True,
+                         ismine=True)
 
         self.test_importmulti({"desc": descsum_create(desc), "timestamp": "now", "range": -1},
                               success=False, error_code=-8, error_message='End of range is too high')
@@ -625,6 +626,23 @@ class ImportMultiTest(BitcoinTestFramework):
 
         self.test_importmulti({"desc": descsum_create(desc), "timestamp": "now", "range": [0, 1000001]},
                               success=False, error_code=-8, error_message='Range is too large')
+
+        # Test importing a descriptor containing a WIF private key
+        wif_priv = "cTe1f5rdT8A8DFgVWTjyPwACsDPJM9ff4QngFxUixCSvvbg1x6sh"
+        address = "2dqSQaAoPEAJjTyCWhZYapkYHLoJWaPzuPC"
+        desc = "sh(wpkh(" + wif_priv + "))"
+        self.log.info("Should import a descriptor with a WIF private key as spendable")
+        self.test_importmulti({"desc": descsum_create(desc),
+                               "timestamp": "now"},
+                              success=True)
+        test_address(self.nodes[1],
+                     address,
+                     solvable=True,
+                     ismine=True)
+
+        # dump the private key to ensure it matches what was imported
+        privkey = self.nodes[1].dumpprivkey(address)
+        assert_equal(privkey, wif_priv)
 
         # Test importing of a P2PKH address via descriptor
         key = get_key(self.nodes[0])
