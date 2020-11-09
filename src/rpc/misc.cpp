@@ -611,7 +611,9 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
 
     std::vector<unsigned char> scriptData = ParseHex(request.params[0].get_str());
     CScript claim_script = CScript(scriptData.begin(), scriptData.end());
-    CScript tweaked_script = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
+
+    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    CScript tweaked_script = calculate_contract(fedpegscripts.front().second, claim_script);
     CTxDestination parent_addr(ScriptHash(GetScriptForWitness(tweaked_script)));
 
     UniValue ret(UniValue::VOBJ);
