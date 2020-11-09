@@ -8,7 +8,6 @@ import time
 
 from test_framework.blocktools import create_block, create_coinbase, add_witness_commitment
 from test_framework.messages import COIN, COutPoint, CTransaction, CTxIn, CTxOut, FromHex, ToHex
-from test_framework.script import CScript
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
@@ -18,6 +17,7 @@ from test_framework.util import (
     softfork_active,
 )
 from test_framework import util
+from test_framework.script_util import DUMMY_P2WPKH_SCRIPT
 
 SEQUENCE_LOCKTIME_DISABLE_FLAG = (1<<31)
 SEQUENCE_LOCKTIME_TYPE_FLAG = (1<<22) # this means use time (0 means height)
@@ -30,10 +30,9 @@ NOT_FINAL_ERROR = "non-BIP68-final (code 64)"
 class BIP68Test(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
-        # TODO remove output type argument and fix resulting "tx-size-small" errors
         self.extra_args = [
-            ["-acceptnonstdtxn=1", "-addresstype=p2sh-segwit"],
-            ["-acceptnonstdtxn=0", "-addresstype=p2sh-segwit"],
+            ["-acceptnonstdtxn=1"],
+            ["-acceptnonstdtxn=0"],
         ]
 
     def skip_test_if_missing_module(self):
@@ -87,8 +86,9 @@ class BIP68Test(BitcoinTestFramework):
         # input to mature.
         sequence_value = SEQUENCE_LOCKTIME_DISABLE_FLAG | 1
         tx1.vin = [CTxIn(COutPoint(int(utxo["txid"], 16), utxo["vout"]), nSequence=sequence_value)]
-        tx1.vout = [CTxOut(value, CScript([b'a']))]
+        tx1.vout = [CTxOut(value, DUMMY_P2WPKH_SCRIPT)]
         tx1.vout.append(CTxOut(int(utxo["amount"]*COIN) - value)) # fee
+
         tx1_signed = self.nodes[0].signrawtransactionwithwallet(ToHex(tx1))["hex"]
         tx1_id = self.nodes[0].sendrawtransaction(tx1_signed)
         tx1_id = int(tx1_id, 16)
@@ -99,7 +99,7 @@ class BIP68Test(BitcoinTestFramework):
         tx2.nVersion = 2
         sequence_value = sequence_value & 0x7fffffff
         tx2.vin = [CTxIn(COutPoint(tx1_id, 0), nSequence=sequence_value)]
-        tx2.vout = [CTxOut(int(value - self.relayfee * COIN), CScript([b'a' * 35]))]
+        tx2.vout = [CTxOut(int(value - self.relayfee * COIN), DUMMY_P2WPKH_SCRIPT)]
         tx2.vout.append(CTxOut(int(self.relayfee*COIN)))
         tx2.rehash()
 
@@ -195,7 +195,7 @@ class BIP68Test(BitcoinTestFramework):
                 value += utxos[j]["amount"]*COIN
             # Overestimate the size of the tx - signatures should be less than 120 bytes, and leave 50 for the output
             tx_size = len(ToHex(tx))//2 + 120*num_inputs + 150 # ELEMENTS: overestimate more for output witnesses
-            tx.vout.append(CTxOut(int(value-self.relayfee*tx_size*COIN/1000), CScript([b'a'])))
+            tx.vout.append(CTxOut(int(value-self.relayfee*tx_size*COIN/1000), DUMMY_P2WPKH_SCRIPT))
             tx.vout.append(CTxOut(int(self.relayfee*tx_size*COIN/1000))) # fee
             rawtx = self.nodes[0].signrawtransactionwithwallet(ToHex(tx))["hex"]
 
@@ -225,7 +225,7 @@ class BIP68Test(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.nVersion = 2
         tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
-        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee*COIN), CScript([b'a']))]
+        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee*COIN), DUMMY_P2WPKH_SCRIPT)]
         tx2.vout.append(CTxOut(int(self.relayfee*COIN))) # fee
         tx2_raw = self.nodes[0].signrawtransactionwithwallet(ToHex(tx2))["hex"]
         tx2 = FromHex(tx2, tx2_raw)
@@ -244,7 +244,7 @@ class BIP68Test(BitcoinTestFramework):
             tx = CTransaction()
             tx.nVersion = 2
             tx.vin = [CTxIn(COutPoint(orig_tx.sha256, 0), nSequence=sequence_value)]
-            tx.vout = [CTxOut(int(orig_tx.vout[0].nValue.getAmount() - relayfee * COIN), CScript([b'a' * 35]))]
+            tx.vout = [CTxOut(int(orig_tx.vout[0].nValue.getAmount() - relayfee * COIN), DUMMY_P2WPKH_SCRIPT)]
             tx.vout.append(CTxOut(int(relayfee * COIN))) # fee
             tx.rehash()
 
@@ -358,7 +358,7 @@ class BIP68Test(BitcoinTestFramework):
         tx2 = CTransaction()
         tx2.nVersion = 1
         tx2.vin = [CTxIn(COutPoint(tx1.sha256, 0), nSequence=0)]
-        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee*COIN), CScript([b'a']))]
+        tx2.vout = [CTxOut(int(tx1.vout[0].nValue.getAmount() - self.relayfee*COIN), DUMMY_P2WPKH_SCRIPT)]
         tx2.vout.append(CTxOut(int(self.relayfee*COIN))) # fee
 
         # sign tx2
@@ -374,7 +374,7 @@ class BIP68Test(BitcoinTestFramework):
         tx3 = CTransaction()
         tx3.nVersion = 2
         tx3.vin = [CTxIn(COutPoint(tx2.sha256, 0), nSequence=sequence_value)]
-        tx3.vout = [CTxOut(int(tx2.vout[0].nValue.getAmount() - self.relayfee * COIN), CScript([b'a' * 35]))]
+        tx3.vout = [CTxOut(int(tx2.vout[0].nValue.getAmount() - self.relayfee * COIN), DUMMY_P2WPKH_SCRIPT)]
         tx3.vout.append(CTxOut(int(self.relayfee*COIN))) # fee
         tx3.rehash()
 
