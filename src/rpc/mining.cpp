@@ -143,11 +143,13 @@ static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, ui
             }
         }
 
-        // Fill out block witness if dynamic federation is enabled
-        // since we are assuming WSH(OP_TRUE)
-        if (!pblock->m_dynafed_params.IsNull()) {
-            CScript op_true(OP_TRUE);
+        // Handle OP_TRUE m_signblockscript case
+        CScript op_true(OP_TRUE);
+        if (pblock->m_dynafed_params.m_current.m_signblockscript ==
+                GetScriptForDestination(WitnessV0ScriptHash(op_true))) {
             pblock->m_signblock_witness.stack.push_back(std::vector<unsigned char>(op_true.begin(), op_true.end()));
+        } else if (!pblock->m_dynafed_params.IsNull()) {
+            throw JSONRPCError(RPC_MISC_ERROR, "Unable to fill out dynamic federation signblockscript witness, are you sure it's WSH(OP_TRUE)?");
         }
 
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
