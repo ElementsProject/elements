@@ -7,7 +7,6 @@
 
 #include <hash.h>
 #include <tinyformat.h>
-#include <crypto/common.h>
 
 
 bool g_con_blockheightinheader = false;

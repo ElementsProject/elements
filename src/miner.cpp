@@ -17,7 +17,6 @@
 #include <policy/policy.h>
 #include <pow.h>
 #include <primitives/transaction.h>
-#include <script/standard.h>
 #include <timedata.h>
 #include <util/moneystr.h>
 #include <util/system.h>
@@ -26,7 +25,6 @@
 #include <dynafed.h>
 
 #include <algorithm>
-#include <queue>
 #include <utility>
 
 void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)

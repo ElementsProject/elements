@@ -50,8 +50,6 @@
 #include <block_proof.h> // CheckChallenge, CheckProof
 #include <dynafed.h>
 
-#include <future>
-#include <sstream>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>

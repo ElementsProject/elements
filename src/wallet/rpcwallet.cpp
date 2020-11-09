@@ -14,7 +14,6 @@
 #include <key_io.h>
 #include <mainchainrpc.h>
 #include <merkleblock.h>
-#include <node/transaction.h>
 #include <outputtype.h>
 #include <pegins.h>
 #include <policy/feerate.h>
@@ -50,7 +49,6 @@
 
 #include <univalue.h>
 
-#include <functional>
 
 #include <script/generic.hpp> // signblock
 #include <script/descriptor.h> // initpegoutwallet

@@ -6,7 +6,6 @@
 #include <util/strencodings.h>
 #include <confidential_validation.h>
 
-#include <numeric>
 
 PartiallySignedTransaction::PartiallySignedTransaction(const CMutableTransaction& tx) : tx(tx)
 {

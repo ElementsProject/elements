@@ -9,8 +9,6 @@
 #include <asset.h>
 #include <uint256.h>
 #include <limits>
-#include <map>
-#include <string>
 
 #include <script/script.h> // mandatory_coinbase_destination
 #include <amount.h> // genesis_subsidy
