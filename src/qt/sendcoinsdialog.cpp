@@ -285,7 +285,7 @@ void SendCoinsDialog::on_sendButton_clicked()
         // generate amount string with wallet name in case of multiwallet
         QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::separatorStandard, true);
         if (model->isMultiwallet()) {
-            amount.append(tr(" from wallet '%1'").arg(model->getWalletName()));
+            amount.append(tr(" from wallet '%1'").arg(GUIUtil::HtmlEscape(model->getWalletName())));
         }
 
         // generate address string
@@ -299,7 +299,7 @@ void SendCoinsDialog::on_sendButton_clicked()
         {
             if(rcp.label.length() > 0) // label with address
             {
-                recipientElement.append(tr("%1 to '%2'").arg(amount, rcp.label));
+                recipientElement.append(tr("%1 to '%2'").arg(amount, GUIUtil::HtmlEscape(rcp.label)));
                 recipientElement.append(QString(" (%1)").arg(address));
             }
             else // just address
