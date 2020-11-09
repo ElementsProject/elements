@@ -521,10 +521,7 @@ BOOST_AUTO_TEST_CASE(util_GetChainName)
     std::string error;
 
     BOOST_CHECK(test_args.ParseParameters(0, (char**)argv_testnet, error));
-    std::string default_chain = "elementsregtest";
-#if LIQUID
-    default_chain = "liquidv1";
-#endif
+    std::string default_chain = "liquidv1";
     BOOST_CHECK_EQUAL(test_args.GetChainName(), default_chain);
 
     BOOST_CHECK(test_args.ParseParameters(2, (char**)argv_testnet, error));
@@ -881,7 +878,7 @@ BOOST_FIXTURE_TEST_CASE(util_ChainMerge, ChainMergeTestingSetup)
     // Results file is formatted like:
     //
     //   <input> || <output>
-    BOOST_CHECK_EQUAL(out_sha_hex, "a75f8213abc97f389526790b3c956cf797001ba8d2c4b2adf516db54a1c50363");
+    BOOST_CHECK_EQUAL(out_sha_hex, "9d7b4ac4ebac5ccd90b5bae5ca41e4769294660a57148183cc5d6a47f43f6a54");
 }
 
 BOOST_AUTO_TEST_CASE(util_FormatMoney)
