@@ -193,18 +193,18 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.setup_network()
             self.run_test()
             success = TestStatus.PASSED
-        except JSONRPCException as e:
+        except JSONRPCException:
             self.log.exception("JSONRPC error")
         except SkipTest as e:
             self.log.warning("Test Skipped: %s" % e.message)
             success = TestStatus.SKIPPED
-        except AssertionError as e:
+        except AssertionError:
             self.log.exception("Assertion failed")
-        except KeyError as e:
+        except KeyError:
             self.log.exception("Key error")
-        except Exception as e:
+        except Exception:
             self.log.exception("Unexpected exception caught during testing")
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             self.log.warning("Exiting after keyboard interrupt")
 
         if success == TestStatus.FAILED and self.options.pdbonfailure:
@@ -349,7 +349,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             self.nodes.append(TestNode(
                 numnode,
                 get_datadir_path(self.options.tmpdir, numnode),
-                chain[i],
+                chain=chain[i],
                 rpchost=rpchost,
                 timewait=self.rpc_timeout,
                 bitcoind=binary[i],
@@ -491,7 +491,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 TestNode(
                     CACHE_NODE_ID,
                     cache_node_dir,
-                    self.chain,
+                    chain=self.chain,
                     extra_conf=["bind=127.0.0.1"],
                     extra_args=['-disablewallet'],
                     rpchost=None,

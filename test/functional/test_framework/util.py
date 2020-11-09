@@ -283,7 +283,7 @@ def p2p_port(n):
 def rpc_port(n):
     return PORT_MIN + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
 
-def rpc_url(datadir, i, chain, rpchost=None):
+def rpc_url(datadir, i, chain, rpchost):
     rpc_u, rpc_p = get_auth_cookie(datadir, chain)
     host = '127.0.0.1'
     port = rpc_port(i)
@@ -306,8 +306,8 @@ def initialize_datadir(dirname, n, chain):
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
     with open(os.path.join(datadir, "elements.conf"), 'w', encoding='utf8') as f:
-        f.write("chain=%s\n" % chain)
-        f.write("[%s]\n" % chain)
+        f.write("chain={}\n".format(chain))
+        f.write("[{}]\n".format(chain))
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n)) + "\n")
         f.write("server=1\n")
