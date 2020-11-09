@@ -119,7 +119,7 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
         throw std::runtime_error("LoadGenesisBlock failed.");
     }
 
-    CValidationState state;
+    BlockValidationState state;
     if (!ActivateBestChain(state, chainparams)) {
         throw std::runtime_error(strprintf("ActivateBestChain failed. (%s)", FormatStateMessage(state)));
     }

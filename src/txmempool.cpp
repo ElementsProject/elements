@@ -648,11 +648,11 @@ void CTxMemPool::clear()
 static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCache& mempoolDuplicate, const int64_t spendheight, std::set<std::pair<uint256, COutPoint>>& setGlobalPeginsSpent)
 {
     CTransaction tx = entry.GetTx();
-    CValidationState state;
+    TxValidationState dummy_state; // Not used. CheckTxInputs() should always pass
     CAmountMap fee_map;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
     const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 

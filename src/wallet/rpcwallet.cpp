@@ -4788,7 +4788,7 @@ UniValue signblock(const JSONRPCRequest& request)
     if (block.hashPrevBlock != pindexPrev->GetBlockHash())
         throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
-    CValidationState state;
+    BlockValidationState state;
     if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
         std::string strRejectReason = state.GetRejectReason();
         if (strRejectReason.empty())
@@ -5631,9 +5631,9 @@ UniValue claimpegin(const JSONRPCRequest& request)
     }
 
     // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
-    CValidationState acceptState;
+    TxValidationState acceptState;
     LockAssertion lock(::cs_main); //TODO(stevenroose) replace with locked_chain later
-    bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx), nullptr /* pfMissingInputs */,
+    bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx),
                             nullptr /* plTxnReplaced */, false /* bypass_limits */, pwallet->m_default_max_tx_fee, true /* test_accept */);
     if (!accepted) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(acceptState));

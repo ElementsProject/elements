@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CAmountMap fee_map;
 
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    CValidationState state;
+    TxValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
     // Get the latest block index to look up fedpegscripts
