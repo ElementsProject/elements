@@ -114,16 +114,19 @@ class BlockSignTest(BitcoinTestFramework):
         # miner makes a block
         block = miner.getnewblockhex()
 
-        # other signing nodes get fed compact blocks
+        # All nodes get compact blocks, first node may get complete
+        # block in 0.5 RTT even with transactions thanks to p2p connection
+        # with non-signing node being miner
         for i in range(self.num_keys):
             if i == mineridx:
                 continue
             sketch = miner.getcompactsketch(block)
             compact_response = self.nodes[i].consumecompactsketch(sketch)
-            if make_transactions:
+            if "block_tx_req" in compact_response:
                 block_txn =  self.nodes[i].consumegetblocktxn(block, compact_response["block_tx_req"])
                 final_block = self.nodes[i].finalizecompactblock(sketch, block_txn, compact_response["found_transactions"])
             else:
+                assert (mineridx == 4 and i == 0) or not make_transactions
                 # If there's only coinbase, it should succeed immediately
                 final_block = compact_response["blockhex"]
             # Block should be complete, sans signatures
