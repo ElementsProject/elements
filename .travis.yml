@@ -28,6 +28,7 @@
 dist: xenial
 os: linux
 language: minimal
+arch: amd64
 cache:
   ccache: true
   directories:
@@ -59,6 +60,7 @@ env:
     - COMMON_PACKAGES="icnsutils librsvg2-bin imagemagick"
     - WINEDEBUG=fixme-all
     - DOCKER_PACKAGES="build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache"
+    - CI_WAIT="while sleep 500; do echo .; done"
     - CACHE_ERR_MSG="Error! Initial build successful, but not enough time remains to run later build stages and tests. Please manually re-run this job by using the travis restart button or asking a bitcoin maintainer to restart. The next run should not time out because the build cache has been saved."
 before_install:
   - set -o errexit; source .travis/test_03_before_install.sh
@@ -132,6 +134,7 @@ jobs:
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
         RUN_FUNCTIONAL_TESTS=false
+
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no unit tests
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [uses qt5 dev package instead of depends Qt to speed up build and avoid timeout]'
@@ -143,6 +146,7 @@ jobs:
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
         RUN_UNIT_TESTS=false
 # x86_64 Linux (xenial, no depends, only system libs)
+
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no depends, only system libs, sanitizers: thread (TSan), no wallet]'
       env: >-
@@ -210,6 +214,7 @@ jobs:
         RUN_FEDPEG_BITCOIND_TEST=true
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no --disable-tests --disable-bench CPPFLAGS=-DDEBUG_LOCKORDER"
+
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests, LIQUID BUILD
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [liquid build]'
@@ -220,7 +225,6 @@ jobs:
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug --enable-liquid CXXFLAGS=\"-g0 -O2\""
         RUN_FUNCTIONAL_TESTS=false
-
         FILE_ENV="./ci/test/00_setup_env_mac.sh"
 
     - stage: test
