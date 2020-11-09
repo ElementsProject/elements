@@ -1353,9 +1353,9 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
     // Make mega-list
     found.insert(found.end(), transactions.txn.begin(), transactions.txn.end());
 
-    // Now construct the final block!
-    LOCK(mempool.cs);
-    PartiallyDownloadedBlock partialBlock(&mempool);
+    // Now construct the final block! (use dummy mempool here, otherwise reconstruction may fail)
+    CTxMemPool dummy_pool;
+    PartiallyDownloadedBlock partialBlock(&dummy_pool);
 
     const std::vector<std::pair<uint256, CTransactionRef>> dummy;
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
