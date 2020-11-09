@@ -96,7 +96,6 @@ UniValue paramEntryToJSON(const DynaFedParamEntry& entry)
 
 UniValue dynaParamsToJSON(const DynaFedParams& dynafed_params)
 {
-    AssertLockHeld(cs_main);
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("current", paramEntryToJSON(dynafed_params.m_current));
     ret.pushKV("proposed", paramEntryToJSON(dynafed_params.m_proposed));
