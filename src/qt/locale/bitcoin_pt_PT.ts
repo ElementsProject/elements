@@ -1427,8 +1427,8 @@
         <translation>Quantia</translation>
     </message>
     <message>
-        <source>Enter a Liquid address (e.g. %1)</source>
-        <translation>Introduza um endereço Liquid (ex. %1)</translation>
+        <source>Enter a Bitcoin address (e.g. %1)</source>
+        <translation>Introduza um endereço Bitcoin (ex. %1)</translation>
     </message>
     <message>
         <source>%1 d</source>
@@ -1899,7 +1899,7 @@
         <translation>Endereços nativos SegWit (também conhecidos como Bech32 ou BIP-173) reduzem as taxas da sua transação mais tarde e oferecem melhor proteção contra erros, mas carteiras antigas não os suportam. Quando não selecionado, um endereço compatível com carteiras antigas irá ser criado em vez.</translation>
     </message>
     <message>
-        <source>Generate blinded native segwit (Blech32) address</source>
+        <source>Generate native segwit (Bech32) address</source>
         <translation>Gerar endereço nativo SegWit (Bech32)</translation>
     </message>
     <message>

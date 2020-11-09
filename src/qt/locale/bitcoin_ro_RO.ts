@@ -1446,7 +1446,7 @@
         <translation>Cantitate</translation>
     </message>
     <message>
-        <source>Enter a Liquid address (e.g. %1)</source>
+        <source>Enter a Bitcoin address (e.g. %1)</source>
         <translation>Introduceţi o adresă Bitcoin (de exemplu %1)</translation>
     </message>
     <message>
@@ -1922,7 +1922,7 @@
         <translation>Adresele native segwit (aka Bech32 sau BIP-173) vor reduce mai tarziu comisioanele de tranzactionare si vor oferi o mai buna protectie impotriva introducerii gresite, dar portofelele vechi nu sunt compatibile. Daca optiunea nu e bifata, se va crea o adresa compatibila cu portofelele vechi.</translation>
     </message>
     <message>
-        <source>Generate blinded native segwit (Blech32) address</source>
+        <source>Generate native segwit (Bech32) address</source>
         <translation>Genereaza adresa nativa segwit (Bech32)</translation>
     </message>
     <message>
