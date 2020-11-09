@@ -1667,9 +1667,9 @@ UniValue importmasterblindingkey(const JSONRPCRequest& request)
 
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
-            RPCHelpMan{"importblindingkey",
-                "\nImports a master private blinding key in hex for a CT address."
-                "Note: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n",
+            RPCHelpMan{"importmasterblindingkey",
+                "\nImports a master private blinding key in hex for the wallet."
+                "\nNote: wallets can only have one master blinding key at a time. Funds could be permanently lost if user doesn't know what they are doing. Recommended use is only for wallet recovery using this in conjunction with `sethdseed`.\n",
                 {
                     {"hexkey", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The blinding key in hex"},
                 },
