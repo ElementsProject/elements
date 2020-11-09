@@ -8,12 +8,13 @@
 #include <coins.h>
 #include <core_io.h>
 #include <key_io.h>
-#include <keystore.h>
 #include <pegins.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <rpc/request.h>
 #include <rpc/util.h>
+#include <script/sign.h>
+#include <script/signingprovider.h>
 #include <tinyformat.h>
 #include <univalue.h>
 #include <util/rbf.h>
@@ -194,7 +195,7 @@ static void TxInErrorToJSON(const CTxIn& txin, const CTxInWitness& txinwit, UniV
     vErrorsRet.push_back(entry);
 }
 
-UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore* keystore, std::map<COutPoint, Coin>& coins, bool is_temp_keystore, const UniValue& hashType)
+UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins, bool is_temp_keystore, const UniValue& hashType)
 {
     // Add previous txouts given in the RPC call:
     if (!prevTxsUnival.isNull()) {

@@ -33,7 +33,7 @@
 #include <warnings.h>
 
 #include <block_proof.h> // CheckProof
-#include <keystore.h> // combineblocksigs
+#include <script/signingprovider.h> // combineblocksigs
 #include <script/generic.hpp> // combineblocksigs
 #include <blockencodings.h> // getcompactsketch
 #include <policy/settings.h> // IsStandardTx
@@ -1046,7 +1046,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
 
     const Consensus::Params& params = Params().GetConsensus();
     const UniValue& sigs = request.params[1].get_array();
-    CBasicKeyStore keystore;
+    FillableSigningProvider keystore;
     SignatureData sig_data;
     SimpleSignatureCreator signature_creator(block.GetHash());
     for (unsigned int i = 0; i < sigs.size(); i++) {

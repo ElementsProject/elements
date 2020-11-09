@@ -8,8 +8,10 @@
 #include <key.h>
 #include <script/script.h>
 #include <script/sign.h>
-#include <chainparams.h>
+#include <script/signingprovider.h>
 #include <wallet/wallet.h>
+
+#include <chainparams.h>
 
 typedef std::vector<unsigned char> valtype;
 

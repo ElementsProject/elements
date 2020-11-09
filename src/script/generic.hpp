@@ -9,7 +9,8 @@
 #include <hash.h>
 #include <script/interpreter.h>
 #include <script/sign.h>
-#include <keystore.h>
+#include <script/signingprovider.h>
+
 
 class SimpleSignatureChecker : public BaseSignatureChecker
 {
@@ -51,7 +52,7 @@ bool GenericVerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, 
 }
 
 template<typename T>
-bool GenericSignScript(const CKeyStore& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig)
+bool GenericSignScript(const FillableSigningProvider& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig)
 {
     return ProduceSignature(keystore, SimpleSignatureCreator(SerializeHash(data)), fromPubKey, scriptSig, SCRIPT_NO_SIGHASH_BYTE);
 }
