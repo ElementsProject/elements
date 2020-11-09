@@ -44,7 +44,7 @@ TransactionError FillPSBTInputsData(const CWallet* pwallet, PartiallySignedTrans
         }
 
         // Get key origin info for input, if bip32derivs is true. Does not actually sign anything.
-        SignPSBTInput(HidingSigningProvider(pwallet, true /* don't sign */, !bip32derivs), psbtx, i, 1 /* SIGHASH_ALL, ignored */);
+        SignPSBTInput(HidingSigningProvider(pwallet->GetSigningProvider(), true /* don't sign */, !bip32derivs), psbtx, i, 1 /* SIGHASH_ALL, ignored */);
     }
 
     return TransactionError::OK;
@@ -131,7 +131,7 @@ TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& ps
         }
 
         // Here we _only_ sign, and do not e.g. fill in key origin data.
-        complete &= SignPSBTInput(HidingSigningProvider(pwallet, !sign, true /*  no key origins */), psbtx, i, sighash_type);
+        complete &= SignPSBTInput(HidingSigningProvider(pwallet->GetSigningProvider(), !sign, true /*  no key origins */), psbtx, i, sighash_type);
     }
 
     // Restore the saved transaction, to remove our temporary munging.
@@ -153,7 +153,7 @@ void FillPSBTOutputsData(const CWallet* pwallet, PartiallySignedTransaction& psb
         psbt_out.FillSignatureData(sigdata);
 
         MutableTransactionSignatureCreator creator(&tx, 0 /* nIn, ignored */, out.nValue, 1 /* sighashtype, ignored */);
-        ProduceSignature(HidingSigningProvider(pwallet, true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
+        ProduceSignature(HidingSigningProvider(pwallet->GetSigningProvider(), true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
         psbt_out.FromSignatureData(sigdata);
     }
 }
