@@ -5,10 +5,12 @@
 
 #include <txmempool.h>
 
+#include <chainparams.h> // removeForBlock paklist transition
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <optional.h>
+#include <pegins.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <policy/fees.h>
@@ -17,8 +19,7 @@
 #include <util/system.h>
 #include <util/moneystr.h>
 #include <util/time.h>
-#include <chainparams.h> // removeForBlock paklist transition
-#include <pegins.h>
+#include <validationinterface.h>
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
@@ -406,7 +407,12 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
 {
-    NotifyEntryRemoved(it->GetSharedTx(), reason);
+    CTransactionRef ptx = it->GetSharedTx();
+    NotifyEntryRemoved(ptx, reason);
+    if (reason != MemPoolRemovalReason::BLOCK && reason != MemPoolRemovalReason::CONFLICT) {
+        GetMainSignals().TransactionRemovedFromMempool(ptx);
+    }
+
     const uint256 hash = it->GetTx().GetHash();
     for (const CTxIn& txin : it->GetTx().vin)
         mapNextTx.erase(txin.prevout);
