@@ -14,3 +14,4 @@ errorstring
 keyserver
 homogenous
 te
+setban
