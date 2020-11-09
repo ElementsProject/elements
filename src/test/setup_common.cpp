@@ -17,6 +17,7 @@
 #include <noui.h>
 #include <pow.h>
 #include <policy/policy.h>
+#include <policy/settings.h>
 #include <streams.h>
 #include <rpc/server.h>
 #include <rpc/register.h>
@@ -73,11 +74,16 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     // Set policy asset for correct fee output generation
     policyAsset = CAsset();
 
+    // For unit tests, increase minrelay to "normal" 1000 sat/vkB
+    ::incrementalRelayFee = CFeeRate(1000);
+
     static bool noui_connected = false;
     if (!noui_connected) {
         noui_connect();
         noui_connected = true;
     }
+
+    noui_connect();
 }
 
 BasicTestingSetup::~BasicTestingSetup()
