@@ -4,6 +4,7 @@
 
 #include <primitives/pak.h>
 #include <pubkey.h>
+#include <dynafed.h>
 
 // ELEMENTS
 
@@ -33,73 +34,9 @@ public:
 static CSecp256k1Init instance_of_csecp256k1;
 }
 
-CScript CPAKList::Magic()
-{
-    CScript scriptPubKey;
-    scriptPubKey.resize(6);
-    scriptPubKey[0] = OP_RETURN;
-    scriptPubKey[1] = 0x04;
-    scriptPubKey[2] = 0xab;
-    scriptPubKey[3] = 0x22;
-    scriptPubKey[4] = 0xaa;
-    scriptPubKey[5] = 0xee;
-    return scriptPubKey;
-}
-
-std::vector<CScript> CPAKList::GenerateCoinbasePAKCommitments() const
-{
-    std::vector<CScript> commitments;
-    CScript scriptPubKey = CPAKList::Magic();
-
-    for (unsigned int i = 0; i < m_offline_keys.size(); i++) {
-        CScript scriptCommitment(scriptPubKey);
-        unsigned char pubkey[33];
-        size_t outputlen = 33;
-        secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_offline_keys[i], SECP256K1_EC_COMPRESSED);
-        assert(outputlen == 33);
-        scriptCommitment << std::vector<unsigned char>(pubkey, pubkey+outputlen);
-        secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
-        assert(outputlen == 33);
-        scriptCommitment << std::vector<unsigned char>(pubkey, pubkey+outputlen);
-        commitments.push_back(scriptCommitment);
-    }
-
-    return commitments;
-}
-
-std::vector<CScript> CPAKList::GenerateCoinbasePAKReject() const
-{
-    CScript scriptPubKey = CPAKList::Magic();
-
-    std::vector<unsigned char> reject;
-    reject.push_back('R');
-    reject.push_back('E');
-    reject.push_back('J');
-    reject.push_back('E');
-    reject.push_back('C');
-    reject.push_back('T');
-
-    scriptPubKey << reject;
-
-    std::vector<CScript> commitment;
-    commitment.push_back(scriptPubKey);
-    return commitment;
-}
-
-void CPAKList::CreateCommitments(std::vector<CScript> &commitments) const
-{
-    if(reject) {
-        commitments = GenerateCoinbasePAKReject();
-    } else {
-        commitments = GenerateCoinbasePAKCommitments();
-    }
-}
-
 bool CPAKList::operator==(const CPAKList &other) const
 {
-    if (this->reject != other.reject) {
-        return false;
-    } else if (this->m_offline_keys.size() != other.m_offline_keys.size()) {
+    if (this->m_offline_keys.size() != other.m_offline_keys.size()) {
         return false;
     } else {
         for (unsigned int i = 0; i < this->m_offline_keys.size(); i++) {
@@ -112,7 +49,7 @@ bool CPAKList::operator==(const CPAKList &other) const
     return true;
 }
 
-bool CPAKList::FromBytes(CPAKList &paklist, std::vector<std::vector<unsigned char> >& offline_keys_bytes, std::vector<std::vector<unsigned char> >& online_keys_bytes, bool is_reject)
+bool CPAKList::FromBytes(CPAKList &paklist, const std::vector<std::vector<unsigned char> >& offline_keys_bytes, const std::vector<std::vector<unsigned char> >& online_keys_bytes)
 {
     if(offline_keys_bytes.size() != online_keys_bytes.size()
         || offline_keys_bytes.size() > SECP256K1_WHITELIST_MAX_N_KEYS) {
@@ -134,11 +71,11 @@ bool CPAKList::FromBytes(CPAKList &paklist, std::vector<std::vector<unsigned cha
         online_keys.push_back(pubkey2);
     }
 
-    paklist = CPAKList(offline_keys, online_keys, is_reject);
+    paklist = CPAKList(offline_keys, online_keys);
     return true;
 }
 
-void CPAKList::ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, std::vector<std::vector<unsigned char> >& online_keys, bool &is_reject) const
+void CPAKList::ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, std::vector<std::vector<unsigned char> >& online_keys) const
 {
     offline_keys.resize(0);
     online_keys.resize(0);
@@ -151,23 +88,15 @@ void CPAKList::ToBytes(std::vector<std::vector<unsigned char> >& offline_keys, s
         secp256k1_ec_pubkey_serialize(secp256k1_ctx_pak, pubkey, &outputlen, &m_online_keys[i], SECP256K1_EC_COMPRESSED);
         online_keys.push_back(std::vector<unsigned char>(pubkey, pubkey+outputlen));
     }
-    is_reject = reject;
 }
 
 // Proof follows the OP_RETURN <genesis_block_hash> <destination_scriptpubkey>
 // in multiple pushes: <full_pubkey> <proof>
-bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash)
+bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash, const CPAKList& paklist)
 {
     assert(script.IsPegoutScript(genesis_hash));
 
-    CPAKList paklist;
-    if (g_paklist_config) {
-        paklist = *g_paklist_config;
-    } else {
-        paklist = g_paklist_blockchain;
-    }
-
-    if (paklist.IsReject() || paklist.IsEmpty()) {
+    if (paklist.IsReject()) {
         return false;
     }
 
@@ -241,5 +170,51 @@ bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash)
         return false;
     }
 
+    return true;
+}
+
+CPAKList CreatePAKListFromExtensionSpace(const std::vector<std::vector<unsigned char>>& extension_space)
+{
+    CPAKList paklist;
+    std::vector<std::vector<unsigned char>> offline_keys;
+    std::vector<std::vector<unsigned char>> online_keys;
+    for (const auto& entry : extension_space) {
+        if (entry.size() != 66) {
+            return CPAKList();
+        }
+        // Dumbly tries to extract two pubkeys, relies on FromBytes to parse/validate
+        offline_keys.emplace_back(entry.begin(), entry.begin()+33);
+        online_keys.emplace_back(entry.begin()+33, entry.end());
+    }
+    if (!CPAKList::FromBytes(paklist, offline_keys, online_keys)) {
+        return CPAKList();
+    }
+    return paklist;
+}
+
+CPAKList GetActivePAKList(const CBlockIndex* pblockindex, const Consensus::Params& params)
+{
+    assert(pblockindex);
+
+    return CreatePAKListFromExtensionSpace(ComputeNextBlockFullCurrentParameters(pblockindex, params).m_extension_space);
+}
+
+bool IsPAKValidOutput(const CTxOut& txout, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset)
+{
+    if (txout.scriptPubKey.IsPegoutScript(parent_gen_hash) &&
+                txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == peg_asset &&
+                (!ScriptHasValidPAKProof(txout.scriptPubKey, parent_gen_hash, paklist))) {
+            return false;
+    }
+    return true;
+}
+
+bool IsPAKValidTx(const CTransaction& tx, const CPAKList& paklist, const uint256& parent_gen_hash, const CAsset& peg_asset)
+{
+    for (const auto& txout : tx.vout) {
+        if (!IsPAKValidOutput(txout, paklist, parent_gen_hash, peg_asset)) {
+            return false;
+        }
+    }
     return true;
 }

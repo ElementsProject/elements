@@ -20,6 +20,7 @@
 #include <script/standard.h>
 #include <streams.h>
 #include <util/system.h>
+#include <dynafed.h>
 
 //
 // ELEMENTS
@@ -70,16 +71,8 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
 // Takes federation redeem script and adds HMAC_SHA256(pubkey, scriptPubKey) as a tweak to each pubkey
 CScript calculate_contract(const CScript& federation_script, const CScript& scriptPubKey) {
     CScript scriptDestination;
-    std::vector<std::vector<unsigned char> > solutions;
-    unsigned int required;
-    std::vector<std::vector<unsigned char>> keys;
+
     bool is_liquidv1_watchman = MatchLiquidWatchman(federation_script);
-    // Sanity check federation_script only to match 3 templates
-    if (!is_liquidv1_watchman &&
-            federation_script != CScript() << OP_TRUE &&
-            !MatchMultisig(federation_script, required, keys)) {
-        assert(false);
-    }
 
     CScript::const_iterator sdpc = federation_script.begin();
     std::vector<unsigned char> vch;
@@ -87,7 +80,8 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
     bool liquid_op_else_found = false;
     while (federation_script.GetOp(sdpc, opcodeTmp, vch))
     {
-        // For liquid watchman template, don't tweak emergency keys
+
+        // For liquidv1 initial watchman template, don't tweak emergency keys
         if (is_liquidv1_watchman && opcodeTmp == OP_ELSE) {
             liquid_op_else_found = true;
         }
@@ -147,7 +141,7 @@ CScript calculate_contract(const CScript& federation_script, const CScript& scri
 }
 
 template<typename T>
-static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script)
+static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, const COutPoint& prevout, const CAmount claim_amount, const CScript& claim_script, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     try {
         CDataStream pegtx_stream(tx_data, SER_NETWORK, PROTOCOL_VERSION);
@@ -177,15 +171,29 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
         return false;
     }
 
-    // Check that the witness program matches the p2ch on the p2sh-p2wsh transaction output
-    CScript tweaked_fedpegscript = calculate_contract(Params().GetConsensus().fedpegScript, claim_script);
-    CScript witness_output(GetScriptForWitness(tweaked_fedpegscript));
-    CScript expected_script(CScript() << OP_HASH160 << ToByteVector(ScriptHash(CScriptID(witness_output))) << OP_EQUAL);
-    if (pegtx->vout[prevout.n].scriptPubKey != expected_script) {
-        return false;
+    // Check that the witness program matches the p2ch on the (p2sh-)p2wsh
+    // transaction output. We support multiple scripts as a grace period for peg-in users
+    for (const auto& scripts : fedpegscripts) {
+        int fedpeg_version = 0;
+        std::vector<unsigned char> fedpeg_program;
+        scripts.first.IsWitnessProgram(fedpeg_version, fedpeg_program);
+        // We immediately return true if any fedpegscripts are unencumbered
+        // by currently-known parent chain segwit versions.
+        // TODO: Refactor for future versionbits deployment of parent-segwit version
+        if (fedpeg_version > 0) {
+            return true;
+        }
+        CScript tweaked_fedpegscript = calculate_contract(scripts.second, claim_script);
+        // TODO: Remove script/standard.h dep for GetScriptFor*
+        CScript expected_script(GetScriptForWitness(tweaked_fedpegscript));
+        if (scripts.first.IsPayToScriptHash()) {
+            expected_script = GetScriptForDestination(ScriptHash(expected_script));
+        }
+        if (pegtx->vout[prevout.n].scriptPubKey == expected_script) {
+            return true;
+        }
     }
-
-    return true;
+    return false;
 }
 
 template<typename T>
@@ -194,7 +202,7 @@ static bool GetBlockAndTxFromMerkleBlock(uint256& block_hash, uint256& tx_hash, 
     try {
         std::vector<uint256> tx_hashes;
         std::vector<unsigned int> tx_indices;
-        CDataStream merkle_block_stream(merkle_block_raw, SER_NETWORK, PROTOCOL_VERSION);
+        CDataStream merkle_block_stream(merkle_block_raw, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
         merkle_block_stream >> merkle_block;
         block_hash = merkle_block.header.GetHash();
 
@@ -232,7 +240,7 @@ bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::P
     return true;
 }
 
-bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
+bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth) {
     // 0) Return false if !consensus.has_parent_chain
     if (!Params().GetConsensus().has_parent_chain) {
         err_msg = "Parent chain is not enabled on this network.";
@@ -310,7 +318,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         }
 
         Sidechain::Bitcoin::CTransactionRef pegtx;
-        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script, fedpegscripts)) {
             err_msg = "Peg-in tx is invalid.";
             return false;
         }
@@ -329,7 +337,7 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const COutPoint& p
         }
 
         CTransactionRef pegtx;
-        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script)) {
+        if (!CheckPeginTx(stack[4], pegtx, prevout, value, claim_script, fedpegscripts)) {
             err_msg = "Peg-in tx is invalid.";
             return false;
         }
@@ -449,4 +457,42 @@ bool MatchLiquidWatchman(const CScript& script)
     }
     // No more pushes
     return (it == script.end());
+}
+
+std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex* pblockindex, const Consensus::Params& params, bool nextblock_validation)
+{
+    assert(pblockindex);
+
+    std::vector<std::pair<CScript, CScript>> fedpegscripts;
+
+    const int32_t epoch_length = params.dynamic_epoch_length;
+    const int32_t epoch_age = pblockindex->nHeight % epoch_length;
+    const int32_t epoch_start_height = pblockindex->nHeight - epoch_age;
+
+    // In mempool and general "enforced next block" RPC we need to look ahead one block
+    // to see if we're on a boundary. If so, put that epoch's fedpegscript in place
+    if (nextblock_validation && epoch_age == epoch_length - 1) {
+        DynaFedParamEntry next_param = ComputeNextBlockFullCurrentParameters(pblockindex, params);
+        fedpegscripts.push_back(std::make_pair(next_param.m_fedpeg_program, next_param.m_fedpegscript));
+    }
+
+    // Next we walk backwards up to M epoch starts
+    for (size_t i = 0; i < params.total_valid_epochs; i++) {
+
+        const CBlockIndex* p_epoch_start = pblockindex->GetAncestor(epoch_start_height-i*epoch_length);
+
+        // We're done here, for whatever reason.
+        if (!p_epoch_start) {
+            break;
+        }
+
+        if (!p_epoch_start->dynafed_params.IsNull()) {
+            fedpegscripts.push_back(std::make_pair(p_epoch_start->dynafed_params.m_current.m_fedpeg_program, p_epoch_start->dynafed_params.m_current.m_fedpegscript));
+        } else {
+            fedpegscripts.push_back(std::make_pair(GetScriptForDestination(ScriptHash(GetScriptForDestination(WitnessV0ScriptHash(params.fedpegScript)))), params.fedpegScript));
+        }
+    }
+    // Only return up to the latest two of three possible fedpegscripts, which are enforced
+    fedpegscripts.resize(std::min(fedpegscripts.size(), params.total_valid_epochs));
+    return fedpegscripts;
 }

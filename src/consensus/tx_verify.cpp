@@ -157,29 +157,33 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
         nSigOps += GetP2SHSigOpCount(tx, inputs) * WITNESS_SCALE_FACTOR;
     }
 
+    // Note that we only count segwit sigops for peg-in inputs
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
-        CTxOut prevout;
+        CScript scriptPubKey;
         if (tx.vin[i].m_is_pegin) {
             std::string err;
-            // Make sure witness exists and is properly formatted
-            if (tx.witness.vtxinwit.size() != tx.vin.size() || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err, false)) {
+            // Make sure witness exists and has enough peg-in witness fields for
+            // the claim_script
+            if (tx.witness.vtxinwit.size() != tx.vin.size() ||
+                    tx.witness.vtxinwit[i].m_pegin_witness.stack.size() < 4) {
                 continue;
             }
-            prevout = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
+            const auto pegin_witness = tx.witness.vtxinwit[i].m_pegin_witness;
+            scriptPubKey = CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end());
         } else {
             const Coin& coin = inputs.AccessCoin(tx.vin[i].prevout);
             assert(!coin.IsSpent());
-            prevout = coin.out;
+            scriptPubKey = coin.out.scriptPubKey;
         }
 
         const CScriptWitness* pScriptWitness = tx.witness.vtxinwit.size() > i ? &tx.witness.vtxinwit[i].scriptWitness : NULL;
-        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, prevout.scriptPubKey, pScriptWitness, flags);
+        nSigOps += CountWitnessSigOps(tx.vin[i].scriptSig, scriptPubKey, pScriptWitness, flags);
     }
     return nSigOps;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks)
+bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -194,7 +198,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         if (tx.vin[i].m_is_pegin) {
             // Check existence and validity of pegin witness
             std::string err;
-            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, prevout, err, true)) {
+            if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, prevout, err, true)) {
                 return state.Invalid(ValidationInvalidReason::TX_WITNESS_MUTATED, false, REJECT_PEGIN, "bad-pegin-witness", err);
             }
             std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), prevout);

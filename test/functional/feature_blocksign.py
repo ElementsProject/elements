@@ -14,7 +14,8 @@ from test_framework import (
 # Generate wallet import format from private key.
 def wif(pk):
     # Base58Check version for regtest WIF keys is 0xef = 239
-    return address.byte_to_base58(pk + b'\01', 239)
+    pk_compressed = pk + bytes([0x1])
+    return address.byte_to_base58(pk_compressed, 239)
 
 # The signblockscript is a Bitcoin Script k-of-n multisig script.
 def make_signblockscript(num_nodes, required_signers, keys):
@@ -26,7 +27,6 @@ def make_signblockscript(num_nodes, required_signers, keys):
         script += codecs.encode(k.get_pubkey().get_bytes(), 'hex_codec').decode("utf-8")
     script += "{}".format(50 + num_nodes) # num keys
     script += "ae" # OP_CHECKMULTISIG
-    print('signblockscript', script)
     return script
 
 class BlockSignTest(BitcoinTestFramework):
@@ -45,6 +45,10 @@ class BlockSignTest(BitcoinTestFramework):
 
         As well as syncing blocks over p2p
 
+        This test covers both pre-dynafed and post.
+
+        TODO: Show block max witness actually limits the witness
+
     """
 
     def skip_test_if_missing_module(self):
@@ -58,9 +62,6 @@ class BlockSignTest(BitcoinTestFramework):
             k = key.ECKey()
             k.generate()
             w = wif(k.get_bytes())
-            print("generated key {}: \n pub: {}\n  wif: {}".format(i+1,
-                codecs.encode(k.get_pubkey().get_bytes(), 'hex_codec').decode("utf-8"),
-                w))
             self.keys.append(k)
             self.wifs.append(w)
 
@@ -71,10 +72,12 @@ class BlockSignTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.init_keys(self.num_nodes-1) # Last node cannot sign and is connected to all via p2p
         signblockscript = make_signblockscript(self.num_keys, self.required_signers, self.keys)
+        self.witnessScript = signblockscript # post-dynafed this becomes witnessScript
         self.extra_args = [[
             "-signblockscript={}".format(signblockscript),
             "-con_max_block_sig_size={}".format(self.required_signers*74),
-            "-anyonecanspendaremine=1"
+            "-anyonecanspendaremine=1",
+            "-con_dyna_deploy_start=0",
         ]] * self.num_nodes
 
     def setup_network(self):
@@ -96,9 +99,16 @@ class BlockSignTest(BitcoinTestFramework):
         miner_next = self.nodes[mineridx_next]
         blockcount = miner.getblockcount()
 
+        # If dynafed is enabled, this means signblockscript has been WSH-wrapped
+        blockchain_info = self.nodes[0].getblockchaininfo()
+        is_dyna = blockchain_info['softforks']['dynafed']['bip9']['status'] == "active"
+        if is_dyna:
+            wsh_wrap = self.nodes[0].decodescript(self.witnessScript)['segwit']['hex']
+            assert_equal(wsh_wrap, blockchain_info['current_signblock_hex'])
+            assert blockchain_info['current_signblock_hex'] != blockchain_info['signblock_hex']
+
         # Make a few transactions to make non-empty blocks for compact transmission
         if make_transactions:
-            print(mineridx)
             for i in range(5):
                 miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()['bitcoin']/10), "", "", True)
         # miner makes a block
@@ -120,20 +130,20 @@ class BlockSignTest(BitcoinTestFramework):
             self.nodes[i].testproposedblock(final_block)
 
         # non-signing node can not sign
-        assert_raises_rpc_error(-25, "Could not sign the block.", self.nodes[-1].signblock, block)
+        assert_raises_rpc_error(-25, "Could not sign the block.", self.nodes[-1].signblock, block, self.witnessScript)
 
         # collect num_keys signatures from signers, reduce to required_signers sigs during combine
         sigs = []
         for i in range(self.num_keys):
-            result = miner.combineblocksigs(block, sigs)
-            sigs = sigs + self.nodes[i].signblock(block)
+            result = miner.combineblocksigs(block, sigs, self.witnessScript)
+            sigs = sigs + self.nodes[i].signblock(block, self.witnessScript)
             assert_equal(result["complete"], i >= self.required_signers)
             # submitting should have no effect pre-threshhold
             if i < self.required_signers:
                 miner.submitblock(result["hex"])
                 self.check_height(blockcount)
 
-        result = miner.combineblocksigs(block, sigs)
+        result = miner.combineblocksigs(block, sigs, self.witnessScript)
         assert_equal(result["complete"], True)
 
         # All signing nodes must submit... we're not connected!
@@ -159,11 +169,11 @@ class BlockSignTest(BitcoinTestFramework):
         self.check_height(0)
 
         # mine a block with no transactions
-        print("Mining and signing 101 blocks to unlock funds")
+        self.log.info("Mining and signing 101 blocks to unlock funds")
         self.mine_blocks(101, False)
 
         # mine blocks with transactions
-        print("Mining and signing non-empty blocks")
+        self.log.info("Mining and signing non-empty blocks")
         self.mine_blocks(10, True)
 
         # Height check also makes sure non-signing, p2p connected node gets block
@@ -183,6 +193,19 @@ class BlockSignTest(BitcoinTestFramework):
         signblockscript = make_signblockscript(self.num_keys, self.required_signers, self.keys)
         assert_equal(info['signblock_asm'], self.nodes[0].decodescript(signblockscript)['asm'])
         assert_equal(info['signblock_hex'], signblockscript)
+
+        assert_equal(info['softforks']['dynafed']['bip9']['status'], "defined")
+
+        # Next let's activate dynafed
+        blocks_til_dynafed = 431 - self.nodes[0].getblockcount()
+        self.mine_blocks(blocks_til_dynafed, False)
+        self.check_height(111+blocks_til_dynafed)
+
+        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dynafed']['bip9']['status'], "active")
+
+        self.log.info("Mine some dynamic federation blocks without and with txns")
+        self.mine_blocks(50, False)
+        self.mine_blocks(50, True)
 
 if __name__ == '__main__':
     BlockSignTest().main()

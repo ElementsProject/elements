@@ -318,12 +318,14 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->proof          = diskindex.proof;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
+                pindexNew->dynafed_params       = diskindex.dynafed_params;
+                pindexNew->m_signblock_witness = diskindex.m_signblock_witness;
 
                 const uint256 block_hash = pindexNew->GetBlockHash();
                 // Only validate one of every 1000 block header for sanity check
                 if (pindexNew->nHeight % 1000 == 0 &&
-                        !CheckProof(pindexNew->GetBlockHeader(), consensusParams) &&
-                    block_hash != consensusParams.hashGenesisBlock) {
+                        block_hash != consensusParams.hashGenesisBlock &&
+                        !CheckProof(pindexNew->GetBlockHeader(), consensusParams)) {
                     return error("%s: CheckProof: %s, %s", __func__, block_hash.ToString(), pindexNew->ToString());
                 }
                 pcursor->Next();

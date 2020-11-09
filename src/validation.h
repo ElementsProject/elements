@@ -34,7 +34,8 @@
 #include <utility>
 #include <vector>
 
-#include <boost/optional.hpp> // GetPAKKeysFromCommitment
+#include <atomic>
+
 #include <primitives/pak.h> // CPAKList
 
 class CChainState;
@@ -381,6 +382,9 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
  *  Note that transaction witness validation rules are always enforced when P2SH is enforced. */
 bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
 
+/** Check whether Dynamic Federation has activated. */
+bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params);
+
 /** When there are blocks in the active chain with missing data, rewind the chainstate and remove them from the block index */
 bool RewindBlockIndex(const CChainParams& params) LOCKS_EXCLUDED(cs_main);
 
@@ -391,8 +395,6 @@ void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPr
 std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev, const Consensus::Params& consensusParams);
 
 // ELEMENTS
-/** Extract pak commitment from coinbase, if it exists. List must be ordered, but not necessarily consecutive in output index */
-boost::optional<CPAKList> GetPAKKeysFromCommitment(const CTransaction& coinbase);
 
 /** RAII wrapper for VerifyDB: Verify consistency of the block and coin databases */
 class CVerifyDB {

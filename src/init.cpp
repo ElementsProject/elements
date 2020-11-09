@@ -71,7 +71,6 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/thread.hpp>
 
-#include <primitives/pak.h> // CPAKList
 #include <assetsdir.h> // InitGlobalAssetDir
 #include <pegins.h>
 
@@ -1866,86 +1865,15 @@ bool AppInitMain(InitInterfaces& interfaces)
         return false;
     }
 
-    // ********************************************************* Step 13: Load PAK List
-
-    // First, make sure -enforce_pak and -acceptnonstdtxn aren't conflicting
-    if (Params().GetEnforcePak() && gArgs.GetBoolArg("-acceptnonstdtxn", !Params().RequireStandard())) {
-        return InitError("-enforce_pak can not be true if the network accepts non-standard transactions for relay.");
-    }
-
-    //Entire list of PAK entries from conf must be of valid format
-    std::vector<std::string> pak_list_str = gArgs.GetArgs("-pak");
-    bool valid_paklist = true;
-    bool is_reject = false;
-    std::vector<std::vector<unsigned char> > offline_keys;
-    std::vector<std::vector<unsigned char> > online_keys;
-    for (unsigned int i = 0; i < pak_list_str.size(); i++) {
-        if (pak_list_str[i] == "reject") {
-            is_reject = true;
-            continue;
-        }
-
-        size_t colon_index = pak_list_str[i].find(":");
-        if (colon_index == std::string::npos) {
-            valid_paklist = false;
-            break;
-        }
-
-        std::string offline = pak_list_str[i].substr(0, colon_index);
-        std::string online = pak_list_str[i].substr(colon_index + 1);
-
-        if (!IsHex(offline) || !IsHex(online) || offline.size() != 66 || online.size() != 66) {
-            valid_paklist = false;
-            break;
-        }
-
-        online_keys.push_back(ParseHex(online));
-        offline_keys.push_back(ParseHex(offline));
-    }
-    // pak=reject must be alone
-    if (is_reject && offline_keys.size() > 0)
-        valid_paklist = false;
-    if (!valid_paklist)
-        return InitError(_("ERROR: Invalid PAK entries given in conf file.").translated);
-    if (is_reject || offline_keys.size() > 0) {
-        CPAKList paklist;
-        if(CPAKList::FromBytes(paklist, offline_keys, online_keys, is_reject)) {
-            g_paklist_config = paklist;
-        } else {
-            return InitError(_("ERROR: Invalid PAK entries given in conf file.").translated);
-        }
-    } else {
-        g_paklist_config = boost::none;
-    }
-
-    // Read and parse committed pak list from disk
-    CPAKList paklist;
-    offline_keys.resize(0);
-    online_keys.resize(0);
-    bool reject;
-    if (pblocktree->ReadPAKList(offline_keys, online_keys, reject)) {
-        if (CPAKList::FromBytes(paklist, offline_keys, online_keys, reject)) {
-            g_paklist_blockchain = paklist;
-        } else {
-            return InitError(_("ERROR: Read invalid PAK list.").translated);
+    // ********************************************************* Step 13: Check PAK
+    if (chainparams.GetEnforcePak()) {
+        if (!chainparams.GetConsensus().first_extension_space.empty() &&
+                CreatePAKListFromExtensionSpace(chainparams.GetConsensus().first_extension_space).IsReject()) {
+            return InitError("PAK is being enforced but initial extension space has invalid entries.");
         }
     }
 
-    // ********************************************************* Step 14: Check fedpeg
-    // ELEMENTS:
-    if (chainparams.GetConsensus().has_parent_chain) {
-        // Will assert if not properly formatted
-        const CScript& fedpeg_script = chainparams.GetConsensus().fedpegScript;
-        unsigned int dummy_required;
-        std::vector<std::vector<unsigned char>> dummy_keys;
-        if (!MatchLiquidWatchman(fedpeg_script) &&
-                fedpeg_script != CScript() << OP_TRUE &&
-                !MatchMultisig(fedpeg_script, dummy_required, dummy_keys)) {
-            return InitError(_("ERROR: Fedpegscript is not one of the accepted templates: OP_TRUE, CHECKMULTISIG, and Liquidv1").translated);
-        }
-    }
-
-    // ********************************************************* Step 15: finished
+    // ********************************************************* Step 14: finished
 
     SetRPCWarmupFinished();
 

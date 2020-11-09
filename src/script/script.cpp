@@ -334,6 +334,11 @@ std::string CScriptWitness::ToString() const
     return ret + ")";
 }
 
+uint32_t CScriptWitness::GetSerializedSize() const
+{
+    return ::GetSerializeSize(stack, 0);
+}
+
 bool CScript::HasValidOps() const
 {
     CScript::const_iterator it = begin();

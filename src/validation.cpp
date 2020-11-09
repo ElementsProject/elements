@@ -48,6 +48,7 @@
 
 // ELEMENTS
 #include <block_proof.h> // CheckChallenge, CheckProof
+#include <dynafed.h>
 
 #include <future>
 #include <sstream>
@@ -475,6 +476,13 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     if (fRequireStandard && !IsStandardTx(tx, reason))
         return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, reason);
 
+    // And now do PAK checks. Filtered by next blocks' enforced list
+    if (chainparams.GetEnforcePak()) {
+        if (!IsPAKValidTx(tx, GetActivePAKList(::ChainActive().Tip(), chainparams.GetConsensus()), chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
+            return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_NONSTANDARD, "invalid-pegout-proof");
+        }
+    }
+
     // Do not work on transactions that are too small.
     // A transaction with 1 segwit input and 1 P2WPHK output has non-witness size of 82 bytes.
     // Transactions smaller than this are not relayed to reduce unnecessary malloc overhead.
@@ -552,6 +560,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
         }
 
+        // Used when checking peg-ins
+        std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), chainparams.GetConsensus(), true /* nextblock_validation */);
+
         // do all inputs exist?
         for (unsigned int i = 0; i < tx.vin.size(); i++) {
             const CTxIn& txin = tx.vin[i];
@@ -564,8 +575,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 // Peg-in witness is required, check here without validating existence in parent chain
                 std::string err_msg = "no peg-in witness attached";
                 if (tx.witness.vtxinwit.size() != tx.vin.size() ||
-                        !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, tx.vin[i].prevout, err_msg, false)) {
-                    return state.Invalid(ValidationInvalidReason::TX_WITNESS_MUTATED, false, REJECT_INVALID, "pegin-no-witness");
+                        !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, tx.vin[i].prevout, err_msg, false)) {
+                    return state.Invalid(ValidationInvalidReason::TX_WITNESS_MUTATED, false, REJECT_INVALID, "pegin-no-witness", err_msg);
                 }
 
                 std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), tx.vin[i].prevout);
@@ -614,7 +625,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_NONSTANDARD, "non-BIP68-final");
 
         CAmountMap fee_map;
-        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), fee_map, setPeginsSpent, NULL, true, true)) {
+        if (!Consensus::CheckTxInputs(tx, state, view, GetSpendHeight(view), fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
@@ -1026,8 +1037,8 @@ bool ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos, const Consensus::P
 
     // Check the header
     const uint256 block_hash = block.GetHash();
-    if (!CheckProof(block, consensusParams) &&
-        block_hash != consensusParams.hashGenesisBlock) {
+    if (block_hash != consensusParams.hashGenesisBlock &&
+            !CheckProof(block, consensusParams)) {
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
     }
 
@@ -1539,7 +1550,7 @@ static bool AbortNode(CValidationState& state, const std::string& strMessage, co
  * @param out The out point that corresponds to the tx input.
  * @return A DisconnectResult as an int
  */
-int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness)
+int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, const CTxIn& txin, const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     bool fClean = true;
 
@@ -1571,7 +1582,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out, cons
         view.AddCoin(out, std::move(undo), !fClean);
     } else {
         std::string err;
-        if (!IsValidPeginWitness(pegin_witness, txin.prevout, err, false)) {
+        if (!IsValidPeginWitness(pegin_witness, fedpegscripts, txin.prevout, err, false)) {
             fClean = fClean && error("%s: peg-in occurred without proof", __func__);
         } else {
             std::pair<uint256, COutPoint> outpoint = std::make_pair(uint256(pegin_witness.stack[2]), txin.prevout);
@@ -1633,6 +1644,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // restore inputs
+        const auto& fedpegscripts = GetValidFedpegScripts(pindex, Params().GetConsensus(), false /* nextblock_validation */);
         if (i > 0) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
@@ -1642,7 +1654,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
             for (unsigned int j = tx.vin.size(); j-- > 0;) {
                 const COutPoint &out = tx.vin[j].prevout;
                 const CScriptWitness& pegin_wit = tx.witness.vtxinwit.size() > j ? tx.witness.vtxinwit[j].m_pegin_witness : CScriptWitness();
-                int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out, tx.vin[j], pegin_wit);
+                int res = ApplyTxInUndo(std::move(txundo.vprevout[j]), view, out, tx.vin[j], pegin_wit, fedpegscripts);
                 if (res == DISCONNECT_FAILED) return DISCONNECT_FAILED;
                 fClean = fClean && res != DISCONNECT_UNCLEAN;
             }
@@ -2026,8 +2038,23 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     // ELEMENTS:
+
+    // Enforce PAK post-dynafed
+    if (chainparams.GetEnforcePak() && !block.m_dynafed_params.IsNull()) {
+        // GetActivePAKList computes for the following block, so use previous index
+        CPAKList paklist = GetActivePAKList(pindex->pprev, chainparams.GetConsensus());
+        for (const auto& tx : block.vtx) {
+            if (!IsPAKValidTx(*tx, paklist, chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("ConnectBlock(): Bad PAK transaction"), REJECT_INVALID, "bad-pak-tx");
+            }
+        }
+    }
+
     // Used when ConnectBlock() results are unneeded for mempool ejection
     std::set<std::pair<uint256, COutPoint>> setPeginsSpentDummy;
+
+    // Used when checking peg-ins
+    const auto& fedpegscripts = GetValidFedpegScripts(pindex, chainparams.GetConsensus(), false /* nextblock_validation */);
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2041,7 +2068,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, fee_map,
                         setPeginsSpent == NULL ? setPeginsSpentDummy : *setPeginsSpent,
-                        nScriptCheckThreads ? &vChecks : NULL, fCacheResults, fScriptChecks)) {
+                        nScriptCheckThreads ? &vChecks : NULL, fCacheResults, fScriptChecks, fedpegscripts)) {
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -2552,24 +2579,12 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     if (!FlushStateToDisk(chainparams, state, FlushStateMode::IF_NEEDED))
         return false;
 
-    // Get PAK commitment from coinbase, if it exists
-    boost::optional<CPAKList> paklist = GetPAKKeysFromCommitment(*blockConnecting.vtx[0]);
-    if (paklist) {
-        std::vector<std::vector<unsigned char> > offline_keys;
-        std::vector<std::vector<unsigned char> > online_keys;
-        bool is_reject;
-        paklist->ToBytes(offline_keys, online_keys, is_reject);
-        pblocktree->WritePAKList(offline_keys, online_keys, is_reject);
-        g_paklist_blockchain = *paklist;
-    }
-
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
-    // ELEMENTS: We also eject now-invalid peg-outs based on block transition if not config list set
-    // If config is set, this means all peg-outs have been filtered for that list already and other
-    // functionaries aren't matching your list. Operator should restart with no list or new matching list.
-    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, (paklist && !g_paklist_config));
+    // ELEMENTS: We also eject peg-outs with now-invalid PAK proofs
+    // as well as peg-in inputs during transitional periods.
+    mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight, pindexNew);
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update m_chain & related variables.
     m_chain.SetTip(pindexNew);
@@ -3280,6 +3295,12 @@ bool IsWitnessEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
     return (height >= params.SegwitHeight);
 }
 
+bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& params)
+{
+    LOCK(cs_main);
+    return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_DYNA_FED, versionbitscache) == ThresholdState::ACTIVE);
+}
+
 // Compute at which vout of the block's coinbase transaction the witness
 // commitment occurs, or -1 if not found.
 static int GetWitnessCommitmentIndex(const CBlock& block)
@@ -3351,69 +3372,81 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
 }
 
 // ELEMENTS
-boost::optional<CPAKList> GetPAKKeysFromCommitment(const CTransaction& coinbase)
+
+
+static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationState& state, const CChainParams& params, const CBlockIndex* pindexPrev)
 {
-    std::vector<std::vector<unsigned char> > offline_keys;
-    std::vector<std::vector<unsigned char> > online_keys;
-    bool is_reject = false;
-    for (unsigned int i = 0; i < coinbase.vout.size(); i++) {
-        const CScript& scriptPubKey = coinbase.vout[i].scriptPubKey;
-
-        // OP + push + 4 bytes + push + 33 bytes + push + 33 bytes
-        // or
-        // OP + push + 4 bytes + push + 6 bytes (REJECT)
-
-        CScript::const_iterator pc = scriptPubKey.begin();
-        std::vector<unsigned char> data;
-        opcodetype opcode;
-
-        if (!scriptPubKey.GetOp(pc, opcode, data) || opcode != OP_RETURN){
-            continue;
-        }
-
-        if (!scriptPubKey.GetOp(pc, opcode, data) || data.size() != 4 ||
-                data[0] != 0xab || data[1] != 0x22 || data[2] != 0xaa || data[3] != 0xee) {
-            continue;
-        }
-
-        if (!scriptPubKey.GetOp(pc, opcode, data)){
-            continue;
-        }
-
-        // Check for pak list reject signal
-        // Returns an empty list regardless of other commitments
-        if (data.size() == 6 && data[0] == 'R' && data[1] == 'E' && data[2] == 'J' && data[3] == 'E' && data[4] == 'C' && data[5] == 'T') {
-            is_reject = true;
-            continue;
-        }
-
-        // Check for offline key
-        if (data.size() != 33) {
-            continue;
-        }
-
-        // Check for online key
-        std::vector<unsigned char> data_online;
-        if (!scriptPubKey.GetOp(pc, opcode, data_online) || data_online.size() != 33) {
-            continue;
-        }
-
-        offline_keys.push_back(data);
-        online_keys.push_back(data_online);
+    // When not active, it's a NOP
+    if (!IsDynaFedEnabled(pindexPrev, params.GetConsensus())) {
+        return true;
     }
-    if (is_reject) {
-        offline_keys.clear();
-        online_keys.clear();
+
+    const DynaFedParams& dynafed_params = block.m_dynafed_params;
+
+    // Dynamic blocks must at least publish current signblockscript in full
+    if (dynafed_params.m_current.IsNull()) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block headers must have non-empty current signblockscript field");
     }
-    if (!is_reject && offline_keys.size() == 0) {
-        return boost::none;
+
+    // Make sure extension bits aren't active, reserved for future HF
+    uint32_t reserved_mask = (1<<23) | (1<<24) | (1<<25) | (1<<26);
+    if ((block.nVersion & reserved_mask) != 0) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header has unknown HF extension bits set");
     }
-    CPAKList paklist;
-    if (!CPAKList::FromBytes(paklist, offline_keys, online_keys, is_reject)) {
-        return boost::none;
-    } else {
-        return paklist;
+
+    const DynaFedParamEntry expected_current_params = ComputeNextBlockCurrentParameters(pindexPrev, params.GetConsensus());
+
+    if (expected_current_params != dynafed_params.m_current) {
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "dynamic block header's current parameters do not match expected");
     }
+
+    // Lastly, enforce rules on proposals.
+    const DynaFedParamEntry& proposed = dynafed_params.m_proposed;
+    if (!proposed.IsNull()) {
+
+        // signblockscript proposals *must* be segwit versions
+        int block_version = 0;
+        std::vector<unsigned char> block_program;
+        if (!proposed.m_signblockscript.IsWitnessProgram(block_version, block_program)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "proposed signblockscript must be native segwit scriptPubkey");
+        }
+
+        int fedpeg_version = 0;
+        std::vector<unsigned char> fedpeg_program;
+        if (!proposed.m_fedpeg_program.IsWitnessProgram(fedpeg_version, fedpeg_program)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "proposed fedpegs program must be native segwit scriptPubkey");
+        }
+
+        // for v0, fedpegscript's scriptPubKey must match. v1+ is unencumbered.
+        if (fedpeg_version == 0) {
+            uint256 fedpeg_program;
+            CSHA256().Write(proposed.m_fedpegscript.data(), proposed.m_fedpegscript.size()).Finalize(fedpeg_program.begin());
+            CScript computed_program = CScript() << OP_0 << ToByteVector(fedpeg_program);
+            if (computed_program != proposed.m_fedpeg_program) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "proposed v0 segwit fedpegscript must match proposed fedpeg witness program");
+            }
+
+            // fedpegscript proposals *must not* start with OP_DEPTH
+            // This forbids the first Liquid watchman script which is a hack.
+            // Use miniscript, which doesn't even have OP_DEPTH.
+            // We don't encumber future segwit versions as opcodes may change.
+            if (!proposed.m_fedpegscript.empty() &&
+                    proposed.m_fedpegscript.front() == OP_DEPTH) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "Proposed fedpegscript starts with OP_DEPTH, which is illegal");
+            }
+        }
+
+        // When enforcing PAK, extension_space must give non-empty PAK list when
+        // the vector itself is non-empty. Otherwise this means there were "junk"
+        // entries
+        if (params.GetEnforcePak()) {
+            if (!proposed.m_extension_space.empty() &&
+                    CreatePAKListFromExtensionSpace(proposed.m_extension_space).IsReject()) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "invalid-dyna-fed", "Extension space is not list of valid PAK entries");
+            }
+        }
+    }
+    return true;
 }
 
 //! Returns last CBlockIndex* that is a checkpoint
@@ -3446,9 +3479,9 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
-    // Check proof of work if necessary
+    // Check proof of work target or non-dynamic signblockscript if necessary
     const Consensus::Params& consensusParams = params.GetConsensus();
-    if (!CheckChallenge(block, *pindexPrev, consensusParams))
+    if (!IsDynaFedEnabled(pindexPrev, consensusParams) && !CheckChallenge(block, *pindexPrev, consensusParams))
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "bad-diffbits", "incorrect proof of work");
 
     // Check against checkpoints
@@ -3481,6 +3514,10 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
        (block.nVersion < 4 && nHeight >= consensusParams.BIP65Height))
             return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_OBSOLETE, strprintf("bad-version(0x%08x)", block.nVersion),
                                  strprintf("rejected nVersion=0x%08x block", block.nVersion));
+
+    if (!ContextualCheckDynaFedHeader(block, state, params, pindexPrev)) {
+        return false;
+    }
 
     return true;
 }

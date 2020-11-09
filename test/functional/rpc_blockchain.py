@@ -74,8 +74,12 @@ class BlockchainTest(BitcoinTestFramework):
             'bestblockhash',
             'blocks',
             'chain',
+            'current_signblock_asm',
+            'current_signblock_hex',
+            'extension_space',
             'headers',
             'initialblockdownload',
+            'max_block_witness',
             'mediantime',
             'pruned',
             'signblock_asm',
@@ -103,6 +107,7 @@ class BlockchainTest(BitcoinTestFramework):
 
         self.restart_node(0, ['-stopatheight=207'])
         res = self.nodes[0].getblockchaininfo()
+
         # should have exact keys
         assert_equal(sorted(res.keys()), keys)
 
@@ -124,6 +129,15 @@ class BlockchainTest(BitcoinTestFramework):
             'bip65': {'type': 'buried', 'active': False, 'height': 1351},
             'csv': {'type': 'buried', 'active': False, 'height': 432},
             'segwit': {'type': 'buried', 'active': True, 'height': 0},
+            'dynafed': {
+                'type': 'bip9',
+                'bip9': {
+                    'status': 'defined',
+                    'startTime': 2147483648,
+                    'timeout': 9223372036854775807,
+                    'since': 0
+                },
+                'active': False},
             'testdummy': {
                 'type': 'bip9',
                 'bip9': {

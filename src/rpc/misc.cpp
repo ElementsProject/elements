@@ -625,8 +625,7 @@ UniValue FormatPAKList(CPAKList &paklist) {
     UniValue paklist_value(UniValue::VOBJ);
     std::vector<std::vector<unsigned char> > offline_keys;
     std::vector<std::vector<unsigned char> > online_keys;
-    bool is_reject;
-    paklist.ToBytes(offline_keys, online_keys, is_reject);
+    paklist.ToBytes(offline_keys, online_keys);
 
     UniValue retOnline(UniValue::VARR);
     UniValue retOffline(UniValue::VARR);
@@ -637,7 +636,7 @@ UniValue FormatPAKList(CPAKList &paklist) {
     }
     paklist_value.pushKV("online", retOnline);
     paklist_value.pushKV("offline", retOffline);
-    paklist_value.pushKV("reject", is_reject);
+    paklist_value.pushKV("reject", retOffline.empty());
     return paklist_value;
 }
 
@@ -646,12 +645,11 @@ UniValue getpakinfo(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
             RPCHelpMan{"getpakinfo",
-                "\nReturns relevant pegout authorization key (PAK) information about this node, both from command line arguments and blockchain data.\n",
+                "\nReturns relevant pegout authorization key (PAK) information about this node, both from blockchain data.\n",
                 {},
                 RPCResult{
             "{\n"
-                "\"config_paklist\"          (array) The PAK list loaded from beta.conf at startup\n"
-                "\"block_paklist\"           (array) The PAK list loaded from latest block commitment\n"
+                "\"block_paklist\"           (array) The PAK list loaded from latest epoch\n"
             "}\n"
                 },
                 RPCExamples{""},
@@ -659,13 +657,9 @@ UniValue getpakinfo(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
-    UniValue paklist_value(UniValue::VOBJ);
-    if (g_paklist_config) {
-        paklist_value = FormatPAKList(*g_paklist_config);
-    }
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("config_paklist", paklist_value);
-    ret.pushKV("block_paklist", FormatPAKList(g_paklist_blockchain));
+    CPAKList paklist = GetActivePAKList(::ChainActive().Tip(), Params().GetConsensus());
+    ret.pushKV("block_paklist", FormatPAKList(paklist));
 
     return ret;
 }

@@ -38,6 +38,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         self.num_nodes = 1
         self.extra_args = [[
             '-txindex',
+            '-multi_data_permitted=1', # Elements test
         ]] * self.num_nodes
 
     def skip_test_if_missing_module(self):

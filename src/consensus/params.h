@@ -20,6 +20,7 @@ namespace Consensus {
 enum DeploymentPos
 {
     DEPLOYMENT_TESTDUMMY,
+    DEPLOYMENT_DYNA_FED, // Deployment of dynamic federation
     // NOTE: Also add new deployments to VersionBitsDeploymentInfo in versionbits.cpp
     MAX_VERSION_BITS_DEPLOYMENTS
 };
@@ -103,6 +104,13 @@ struct Params {
     CScript signblockscript;
     uint32_t max_block_signature_size;
     // g_signed_blocks - Whether blocks are signed or not, get around circular dep
+    // Set positive to avoid division by 0
+    // for non-dynafed chains and unit tests
+    uint32_t dynamic_epoch_length = std::numeric_limits<uint32_t>::max();
+    // Used to seed the extension space for first dynamic blocks
+    std::vector<std::vector<unsigned char>> first_extension_space;
+    // Used to allow M-epoch-old peg-in addresses as deposits
+    size_t total_valid_epochs;
 };
 } // namespace Consensus
 

@@ -182,6 +182,9 @@ public:
     uint32_t nBits;
     uint32_t nNonce;
     CProof proof;
+    // Dynamic federation fields
+    DynaFedParams dynafed_params;
+    CScriptWitness m_signblock_witness;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -211,6 +214,8 @@ public:
         nBits          = 0;
         nNonce         = 0;
         proof.SetNull();
+        dynafed_params.SetNull();
+        m_signblock_witness.SetNull();
     }
 
     CBlockIndex()
@@ -228,6 +233,8 @@ public:
         nBits          = block.nBits;
         nNonce         = block.nNonce;
         proof          = block.proof;
+        dynafed_params       = block.m_dynafed_params;
+        m_signblock_witness = block.m_signblock_witness;
     }
 
     FlatFilePos GetBlockPos() const {
@@ -262,6 +269,8 @@ public:
         block.nBits          = nBits;
         block.nNonce         = nNonce;
         block.proof          = proof;
+        block.m_dynafed_params  = dynafed_params;
+        block.m_signblock_witness = m_signblock_witness;
         return block;
     }
 
@@ -384,13 +393,35 @@ public:
             READWRITE(VARINT(nUndoPos));
 
         // block header
-        READWRITE(this->nVersion);
+
+        // Detect dynamic federation block serialization using "HF bit",
+        // or the signed bit which is invalid in Bitcoin
+        bool is_dyna = false;
+        int32_t nVersion;
+        if (ser_action.ForRead()) {
+            READWRITE(nVersion);
+            is_dyna = nVersion < 0;
+            this->nVersion = ~CBlockHeader::DYNAFED_HF_MASK & nVersion;
+        } else {
+            nVersion = this->nVersion;
+            if (!dynafed_params.IsNull()) {
+                nVersion |= CBlockHeader::DYNAFED_HF_MASK;
+                is_dyna = true;
+            }
+            READWRITE(nVersion);
+        }
+
         READWRITE(hashPrev);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         // For compatibility with elements 0.14 based chains
         if (g_signed_blocks) {
-            READWRITE(proof);
+            if (is_dyna) {
+                READWRITE(dynafed_params);
+                READWRITE(m_signblock_witness.stack);
+            } else {
+                READWRITE(proof);
+            }
         } else {
             READWRITE(nBits);
             READWRITE(nNonce);
@@ -410,6 +441,7 @@ public:
         block.nBits           = nBits;
         block.nNonce          = nNonce;
         block.proof           = proof;
+        block.m_dynafed_params   = dynafed_params;
         return block.GetHash();
     }
 

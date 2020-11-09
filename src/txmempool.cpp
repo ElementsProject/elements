@@ -17,6 +17,7 @@
 #include <util/moneystr.h>
 #include <util/time.h>
 #include <chainparams.h> // removeForBlock paklist transition
+#include <pegins.h>
 
 CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                                  int64_t _nTime, unsigned int _entryHeight,
@@ -515,6 +516,24 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         if (!validLP) {
             mapTx.modify(it, update_lock_points(lp));
         }
+
+        // On re-org, remove *all* peg-in and PAK-based peg-outs due to possible
+        // invalidity from dynafed transitions
+        // TODO: Only boot out now-invalid transactions. Re-orgs are very rare in
+        // federated systems but can occasionally happen due to consensus algorithm.
+
+        // Little hack to quickly check if any outputs are PAK ones
+        // by sending in empty(reject) list.
+        if (!IsPAKValidTx(tx, CPAKList(), Params().ParentGenesisBlockHash(), Params().GetConsensus().pegged_asset)) {
+            txToRemove.insert(it);
+            continue;
+        }
+        for (const auto& input : tx.vin) {
+            if (input.m_is_pegin) {
+                txToRemove.insert(it);
+                break;
+            }
+        }
     }
     setEntries setAllRemoves;
     for (txiter it : txToRemove) {
@@ -543,7 +562,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx)
 /**
  * Called when a block is connected. Removes from mempool and updates the miner fee estimator.
  */
-void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, bool pak_transition)
+void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigned int nBlockHeight, const CBlockIndex* p_block_index_new)
 {
     AssertLockHeld(cs);
     std::vector<const CTxMemPoolEntry*> entries;
@@ -569,28 +588,40 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         ClearPrioritisation(tx->GetHash());
     }
 
-    // Eject any newly-invalid peg-outs based on changing block commitment
-    const CChainParams& chainparams = Params();
-    if (pak_transition && chainparams.GetEnforcePak()) {
-        std::vector<CTransactionRef> tx_to_remove;
-        for (const auto& entry : mapTx) {
-            for (const auto& out : entry.GetTx().vout) {
-                if (out.scriptPubKey.IsPegoutScript(Params().ParentGenesisBlockHash()) &&
-                            !ScriptHasValidPAKProof(out.scriptPubKey, Params().ParentGenesisBlockHash())) {
-                    const uint256 tx_id = entry.GetTx().GetHash();
-                    txiter it = mapTx.find(tx_id);
-                    const CTransaction& tx = it->GetTx();
+    // Eject transactions that are invalid for *following* block due to transition
+    // We check every epoch_length blocks due to peg-ins expiring an epoch after
+    // being changed
+    if (p_block_index_new) {
+        const CChainParams& chainparams = Params();
+        uint32_t epoch_length = chainparams.GetConsensus().dynamic_epoch_length;
+        if ((p_block_index_new->nHeight+1) % epoch_length == 0) {
+            CPAKList enforced_paklist = GetActivePAKList(p_block_index_new, chainparams.GetConsensus());
+            std::vector<CTransactionRef> tx_to_remove;
+            for (const auto& entry : mapTx) {
+                const CTransaction& tx = entry.GetTx();
+                if (chainparams.GetEnforcePak() && !IsPAKValidTx(tx, enforced_paklist, chainparams.ParentGenesisBlockHash(), chainparams.GetConsensus().pegged_asset)) {
                     tx_to_remove.push_back(MakeTransactionRef(tx));
-                    break;
+                    continue;
+                }
+
+                const auto& fedpegscripts = GetValidFedpegScripts(p_block_index_new, chainparams.GetConsensus(), true /* nextblock_validation */);
+                for (size_t nIn = 0; nIn < tx.vin.size(); nIn++) {
+                    const CTxIn& in = tx.vin[nIn];
+                    std::string err;
+                    if (in.m_is_pegin && (!tx.HasWitness() || !IsValidPeginWitness(tx.witness.vtxinwit[nIn].m_pegin_witness, fedpegscripts, in.prevout, err, true /* check_depth */))) {
+                        tx_to_remove.push_back(MakeTransactionRef(tx));
+                        break;
+                    }
                 }
             }
-        }
-        for (auto& tx : tx_to_remove) {
-            const uint256 tx_id = tx->GetHash();
-            removeRecursive(*tx, MemPoolRemovalReason::BLOCK);
-            ClearPrioritisation(tx_id);
+            for (auto& tx : tx_to_remove) {
+                const uint256 tx_id = tx->GetHash();
+                removeRecursive(*tx, MemPoolRemovalReason::BLOCK);
+                ClearPrioritisation(tx_id);
+            }
         }
     }
+
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
 }
@@ -620,7 +651,8 @@ static void CheckInputsAndUpdateCoins(const CTxMemPoolEntry& entry, CCoinsViewCa
     CValidationState state;
     CAmountMap fee_map;
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true);
+    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    bool fCheckResult = tx.IsCoinBase() || Consensus::CheckTxInputs(tx, state, mempoolDuplicate, spendheight, fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
     assert(fCheckResult);
     UpdateCoins(tx, mempoolDuplicate, std::numeric_limits<int>::max());
 

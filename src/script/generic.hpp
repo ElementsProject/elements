@@ -46,9 +46,9 @@ public:
 };
 
 template<typename T>
-bool GenericVerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, unsigned int flags, const T& data)
+bool GenericVerifyScript(const CScript& scriptSig, const CScriptWitness& witness, const CScript& scriptPubKey, unsigned int flags, const T& data)
 {
-    return VerifyScript(scriptSig, scriptPubKey, NULL, flags, SimpleSignatureChecker(SerializeHash(data)));
+    return VerifyScript(scriptSig, scriptPubKey, &witness, flags, SimpleSignatureChecker(SerializeHash(data)));
 }
 
 template<typename T>

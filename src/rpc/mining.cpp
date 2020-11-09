@@ -142,6 +142,14 @@ static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, ui
                 continue;
             }
         }
+
+        // Fill out block witness if dynamic federation is enabled
+        // since we are assuming WSH(OP_TRUE)
+        if (!pblock->m_dynafed_params.IsNull()) {
+            CScript op_true(OP_TRUE);
+            pblock->m_signblock_witness.stack.push_back(std::vector<unsigned char>(op_true.begin(), op_true.end()));
+        }
+
         std::shared_ptr<const CBlock> shared_pblock = std::make_shared<const CBlock>(*pblock);
         if (!ProcessNewBlock(Params(), shared_pblock, true, nullptr))
             throw JSONRPCError(RPC_INTERNAL_ERROR, "ProcessNewBlock, block not accepted");
@@ -966,15 +974,27 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
 
 UniValue getnewblockhex(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() > 1)
+    if (request.fHelp || request.params.size() > 2)
         throw std::runtime_error(
             RPCHelpMan{"getnewblockhex",
                 "\nGets hex representation of a proposed, unmined new block\n",
                 {
                     {"min_tx_age", RPCArg::Type::NUM, /* default */ "0", "How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks."},
+                    {"proposed_parameters", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED , "Parameters to be used in dynamic federations blocks as proposals. During a period of `-dynamic_epoch_length` blocks, 4/5 of total blocks must signal these parameters for the proposal to become activated in the next epoch.",
+                        {
+                            {"signblockscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded block signing script to propose"},
+                            {"max_block_witness", RPCArg::Type::NUM, RPCArg::Optional::NO, "Total size in witness bytes that are allowed in the dynamic federations block witness for blocksigning"},
+                            {"fedpegscript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex-encoded fedpegscript for dynamic block proposal. This is interpreted as a v0 segwit witnessScript, and fills out the fedpeg_program as such."},
+                            {"extension_space", RPCArg::Type::ARR, RPCArg::Optional::NO, "Array of additional fields to embed in the dynamic blockheader. Has no consensus meaning aside from serialized size changes. This space is currently is only used for PAK enforcement.",
+                                {
+                                    {"", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex encoded string for extension entries."},
+                                },
+                            },
+                        },
+                        "proposed_parameters"},
                 },
                 RPCResult{
-            "blockhex      (hex) The block hex\n"
+                    "blockhex      (hex) The block hex\n"
                 },
                 RPCExamples{
                     HelpExampleCli("getnewblockhex", ""),
@@ -986,9 +1006,49 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "min_tx_age must be non-negative.");
     }
 
+    // Construct proposed parameter entry, if any
+    DynaFedParamEntry proposed;
+    if (!request.params[1].isNull()) {
+        if (!IsDynaFedEnabled(::ChainActive().Tip(), Params().GetConsensus())) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Dynamic federations is not active on this network. Proposed parameters are not needed.");
+        }
+
+        UniValue prop = request.params[1].get_obj();
+
+        std::string sbs_str = prop["signblockscript"].get_str();
+        if (!IsHex(sbs_str)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "signblockscript must be hex");
+        }
+        std::vector<unsigned char> signblock_bytes = ParseHex(sbs_str);
+        proposed.m_signblockscript = CScript(signblock_bytes.begin(), signblock_bytes.end());
+
+        int max_sbs_wit = prop["max_block_witness"].get_int();
+        if (max_sbs_wit < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "max_block_witness must be non-negative");
+        }
+        proposed.m_signblock_witness_limit = max_sbs_wit;
+
+        std::string fps_str = prop["fedpegscript"].get_str();
+        if (!IsHex(fps_str)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "fedpegscript must be hex");
+        }
+        std::vector<unsigned char> fedpeg_bytes = ParseHex(fps_str);
+        proposed.m_fedpegscript = CScript(fedpeg_bytes.begin(), fedpeg_bytes.end());
+        // Compute the P2WSH scriptPubKey of this fedpegscript
+        proposed.m_fedpeg_program = GetScriptForDestination(WitnessV0ScriptHash(proposed.m_fedpegscript));
+
+        UniValue extension_array = prop["extension_space"].get_array();
+        for (unsigned int i = 0; i < extension_array.size(); i++) {
+            std::string extension_str = extension_array[i].get_str();
+            proposed.m_extension_space.push_back(ParseHex(extension_str));
+        }
+        // All proposals are full serializations
+        proposed.m_serialize_type = 2;
+    }
+
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript, required_wait));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript, required_wait, &proposed));
     if (!pblocktemplate.get()) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     }
@@ -1000,6 +1060,13 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
         IncrementExtraNonce(&pblocktemplate->block, ::ChainActive().Tip(), nExtraNonce);
     }
 
+    // If WSH(OP_TRUE) block, fill in witness
+    CScript op_true(OP_TRUE);
+    if (pblocktemplate->block.m_dynafed_params.m_current.m_signblockscript ==
+            GetScriptForDestination(WitnessV0ScriptHash(op_true))) {
+        pblocktemplate->block.m_signblock_witness.stack.push_back(std::vector<unsigned char>(op_true.begin(), op_true.end()));
+    }
+
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssBlock << pblocktemplate->block;
     return HexStr(ssBlock.begin(), ssBlock.end());
@@ -1007,7 +1074,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
 
 UniValue combineblocksigs(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 2)
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
         throw std::runtime_error(
             RPCHelpMan{"combineblocksigs",
                 "\nMerges signatures on a block proposal\n",
@@ -1023,6 +1090,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
                             },
                         },
                     },
+                    {"witnessScript", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded witnessScript for the signblockscript"},
                 },
                 RPCResult{
             "{\n"
@@ -1064,9 +1132,22 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         sig_data.signatures[pubkey.GetID()] = std::make_pair(pubkey, sig_bytes);
     }
 
-    // Finalizes the signatures, has no access to keys
-    ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data, SCRIPT_NO_SIGHASH_BYTE);
-    block.proof.solution = sig_data.scriptSig;
+    if (!block.m_dynafed_params.IsNull()) {
+        if (request.params[2].isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Signing dynamic blocks requires the witnessScript argument");
+        }
+        std::vector<unsigned char> witness_bytes(ParseHex(request.params[2].get_str()));
+        if (!witness_bytes.empty()) {
+            keystore.AddCScript(CScript(witness_bytes.begin(), witness_bytes.end()));
+        }
+        // Finalizes the signatures, has no access to keys
+        ProduceSignature(keystore, signature_creator, block.m_dynafed_params.m_current.m_signblockscript, sig_data, SCRIPT_NO_SIGHASH_BYTE);
+        block.m_signblock_witness = sig_data.scriptWitness;
+    } else {
+        // Finalizes the signatures, has no access to keys
+        ProduceSignature(keystore, signature_creator, block.proof.challenge, sig_data, SCRIPT_NO_SIGHASH_BYTE);
+        block.proof.solution = sig_data.scriptSig;
+    }
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
     ssBlock << block;
@@ -1327,25 +1408,6 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     const CChainParams& chainparams = Params();
     const bool acceptnonstd = !request.params[1].isNull() ? request.params[1].get_bool() : gArgs.GetBoolArg("-acceptnonstdtxn", !chainparams.RequireStandard());
     if (!acceptnonstd) {
-
-        // Get PAK commitment, if any
-        boost::optional<CPAKList> paklist_block = GetPAKKeysFromCommitment(*block.vtx[0]);
-
-        // Possible PAK commitment mismatch between blocks and config
-        if (chainparams.GetEnforcePak() && g_paklist_config) {
-            if(paklist_block) {
-                if (*paklist_block != *g_paklist_config) {
-                    throw JSONRPCError(RPC_VERIFY_ERROR, "Proposal PAK commitment and config PAK do not match.");
-                }
-                // else it may be an unnecessary commitment but that's ok.
-            } else {
-                // Waiting for block that has commitment to config list
-                if (*g_paklist_config != g_paklist_blockchain) {
-                    throw JSONRPCError(RPC_VERIFY_ERROR, "Proposal does not have required PAK commitment.");
-                }
-            }
-        }
-
         for (auto& transaction : block.vtx) {
             if (transaction->IsCoinBase()) continue;
             std::string reason;
@@ -1372,7 +1434,7 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "generating",         "combineblocksigs",       &combineblocksigs,       {"blockhex","signatures"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
-    { "generating",         "getnewblockhex",         &getnewblockhex,         {"min_tx_age"} },
+    { "generating",         "getnewblockhex",         &getnewblockhex,         {"min_tx_age", "proposed_parameters"} },
     { "generating",         "getcompactsketch",       &getcompactsketch,       {"block_hex"} },
     { "generating",         "consumecompactsketch",   &consumecompactsketch,   {"sketch"} },
     { "generating",         "consumegetblocktxn",     &consumegetblocktxn,     {"full_block", "block_tx_req"} },

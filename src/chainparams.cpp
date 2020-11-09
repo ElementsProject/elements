@@ -126,6 +126,7 @@ public:
         g_signed_blocks = false;
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
+        consensus.total_valid_epochs = 0;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -244,6 +245,7 @@ public:
         g_signed_blocks = false;
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
+        consensus.total_valid_epochs = 0;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -340,6 +342,7 @@ public:
         g_signed_blocks = false;
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
+        consensus.total_valid_epochs = 0;
 
         pchMessageStart[0] = 0xfa;
         pchMessageStart[1] = 0xbf;
@@ -465,6 +468,11 @@ class CCustomParams : public CRegTestParams {
 
         consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
         consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
+        // TODO: Embed in genesis block in nTime field with new genesis block type
+        consensus.dynamic_epoch_length = args.GetArg("-dynamic_epoch_length", 10);
+        // TODO: pass in serialized vector of byte vectors, parse into extension space
+        // Junk keys for testing
+        consensus.first_extension_space = {ParseHex("02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
 
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
@@ -540,7 +548,7 @@ class CCustomParams : public CRegTestParams {
         enforce_pak = args.GetBoolArg("-enforce_pak", false);
 
         // Allow multiple op_return outputs by relay policy
-        multi_data_permitted = args.GetBoolArg("-multi_data_permitted", true);
+        multi_data_permitted = args.GetBoolArg("-multi_data_permitted", enforce_pak);
 
         // bitcoin regtest is the parent chain by default
         parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206"));
@@ -559,6 +567,8 @@ class CCustomParams : public CRegTestParams {
         uint256 entropy;
         GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
 
+        consensus.total_valid_epochs = args.GetArg("-total_valid_epochs", 2);
+
         // Elements serialization uses derivation, bitcoin serialization uses 0x00
         if (g_con_elementsmode) {
             CalculateAsset(consensus.pegged_asset, entropy);
@@ -575,6 +585,9 @@ class CCustomParams : public CRegTestParams {
             consensus.subsidy_asset = CAsset(uint256S(gArgs.GetArg("-subsidyasset", "0x00")));
         }
 
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
         // END ELEMENTS fields
     }
 
@@ -589,6 +602,11 @@ class CCustomParams : public CRegTestParams {
             if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
                 AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
+        } else if (consensus.genesis_style == "dynamic") {
+            // Liquid v2 HF, from genesis. Upgrading networks still use "elements".
+            // TODO fill out genesis block with special commitments including epoch
+            // length in nTime
+            throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
         } else {
             throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
         }

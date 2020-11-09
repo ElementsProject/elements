@@ -136,13 +136,6 @@ bool IsStandardTx(const CTransaction& tx, bool permit_bare_multisig, const CFeeR
 
         if (whichType == TX_NULL_DATA) {
             nDataOut++;
-            if (params.GetEnforcePak() &&
-                    txout.scriptPubKey.IsPegoutScript(params.ParentGenesisBlockHash()) &&
-                    txout.nAsset.IsExplicit() && txout.nAsset.GetAsset() == Params().GetConsensus().pegged_asset &&
-                    (!ScriptHasValidPAKProof(txout.scriptPubKey, params.ParentGenesisBlockHash()))) {
-                reason = "invalid-pegout-proof";
-                return false;
-            }
         } else if ((whichType == TX_MULTISIG) && (!permit_bare_multisig)) {
             reason = "bare-multisig";
             return false;

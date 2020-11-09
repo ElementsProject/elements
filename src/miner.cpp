@@ -23,12 +23,21 @@
 #include <util/system.h>
 #include <util/validation.h>
 
-// ELEMENTS
-#include <block_proof.h> // ResetProof, ResetChallenge
+#include <dynafed.h>
 
 #include <algorithm>
 #include <queue>
 #include <utility>
+
+void ResetChallenge(CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
+{
+    block.proof.challenge = indexLast.proof.challenge;
+}
+
+void ResetProof(CBlockHeader& block)
+{
+    block.proof.solution.clear();
+}
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -91,7 +100,7 @@ void BlockAssembler::resetBlock()
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age, DynaFedParamEntry* proposed_entry)
 {
     assert(min_tx_age >= 0);
     int64_t nTimeStart = GetTimeMicros();
@@ -104,22 +113,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
 
-    std::vector<CScript> commitments;
-
-    // ELEMENTS: PAK
-    // Create block pak commitment if set in conf file and validating pegouts
-    if (Params().GetEnforcePak() && g_paklist_config) {
-        if (*g_paklist_config != g_paklist_blockchain) {
-            g_paklist_config->CreateCommitments(commitments);
-        }
-    }
-
-    // Pad block weight to account for OP_RETURN commitments with two compressed pubkeys
-    for (const auto& commitment : commitments) {
-        CTxOut output(CAsset(), 0, commitment);
-        nBlockWeight += ::GetSerializeSize(output, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
-    }
-    // END PAK
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
@@ -155,11 +148,19 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     // transaction (which in most cases can be a no-op).
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus());
 
-    if (g_signed_blocks) {
+    if (IsDynaFedEnabled(pindexPrev, chainparams.GetConsensus())) {
+        DynaFedParamEntry current_params = ComputeNextBlockCurrentParameters(::ChainActive().Tip(), chainparams.GetConsensus());
+        DynaFedParams block_params(current_params, proposed_entry ? *proposed_entry : DynaFedParamEntry());
+        pblock->m_dynafed_params = block_params;
+        nBlockWeight += ::GetSerializeSize(block_params, PROTOCOL_VERSION)*WITNESS_SCALE_FACTOR;
+        nBlockWeight += current_params.m_signblock_witness_limit; // Note witness discount
+        assert(pblock->proof.IsNull());
+
+    } else if (g_signed_blocks) {
+        // Old style signed blocks
         // Pad block weight by block proof fields (including upper-bound of signature)
         nBlockWeight += chainparams.GetConsensus().signblockscript.size() * WITNESS_SCALE_FACTOR;
         nBlockWeight += chainparams.GetConsensus().max_block_signature_size * WITNESS_SCALE_FACTOR;
-        // Reset block proof
         ResetProof(*pblock);
         ResetChallenge(*pblock, *pindexPrev, chainparams.GetConsensus());
     }
@@ -192,12 +193,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
     }
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-    // ELEMENTS: PAK
-    // Add PAK transition commitments
-    for (unsigned int i = 0; i < commitments.size(); i++) {
-        coinbaseTx.vout.push_back(CTxOut(CAsset(), 0, commitments[i]));
-    }
-    // END PAK
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;

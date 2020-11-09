@@ -51,6 +51,10 @@ class FedPegTest(BitcoinTestFramework):
                             help="Use a different binary for launching nodes")
         parser.add_argument("--parent_bitcoin", dest="parent_bitcoin", default=False, action="store_true",
                             help="Parent nodes are Bitcoin")
+        parser.add_argument("--pre_transition", dest="pre_transition", default=False, action="store_true",
+                            help="Run test in dynafed activated chain, without a transition")
+        parser.add_argument("--post_transition", dest="post_transition", default=False, action="store_true",
+                            help="Run test in dynafed activated chain, after transition and additional epoch to invalidate old fedpegscript")
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -133,6 +137,10 @@ class FedPegTest(BitcoinTestFramework):
                     '-con_parent_pegged_asset=%s' % parent_pegged_asset,
                 ])
 
+            # Immediate activation of dynafed when requested versus "never" from conf
+            if self.options.pre_transition or self.options.post_transition:
+                extra_args.extend(["-con_dyna_deploy_start=-1"])
+
             # Use rpcuser auth only for first parent.
             if n==0:
                 # Extract username and password from cookie file and use directly.
@@ -182,6 +190,22 @@ class FedPegTest(BitcoinTestFramework):
         #parent2 = self.nodes[1]
         sidechain = self.nodes[2]
         sidechain2 = self.nodes[3]
+
+        # If we're testing post-transition, force a fedpegscript transition and
+        # getting rid of old fedpegscript by making at least another epoch pass by
+        WSH_OP_TRUE = self.nodes[0].decodescript("51")["segwit"]["hex"]
+        # We just randomize the keys a bit to get another valid fedpegscript
+        new_fedpegscript = sidechain.tweakfedpegscript("f00dbabe")["script"]
+        if self.options.post_transition:
+            print("Running test post-transition")
+            for _ in range(30):
+                block_hex = sidechain.getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":10, "fedpegscript":new_fedpegscript, "extension_space":[]})
+                sidechain.submitblock(block_hex)
+            assert_equal(sidechain.getsidechaininfo()["current_fedpegscripts"], [new_fedpegscript]*2)
+
+        if self.options.pre_transition:
+            print("Running test pre-transition, dynafed activated from first block")
+
         for node in self.nodes:
             node.importprivkey(privkey=node.get_deterministic_priv_key().key, label="mining")
         util.node_fastmerkle = sidechain
@@ -295,6 +319,10 @@ class FedPegTest(BitcoinTestFramework):
         sidechain.invalidateblock(blockhash[0])
         if sidechain.gettransaction(pegtxid1)["confirmations"] != 0:
             raise Exception("Peg-in didn't unconfirm after invalidateblock call.")
+
+        # Re-org causes peg-ins to get booted(wallet will resubmit in 10 minutes)
+        assert_equal(sidechain.getrawmempool(), [])
+        sidechain.sendrawtransaction(tx1["hex"])
 
         # Create duplicate claim, put it in block along with current one in mempool
         # to test duplicate-in-block claims between two txs that are in the same block.
