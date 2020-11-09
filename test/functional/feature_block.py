@@ -45,7 +45,7 @@ from test_framework.script import (
     OP_RETURN,
     OP_TRUE,
     SIGHASH_ALL,
-    SignatureHash,
+    LegacySignatureHash,
     hash160,
 )
 from test_framework.test_framework import BitcoinTestFramework
@@ -539,7 +539,7 @@ class FullBlockTest(BitcoinTestFramework):
             tx.vin.append(CTxIn(COutPoint(b39.vtx[i].sha256, 0), b''))
             tx.vout.append(CTxOut(b39.vtx[i].vout[0].nValue.getAmount())) # fee
             # Note: must pass the redeem_script (not p2sh_script) to the signature hash function
-            (sighash, err) = SignatureHash(redeem_script, tx, 1, SIGHASH_ALL)
+            (sighash, err) = LegacySignatureHash(redeem_script, tx, 1, SIGHASH_ALL)
             sig = self.coinbase_key.sign_ecdsa(sighash) + bytes(bytearray([SIGHASH_ALL]))
             scriptSig = CScript([sig, redeem_script])
 
@@ -1349,7 +1349,7 @@ class FullBlockTest(BitcoinTestFramework):
         if (scriptPubKey[0] == OP_TRUE):  # an anyone-can-spend
             tx.vin[0].scriptSig = CScript()
             return
-        (sighash, err) = SignatureHash(spend_tx.vout[0].scriptPubKey, tx, 0, SIGHASH_ALL)
+        (sighash, err) = LegacySignatureHash(spend_tx.vout[0].scriptPubKey, tx, 0, SIGHASH_ALL)
         tx.vin[0].scriptSig = CScript([self.coinbase_key.sign_ecdsa(sighash) + bytes(bytearray([SIGHASH_ALL]))])
 
     def create_and_sign_transaction(self, spend_tx, value, script=CScript([OP_TRUE])):
