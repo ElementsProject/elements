@@ -19,13 +19,10 @@ extern bool g_signed_blocks;
 class CProof
 {
 public:
-    CScript challenge;
-    CScript solution;
+    CScript challenge{};
+    CScript solution{};
 
-    CProof()
-    {
-        SetNull();
-    }
+    CProof() {}
     CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
 
     ADD_SERIALIZE_METHODS;
@@ -58,17 +55,17 @@ public:
 class DynaFedParamEntry
 {
 public:
-    unsigned char m_serialize_type; // Determines how it is serialized, defaults to null
-    CScript m_signblockscript;
-    uint32_t m_signblock_witness_limit; // Max block signature witness serialized size
-    CScript m_fedpeg_program; // The "scriptPubKey" of the fedpegscript
-    CScript m_fedpegscript; // The witnessScript for witness v0 or undefined otherwise.
+    unsigned char m_serialize_type{0}; // Determines how it is serialized, defaults to null
+    CScript m_signblockscript{};
+    uint32_t m_signblock_witness_limit{0}; // Max block signature witness serialized size
+    CScript m_fedpeg_program{}; // The "scriptPubKey" of the fedpegscript
+    CScript m_fedpegscript{}; // The witnessScript for witness v0 or undefined otherwise.
     // No consensus meaning to the particular bytes, currently we interpret as PAK keys, details in pak.h
-    std::vector<std::vector<unsigned char>> m_extension_space;
+    std::vector<std::vector<unsigned char>> m_extension_space{};
 
     // Each constructor sets its own serialization type implicitly based on which
     // arguments are given
-    DynaFedParamEntry() { m_signblock_witness_limit = 0; m_serialize_type = 0; };
+    DynaFedParamEntry() {};
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in) { m_serialize_type = 1; };
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpeg_program_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpeg_program(fedpeg_program_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
 
@@ -143,9 +140,9 @@ class DynaFedParams
 public:
 
     // Currently enforced by network, not all fields may be known
-    DynaFedParamEntry m_current;
+    DynaFedParamEntry m_current{};
     // Proposed rules for next epoch
-    DynaFedParamEntry m_proposed;
+    DynaFedParamEntry m_proposed{};
 
     DynaFedParams() {};
     DynaFedParams(const DynaFedParamEntry& current, const DynaFedParamEntry& proposed)  : m_current(current), m_proposed(proposed) {};
