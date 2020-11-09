@@ -1038,7 +1038,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
                             },
                         },
                         "proposed_parameters"},
-                        {"commit_data", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Data in hex to be committed to in an additional coinbase output."},
+                        {"commit_data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "Data in hex to be committed to in an additional coinbase output."},
                 },
                 RPCResult{
                     "blockhex      (hex) The block hex\n"
