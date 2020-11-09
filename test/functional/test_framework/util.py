@@ -546,6 +546,9 @@ def gen_return_txouts():
     # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
     txouts = []
     from .messages import CTxOut, CTxOutValue
+    txout = CTxOut()
+    txout.nValue = 0
+    txout.scriptPubKey = hex_str_to_bytes(script_pubkey)
     for k in range(128):
         txout = CTxOut()
         txout.nValue = CTxOutValue(0)
@@ -571,8 +574,8 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
         tx.deserialize(BytesIO(hex_str_to_bytes(rawtx)))
         for txout in txouts:
             tx.vout.append(txout)
-        newrawtx = tx.serialize().hex()
-        signresult = node.signrawtransactionwithwallet(newrawtx, None, "NONE")
+        newtx = tx.serialize().hex()
+        signresult = node.signrawtransactionwithwallet(newtx, None, "NONE")
         txid = node.sendrawtransaction(signresult["hex"], 0)
         txids.append(txid)
     return txids
