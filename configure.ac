@@ -1652,7 +1652,7 @@ if test x$need_bundled_univalue = xyes; then
   AC_CONFIG_SUBDIRS([src/univalue])
 fi
 
-ac_configure_args="${ac_configure_args} --disable-shared --with-pic --with-bignum=no --enable-module-recovery --disable-jni --enable-experimental --enable-module-whitelist --enable-module-rangeproof --enable-module-generator --enable-module-surjectionproof --enable-module-ecdh"
+ac_configure_args="${ac_configure_args} --disable-shared --with-pic --enable-benchmark=no --with-bignum=no --enable-module-recovery --disable-jni --enable-experimental --enable-module-whitelist --enable-module-rangeproof --enable-module-generator --enable-module-surjectionproof --enable-module-ecdh"
 AC_CONFIG_SUBDIRS([src/secp256k1])
 
 AC_OUTPUT
