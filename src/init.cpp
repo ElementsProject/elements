@@ -1877,10 +1877,17 @@ bool AppInitMain(NodeContext& node)
 
     // ELEMENTS:
     uiInterface.InitMessage(_("Awaiting mainchain RPC warmup").translated);
-    if (!MainchainRPCCheck(true)) { //Initial check, fail immediately
-        return InitError(_("ERROR: elementsd is set to verify pegins but cannot get valid response from the mainchain daemon. Please check debug.log for more information.").translated
-        + "\n\n"
-        + strprintf(_("If you haven't setup a %s please get the latest stable version from %s or if you do not need to validate pegins set in your elements configuration %s"), "bitcoind", "https://bitcoincore.org/en/download/", "validatepegin=0").translated);
+    if (!MainchainRPCCheck(true)) { //Initial check only
+        const std::string err_msg = "ERROR: elements is set to verify pegins but cannot get valid response from the mainchain daemon. Please check debug.log for more information.\n\nIf you haven't setup a bitcoind please get the latest stable version from https://bitcoincore.org/en/download/ or if you do not need to validate pegins set in your elements configuration validatepegin=0";
+        // We fail immediately if this node has RPC server enabled
+        if (gArgs.GetBoolArg("-server", false)) {
+            InitError(err_msg);
+            return false;
+        } else {
+            // Or gently warn the user, and continue
+            InitWarning(err_msg);
+            gArgs.SoftSetArg("-validatepegin", "0");
+        }
     }
 
     // Start the lightweight block re-evaluation scheduler thread
