@@ -155,6 +155,7 @@ public:
 
         current_asset = Params().GetConsensus().pegged_asset;
         currentUnit = unit;
+        lineEdit()->setPlaceholderText(BitcoinUnits::format(currentUnit, m_min_amount, false, BitcoinUnits::separatorAlways));
 
         if (!was_pegged) {
             // Leave the text as-is, if it's valid
