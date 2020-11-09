@@ -2926,26 +2926,9 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     auto locked_chain = chain().lock();
     LOCK(cs_wallet);
 
-    // Also account for the assets in the preset inputs.
-    std::vector<COutPoint> vPresetInputs;
-    coinControl.ListSelected(vPresetInputs);
-    for (const COutPoint& presetInput : vPresetInputs) {
-        std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(presetInput.hash);
-        if (it != mapWallet.end()) {
-            setAssets.insert(it->second.GetOutputAsset(presetInput.n));
-        }
-    }
-
-    // Then reserve a key for each asset. Account for policyAsset always.
-    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
-    setAssets.insert(::policyAsset);
-    for (size_t i = 0; i < setAssets.size(); ++i) {
-        reservedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));
-    }
-
     CTransactionRef tx_new;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
-    if (!CreateTransaction(*locked_chain, vecSend, tx_new, reservedest, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
+    if (!CreateTransaction(*locked_chain, vecSend, tx_new, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
         return false;
     }
 
@@ -2972,11 +2955,6 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
                 LockCoin(txin.prevout);
             }
         }
-    }
-
-    // Mark all un-returned change keys as used to reduce privacy loss
-    for (auto& reservedest_ : reservedest) {
-        reservedest_->KeepDestination();
     }
 
     return true;
@@ -3167,7 +3145,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
     return true;
 }
 
-bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<ReserveDestination>>& reservedest, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
+bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
     if (blind_details || issuance_details) {
         assert(g_con_elementsmode);
     }
@@ -3175,12 +3153,21 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     CAmountMap mapValue;
     // Always assume that we are at least sending policyAsset.
     mapValue[::policyAsset] = 0;
+    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
+    reservedest.emplace_back(new ReserveDestination(this)); // policy asset
     int nChangePosRequest = nChangePosInOut;
     std::map<CAsset, int> vChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
 
+    std::set<CAsset> assets_seen;
     for (const auto& recipient : vecSend)
     {
+        // Pad change keys to cover total possible number of assets
+        // One already exists(for policyAsset), so one for each destination
+        if (assets_seen.insert(recipient.asset).second) {
+            reservedest.emplace_back(new ReserveDestination(this));
+        }
+
         // Skip over issuance outputs, no need to select those coins
         if (recipient.asset == CAsset(uint256S("1")) || recipient.asset == CAsset(uint256S("2"))) {
             continue;
@@ -3881,6 +3868,12 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         }
     }
 
+    // Before we return success, we assume any change key will be used to prevent
+    // accidental re-use.
+    for (auto& reservedest_ : reservedest) {
+        reservedest_->KeepDestination();
+    }
+
     WalletLogPrintf("Fee Calculation: Fee:%d Bytes:%u Needed:%d Tgt:%d (requested %d) Reason:\"%s\" Decay %.5f: Estimation: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out) Fail: (%g - %g) %.2f%% %.1f/(%.1f %d mem %.1f out)\n",
               nFeeRet, nBytes, nFeeNeeded, feeCalc.returnedTarget, feeCalc.desiredTarget, StringForFeeReason(feeCalc.reason), feeCalc.est.decay,
               feeCalc.est.pass.start, feeCalc.est.pass.end,
@@ -3895,7 +3888,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 /**
  * Call after CreateTransaction unless you want to abort
  */
-bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<ReserveDestination>>& reservedest, CValidationState& state, const BlindDetails* blind_details)
+bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CValidationState& state, const BlindDetails* blind_details)
 {
     {
         auto locked_chain = chain().lock();
@@ -3919,11 +3912,6 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
 
         WalletLogPrintf("CommitTransaction:\n%s", wtxNew.tx->ToString()); /* Continued */
         {
-            // Take key pair from key pool so it won't be used again
-            for (auto& reservedest_ : reservedest) {
-                reservedest_->KeepDestination();
-            }
-
             // Add tx to wallet, because if it has change it's also ours,
             // otherwise just for transaction history.
             AddToWallet(wtxNew);

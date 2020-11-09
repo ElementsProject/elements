@@ -356,11 +356,6 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     // Create the lower bound number of reserve keys.
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
-    int numReservedKeysNeeded = 2 + vPresetInputs.size(); // 1 fee + 1 destination
-    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
-    for (int i = 0; i < numReservedKeysNeeded; ++i) {
-        reservedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
-    }
 
     // Create and send the transaction
     CAmount nFeeRequired;
@@ -372,13 +367,13 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     CTransactionRef tx;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
-    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, reservedest, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
+    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservedest, state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, state, blind_details)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -1045,25 +1040,6 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::shuffle(vecSend.begin(), vecSend.end(), FastRandomContext());
 
     // Send
-    std::vector<std::unique_ptr<ReserveDestination>> changedest;
-
-    std::set<CAsset> setAssets;
-    setAssets.insert(policyAsset);
-    for (auto recipient : vecSend) {
-        setAssets.insert(recipient.asset);
-    }
-    std::vector<COutPoint> vPresetInputs;
-    coin_control.ListSelected(vPresetInputs);
-    for (const COutPoint& presetInput : vPresetInputs) {
-        std::map<uint256, CWalletTx>::const_iterator it = pwallet->mapWallet.find(presetInput.hash);
-        if (it != pwallet->mapWallet.end()) {
-            setAssets.insert(it->second.GetOutputAsset(presetInput.n));
-        }
-    }
-    for (unsigned int i = 0; i < setAssets.size(); i++) {
-        changedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
-    }
-
     CAmount nFeeRequired = 0;
     int nChangePosRet = -1;
     std::string strFailReason;
@@ -1072,12 +1048,12 @@ static UniValue sendmany(const JSONRPCRequest& request)
     if (g_con_elementsmode) {
         blind_details->ignore_blind_failure = ignore_blind_fail;
     }
-    bool fCreated = pwallet->CreateTransaction(*locked_chain, vecSend, tx, changedest, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, blind_details);
+    bool fCreated = pwallet->CreateTransaction(*locked_chain, vecSend, tx, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, blind_details);
     if (!fCreated) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, changedest, state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, state, blind_details)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -5552,9 +5528,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     // Send it
     CValidationState state;
     mapValue_t mapValue;
-    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
-    reservedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
-    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservedest, state)) {
+    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, state)) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -5904,12 +5878,6 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "No available reissuance tokens in wallet.");
     }
 
-    // Might need up to 3 change keys: policyAsset, asset, and reissuance token
-    std::vector<std::unique_ptr<ReserveDestination>> change_keys;
-    for (unsigned int i = 0; i < 3; i++) {
-        change_keys.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
-    }
-
     std::vector<CRecipient> vecSend;
     // Signal outputs to skip "funding" with fixed asset numbers 1, 2, ...
     // We don't know the asset during initial issuance until inputs are chosen
@@ -5936,13 +5904,13 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     CCoinControl dummy_control;
     BlindDetails blind_details;
     CTransactionRef tx_ref(MakeTransactionRef());
-    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx_ref, change_keys, nFeeRequired, nChangePosRet, strError, dummy_control, true, &blind_details, issuance_details)) {
+    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx_ref, nFeeRequired, nChangePosRet, strError, dummy_control, true, &blind_details, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
     CValidationState state;
     mapValue_t map_value;
-    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, change_keys, state, &blind_details)) {
+    if (!pwallet->CommitTransaction(tx_ref, std::move(map_value), {} /* orderForm */, state, &blind_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of the wallet and coins were spent in the copy but not marked as spent here.");
     }
 
