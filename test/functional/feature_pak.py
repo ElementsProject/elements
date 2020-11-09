@@ -410,6 +410,10 @@ class PAKTest (BitcoinTestFramework):
                     raise Exception("Found unexpected peg-out output")
         assert peg_out_found
 
+        # Test that subtracting fee from output works
+        self.nodes[i_pak1].sendtomainchain("", self.nodes[i_pak1].getbalance()["bitcoin"], True)
+        assert_equal(self.nodes[i_pak1].getbalance()["bitcoin"], 0)
+
         # TODO: create rawsendtomainchain to do transaction surgery for testing
 
 if __name__ == '__main__':
