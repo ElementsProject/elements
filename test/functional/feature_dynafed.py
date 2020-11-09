@@ -34,7 +34,7 @@ def go_to_epoch_end(node):
     blocks_to_mine = epoch_info["epoch_length"] - epoch_info["epoch_age"] - 1
     node.generatetoaddress(blocks_to_mine, node.getnewaddress())
 
-def validate_no_vote_op_true(node, block):
+def validate_no_vote_op_true(node, block, first_dynafed_active_block):
 
     block_info = node.getblock(block)
     dynamic_parameters = block_info["dynamic_parameters"]
@@ -44,14 +44,13 @@ def validate_no_vote_op_true(node, block):
     # signblockscript is now the P2WSH-ification of OP_TRUE
     WSH_OP_TRUE = node.decodescript("51")["segwit"]["hex"]
     assert_equal(dynamic_parameters["current"]["signblockscript"], WSH_OP_TRUE)
-    if block_height % 10 == 0:
+    if block_height % 10 == 0 or first_dynafed_active_block:
         assert_equal(dynamic_parameters["current"]["fedpegscript"], "51")
         assert_equal(dynamic_parameters["current"]["extension_space"], initial_extension)
     else:
         assert_equal(dynamic_parameters["current"]["fedpegscript"], "")
         assert_equal(dynamic_parameters["current"]["extension_space"], [])
-    # TODO workshop this bump, or commit to new value in chainparams instead
-    assert_equal(dynamic_parameters["current"]["max_block_witness"], 75)
+    assert_equal(dynamic_parameters["current"]["max_block_witness"], 74)
     # nothing was proposed, null fields make impossible to be valid blockheader
     # due to script rules requiring bool true on stack
     assert_equal(dynamic_parameters["proposed"]["signblockscript"], "")
@@ -118,8 +117,9 @@ class DynaFedTest(BitcoinTestFramework):
         # Next block is first dynamic federation block
         block = self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())[0]
         self.sync_all()
+        # We publish full block on BIP9 transition
         for i in range(self.num_nodes):
-            validate_no_vote_op_true(self.nodes[i], block)
+            validate_no_vote_op_true(self.nodes[i], block, True)
 
     def test_illegal_proposals(self):
 
@@ -148,14 +148,14 @@ class DynaFedTest(BitcoinTestFramework):
 
         for i in range(self.num_nodes):
             for block in blocks:
-                validate_no_vote_op_true(self.nodes[i], block)
+                validate_no_vote_op_true(self.nodes[i], block, False)
 
         # Now transition using vanilla getnewblockhex, nothing changed
         block = self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())[0]
         self.sync_all()
 
         for i in range(self.num_nodes):
-            validate_no_vote_op_true(self.nodes[i], block)
+            validate_no_vote_op_true(self.nodes[i], block, False)
 
     def test_under_vote(self):
         self.log.info("Testing failed voting epoch...")
@@ -176,7 +176,7 @@ class DynaFedTest(BitcoinTestFramework):
         self.sync_all()
 
         for i in range(self.num_nodes):
-            validate_no_vote_op_true(self.nodes[i], block)
+            validate_no_vote_op_true(self.nodes[i], block, False)
 
     def test_four_fifth_vote(self):
         self.log.info("Testing just-successful transition epoch...")
@@ -192,7 +192,7 @@ class DynaFedTest(BitcoinTestFramework):
                 chain_info = self.nodes[i].getblockchaininfo()
                 fedpeg_info = self.nodes[i].getsidechaininfo()
                 assert_equal(chain_info["current_signblock_hex"], WSH_OP_TRUE)
-                assert_equal(chain_info["max_block_witness"], 75)
+                assert_equal(chain_info["max_block_witness"], 74)
                 assert_equal(chain_info["extension_space"], initial_extension)
                 assert_equal(fedpeg_info["current_fedpegscripts"], ["51", "51"])
 
@@ -210,7 +210,7 @@ class DynaFedTest(BitcoinTestFramework):
             chain_info = self.nodes[i].getblockchaininfo()
             fedpeg_info = self.nodes[i].getsidechaininfo()
             assert_equal(chain_info["current_signblock_hex"], WSH_OP_TRUE)
-            assert_equal(chain_info["max_block_witness"], 75)
+            assert_equal(chain_info["max_block_witness"], 74)
             assert_equal(chain_info["extension_space"], initial_extension)
             assert_equal(fedpeg_info["current_fedpegscripts"], ["51", "51"])
 

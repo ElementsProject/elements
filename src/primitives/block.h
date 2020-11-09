@@ -55,18 +55,25 @@ public:
 class DynaFedParamEntry
 {
 public:
-    unsigned char m_serialize_type{0}; // Determines how it is serialized, defaults to null
+    // Determines how these entries are serialized and stored
+    // 0 -> Null. Only used for proposed parameter "null votes"
+    // 1 -> Pruned. Doesn't have non-signblockscript data. That elided data
+    // is committed to in m_elided_root, and validated against chainstate.
+    // 2 -> Full. Typically only consensus-legal at epoch start.
+    unsigned char m_serialize_type{0};
+
     CScript m_signblockscript{};
     uint32_t m_signblock_witness_limit{0}; // Max block signature witness serialized size
     CScript m_fedpeg_program{}; // The "scriptPubKey" of the fedpegscript
     CScript m_fedpegscript{}; // The witnessScript for witness v0 or undefined otherwise.
     // No consensus meaning to the particular bytes, currently we interpret as PAK keys, details in pak.h
     std::vector<std::vector<unsigned char>> m_extension_space{};
+    uint256 m_elided_root{}; // non-zero only when m_serialize_type == 1
 
     // Each constructor sets its own serialization type implicitly based on which
     // arguments are given
     DynaFedParamEntry() {};
-    DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in) { m_serialize_type = 1; };
+    DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const uint256 elided_root_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_elided_root(elided_root_in) { m_serialize_type = 1; };
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpeg_program_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpeg_program(fedpeg_program_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
 
     ADD_SERIALIZE_METHODS;
@@ -81,6 +88,7 @@ public:
             case 1:
                 READWRITE(m_signblockscript);
                 READWRITE(m_signblock_witness_limit);
+                READWRITE(m_elided_root);
                 break;
             case 2:
                 READWRITE(m_signblockscript);
@@ -95,6 +103,8 @@ public:
     }
 
     uint256 CalculateRoot() const;
+    // Calculates root for the non-blocksigning merkle fields
+    uint256 CalculateExtraRoot() const;
 
     bool IsNull() const
     {

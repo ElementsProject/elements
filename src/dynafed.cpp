@@ -73,7 +73,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
 
         // Put them in winning proposal
-        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size+consensus.signblockscript.size(), sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
+        winning_proposal = DynaFedParamEntry(p2wsh_signblock_script, consensus.max_block_signature_size, sh_wsh_fedpeg_program, consensus.fedpegScript, consensus.first_extension_space);
     } else {
         winning_proposal = p_epoch_start->dynafed_params.m_current;
     }
@@ -91,12 +91,13 @@ DynaFedParamEntry ComputeNextBlockCurrentParameters(const CBlockIndex* pindexPre
     const uint32_t epoch_length = consensus.dynamic_epoch_length;
     uint32_t epoch_age = next_height % epoch_length;
 
-    // Return appropriate format based on epoch age
-    if (epoch_age > 0) {
-        // TODO implement "prune" function to remove fields in place and change serialize type
-        return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit);
-    } else {
+    // Return appropriate format based on epoch age or if we *just* activated
+    // dynafed via BIP9
+    if (epoch_age == 0 || pindexPrev->dynafed_params.IsNull()) {
         return entry;
+    } else {
+        return DynaFedParamEntry(entry.m_signblockscript, entry.m_signblock_witness_limit, entry.CalculateExtraRoot());
+
     }
 }
 
