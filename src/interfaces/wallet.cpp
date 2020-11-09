@@ -225,12 +225,11 @@ public:
         auto locked_chain = m_wallet->chain().lock();
         LOCK(m_wallet->cs_wallet);
         CTransactionRef tx;
+        BlindDetails blind_details;
         if (!m_wallet->CreateTransaction(*locked_chain, recipients, tx, fee, change_pos,
-                fail_reason, coin_control, sign)) {
+                fail_reason, coin_control, sign, gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) ? &blind_details : nullptr)) {
             return {};
         }
-        // FIXME this obviously-broken logic matches the state of the codebase after 0.18 rebase and was fixed in #693 (Sep 2019) which we will get to before the 0.19 branchpoint, I promise --asp
-        BlindDetails blind_details;
         out_amounts = blind_details.o_amounts;
         return tx;
     }
