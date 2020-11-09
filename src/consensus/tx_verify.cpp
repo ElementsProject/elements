@@ -187,7 +187,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
-        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-inputs-missingorspent",
+        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, "bad-txns-inputs-missingorspent",
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
@@ -199,14 +199,14 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             // Check existence and validity of pegin witness
             std::string err;
             if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, prevout, err, true)) {
-                return state.Invalid(ValidationInvalidReason::TX_WITNESS_MUTATED, false, REJECT_PEGIN, "bad-pegin-witness", err);
+                return state.Invalid(ValidationInvalidReason::TX_WITNESS_MUTATED, false, "bad-pegin-witness", err);
             }
             std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
             if (inputs.IsPeginSpent(pegin)) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-double-pegin", strprintf("Double-pegin of %s:%d", prevout.hash.ToString(), prevout.n));
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-double-pegin", strprintf("Double-pegin of %s:%d", prevout.hash.ToString(), prevout.n));
             }
             if (setPeginsSpent.count(pegin)) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-double-pegin-in-obj",
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-double-pegin-in-obj",
                     strprintf("Double-pegin of %s:%d in single tx/block", prevout.hash.ToString(), prevout.n));
             }
             setPeginsSpent.insert(pegin);
@@ -216,7 +216,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
             const CTxOut& out = spent_inputs.back();
             nValueIn += out.nValue.GetAmount(); // Non-explicit already filtered by IsValidPeginWitness
             if (!MoneyRange(out.nValue.GetAmount())) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-inputvalues-outofrange");
             }
         } else {
             const Coin& coin = inputs.AccessCoin(prevout);
@@ -224,7 +224,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
             // If prev is coinbase, check that it's matured
             if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
-                return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
+                return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, "bad-txns-premature-spend-of-coinbase",
                     strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
             }
             spent_inputs.push_back(coin.out);
@@ -237,25 +237,25 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     if (g_con_elementsmode) {
         // Tally transaction fees
         if (!HasValidFee(tx)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-fee-outofrange");
         }
 
         // Verify that amounts add up.
         if (fScriptChecks && !VerifyAmounts(spent_inputs, tx, pvChecks, cacheStore)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-in-ne-out", "value in != value out");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-in-ne-out", "value in != value out");
         }
         fee_map += GetFeeMap(tx);
     } else {
         const CAmount value_out = tx.GetValueOutMap()[CAsset()];
         if (nValueIn < value_out) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-in-belowout",
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-in-belowout",
                 strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
         }
 
         // Tally transaction fees
         const CAmount txfee_aux = nValueIn - value_out;
         if (!MoneyRange(txfee_aux)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-fee-outofrange");
         }
 
         fee_map[CAsset()] += txfee_aux;

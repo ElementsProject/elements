@@ -522,10 +522,10 @@ class FedPegTest(BitcoinTestFramework):
             signed_struct.wit.vtxinwit = [CTxInWitness()]
         signed_struct.wit.vtxinwit[0].peginWitness.stack = sample_pegin_witness.stack
         assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["allowed"], False)
-        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["reject-reason"], "68: extra-pegin-witness")
+        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["reject-reason"], "extra-pegin-witness")
         signed_struct.wit.vtxinwit[0].peginWitness.stack = [b'\x00'*100000] # lol
         assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["allowed"], False)
-        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["reject-reason"], "68: extra-pegin-witness")
+        assert_equal(sidechain.testmempoolaccept([signed_struct.serialize().hex()])[0]["reject-reason"], "extra-pegin-witness")
 
         peg_out_txid = sidechain.sendtomainchain(some_btc_addr, 1)
 

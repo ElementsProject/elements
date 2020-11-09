@@ -377,7 +377,7 @@ class PSBTTest(BitcoinTestFramework):
         psbt = self.nodes[1].walletsignpsbt(psbt, "ALL", True)
         psbt = self.nodes[1].finalizepsbt(psbt["psbt"])
         # ... but you still can't send it.
-        assert_raises_rpc_error(-26, "bad-txns-in-ne-out, value in != value out (code 16)", self.nodes[1].sendrawtransaction, psbt['hex'])
+        assert_raises_rpc_error(-26, "bad-txns-in-ne-out, value in != value out", self.nodes[1].sendrawtransaction, psbt['hex'])
 
 
     # BIP 174 tests are disabled because they don't work with CA yet. Comment the function so it doesn't flag lint as unused.
