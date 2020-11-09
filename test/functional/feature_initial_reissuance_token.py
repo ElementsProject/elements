@@ -8,7 +8,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import connect_nodes_bi, assert_equal
+from test_framework.util import connect_nodes, assert_equal
 
 class InitialReissuanceTokenTest(BitcoinTestFramework):
     """
@@ -28,7 +28,7 @@ class InitialReissuanceTokenTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.setup_nodes()
-        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes(self.nodes[0], 1)
         self.sync_all()
 
     def run_test(self):

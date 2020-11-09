@@ -5,7 +5,7 @@ import time
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
-    connect_nodes_bi,
+    connect_nodes,
     disconnect_nodes,
     get_auth_cookie,
     get_datadir_path,
@@ -99,7 +99,7 @@ class FedPegTest(BitcoinTestFramework):
             self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
             self.nodes[1].set_deterministic_priv_key('2N19ZHF3nEzBXzkaZ3N5sVBJXQ8jZ7Udpg5', 'cRnDSw1JsjmYYEN6xxQvf5pqMENsRE584z6MdWfJ7v85c4ciitkk')
 
-        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes(self.nodes[0], 1)
         self.parentgenesisblockhash = self.nodes[0].getblockhash(0)
         if not self.options.parent_bitcoin:
             parent_pegged_asset = self.nodes[0].getsidechaininfo()['pegged_asset']
@@ -160,7 +160,7 @@ class FedPegTest(BitcoinTestFramework):
             print("Node {} started".format(2+n))
 
         # We only connect the same-chain nodes, so sync_all works correctly
-        connect_nodes_bi(self.nodes, 2, 3)
+        connect_nodes(self.nodes[2], 3)
         self.node_groups = [[self.nodes[0], self.nodes[1]], [self.nodes[2], self.nodes[3]]]
         for node_group in self.node_groups:
             self.sync_all(node_group)
@@ -465,7 +465,7 @@ class FedPegTest(BitcoinTestFramework):
 
         print("Restarting parent2")
         self.start_node(1)
-        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes(self.nodes[0], 1)
 
         # Don't make a block, race condition when pegin-invalid block
         # is awaiting further validation, nodes reject subsequent blocks
@@ -634,7 +634,7 @@ class FedPegTest(BitcoinTestFramework):
         blocks = sidechain2.generate(3)
         assert_equal(sidechain2.getrawtransaction(txid2, True, blocks[0])["confirmations"], 3)
         # reconnect in case we extend the test
-        connect_nodes_bi(self.nodes, 2, 3)
+        connect_nodes(self.nodes[2], 3)
         sidechain.generate(10)
 
         print('Success!')

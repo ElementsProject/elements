@@ -8,7 +8,7 @@
 #
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, connect_nodes_bi
+from test_framework.util import assert_equal, connect_nodes
 
 class NamedDefaultAssetTest(BitcoinTestFramework):
     """
@@ -25,7 +25,7 @@ class NamedDefaultAssetTest(BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.setup_nodes()
-        connect_nodes_bi(self.nodes, 0, 1)
+        connect_nodes(self.nodes[0], 1)
         self.sync_all()
 
     def skip_test_if_missing_module(self):

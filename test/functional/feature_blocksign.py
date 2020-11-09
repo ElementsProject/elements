@@ -5,7 +5,7 @@ import hashlib
 import random
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi)
+from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes)
 from test_framework import (
     address,
     key,
@@ -83,7 +83,7 @@ class BlockSignTest(BitcoinTestFramework):
     def setup_network(self):
         self.setup_nodes()
         # Connect non-signing node to a single signing one (to not pass blocks between signers)
-        connect_nodes_bi(self.nodes, 0, self.num_nodes-1)
+        connect_nodes(self.nodes[0], self.num_nodes-1)
 
     def check_height(self, expected_height):
         for n in self.nodes:

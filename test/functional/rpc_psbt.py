@@ -10,7 +10,7 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
-    connect_nodes_bi,
+    connect_nodes,
     disconnect_nodes,
     find_output,
 )
@@ -75,8 +75,8 @@ class PSBTTest(BitcoinTestFramework):
         assert_equal(online_node.gettxout(txid,0)["confirmations"], 1)
 
         # Reconnect
-        connect_nodes_bi(self.nodes, 0, 1)
-        connect_nodes_bi(self.nodes, 0, 2)
+        connect_nodes(self.nodes[0], 1)
+        connect_nodes(self.nodes[0], 2)
 
     def get_address(self, confidential, node_num, addr_mode=None):
         if (addr_mode):
