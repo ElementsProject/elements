@@ -100,9 +100,9 @@ void BlockAssembler::resetBlock()
 Optional<int64_t> BlockAssembler::m_last_block_num_txs{nullopt};
 Optional<int64_t> BlockAssembler::m_last_block_weight{nullopt};
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int min_tx_age, DynaFedParamEntry* proposed_entry)
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, std::chrono::seconds min_tx_age, DynaFedParamEntry* proposed_entry)
 {
-    assert(min_tx_age >= 0);
+    assert(min_tx_age >= std::chrono::seconds(0));
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -340,7 +340,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 // Each time through the loop, we compare the best transaction in
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
-void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int min_tx_age)
+void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, std::chrono::seconds min_tx_age)
 {
     // mapModifiedTx will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -398,7 +398,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
 
         // Skip transactions that are under X seconds in mempool
         // min_tx_age value of 0 is considered "inactive", in case of mocktime
-        if (min_tx_age > 0 && iter->GetTime() > GetTime() - min_tx_age) {
+        if (min_tx_age > std::chrono::seconds(0) && iter->GetTime() > GetTime<std::chrono::seconds>() - min_tx_age) {
             continue;
         }
 
