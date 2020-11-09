@@ -91,124 +91,50 @@ jobs:
     - stage: test
       name: 'ARM  [GOAL: install]  [no unit or functional tests]'
       env: >-
-        HOST=arm-linux-gnueabihf
-        PACKAGES="python3 g++-arm-linux-gnueabihf"
-        RUN_UNIT_TESTS=false
-        RUN_FUNCTIONAL_TESTS=false
-        GOAL="install"
-        # -Wno-psabi is to disable ABI warnings: "note: parameter passing for argument of type ... changed in GCC 7.1"
-        # This could be removed once the ABI change warning does not show up by default
-        BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports CXXFLAGS=-Wno-psabi"
+        FILE_ENV="./ci/test/00_setup_env_arm.sh"
 
     - stage: test
       name: 'Win64  [GOAL: deploy]  [no gui or functional tests]'
       env: >-
-        HOST=x86_64-w64-mingw32
-        PACKAGES="python3 nsis g++-mingw-w64-x86-64 wine-binfmt wine64"
-        RUN_FUNCTIONAL_TESTS=false
-        GOAL="deploy"
-        BITCOIN_CONFIG="--enable-reduce-exports --disable-gui-tests"
+        FILE_ENV="./ci/test/00_setup_env_win64.sh"
 
     - stage: test
       name: '32-bit + dash  [GOAL: install]  [GUI: no BIP70]'
       env: >-
-        HOST=i686-pc-linux-gnu
-        PACKAGES="g++-multilib python3-zmq"
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --disable-bip70 --enable-glibc-back-compat --enable-reduce-exports LDFLAGS=-static-libstdc++"
-        CONFIG_SHELL="/bin/dash"
-        RUN_UNIT_TESTS=false # secp-zkp times out Travis, get 32-bit build in upstream?
-# x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests
+        FILE_ENV="./ci/test/00_setup_env_i686.sh"
+
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [uses qt5 dev package instead of depends Qt to speed up build and avoid timeout] [unsigned char]'
       env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
-        DEP_OPTS="NO_QT=1 NO_UPNP=1 DEBUG=1 ALLOW_HOST_PACKAGES=1"
-        TEST_RUNNER_EXTRA="--coverage --extended --exclude feature_dbcrash"  # Run extended tests so that coverage does not fail, but exclude the very slow dbcrash
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CFLAGS=\"-g0 -O2 -funsigned-char\" CXXFLAGS=\"-g0 -O2 -funsigned-char\""
+        FILE_ENV="./ci/test/00_setup_env_amd64_qt5.sh"
 
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [uses qt5 dev package instead of depends Qt to speed up build and avoid timeout]'
       env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
-        DEP_OPTS="NO_QT=1 NO_UPNP=1 DEBUG=1 ALLOW_HOST_PACKAGES=1"
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
-        RUN_UNIT_TESTS=false
-# x86_64 Linux (xenial, no depends, only system libs)
+        FILE_ENV="./ci/test/00_setup_env_amd64_trusty.sh"
+
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no depends, only system libs, sanitizers: thread (TSan), no wallet]'
       env: >-
-        HOST=x86_64-unknown-linux-gnu
-        DOCKER_NAME_TAG=ubuntu:16.04
-        PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
-        NO_DEPENDS=1
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --disable-wallet --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=thread --disable-hardening --disable-asm CC=clang CXX=clang++"
+        FILE_ENV="./ci/test/00_setup_env_amd64_tsan.sh"
 
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no depends, only system libs, sanitizers: address/leak (ASan + LSan) + undefined (UBSan) + integer]'
       env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
-        NO_DEPENDS=1
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=integer,undefined CC=clang CXX=clang++"
+        FILE_ENV="./ci/test/00_setup_env_amd64_asan.sh"
+
+    - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no depends, only system libs, sanitizers: fuzzer,address]'
+      env: >-
+        FILE_ENV="./ci/test/00_setup_env_amd64_fuzz.sh"
 
 # x86_64 Linux, No wallet, no QT(build timing out with for some reason)
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no wallet]'
       env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="python3"
-        DEP_OPTS="NO_WALLET=1 NO_QT=1"
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
+        FILE_ENV="./ci/test/00_setup_env_amd64_nowallet.sh"
 
     - stage: test
       name: 'macOS 10.10  [GOAL: deploy] [no functional tests]'
       env: >-
-        HOST=x86_64-apple-darwin14
-        PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python3-dev python3-setuptools"
-        OSX_SDK=10.11
-        RUN_UNIT_TESTS=false
-        RUN_FUNCTIONAL_TESTS=false
-        GOAL="deploy"
-        BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror"
-
-# x86_64 Linux w/ Bitcoin functional tests (Qt5 & system libs)
-    - stage: test
-      env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
-        NO_DEPENDS=1
-        RUN_BITCOIN_TESTS=true
-        RUN_FUNCTIONAL_TESTS=false
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER"
-
-# x86_64 Linux w/ single fedpeg test that uses upstream bitcoind as mainchain
-    - stage: test
-      env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
-        NO_DEPENDS=1
-        RUN_UNIT_TESTS=false
-        RUN_BITCOIN_TESTS=false
-        RUN_FUNCTIONAL_TESTS=false
-        RUN_FEDPEG_BITCOIND_TEST=true
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no --disable-tests --disable-bench CPPFLAGS=-DDEBUG_LOCKORDER"
-# x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests, LIQUID BUILD
-    - stage: test
-      env: >-
-        HOST=x86_64-unknown-linux-gnu
-        PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
-        DEP_OPTS="NO_QT=1 NO_UPNP=1 DEBUG=1 ALLOW_HOST_PACKAGES=1"
-        GOAL="install"
-        BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug --enable-liquid CXXFLAGS=\"-g0 -O2\""
-        RUN_FUNCTIONAL_TESTS=false
-
+        FILE_ENV="./ci/test/00_setup_env_mac.sh"
