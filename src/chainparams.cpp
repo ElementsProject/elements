@@ -755,6 +755,68 @@ public:
 
         consensus.subsidy_asset = consensus.pegged_asset;
 
+        // Legacy PAK list
+        consensus.first_extension_space = {
+            ParseHex("0362f0cf4898e44a20472664daed460156976bab5cc8bb8431b206bbafddd230c9"
+                    "0399dadeeedc2cefe9042ffa596c553cad1967cda04de6aa0f9fbd96b6044292e7"),
+            ParseHex("033fad80bd2b818d1ca8a8d4a25dafcf5e740be07db6788be1f2f15266e3c6805d"
+                    "0253ff3f140ef8f594d54996eab810a82550c79204279920d95681afe699d00da5"),
+            ParseHex("03f2d35e88741f930a3938bfa7075377ec2da4f1d7699a779e2cbf7a389195dc67"
+                    "026132199a025299b5e0f4ab3f44294c81c5302f6d45ddda6316c18ae515793cf6"),
+            ParseHex("036286d30d20ddcd3e867851936802dd8a2d84846c7e52aece0fc303c6deec9e04"
+                    "02c7581da9d9ac0001e1c560c348b5df07d42de166d74eccd4c3bda467fe84f898"),
+            ParseHex("0327b1884b3d743f4859db7c2df07e6e346d61d77fbc46c1da6db113fbbd43d7c5"
+                    "0383c832ec502cf0990b199a4e46a45a63bfa6c6eb3f4b231472f144e684d6e9f8"),
+            ParseHex("03075f118532928c7ef27a77644a12a87fbada3cd94cf67b2d2ae5cb169ddaefa4"
+                    "02882c4fed938b20f3472af337cd7674a99f0aab0ae1803e27e978c52c417ce5e1"),
+            ParseHex("02b988448e337c15cd6ac82b4737e3e2b5e92947da2f7fa96a81db7f9be3fabeb2"
+                    "02f660c7675a1ed4893df838a5c4c07a287997cbd7dc5d884044b338ed606231bc"),
+            ParseHex("0245b763999e3152418b9cd08b5f54c410a072d5e486826823791848e1bb879061"
+                    "0259740ea12e953db0c5fd135c1a9564ce81a318729668811cf54f884c2f980eb8"),
+            ParseHex("032f8814144351d5d05ca40c87cbbda67bb5f8b1920a38cf3bd008c1d266bb4682"
+                    "039eb3a0b89656b338c3f4a9fc7bba582dd21935f59471c18e6b43c57e063053d9"),
+            ParseHex("03d8b2ed1813370955cfb8dec24b7c5cb34b13fa4545d9e6d47d8c05af56a2c7d2"
+                    "026392f13fefce606c60adadfe9e729e0af84f5f8cb6a35b76be244351635b38f7"),
+            ParseHex("03e2a56e47f41eb83af34fb65c4dfb77ac442b01b5134fd92219bd3f4a999c7de5"
+                    "034e93391cea816e5141dace7e5477bbed90c9daa0670b68b7acc8a44af556bbc1"),
+            ParseHex("03156b39a4bce80e68c1582aa78f81f0252ccbb039766b5395ee9a0224f41c236d"
+                    "0399a5d1d42f5b6cb587560394e1581eb0c76916db317c0d644a1b9f509a06c4e6"),
+            ParseHex("029ce033e1dc81164deb04b4c55966b823a025ef47bb1f767017696b68ab9ae201"
+                    "03e612d646e71b07e5ce0eaa3a0178e4606dd9a6e8f0d5ace9171fb1e808a3865b"),
+            ParseHex("02a8300f0cff92b23e402459e83c52ec5824de82ee4004cf9d254e788304027ef6"
+                    "0389cbda672fa9efea51706863f1d7ae5e5015b2e519003ef0178c99f71be6e8be"),
+            ParseHex("03fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f"
+                    "02b0fb4fe4670c68329441e47acaaa954ff00e3fd547b9ff4e0fe547df2e775ec5"),
+            ParseHex("0335f807a1bdc0906adda1a4166f9cdc2aa974a78b15fc29d79a8d7ca529a96008"
+                    "02228dfd7ff95506dd67b1118803eb8ab49352b2e24cd5f38da043847e722009ba"),
+            ParseHex("03fcc2963daaf8249bfd220e52c693626254b9295ac4f947ae2e0cddb3046724c1"
+                    "02dac03530ac9712a71eafb87766644b61cf4be85d0fdc6a859875b41e7a1dc8e6"),
+            ParseHex("039bfd22bf5c41ce14d3fbd50ef226d2066e826b2efba455150d23d958d52bfddf"
+                    "03211678d22c45402c993d96ea4a6d861d3e1da33798aebd5424fe5725a7ce8f4b"),
+            ParseHex("02d67fcb027c5d8fe354fb36235192cb4fffabffdcc6ce74be255fe869f62d8675"
+                    "03d61d857b2a8cb060fd4b9a98a862f250df5825068665a3c8d93f2ac8a7085888"),
+            ParseHex("02cfe983eb588975958e9ce832937ba7f24592882cf5c0fc0f07896097fd66a8e7"
+                    "0344744d01c091eacea5730ed1205b0a83378418644ea7938ed664649e88dcbb29"),
+            ParseHex("029ec6dd0c310513b3720800025a7ad9013d60a7fb041f6e9b9d3963485ba28657"
+                    "0277247f28eb9481dd21d664093a2bc19a496c7ffebeca0026a1726a5041e671ba"),
+            ParseHex("03f9dea372c4a667dcfe234ff8e0410c22341149ff7d8780c46954ff74998fbe44"
+                    "0340c4e534906c06b73874cef00a880ab602641c7883de94296f0f601e6517ae7e"),
+            ParseHex("03cf8520f2db93e1ba75fa9043ac7e3476719b2a33a12d7e725688a2de68852c88"
+                    "0343b7551ba662fa7071ac93e7e25517967bb8a9420af64d35d41c6d88056ad4ba"),
+            ParseHex("03f79461a5559f360c407069b92a8075958bf1f70918872d9dd702db145bccbd42"
+                    "0395058fc702f126176ae13e0ebed05107288900a5a35b121f62923e58798b7b2f"),
+            ParseHex("02d7f049d9e87c861fc9decfbe167cb13ccc87cce99113f69e3a5dca8bb71b6aed"
+                    "03e82197b2e9cc0ee11a59808cfdb52e824445f8fa99e44dc9c30d1e49950ff9d6"),
+            ParseHex("0281bfeffcc6841d1355dce039f5d64f72714a4c3adc4d351eaf3c28acbcee15f0"
+                    "0270a16ee1cdfc78755a783efbdb66fe822605cc5f53af707e5038615e22b288e2"),
+            ParseHex("025651f14b6347a000e15473eaf631fd78c9307e07db85e177e31fcde0b3f2a574"
+                    "03d5303909fe1c6665cbc96a538b17274068c8e79757705f68db3df2b561a4c110"),
+            ParseHex("03627a4855be1edc657927f30a4a869ad830041c1f0e74ab4670588af9532b8de8"
+                    "03444cb85aef9fbba10b3e2662d533858db771010b57b7aedb1ecaa1c5a34918f1"),
+            ParseHex("0286951fdc1e81652cdd10a10971966792e5c2a2bbe524f32a561f585b2b3d2057"
+                    "034294862542484e49c6fb835919212352527298c689ff7be57e445bf0fe3536de"),
+        };
+
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
