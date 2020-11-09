@@ -976,7 +976,7 @@ static UniValue estimaterawfee(const JSONRPCRequest& request)
 
 UniValue getnewblockhex(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() > 2)
+    if (request.fHelp || request.params.size() > 3)
         throw std::runtime_error(
             RPCHelpMan{"getnewblockhex",
                 "\nGets hex representation of a proposed, unmined new block\n",
@@ -994,6 +994,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
                             },
                         },
                         "proposed_parameters"},
+                        {"commit_data", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Data in hex to be committed to in an additional coinbase output."},
                 },
                 RPCResult{
                     "blockhex      (hex) The block hex\n"
@@ -1048,9 +1049,17 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
         proposed.m_serialize_type = 2;
     }
 
+    // Any commitment required for non-consensus reasons.
+    // This will be placed in the first coinbase output.
+    CScript data_commitment;
+    if (!request.params[2].isNull()) {
+        std::vector<unsigned char> data_bytes = ParseHex(request.params[2].get_str());
+        data_commitment = CScript() << OP_RETURN << data_bytes;
+    }
+
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed));
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitment.empty() ? nullptr : &data_commitment));
     if (!pblocktemplate.get()) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     }
@@ -1451,7 +1460,7 @@ static const CRPCCommand commands[] =
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
     { "generating",         "combineblocksigs",       &combineblocksigs,       {"blockhex","signatures"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
-    { "generating",         "getnewblockhex",         &getnewblockhex,         {"min_tx_age", "proposed_parameters"} },
+    { "generating",         "getnewblockhex",         &getnewblockhex,         {"min_tx_age", "proposed_parameters", "commit_data"} },
     { "generating",         "getcompactsketch",       &getcompactsketch,       {"block_hex"} },
     { "generating",         "consumecompactsketch",   &consumecompactsketch,   {"sketch"} },
     { "generating",         "consumegetblocktxn",     &consumegetblocktxn,     {"full_block", "block_tx_req"} },

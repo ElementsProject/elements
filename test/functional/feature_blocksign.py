@@ -10,6 +10,13 @@ from test_framework import (
     address,
     key,
 )
+from test_framework.messages import (
+    FromHex,
+    CBlock,
+)
+from test_framework.script import (
+    CScript
+)
 
 # Generate wallet import format from private key.
 def wif(pk):
@@ -113,6 +120,14 @@ class BlockSignTest(BitcoinTestFramework):
                 miner.sendtoaddress(miner_next.getnewaddress(), int(miner.getbalance()['bitcoin']/10), "", "", True)
         # miner makes a block
         block = miner.getnewblockhex()
+        block_struct = FromHex(CBlock(), block)
+
+        # make another block with the commitment field filled out
+        dummy_block = miner.getnewblockhex(commit_data="deadbeef")
+        dummy_struct = FromHex(CBlock(), dummy_block)
+        assert_equal(len(dummy_struct.vtx[0].vout), len(block_struct.vtx[0].vout) + 1)
+        # OP_RETURN deadbeef
+        assert_equal(CScript(dummy_struct.vtx[0].vout[0].scriptPubKey).hex(), '6a04deadbeef')
 
         # All nodes get compact blocks, first node may get complete
         # block in 0.5 RTT even with transactions thanks to p2p connection
