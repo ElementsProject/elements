@@ -6,11 +6,11 @@
 #include <policy/fees.h>
 #include <txmempool.h>
 #include <util/system.h>
+#include <util/time.h>
 
 #include <test/setup_common.h>
 
 #include <boost/test/unit_test.hpp>
-#include <list>
 #include <vector>
 
 BOOST_FIXTURE_TEST_SUITE(mempool_tests, TestingSetup)

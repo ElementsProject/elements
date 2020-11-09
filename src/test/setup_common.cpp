@@ -13,7 +13,7 @@
 #include <crypto/sha256.h>
 #include <init.h>
 #include <miner.h>
-#include <net_processing.h>
+#include <net.h>
 #include <noui.h>
 #include <pow.h>
 #include <policy/policy.h>
@@ -21,8 +21,13 @@
 #include <rpc/server.h>
 #include <rpc/register.h>
 #include <script/sigcache.h>
+#include <txdb.h>
+#include <util/memory.h>
+#include <util/strencodings.h>
+#include <util/time.h>
 #include <util/validation.h>
 #include <validation.h>
+#include <validationinterface.h>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
