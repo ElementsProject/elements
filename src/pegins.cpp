@@ -496,3 +496,45 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
     fedpegscripts.resize(std::min(fedpegscripts.size(), params.total_valid_epochs));
     return fedpegscripts;
 }
+
+template<typename T_tx_ref, typename T_merkle_block>
+CScriptWitness CreatePeginWitnessInner(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const T_tx_ref& tx_ref, const T_merkle_block& merkle_block)
+{
+    std::vector<unsigned char> value_bytes;
+    CVectorWriter ss_val(0, 0, value_bytes, 0);
+    try {
+        ss_val << value;
+    } catch (...) {
+        throw std::ios_base::failure("Amount serialization is invalid.");
+    }
+
+    // Strip witness data for proof inclusion since only TXID-covered fields matters
+    CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    ss_tx << tx_ref;
+    std::vector<unsigned char> tx_data_stripped(ss_tx.begin(), ss_tx.end());
+
+    // Serialize merkle block
+    CDataStream ss_txout_proof(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+    ss_txout_proof << merkle_block;
+    std::vector<unsigned char> txout_proof_bytes(ss_txout_proof.begin(), ss_txout_proof.end());
+
+    // Construct pegin proof
+    CScriptWitness pegin_witness;
+    std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
+    stack.push_back(value_bytes);
+    stack.push_back(std::vector<unsigned char>(asset.begin(), asset.end()));
+    stack.push_back(std::vector<unsigned char>(genesis_hash.begin(), genesis_hash.end()));
+    stack.push_back(std::vector<unsigned char>(claim_script.begin(), claim_script.end()));
+    stack.push_back(tx_data_stripped);
+    stack.push_back(txout_proof_bytes);
+    return pegin_witness;
+}
+
+CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const CTransactionRef& tx_ref, const CMerkleBlock& merkle_block)
+{
+    return CreatePeginWitnessInner(value, asset, genesis_hash, claim_script, tx_ref, merkle_block);
+}
+CScriptWitness CreatePeginWitness(const CAmount& value, const CAsset& asset, const uint256& genesis_hash, const CScript& claim_script, const Sidechain::Bitcoin::CTransactionRef& tx_ref, const Sidechain::Bitcoin::CMerkleBlock& merkle_block)
+{
+    return CreatePeginWitnessInner(value, asset, genesis_hash, claim_script, tx_ref, merkle_block);
+}

@@ -13,6 +13,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
     assert_equal,
     hex_str_to_bytes,
+    find_vout_for_address
 )
 from test_framework import util
 from test_framework.messages import (
@@ -217,6 +218,7 @@ class FedPegTest(BitcoinTestFramework):
         addr = addrs["mainchain_address"]
         assert_equal(sidechain.decodescript(addrs["claim_script"])["type"], "witness_v0_keyhash")
         txid1 = parent.sendtoaddress(addr, 24)
+        vout = find_vout_for_address(parent, txid1, addr)
         # 10+2 confirms required to get into mempool and confirm
         assert_equal(sidechain.getsidechaininfo()["pegin_confirmation_depth"], 10)
         parent.generate(1)
@@ -276,6 +278,18 @@ class FedPegTest(BitcoinTestFramework):
         # Should succeed via wallet lookup for address match, and when given
         raw_pegin = sidechain.createrawpegin(raw, proof)['hex']
         signed_pegin = sidechain.signrawtransactionwithwallet(raw_pegin)
+
+        # Find the address that the peg-in used
+        outputs = []
+        for pegin_vout in sidechain.decoderawtransaction(raw_pegin)['vout']:
+            if pegin_vout['scriptPubKey']['type'] == 'witness_v0_keyhash':
+                outputs.append({pegin_vout['scriptPubKey']['addresses'][0]: pegin_vout['value']})
+            elif pegin_vout['scriptPubKey']['type'] == 'fee':
+                outputs.append({"fee": pegin_vout['value']})
+
+        # Check the createrawtransaction makes the same unsigned peg-in transaction
+        raw_pegin2 = sidechain.createrawtransaction([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
+        assert_equal(raw_pegin, raw_pegin2)
 
         sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization

@@ -4687,7 +4687,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, NullUniValue /* CA: assets_in */);
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, NullUniValue /* CA: assets_in */, nullptr /* output_pubkeys_out */, false /* allow_peg_in */);
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3]);
 
     // Make a blank psbt
@@ -5419,22 +5419,6 @@ UniValue sendtomainchain(const JSONRPCRequest& request)
 extern UniValue signrawtransaction(const JSONRPCRequest& request);
 extern UniValue sendrawtransaction(const JSONRPCRequest& request);
 
-template<typename T_tx>
-unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
-{
-    for (const auto & scripts : fedpegscripts) {
-        CScript mainchain_script = GetScriptForWitness(calculate_contract(scripts.second, witnessProgram));
-        if (scripts.first.IsPayToScriptHash()) {
-            mainchain_script = GetScriptForDestination(ScriptHash(mainchain_script));
-        }
-        for (unsigned int nOut = 0; nOut < txn.vout.size(); nOut++)
-            if (txn.vout[nOut].scriptPubKey == mainchain_script) {
-                return nOut;
-            }
-        }
-    return txn.vout.size();
-}
-
 template<typename T_tx_ref, typename T_tx, typename T_merkle_block>
 static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef, T_tx& tx_aux, T_merkle_block& merkleBlock)
 {
@@ -5472,39 +5456,9 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     }
 
     std::vector<unsigned char> txData = ParseHex(request.params[0].get_str());
-    CDataStream ssTx(txData, SER_NETWORK, PROTOCOL_VERSION);
-    try {
-        ssTx >> txBTCRef;
-    }
-    catch (...) {
-        throw JSONRPCError(RPC_TYPE_ERROR, "The included bitcoinTx is malformed. Are you sure that is the whole string?");
-    }
-    T_tx txBTC(*txBTCRef);
-
     std::vector<unsigned char> txOutProofData = ParseHex(request.params[1].get_str());
-    CDataStream ssTxOutProof(txOutProofData, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    try {
-        ssTxOutProof >> merkleBlock;
-    }
-    catch (...) {
-        throw JSONRPCError(RPC_TYPE_ERROR, "The included txoutproof is malformed. Are you sure that is the whole string?");
-    }
 
-    if (!ssTxOutProof.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
-    }
-
-    std::vector<uint256> txHashes;
-    std::vector<unsigned int> txIndices;
-    if (merkleBlock.txn.ExtractMatches(txHashes, txIndices) != merkleBlock.header.hashMerkleRoot)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid tx out proof");
-
-    if (txHashes.size() != 1 || txHashes[0] != txBTC.GetHash())
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "The txoutproof must contain bitcoinTx and only bitcoinTx");
-
-    CScript witness_script;
-    unsigned int nOut = txBTC.vout.size();
-    const auto fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    std::set<CScript> claim_scripts;
     if (request.params.size() > 2) {
         const std::string claim_script = request.params[2].get_str();
         if (!IsHex(claim_script)) {
@@ -5512,51 +5466,22 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         }
         // If given manually, no need for it to be a witness script
         std::vector<unsigned char> witnessBytes(ParseHex(claim_script));
-        witness_script = CScript(witnessBytes.begin(), witnessBytes.end());
-        nOut = GetPeginTxnOutputIndex(txBTC, witness_script, fedpegscripts);
-        if (nOut == txBTC.vout.size()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Given claim_script does not match the given Bitcoin transaction.");
-        }
+        CScript witness_script(witnessBytes.begin(), witnessBytes.end());
+        claim_scripts.insert(std::move(witness_script));
     }
     else {
         // Look for known wpkh address in wallet
         for (std::map<CTxDestination, CAddressBookData>::const_iterator iter = pwallet->mapAddressBook.begin(); iter != pwallet->mapAddressBook.end(); ++iter) {
             CScript dest_script = GetScriptForDestination(iter->first);
-            nOut = GetPeginTxnOutputIndex(txBTC, dest_script, fedpegscripts);
-            if (nOut != txBTC.vout.size()) {
-                witness_script = dest_script;
-                break;
-            }
+            claim_scripts.insert(std::move(dest_script));
         }
     }
-    if (nOut == txBTC.vout.size()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
-    }
-    assert(witness_script != CScript());
 
-    int version = -1;
-    std::vector<unsigned char> witness_program;
-    if (!witness_script.IsWitnessProgram(version, witness_program) || version != 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Given or recovered script is not a v0 witness program.");
-    }
+    // Make the tx
+    CMutableTransaction mtx;
 
-    CAmount value = 0;
-    if (!GetAmountFromParentChainPegin(value, txBTC, nOut)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
-    }
-
-    CDataStream stream(0, 0);
-    try {
-        stream << value;
-    } catch (...) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Amount serialization is invalid.");
-    }
-    // Need to reinterpret bytes as unsigned chars before adding to witness
-    char* buf = stream.data();
-    unsigned char* membuf = reinterpret_cast<unsigned char*>(buf);
-    std::vector<unsigned char> value_bytes(membuf, membuf + stream.size());
-
-    uint256 genesisBlockHash = Params().ParentGenesisBlockHash();
+    // Construct pegin input
+    CreatePegInInput(mtx, 0, txBTCRef, merkleBlock, claim_scripts, txData, txOutProofData);
 
     // Manually construct peg-in transaction, sign it, and send it off.
     // Decrement the output value as much as needed given the total vsize to
@@ -5572,40 +5497,15 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
 
-    // One peg-in input, one wallet output and one fee output
-    CMutableTransaction mtx;
-    mtx.vin.push_back(CTxIn(COutPoint(txHashes[0], nOut), CScript(), ~(uint32_t)0));
-    // mark as peg-in input
-    mtx.vin[0].m_is_pegin = true;
-    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
-    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
-
-    // Strip witness data for proof inclusion since only TXID-covered fields matters
-    CDataStream ssTxBack(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-    ssTxBack << txBTC;
-    std::vector<unsigned char> tx_data_stripped(ssTxBack.begin(), ssTxBack.end());
-
-    // Construct pegin proof
-    CScriptWitness pegin_witness;
-    std::vector<std::vector<unsigned char> >& stack = pegin_witness.stack;
-    stack.push_back(value_bytes);
-    stack.push_back(std::vector<unsigned char>(Params().GetConsensus().pegged_asset.begin(), Params().GetConsensus().pegged_asset.end()));
-    stack.push_back(std::vector<unsigned char>(genesisBlockHash.begin(), genesisBlockHash.end()));
-    stack.push_back(std::vector<unsigned char>(witness_script.begin(), witness_script.end()));
-    stack.push_back(tx_data_stripped);
-    stack.push_back(txOutProofData);
-
-    // Peg-in witness isn't valid, even though the block header is(without depth check)
-    // We re-check depth before returning with more descriptive result
-    std::string err;
-    if (!IsValidPeginWitness(pegin_witness, fedpegscripts, mtx.vin[0].prevout, err, false)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Constructed peg-in witness is invalid: %s", err));
+    // Get value for output
+    CAmount value = 0;
+    if (!GetAmountFromParentChainPegin(value, *txBTCRef, mtx.vin[0].prevout.n)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Amounts to pegin must be explicit and asset must be %s", Params().GetConsensus().parent_pegged_asset.GetHex()));
     }
 
-    // Put input witness in transaction
-    CTxInWitness txinwit;
-    txinwit.m_pegin_witness = pegin_witness;
-    mtx.witness.vtxinwit.push_back(txinwit);
+    // one wallet output and one fee output
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, value, GetScriptForDestination(wpkhash)));
+    mtx.vout.push_back(CTxOut(Params().GetConsensus().pegged_asset, 0, CScript()));
 
     // Estimate fee for transaction, decrement fee output(including witness data)
     unsigned int nBytes = GetVirtualTransactionSize(CTransaction(mtx)) +
@@ -5625,6 +5525,9 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
     // Additional block lee-way to avoid bitcoin block races
     if (gArgs.GetBoolArg("-validatepegin", Params().GetConsensus().has_parent_chain)) {
         unsigned int required_depth = Params().GetConsensus().pegin_min_depth + 2;
+        std::vector<uint256> txHashes;
+        std::vector<unsigned int> txIndices;
+        merkleBlock.txn.ExtractMatches(txHashes, txIndices);
         if (txIndices[0] == 0) {
             required_depth = std::max(required_depth, (unsigned int)COINBASE_MATURITY+2);
         }

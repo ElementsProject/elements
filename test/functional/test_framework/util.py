@@ -605,7 +605,9 @@ def find_vout_for_address(node, txid, addr):
     given address. Raises runtime error exception if not found.
     """
     tx = node.getrawtransaction(txid, True)
-    unblind_addr = node.validateaddress(addr)["unconfidential"]
+    unblind_addr = addr
+    if node.getblockchaininfo()['chain'] == 'elementsregtest':
+        unblind_addr = node.validateaddress(addr)["unconfidential"]
     for i in range(len(tx["vout"])):
         if tx["vout"][i]["scriptPubKey"]["type"] == "fee":
             continue
