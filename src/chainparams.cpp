@@ -609,7 +609,7 @@ class CCustomParams : public CRegTestParams {
         } else if (consensus.genesis_style == "elements") {
             // Intended compatibility with Liquid v1 and elements-0.14.1
             std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
-            genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
+            genesis = CreateGenesisBlock(consensus, CScript() << commit, CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
             if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
                 AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
@@ -762,7 +762,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
         // Finally, create genesis block
-        genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
+        genesis = CreateGenesisBlock(consensus, CScript() << commit, CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
         consensus.hashGenesisBlock = genesis.GetHash();
         assert(consensus.hashGenesisBlock.GetHex() == "1466275836220db2944ca059a3a10ef6fd2ea684b0688d2c379296888a206003");
     }
