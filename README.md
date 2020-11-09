@@ -29,7 +29,7 @@ and amounts are blinded yet auditable through the use of applied cryptography.
 
  * [Announcement of Confidential Assets](https://blockstream.com/2017/04/03/blockstream-releases-elements-confidential-assets.html)
  * [Confidential Assets Whitepaper](https://blockstream.com/bitcoin17-final41.pdf) to be presented [April 7th at Financial Cryptography 2017](http://fc17.ifca.ai/bitcoin/schedule.html) in Malta
- * [Confidential Assets Tutorial](contrib/assets_tutorial/assets_tutorial.sh)
+ * [Confidential Assets Tutorial](contrib/assets_tutorial/assets_tutorial.py)
  * [Confidential Assets Demo](https://github.com/ElementsProject/confidential-assets-demo)
  * [Elements Code Tutorial](https://elementsproject.org/elements-code-tutorial/overview) covering blockchain configuration and how to use the main features.
 
