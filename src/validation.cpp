@@ -3493,9 +3493,7 @@ bool IsDynaFedEnabled(const CBlockIndex* pindexPrev, const Consensus::Params& pa
     return (VersionBitsState(pindexPrev, params, Consensus::DEPLOYMENT_DYNA_FED, versionbitscache) == ThresholdState::ACTIVE);
 }
 
-// Compute at which vout of the block's coinbase transaction the witness
-// commitment occurs, or -1 if not found.
-static int GetWitnessCommitmentIndex(const CBlock& block)
+int GetWitnessCommitmentIndex(const CBlock& block)
 {
     int commitpos = -1;
     if (!block.vtx.empty()) {
