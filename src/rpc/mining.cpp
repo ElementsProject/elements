@@ -1222,6 +1222,7 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
     CBlockHeaderAndShortTxIDs cmpctblock;
     ssBlock >> cmpctblock;
 
+    LOCK(mempool.cs);
     PartiallyDownloadedBlock partialBlock(&mempool);
     const std::vector<std::pair<uint256, CTransactionRef>> dummy;
     ReadStatus status = partialBlock.InitData(cmpctblock, dummy);
@@ -1353,6 +1354,7 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
     found.insert(found.end(), transactions.txn.begin(), transactions.txn.end());
 
     // Now construct the final block!
+    LOCK(mempool.cs);
     PartiallyDownloadedBlock partialBlock(&mempool);
 
     const std::vector<std::pair<uint256, CTransactionRef>> dummy;
