@@ -128,6 +128,7 @@ public:
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
         consensus.total_valid_epochs = 0;
+        consensus.elements_mode = g_con_elementsmode;
 
         /**
          * The message start string is designed to be unlikely to occur in normal data.
@@ -248,6 +249,7 @@ public:
         g_con_elementsmode = false;
         g_con_blockheightinheader = false;
         consensus.total_valid_epochs = 0;
+        consensus.elements_mode = g_con_elementsmode;
 
         pchMessageStart[0] = 0x0b;
         pchMessageStart[1] = 0x11;
@@ -344,6 +346,7 @@ public:
         consensus.has_parent_chain = false;
         g_signed_blocks = false;
         g_con_elementsmode = false;
+        consensus.elements_mode = g_con_elementsmode;
         g_con_blockheightinheader = false;
         consensus.total_valid_epochs = 0;
 
@@ -537,6 +540,7 @@ class CCustomParams : public CRegTestParams {
         // Default to true for custom chains.
         g_con_blockheightinheader = args.GetBoolArg("-con_blockheightinheader", true);
         g_con_elementsmode = args.GetBoolArg("-con_elementsmode", true);
+        consensus.elements_mode = g_con_elementsmode;
 
         // No subsidy for custom chains by default
         consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", 0);
@@ -705,6 +709,7 @@ public:
 
         g_con_blockheightinheader = true;
         g_con_elementsmode = true;
+        consensus.elements_mode = g_con_elementsmode;
         // TODO: Pick appropriate value for this network.
         consensus.total_valid_epochs = 2;
 

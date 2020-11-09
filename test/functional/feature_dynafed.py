@@ -63,7 +63,7 @@ class DynaFedTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.num_nodes = 2
         # We want to test activation of dynafed
-        self.extra_args = [["-con_dyna_deploy_start=0", "-enforce_pak=1", "-con_parent_chain_signblockscript=51", "-peginconfirmationdepth=1", "-parentscriptprefix=75", "-parent_bech32_hrp=ert"] for i in range(self.num_nodes)]
+        self.extra_args = [["-con_dyna_deploy_start=1000", "-enforce_pak=1", "-con_parent_chain_signblockscript=51", "-peginconfirmationdepth=1", "-parentscriptprefix=75", "-parent_bech32_hrp=ert"] for i in range(self.num_nodes)]
         # second node will not mine transactions
         self.extra_args[1].append("-blocksonly=1")
 
@@ -105,8 +105,18 @@ class DynaFedTest(BitcoinTestFramework):
     def test_dynafed_activation(self):
         self.log.info("Testing dynafed versionbits activation...")
 
+        # Signaling window is in height, not time, so first block that will signal is
+        # at height 1008 which is evenly disible by 144(regtest bip9 window size)
+        # Giving funds to node 1 to avoid a transaction size blowup when sweeping later
+        blocks = self.nodes[0].generatetoaddress(1006, self.nodes[1].getnewaddress())
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "defined")
+        blocks += self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "started")
+        blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "locked_in")
+
         # Move chain forward to activation, any new blocks will be enforced
-        blocks = self.nodes[0].generatetoaddress(431, self.nodes[0].getnewaddress())
+        blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
         self.sync_all()
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 

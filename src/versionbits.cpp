@@ -5,10 +5,20 @@
 #include <versionbits.h>
 #include <consensus/params.h>
 
+// Elements: We use height, not time!
+int64_t GetBIP9Time(const CBlockIndex* pindexPrev, const Consensus::Params& params) {
+    if (params.elements_mode) {
+        return pindexPrev->nHeight;
+    } else {
+        return pindexPrev->GetMedianTimePast();
+    }
+}
+
 ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex* pindexPrev, const Consensus::Params& params, ThresholdConditionCache& cache) const
 {
     int nPeriod = Period(params);
     int nThreshold = Threshold(params);
+    // ELEMENTS: We interpret this as block height, not block time!
     int64_t nTimeStart = BeginTime(params);
     int64_t nTimeTimeout = EndTime(params);
 
@@ -30,7 +40,7 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex*
             cache[pindexPrev] = ThresholdState::DEFINED;
             break;
         }
-        if (pindexPrev->GetMedianTimePast() < nTimeStart) {
+        if (GetBIP9Time(pindexPrev, params) < nTimeStart) {
             // Optimization: don't recompute down further, as we know every earlier block will be before the start time
             cache[pindexPrev] = ThresholdState::DEFINED;
             break;
@@ -51,15 +61,15 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex*
 
         switch (state) {
             case ThresholdState::DEFINED: {
-                if (pindexPrev->GetMedianTimePast() >= nTimeTimeout) {
+                if (GetBIP9Time(pindexPrev, params) >= nTimeTimeout) {
                     stateNext = ThresholdState::FAILED;
-                } else if (pindexPrev->GetMedianTimePast() >= nTimeStart) {
+                } else if (GetBIP9Time(pindexPrev, params) >= nTimeStart) {
                     stateNext = ThresholdState::STARTED;
                 }
                 break;
             }
             case ThresholdState::STARTED: {
-                if (pindexPrev->GetMedianTimePast() >= nTimeTimeout) {
+                if (GetBIP9Time(pindexPrev, params) >= nTimeTimeout) {
                     stateNext = ThresholdState::FAILED;
                     break;
                 }
