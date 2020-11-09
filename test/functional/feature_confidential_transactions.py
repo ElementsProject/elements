@@ -218,7 +218,7 @@ class CTTest (BitcoinTestFramework):
         assert found_unblinded
 
         assert_equal(self.nodes[1].gettransaction(raw_tx_id, True)['amount']["bitcoin"], value3)
-        assert_equal(self.nodes[1].gettransaction(raw_tx_id, True, "bitcoin")['amount'], value3)
+        assert_equal(self.nodes[1].gettransaction(raw_tx_id, True, False, "bitcoin")['amount'], value3)
         list_unspent = self.nodes[1].listunspent(1, 9999999, [], True, {"asset": "bitcoin"})
         assert_equal(list_unspent[0]['amount']+list_unspent[1]['amount'], value1+value3)
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
