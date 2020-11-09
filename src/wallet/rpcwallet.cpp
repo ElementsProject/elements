@@ -4789,7 +4789,7 @@ UniValue signblock(const JSONRPCRequest& request)
     // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
     SignatureData block_sigs;
     if (block.m_dynafed_params.IsNull()) {
-        GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs);
+        GenericSignScript(*pwallet, block.GetBlockHeader(), block.proof.challenge, block_sigs, SCRIPT_NO_SIGHASH_BYTE /* additional_flags */);
     } else {
         if (request.params[1].isNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Signing dynamic blocks requires the witnessScript argument");
@@ -4800,7 +4800,7 @@ UniValue signblock(const JSONRPCRequest& request)
         if (!witness_bytes.empty()) {
             pwallet->AddCScript(CScript(witness_bytes.begin(), witness_bytes.end()));
         }
-        GenericSignScript(*pwallet, block.GetBlockHeader(), block.m_dynafed_params.m_current.m_signblockscript, block_sigs);
+        GenericSignScript(*pwallet, block.GetBlockHeader(), block.m_dynafed_params.m_current.m_signblockscript, block_sigs, SCRIPT_VERIFY_NONE /* additional_flags */);
     }
 
     // Error if sig data didn't "grow"

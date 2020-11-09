@@ -1111,11 +1111,13 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
+    bool is_dynafed = !block.m_dynafed_params.IsNull();
+
     const Consensus::Params& params = Params().GetConsensus();
     const UniValue& sigs = request.params[1].get_array();
     FillableSigningProvider keystore;
     SignatureData sig_data;
-    SimpleSignatureCreator signature_creator(block.GetHash());
+    SimpleSignatureCreator signature_creator(block.GetHash(), is_dynafed ? SIGHASH_ALL : 0);
     for (unsigned int i = 0; i < sigs.size(); i++) {
         UniValue pubkey_sig = sigs[i];
         const std::string& pubkey_str = pubkey_sig["pubkey"].get_str();
@@ -1132,7 +1134,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
         sig_data.signatures[pubkey.GetID()] = std::make_pair(pubkey, sig_bytes);
     }
 
-    if (!block.m_dynafed_params.IsNull()) {
+    if (is_dynafed) {
         if (request.params[2].isNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Signing dynamic blocks requires the witnessScript argument");
         }
@@ -1141,7 +1143,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
             keystore.AddCScript(CScript(witness_bytes.begin(), witness_bytes.end()));
         }
         // Finalizes the signatures, has no access to keys
-        ProduceSignature(keystore, signature_creator, block.m_dynafed_params.m_current.m_signblockscript, sig_data, SCRIPT_NO_SIGHASH_BYTE);
+        ProduceSignature(keystore, signature_creator, block.m_dynafed_params.m_current.m_signblockscript, sig_data, SCRIPT_VERIFY_NONE);
         block.m_signblock_witness = sig_data.scriptWitness;
     } else {
         // Finalizes the signatures, has no access to keys

@@ -16,15 +16,26 @@ class SimpleSignatureChecker : public BaseSignatureChecker
 {
 public:
     uint256 hash;
+    bool sighash_byte;
 
-    SimpleSignatureChecker(const uint256& hashIn) : hash(hashIn) {};
+    SimpleSignatureChecker(const uint256& hashIn, bool sighash_byte_in) : hash(hashIn), sighash_byte(sighash_byte_in) {};
     bool CheckSig(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const
     {
+        std::vector<unsigned char> vchSigCopy(vchSig);
         CPubKey pubkey(vchPubKey);
         if (!pubkey.IsValid())
             return false;
         if (vchSig.empty())
             return false;
+        // Get rid of sighash byte before verifying hash
+        // Note: We only accept SIGHASH_ALL!
+        if (sighash_byte) {
+            const unsigned char popped_byte = vchSigCopy.back();
+            vchSigCopy.pop_back();
+            if (popped_byte != SIGHASH_ALL) {
+                return false;
+            }
+        }
         return pubkey.Verify(hash, vchSig);
     }
 };
@@ -32,29 +43,41 @@ public:
 class SimpleSignatureCreator : public BaseSignatureCreator
 {
     SimpleSignatureChecker checker;
+    bool sighash_byte;
 
 public:
-    SimpleSignatureCreator(const uint256& hashIn) : checker(hashIn) {};
+    SimpleSignatureCreator(const uint256& hashIn, bool sighash_byte_in) : checker(hashIn, sighash_byte_in), sighash_byte(sighash_byte_in) {};
     const BaseSignatureChecker& Checker() const { return checker; }
     bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion) const
     {
         CKey key;
         if (!provider.GetKey(keyid, key))
             return false;
-        return key.Sign(checker.hash, vchSig);
+        if (!key.Sign(checker.hash, vchSig)) {
+            return false;
+        }
+        // We only support sighash all for malleability reasons(it is not committed in sighash)
+        if (sighash_byte) {
+            vchSig.push_back(SIGHASH_ALL);
+        }
+        return true;
     }
 };
 
 template<typename T>
 bool GenericVerifyScript(const CScript& scriptSig, const CScriptWitness& witness, const CScript& scriptPubKey, unsigned int flags, const T& data)
 {
-    return VerifyScript(scriptSig, scriptPubKey, &witness, flags, SimpleSignatureChecker(SerializeHash(data)));
+    bool sighash_byte = (flags & SCRIPT_NO_SIGHASH_BYTE) ? false : true;
+    // Note: Our hash doesn't commit to the sighash byte
+    return VerifyScript(scriptSig, scriptPubKey, &witness, flags, SimpleSignatureChecker(SerializeHash(data), sighash_byte));
 }
 
 template<typename T>
-bool GenericSignScript(const FillableSigningProvider& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig)
+bool GenericSignScript(const FillableSigningProvider& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig, unsigned int additional_flags)
 {
-    return ProduceSignature(keystore, SimpleSignatureCreator(SerializeHash(data)), fromPubKey, scriptSig, SCRIPT_NO_SIGHASH_BYTE);
+    bool sighash_byte = (additional_flags & SCRIPT_NO_SIGHASH_BYTE) ? false : true;
+    // Note: Our hash doesn't commit to the sighash byte
+    return ProduceSignature(keystore, SimpleSignatureCreator(SerializeHash(data), sighash_byte), fromPubKey, scriptSig, additional_flags);
 }
 
 #endif // H_BITCOIN_SCRIPT_GENERIC

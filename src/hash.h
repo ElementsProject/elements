@@ -191,7 +191,7 @@ public:
     }
 };
 
-/** Compute the 256-bit hash of an object's serialization. */
+/** Compute the 256-bit hash of an object's serialization, with optional sighash byte. */
 template<typename T>
 uint256 SerializeHash(const T& obj, int nType=SER_GETHASH, int nVersion=PROTOCOL_VERSION)
 {
