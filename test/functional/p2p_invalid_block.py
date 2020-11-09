@@ -53,18 +53,21 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
         block_time = best_block["time"] + 1
 
         # Use merkle-root malleability to generate an invalid block with
-        # same blockheader.
+        # same blockheader (CVE-2012-2459).
         # Manufacture a block with 3 transactions (coinbase, spend of prior
         # coinbase, spend of that spend).  Duplicate the 3rd transaction to
         # leave merkle root and blockheader unchanged but invalidate the block.
+        # For more information on merkle-root malleability see src/consensus/merkle.cpp.
         self.log.info("Test merkle root malleability.")
 
         block2 = create_block(tip, create_coinbase(height), block_time)
         block_time += 1
 
         # b'0x51' is OP_TRUE
-        tx1 = create_tx_with_script(block1.vtx[0], 0, script_sig=b'\x51', amount=50 * COIN)
-        tx2 = create_tx_with_script(tx1, 0, script_sig=b'\x51', amount=50 * COIN)
+        # ELEMENTS: scriptpubkeys can't be empty or else we interpret them as fee outputs,
+        #           so we modify the Core test to move the OP_TRUEs from scriptSig to scriptPubKey
+        tx1 = create_tx_with_script(block1.vtx[0], 0, script_pub_key=b'\x51', amount=50 * COIN)
+        tx2 = create_tx_with_script(tx1, 0, script_pub_key=b'\x51', amount=50 * COIN)
 
         block2.vtx.extend([tx1, tx2])
         block2.hashMerkleRoot = block2.calc_merkle_root()
@@ -81,25 +84,16 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         node.p2p.send_blocks_and_test([block2], node, success=False, reject_reason='bad-txns-duplicate')
 
-        # Check transactions for duplicate inputs
+        # Check transactions for duplicate inputs (CVE-2018-17144)
         self.log.info("Test duplicate input block.")
 
-        block2_orig.vtx[2].vin.append(block2_orig.vtx[2].vin[0])
-        block2_orig.vtx[2].rehash()
-        block2_orig.hashMerkleRoot = block2_orig.calc_merkle_root()
-        block2_orig.rehash()
-        block2_orig.solve()
-        node.p2p.send_blocks_and_test([block2_orig], node, success=False, reject_reason='bad-txns-inputs-duplicate')
-
-        # Check transactions for duplicate inputs
-        self.log.info("Test duplicate input block.")
-
-        block2_orig.vtx[2].vin.append(block2_orig.vtx[2].vin[0])
-        block2_orig.vtx[2].rehash()
-        block2_orig.hashMerkleRoot = block2_orig.calc_merkle_root()
-        block2_orig.rehash()
-        block2_orig.solve()
-        node.p2p.send_blocks_and_test([block2_orig], node, success=False, reject_reason='bad-txns-inputs-duplicate')
+        block2_dup = copy.deepcopy(block2_orig)
+        block2_dup.vtx[2].vin.append(block2_dup.vtx[2].vin[0])
+        block2_dup.vtx[2].rehash()
+        block2_dup.hashMerkleRoot = block2_dup.calc_merkle_root()
+        block2_dup.rehash()
+        block2_dup.solve()
+        node.p2p.send_blocks_and_test([block2_dup], node, success=False, reject_reason='bad-txns-inputs-duplicate')
 
         self.log.info("Test very broken block.")
 
@@ -114,6 +108,32 @@ class InvalidBlockRequestTest(BitcoinTestFramework):
 
         node.p2p.send_blocks_and_test([block3], node, success=False, reject_reason='bad-cb-amount')
 
+
+        # Complete testing of CVE-2012-2459 by sending the original block.
+        # It should be accepted even though it has the same hash as the mutated one.
+
+        self.log.info("Test accepting original block after rejecting its mutated version.")
+        node.p2p.send_blocks_and_test([block2_orig], node, success=True, timeout=5)
+
+        # Update tip info
+        height += 1
+        block_time += 1
+        tip = int(block2_orig.hash, 16)
+
+        # Complete testing of CVE-2018-17144, by checking for the inflation bug.
+        # Create a block that spends the output of a tx in a previous block.
+        block4 = create_block(tip, create_coinbase(height), block_time)
+        tx3 = create_tx_with_script(tx2, 0, script_sig=b'\x51', amount=50 * COIN)
+
+        # Duplicates input
+        tx3.vin.append(tx3.vin[0])
+        tx3.rehash()
+        block4.vtx.append(tx3)
+        block4.hashMerkleRoot = block4.calc_merkle_root()
+        block4.rehash()
+        block4.solve()
+        self.log.info("Test inflation by duplicating input")
+        node.p2p.send_blocks_and_test([block4], node, success=False,  reject_reason='bad-txns-inputs-duplicate')
 
 if __name__ == '__main__':
     InvalidBlockRequestTest().main()
