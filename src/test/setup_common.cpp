@@ -11,6 +11,7 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
+#include <init.h>
 #include <miner.h>
 #include <net_processing.h>
 #include <noui.h>
@@ -36,6 +37,20 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
 BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript)
     : m_path_root(fs::temp_directory_path() / "test_common_" PACKAGE_NAME / strprintf("%lu_%i", (unsigned long)GetTime(), (int)(InsecureRandRange(1 << 30))))
 {
+    // Hack to allow testing of fedpeg args
+    if (!fedpegscript.empty()) {
+        gArgs.SoftSetArg("-fedpegscript", fedpegscript);
+        gArgs.SoftSetBoolArg("-con_has_parent_chain", true);
+        gArgs.SoftSetBoolArg("-validatepegin", false);
+    }
+
+    fs::create_directories(m_path_root);
+    gArgs.ForceSetArg("-datadir", m_path_root.string());
+    ClearDatadirCache();
+    SelectParams(chainName);
+    gArgs.ForceSetArg("-printtoconsole", "0");
+    InitLogging();
+    LogInstance().StartLogging();
     SHA256AutoDetect();
     ECC_Start();
     SetupEnvironment();
@@ -45,13 +60,6 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     InitRangeproofCache();
     InitSurjectionproofCache();
     fCheckBlockIndex = true;
-    // Hack to allow testing of fedpeg args
-    if (!fedpegscript.empty()) {
-        gArgs.SoftSetArg("-fedpegscript", fedpegscript);
-        gArgs.SoftSetBoolArg("-con_has_parent_chain", true);
-        gArgs.SoftSetBoolArg("-validatepegin", false);
-    }
-    SelectParams(chainName);
 
     // ELEMENTS:
     // Set policy asset for correct fee output generation
@@ -66,27 +74,18 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
 
 BasicTestingSetup::~BasicTestingSetup()
 {
+    LogInstance().DisconnectTestLogger();
     fs::remove_all(m_path_root);
     ECC_Stop();
 }
 
-fs::path BasicTestingSetup::SetDataDir(const std::string& name)
-{
-    fs::path ret = m_path_root / name;
-    fs::create_directories(ret);
-    gArgs.ForceSetArg("-datadir", ret.string());
-    return ret;
-}
-
 TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript) : BasicTestingSetup(chainName, fedpegscript)
 {
-    SetDataDir("tempdir");
     const CChainParams& chainparams = Params();
     // Ideally we'd move all the RPC tests to the functional testing framework
     // instead of unit tests, but for now we need these here.
 
     RegisterAllCoreRPCCommands(tableRPC);
-    ClearDatadirCache();
 
     // We have to run a scheduler thread to prevent ActivateBestChain
     // from blocking due to queue overrun.
