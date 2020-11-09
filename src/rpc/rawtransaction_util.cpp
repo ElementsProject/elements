@@ -12,7 +12,7 @@
 #include <pegins.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
-#include <rpc/protocol.h>
+#include <rpc/request.h>
 #include <rpc/util.h>
 #include <tinyformat.h>
 #include <univalue.h>

@@ -3,7 +3,7 @@
 #include <chainparamsbase.h>
 #include <util/system.h>
 #include <util/strencodings.h>
-#include <rpc/protocol.h>
+#include <rpc/request.h>
 
 #include <support/events.h>
 
