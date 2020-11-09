@@ -101,6 +101,8 @@ class InputMissing(BadTxTemplate):
 
 # ELEMENTS: disabled because we don't want to increase the minimal tx size and
 # the value and asset size crosses the minimum value
+# The following check prevents exploit of lack of merkle
+# tree depth commitment (CVE-2017-12842)
 #class SizeTooSmall(BadTxTemplate):
 #    reject_reason = "tx-size-small"
 #    expect_disconnect = False
