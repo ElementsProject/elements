@@ -185,6 +185,10 @@ class CTTest (BitcoinTestFramework):
 
         # Check 2's listreceivedbyaddress
         received_by_address = self.nodes[2].listreceivedbyaddress(0, False, False, "", "bitcoin")
+        validate_by_address = [(address2, value1 + value3), (address, value0 + value2)]
+        assert_equal(sorted([(ele['address'], ele['amount']) for ele in received_by_address], key=lambda t: t[0]),
+                sorted(validate_by_address, key = lambda t: t[0]))
+        received_by_address = self.nodes[2].listreceivedbyaddress(0, False, False, "")
         validate_by_address = [(address2, {"bitcoin": value1 + value3}), (address, {"bitcoin": value0 + value2})]
         assert_equal(sorted([(ele['address'], ele['amount']) for ele in received_by_address], key=lambda t: t[0]),
                 sorted(validate_by_address, key = lambda t: t[0]))
@@ -214,6 +218,7 @@ class CTTest (BitcoinTestFramework):
         assert found_unblinded
 
         assert_equal(self.nodes[1].gettransaction(raw_tx_id, True)['amount']["bitcoin"], value3)
+        assert_equal(self.nodes[1].gettransaction(raw_tx_id, True, "bitcoin")['amount'], value3)
         list_unspent = self.nodes[1].listunspent(1, 9999999, [], True, {"asset": "bitcoin"})
         assert_equal(list_unspent[0]['amount']+list_unspent[1]['amount'], value1+value3)
         received_by_address = self.nodes[1].listreceivedbyaddress(1, False, True)
@@ -356,6 +361,7 @@ class CTTest (BitcoinTestFramework):
         # Assets balance checking, note that accounts are completely ignored because
         # balance queries with accounts are horrifically broken upstream
         assert_equal(self.nodes[0].getbalance("*", 0, False, False, "bitcoin"), self.nodes[0].getbalance("*", 0, False, False, "bitcoin"))
+        assert_equal(self.nodes[0].getbalance("*", 0, False, False)["bitcoin"], self.nodes[0].getbalance("*", 0, False, False, "bitcoin"))
         assert_equal(self.nodes[0].getwalletinfo()['balance']['bitcoin'], self.nodes[0].getbalance("*", 0, False, False, "bitcoin"))
 
         # Send some bitcoin and other assets over as well to fund wallet
