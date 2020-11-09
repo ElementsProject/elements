@@ -92,7 +92,8 @@ jobs:
         - set -o errexit; source .travis/lint_06_script.sh
 
     - stage: test
-      name: 'ARM  [GOAL: install]  [unit tests, no functional tests]'
+      name: 'ARM  [GOAL: install]  [unit tests, functional tests]'
+      arch: arm64
       env: >-
         HOST=arm-linux-gnueabihf
         PACKAGES="python3 g++-arm-linux-gnueabihf"
@@ -102,6 +103,7 @@ jobs:
         # -Wno-psabi is to disable ABI warnings: "note: parameter passing for argument of type ... changed in GCC 7.1"
         # This could be removed once the ABI change warning does not show up by default
         BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports CXXFLAGS=-Wno-psabi"
+        QEMU_USER_CMD=""  # Can run the tests natively without qemu
 
     - stage: test
       name: 'Win64  [GOAL: deploy]  [unit tests, no gui, no functional tests]'
