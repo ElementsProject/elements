@@ -172,7 +172,7 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
     out.pushKV("type", GetTxnOutputType(type));
 
     CTxDestination address;
-    if (include_address && ExtractDestination(script, address)) {
+    if (include_address && ExtractDestination(script, address) && type != TX_PUBKEY) {
         out.pushKV("address", EncodeDestination(address));
     }
 }
@@ -189,7 +189,7 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
     if (fIncludeHex)
         out.pushKV(prefix + "hex", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
 
-    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired)) {
+    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired) || type == TX_PUBKEY) {
         out.pushKV(prefix + "type", GetTxnOutputType(type));
         return;
     }
