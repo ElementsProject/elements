@@ -169,6 +169,7 @@ jobs:
         NO_DEPENDS=1
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=integer,undefined CC=clang CXX=clang++"
+
 # x86_64 Linux, No wallet, no QT(build timing out with for some reason)
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no wallet]'
