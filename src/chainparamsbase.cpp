@@ -18,35 +18,35 @@ const std::string CBaseChainParams::LIQUID1 = "liquidv1";
 
 void SetupChainParamsBaseOptions()
 {
-    gArgs.AddArg("-chain=<chain>", "Use the chain <chain> (default: main). Reserved values: main, test, regtest", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-chain=<chain>", "Use the chain <chain> (default: main). Reserved values: main, test, regtest", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
-                                   "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", true, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", true, OptionsCategory::CHAINPARAMS);
+                                   "This is intended for regression testing tools and app development.", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-testnet", "Use the test chain", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
 
     //
     // ELEMENTS
-    gArgs.AddArg("-con_mandatorycoinbase", "All non-zero valued coinbase outputs must go to this scriptPubKey, if set.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block, in satoshis.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_connect_genesis_outputs", "Connect outputs in genesis block to utxo database.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_elementsmode", "Use Elements-like instead of Core-like witness encoding.  This is required for CA/CT. (default: true)", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_blockheightinheader", "Whether the chain includes the block height directly in the header, for easier validation of block height in low-resource environments. (default: true)", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_mandatorycoinbase", "All non-zero valued coinbase outputs must go to this scriptPubKey, if set.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_blocksubsidy", "Defines the amount of block subsidy to start with, at genesis block, in satoshis.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_connect_genesis_outputs", "Connect outputs in genesis block to utxo database.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_elementsmode", "Use Elements-like instead of Core-like witness encoding.  This is required for CA/CT. (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_blockheightinheader", "Whether the chain includes the block height directly in the header, for easier validation of block height in low-resource environments. (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-con_genesis_style=<style>", "Use genesis style <style> (default: elements). Results in genesis block compatibility with various networks. Allowed values: elements, bitcoin", true, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blocks` set to true.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-con_max_block_sig_size", "Max allowed witness data for the signed block header.", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_signed_blocks", "Signed blockchain. Uses input of `-signblockscript` to define what signatures are necessary to solve it.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-signblockscript", "Signed blockchain enumberance. Only active when `-con_signed_blocks` set to true.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_max_block_sig_size", "Max allowed witness data for the signed block header.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
-    gArgs.AddArg("-con_has_parent_chain", "Whether or not there is a parent chain.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-parentgenesisblockhash", "The genesis blockhash of the parent chain.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-con_parentpowlimit", "The proof-of-work limit value for the parent chain.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-con_parent_chain_signblockscript", "Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_has_parent_chain", "Whether or not there is a parent chain.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-parentgenesisblockhash", "The genesis blockhash of the parent chain.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parentpowlimit", "The proof-of-work limit value for the parent chain.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-con_parent_chain_signblockscript", "Whether parent chain uses pow or signed blocks. If the parent chain uses signed blocks, the challenge (scriptPubKey) script. If not, an empty string. (default: empty script [ie parent uses pow])", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
-    gArgs.AddArg("-fedpegscript", "The script for the federated peg.", false, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation, and miner to include PAK commitments when configured. Can not be set when acceptnonstdtx is set to true.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: true)", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-pak", "Entries in the PAK list. Order of entries matter.", false, OptionsCategory::ELEMENTS);
-    gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", false, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-fedpegscript", "The script for the federated peg.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation, and miner to include PAK commitments when configured. Can not be set when acceptnonstdtx is set to true.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-pak", "Entries in the PAK list. Order of entries matter.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     // END ELEMENTS
     //
 }
