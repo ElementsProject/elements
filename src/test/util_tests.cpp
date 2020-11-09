@@ -891,6 +891,7 @@ BOOST_FIXTURE_TEST_CASE(util_ChainMerge, ChainMergeTestingSetup)
             desc += " ";
             desc += argstr + 1;
             conf += argstr + 1;
+            conf += "\n";
         }
         std::istringstream conf_stream(conf);
         BOOST_CHECK(parser.ReadConfigStream(conf_stream, "filepath", error));
@@ -929,7 +930,7 @@ BOOST_FIXTURE_TEST_CASE(util_ChainMerge, ChainMergeTestingSetup)
     // Results file is formatted like:
     //
     //   <input> || <output>
-    BOOST_CHECK_EQUAL(out_sha_hex, "9d7b4ac4ebac5ccd90b5bae5ca41e4769294660a57148183cc5d6a47f43f6a54");
+    BOOST_CHECK_EQUAL(out_sha_hex, "ae4d9a5bd511bb820d236949d21f4601621a17ea0a6ec25a5b1d1c1be8a06075");
 }
 
 BOOST_AUTO_TEST_CASE(util_FormatMoney)
