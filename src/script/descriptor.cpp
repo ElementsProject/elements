@@ -500,13 +500,6 @@ public:
     }
 };
 
-//TODO(stevenroose) remove if unused
-CScript P2PKHGetScript(const CPubKey& pubkey) { return GetScriptForDestination(PKHash(pubkey)); }
-CScript P2PKGetScript(const CPubKey& pubkey) { return GetScriptForRawPubKey(pubkey); }
-CScript P2WPKHGetScript(const CPubKey& pubkey) { return GetScriptForDestination(WitnessV0KeyHash(pubkey.GetID())); }
-CScript ConvertP2SH(const CScript& script) { return GetScriptForDestination(ScriptHash(script)); }
-CScript ConvertP2WSH(const CScript& script) { return GetScriptForDestination(WitnessV0ScriptHash(script)); }
-
 /** Construct a vector with one element, which is moved into it. */
 template<typename T>
 std::vector<T> Singleton(T elem)

@@ -4923,7 +4923,7 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
                 "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) and stores it in the Liquid wallet. It then combines this with the `bitcoin_descriptor` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the derived path from the bitcoin_descriptor using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required.\n" +
                 HelpRequiringPassphrase(pwallet),
                 {
-                    {"bitcoin_descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the root for the Bitcoin destination wallet. The derivation path from the xpub will be `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md"},
+                    {"bitcoin_descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the destination chain for the Bitcoin destination wallet. The derivation path from the xpub is given by the descriptor, typically `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed, with the `0/k` derivation from that xpub. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md"},
                     {"bip32_counter", RPCArg::Type::NUM , /* default */ "0", "The `k` in `0/k` to be set as the next address to derive from the `bitcoin_descriptor`. This will be stored in the wallet and incremented on each successful `sendtomainchain` invocation."},
                     {"liquid_pak", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "The Liquid wallet pubkey in hex to be used as the Liquid PAK for pegout authorization. The private key must be in the wallet if argument is given. If this argument is not provided one will be generated and stored in the wallet automatically and returned."}
                 },
@@ -4989,19 +4989,32 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
 
     FlatSigningProvider provider;
     std::string error;
-    auto desc = Parse(bitcoin_desc, provider, error);
+    auto desc = Parse(bitcoin_desc, provider, error); // don't require checksum
     if (!desc) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, error);
     } else if (!desc->IsRange()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor must be a ranged descriptor.");
     }
 
+    // For our manual pattern matching, we don't want the checksum part.
+    auto checksum_char = bitcoin_desc.find('#');
+    if (checksum_char != std::string::npos) {
+        bitcoin_desc = bitcoin_desc.substr(0, checksum_char);
+    }
+
     // Three acceptable descriptors:
+    bool is_liquid = Params().NetworkIDString() == "liquidv1";
     if (bitcoin_desc.substr(0, 8) ==  "sh(wpkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-2, 2) == "))") {
+        if(is_liquid) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not supported by Liquid; try pkh(<xpub>) or <xpub>.");
+        }
         xpub_str = bitcoin_desc.substr(8, bitcoin_desc.size()-2);
     } else if (bitcoin_desc.substr(0, 5) ==  "wpkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
+        if(is_liquid) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not supported by Liquid; try pkh(<xpub>) or <xpub>.");
+        }
         xpub_str = bitcoin_desc.substr(5, bitcoin_desc.size()-1);
     } else if (bitcoin_desc.substr(0, 4) == "pkh("
             && bitcoin_desc.substr(bitcoin_desc.size()-1, 1) == ")") {
@@ -5012,7 +5025,7 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
 
     // Strip off leading key origin
     if (xpub_str.find("]") != std::string::npos) {
-        xpub_str = xpub_str.substr(xpub_str.find("]"), std::string::npos);
+        xpub_str = xpub_str.substr(xpub_str.find("]")+1, std::string::npos);
     }
 
     // Strip off following range
