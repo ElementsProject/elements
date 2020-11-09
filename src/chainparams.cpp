@@ -701,6 +701,9 @@ public:
 
         g_con_blockheightinheader = true;
         g_con_elementsmode = true;
+        // TODO: Pick appropriate value for this network.
+        consensus.total_valid_epochs = 2;
+
 
         consensus.genesis_subsidy = 0;
 
@@ -752,6 +755,12 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+
+        // Not active yet.
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 0;
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = 0;
+
 
         // Finally, create genesis block
         genesis = CreateGenesisBlock(consensus, CScript() << commit, CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);

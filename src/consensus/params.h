@@ -110,7 +110,8 @@ struct Params {
     // Used to seed the extension space for first dynamic blocks
     std::vector<std::vector<unsigned char>> first_extension_space;
     // Used to allow M-epoch-old peg-in addresses as deposits
-    size_t total_valid_epochs;
+    // default 1 to not break legacy chains implicitly.
+    size_t total_valid_epochs = 1;
 };
 } // namespace Consensus
 
