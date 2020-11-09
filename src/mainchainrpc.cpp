@@ -3,6 +3,7 @@
 #include <chainparamsbase.h>
 #include <util/system.h>
 #include <util/strencodings.h>
+#include <util/translation.h>
 #include <rpc/request.h>
 
 #include <support/events.h>
@@ -103,7 +104,7 @@ UniValue CallMainChainRPC(const std::string& strMethod, const UniValue& params)
         // Try fall back to cookie-based authentication if no password is provided
         if (!GetMainchainAuthCookie(&strRPCUserColonPass)) {
             throw std::runtime_error(strprintf(
-                _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcpassword is set in the configuration file (%s)"),
+                _("Could not locate mainchain RPC credentials. No authentication cookie could be found, and no mainchainrpcpassword is set in the configuration file (%s)").translated,
                     GetConfigFile(gArgs.GetArg("-conf", BITCOIN_CONF_FILENAME)).string().c_str()));
         }
     } else {
