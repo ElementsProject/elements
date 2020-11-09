@@ -232,4 +232,7 @@ void UpdateTransaction(CMutableTransaction& input, const size_t nIn, const Signa
  * Solvability is unrelated to whether we consider this output to be ours. */
 bool IsSolvable(const SigningProvider& provider, const CScript& script);
 
+/** Check whether a scriptPubKey is known to be segwit. */
+bool IsSegWitOutput(const SigningProvider& provider, const CScript& script);
+
 #endif // BITCOIN_SCRIPT_SIGN_H
