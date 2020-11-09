@@ -84,16 +84,19 @@ def convertbits(data, frombits, tobits, pad=True):
 
 
 def decode(hrp, addr):
-    """Decode a segwit address."""
+    """Decode a segwit confidential address.
+    Its payload is longer than the payload for unconfidential address
+    by 33 bytes (the length of blinding pubkey)"""
+
     hrpgot, data = blech32_decode(addr)
     if hrpgot != hrp:
         return (None, None)
     decoded = convertbits(data[1:], 5, 8, False)
-    if decoded is None or len(decoded) < 2 or len(decoded) > 40:
+    if decoded is None or len(decoded) < 2 or len(decoded) > 40+33:
         return (None, None)
     if data[0] > 16:
         return (None, None)
-    if data[0] == 0 and len(decoded) != 20 and len(decoded) != 32:
+    if data[0] == 0 and len(decoded) != 20+33 and len(decoded) != 32+33:
         return (None, None)
     return (data[0], decoded)
 
