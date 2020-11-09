@@ -470,12 +470,12 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         self.sync_all()
         inputs = [{ "txid" : txId, "vout" : vout['n'] }]
-        # Fee 4,000,000 satoshis, (1 - (4000000 sat * 0.00000001 BTC/sat)) = 0.96
-        outputs = { self.nodes[0].getnewaddress() : Decimal("0.96000000"), "fee": Decimal("0.04") }
+        # Fee 3,000,000 satoshis, (1 - (3000000 sat * 0.00000001 BTC/sat)) = 0.97
+        outputs = { self.nodes[0].getnewaddress() : Decimal("0.97000000"), "fee": Decimal("0.03") }
         rawTx = self.nodes[2].createrawtransaction(inputs, outputs)
         rawTxSigned = self.nodes[2].signrawtransactionwithwallet(rawTx)
         assert_equal(rawTxSigned['complete'], True)
-        # 4,000,000 sat fee, ~200 wt transaction, fee rate should land around 20,000 sat/b = 0.20000000 BTC/kB
+        # 3,000,000 sat fee, fee rate should land around 20,000 sat/b = 0.20000000 BTC/kB
         # Thus, testmempoolaccept should reject
         testres = self.nodes[2].testmempoolaccept([rawTxSigned['hex']])[0]
         assert_equal(testres['allowed'], False)

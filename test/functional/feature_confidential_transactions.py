@@ -683,7 +683,7 @@ class CTTest (BitcoinTestFramework):
                 found_burn = True
                 if output["asset"] != self.nodes[0].dumpassetlabels()["bitcoin"]:
                     raise Exception("Burn should have been bitcoin(policyAsset)")
-            if output["scriptPubKey"]["type"] == "scripthash":
+            if output["scriptPubKey"]["type"] == "witness_v0_keyhash":
                 found_pay = True
         assert found_pay and found_burn
 
@@ -697,7 +697,7 @@ class CTTest (BitcoinTestFramework):
                 found_burn = True
                 if output["asset"] != "deadbeef"*8:
                     raise Exception("Burn should have been deadbeef")
-            if output["scriptPubKey"]["type"] == "scripthash":
+            if output["scriptPubKey"]["type"] == "witness_v0_keyhash":
                 found_pay = True
         assert found_pay and found_burn
 

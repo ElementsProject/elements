@@ -193,8 +193,8 @@ class WalletTest(BitcoinTestFramework):
             struct.pack(">q", 98 * 10**8).hex(),
         )
         tx_replace = tx_replace.replace( ## is there something less fragile we can do here?
-            struct.pack(">q", 7480).hex(),
-            struct.pack(">q", 7480 + 10**8).hex(),
+            struct.pack(">q", 6520).hex(),
+            struct.pack(">q", 6520 + 10**8).hex(),
         )
         tx_replace = self.nodes[0].signrawtransactionwithwallet(tx_replace)['hex']
         # Total balance is given by the sum of outputs of the tx

@@ -185,11 +185,11 @@ class PSBTTest(BitcoinTestFramework):
             assert(self.num_blinded_outputs(hex_tx) > 0)
         self.nodes[1].sendrawtransaction(hex_tx)
 
-        # feeRate of 0.085 BTC / KB produces a total fee slightly below -maxtxfee (~0.05210000):
+        # feeRate of 0.1 BTC / KB produces a total fee slightly below -maxtxfee (~0.05420000):
         if confidential:
             fee_rate = 0.04
         else:
-            fee_rate = 0.085
+            fee_rate = 0.1
         res = self.nodes[1].walletcreatefundedpsbt([{"txid":txid,"vout":p2wpkh_pos},{"txid":txid,"vout":p2sh_p2wpkh_pos},{"txid":txid,"vout":p2pkh_pos}], {self.nodes[1].getnewaddress():29.99}, 0, {"feeRate": fee_rate})
         assert_greater_than(res["fee"], 0.05)
         assert_greater_than(0.06, res["fee"])
