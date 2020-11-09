@@ -24,12 +24,6 @@ struct Available {
     size_t vin_left{0};
     size_t tx_count;
     Available(CTransactionRef& ref, size_t tx_count) : ref(ref), tx_count(tx_count){}
-    Available& operator=(Available other) {
-        ref = other.ref;
-        vin_left = other.vin_left;
-        tx_count = other.tx_count;
-        return *this;
-    }
 };
 
 static void ComplexMemPool(benchmark::State& state)
@@ -69,7 +63,7 @@ static void ComplexMemPool(benchmark::State& state)
                 tx.witness.vtxinwit.emplace_back();
                 tx.witness.vtxinwit.back().scriptWitness.stack.push_back(CScriptNum(coin.tx_count).getvch());
             }
-            if  (coin.vin_left == coin.ref->vin.size()) {
+            if (coin.vin_left == coin.ref->vin.size()) {
                 coin = available_coins.back();
                 available_coins.pop_back();
             }
