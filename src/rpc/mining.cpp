@@ -1345,7 +1345,7 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
 
     // Cached transactions
     std::vector<unsigned char> found_tx(ParseHex(request.params[2].get_str()));
-    CDataStream ssFound(block_tx, SER_NETWORK, PROTOCOL_VERSION);
+    CDataStream ssFound(found_tx, SER_NETWORK, PROTOCOL_VERSION);
 
     std::vector<CTransactionRef> found;
     ssFound >> found;
@@ -1357,10 +1357,21 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
     CTxMemPool dummy_pool;
     PartiallyDownloadedBlock partialBlock(&dummy_pool);
 
-    const std::vector<std::pair<uint256, CTransactionRef>> dummy;
+    // "Extra" list is really our combined list that will be put into place using InitData
+    std::vector<std::pair<uint256, CTransactionRef>> extra_txn;
+    for (const auto& found_tx : found) {
+        extra_txn.push_back(std::make_pair(found_tx->GetWitnessHash(), found_tx));
+    }
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
-    if (partialBlock.InitData(cmpctblock, dummy) != READ_STATUS_OK || partialBlock.FillBlock(*pblock, found, false /* pow_check*/) != READ_STATUS_OK) {
+    if (partialBlock.InitData(cmpctblock, extra_txn) != READ_STATUS_OK) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "compact_hex appears malformed.");
+    }
+    const std::vector<CTransactionRef> dummy_missing;
+    auto result = partialBlock.FillBlock(*pblock, dummy_missing, false /* pow_check*/);
+    if (result == READ_STATUS_FAILED) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found. Could be random short ID collision; requires full block instead.");
+    } else if (result != READ_STATUS_OK) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to complete block though all transactions were apparently found.");
     }
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
