@@ -4948,9 +4948,10 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     }
 
     FlatSigningProvider provider;
-    auto desc = Parse(bitcoin_desc, provider);
+    std::string error;
+    auto desc = Parse(bitcoin_desc, provider, error);
     if (!desc) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor is not a valid descriptor string.");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, error);
     } else if (!desc->IsRange()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor must be a ranged descriptor.");
     }
@@ -5203,7 +5204,8 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     }
 
     FlatSigningProvider provider;
-    const auto descriptor = Parse(pwallet->offline_desc, provider);
+    std::string error;
+    const auto descriptor = Parse(pwallet->offline_desc, provider, error);
 
     // If descriptor not previously set, generate it
     if (!descriptor) {

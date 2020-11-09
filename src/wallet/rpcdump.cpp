@@ -1106,9 +1106,10 @@ static UniValue ProcessImportDescriptor(ImportData& import_data, std::map<CKeyID
 
     const std::string& descriptor = data["desc"].get_str();
     FlatSigningProvider keys;
-    auto parsed_desc = Parse(descriptor, keys, /* require_checksum = */ true);
+    std::string error;
+    auto parsed_desc = Parse(descriptor, keys, error, /* require_checksum = */ true);
     if (!parsed_desc) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Descriptor is invalid");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, error);
     }
 
     have_solving_data = parsed_desc->IsSolvable();
@@ -1527,7 +1528,8 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
     const std::string desc_str = pwallet->offline_desc;
 
     FlatSigningProvider provider;
-    const auto& desc = Parse(desc_str, provider);
+    std::string error;
+    const auto& desc = Parse(desc_str, provider, error);
 
     ret.pushKV("bitcoin_descriptor", desc_str);
     ret.pushKV("liquid_pak", HexStr(pwallet->online_key));
