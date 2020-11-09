@@ -5214,7 +5214,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     //amount
     CAmount nAmount = AmountFromValue(request.params[1]);
     if (nAmount < 100000)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount for send, must send more than 0.0001 BTC");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount for send, must send more than 0.00100000 BTC");
 
     bool subtract_fee = false;
     if (request.params.size() > 2) {
