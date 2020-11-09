@@ -589,12 +589,13 @@ static UniValue echo(const JSONRPCRequest& request)
 
 UniValue tweakfedpegscript(const JSONRPCRequest& request)
 {
-    if (request.fHelp || request.params.size() != 1)
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
         throw std::runtime_error(
             RPCHelpMan{"tweakfedpegscript",
                 "\nReturns a tweaked fedpegscript.\n",
                 {
                     {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress."},
+                    {"fedpegscript", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED_NAMED_ARG, "Fedpegscript to be used with the claim_script. By default this is the current fedpegscript."},
                 },
                 RPCResult{
             "{\n"
@@ -609,11 +610,21 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
     }
 
+    CScript fedpegscript = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */).front().second;
+
+    if (!request.params[1].isNull()) {
+        if (IsHex(request.params[1].get_str())) {
+            std::vector<unsigned char> fedpeg_byte = ParseHex(request.params[1].get_str());
+            fedpegscript = CScript(fedpeg_byte.begin(), fedpeg_byte.end());
+        } else {
+            throw JSONRPCError(RPC_TYPE_ERROR, "fedpegscript must be a hex string");
+        }
+    }
+
     std::vector<unsigned char> scriptData = ParseHex(request.params[0].get_str());
     CScript claim_script = CScript(scriptData.begin(), scriptData.end());
 
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
-    CScript tweaked_script = calculate_contract(fedpegscripts.front().second, claim_script);
+    CScript tweaked_script = calculate_contract(fedpegscript, claim_script);
     CTxDestination parent_addr(ScriptHash(GetScriptForWitness(tweaked_script)));
 
     UniValue ret(UniValue::VOBJ);
@@ -804,7 +815,7 @@ static const CRPCCommand commands[] =
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
     // ELEMENTS:
     { "util",               "getpakinfo",             &getpakinfo,             {}},
-    { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script"} },
+    { "util",               "tweakfedpegscript",      &tweakfedpegscript,      {"claim_script", "fedpegscript"} },
     { "util",               "createblindedaddress",   &createblindedaddress,   {"address", "blinding_key"}},
     { "util",               "dumpassetlabels",        &dumpassetlabels,        {}},
     { "hidden",             "calcfastmerkleroot",     &calcfastmerkleroot,     {"leaves"} },
