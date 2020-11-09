@@ -201,6 +201,7 @@ jobs:
 
 # x86_64 Linux w/ Bitcoin functional tests (Qt5 & system libs)
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [bitcoin functional]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
@@ -213,6 +214,7 @@ jobs:
 
 # x86_64 Linux w/ single fedpeg test that uses upstream bitcoind as mainchain
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [bitcoind fedpeg test]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
@@ -225,6 +227,7 @@ jobs:
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no --disable-tests --disable-bench CPPFLAGS=-DDEBUG_LOCKORDER"
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests, LIQUID BUILD
     - stage: test
+      name: 'x86_64 Linux  [GOAL: install]  [liquid build]'
       env: >-
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
