@@ -312,7 +312,8 @@ time.sleep(5)
 signblockarg="-signblockscript=5221"+pubkey1+"21"+pubkey2+"52ae"
 # Anti-DoS argument, custom chain default is ~1 sig so let's make it at least 2 sigs
 blocksign_max_size="-con_max_block_sig_size=150"
-extra_args=signblockarg+" "+blocksign_max_size
+dyna_deploy_start="-con_dyna_deploy_start=0"
+extra_args=signblockarg+" "+blocksign_max_size+" "+dyna_deploy_start
 
 # Wipe out datadirs, start over
 shutil.rmtree(e1_datadir)
