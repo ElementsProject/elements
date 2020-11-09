@@ -13,7 +13,6 @@
 #include <outputtype.h>
 #include <policy/feerate.h>
 #include <script/sign.h>
-#include <streams.h>
 #include <tinyformat.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>

@@ -207,9 +207,6 @@ public:
             /* nTxCount */ 383732546,
             /* dTxRate  */ 3.685496590998308
         };
-
-        /* disable fallback fee on mainnet */
-        m_fallback_fee_enabled = false;
     }
 };
 
@@ -314,9 +311,6 @@ public:
             /* nTxCount */ 19438708,
             /* dTxRate  */ 0.626
         };
-
-        /* enable fallback fee on testnet */
-        m_fallback_fee_enabled = true;
     }
 };
 
@@ -410,9 +404,6 @@ public:
 
         bech32_hrp = "bcrt";
         blech32_hrp = blech32_hrp;
-
-        /* enable fallback fee on regtest */
-        m_fallback_fee_enabled = true;
     }
 
     /**
@@ -486,7 +477,6 @@ class CCustomParams : public CRegTestParams {
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
         m_is_test_chain = args.GetBoolArg("-fmineblocksondemand", m_is_test_chain);
-        m_fallback_fee_enabled = args.GetBoolArg("-fallback_fee_enabled", m_fallback_fee_enabled);
 
         bech32_hrp = args.GetArg("-bech32_hrp", "ert");
         blech32_hrp = args.GetArg("-blech32_hrp", "el");
@@ -658,7 +648,6 @@ public:
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
         m_is_test_chain = false;
-        m_fallback_fee_enabled = false; // TODO Will this break stuff?
 
         bech32_hrp = "ex"; // ex(plicit)
         blech32_hrp = "lq"; // l(i)q(uid)
