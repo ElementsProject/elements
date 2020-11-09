@@ -152,10 +152,7 @@ script: |
     make ${MAKEOPTS} -C src check-security
     make deploy
     make install DESTDIR=${INSTALLPATH}
-    (
-      SETUP_EXE="$(basename "$(echo ./*-setup.exe)")"
-      cp -f "$SETUP_EXE" "${OUTDIR}/${SETUP_EXE/%-setup.exe/-setup-unsigned.exe}"
-    )
+    cp -f --target-directory="${OUTDIR}" ./bitcoin-*-setup-unsigned.exe
     cd installed
     find ${DISTNAME}/bin -type f -executable -print0 | xargs -0 -n1 -I{} ../contrib/devtools/split-debug.sh {} {} {}.dbg
     cp ../doc/README_windows.txt ${DISTNAME}/readme.txt
