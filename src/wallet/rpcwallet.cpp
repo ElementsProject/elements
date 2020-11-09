@@ -4642,8 +4642,8 @@ UniValue signblock(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     uint256 hash = block.GetHash();
-    BlockMap::iterator mi = mapBlockIndex.find(hash);
-    if (mi != mapBlockIndex.end())
+    BlockMap::iterator mi = ::BlockIndex().find(hash);
+    if (mi != ::BlockIndex().end())
         throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
     CBlockIndex* const pindexPrev = ::ChainActive().Tip();
