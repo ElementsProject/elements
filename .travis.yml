@@ -128,17 +128,25 @@ jobs:
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests
     - stage: test
       env: >-
+<<<<<<< HEAD
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
         DEP_OPTS="NO_QT=1 NO_UPNP=1 DEBUG=1 ALLOW_HOST_PACKAGES=1"
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
         RUN_FUNCTIONAL_TESTS=false
-
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no unit tests
+||||||| 8021392b82
+        FILE_ENV="./ci/test/00_setup_env_amd64_qt5.sh"
+
+=======
+        FILE_ENV="./ci/test/00_setup_env_native_qt5.sh"
+
+>>>>>>> 9e0aabe50c
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [uses qt5 dev package instead of depends Qt to speed up build and avoid timeout]'
       env: >-
+<<<<<<< HEAD
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools protobuf-compiler libdbus-1-dev libharfbuzz-dev libprotobuf-dev"
         DEP_OPTS="NO_QT=1 NO_UPNP=1 DEBUG=1 ALLOW_HOST_PACKAGES=1"
@@ -146,10 +154,17 @@ jobs:
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
         RUN_UNIT_TESTS=false
 # x86_64 Linux (xenial, no depends, only system libs)
+||||||| 8021392b82
+        FILE_ENV="./ci/test/00_setup_env_amd64_trusty.sh"
 
+=======
+        FILE_ENV="./ci/test/00_setup_env_native_trusty.sh"
+
+>>>>>>> 9e0aabe50c
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no depends, only system libs, sanitizers: thread (TSan), no wallet]'
       env: >-
+<<<<<<< HEAD
         HOST=x86_64-unknown-linux-gnu
         DOCKER_NAME_TAG=ubuntu:16.04
         PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
@@ -157,10 +172,18 @@ jobs:
         RUN_FUNCTIONAL_TESTS=false
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --disable-wallet --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER --with-sanitizers=thread --disable-hardening --disable-asm CC=clang CXX=clang++"
+||||||| 8021392b82
+        FILE_ENV="./ci/test/00_setup_env_amd64_tsan.sh"
+        TEST_RUNNER_EXTRA="--exclude feature_block"  # Not enough memory on travis machines
+=======
+        FILE_ENV="./ci/test/00_setup_env_native_tsan.sh"
+        TEST_RUNNER_EXTRA="--exclude feature_block"  # Not enough memory on travis machines
+>>>>>>> 9e0aabe50c
 
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bionic]  [no depends, only system libs, sanitizers: address/leak (ASan + LSan) + undefined (UBSan) + integer]'
       env: >-
+<<<<<<< HEAD
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="clang llvm python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
         NO_DEPENDS=1
@@ -176,10 +199,16 @@ jobs:
         DEP_OPTS="NO_WALLET=1 NO_QT=1"
         GOAL="install"
         BITCOIN_CONFIG="--enable-glibc-back-compat --enable-reduce-exports"
+||||||| 8021392b82
+        FILE_ENV="./ci/test/00_setup_env_amd64_asan.sh"
+=======
+        FILE_ENV="./ci/test/00_setup_env_native_asan.sh"
+>>>>>>> 9e0aabe50c
 
     - stage: test
       name: 'macOS 10.10  [GOAL: deploy] [no functional tests]'
       env: >-
+<<<<<<< HEAD
         HOST=x86_64-apple-darwin14
         PACKAGES="cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
         OSX_SDK=10.11
@@ -187,11 +216,17 @@ jobs:
         RUN_FUNCTIONAL_TESTS=false
         GOAL="deploy"
         BITCOIN_CONFIG="--enable-gui --enable-reduce-exports --enable-werror"
+||||||| 8021392b82
+        FILE_ENV="./ci/test/00_setup_env_amd64_fuzz.sh"
+=======
+        FILE_ENV="./ci/test/00_setup_env_native_fuzz.sh"
+>>>>>>> 9e0aabe50c
 
 # x86_64 Linux w/ Bitcoin functional tests (Qt5 & system libs)
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bitcoin functional]'
       env: >-
+<<<<<<< HEAD
         HOST=x86_64-unknown-linux-gnu
         PACKAGES="python3-zmq qtbase5-dev qttools5-dev-tools libssl1.0-dev libevent-dev bsdmainutils libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libdb5.3++-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler libqrencode-dev"
         NO_DEPENDS=1
@@ -200,6 +235,11 @@ jobs:
         RUN_FUNCTIONAL_TESTS=false
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER"
+||||||| 8021392b82
+        FILE_ENV="./ci/test/00_setup_env_amd64_nowallet.sh"
+=======
+        FILE_ENV="./ci/test/00_setup_env_native_nowallet.sh"
+>>>>>>> 9e0aabe50c
 
 # x86_64 Linux w/ single fedpeg test that uses upstream bitcoind as mainchain
     - stage: test
@@ -214,7 +254,6 @@ jobs:
         RUN_FEDPEG_BITCOIND_TEST=true
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=no --disable-tests --disable-bench CPPFLAGS=-DDEBUG_LOCKORDER"
-
 # x86_64 Linux (uses qt5 dev package instead of depends Qt to speed up build and avoid timeout), no functional tests, LIQUID BUILD
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [liquid build]'
@@ -225,6 +264,7 @@ jobs:
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug --enable-liquid CXXFLAGS=\"-g0 -O2\""
         RUN_FUNCTIONAL_TESTS=false
+
         FILE_ENV="./ci/test/00_setup_env_mac.sh"
 
     - stage: test
