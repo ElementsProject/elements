@@ -103,7 +103,6 @@ protected:
     void closeEvent(QCloseEvent *event);
     void showEvent(QShowEvent *event);
     void dragEnterEvent(QDragEnterEvent *event);
-    void dropEvent(QDropEvent *event);
     bool eventFilter(QObject *object, QEvent *event);
 
 private:
@@ -201,8 +200,6 @@ private:
     void openOptionsDialogWithTab(OptionsDialog::Tab tab);
 
 Q_SIGNALS:
-    /** Signal raised when a URI was entered or dragged to the GUI */
-    void receivedURI(const QString &uri);
     /** Signal raised when RPC console shown */
     void consoleShown(RPCConsole* console);
 
@@ -271,8 +268,6 @@ public Q_SLOTS:
     /** Show Sign/Verify Message dialog and switch to verify message tab */
     void gotoVerifyMessageTab(QString addr = "");
 
-    /** Show open dialog */
-    void openClicked();
 #endif // ENABLE_WALLET
     /** Show configuration dialog */
     void optionsClicked();

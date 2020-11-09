@@ -329,9 +329,6 @@ void BitcoinGUI::createActions()
     usedReceivingAddressesAction = new QAction(tr("&Receiving addresses"), this);
     usedReceivingAddressesAction->setStatusTip(tr("Show the list of used receiving addresses and labels"));
 
-    openAction = new QAction(tr("Open &URI..."), this);
-    openAction->setStatusTip(tr("Open a payment request"));
-
     m_open_wallet_action = new QAction(tr("Open Wallet"), this);
     m_open_wallet_action->setEnabled(false);
     m_open_wallet_action->setStatusTip(tr("Open a wallet"));
@@ -369,7 +366,6 @@ void BitcoinGUI::createActions()
         connect(verifyMessageAction, &QAction::triggered, [this]{ gotoVerifyMessageTab(); });
         connect(usedSendingAddressesAction, &QAction::triggered, walletFrame, &WalletFrame::usedSendingAddresses);
         connect(usedReceivingAddressesAction, &QAction::triggered, walletFrame, &WalletFrame::usedReceivingAddresses);
-        connect(openAction, &QAction::triggered, this, &BitcoinGUI::openClicked);
         connect(m_open_wallet_menu, &QMenu::aboutToShow, [this] {
             m_open_wallet_menu->clear();
             for (const std::pair<const std::string, bool>& i : m_wallet_controller->listWalletDir()) {
@@ -433,7 +429,6 @@ void BitcoinGUI::createMenuBar()
         file->addAction(m_open_wallet_action);
         file->addAction(m_close_wallet_action);
         file->addSeparator();
-        file->addAction(openAction);
         file->addAction(backupWalletAction);
         file->addAction(signMessageAction);
         file->addAction(verifyMessageAction);
@@ -702,7 +697,6 @@ void BitcoinGUI::setWalletActionsEnabled(bool enabled)
     verifyMessageAction->setEnabled(enabled);
     usedSendingAddressesAction->setEnabled(enabled);
     usedReceivingAddressesAction->setEnabled(enabled);
-    openAction->setEnabled(enabled);
     m_close_wallet_action->setEnabled(enabled);
 }
 
@@ -806,15 +800,6 @@ void BitcoinGUI::showHelpMessageClicked()
 }
 
 #ifdef ENABLE_WALLET
-void BitcoinGUI::openClicked()
-{
-    OpenURIDialog dlg(this);
-    if(dlg.exec())
-    {
-        Q_EMIT receivedURI(dlg.getURI());
-    }
-}
-
 void BitcoinGUI::gotoOverviewPage()
 {
     overviewAction->setChecked(true);
@@ -1164,18 +1149,6 @@ void BitcoinGUI::dragEnterEvent(QDragEnterEvent *event)
     // Accept only URIs
     if(event->mimeData()->hasUrls())
         event->acceptProposedAction();
-}
-
-void BitcoinGUI::dropEvent(QDropEvent *event)
-{
-    if(event->mimeData()->hasUrls())
-    {
-        for (const QUrl &uri : event->mimeData()->urls())
-        {
-            Q_EMIT receivedURI(uri.toString());
-        }
-    }
-    event->acceptProposedAction();
 }
 
 bool BitcoinGUI::eventFilter(QObject *object, QEvent *event)

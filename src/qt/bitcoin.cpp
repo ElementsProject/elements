@@ -22,7 +22,6 @@
 #include <qt/winshutdownmonitor.h>
 
 #ifdef ENABLE_WALLET
-#include <qt/paymentserver.h>
 #include <qt/walletcontroller.h>
 #include <qt/walletmodel.h>
 #endif // ENABLE_WALLET
@@ -216,13 +215,6 @@ BitcoinApplication::~BitcoinApplication()
     platformStyle = nullptr;
 }
 
-#ifdef ENABLE_WALLET
-void BitcoinApplication::createPaymentServer()
-{
-    paymentServer = new PaymentServer(this);
-}
-#endif
-
 void BitcoinApplication::createOptionsModel(bool resetSettings)
 {
     optionsModel = new OptionsModel(m_node, nullptr, resetSettings);
@@ -335,14 +327,6 @@ void BitcoinApplication::initializeResult(bool success)
         if (WalletModel::isWalletEnabled()) {
             m_wallet_controller = new WalletController(m_node, platformStyle, optionsModel, this);
             window->setWalletController(m_wallet_controller);
-            if (paymentServer) {
-                paymentServer->setOptionsModel(optionsModel);
-#ifdef ENABLE_BIP70
-                PaymentServer::LoadRootCAs();
-                //TODO(stevenroose) fix
-                //connect(m_wallet_controller, &WalletController::coinsSent, paymentServer, &PaymentServer::fetchPaymentACK);
-#endif
-            }
         }
 #endif // ENABLE_WALLET
 
@@ -357,18 +341,6 @@ void BitcoinApplication::initializeResult(bool success)
         Q_EMIT splashFinished();
         Q_EMIT windowShown(window);
 
-#ifdef ENABLE_WALLET
-        // Now that initialization/startup is done, process any command-line
-        // bitcoin: URIs or payment requests:
-        if (paymentServer) {
-            connect(paymentServer, &PaymentServer::receivedPaymentRequest, window, &BitcoinGUI::handlePaymentRequest);
-            connect(window, &BitcoinGUI::receivedURI, paymentServer, &PaymentServer::handleURIOrFile);
-            connect(paymentServer, &PaymentServer::message, [this](const QString& title, const QString& message, unsigned int style) {
-                window->message(title, message, style);
-            });
-            QTimer::singleShot(100, paymentServer, &PaymentServer::uiReady);
-        }
-#endif
         pollShutdownTimer->start(200);
     } else {
         Q_EMIT splashFinished(); // Make sure splash screen doesn't stick around during shutdown
@@ -397,14 +369,10 @@ WId BitcoinApplication::getMainWinId() const
 
 static void SetupUIArgs()
 {
-#if defined(ENABLE_WALLET) && defined(ENABLE_BIP70)
-    gArgs.AddArg("-allowselfsignedrootcertificates", strprintf("Allow self signed root certificates (default: %u)", DEFAULT_SELFSIGNED_ROOTCERTS), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::GUI);
-#endif
     gArgs.AddArg("-choosedatadir", strprintf("Choose data directory on startup (default: %u)", DEFAULT_CHOOSE_DATADIR), ArgsManager::ALLOW_ANY, OptionsCategory::GUI);
     gArgs.AddArg("-lang=<lang>", "Set language, for example \"de_DE\" (default: system locale)", ArgsManager::ALLOW_ANY, OptionsCategory::GUI);
     gArgs.AddArg("-min", "Start minimized", ArgsManager::ALLOW_ANY, OptionsCategory::GUI);
     gArgs.AddArg("-resetguisettings", "Reset all settings changed in the GUI", ArgsManager::ALLOW_ANY, OptionsCategory::GUI);
-    gArgs.AddArg("-rootcertificates=<file>", "Set SSL root certificates for payment request (default: -system-)", ArgsManager::ALLOW_ANY, OptionsCategory::GUI);
     gArgs.AddArg("-splash", strprintf("Show splash screen on startup (default: %u)", DEFAULT_SPLASHSCREEN), ArgsManager::ALLOW_ANY, OptionsCategory::GUI);
     gArgs.AddArg("-uiplatform", strprintf("Select platform to customize UI for (one of windows, macosx, other; default: %s)", BitcoinGUI::DEFAULT_UIPLATFORM), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::GUI);
 }
@@ -522,10 +490,6 @@ int GuiMain(int argc, char* argv[])
         QMessageBox::critical(nullptr, PACKAGE_NAME, QObject::tr("Error: %1").arg(e.what()));
         return EXIT_FAILURE;
     }
-#ifdef ENABLE_WALLET
-    // Parse URIs on command line -- this can affect Params()
-    PaymentServer::ipcParseCommandLine(*node, argc, argv);
-#endif
 
     QScopedPointer<const NetworkStyle> networkStyle(NetworkStyle::instantiate(Params().NetworkIDString()));
     assert(!networkStyle.isNull());
@@ -534,22 +498,7 @@ int GuiMain(int argc, char* argv[])
     // Re-initialize translations after changing application name (language in network-specific settings can be different)
     initTranslations(qtTranslatorBase, qtTranslator, translatorBase, translator);
 
-#ifdef ENABLE_WALLET
-    /// 8. URI IPC sending
-    // - Do this early as we don't want to bother initializing if we are just calling IPC
-    // - Do this *after* setting up the data directory, as the data directory hash is used in the name
-    // of the server.
-    // - Do this after creating app and setting up translations, so errors are
-    // translated properly.
-    if (PaymentServer::ipcSendCommandLine())
-        exit(EXIT_SUCCESS);
-
-    // Start up the payment server early, too, so impatient users that click on
-    // bitcoin: links repeatedly have their payment requests routed to this process:
-    if (WalletModel::isWalletEnabled()) {
-        app.createPaymentServer();
-    }
-#endif // ENABLE_WALLET
+    /// 8. Payment server removed in Elements since we do not have "elements:" URIs
 
     /// 9. Main GUI initialization
     // Install global event filter that makes sure that long tooltips can be word-wrapped

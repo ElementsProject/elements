@@ -51,24 +51,6 @@ void WalletModelTransaction::reassignAmounts(const std::vector<CAmount>& outAmou
     {
         auto& rcp = (*it);
 
-#ifdef ENABLE_BIP70
-        if (rcp.paymentRequest.IsInitialized())
-        {
-            CAmount subtotal = 0;
-            const payments::PaymentDetails& details = rcp.paymentRequest.getDetails();
-            for (int j = 0; j < details.outputs_size(); j++)
-            {
-                const payments::Output& out = details.outputs(j);
-                if (out.amount() <= 0) continue;
-                if (i == nChangePosRet)
-                    i++;
-                subtotal += g_con_elementsmode ? outAmounts[i] : walletTransaction->vout[i].nValue.GetAmount();
-                i++;
-            }
-            rcp.asset_amount = subtotal;
-        }
-        else // normal recipient (no payment request)
-#endif
         {
             if (i == nChangePosRet)
                 i++;
