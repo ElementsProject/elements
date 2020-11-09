@@ -495,11 +495,11 @@ class CTTest (BitcoinTestFramework):
 
         # Create one part of the transaction to partially blind
         rawtx = self.nodes[0].createrawtransaction(
-            inputs, {dst_addr2: Decimal("0.01")})
+            inputs[:1], {dst_addr2: Decimal("0.01")})
 
         # Create another part of the transaction to partially blind
         rawtx2 = self.nodes[0].createrawtransaction(
-            inputs,
+            inputs[1:],
             {dst_addr: Decimal("0.1"), dst_addr3: Decimal("1.0")},
             0,
             False,
@@ -522,13 +522,13 @@ class CTTest (BitcoinTestFramework):
         # Combine the transactions
 
         # Blinded, but incomplete transaction.
-        # 3 inputs and 1 output, but no fee output, and
+        # 1 inputs and 1 output, but no fee output, and
         # it was blinded with 3 asset commitments, that means
         # the final transaction should have 3 inputs.
         btx = CTransaction()
         btx.deserialize(io.BytesIO(hex_str_to_bytes(blindtx)))
 
-        # Unblinded transaction, with 3 inputs and 2 outputs.
+        # Unblinded transaction, with 2 inputs and 2 outputs.
         # We will add them to the other transaction to make it complete.
         ubtx = CTransaction()
         ubtx.deserialize(io.BytesIO(hex_str_to_bytes(rawtx2)))
@@ -537,9 +537,11 @@ class CTTest (BitcoinTestFramework):
         # on top of inputs and outputs of the blinded, but incomplete transaction.
         # We also append empty witness instances to make witness arrays match
         # vin/vout arrays
+        btx.vin.append(ubtx.vin[0])
         btx.wit.vtxinwit.append(CTxInWitness())
         btx.vout.append(ubtx.vout[0])
         btx.wit.vtxoutwit.append(CTxOutWitness())
+        btx.vin.append(ubtx.vin[1])
         btx.wit.vtxinwit.append(CTxInWitness())
         btx.vout.append(ubtx.vout[1])
         btx.wit.vtxoutwit.append(CTxOutWitness())
