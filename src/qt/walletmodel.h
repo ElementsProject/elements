@@ -64,8 +64,8 @@ public:
     CAmount amount;
     // If from a payment request, this is used for storing the memo
     QString message;
-    // Keep the payment request around as a seerialized string to ensure
-    // load/store is lossless
+    // Keep the payment request around as a serialized string to ensure
+    // load/store is lossless.
     std::string sPaymentRequest;
     // Empty if no authentication or invalid signature/cert/etc.
     QString authenticatedMerchant;
