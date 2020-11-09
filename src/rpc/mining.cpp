@@ -110,7 +110,6 @@ static UniValue getnetworkhashps(const JSONRPCRequest& request)
 
 static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, uint64_t nMaxTries)
 {
-    static const int nInnerLoopCount = 0x10000;
     int nHeightEnd = 0;
     int nHeight = 0;
 
@@ -134,14 +133,14 @@ static UniValue generateBlocks(const CScript& coinbase_script, int nGenerate, ui
         // Signed blocks have no PoW requirements, but merkle root computed above in
         // IncrementExtraNonce
         if (!g_signed_blocks) {
-            while (nMaxTries > 0 && pblock->nNonce < nInnerLoopCount && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus())) {
+            while (nMaxTries > 0 && pblock->nNonce < std::numeric_limits<uint32_t>::max() && !CheckProofOfWork(pblock->GetHash(), pblock->nBits, Params().GetConsensus()) && !ShutdownRequested()) {
                 ++pblock->nNonce;
                 --nMaxTries;
             }
             if (nMaxTries == 0) {
                 break;
             }
-            if (pblock->nNonce == nInnerLoopCount) {
+            if (pblock->nNonce == std::numeric_limits<uint32_t>::max()) {
                 continue;
             }
         }
