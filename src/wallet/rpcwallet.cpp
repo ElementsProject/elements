@@ -224,23 +224,12 @@ static UniValue getnewaddress(const JSONRPCRequest& request)
         }
     }
 
-    if (!pwallet->IsLocked()) {
-        pwallet->TopUpKeyPool();
+    CTxDestination dest;
+    std::string error;
+    bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
+    if (!pwallet->GetNewDestination(output_type, label, dest, error, add_blinding_key)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
-
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    }
-    pwallet->LearnRelatedScripts(newKey, output_type);
-    CTxDestination dest = GetDestinationForKey(newKey, output_type);
-    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) || force_blind) {
-        CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
-        dest = GetDestinationForKey(newKey, output_type, blinding_pubkey);
-    }
-
-    pwallet->SetAddressBook(dest, label, "receive");
 
     return EncodeDestination(dest);
 }
@@ -275,10 +264,6 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: This wallet has no available keys");
     }
 
-    if (!pwallet->IsLocked()) {
-        pwallet->TopUpKeyPool();
-    }
-
     OutputType output_type = pwallet->m_default_change_type != OutputType::CHANGE_AUTO ? pwallet->m_default_change_type : pwallet->m_default_address_type;
     bool force_blind = false;
     if (!request.params[0].isNull()) {
@@ -291,20 +276,12 @@ static UniValue getrawchangeaddress(const JSONRPCRequest& request)
         }
     }
 
-    CReserveKey reservekey(pwallet);
-    CPubKey vchPubKey;
-    if (!reservekey.GetReservedKey(vchPubKey, true))
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-
-    reservekey.KeepKey();
-
-    pwallet->LearnRelatedScripts(vchPubKey, output_type);
-    CTxDestination dest = GetDestinationForKey(vchPubKey, output_type);
-    if (gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) || force_blind) {
-        CPubKey blinding_pubkey = pwallet->GetBlindingPubKey(GetScriptForDestination(dest));
-        dest = GetDestinationForKey(vchPubKey, output_type, blinding_pubkey);
+    CTxDestination dest;
+    std::string error;
+    bool add_blinding_key = force_blind || gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode);
+    if (!pwallet->GetNewChangeDestination(output_type, dest, error, add_blinding_key)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
-
     return EncodeDestination(dest);
 }
 
@@ -372,9 +349,9 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     std::vector<COutPoint> vPresetInputs;
     coin_control.ListSelected(vPresetInputs);
     int numReservedKeysNeeded = 2 + vPresetInputs.size(); // 1 fee + 1 destination
-    std::vector<std::unique_ptr<CReserveKey>> reserveKeys;
+    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
     for (int i = 0; i < numReservedKeysNeeded; ++i) {
-        reserveKeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+        reservedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
     }
 
     // Create and send the transaction
@@ -387,13 +364,13 @@ static CTransactionRef SendMoney(interfaces::Chain::Lock& locked_chain, CWallet 
     CTransactionRef tx;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
-    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, reserveKeys, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
+    if (!pwallet->CreateTransaction(locked_chain, vecSend, tx, reservedest, nFeeRequired, nChangePosRet, strError, coin_control, true, blind_details)) {
         if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
             strError = strprintf("Error: This transaction requires a transaction fee of at least %s", FormatMoney(nFeeRequired));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reserveKeys, state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, reservedest, state, blind_details)) {
         strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -1060,7 +1037,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
     std::shuffle(vecSend.begin(), vecSend.end(), FastRandomContext());
 
     // Send
-    std::vector<std::unique_ptr<CReserveKey>> change_keys;
+    std::vector<std::unique_ptr<ReserveDestination>> changedest;
 
     std::set<CAsset> setAssets;
     setAssets.insert(policyAsset);
@@ -1076,7 +1053,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
         }
     }
     for (unsigned int i = 0; i < setAssets.size(); i++) {
-        change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+        changedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
     }
 
     CAmount nFeeRequired = 0;
@@ -1087,12 +1064,12 @@ static UniValue sendmany(const JSONRPCRequest& request)
     if (g_con_elementsmode) {
         blind_details->ignore_blind_failure = ignore_blind_fail;
     }
-    bool fCreated = pwallet->CreateTransaction(*locked_chain, vecSend, tx, change_keys, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, blind_details);
+    bool fCreated = pwallet->CreateTransaction(*locked_chain, vecSend, tx, changedest, nFeeRequired, nChangePosRet, strFailReason, coin_control, true, blind_details);
     if (!fCreated) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, strFailReason);
     }
     CValidationState state;
-    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, change_keys, state, blind_details)) {
+    if (!pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, changedest, state, blind_details)) {
         strFailReason = strprintf("Transaction commit failed:: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strFailReason);
     }
@@ -4757,16 +4734,12 @@ UniValue getpeginaddress(const JSONRPCRequest& request)
         pwallet->TopUpKeyPool();
     }
 
-    // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    }
-
     // Use native witness destination
-    CTxDestination dest = GetDestinationForKey(newKey, OutputType::BECH32);
-
-    pwallet->SetAddressBook(dest, "", "receive");
+    CTxDestination dest;
+    std::string error;
+    if (!pwallet->GetNewDestination(OutputType::BECH32, "", dest, error)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+    }
 
     CScript dest_script = GetScriptForDestination(dest);
 
@@ -4861,11 +4834,9 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     // Generate a new key that is added to wallet or set from argument
     CPubKey online_pubkey;
     if (request.params.size() < 3) {
-        if (!pwallet->GetKeyFromPool(online_pubkey)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-        }
-        if (!pwallet->SetOnlinePubKey(online_pubkey)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Error: Could not write liquid_pak to wallet.");
+        std::string error;
+        if (!pwallet->GetOnlinePakKey(online_pubkey, error)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
         }
     } else {
         online_pubkey = CPubKey(ParseHex(request.params[2].get_str()));
@@ -5451,12 +5422,11 @@ static UniValue createrawpegin(const JSONRPCRequest& request, T_tx_ref& txBTCRef
         pwallet->TopUpKeyPool();
 
     // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey))
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
-    WitnessV0KeyHash wpkhash(newKey.GetID());
-
-    pwallet->SetAddressBook(wpkhash, "", "receive");
+    CTxDestination wpkhash;
+    std::string error;
+    if (!pwallet->GetNewDestination(OutputType::BECH32, "", wpkhash, error)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
+    }
 
     // One peg-in input, one wallet output and one fee output
     CMutableTransaction mtx;
@@ -5610,9 +5580,9 @@ UniValue claimpegin(const JSONRPCRequest& request)
     // Send it
     CValidationState state;
     mapValue_t mapValue;
-    std::vector<std::unique_ptr<CReserveKey>> reservekeys;
-    reservekeys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
-    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservekeys, state)) {
+    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
+    reservedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
+    if (!pwallet->CommitTransaction(MakeTransactionRef(mtx), mapValue, {} /* orderForm */, reservedest, state)) {
         std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(state));
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
@@ -5963,9 +5933,9 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     }
 
     // Might need up to 3 change keys: policyAsset, asset, and reissuance token
-    std::vector<std::unique_ptr<CReserveKey>> change_keys;
+    std::vector<std::unique_ptr<ReserveDestination>> change_keys;
     for (unsigned int i = 0; i < 3; i++) {
-        change_keys.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(pwallet)));
+        change_keys.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(pwallet)));
     }
 
     std::vector<CRecipient> vecSend;
@@ -6061,6 +6031,7 @@ UniValue issueasset(const JSONRPCRequest& request)
         pwallet->TopUpKeyPool();
 
     // Generate a new key that is added to wallet
+    std::string error;
     CPubKey newKey;
     CTxDestination asset_dest;
     CTxDestination token_dest;
@@ -6068,19 +6039,15 @@ UniValue issueasset(const JSONRPCRequest& request)
     CPubKey token_dest_blindpub;
 
     if (nAmount > 0) {
-        if (!pwallet->GetKeyFromPool(newKey)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        if (!pwallet->GetNewDestination(OutputType::LEGACY, "", asset_dest, error)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
         }
-        asset_dest = PKHash(newKey.GetID());
-        pwallet->SetAddressBook(asset_dest, "", "receive");
         asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
     }
     if (nTokens > 0) {
-        if (!pwallet->GetKeyFromPool(newKey)) {
-            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+        if (!pwallet->GetNewDestination(OutputType::LEGACY, "", token_dest, error)) {
+            throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
         }
-        token_dest = PKHash(newKey.GetID());
-        pwallet->SetAddressBook(token_dest, "", "receive");
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
 
@@ -6174,21 +6141,18 @@ UniValue reissueasset(const JSONRPCRequest& request)
     }
 
     // Add destination for the to-be-created asset
-    CPubKey newAssetKey;
-    if (!pwallet->GetKeyFromPool(newAssetKey)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    std::string error;
+    CTxDestination asset_dest;
+    if (!pwallet->GetNewDestination(OutputType::LEGACY, "", asset_dest, error)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
-    CTxDestination asset_dest = PKHash(newAssetKey.GetID());
-    pwallet->SetAddressBook(asset_dest, "", "receive");
     CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
 
     // Add destination for tokens we are moving
-    CPubKey newTokenKey;
-    if (!pwallet->GetKeyFromPool(newTokenKey)) {
-        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    CTxDestination token_dest;
+    if (!pwallet->GetNewDestination(OutputType::LEGACY, "", token_dest, error)) {
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
-    CTxDestination token_dest = PKHash(newTokenKey.GetID());
-    pwallet->SetAddressBook(token_dest, "", "receive");
     CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
 
     // Attempt a send.

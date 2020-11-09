@@ -36,7 +36,7 @@ namespace {
 class PendingWalletTxImpl : public PendingWalletTx
 {
 public:
-    explicit PendingWalletTxImpl(CWallet& wallet) : m_wallet(wallet) { m_keys.reserve(1); m_keys.emplace_back(new CReserveKey(&wallet)); }
+    explicit PendingWalletTxImpl(CWallet& wallet) : m_wallet(wallet) { m_dests.reserve(1); m_dests.emplace_back(new ReserveDestination(&wallet)); }
 
     const CTransaction& get() override { return *m_tx; }
 
@@ -47,7 +47,7 @@ public:
         auto locked_chain = m_wallet.chain().lock();
         LOCK(m_wallet.cs_wallet);
         CValidationState state;
-        if (!m_wallet.CommitTransaction(m_tx, std::move(value_map), std::move(order_form), m_keys, state, g_con_elementsmode ? &m_blind_details : nullptr)) {
+        if (!m_wallet.CommitTransaction(m_tx, std::move(value_map), std::move(order_form), m_dests, state, g_con_elementsmode ? &m_blind_details : nullptr)) {
             reject_reason = state.GetRejectReason();
             return false;
         }
@@ -57,7 +57,7 @@ public:
     BlindDetails m_blind_details;
     CTransactionRef m_tx;
     CWallet& m_wallet;
-    std::vector<std::unique_ptr<CReserveKey>> m_keys;
+    std::vector<std::unique_ptr<ReserveDestination>> m_dests;
 };
 
 //! Construct wallet tx struct.
@@ -153,9 +153,11 @@ public:
     void abortRescan() override { m_wallet->AbortRescan(); }
     bool backupWallet(const std::string& filename) override { return m_wallet->BackupWallet(filename); }
     std::string getWalletName() override { return m_wallet->GetName(); }
-    bool getKeyFromPool(bool internal, CPubKey& pub_key) override
+    bool getNewDestination(const OutputType type, const std::string label, CTxDestination& dest, bool add_blinding_key = false) override
     {
-        return m_wallet->GetKeyFromPool(pub_key, internal);
+        LOCK(m_wallet->cs_wallet);
+        std::string error;
+        return m_wallet->GetNewDestination(type, label, dest, error, add_blinding_key);
     }
     bool getPubKey(const CKeyID& address, CPubKey& pub_key) override { return m_wallet->GetPubKey(address, pub_key); }
     bool getPrivKey(const CKeyID& address, CKey& key) override { return m_wallet->GetKey(address, key); }
@@ -200,10 +202,6 @@ public:
         return result;
     }
     void learnRelatedScripts(const CPubKey& key, OutputType type) override { m_wallet->LearnRelatedScripts(key, type); }
-    CPubKey getBlindingPubKey(const CScript& script) override
-    {
-        return m_wallet->GetBlindingPubKey(script);
-    }
     bool addDestData(const CTxDestination& dest, const std::string& key, const std::string& value) override
     {
         LOCK(m_wallet->cs_wallet);
@@ -259,10 +257,10 @@ public:
         std::set<CAsset> assets_seen;
         for (const auto& rec : recipients) {
             if (assets_seen.insert(rec.asset).second) {
-                pending->m_keys.emplace_back(new CReserveKey(&*m_wallet));
+                pending->m_dests.emplace_back(new ReserveDestination(&*m_wallet));
             }
         }
-        if (!m_wallet->CreateTransaction(*locked_chain, recipients, pending->m_tx, pending->m_keys, fee, change_pos,
+        if (!m_wallet->CreateTransaction(*locked_chain, recipients, pending->m_tx, pending->m_dests, fee, change_pos,
                 fail_reason, coin_control, sign)) {
             return {};
         }

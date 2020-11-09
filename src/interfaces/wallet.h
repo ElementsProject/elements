@@ -79,8 +79,8 @@ public:
     //! Get wallet name.
     virtual std::string getWalletName() = 0;
 
-    // Get key from pool.
-    virtual bool getKeyFromPool(bool internal, CPubKey& pub_key) = 0;
+    // Get a new address.
+    virtual bool getNewDestination(const OutputType type, const std::string label, CTxDestination& dest, bool add_blinding_key = false) = 0;
 
     //! Get public key.
     virtual bool getPubKey(const CKeyID& address, CPubKey& pub_key) = 0;
@@ -112,9 +112,6 @@ public:
     //! Add scripts to key store so old so software versions opening the wallet
     //! database can detect payments to newer address types.
     virtual void learnRelatedScripts(const CPubKey& key, OutputType type) = 0;
-
-    //! Get blinding pubkey for script
-    virtual CPubKey getBlindingPubKey(const CScript& script) = 0;
 
     //! Add dest data.
     virtual bool addDestData(const CTxDestination& dest, const std::string& key, const std::string& value) = 0;

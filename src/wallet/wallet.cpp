@@ -2779,7 +2779,6 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
 {
     std::vector<CRecipient> vecSend;
     std::set<CAsset> setAssets;
-    std::vector<std::unique_ptr<CReserveKey>> vChangeKey;
 
     // Turn the txout set into a CRecipient vector.
     for (size_t idx = 0; idx < tx.vout.size(); idx++) {
@@ -2825,14 +2824,15 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     }
 
     // Then reserve a key for each asset. Account for policyAsset always.
+    std::vector<std::unique_ptr<ReserveDestination>> reservedest;
     setAssets.insert(::policyAsset);
     for (size_t i = 0; i < setAssets.size(); ++i) {
-        vChangeKey.push_back(std::unique_ptr<CReserveKey>(new CReserveKey(this)));
+        reservedest.push_back(std::unique_ptr<ReserveDestination>(new ReserveDestination(this)));
     }
 
     CTransactionRef tx_new;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
-    if (!CreateTransaction(*locked_chain, vecSend, tx_new, vChangeKey, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
+    if (!CreateTransaction(*locked_chain, vecSend, tx_new, reservedest, nFeeRet, nChangePosInOut, strFailReason, coinControl, false, blind_details)) {
         return false;
     }
 
@@ -2867,8 +2867,8 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
     }
 
     // Mark all un-returned change keys as used to reduce privacy loss
-    for (auto& changekey : vChangeKey) {
-        changekey->KeepKey();
+    for (auto& reservedest_ : reservedest) {
+        reservedest_->KeepDestination();
     }
 
     return true;
@@ -3059,7 +3059,7 @@ bool fillBlindDetails(BlindDetails* det, CWallet* wallet, CMutableTransaction& t
     return true;
 }
 
-bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<CReserveKey>>& reserveKeys, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
+bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSend, CTransactionRef& tx, std::vector<std::unique_ptr<ReserveDestination>>& reservedest, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, const CCoinControl& coin_control, bool sign, BlindDetails* blind_details, const IssuanceDetails* issuance_details) {
     if (blind_details || issuance_details) {
         assert(g_con_elementsmode);
     }
@@ -3112,7 +3112,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         std::vector<CInputCoin> selected_coins;
 
         // A map that keeps track of the change script for each asset and also
-        // the index of the reserveKeys used for that script (-1 if none).
+        // the index of the reservedest used for that script (-1 if none).
         std::map<CAsset, std::pair<int, CScript>> mapScriptChange;
 
         auto locked_chain = chain().lock();
@@ -3146,15 +3146,13 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 // One change script per output asset.
                 size_t index = 0;
                 for (const auto& value : mapValue) {
-                    CPubKey vchPubKey;
-                    if (index >= reserveKeys.size() || !reserveKeys[index]->GetReservedKey(vchPubKey, true)) {
+                    CTxDestination dest;
+                    if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(change_type, dest, true)) {
                         strFailReason = _("Keypool ran out, please call keypoolrefill first");
                         return false;
                     }
 
-                    LearnRelatedScripts(vchPubKey, change_type);
-                    mapScriptChange[value.first] = std::pair<int, CScript>(index,
-                            GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type)));
+                    mapScriptChange[value.first] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
                     ++index;
                 }
 
@@ -3174,15 +3172,13 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                         continue;
                     }
 
-                    CPubKey vchPubKey;
-                    if (index >= reserveKeys.size() || !reserveKeys[index]->GetReservedKey(vchPubKey, true)) {
+                    CTxDestination dest;
+                    if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(change_type, dest, true)) {
                         strFailReason = _("Keypool ran out, please call keypoolrefill first");
                         return false;
                     }
 
-                    LearnRelatedScripts(vchPubKey, change_type);
-                    mapScriptChange[asset] = std::pair<int, CScript>(index,
-                            GetScriptForDestination(GetDestinationForKey(vchPubKey, change_type)));
+                    mapScriptChange[asset] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
                     ++index;
                 }
             }
@@ -3663,7 +3659,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             }
         }
 
-        // Release any change keys that we didn't use.
+        // Release any change destinations that we didn't use.
         for (const std::pair<CAsset, std::pair<int, CScript>>& it : mapScriptChange) {
             int index = it.second.first;
             if (index < 0) {
@@ -3671,7 +3667,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             }
 
             if (vChangePosInOut.find(it.first) == vChangePosInOut.end()) {
-                reserveKeys[index]->ReturnKey();
+                reservedest[index]->ReturnDestination();
             }
         }
 
@@ -3794,7 +3790,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 /**
  * Call after CreateTransaction unless you want to abort
  */
-bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<CReserveKey>>& reservekeys, CValidationState& state, const BlindDetails* blind_details)
+bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::vector<std::unique_ptr<ReserveDestination>>& reservedest, CValidationState& state, const BlindDetails* blind_details)
 {
     {
         auto locked_chain = chain().lock();
@@ -3819,8 +3815,8 @@ bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::ve
         WalletLogPrintf("CommitTransaction:\n%s", wtxNew.tx->ToString()); /* Continued */
         {
             // Take key pair from key pool so it won't be used again
-            for (auto& reservekey : reservekeys) {
-                reservekey->KeepKey();
+            for (auto& reservedest_ : reservedest) {
+                reservedest_->KeepDestination();
             }
 
             // Add tx to wallet, because if it has change it's also ours,
@@ -4226,6 +4222,63 @@ bool CWallet::GetKeyFromPool(CPubKey& result, bool internal)
     return true;
 }
 
+/// ELEMENTS: get PAK online key
+bool CWallet::GetOnlinePakKey(CPubKey& online_pubkey, std::string& error)
+{
+    if (!GetKeyFromPool(online_pubkey)) {
+        error = "Error: Keypool ran out, please call keypoolrefill first";
+        return false;
+    }
+    return true;
+}
+/// end ELEMENTS
+
+bool CWallet::GetNewDestination(const OutputType type, const std::string label, CTxDestination& dest, std::string& error, bool add_blinding_key)
+{
+    LOCK(cs_wallet);
+    error.clear();
+    if (!IsLocked()) {
+        TopUpKeyPool();
+    }
+
+    // Generate a new key that is added to wallet
+    CPubKey new_key;
+    if (!GetKeyFromPool(new_key)) {
+        error = "Error: Keypool ran out, please call keypoolrefill first";
+        return false;
+    }
+    LearnRelatedScripts(new_key, type);
+    dest = GetDestinationForKey(new_key, type);
+    if (add_blinding_key) {
+        CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
+        dest = GetDestinationForKey(new_key, type, blinding_pubkey);
+    }
+
+    SetAddressBook(dest, label, "receive");
+    return true;
+}
+
+bool CWallet::GetNewChangeDestination(const OutputType type, CTxDestination& dest, std::string& error, bool add_blinding_key)
+{
+    error.clear();
+    if (!IsLocked()) {
+        TopUpKeyPool();
+    }
+
+    ReserveDestination reservedest(this);
+    if (!reservedest.GetReservedDestination(type, dest, true)) {
+        error = "Error: Keypool ran out, please call keypoolrefill first";
+        return false;
+    }
+    if (add_blinding_key) {
+        CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
+        reservedest.SetBlindingPubKey(type, blinding_pubkey, dest);
+    }
+
+    reservedest.KeepDestination();
+    return true;
+}
+
 static int64_t GetOldestKeyTimeInPool(const std::set<int64_t>& setKeyPool, WalletBatch& batch) {
     if (setKeyPool.empty()) {
         return GetTime();
@@ -4409,7 +4462,7 @@ std::set<CTxDestination> CWallet::GetLabelAddresses(const std::string& label) co
     return result;
 }
 
-bool CReserveKey::GetReservedKey(CPubKey& pubkey, bool internal)
+bool ReserveDestination::GetReservedDestination(const OutputType type, CTxDestination& dest, bool internal)
 {
     if (!pwallet->CanGetAddresses(internal)) {
         return false;
@@ -4425,25 +4478,35 @@ bool CReserveKey::GetReservedKey(CPubKey& pubkey, bool internal)
         fInternal = keypool.fInternal;
     }
     assert(vchPubKey.IsValid());
-    pubkey = vchPubKey;
+    pwallet->LearnRelatedScripts(vchPubKey, type);
+    address = GetDestinationForKey(vchPubKey, type);
+    dest = address;
     return true;
 }
 
-void CReserveKey::KeepKey()
+void ReserveDestination::SetBlindingPubKey(const OutputType type, const CPubKey& blinding_pubkey, CTxDestination& dest)
+{
+    address = GetDestinationForKey(vchPubKey, type, blinding_pubkey);
+    dest = address;
+}
+
+void ReserveDestination::KeepDestination()
 {
     if (nIndex != -1)
         pwallet->KeepKey(nIndex);
     nIndex = -1;
     vchPubKey = CPubKey();
+    address = CNoDestination();
 }
 
-void CReserveKey::ReturnKey()
+void ReserveDestination::ReturnDestination()
 {
     if (nIndex != -1) {
         pwallet->ReturnKey(nIndex, fInternal, vchPubKey);
     }
     nIndex = -1;
     vchPubKey = CPubKey();
+    address = CNoDestination();
 }
 
 void CWallet::MarkReserveKeysAsUsed(int64_t keypool_id)
