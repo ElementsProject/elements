@@ -470,9 +470,15 @@ class CCustomParams : public CRegTestParams {
         consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
         // TODO: Embed in genesis block in nTime field with new genesis block type
         consensus.dynamic_epoch_length = args.GetArg("-dynamic_epoch_length", 10);
-        // TODO: pass in serialized vector of byte vectors, parse into extension space
-        // Junk keys for testing
+        // Default junk keys for testing
         consensus.first_extension_space = {ParseHex("02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
+        std::vector<std::string> pak_list_str = args.GetArgs("-pak");
+        if (!pak_list_str.empty()) {
+            consensus.first_extension_space.clear();
+            for (const auto& entry : pak_list_str) {
+                consensus.first_extension_space.push_back(ParseHex(entry));
+            }
+        }
 
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);

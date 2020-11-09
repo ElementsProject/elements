@@ -45,6 +45,7 @@ void SetupChainParamsBaseOptions()
 
     gArgs.AddArg("-fedpegscript", "The script for the federated peg enforce from genesis block. This script may stop being enforced once dynamic federations activates.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-enforce_pak", "Causes standardness checks to enforce Pegout Authorization Key(PAK) validation before dynamic federations, and consensus enforcement after.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
+    gArgs.AddArg("-pak", "Sets the 'first extension space' field to the pak entries ala pre-dynamic federations. Only used for testing in custom chains.", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-multi_data_permitted", "Allow relay of multiple OP_RETURN outputs. (default: -enforce_pak)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_csv_deploy_start", "Starting height for CSV deployment. (default: -1, which means ACTIVE from genesis)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
     gArgs.AddArg("-con_dyna_deploy_start", "Starting height for Dynamic Federations deployment. Once active, signblockscript becomes a BIP141 WSH scriptPubKey of the original signblockscript. All other dynamic parameters stay constant.(default: -1, which means ACTIVE from genesis)", ArgsManager::ALLOW_ANY, OptionsCategory::ELEMENTS);
