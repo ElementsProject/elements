@@ -20,7 +20,7 @@
 #include <util/rbf.h>
 #include <util/strencodings.h>
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out)
 {
     if (inputs_in.isNull() || outputs_in.isNull())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
@@ -124,6 +124,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
             CTxOut out(asset, 0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
+            if (output_pubkeys_out) {
+                output_pubkeys_out->push_back(CPubKey());
+            }
         } else if (name_ == "vdata") {
             // ELEMENTS: support multi-push OP_RETURN
             UniValue vdata = outputs[name_].get_array();
@@ -135,6 +138,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
             CTxOut out(asset, 0, datascript);
             rawTx.vout.push_back(out);
+            if (output_pubkeys_out) {
+                output_pubkeys_out->push_back(CPubKey());
+            }
         } else if (name_ == "fee") {
             // ELEMENTS: explicit fee outputs
             CAmount nAmount = AmountFromValue(outputs[name_]);
@@ -144,6 +150,9 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CAmount nAmount = AmountFromValue(outputs[name_]);
             CTxOut out(asset, nAmount, datascript);
             rawTx.vout.push_back(out);
+            if (output_pubkeys_out) {
+                output_pubkeys_out->push_back(CPubKey());
+            }
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
@@ -158,17 +167,27 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             CAmount nAmount = AmountFromValue(outputs[name_]);
 
             CTxOut out(asset, nAmount, scriptPubKey);
+            CPubKey blind_pub;
             if (IsBlindDestination(destination)) {
-                CPubKey blind_pub = GetDestinationBlindingKey(destination);
-                out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                blind_pub = GetDestinationBlindingKey(destination);
+                if (!output_pubkeys_out) {
+                    // Only use the pubkey-in-nonce hack if the caller is not getting the pubkeys the nice way.
+                    out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
+                }
             }
             rawTx.vout.push_back(out);
+            if (output_pubkeys_out) {
+                output_pubkeys_out->push_back(blind_pub);
+            }
         }
     }
 
     // Add fee output in the end.
     if (!fee_out.nValue.IsNull() && fee_out.nValue.GetAmount() > 0) {
         rawTx.vout.push_back(fee_out);
+        if (output_pubkeys_out) {
+            output_pubkeys_out->push_back(CPubKey());
+        }
     }
 
     if (!rbf.isNull() && rawTx.vin.size() > 0 && rbfOptIn != SignalsOptInRBF(CTransaction(rawTx))) {
@@ -177,6 +196,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
     return rawTx;
 }
+
 
 /** Pushes a JSON object for script verification or signing errors to vErrorsRet. */
 static void TxInErrorToJSON(const CTxIn& txin, const CTxInWitness& txinwit, UniValue& vErrorsRet, const std::string& strMessage)

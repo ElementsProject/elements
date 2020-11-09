@@ -485,7 +485,8 @@ class RawTransactionsTest(BitcoinTestFramework):
         rawtx = self.nodes[2].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[2].fundrawtransaction(rawtx)
 
-        signedTx = self.nodes[2].signrawtransactionwithwallet(fundedTx['hex'])
+        blindedTx = self.nodes[2].blindrawtransaction(fundedTx['hex'])
+        signedTx = self.nodes[2].signrawtransactionwithwallet(blindedTx)
         txId = self.nodes[2].sendrawtransaction(signedTx['hex'])
         self.sync_all()
         self.nodes[1].generate(1)

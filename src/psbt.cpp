@@ -4,6 +4,7 @@
 
 #include <psbt.h>
 #include <util/strencodings.h>
+#include <confidential_validation.h>
 
 #include <numeric>
 
@@ -154,6 +155,11 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (witness_script.empty() && !input.witness_script.empty()) witness_script = input.witness_script;
     if (final_script_sig.empty() && !input.final_script_sig.empty()) final_script_sig = input.final_script_sig;
     if (final_script_witness.IsNull() && !input.final_script_witness.IsNull()) final_script_witness = input.final_script_witness;
+
+    if (!value && input.value) value = input.value;
+    if (value_blinding_factor.IsNull() && !input.value_blinding_factor.IsNull()) value_blinding_factor = input.value_blinding_factor;
+    if (asset.IsNull() && !input.asset.IsNull()) asset = input.asset;
+    if (asset_blinding_factor.IsNull() && !input.asset_blinding_factor.IsNull()) asset_blinding_factor = input.asset_blinding_factor;
 }
 
 bool PSBTInput::IsSane() const
@@ -206,6 +212,15 @@ void PSBTOutput::Merge(const PSBTOutput& output)
 
     if (redeem_script.empty() && !output.redeem_script.empty()) redeem_script = output.redeem_script;
     if (witness_script.empty() && !output.witness_script.empty()) witness_script = output.witness_script;
+
+    if (!blinding_pubkey.IsValid() && output.blinding_pubkey.IsValid()) blinding_pubkey = output.blinding_pubkey;
+    if (value_commitment.IsNull() && !output.value_commitment.IsNull()) value_commitment = output.value_commitment;
+    if (value_blinding_factor.IsNull() && !output.value_blinding_factor.IsNull()) value_blinding_factor = output.value_blinding_factor;
+    if (asset_commitment.IsNull() && !output.asset_commitment.IsNull()) asset_commitment = output.asset_commitment;
+    if (asset_blinding_factor.IsNull() && !output.asset_blinding_factor.IsNull()) asset_blinding_factor = output.asset_blinding_factor;
+    if (nonce_commitment.IsNull() && !output.nonce_commitment.IsNull()) nonce_commitment = output.nonce_commitment;
+    if (range_proof.empty() && !output.range_proof.empty()) range_proof = output.range_proof;
+    if (surjection_proof.empty() && !output.surjection_proof.empty()) surjection_proof = output.surjection_proof;
 }
 bool PSBTInputSigned(const PSBTInput& input)
 {
@@ -244,7 +259,7 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     SignatureData sigdata;
     input.FillSignatureData(sigdata);
 
-    // Get UTXO
+    // Get UTXO for this input
     bool require_witness_sig = false;
     CTxOut utxo;
 
@@ -323,10 +338,35 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
     }
 
     result = *psbtx.tx;
+    result.witness.vtxinwit.resize(result.vin.size());
     for (unsigned int i = 0; i < result.vin.size(); ++i) {
         result.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
         result.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
     }
+
+    result.witness.vtxoutwit.resize(result.vout.size());
+    for (unsigned int i = 0; i < result.vout.size(); ++i) {
+        PSBTOutput& output = psbtx.outputs.at(i);
+        CTxOut& out = result.vout[i];
+        CTxOutWitness& outwit = result.witness.vtxoutwit[i];
+
+        if (!output.value_commitment.IsNull()) {
+            out.nValue = output.value_commitment;
+        }
+        if (!output.asset_commitment.IsNull()) {
+            out.nAsset = output.asset_commitment;
+        }
+        if (!output.nonce_commitment.IsNull()) {
+            out.nNonce = output.nonce_commitment;
+        }
+        if (!output.range_proof.empty()) {
+            outwit.vchRangeproof = output.range_proof;
+        }
+        if (!output.surjection_proof.empty()) {
+            outwit.vchSurjectionproof = output.surjection_proof;
+        }
+    }
+
     return true;
 }
 
@@ -357,6 +397,14 @@ std::string PSBTRoleName(PSBTRole role) {
     }
     assert(false);
 }
+
+std::string EncodePSBT(const PartiallySignedTransaction& psbt)
+{
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << psbt;
+    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
+}
+
 
 bool DecodeBase64PSBT(PartiallySignedTransaction& psbt, const std::string& base64_tx, std::string& error)
 {

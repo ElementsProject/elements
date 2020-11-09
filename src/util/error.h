@@ -28,6 +28,9 @@ enum class TransactionError {
     PSBT_MISMATCH,
     SIGHASH_MISMATCH,
     MAX_FEE_EXCEEDED,
+    BLINDING_REQUIRED,
+    VALUE_IMBALANCE,
+    UTXOS_MISSING_BALANCE_CHECK,
 };
 
 std::string TransactionErrorString(const TransactionError error);

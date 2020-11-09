@@ -6,6 +6,9 @@
 #define BITCOIN_RPC_RAWTRANSACTION_UTIL_H
 
 #include <map>
+#include <vector>
+
+#include <pubkey.h>
 
 class FillableSigningProvider;
 class UniValue;
@@ -27,6 +30,6 @@ class COutPoint;
 UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxs, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins, bool tempKeystore, const UniValue& hashType);
 
 /** Create a transaction from univalue parameters */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, const UniValue& rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out = nullptr);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_UTIL_H

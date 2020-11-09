@@ -9,6 +9,7 @@
 #include <issuance.h>
 #include <key_io.h>
 #include <script/script.h>
+#include <script/sign.h>
 #include <script/standard.h>
 #include <serialize.h>
 #include <streams.h>
@@ -326,15 +327,21 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             uint64_t minv;
             uint64_t maxv;
             const CTxOutWitness* ptxoutwit = tx.witness.vtxoutwit.size() <= i? NULL: &tx.witness.vtxoutwit[i];
-            if (ptxoutwit && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
-                if (exp == -1) {
-                    out.pushKV("value", ValueFromAmount((CAmount)minv));
-                } else {
-                    out.pushKV("value-minimum", ValueFromAmount((CAmount)minv));
-                    out.pushKV("value-maximum", ValueFromAmount((CAmount)maxv));
+            if (ptxoutwit) {
+                if (ptxoutwit->vchRangeproof.size() && secp256k1_rangeproof_info(secp256k1_blind_context, &exp, &mantissa, &minv, &maxv, &ptxoutwit->vchRangeproof[0], ptxoutwit->vchRangeproof.size())) {
+                    if (exp == -1) {
+                        out.pushKV("value", ValueFromAmount((CAmount)minv));
+                    } else {
+                        out.pushKV("value-minimum", ValueFromAmount((CAmount)minv));
+                        out.pushKV("value-maximum", ValueFromAmount((CAmount)maxv));
+                    }
+                    out.pushKV("ct-exponent", exp);
+                    out.pushKV("ct-bits", mantissa);
                 }
-                out.pushKV("ct-exponent", exp);
-                out.pushKV("ct-bits", mantissa);
+
+                if (ptxoutwit->vchSurjectionproof.size()) {
+                    out.pushKV("surjectionproof", HexStr(ptxoutwit->vchSurjectionproof));
+                }
             }
             out.pushKV("valuecommitment", txout.nValue.GetHex());
         }

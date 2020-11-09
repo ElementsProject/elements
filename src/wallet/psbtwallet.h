@@ -31,4 +31,8 @@ NODISCARD TransactionError FillPSBT(const CWallet* pwallet,
               bool sign = true,
               bool bip32derivs = false);
 
+
+NODISCARD TransactionError FillPSBTData(const CWallet* pwallet, PartiallySignedTransaction& psbtx, bool bip32derivs = false);
+NODISCARD TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false);
+
 #endif // BITCOIN_WALLET_PSBTWALLET_H

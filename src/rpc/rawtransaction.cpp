@@ -30,6 +30,7 @@
 #include <script/standard.h>
 #include <uint256.h>
 #include <util/moneystr.h>
+#include <util/rbf.h>
 #include <util/strencodings.h>
 #include <validation.h>
 #include <validationinterface.h>
@@ -677,9 +678,6 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
-    // Use CTransaction for the constant parts of the
-    // transaction to avoid rehashing.
-    const CTransaction txConst(mergedTx);
     // Sign what we can:
     for (unsigned int i = 0; i < mergedTx.vin.size(); i++) {
         CTxIn& txin = mergedTx.vin[i];
@@ -846,6 +844,16 @@ UniValue sendrawtransaction(const JSONRPCRequest& request)
         max_raw_tx_fee = fr.GetFee((weight+3)/4);
     }
 
+    for (const auto& out : tx->vout) {
+        // If we have a nonce, it could be a smuggled pubkey, or it could be a
+        //   proper nonce produced by blinding. In the latter case, the value
+        //   will always be blinded and not explicit. In the former case, we
+        //   error out because the transaction is not blinded properly.
+        if (!out.nNonce.IsNull() && out.nValue.IsExplicit()) {
+            throw JSONRPCError(RPC_TRANSACTION_ERROR, "Transaction output has nonce, but is not blinded. Did you forget to call blindpsbt, blindrawtranssaction, or rawblindrawtransaction?");
+        }
+    }
+
     uint256 txid;
     std::string err_string;
     const TransactionError err = BroadcastTransaction(tx, txid, err_string, max_raw_tx_fee);
@@ -968,8 +976,134 @@ static std::string WriteHDKeypath(std::vector<uint32_t>& keypath)
     return keypath_str;
 }
 
+UniValue blindpsbt(const JSONRPCRequest& request)
+{
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw std::runtime_error(
+            RPCHelpMan{"blindpsbt",
+                "\nUses the blinding data from the PSBT inputs to generate the blinding data for the PSBT outputs.\n",
+                {
+                    {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The PSBT base64 string"},
+                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default*/ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                },
+                RPCResult{
+                    "\"psbt\"       (string) The base64-encoded partially signed transaction\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("blindpsbt", "\"psbt\"")
+                    + HelpExampleRpc("blindpsbt", "\"psbt\"")
+                }
+            }.ToString()
+        );
+
+    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL}, true);
+
+    // Unserialize the transactions
+    PartiallySignedTransaction psbtx;
+    std::string error;
+    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
+        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
+    }
+
+    bool fIgnoreBlindFail = true;
+    if (!request.params[1].isNull()) {
+        fIgnoreBlindFail = request.params[1].get_bool();
+    }
+
+    // TODO(gwillen): Refactor out significant duplicated code between here and rawblindrawtransaction.
+
+    std::vector<CAmount> input_amounts;
+    std::vector<uint256> input_blinds;
+    std::vector<uint256> input_asset_blinds;
+    std::vector<CAsset> input_assets;
+    std::vector<uint256> output_value_blinds;
+    std::vector<uint256> output_asset_blinds;
+    std::vector<CAsset> output_assets;
+    std::vector<CPubKey> output_pubkeys;
+
+    int n_blinded_ins = 0;
+
+    // TODO(gwillen): If blinding is not possible due to missing input data, we should bail here with a useful error message.
+    for (const auto& input : psbtx.inputs) {
+        input_blinds.push_back(input.value_blinding_factor);
+        input_asset_blinds.push_back(input.asset_blinding_factor);
+        input_assets.push_back(input.asset);
+        input_amounts.push_back(input.value ? *input.value : CAmount(-1));
+
+        if (!input_blinds.back().IsNull()) {
+            n_blinded_ins++;
+        }
+    }
+
+    for (auto& output : psbtx.outputs) {
+        output_pubkeys.push_back(output.blinding_pubkey);
+    }
+
+    // How many are we trying to blind?
+    int num_pubkeys = 0;
+    unsigned int keyIndex = -1;
+    for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
+        const CPubKey& key = output_pubkeys[i];
+        if (key.IsValid()) {
+            num_pubkeys++;
+            keyIndex = i;
+        }
+    }
+
+    CMutableTransaction& tx = *psbtx.tx;
+
+    // TODO(gwillen): Replace all this with the 'bonus output' scheme to use an OP_RETURN to balance blinders, with a rangeproof exponent of -1 (public).
+    if (num_pubkeys == 0 && n_blinded_ins == 0) {
+        // Vacuous, just return the transaction
+        return EncodePSBT(psbtx);
+    } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
+        // No notion of wallet, cannot complete this blinding without passed-in pubkey
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
+    } else if (n_blinded_ins == 0 && num_pubkeys == 1) {
+        if (fIgnoreBlindFail) {
+            // Remove the pubkey to signal that blinding is complete
+            psbtx.outputs[keyIndex].blinding_pubkey = CPubKey();
+            return EncodePSBT(psbtx);
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
+        }
+    }
+
+    CMutableTransaction tx_tmp = tx;  // We don't want to mutate the transaction in the PSBT yet, just extract blinding data
+
+    // TODO(gwillen): Make this do something better than fail silently if there are any issuances, reissuances, pegins, etc.
+    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx_tmp);
+    if (ret != num_pubkeys) {
+        // TODO Have more rich return values, communicating to user what has been blinded
+        // User may be ok not blinding something that for instance has no corresponding type on input
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
+    }
+
+    for (size_t i = 0; i < psbtx.outputs.size(); ++i) {
+        PSBTOutput& o = psbtx.outputs[i];
+
+        o.value_commitment = tx_tmp.vout[i].nValue;
+        o.asset_commitment = tx_tmp.vout[i].nAsset;
+        o.nonce_commitment = tx_tmp.vout[i].nNonce;
+        o.value_blinding_factor = output_value_blinds[i];
+        o.asset_blinding_factor = output_asset_blinds[i];
+        o.range_proof = tx_tmp.witness.vtxoutwit[i].vchRangeproof;
+        o.surjection_proof = tx_tmp.witness.vtxoutwit[i].vchSurjectionproof;
+
+        o.blinding_pubkey = CPubKey();  // Once we're done blinding, remove the pubkeys to signal that it's complete
+    }
+
+    return EncodePSBT(psbtx);
+}
+
 UniValue decodepsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
             RPCHelpMan{"decodepsbt",
                 "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n",
                 {
@@ -1001,34 +1135,38 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "      \"partial_signatures\" : {             (json object, optional)\n"
             "        \"pubkey\" : \"signature\",           (string) The public key and signature that corresponds to it.\n"
             "        ,...\n"
-            "      }\n"
+            "      },\n"
             "      \"sighash\" : \"type\",                  (string, optional) The sighash type to be used\n"
             "      \"redeem_script\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "        }\n"
+            "        \"asm\" : \"asm\",            (string) The asm\n"
+            "        \"hex\" : \"hex\",            (string) The hex\n"
+            "        \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
+            "      },\n"
             "      \"witness_script\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "        }\n"
+            "        \"asm\" : \"asm\",            (string) The asm\n"
+            "        \"hex\" : \"hex\",            (string) The hex\n"
+            "        \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
+            "      },\n"
             "      \"bip32_derivs\" : {          (json object, optional)\n"
             "        \"pubkey\" : {                     (json object, optional) The public key with the derivation path as the value.\n"
             "          \"master_fingerprint\" : \"fingerprint\"     (string) The fingerprint of the master key\n"
             "          \"path\" : \"path\",                         (string) The path\n"
             "        }\n"
             "        ,...\n"
-            "      }\n"
-            "      \"final_scriptsig\" : {       (json object, optional)\n"
-            "          \"asm\" : \"asm\",            (string) The asm\n"
-            "          \"hex\" : \"hex\",            (string) The hex\n"
-            "        }\n"
-            "       \"final_scriptwitness\": [\"hex\", ...] (array of string) hex-encoded witness data (if any)\n"
-            "      \"unknown\" : {                (json object) The unknown global fields\n"
-            "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
-            "         ...\n"
             "      },\n"
+            "      \"final_scriptsig\" : {       (json object, optional)\n"
+            "        \"asm\" : \"asm\",            (string) The asm\n"
+            "        \"hex\" : \"hex\",            (string) The hex\n"
+            "      },\n"
+            "      \"final_scriptwitness\": [\"hex\", ...], (array of string) hex-encoded witness data (if any)\n"
+            "      \"value\": x.xxx,                      (numeric) The (unblinded) value of the input in " + CURRENCY_UNIT + "\n"
+            "      \"value_blinding_factor\": \"hex\" ,   (string) The value blinding factor from the output being spent\n"
+            "      \"asset\": \"hex\" ,                   (string) The (unblinded) asset id of the input\n"
+            "      \"asset_blinding_factor\": \"hex\" ,   (string) The asset blinding factor from the output being spent\n"
+            "      \"unknown\" : {                (json object) The unknown input fields\n"
+            "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
+            "        ...\n"
+            "      }\n"
             "    }\n"
             "    ,...\n"
             "  ]\n"
@@ -1053,7 +1191,14 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "        }\n"
             "        ,...\n"
             "      ],\n"
-            "      \"unknown\" : {                (json object) The unknown global fields\n"
+            "      \"value_commitment\": \"hex\" ,        (string) The blinded value of the output\n"
+            "      \"value_blinding_factor\": \"hex\" ,   (string) The value blinding factor for the output\n"
+            "      \"asset_commitment\": \"hex\" ,        (string) The blinded asset id of the output\n"
+            "      \"asset_blinding_factor\": \"hex\" ,   (string) The asset blinding factor for the output\n"
+            "      \"nonce_commitment\": \"hex\" ,        (string) The nonce for the output\n"
+            "      \"surjection_proof\": \"hex\" ,        (string) The surjection proof for the output\n"
+            "      \"blinding_pubkey\": \"hex\" ,         (string) The blinding pubkey for the output\n"
+            "      \"unknown\" : {                (json object) The unknown output fields\n"
             "        \"key\" : \"value\"            (key-value pair) An unknown key-value pair\n"
             "         ...\n"
             "      },\n"
@@ -1174,6 +1319,26 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             in.pushKV("final_scriptwitness", txinwitness);
         }
 
+        // Value
+        if (input.value) {
+            in.pushKV("value", ValueFromAmount(*input.value));
+        }
+
+        // Value blinder
+        if (!input.value_blinding_factor.IsNull()) {
+            in.pushKV("value_blinding_factor", input.value_blinding_factor.GetHex());
+        }
+
+        // Asset
+        if (!input.asset.IsNull()) {
+            in.pushKV("asset", input.asset.id.GetHex());
+        }
+
+        // Asset blinder
+        if (!input.asset_blinding_factor.IsNull()) {
+            in.pushKV("asset_blinding_factor", input.asset_blinding_factor.GetHex());
+        }
+
         // Unknown data
         if (input.unknown.size() > 0) {
             UniValue unknowns(UniValue::VOBJ);
@@ -1217,6 +1382,43 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             out.pushKV("bip32_derivs", keypaths);
         }
 
+        // Value commitment
+        if (!output.value_commitment.IsNull()) {
+            out.pushKV("value_commitment", output.value_commitment.GetHex());
+        }
+
+        // Value blinder
+        if (!output.value_blinding_factor.IsNull()) {
+            out.pushKV("value_blinding_factor", output.value_blinding_factor.GetHex());
+        }
+
+        // Asset commitment
+        if (!output.asset_commitment.IsNull()) {
+            out.pushKV("asset_commitment", output.asset_commitment.GetHex());
+        }
+
+        // Asset blinder
+        if (!output.asset_blinding_factor.IsNull()) {
+            out.pushKV("asset_blinding_factor", output.asset_blinding_factor.GetHex());
+        }
+
+        // Nonce commitment
+        if (!output.nonce_commitment.IsNull()) {
+            out.pushKV("nonce_commitment", output.nonce_commitment.GetHex());
+        }
+
+        // Range proof omitted due to size
+
+        // Surjection proof
+        if (!output.surjection_proof.empty()) {
+            out.pushKV("surjection_proof", HexStr(output.surjection_proof));
+        }
+
+        // Blinding pubkey
+        if (output.blinding_pubkey.IsValid()) {
+            out.pushKV("blinding_pubkey", HexStr(output.blinding_pubkey));
+        }
+
         // Unknown data
         if (output.unknown.size() > 0) {
             UniValue unknowns(UniValue::VOBJ);
@@ -1235,6 +1437,9 @@ UniValue decodepsbt(const JSONRPCRequest& request)
 
 UniValue combinepsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
             RPCHelpMan{"combinepsbt",
                 "\nCombine multiple partially signed Bitcoin transactions into one transaction.\n"
                 "Implements the Combiner role.\n",
@@ -1276,13 +1481,14 @@ UniValue combinepsbt(const JSONRPCRequest& request)
         throw JSONRPCTransactionError(error);
     }
 
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << merged_psbt;
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
+    return EncodePSBT(merged_psbt);
 }
 
 UniValue finalizepsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
             RPCHelpMan{"finalizepsbt",
                 "Finalize the inputs of a PSBT. If the transaction is fully signed, it will produce a\n"
                 "network serialized transaction which can be broadcast with sendrawtransaction. Otherwise a PSBT will be\n"
@@ -1325,12 +1531,6 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
     std::string result_str;
 
     if (complete && extract) {
-        CMutableTransaction mtx(*psbtx.tx);
-        mtx.witness.vtxinwit.resize(mtx.vin.size());
-        for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
-            mtx.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
-            mtx.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
-        }
         ssTx << mtx;
         result_str = HexStr(ssTx.str());
         result.pushKV("hex", result_str);
@@ -1340,12 +1540,14 @@ UniValue finalizepsbt(const JSONRPCRequest& request)
         result.pushKV("psbt", result_str);
     }
     result.pushKV("complete", complete);
-
     return result;
 }
 
 UniValue createpsbt(const JSONRPCRequest& request)
 {
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
             RPCHelpMan{"createpsbt",
                 "\nCreates a transaction in the Partially Signed Transaction format.\n"
                 "Implements the Creator role.\n",
@@ -1405,28 +1607,24 @@ UniValue createpsbt(const JSONRPCRequest& request)
         }, true
     );
 
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3], request.params[4]);
+    std::vector<CPubKey> output_pubkeys;
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], request.params[3], request.params[4], &output_pubkeys);
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx;
-    psbtx.tx = rawTx;
-    for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
-        psbtx.inputs.push_back(PSBTInput());
-    }
+    PartiallySignedTransaction psbtx(rawTx);
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
-        psbtx.outputs.push_back(PSBTOutput());
+        psbtx.outputs[i].blinding_pubkey = output_pubkeys[i];
     }
 
-    // Serialize the PSBT
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbtx;
-
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
+    return EncodePSBT(psbtx);
 }
 
 UniValue converttopsbt(const JSONRPCRequest& request)
 {
-    RPCHelpMan{"converttopsbt",
+    if (!g_con_elementsmode)
+        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
+
+            RPCHelpMan{"converttopsbt",
                 "\nConverts a network serialized transaction to a PSBT. This should be used only with createrawtransaction and fundrawtransaction\n"
                 "createpsbt and walletcreatefundedpsbt should be used for new applications.\n",
                 {
@@ -1481,13 +1679,19 @@ UniValue converttopsbt(const JSONRPCRequest& request)
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx;
-    psbtx.tx = tx;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         psbtx.inputs.push_back(PSBTInput());
     }
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {
         psbtx.outputs.push_back(PSBTOutput());
+        // At this point, if the nonce field is present it should be a smuggled
+        //   pubkey, and not a real nonce. Convert it back to a pubkey and strip
+        //   it out.
+        psbtx.outputs[i].blinding_pubkey = CPubKey(tx.vout[i].nNonce.vchCommitment);
+        tx.vout[i].nNonce.SetNull();
     }
+
+    psbtx.tx = tx;
 
     // Serialize the PSBT
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
@@ -2275,6 +2479,7 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "testmempoolaccept",            &testmempoolaccept,         {"rawtxs","allowhighfees|maxfeerate"} },
     { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
     { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
+    { "rawtransactions",    "blindpsbt",                    &blindpsbt,                 {"psbt","ignoreblindfail"} },
     { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
     { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },

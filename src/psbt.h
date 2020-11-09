@@ -30,11 +30,26 @@ static constexpr uint8_t PSBT_IN_WITNESSSCRIPT = 0x05;
 static constexpr uint8_t PSBT_IN_BIP32_DERIVATION = 0x06;
 static constexpr uint8_t PSBT_IN_SCRIPTSIG = 0x07;
 static constexpr uint8_t PSBT_IN_SCRIPTWITNESS = 0x08;
+// Confidential Assets stuff (private use area)
+static constexpr uint8_t PSBT_IN_VALUE = 0xf0;
+static constexpr uint8_t PSBT_IN_VALUE_BLINDER = 0xf1;
+static constexpr uint8_t PSBT_IN_ASSET = 0xf2;
+static constexpr uint8_t PSBT_IN_ASSET_BLINDER = 0xf3;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
 static constexpr uint8_t PSBT_OUT_WITNESSSCRIPT = 0x01;
 static constexpr uint8_t PSBT_OUT_BIP32_DERIVATION = 0x02;
+// Confidential Assets stuff (private use area)
+static constexpr uint8_t PSBT_OUT_VALUE_COMMITMENT = 0xf0;
+static constexpr uint8_t PSBT_OUT_VALUE_BLINDER = 0xf1;
+static constexpr uint8_t PSBT_OUT_ASSET_COMMITMENT = 0xf2;
+static constexpr uint8_t PSBT_OUT_ASSET_BLINDER = 0xf3;
+static constexpr uint8_t PSBT_OUT_RANGE_PROOF = 0xf4;
+static constexpr uint8_t PSBT_OUT_SURJECTION_PROOF = 0xf5;
+static constexpr uint8_t PSBT_OUT_BLINDING_PUBKEY = 0xf6;
+static constexpr uint8_t PSBT_OUT_NONCE_COMMITMENT = 0xf7;
+
 
 // The separator is 0x00. Reading this in means that the unserializer can interpret it
 // as a 0 length key which indicates that this is the separator. The separator has no value.
@@ -53,6 +68,11 @@ struct PSBTInput
     std::map<CKeyID, SigPair> partial_sigs;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     int sighash_type = 0;
+
+    boost::optional<CAmount> value;
+    uint256 value_blinding_factor;
+    CAsset asset;
+    uint256 asset_blinding_factor;
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -101,6 +121,27 @@ struct PSBTInput
 
             // Write any hd keypaths
             SerializeHDKeypaths(s, hd_keypaths, PSBT_IN_BIP32_DERIVATION);
+        }
+
+        // Write the Confidential Assets blinding data
+        if (value) {
+            SerializeToVector(s, PSBT_IN_VALUE);
+            SerializeToVector(s, *value);
+        }
+
+        if (!value_blinding_factor.IsNull()) {
+            SerializeToVector(s, PSBT_IN_VALUE_BLINDER);
+            SerializeToVector(s, value_blinding_factor);
+        }
+
+        if (!asset.IsNull()) {
+            SerializeToVector(s, PSBT_IN_ASSET);
+            SerializeToVector(s, asset);
+        }
+
+        if (!asset_blinding_factor.IsNull()) {
+            SerializeToVector(s, PSBT_IN_ASSET_BLINDER);
+            SerializeToVector(s, asset_blinding_factor);
         }
 
         // Write script sig
@@ -241,6 +282,48 @@ struct PSBTInput
                     UnserializeFromVector(s, final_script_witness.stack);
                     break;
                 }
+                case PSBT_IN_VALUE:
+                {
+                    if (value != boost::none) {
+                        throw std::ios_base::failure("Duplicate Key, input value already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Final value key is more than one byte type");
+                    }
+                    CAmount amt;
+                    UnserializeFromVector(s, amt);
+                    value = amt;
+                    break;
+                }
+                case PSBT_IN_VALUE_BLINDER:
+                {
+                    if (!value_blinding_factor.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, input value_blinding_factor already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Final value_blinding_factor key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, value_blinding_factor);
+                    break;
+                }
+                case PSBT_IN_ASSET:
+                {
+                    if (!asset.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, input asset already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Final asset key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, asset);
+                    break;
+                }
+                case PSBT_IN_ASSET_BLINDER:
+                {
+                    if (!asset_blinding_factor.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, input asset_blinding_factor already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Final asset_blinding_factor key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, asset_blinding_factor);
+                    break;
+                }
                 // Unknown stuff
                 default:
                     if (unknown.count(key) > 0) {
@@ -271,6 +354,16 @@ struct PSBTOutput
     CScript redeem_script;
     CScript witness_script;
     std::map<CPubKey, KeyOriginInfo> hd_keypaths;
+
+    CPubKey blinding_pubkey;
+    CConfidentialValue value_commitment;
+    uint256 value_blinding_factor;
+    CConfidentialAsset asset_commitment;
+    uint256 asset_blinding_factor;
+    CConfidentialNonce nonce_commitment;
+    std::vector<unsigned char> range_proof;
+    std::vector<unsigned char> surjection_proof;
+
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
 
     bool IsNull() const;
@@ -296,6 +389,49 @@ struct PSBTOutput
 
         // Write any hd keypaths
         SerializeHDKeypaths(s, hd_keypaths, PSBT_OUT_BIP32_DERIVATION);
+
+        if (g_con_elementsmode) {
+            // Write the Confidential Assets blinding data
+            if (!value_commitment.IsNull()) {
+                SerializeToVector(s, PSBT_OUT_VALUE_COMMITMENT);
+                SerializeToVector(s, value_commitment);
+            }
+
+            if (!value_blinding_factor.IsNull()) {
+                SerializeToVector(s, PSBT_OUT_VALUE_BLINDER);
+                SerializeToVector(s, value_blinding_factor);
+            }
+
+            if (!asset_commitment.IsNull()) {
+                SerializeToVector(s, PSBT_OUT_ASSET_COMMITMENT);
+                SerializeToVector(s, asset_commitment);
+            }
+
+            if (!asset_blinding_factor.IsNull()) {
+                SerializeToVector(s, PSBT_OUT_ASSET_BLINDER);
+                SerializeToVector(s, asset_blinding_factor);
+            }
+
+            if (!nonce_commitment.IsNull()) {
+                SerializeToVector(s, PSBT_OUT_NONCE_COMMITMENT);
+                SerializeToVector(s, nonce_commitment);
+            }
+
+            if (!range_proof.empty()) {
+                SerializeToVector(s, PSBT_OUT_RANGE_PROOF);
+                s << range_proof;
+            }
+
+            if (!surjection_proof.empty()) {
+                SerializeToVector(s, PSBT_OUT_SURJECTION_PROOF);
+                s << surjection_proof;
+            }
+
+            if (blinding_pubkey.IsValid()) {
+                SerializeToVector(s, PSBT_OUT_BLINDING_PUBKEY);
+                s << blinding_pubkey;
+            }
+        }
 
         // Write unknown things
         for (auto& entry : unknown) {
@@ -351,6 +487,86 @@ struct PSBTOutput
                 case PSBT_OUT_BIP32_DERIVATION:
                 {
                     DeserializeHDKeypaths(s, key, hd_keypaths);
+                    break;
+                }
+                case PSBT_OUT_VALUE_COMMITMENT:
+                {
+                    if (!value_commitment.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, output value_commitment already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output value_commitment key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, value_commitment);
+                    break;
+                }
+                case PSBT_OUT_VALUE_BLINDER:
+                {
+                    if (!value_blinding_factor.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, output value_blinding_factor already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output value_blinding_factor key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, value_blinding_factor);
+                    break;
+                }
+                case PSBT_OUT_ASSET_COMMITMENT:
+                {
+                    if (!asset_commitment.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, output asset_commitment already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output asset_commitment key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, asset_commitment);
+                    break;
+                }
+                case PSBT_OUT_ASSET_BLINDER:
+                {
+                    if (!asset_blinding_factor.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, output asset_blinding_factor already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output asset_blinding_factor key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, asset_blinding_factor);
+                    break;
+                }
+                case PSBT_OUT_NONCE_COMMITMENT:
+                {
+                    if (!nonce_commitment.IsNull()) {
+                        throw std::ios_base::failure("Duplicate Key, output nonce_commitment already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output nonce_commitment key is more than one byte type");
+                    }
+                    UnserializeFromVector(s, nonce_commitment);
+                    break;
+                }
+                case PSBT_OUT_RANGE_PROOF:
+                {
+                    if (!range_proof.empty()) {
+                        throw std::ios_base::failure("Duplicate Key, output range_proof already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output range_proof key is more than one byte type");
+                    }
+                    s >> range_proof;
+                    break;
+                }
+                case PSBT_OUT_SURJECTION_PROOF:
+                {
+                    if (!surjection_proof.empty()) {
+                        throw std::ios_base::failure("Duplicate Key, output surjection_proof already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output surjection_proof key is more than one byte type");
+                    }
+                    s >> surjection_proof;
+                    break;
+                }
+                case PSBT_OUT_BLINDING_PUBKEY:
+                {
+                    if (blinding_pubkey.IsValid()) {
+                        throw std::ios_base::failure("Duplicate Key, output blinding_pubkey already provided");
+                    } else if (key.size() != 1) {
+                        throw std::ios_base::failure("Output blinding_pubkey key is more than one byte type");
+                    }
+                    s >> blinding_pubkey;
                     break;
                 }
                 // Unknown stuff
@@ -480,6 +696,7 @@ struct PartiallySignedTransaction
                     UnserializeFromVector(os, mtx);
                     tx = std::move(mtx);
                     // Make sure that all scriptSigs and scriptWitnesses are empty
+                    tx->witness.vtxinwit.resize(tx->vin.size());
                     for (unsigned int i = 0; i < tx->vin.size(); i++) {
                         const CTxIn& txin = tx->vin[i];
                         if (!txin.scriptSig.empty() || !tx->witness.vtxinwit[i].scriptWitness.IsNull()) {
@@ -603,5 +820,7 @@ NODISCARD TransactionError CombinePSBTs(PartiallySignedTransaction& out, const s
 NODISCARD bool DecodeBase64PSBT(PartiallySignedTransaction& decoded_psbt, const std::string& base64_psbt, std::string& error);
 //! Decode a raw (binary blob) PSBT into a PartiallySignedTransaction
 NODISCARD bool DecodeRawPSBT(PartiallySignedTransaction& decoded_psbt, const std::string& raw_psbt, std::string& error);
+
+std::string EncodePSBT(const PartiallySignedTransaction& psbt);
 
 #endif // BITCOIN_PSBT_H

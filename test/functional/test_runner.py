@@ -149,8 +149,7 @@ BASE_SCRIPTS = [
     'wallet_createwallet.py --usecli',
     'interface_http.py',
     'interface_rpc.py',
-    # ELEMENTS: hard-coded test vectors don't work with different tx serialization
-    #'rpc_psbt.py',
+    'rpc_psbt.py',
     'rpc_users.py',
     'feature_proxy.py',
     'rpc_signrawtransaction.py',

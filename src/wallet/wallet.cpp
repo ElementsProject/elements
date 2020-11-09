@@ -3247,7 +3247,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
             mapScriptChange.clear();
             if (coin_control.destChange.size() > 0) {
-                for (const std::pair<CAsset, CTxDestination>& dest : coin_control.destChange) {
+                for (const auto& dest : coin_control.destChange) {
                     // No need to test we cover all assets.  We produce error for that later.
                     mapScriptChange[dest.first] = std::pair<int, CScript>(-1, GetScriptForDestination(dest.second));
                 }
@@ -3774,8 +3774,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             }
         }
 
-        // Release any change destinations that we didn't use.
-        for (const std::pair<CAsset, std::pair<int, CScript>>& it : mapScriptChange) {
+        // Release any change keys that we didn't use.
+        for (const auto& it : mapScriptChange) {
             int index = it.second.first;
             if (index < 0) {
                 continue;
@@ -5760,48 +5760,41 @@ void CWalletTx::GetBlindingData(const unsigned int map_index, const std::vector<
     if (asset_out) *asset_out = asset_tag;
 }
 
-CAmount CWalletTx::GetOutputValueOut(unsigned int output_index) const {
+void CWalletTx::GetNonIssuanceBlindingData(const unsigned int output_index, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const {
     assert(output_index < tx->vout.size());
     const CTxOut& out = tx->vout[output_index];
     const CTxWitness& wit = tx->witness;
+    GetBlindingData(output_index, wit.vtxoutwit.size() <= output_index ? std::vector<unsigned char>() : wit.vtxoutwit[output_index].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey,
+        blinding_pubkey_out, value_out, value_factor_out, asset_out, asset_factor_out);
+}
+
+CAmount CWalletTx::GetOutputValueOut(unsigned int output_index) const {
     CAmount ret;
-    GetBlindingData(output_index, wit.vtxoutwit.size() <= output_index ? std::vector<unsigned char>() : wit.vtxoutwit[output_index].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, nullptr, &ret, nullptr, nullptr, nullptr);
+    GetNonIssuanceBlindingData(output_index, nullptr, &ret, nullptr, nullptr, nullptr);
     return ret;
 }
 
 uint256 CWalletTx::GetOutputAmountBlindingFactor(unsigned int output_index) const {
-    assert(output_index < tx->vout.size());
-    const CTxOut& out = tx->vout[output_index];
-    const CTxWitness& wit = tx->witness;
     uint256 ret;
-    GetBlindingData(output_index, wit.vtxoutwit.size() <= output_index ? std::vector<unsigned char>() : wit.vtxoutwit[output_index].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, nullptr, nullptr, &ret, nullptr, nullptr);
+    GetNonIssuanceBlindingData(output_index, nullptr, nullptr, &ret, nullptr, nullptr);
     return ret;
 }
 
 uint256 CWalletTx::GetOutputAssetBlindingFactor(unsigned int output_index) const {
-    assert(output_index < tx->vout.size());
-    const CTxOut& out = tx->vout[output_index];
-    const CTxWitness& wit = tx->witness;
     uint256 ret;
-    GetBlindingData(output_index, wit.vtxoutwit.size() <= output_index ? std::vector<unsigned char>() : wit.vtxoutwit[output_index].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, nullptr, nullptr, nullptr, nullptr, &ret);
+    GetNonIssuanceBlindingData(output_index, nullptr, nullptr, nullptr, nullptr, &ret);
     return ret;
 }
 
 CAsset CWalletTx::GetOutputAsset(unsigned int output_index) const {
-    assert(output_index < tx->vout.size());
-    const CTxOut& out = tx->vout[output_index];
-    const CTxWitness& wit = tx->witness;
     CAsset ret;
-    GetBlindingData(output_index, wit.vtxoutwit.size() <= output_index ? std::vector<unsigned char>() : wit.vtxoutwit[output_index].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, nullptr, nullptr, nullptr, &ret, nullptr);
+    GetNonIssuanceBlindingData(output_index, nullptr, nullptr, nullptr, &ret, nullptr);
     return ret;
 }
 
 CPubKey CWalletTx::GetOutputBlindingPubKey(unsigned int output_index) const {
-    assert(output_index < tx->vout.size());
-    const CTxOut& out = tx->vout[output_index];
-    const CTxWitness& wit = tx->witness;
     CPubKey ret;
-    GetBlindingData(output_index, wit.vtxoutwit.size() <= output_index ? std::vector<unsigned char>() : wit.vtxoutwit[output_index].vchRangeproof, out.nValue, out.nAsset, out.nNonce, out.scriptPubKey, &ret, nullptr, nullptr, nullptr, nullptr);
+    GetNonIssuanceBlindingData(output_index, &ret, nullptr, nullptr, nullptr, nullptr);
     return ret;
 }
 

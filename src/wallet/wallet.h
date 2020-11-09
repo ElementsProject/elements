@@ -618,6 +618,9 @@ public:
     // Unneeded for issuance.
     void SetBlindingData(const unsigned int output_index, const CPubKey& blinding_pubkey, const CAmount value, const uint256& value_factor, const CAsset& asset, const uint256& asset_factor);
 
+    // Convenience method to retrieve all blinding data at once, for an ordinary non-issuance tx
+    void GetNonIssuanceBlindingData(const unsigned int output_index, CPubKey* blinding_pubkey_out, CAmount* value_out, uint256* value_factor_out, CAsset* asset_out, uint256* asset_factor_out) const;
+
     //! Returns either the value out (if it is known) or -1
     CAmount GetOutputValueOut(unsigned int ouput_index) const;
 

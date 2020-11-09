@@ -444,7 +444,7 @@ def find_output(node, txid, amount, *, blockhash=None):
     """
     txdata = node.getrawtransaction(txid, 1, blockhash)
     for i in range(len(txdata["vout"])):
-        if txdata["vout"][i]["value"] == amount:
+        if txdata["vout"][i].get("value") == amount:
             return i
     raise RuntimeError("find_output txid %s : %s not found" % (txid, str(amount)))
 

@@ -31,6 +31,12 @@ std::string TransactionErrorString(const TransactionError err)
             return "Specified sighash value does not match existing value";
         case TransactionError::MAX_FEE_EXCEEDED:
             return "Fee exceeds maximum configured by -maxtxfee";
+        case TransactionError::BLINDING_REQUIRED:
+            return "Transaction is not yet fully blinded";
+        case TransactionError::VALUE_IMBALANCE:
+            return "Transaction values or blinders are not balanced";
+        case TransactionError::UTXOS_MISSING_BALANCE_CHECK:
+            return "Missing UTXOs that are needed to check transaction balance";
         // no default case, so the compiler can warn about missing cases
     }
     assert(false);
