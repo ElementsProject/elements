@@ -589,7 +589,7 @@ public:
     int64_t GetTxTime() const;
 
     // Pass this transaction to node for mempool insertion and relay to peers if flag set to true
-    bool SubmitMemoryPoolAndRelay(std::string& err_string, bool relay);
+    bool SubmitMemoryPoolAndRelay(std::string& err_string, bool relay, interfaces::Chain::Lock& locked_chain);
 
     // ELEMENTS:
 
