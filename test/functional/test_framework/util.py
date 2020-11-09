@@ -308,6 +308,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("discover=0\n")
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
+        f.write("upnp=0\n")
         # Elements:
         f.write("validatepegin=0\n")
         f.write("con_parent_pegged_asset=" + BITCOIN_ASSET + "\n")
