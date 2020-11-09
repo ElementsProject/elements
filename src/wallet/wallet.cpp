@@ -2859,6 +2859,11 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
         }
     }
 
+    if (nFeeRet > this->m_default_max_tx_fee) {
+        strFailReason = TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED);
+        return false;
+    }
+
     // Mark all un-returned change keys as used to reduce privacy loss
     for (auto& changekey : vChangeKey) {
         changekey->KeepKey();
