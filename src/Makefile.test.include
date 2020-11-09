@@ -153,6 +153,7 @@ BITCOIN_TESTS =\
   test/validation_block_tests.cpp \
   test/versionbits_tests.cpp \
   test/pegin_spent_tests.cpp \
+  test/dynafed_tests.cpp \
   test/blind_tests.cpp
 # ELEMENTS IN THE END
 
