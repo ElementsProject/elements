@@ -318,7 +318,6 @@ def initialize_datadir(dirname, n, chain):
         f.write("con_bip34height=500\n")
         f.write("con_bip65height=1351\n")
         f.write("con_bip66height=1251\n")
-        f.write("con_csv_deploy_start=0\n") # Enhance tests if removing this line
         f.write("blindedaddresses=0\n") # Set to minimize broken tests in favor of custom
         #f.write("pubkeyprefix=111\n")
         #f.write("scriptprefix=196\n")
@@ -362,9 +361,9 @@ def delete_cookie_file(datadir, chain):
         logger.debug("Deleting leftover cookie file")
         os.remove(os.path.join(datadir, chain, ".cookie"))
 
-def get_bip9_status(node, key):
-    info = node.getblockchaininfo()
-    return info['bip9_softforks'][key]
+def softfork_active(node, key):
+    """Return whether a softfork is active."""
+    return node.getblockchaininfo()['softforks'][key]['active']
 
 def set_node_times(nodes, t):
     for node in nodes:

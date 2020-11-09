@@ -8,7 +8,7 @@ from test_framework.blocktools import create_coinbase, create_block, create_tran
 from test_framework.messages import msg_block
 from test_framework.mininode import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, get_bip9_status
+from test_framework.util import assert_equal, softfork_active
 
 from feature_cltv import cltv_validate
 
@@ -25,7 +25,7 @@ class BlockV4Test(BitcoinTestFramework):
 
         # First, quick check that CSV is ACTIVE at genesis
         assert_equal(self.nodes[0].getblockcount(), 0)
-        assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], 'active')
+        assert softfork_active(self.nodes[0], 'csv')
 
         self.nodes[0].add_p2p_connection(P2PInterface())
 
