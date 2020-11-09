@@ -3913,64 +3913,59 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     return true;
 }
 
-/**
- * Call after CreateTransaction unless you want to abort
- */
-bool CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CValidationState& state, const BlindDetails* blind_details)
+void CWallet::CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, const BlindDetails* blind_details)
 {
-    {
-        auto locked_chain = chain().lock();
-        LOCK(cs_wallet);
+    auto locked_chain = chain().lock();
+    LOCK(cs_wallet);
 
-        CWalletTx wtxNew(this, std::move(tx));
-        wtxNew.mapValue = std::move(mapValue);
-        wtxNew.vOrderForm = std::move(orderForm);
-        wtxNew.fTimeReceivedIsTxTime = true;
-        wtxNew.fFromMe = true;
+    CWalletTx wtxNew(this, std::move(tx));
+    wtxNew.mapValue = std::move(mapValue);
+    wtxNew.vOrderForm = std::move(orderForm);
+    wtxNew.fTimeReceivedIsTxTime = true;
+    wtxNew.fFromMe = true;
 
-        // Write down blinding information
-        if (blind_details) {
-            assert(blind_details->o_amounts.size() == wtxNew.tx->vout.size());
-            assert(blind_details->o_asset_blinds.size() == wtxNew.tx->vout.size());
-            assert(blind_details->o_amount_blinds.size() == wtxNew.tx->vout.size());
-            for (unsigned int i = 0; i < blind_details->o_amounts.size(); i++) {
-                wtxNew.SetBlindingData(i, blind_details->o_pubkeys[i], blind_details->o_amounts[i], blind_details->o_amount_blinds[i], blind_details->o_assets[i], blind_details->o_asset_blinds[i]);
-            }
-        }
-
-        WalletLogPrintf("CommitTransaction:\n%s", wtxNew.tx->ToString()); /* Continued */
-        {
-            // Add tx to wallet, because if it has change it's also ours,
-            // otherwise just for transaction history.
-            AddToWallet(wtxNew);
-
-            // Notify that old coins are spent
-            for (const CTxIn& txin : wtxNew.tx->vin)
-            {
-                // Pegins are not in our UTXO set.
-                if (txin.m_is_pegin)
-                    continue;
-
-                CWalletTx &coin = mapWallet.at(txin.prevout.hash);
-                coin.BindWallet(this);
-                NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);
-            }
-        }
-
-        // Get the inserted-CWalletTx from mapWallet so that the
-        // fInMempool flag is cached properly
-        CWalletTx& wtx = mapWallet.at(wtxNew.GetHash());
-
-        if (fBroadcastTransactions)
-        {
-            std::string err_string;
-            if (!wtx.SubmitMemoryPoolAndRelay(err_string, true, *locked_chain)) {
-                WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", err_string);
-                // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
-            }
+    // Write down blinding information
+    if (blind_details) {
+        assert(blind_details->o_amounts.size() == wtxNew.tx->vout.size());
+        assert(blind_details->o_asset_blinds.size() == wtxNew.tx->vout.size());
+        assert(blind_details->o_amount_blinds.size() == wtxNew.tx->vout.size());
+        for (unsigned int i = 0; i < blind_details->o_amounts.size(); i++) {
+            wtxNew.SetBlindingData(i, blind_details->o_pubkeys[i], blind_details->o_amounts[i], blind_details->o_amount_blinds[i], blind_details->o_assets[i], blind_details->o_asset_blinds[i]);
         }
     }
-    return true;
+
+    WalletLogPrintf("CommitTransaction:\n%s", wtxNew.tx->ToString()); /* Continued */
+
+    // Add tx to wallet, because if it has change it's also ours,
+    // otherwise just for transaction history.
+    AddToWallet(wtxNew);
+
+    // Notify that old coins are spent
+    for (const CTxIn& txin : wtxNew.tx->vin)
+    {
+        // Pegins are not in our UTXO set.
+        if (txin.m_is_pegin)
+            continue;
+
+        CWalletTx &coin = mapWallet.at(txin.prevout.hash);
+        coin.BindWallet(this);
+        NotifyTransactionChanged(this, coin.GetHash(), CT_UPDATED);
+    }
+
+    // Get the inserted-CWalletTx from mapWallet so that the
+    // fInMempool flag is cached properly
+    CWalletTx& wtx = mapWallet.at(wtxNew.GetHash());
+
+    if (!fBroadcastTransactions) {
+        // Don't submit tx to the mempool
+        return;
+    }
+
+    std::string err_string;
+    if (!wtx.SubmitMemoryPoolAndRelay(err_string, true, *locked_chain)) {
+        WalletLogPrintf("CommitTransaction(): Transaction cannot be broadcast immediately, %s\n", err_string);
+        // TODO: if we expect the failure to be long term or permanent, instead delete wtx from the wallet and return failure.
+    }
 }
 
 DBErrors CWallet::LoadWallet(bool& fFirstRunRet)

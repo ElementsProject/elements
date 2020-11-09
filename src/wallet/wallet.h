@@ -1259,7 +1259,17 @@ public:
      */
     bool CreateTransaction(interfaces::Chain::Lock& locked_chain, const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CAmount& nFeeRet, int& nChangePosInOut,
                            std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, BlindDetails* blind_details = nullptr, const IssuanceDetails* issuance_details = nullptr);
-    bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, CValidationState& state, const BlindDetails* blind_details = nullptr);
+    /**
+     * Submit the transaction to the node's mempool and then relay to peers.
+     * Should be called after CreateTransaction unless you want to abort
+     * broadcasting the transaction.
+     *
+     * @param tx[in] The transaction to be broadcast.
+     * @param mapValue[in] key-values to be set on the transaction.
+     * @param orderForm[in] BIP 70 / BIP 21 order form details to be set on the transaction.
+     * @param blind_details (optional) blinding information, if the transaction is to be blinded
+     */
+    void CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, const BlindDetails* blind_details = nullptr);
 
     bool DummySignTx(CMutableTransaction &txNew, const std::set<CTxOut> &txouts, bool use_max_sig = false) const
     {
