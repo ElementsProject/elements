@@ -23,7 +23,6 @@ from .messages import (
     ToHex,
     hash256,
     hex_str_to_bytes,
-    ser_string,
     ser_uint256,
     sha256,
     uint256_from_str,
@@ -32,6 +31,7 @@ from .messages import (
 from .script import (
     CScript,
     CScriptNum,
+    CScriptOp,
     OP_0,
     OP_1,
     OP_CHECKMULTISIG,
@@ -53,7 +53,10 @@ WITNESS_COMMITMENT_HEADER = b"\xaa\x21\xa9\xed"
 
 # Assumes a BIP34 valid commitment exists
 def get_coinbase_height(coinbase):
-    return CScriptNum.decode(coinbase.vin[0].scriptSig)
+    if CScriptOp.is_small_int(coinbase.vin[0].scriptSig[0]):
+        return CScriptOp.decode_op_n(coinbase.vin[0].scriptSig[0])
+    else:
+        return CScriptNum.decode(coinbase.vin[0].scriptSig)
 
 def create_block(hashprev, coinbase, ntime=None, *, version=1):
     """Create a block (with regtest difficulty)."""
@@ -104,20 +107,14 @@ def add_witness_commitment(block, nonce=0):
     block.hashMerkleRoot = block.calc_merkle_root()
     block.rehash()
 
-def serialize_script_num(value):
-    r = bytearray(0)
-    if value == 0:
-        return r
-    neg = value < 0
-    absvalue = -value if neg else value
-    while (absvalue):
-        r.append(int(absvalue & 0xff))
-        absvalue >>= 8
-    if r[-1] & 0x80:
-        r.append(0x80 if neg else 0)
-    elif neg:
-        r[-1] |= 0x80
-    return r
+
+def script_BIP34_coinbase_height(height):
+    if height <= 16:
+        res = CScriptOp.encode_op_n(height)
+        # Append dummy to increase scriptSig size above 2 (see bad-cb-length consensus rule)
+        return CScript([res, OP_1])
+    return CScript([CScriptNum(height)])
+
 
 def create_coinbase(height, pubkey=None):
     """Create a coinbase transaction, assuming no miner fees.
@@ -125,8 +122,7 @@ def create_coinbase(height, pubkey=None):
     If pubkey is passed in, the coinbase output will be a P2PK output;
     otherwise an anyone-can-spend output."""
     coinbase = CTransaction()
-    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff),
-                        ser_string(serialize_script_num(height)), 0xffffffff))
+    coinbase.vin.append(CTxIn(COutPoint(0, 0xffffffff), script_BIP34_coinbase_height(height), 0xffffffff))
     coinbaseoutput = CTxOut()
     value = 50 * COIN
     halvings = int(height / 150)  # regtest
