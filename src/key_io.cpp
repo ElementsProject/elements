@@ -126,7 +126,7 @@ public:
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, const bool for_parent)
 {
     std::vector<unsigned char> data;
-    size_t pk_size = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+    size_t pk_size = CPubKey::COMPRESSED_SIZE;
     uint160 hash;
     if (DecodeBase58Check(str, data)) {
         // base58-encoded Bitcoin addresses.
