@@ -17,6 +17,10 @@
 //! ELEMENTS:
 // 36-bit rangeproof size
 static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
+// 64-bit rangeproof size
+static const size_t MAX_RANGEPROOF_SIZE = 5126;
+// 3-input ASP size
+static const size_t DEFAULT_SURJECTIONPROOF_SIZE = 99;
 // 32 bytes of asset type, 32 bytes of asset blinding factor in sidechannel
 static const size_t SIDECHANNEL_MSG_SIZE = 64;
 
