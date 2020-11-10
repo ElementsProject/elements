@@ -824,6 +824,125 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
     return EncodeHexTx(CTransaction(rawTx));
 }
 
+UniValue createrawtxoutputs(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
+        throw std::runtime_error(
+            "createrawtxoutputs"
+            "\nCreate a transaction spending the given inputs and creating specified outputs.\n"
+            "Outputs are explicitly sepcified as an array, including the asset ID.\n"
+            "Returns hex-encoded raw transaction.\n"
+            "Note that the transaction's inputs are not signed, and\n"
+            "it is not stored in the wallet or transmitted to the network.\n"
+
+            "\nArguments:\n"
+            "1. \"inputs\"                (array, required) A json array of json objects\n"
+            "     [\n"
+            "       {\n"
+            "         \"txid\":\"id\",    (string, required) The transaction id\n"
+            "         \"vout\":n,         (numeric, required) The output number\n"
+            "         \"sequence\":n      (numeric, optional) The sequence number\n"
+            "       } \n"
+            "       ,...\n"
+            "     ]\n"
+            "2. \"outputs\"               (array, required) a json array of json objects for each output\n"
+            "    {\n"
+            "      \"address\": \"address\",  (numeric or string, optional) pay to a specified address, or if \"fee\" create a fee output\n"
+            "      \"amount\": x.xxxx,    (numeric, required) value is the " + CURRENCY_UNIT + " amount of the output\n"
+            "      \"data\": \"hex\"      (string, optional) Output is OP_RETURN with the hex encoded data (alternative to address)\n"
+            "      \"asset\": \"assetid\"     (string, required) The value is the asset ID of the outputs\n"
+            "    }\n"
+            "       ,...\n"
+            "     ]\n"
+            "3. locktime                  (numeric, optional, default=0) Raw locktime. Non-0 value also locktime-activates inputs\n"
+
+            "\nResult:\n"
+            "\"transaction\"              (string) hex string of the transaction\n"
+
+            "\nExamples:\n"
+            + HelpExampleCli("createrawtxoutputs", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"address\\\":\\\"myaddress\\\",\\\"amount\\\":2.34231,\\\"asset\\\":\\\"assetid\\\"}]\"")
+            + HelpExampleCli("createrawtxoutputs", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"da3c69bc\\\",\\\"amount\\\":2.34231,\\\"asset\\\":\\\"assetid\\\"}]\"")
+            + HelpExampleCli("createrawtxoutputs", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"address\\\":\\\"myaddress\\\",\\\"amount\\\":2.34231,\\\"asset\\\":\\\"assetid\\\"},{\\\"address\\\":\\\"fee\\\",\\\"amount\\\":0.01,\\\"asset\\\":\\\"assetid\\\"}]\"")
+        );
+        RPCTypeCheck(request.params, {
+        UniValue::VARR,
+        UniValue::VARR,
+        UniValue::VNUM,
+        }, true
+    );
+    if (request.params[0].isNull() || request.params[1].isNull())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, arguments 1 and 2 must be non-null");
+    UniValue inputs = request.params[0].get_array();
+    UniValue outputs = request.params[1].get_array();
+    CMutableTransaction rawTx;
+    if (request.params.size() > 2 && !request.params[2].isNull()) {
+        int64_t nLockTime = request.params[2].get_int64();
+        if (nLockTime < 0 || nLockTime > std::numeric_limits<uint32_t>::max())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, locktime out of range");
+        rawTx.nLockTime = nLockTime;
+    }
+
+    UniValue assets;
+
+    for (unsigned int idx = 0; idx < inputs.size(); idx++) {
+        UniValue const &input = inputs[idx];
+        UniValue const &o = input.get_obj();
+        uint256 txid = ParseHashO(o, "txid");
+        UniValue const &vout_v = find_value(o, "vout");
+        if (!vout_v.isNum())
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, missing vout key");
+        int nOutput = vout_v.get_int();
+        if (nOutput < 0)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, vout must be positive");
+        uint32_t nSequence = (rawTx.nLockTime ? std::numeric_limits<uint32_t>::max() - 1 : std::numeric_limits<uint32_t>::max());
+        // set the sequence number if passed in the parameters object
+        const UniValue& sequenceObj = find_value(o, "sequence");
+        if (sequenceObj.isNum()) {
+            int64_t seqNr64 = sequenceObj.get_int64();
+            if (seqNr64 < 0 || seqNr64 > std::numeric_limits<uint32_t>::max())
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, sequence number is out of range");
+            else
+                nSequence = (uint32_t)seqNr64;
+        }
+        CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
+        rawTx.vin.push_back(in);
+    }
+
+    for (unsigned int idx = 0; idx < outputs.size(); idx++) {
+        UniValue const &output = outputs[idx];
+        UniValue const &o = output.get_obj();
+        uint256 assetid = ParseHashO(o, "asset");
+        CAsset asset(assetid);
+        CAmount nAmount = AmountFromValue(find_value(o, "amount"));
+
+        const UniValue& addressObj = find_value(o, "address");
+
+        if(addressObj.isStr()) {
+            if (addressObj.getValStr() == "fee") {
+                CTxOut out(asset, nAmount, CScript());
+                rawTx.vout.push_back(out);
+            } else {
+                CTxDestination destination = DecodeDestination(addressObj.getValStr());
+                if (!IsValidDestination(destination)) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + addressObj.getValStr());
+                }
+                CScript scriptPubKey = GetScriptForDestination(destination);
+                CTxOut out(asset, nAmount, scriptPubKey);
+                rawTx.vout.push_back(out);
+            }
+        } else {
+            const UniValue& dataObj = find_value(o, "data");
+            if(!dataObj.isStr()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Output object without address or data key");
+            }
+            std::vector<unsigned char> data = ParseHexV(dataObj.getValStr(),"Data");
+            CTxOut out(asset, nAmount, CScript() << OP_RETURN << data);
+            rawTx.vout.push_back(out);
+        }
+    }
+    return EncodeHexTx(CTransaction(rawTx));
+}
+
 static UniValue decoderawtransaction(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
@@ -3195,6 +3314,7 @@ static const CRPCCommand commands[] =
   //  --------------------- ------------------------        -----------------------     ----------
     { "rawtransactions",    "getrawtransaction",            &getrawtransaction,         {"txid","verbose","blockhash"} },
     { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","replaceable", "output_assets"} },
+    { "rawtransactions",    "createrawtxoutputs",           &createrawtxoutputs,        {"inputs","outputs","locktime"} },
     { "rawtransactions",    "decoderawtransaction",         &decoderawtransaction,      {"hexstring","iswitness"} },
     { "rawtransactions",    "decodescript",                 &decodescript,              {"hexstring"} },
     { "rawtransactions",    "sendrawtransaction",           &sendrawtransaction,        {"hexstring","allowhighfees"} },
