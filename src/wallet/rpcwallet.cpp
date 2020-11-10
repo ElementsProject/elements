@@ -6419,6 +6419,10 @@ UniValue listissuances(const JSONRPCRequest& request)
                 },
             }.ToString());
 
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
+
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
@@ -6505,6 +6509,10 @@ UniValue destroyamount(const JSONRPCRequest& request)
             + HelpExampleRpc("destroyamount", "\"bitcoin\" 100 \"destroy assets\"")
                 },
             }.ToString());
+
+    if (!g_con_elementsmode) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "This RPC cannot be used in bitcoin compatibility mode. Note: `-regtest` is Bitcoin's regtest mode, instead try `-chain=<custom chain name>`");
+    }
 
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
