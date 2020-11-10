@@ -746,7 +746,7 @@ qt/res/rendered_icons/nsis-wizard.svg: qt/res/src/bitcoin.svg
 	sed '/fill="#000"/d' < $< > $@
 
 qt/res/rendered_icons/nsis-wizard.bmp: qt/res/rendered_icons/nsis-wizard.svg
-	$(RSVG_CONVERT) -f png -d 360 -p 360 < $< | $(IMAGEMAGICK_CONVERT) - -strip BMP3:$@
+	$(RSVG_CONVERT) -f png -d 164 -p 164 < $< | $(IMAGEMAGICK_CONVERT) - -border 0x75 -strip BMP3:$@
 
 endif
 
