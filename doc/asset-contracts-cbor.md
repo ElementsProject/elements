@@ -156,8 +156,13 @@ The intent of the restrictions described above is to simplify safe parsing of co
 
 Registry rules:
 * A registry may impose additional restrictions on contracts, beyond those described above.
-* In particular: The Liquid Asset Registry requires the `name`, `issuer_pubkey`, and `domain` fields to be present, and the `domain` field must be controlled by the issuer, which must be proven by the existence of a specific file served over https from that domain.
-* The domain validation rule helps protect registry users against assets which are intended to spoof other assets.
+* In particular, the Liquid Asset Registry imposes the following requirements:
+  * The `name`, `issuer_pubkey`, and `domain` fields must be present;
+  * The `name` field must be 1-255 bytes of ASCII text;
+  * The `issuer_pubkey` field must be a valid `secp256k1` public key;
+  * The `domain` field must be a well-formed domain, controlled by the issuer, which must be proven by the existence of a file served over https from that domain.
+    * The file is `https://[domain]/.well-known/liquid-asset-proof-[asset ID hex]`, and its contents must be the string "`Authorize linking the domain name [domain] to the Liquid asset [asset ID hex]`" (trailing whitespace is ignored).
+    * The domain validation rule helps protect registry users against assets which are intended to spoof other assets.
 
 ## JSON conversion
 
