@@ -213,6 +213,17 @@ BOOST_AUTO_TEST_CASE(rpc_parse_monetary_values)
     BOOST_CHECK_THROW(AmountFromValue(ValueFromString("1e+11")), UniValue); //overflow error
     BOOST_CHECK_THROW(AmountFromValue(ValueFromString("1e11")), UniValue); //overflow error signless
     BOOST_CHECK_THROW(AmountFromValue(ValueFromString("93e+9")), UniValue); //overflow error
+
+    // _sat values
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("0_sat")), 0LL);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("1_sat")), 1LL);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("10_sat")), 10LL);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("100_sat")), 100LL);
+    BOOST_CHECK_EQUAL(AmountFromValue(ValueFromString("123_sat")), 123LL);
+
+    BOOST_CHECK_THROW(AmountFromValue(ValueFromString("123_sat_1")), UniValue);
+    BOOST_CHECK_THROW(AmountFromValue(ValueFromString("2100000000000001_sat")), UniValue);
+    BOOST_CHECK_THROW(AmountFromValue(ValueFromString("123_sat_sat")), UniValue);
 }
 
 BOOST_AUTO_TEST_CASE(json_parse_errors)

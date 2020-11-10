@@ -134,9 +134,19 @@ CAmount AmountFromValue(const UniValue& value)
 {
     if (!value.isNum() && !value.isStr())
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
+    std::string val_string = value.getValStr();
+
+    // Look for _sat denomination
+    int sat_pos = val_string.find("_sat");
+    if (val_string.size() >= 4 && ((unsigned int)sat_pos == val_string.size() - 4)) {
+        val_string = val_string.substr(0, sat_pos);
+    }
     CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+    if (!ParseFixedPoint(val_string, 8, &amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    if (sat_pos != std::string::npos) {
+        amount /= COIN;
+    }
     if (!MoneyRange(amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
     return amount;
