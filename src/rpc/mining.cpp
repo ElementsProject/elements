@@ -1734,7 +1734,7 @@ static RPCHelpMan testproposedblock()
     uint256 hash = block.GetHash();
     BlockMap::iterator mi = chainman.BlockIndex().find(hash);
     if (mi != chainman.BlockIndex().end())
-        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+        throw JSONRPCError(RPC_VERIFY_ALREADY_IN_CHAIN, "already have block");
 
     CBlockIndex* const pindexPrev = chainman.ActiveChain().Tip();
     // TestBlockValidity only supports blocks built on the current Tip
