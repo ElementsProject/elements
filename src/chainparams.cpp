@@ -668,6 +668,9 @@ public:
         fRequireStandard = true;
         m_is_test_chain = false;
 
+        m_assumed_blockchain_size = 3;
+        m_assumed_chain_state_size = 1;
+
         bech32_hrp = "ex"; // ex(plicit)
         blech32_hrp = "lq"; // l(i)q(uid)
         parent_bech32_hrp = "bc";
