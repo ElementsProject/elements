@@ -64,27 +64,6 @@ CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type)
     }
 }
 
-// Elements
-CTxDestination GetDestinationForKey(const CPubKey& key, OutputType type, const CPubKey& blinding_pubkey)
-{
-    switch (type) {
-    case OutputType::LEGACY: return PKHash(key, blinding_pubkey);
-    case OutputType::P2SH_SEGWIT:
-    case OutputType::BECH32: {
-        if (!key.IsCompressed()) return PKHash(key, blinding_pubkey);
-        CTxDestination witdest = WitnessV0KeyHash(PKHash(key), blinding_pubkey);
-        CScript witprog = GetScriptForDestination(witdest);
-        if (type == OutputType::P2SH_SEGWIT) {
-            return ScriptHash(witprog, blinding_pubkey);
-        } else {
-            return witdest;
-        }
-    }
-    default: assert(false);
-    }
-}
-//
-
 std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
 {
     PKHash keyid(key);

@@ -3802,7 +3802,7 @@ bool CWallet::GetOnlinePakKey(CPubKey& online_pubkey, std::string& error)
     error.clear();
     auto spk_man = m_spk_man.get();
     if (spk_man) {
-        if (!spk_man->GetKeyFromPool(online_pubkey)) {
+        if (!spk_man->GetKeyFromPool(online_pubkey, OutputType::BECH32)) {
             error = "Error: Keypool ran out, please call keypoolrefill first";
             return false;
         }
@@ -4016,49 +4016,40 @@ bool ReserveDestination::GetReservedDestination(CTxDestination& dest, bool inter
         return false;
     }
 
-    if (!pwallet->CanGetAddresses(internal)) {
-        return false;
-    }
 
     if (nIndex == -1)
     {
         CKeyPool keypool;
-        if (!m_spk_man->GetReservedDestination(type, internal, nIndex, keypool)) {
+        if (!m_spk_man->GetReservedDestination(type, internal, address, nIndex, keypool)) {
             return false;
         }
-        vchPubKey = keypool.vchPubKey;
         fInternal = keypool.fInternal;
     }
-    assert(vchPubKey.IsValid());
-    address = GetDestinationForKey(vchPubKey, type);
     dest = address;
     return true;
 }
 
 void ReserveDestination::SetBlindingPubKey(const CPubKey& blinding_pubkey, CTxDestination& dest)
 {
-    address = GetDestinationForKey(vchPubKey, type, blinding_pubkey);
+    boost::apply_visitor(SetBlindingPubKeyVisitor(blinding_pubkey), address);
     dest = address;
 }
 
 void ReserveDestination::KeepDestination()
 {
     if (nIndex != -1) {
-        m_spk_man->KeepDestination(nIndex);
-        m_spk_man->LearnRelatedScripts(vchPubKey, type);
+        m_spk_man->KeepDestination(nIndex, type);
     }
     nIndex = -1;
-    vchPubKey = CPubKey();
     address = CNoDestination();
 }
 
 void ReserveDestination::ReturnDestination()
 {
     if (nIndex != -1) {
-        m_spk_man->ReturnDestination(nIndex, fInternal, vchPubKey);
+        m_spk_man->ReturnDestination(nIndex, fInternal, address);
     }
     nIndex = -1;
-    vchPubKey = CPubKey();
     address = CNoDestination();
 }
 

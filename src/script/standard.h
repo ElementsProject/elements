@@ -156,6 +156,22 @@ public:
     }
 };
 
+// ELEMENTS
+class SetBlindingPubKeyVisitor : public boost::static_visitor<>
+{
+public:
+    const CPubKey& blinding_pubkey;
+
+    explicit SetBlindingPubKeyVisitor(const CPubKey& blinding_pubkey_) : blinding_pubkey(blinding_pubkey_) {}
+
+    void operator()(CNoDestination &dest) const { }
+    void operator()(PKHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(ScriptHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessV0KeyHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessV0ScriptHash &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(WitnessUnknown &dest) const { dest.blinding_pubkey = blinding_pubkey; }
+    void operator()(NullData &dest) const { }
+};
 /**
  * A txout script template with a specific destination. It is either:
  *  * CNoDestination: no destination set

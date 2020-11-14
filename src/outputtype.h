@@ -35,7 +35,6 @@ const std::string& FormatOutputType(OutputType type);
  * The caller must make sure LearnRelatedScripts has been called beforehand.
  */
 CTxDestination GetDestinationForKey(const CPubKey& key, OutputType);
-CTxDestination GetDestinationForKey(const CPubKey& key, OutputType, const CPubKey& blinding_pubkey);
 
 /** Get all destinations (potentially) supported by the wallet for the given key. */
 std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key);
