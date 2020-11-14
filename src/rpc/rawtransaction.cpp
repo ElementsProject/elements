@@ -1269,7 +1269,8 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             UniValue out(UniValue::VOBJ);
 
             if (txout.nValue.IsExplicit()) {
-                out.pushKV("amount", ValueFromAmount(txout.nValue.GetAmount()));
+                CAmount nValue = txout.nValue.GetAmount();
+                out.pushKV("amount", ValueFromAmount(nValue));
             } else {
                 out.pushKV("amountcommitment", txout.nValue.GetHex());
             }

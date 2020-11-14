@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <amount.h>
 #include <coins.h>
 #include <consensus/tx_verify.h>
 #include <node/psbt.h>
@@ -32,9 +33,17 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         CTxOut utxo;
         if (psbtx.GetInputUTXO(utxo, i)) {
             //TODO(gwillen) do PSBT inputs always have explicit assets & amounts?
+            if (!MoneyRange(utxo.nValue.GetAmount()) || !MoneyRange(in_amts[utxo.nAsset.GetAsset()] + utxo.nValue.GetAmount())) {
+                result.SetInvalid(strprintf("PSBT is not valid. Input %u has invalid value", i));
+                return result;
+            }
             in_amts[utxo.nAsset.GetAsset()] += utxo.nValue.GetAmount();
             input_analysis.has_utxo = true;
         } else {
+            if (input.non_witness_utxo && psbtx.tx->vin[i].prevout.n >= input.non_witness_utxo->vout.size()) {
+                result.SetInvalid(strprintf("PSBT is not valid. Input %u specifies invalid prevout", i));
+                return result;
+            }
             input_analysis.has_utxo = false;
             input_analysis.is_final = false;
             input_analysis.next = PSBTRole::UPDATER;
@@ -85,11 +94,23 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
     if (calc_fee) {
         // Get the output amount
         CAmountMap out_amts = std::accumulate(psbtx.tx->vout.begin(), psbtx.tx->vout.end(), CAmountMap(),
-            [](CAmountMap map, const CTxOut& b) {
-                map[b.nAsset.GetAsset()] += b.nValue.GetAmount();
-                return map;
+            [](CAmountMap a, const CTxOut& b) {
+                CAmount acc = a[b.nAsset.GetAsset()];
+                CAmount add = b.nValue.GetAmount();
+
+                if (!MoneyRange(acc) || !MoneyRange(add) || !MoneyRange(acc + add)) {
+                    CAmountMap invalid;
+                    invalid[::policyAsset] = CAmount(-1);
+                    return invalid;
+                }
+                a[b.nAsset.GetAsset()] += add;
+                return a;
             }
         );
+        if (!MoneyRange(out_amts)) {
+            result.SetInvalid(strprintf("PSBT is not valid. Output amount invalid"));
+            return result;
+        }
 
         // Get the fee
         CAmountMap fee = in_amts - out_amts;
