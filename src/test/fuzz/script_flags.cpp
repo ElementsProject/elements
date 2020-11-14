@@ -48,7 +48,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
             const TransactionSignatureChecker checker{&tx, i, prevout.nValue, txdata};
 
             ScriptError serror;
-            const bool ret = VerifyScript(tx.vin.at(i).scriptSig, prevout.scriptPubKey, &tx.vin.at(i).scriptWitness, verify_flags, checker, &serror);
+            const bool ret = VerifyScript(tx.vin.at(i).scriptSig, prevout.scriptPubKey, &tx.witness.vtxinwit.at(i).scriptWitness, verify_flags, checker, &serror);
             assert(ret == (serror == SCRIPT_ERR_OK));
 
             // Verify that removing flags from a passing test or adding flags to a failing test does not change the result
@@ -60,7 +60,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
             if (!IsValidFlagCombination(verify_flags)) return;
 
             ScriptError serror_fuzzed;
-            const bool ret_fuzzed = VerifyScript(tx.vin.at(i).scriptSig, prevout.scriptPubKey, &tx.vin.at(i).scriptWitness, verify_flags, checker, &serror_fuzzed);
+            const bool ret_fuzzed = VerifyScript(tx.vin.at(i).scriptSig, prevout.scriptPubKey, &tx.witness.vtxinwit.at(i).scriptWitness, verify_flags, checker, &serror_fuzzed);
             assert(ret_fuzzed == (serror_fuzzed == SCRIPT_ERR_OK));
 
             assert(ret_fuzzed == ret);
