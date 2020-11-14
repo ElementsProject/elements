@@ -124,7 +124,7 @@ jobs:
         BITCOIN_CONFIG="--enable-reduce-exports --disable-gui-tests"
 
     - stage: test
-      name: '32-bit + dash  [GOAL: install]  [gui]'
+      name: '32-bit + dash  [GOAL: install]  [CentOS 7]  [gui]'
       env: >-
         HOST=i686-pc-linux-gnu
         PACKAGES="g++-multilib python3-zmq"
