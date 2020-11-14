@@ -41,9 +41,9 @@ static bool WalletAppInit(int argc, char* argv[])
     }
     if (argc < 2 || HelpRequested(gArgs)) {
         std::string usage = strprintf("%s elements-wallet version", PACKAGE_NAME) + " " + FormatFullVersion() + "\n\n" +
-                                      "wallet-tool is an offline tool for creating and interacting with Elements Core wallet files.\n" +
-                                      "By default wallet-tool will act on wallets in the default wallet directory in the datadir.\n" +
-                                      "To change the target wallet, use the -datadir, -wallet and -chain arguments.\n\n" +
+                                      "elements-wallet is an offline tool for creating and interacting with Bitcoin Core wallet files.\n" +
+                                      "By default elements-wallet will act on wallets in the default mainnet wallet directory in the datadir.\n" +
+                                      "To change the target wallet, use the -datadir, -wallet and -testnet/-regtest arguments.\n\n" +
                                       "Usage:\n" +
                                      "  elements-wallet [options] <command>\n\n" +
                                      gArgs.GetHelpMessage();
