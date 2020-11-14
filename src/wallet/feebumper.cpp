@@ -48,7 +48,8 @@ static feebumper::Result PreconditionChecks(const CWallet& wallet, const CWallet
 
     // check that original tx consists entirely of our inputs
     // if not, we can't bump the fee, because the wallet has no way of knowing the value of the other inputs (thus the fee)
-    if (!wallet.IsAllFromMe(*wtx.tx, ISMINE_SPENDABLE)) {
+    isminefilter filter = wallet.GetLegacyScriptPubKeyMan() && wallet.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) ? ISMINE_WATCH_ONLY : ISMINE_SPENDABLE;
+    if (!wallet.IsAllFromMe(*wtx.tx, filter)) {
         errors.push_back("Transaction contains inputs that don't belong to this wallet");
         return feebumper::Result::WALLET_ERROR;
     }
@@ -79,10 +80,10 @@ static feebumper::Result CheckFeeRate(const CWallet& wallet, const CWalletTx& wt
     CFeeRate incrementalRelayFee = std::max(wallet.chain().relayIncrementalFee(), CFeeRate(WALLET_INCREMENTAL_RELAY_FEE));
 
     // Given old total fee and transaction size, calculate the old feeRate
-    CAmountMap fee_map = GetFeeMap(*wtx.tx);
-    CAmount old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
+    isminefilter filter = wallet.GetLegacyScriptPubKeyMan() && wallet.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) ? ISMINE_WATCH_ONLY : ISMINE_SPENDABLE;
+    CAmount old_fee = wtx.GetDebit(filter)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
     if (g_con_elementsmode) {
-        old_fee = fee_map[::policyAsset];
+        old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
     }
     const int64_t txSize = GetVirtualTransactionSize(*(wtx.tx));
     CFeeRate nOldFeeRate(old_fee, txSize);
@@ -218,7 +219,8 @@ Result CreateTotalBumpTransaction(const CWallet* wallet, const uint256& txid, co
     }
 
     // calculate the old fee and fee-rate
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
+    isminefilter filter = wallet->GetLegacyScriptPubKeyMan() && wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) ? ISMINE_WATCH_ONLY : ISMINE_SPENDABLE;
+    old_fee = wtx.GetDebit(filter)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
     if (g_con_elementsmode) {
         old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
     }
@@ -360,7 +362,8 @@ Result CreateRateBumpTransaction(CWallet& wallet, const uint256& txid, const CCo
     }
     new_coin_control.destChange = destinations;
 
-    old_fee = wtx.GetDebit(ISMINE_SPENDABLE)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
+    isminefilter filter = wallet.GetLegacyScriptPubKeyMan() && wallet.IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS) ? ISMINE_WATCH_ONLY : ISMINE_SPENDABLE;
+    old_fee = wtx.GetDebit(filter)[::policyAsset] - wtx.tx->GetValueOutMap()[::policyAsset];
     if (g_con_elementsmode) {
         old_fee = GetFeeMap(*wtx.tx)[::policyAsset];
     }
