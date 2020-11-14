@@ -188,10 +188,11 @@ BITCOIN_TESTS =\
   test/util_tests.cpp \
   test/validation_block_tests.cpp \
   test/versionbits_tests.cpp \
+  test/validation_flush_tests.cpp \
   test/pegin_spent_tests.cpp \
   test/dynafed_tests.cpp \
   test/blind_tests.cpp
-# ELEMENTS IN THE END
+# ELEMENTS (last 3 tests)
 
 if ENABLE_PROPERTY_TESTS
 BITCOIN_TESTS += \
