@@ -151,8 +151,8 @@ jobs:
         GOAL="install"
         BITCOIN_CONFIG="--enable-zmq --with-gui=qt5 --enable-glibc-back-compat --enable-reduce-exports --enable-debug CXXFLAGS=\"-g0 -O2\""
         RUN_UNIT_TESTS=false
-# x86_64 Linux (xenial, no depends, only system libs)
 
+# x86_64 Linux (xenial, no depends, only system libs)
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [xenial]  [no depends, only system libs, sanitizers: thread (TSan), no wallet]'
       env: >-
