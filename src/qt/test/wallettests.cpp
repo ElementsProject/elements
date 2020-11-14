@@ -171,6 +171,16 @@ void TestGUI(interfaces::Node& node)
     sendCoinsDialog.setModel(&walletModel);
     transactionView.setModel(&walletModel);
 
+    {
+        // Check balance in send dialog
+        QLabel* balanceLabel = sendCoinsDialog.findChild<QLabel*>("labelBalance");
+        QString balanceText = balanceLabel->text();
+        int unit = walletModel.getOptionsModel()->getDisplayUnit();
+        CAmount balance = valueFor(walletModel.wallet().getBalance(), ::policyAsset);
+        QString balanceComparison = BitcoinUnits::formatWithUnit(unit, balance, false, BitcoinUnits::separatorAlways);
+        QCOMPARE(balanceText, balanceComparison);
+    }
+
     // Send two transactions, and verify they are added to transaction list.
     TransactionTableModel* transactionTableModel = walletModel.getTransactionTableModel();
     QCOMPARE(transactionTableModel->rowCount({}), 105);

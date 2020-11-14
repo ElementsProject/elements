@@ -569,7 +569,12 @@ void SendCoinsDialog::setBalance(const interfaces::WalletBalances& balances)
 {
     if(model && model->getOptionsModel())
     {
-        ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), valueFor(balances.balance, ::policyAsset)));
+        CAmount balance = valueFor(balances.balance, ::policyAsset);
+        if (model->privateKeysDisabled()) {
+            balance = valueFor(balances.watch_only_balance, ::policyAsset);
+            ui->labelBalanceName->setText(tr("Watch-only balance:"));
+        }
+        ui->labelBalance->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), balance));
     }
 }
 
