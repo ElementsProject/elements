@@ -17,7 +17,6 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.num_nodes = 2
         prefix_args = ["-pubkeyprefix=111", "-scriptprefix=196", "-secretprefix=239", "-extpubkeyprefix=043587CF", "-extprvkeyprefix=04358394", "-bech32_hrp=bcrt"]
         self.extra_args = [prefix_args, prefix_args]
-        self.supports_cli = False
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
