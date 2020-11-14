@@ -2370,12 +2370,12 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     std::vector<COutput> vCoins(vAvailableCoins);
     CAmountMap value_to_select = mapTargetValue;
 
+    // Default to bnb was not used. If we use it, we set it later
+    bnb_used = false;
+
     // coin control -> return all selected outputs (we want all selected to go into the transaction for sure)
     if (coin_control.HasSelected() && !coin_control.fAllowOtherInputs)
     {
-        // We didn't use BnB here, so set it to false.
-        bnb_used = false;
-
         for (const COutput& out : vCoins)
         {
             if (!out.fSpendable)
@@ -2405,7 +2405,6 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             const CWalletTx& wtx = it->second;
             // Clearly invalid input, fail
             if (wtx.tx->vout.size() <= outpoint.n) {
-                bnb_used = false;
                 return false;
             }
             // Just to calculate the marginal byte size
@@ -2416,7 +2415,6 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             CInputCoin coin(&wtx, outpoint.n, wtx.GetSpendSize(outpoint.n, false));
             mapValueFromPresetInputs[wtx.GetOutputAsset(outpoint.n)] += amt;
             if (coin.m_input_bytes <= 0) {
-                bnb_used = false;
                 return false; // Not solvable, can't estimate size for fee
             }
             coin.effective_value = coin.value - coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
@@ -2427,7 +2425,6 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
             }
             setPresetCoins.insert(coin);
         } else {
-            bnb_used = false;
             return false; // TODO: Allow non-wallet inputs
         }
     }
@@ -3030,7 +3027,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 }
 
                 // Choose coins to use
-                bool bnb_used;
+                bool bnb_used = false;
                 if (pick_new_inputs) {
                     mapValueIn.clear();
                     setCoins.clear();
