@@ -663,5 +663,10 @@ class PSBTTest(BitcoinTestFramework):
         analyzed = self.nodes[0].analyzepsbt(signed)
         assert analyzed['inputs'][0]['has_utxo'] and analyzed['inputs'][0]['is_final'] and analyzed['next'] == 'extractor'
 
+        self.log.info("PSBT spending unspendable outputs should have error message and Creator as next")
+        analysis = self.nodes[0].analyzepsbt('cHNldP8BALsCAAAAAAJY6HohtW2vDCO+jnBwRWwzb3y6pch1eST1RYh7sqvddQAAAAAA/////4ONBCfQ7GUKaKpGuwsJiupEIsBxssp4NSoHeVnQfOodAQAAAAD/////AgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAACPCqcAADAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAF9eEAAAP/UQAAAAAAAAEBQwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAC+vCAAAXahS39fr0QuN5fadOh/59nXSX47ICiQMBBwkDAQcQAAEAAIAAAQFDAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAL68IAABdqFLf1+vRC43l9p06H/n2ddJfjsgKJAwEHCQMBBxDZDGpPAAAAAA==')
+        assert_equal(analysis['next'], 'creator')
+        assert_equal(analysis['error'], 'PSBT is not valid. Input 0 spends unspendable output')
+
 if __name__ == '__main__':
     PSBTTest().main()
