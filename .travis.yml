@@ -91,7 +91,7 @@ jobs:
       before_script:
         - set -o errexit; source .travis/lint_05_before_script.sh
       script:
-        - set -o errexit; source .travis/lint_06_script.sh
+        - set -o errexit; source ./ci/lint/06_script.sh
 
     - stage: test
       name: 'ARM  [GOAL: install]  [bionic]  [unit tests, functional tests]'
