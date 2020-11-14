@@ -13,7 +13,8 @@ from test_framework.util import (
     assert_raises_rpc_error,
     assert_equal,
     hex_str_to_bytes,
-    find_vout_for_address
+    find_vout_for_address,
+    assert_greater_than
 )
 from test_framework import util
 from test_framework.messages import (
@@ -316,6 +317,19 @@ class FedPegTest(BitcoinTestFramework):
         # Finalize and extract and compare
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
         assert_equal(fin_psbt, signed_pegin)
+
+        # Try funding a psbt with the peg-in
+        assert_equal(sidechain.getbalance()['bitcoin'], 50)
+        out_bal = 0
+        outputs.append({sidechain.getnewaddress(): 49.999})
+        for out in outputs:
+            for val in out.values():
+                out_bal += Decimal(val)
+        assert_greater_than(out_bal, 50)
+        pegin_psbt = sidechain.walletcreatefundedpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
+        signed_psbt = sidechain.walletsignpsbt(pegin_psbt['psbt'])
+        fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
+        assert fin_psbt['complete']
 
         sample_pegin_struct = FromHex(CTransaction(), signed_pegin["hex"])
         # Round-trip peg-in transaction using python serialization

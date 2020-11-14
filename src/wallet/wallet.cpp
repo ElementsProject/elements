@@ -1403,17 +1403,11 @@ int64_t CWalletTx::GetTxTime() const
 
 // Helper for producing a max-sized low-S low-R signature (eg 71 bytes)
 // or a max-sized low-S signature (e.g. 72 bytes) if use_max_sig is true
-bool CWallet::DummySignInput(CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, bool use_max_sig) const
+static bool DummySignInput(const SigningProvider* provider, CMutableTransaction& tx, const size_t nIn, const CTxOut& txout, bool use_max_sig)
 {
     // Fill in dummy signatures for fee calculation.
     const CScript& scriptPubKey = txout.scriptPubKey;
     SignatureData sigdata;
-
-    const SigningProvider* provider = GetSigningProvider(scriptPubKey);
-    if (!provider) {
-        // We don't know about this scriptpbuKey;
-        return false;
-    }
 
     if (!ProduceSignature(*provider, use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR, scriptPubKey, sigdata)) {
         return false;
@@ -1423,14 +1417,19 @@ bool CWallet::DummySignInput(CMutableTransaction& tx, const size_t nIn, const CT
 }
 
 // Helper for producing a bunch of max-sized low-S low-R signatures (eg 71 bytes)
-bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, bool use_max_sig) const
+bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> &txouts, const CCoinControl* coin_control) const
 {
     // Fill in dummy signatures for fee calculation.
     int nIn = 0;
     for (const auto& txout : txouts)
     {
-        if (!DummySignInput(txNew, nIn, txout, use_max_sig)) {
-            return false;
+        const SigningProvider* provider = GetSigningProvider(txout.scriptPubKey);
+        // Use max sig if watch only inputs were used or if this particular input is an external input
+        bool use_max_sig = coin_control && (coin_control->fAllowWatchOnly || (coin_control && coin_control->IsExternalSelected(txNew.vin[nIn].prevout)));
+        if (!provider || !DummySignInput(provider, txNew, nIn, txout, use_max_sig)) {
+            if (!coin_control || !DummySignInput(&coin_control->m_external_provider, txNew, nIn, txout, use_max_sig)) {
+                return false;
+            }
         }
 
         nIn++;
@@ -1491,41 +1490,51 @@ bool CWallet::ImportScriptPubKeys(const std::string& label, const std::set<CScri
     return true;
 }
 
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, bool use_max_sig)
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const CCoinControl* coin_control)
 {
     std::vector<CTxOut> txouts;
+    // Look up the inputs. The inputs are either in the wallet, or in coin_control.
     for (const CTxIn& input : tx.vin) {
         const auto mi = wallet->mapWallet.find(input.prevout.hash);
-        // Can not estimate size without knowing the input details
-        if (mi == wallet->mapWallet.end()) {
+        if (mi != wallet->mapWallet.end()) {
+            assert(input.prevout.n < mi->second.tx->vout.size());
+            txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
+        } else if (coin_control) {
+            CTxOut txout;
+            if (!coin_control->GetExternalOutput(input.prevout, txout)) {
+                return -1;
+            }
+            txouts.emplace_back(txout);
+        } else {
             return -1;
         }
-        assert(input.prevout.n < mi->second.tx->vout.size());
-        txouts.emplace_back(mi->second.tx->vout[input.prevout.n]);
     }
-    return CalculateMaximumSignedTxSize(tx, wallet, txouts, use_max_sig);
+    return CalculateMaximumSignedTxSize(tx, wallet, txouts, coin_control);
 }
 
 // txouts needs to be in the order of tx.vin
-int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, bool use_max_sig)
+int64_t CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const std::vector<CTxOut>& txouts, const CCoinControl* coin_control)
 {
     CMutableTransaction txNew(tx);
-    if (!wallet->DummySignTx(txNew, txouts, use_max_sig)) {
+    if (!wallet->DummySignTx(txNew, txouts, coin_control)) {
         return -1;
     }
     return GetVirtualTransactionSize(CTransaction(txNew));
 }
 
-int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
-{
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const SigningProvider* provider, bool use_max_sig) {
     CMutableTransaction txn;
     txn.vin.push_back(CTxIn(COutPoint()));
-    if (!wallet->DummySignInput(txn, 0, txout, use_max_sig)) {
-        // This should never happen, because IsAllFromMe(ISMINE_SPENDABLE)
-        // implies that we can sign for every input.
+    if (!provider || !DummySignInput(provider, txn, 0, txout, use_max_sig)) {
         return -1;
     }
     return GetVirtualTransactionInputSize(CTransaction(txn));
+}
+
+int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
+{
+    const SigningProvider* provider = wallet->GetSigningProvider(txout.scriptPubKey);
+    return CalculateMaximumSignedInputSize(txout, provider, use_max_sig);
 }
 
 void CWalletTx::GetAmounts(std::list<COutputEntry>& listReceived,
@@ -2400,33 +2409,66 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     for (const COutPoint& outpoint : vPresetInputs)
     {
         std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(outpoint.hash);
-        if (it != mapWallet.end())
-        {
+        // ELEMENTS: this code pulled from unmerged Core PR #17211
+        int input_bytes = -1;
+        CTxOut txout;
+        CInputCoin coin(outpoint, txout, 0); // dummy initialization
+        if (it != mapWallet.end()) {
             const CWalletTx& wtx = it->second;
             // Clearly invalid input, fail
             if (wtx.tx->vout.size() <= outpoint.n) {
                 return false;
             }
             // Just to calculate the marginal byte size
-            CAmount amt = wtx.GetOutputValueOut(outpoint.n);
-            if (amt < 0) {
+            if (wtx.GetOutputValueOut(outpoint.n) < 0) {
                 continue;
             }
-            CInputCoin coin(&wtx, outpoint.n, wtx.GetSpendSize(outpoint.n, false));
-            mapValueFromPresetInputs[wtx.GetOutputAsset(outpoint.n)] += amt;
-            if (coin.m_input_bytes <= 0) {
-                return false; // Not solvable, can't estimate size for fee
-            }
-            coin.effective_value = coin.value - coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
-            if (coin_selection_params.use_bnb) {
-                value_to_select[coin.asset] -= coin.effective_value;
-            } else {
-                value_to_select[coin.asset] -= coin.value;
-            }
-            setPresetCoins.insert(coin);
-        } else {
-            return false; // TODO: Allow non-wallet inputs
+            input_bytes = wtx.GetSpendSize(outpoint.n, false);
+            txout = wtx.tx->vout[outpoint.n];
+            // ELEMENTS: must assign coin from wtx if we can, so the wallet
+            //  can look up any confidential amounts/assets
+            coin = CInputCoin(&wtx, outpoint.n, input_bytes);
         }
+        if (input_bytes == -1) {
+            // The input is external. We either did not find the tx in mapWallet, or we did but couldn't compute the input size with wallet data
+            if (!coin_control.GetExternalOutput(outpoint, txout)) {
+                // Not ours, and we don't have solving data.
+                return false;
+            }
+            input_bytes = CalculateMaximumSignedInputSize(txout, &coin_control.m_external_provider, /* use_max_sig */ true);
+            // ELEMENTS: one more try to get a signed input size: for pegins,
+            //  the outpoint is provided as external data but the information
+            //  needed to spend is in the wallet (not the external provider,
+            //  as the user is expecting the wallet to remember this information
+            //  after they called getpeginaddress). So try estimating size with
+            //  the wallet rather than the external provider.
+            if (input_bytes == -1) {
+                input_bytes = CalculateMaximumSignedInputSize(txout, this, /* use_max_sig */ true);
+            }
+            if (!txout.nValue.IsExplicit() || !txout.nAsset.IsExplicit()) {
+                return false; // We can't get its value, so abort
+            }
+            coin = CInputCoin(outpoint, txout, input_bytes);
+        }
+
+        mapValueFromPresetInputs[coin.asset] += coin.value;
+        if (coin.m_input_bytes <= 0) {
+            // ELEMENTS: if we're here we can't compute the coin's effective value. At
+	    //  this point in the rebase this is only used for BnB, and our functional
+            //  tests expect the user to get a "missing data" error rather than an
+            //  "insufficient funds" error, which means we need some way to make
+            //  SelectCoins pass. So rather than "return false;" as in upstream we
+            //  just turn off bnb and keep going.
+            coin_selection_params.use_bnb = false;
+            coin.m_input_bytes = 0;
+        }
+        coin.effective_value = coin.value - coin_selection_params.effective_fee.GetFee(coin.m_input_bytes);
+        if (coin_selection_params.use_bnb) {
+            value_to_select[coin.asset] -= coin.effective_value;
+        } else {
+            value_to_select[coin.asset] -= coin.value;
+        }
+        setPresetCoins.insert(coin);
     }
 
     // remove preset inputs from vCoins
@@ -2528,7 +2570,6 @@ bool CWallet::SignTransaction(CMutableTransaction& tx)
 bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl coinControl)
 {
     std::vector<CRecipient> vecSend;
-    std::set<CAsset> setAssets;
 
     // Turn the txout set into a CRecipient vector.
     for (size_t idx = 0; idx < tx.vout.size(); idx++) {
@@ -2539,9 +2580,6 @@ bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nC
             strFailReason = _("Pre-funded amounts must be non-blinded").translated;
             return false;
         }
-
-        // Account for the asset in the possible change destinations.
-        setAssets.insert(txOut.nAsset.GetAsset());
 
         // Fee outputs should not be added to avoid overpayment of fees
         if (txOut.IsFee()) {
@@ -2892,13 +2930,18 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 std::vector<COutPoint> vPresetInputs;
                 coin_control.ListSelected(vPresetInputs);
                 for (const COutPoint& presetInput : vPresetInputs) {
+                    CAsset asset;
                     std::map<uint256, CWalletTx>::const_iterator it = mapWallet.find(presetInput.hash);
-                    if (it == mapWallet.end()) {
+                    CTxOut txout;
+                    if (it != mapWallet.end()) {
+                         asset = it->second.GetOutputAsset(presetInput.n);
+                    } else if (coin_control.GetExternalOutput(presetInput, txout)) {
+                        asset = txout.nAsset.GetAsset();
+                    } else {
                         // Ignore this here, will fail more gracefully later.
                         continue;
                     }
 
-                    CAsset asset = it->second.GetOutputAsset(presetInput.n);
                     if (mapScriptChange.find(asset) != mapScriptChange.end()) {
                         // This asset already has a change script.
                         continue;
@@ -3247,9 +3290,9 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     }
                 }
 
-                nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, coin_control.fAllowWatchOnly);
+                nBytes = CalculateMaximumSignedTxSize(CTransaction(txNew), this, &coin_control);
                 if (nBytes < 0) {
-                    strFailReason = _("Signing transaction failed").translated;
+                    strFailReason = _("Missing solving data for estimating transaction size").translated;
                     return false;
                 }
 

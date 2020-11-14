@@ -768,6 +768,27 @@ class RawTransactionsTest(BitcoinTestFramework):
         # The total subtracted from the outputs is equal to the fee.
         assert_equal(share[0] + share[2] + share[3], result[0]['fee'])
 
+        n0_blind_addr = self.nodes[0].getnewaddress()
+        addr_info = self.nodes[0].getaddressinfo(n0_blind_addr)
+        txid = self.nodes[2].sendtoaddress(addr_info['unconfidential'], 10)
+        self.sync_all()
+        vout = find_vout_for_address(self.nodes[0], txid, n0_blind_addr)
+        self.nodes[0].generate(1)
+        self.sync_all()
+
+        # An external input without solving data should result in an error
+        raw_tx = self.nodes[2].createrawtransaction([{"txid": txid, "vout": vout}], {addr_info['unconfidential']: 20})
+        assert_raises_rpc_error(-4, "Missing solving data for estimating transaction size", self.nodes[2].fundrawtransaction, raw_tx)
+
+        # But funding should work when the solving data is provided
+        funded_tx = self.nodes[2].fundrawtransaction(raw_tx, {}, False, {"pubkeys": [addr_info['pubkey']]})
+        signed_tx = self.nodes[2].signrawtransactionwithwallet(funded_tx['hex'])
+        assert not signed_tx['complete']
+        signed_tx = self.nodes[0].signrawtransactionwithwallet(signed_tx['hex'])
+        assert signed_tx['complete']
+        # Don't send because we didn't blind it so it's not actually valid.
+        # self.nodes[0].sendrawtransaction(signed_tx['hex'])
+
     def test_subtract_fee_with_presets(self):
         self.log.info("Test fundrawtxn subtract fee from outputs with preset inputs that are sufficient")
 
