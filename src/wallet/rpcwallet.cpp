@@ -620,7 +620,11 @@ static UniValue signmessage(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
     }
 
-    const SigningProvider* provider = pwallet->GetSigningProvider();
+    CScript script_pub_key = GetScriptForDestination(*pkhash);
+    const SigningProvider* provider = pwallet->GetSigningProvider(script_pub_key);
+    if (!provider) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
+    }
 
     CKey key;
     CKeyID keyID(*pkhash);
@@ -3206,34 +3210,36 @@ static UniValue listunspent(const JSONRPCRequest& request)
                 entry.pushKV("label", i->second.name);
             }
 
-            const SigningProvider* provider = pwallet->GetSigningProvider();
-            if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID& hash = CScriptID(boost::get<ScriptHash>(address));
-                CScript redeemScript;
-                if (provider->GetCScript(hash, redeemScript)) {
-                    entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
-                    // Now check if the redeemScript is actually a P2WSH script
-                    CTxDestination witness_destination;
-                    if (redeemScript.IsPayToWitnessScriptHash()) {
-                        bool extracted = ExtractDestination(redeemScript, witness_destination);
-                        CHECK_NONFATAL(extracted);
-                        // Also return the witness script
-                        const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(witness_destination);
-                        CScriptID id;
-                        CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
-                        CScript witnessScript;
-                        if (provider->GetCScript(id, witnessScript)) {
-                            entry.pushKV("witnessScript", HexStr(witnessScript.begin(), witnessScript.end()));
+            const SigningProvider* provider = pwallet->GetSigningProvider(scriptPubKey);
+            if (provider) {
+                if (scriptPubKey.IsPayToScriptHash()) {
+                    const CScriptID& hash = CScriptID(boost::get<ScriptHash>(address));
+                    CScript redeemScript;
+                    if (provider->GetCScript(hash, redeemScript)) {
+                        entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
+                        // Now check if the redeemScript is actually a P2WSH script
+                        CTxDestination witness_destination;
+                        if (redeemScript.IsPayToWitnessScriptHash()) {
+                            bool extracted = ExtractDestination(redeemScript, witness_destination);
+                            CHECK_NONFATAL(extracted);
+                            // Also return the witness script
+                            const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(witness_destination);
+                            CScriptID id;
+                            CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
+                            CScript witnessScript;
+                            if (provider->GetCScript(id, witnessScript)) {
+                                entry.pushKV("witnessScript", HexStr(witnessScript.begin(), witnessScript.end()));
+                            }
                         }
                     }
-                }
-            } else if (scriptPubKey.IsPayToWitnessScriptHash()) {
-                const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(address);
-                CScriptID id;
-                CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
-                CScript witnessScript;
-                if (provider->GetCScript(id, witnessScript)) {
-                    entry.pushKV("witnessScript", HexStr(witnessScript.begin(), witnessScript.end()));
+                } else if (scriptPubKey.IsPayToWitnessScriptHash()) {
+                    const WitnessV0ScriptHash& whash = boost::get<WitnessV0ScriptHash>(address);
+                    CScriptID id;
+                    CRIPEMD160().Write(whash.begin(), whash.size()).Finalize(id.begin());
+                    CScript witnessScript;
+                    if (provider->GetCScript(id, witnessScript)) {
+                        entry.pushKV("witnessScript", HexStr(witnessScript.begin(), witnessScript.end()));
+                    }
                 }
             }
         }
@@ -3255,8 +3261,11 @@ static UniValue listunspent(const JSONRPCRequest& request)
         entry.pushKV("spendable", out.fSpendable);
         entry.pushKV("solvable", out.fSolvable);
         if (out.fSolvable) {
-            auto descriptor = InferDescriptor(scriptPubKey, *pwallet->GetLegacyScriptPubKeyMan());
-            entry.pushKV("desc", descriptor->ToString());
+            const SigningProvider* provider = pwallet->GetSigningProvider(scriptPubKey);
+            if (provider) {
+                auto descriptor = InferDescriptor(scriptPubKey, *provider);
+                entry.pushKV("desc", descriptor->ToString());
+            }
         }
         if (avoid_reuse) entry.pushKV("reused", reused);
         entry.pushKV("safe", out.fSafe);
@@ -3584,16 +3593,46 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
     EnsureWalletIsUnlocked(pwallet);
 
     // Fetch previous transactions (inputs):
+    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    std::set<const SigningProvider*> providers;
     std::map<COutPoint, Coin> coins;
-    for (const CTxIn& txin : mtx.vin) {
+    for (unsigned int i = 0; i < mtx.vin.size(); ++i) {
+        const CTxIn& txin = mtx.vin[i];
         coins[txin.prevout]; // Create empty map entry keyed by prevout.
+        // ELEMENTS: for pegins we directly look up the provider by
+        //  extracting the scriptPubKey from the pegin witness
+        if (txin.m_is_pegin) {
+            std::string err;
+            if (mtx.witness.vtxinwit.size() == mtx.vin.size() && IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false)) {
+                CTxOut pegin_output = GetPeginOutputFromWitness(mtx.witness.vtxinwit[i].m_pegin_witness);
+                const SigningProvider* provider = pwallet->GetSigningProvider(pegin_output.scriptPubKey);
+                if (provider) {
+                    providers.insert(std::move(provider));
+                }
+            }
+        }
     }
     pwallet->chain().findCoins(coins);
 
     // Parse the prevtxs array
     ParsePrevouts(request.params[1], nullptr, coins);
 
-    return SignTransaction(mtx, &*pwallet->GetLegacyScriptPubKeyMan(), coins, request.params[2]);
+    for (const std::pair<COutPoint, Coin> coin_pair : coins) {
+        const SigningProvider* provider = pwallet->GetSigningProvider(coin_pair.second.out.scriptPubKey);
+        if (provider) {
+            providers.insert(std::move(provider));
+        }
+    }
+    if (providers.size() == 0) {
+        // When there are no available providers, use DUMMY_SIGNING_PROVIDER so we can check if the tx is complete
+        providers.insert(&DUMMY_SIGNING_PROVIDER);
+    }
+
+    UniValue result(UniValue::VOBJ);
+    for (const SigningProvider* provider : providers) {
+        SignTransaction(mtx, provider, coins, request.params[2], result);
+    }
+     return result;
 }
 
 static UniValue bumpfee(const JSONRPCRequest& request)
@@ -3959,9 +3998,10 @@ static UniValue DescribeWalletAddress(CWallet* pwallet, const CTxDestination& de
 {
     UniValue ret(UniValue::VOBJ);
     UniValue detail = DescribeAddress(dest);
+    CScript script = GetScriptForDestination(dest);
     const SigningProvider* provider = nullptr;
     if (pwallet) {
-        provider = pwallet->GetSigningProvider();
+        provider = pwallet->GetSigningProvider(script);
     }
     ret.pushKVs(detail);
     ret.pushKVs(boost::apply_visitor(DescribeWalletAddressVisitor(provider), dest));
@@ -4133,7 +4173,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
 
     CScript scriptPubKey = GetScriptForDestination(dest);
     ret.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
-    const SigningProvider* provider = pwallet->GetSigningProvider();
+    const SigningProvider* provider = pwallet->GetSigningProvider(scriptPubKey);
 
     isminetype mine = pwallet->IsMine(dest);
     // Elements: Addresses we can not unblind outputs for aren't spendable
@@ -4142,7 +4182,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
         mine = ISMINE_NO;
     }
     ret.pushKV("ismine", bool(mine & ISMINE_SPENDABLE));
-    bool solvable = IsSolvable(*provider, scriptPubKey);
+    bool solvable = provider && IsSolvable(*provider, scriptPubKey);
     ret.pushKV("solvable", solvable);
     if (solvable) {
        ret.pushKV("desc", InferDescriptor(scriptPubKey, *provider)->ToString());
@@ -4160,7 +4200,7 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     }
     ret.pushKV("ischange", pwallet->IsChange(scriptPubKey));
 
-    ScriptPubKeyMan* spk_man = pwallet->GetScriptPubKeyMan();
+    ScriptPubKeyMan* spk_man = pwallet->GetScriptPubKeyMan(scriptPubKey);
     if (spk_man) {
         if (const CKeyMetadata* meta = spk_man->GetMetadata(dest)) {
             ret.pushKV("timestamp", meta->nCreateTime);

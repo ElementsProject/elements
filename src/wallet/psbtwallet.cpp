@@ -43,14 +43,31 @@ TransactionError FillPSBTInputsData(const CWallet* pwallet, PartiallySignedTrans
             }
         }
 
+        // Get the scriptPubKey to know which SigningProvider to use
+        CScript script;
+        if (!input.witness_utxo.IsNull()) {
+            script = input.witness_utxo.scriptPubKey;
+        } else if (input.non_witness_utxo) {
+            script = input.non_witness_utxo->vout[txin.prevout.n].scriptPubKey;
+        } else {
+            // There's no UTXO so we can just skip this now
+            continue;
+        }
+        SignatureData sigdata;
+        input.FillSignatureData(sigdata);
+        const SigningProvider* provider = pwallet->GetSigningProvider(script, sigdata);
+        if (!provider) {
+            continue;
+        }
+
         // Get key origin info for input, if bip32derivs is true. Does not actually sign anything.
-        SignPSBTInput(HidingSigningProvider(pwallet->GetSigningProvider(), true /* don't sign */, !bip32derivs), psbtx, i, 1 /* SIGHASH_ALL, ignored */);
+        SignPSBTInput(HidingSigningProvider(provider, true /* don't sign */, !bip32derivs), psbtx, i, 1 /* SIGHASH_ALL, ignored */);
     }
 
     return TransactionError::OK;
 }
 
-TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok)
+TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs)
 {
     complete = false;
     // If we're signing, check that the transaction is not still in need of blinding
@@ -124,14 +141,36 @@ TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& ps
 
     complete = true;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+        const CTxIn& txin = psbtx.tx->vin[i];
+        PSBTInput& input = psbtx.inputs.at(i);
+
         // Get the Sighash type
-        if (sign && psbtx.inputs[i].sighash_type > 0 && psbtx.inputs[i].sighash_type != sighash_type) {
+        if (sign && input.sighash_type > 0 && input.sighash_type != sighash_type) {
             complete = false;
             return TransactionError::SIGHASH_MISMATCH;
         }
 
+        // Get the scriptPubKey to know which SigningProvider to use
+        CScript script;
+        if (!input.witness_utxo.IsNull()) {
+            script = input.witness_utxo.scriptPubKey;
+        } else if (input.non_witness_utxo) {
+            script = input.non_witness_utxo->vout[txin.prevout.n].scriptPubKey;
+        } else {
+            // There's no UTXO so we can just skip this now
+            complete = false;
+            continue;
+        }
+        SignatureData sigdata;
+        input.FillSignatureData(sigdata);
+        const SigningProvider* provider = pwallet->GetSigningProvider(script, sigdata);
+        if (!provider) {
+            complete = false;
+            continue;
+        }
+
         // Here we _only_ sign, and do not e.g. fill in key origin data.
-        complete &= SignPSBTInput(HidingSigningProvider(pwallet->GetSigningProvider(), !sign, true /*  no key origins */), psbtx, i, sighash_type);
+        complete &= SignPSBTInput(HidingSigningProvider(provider, !sign, !bip32derivs), psbtx, i, sighash_type);
     }
 
     // Restore the saved transaction, to remove our temporary munging.
@@ -146,6 +185,7 @@ void FillPSBTOutputsData(const CWallet* pwallet, PartiallySignedTransaction& psb
     // Fill in the bip32 keypaths and redeemscripts for the outputs so that hardware wallets can identify change
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {
         const CTxOut& out = tx.vout.at(i);
+        const SigningProvider* provider = pwallet->GetSigningProvider(out.scriptPubKey);
         PSBTOutput& psbt_out = psbtx.outputs.at(i);
 
         // Fill a SignatureData with output info
@@ -153,7 +193,7 @@ void FillPSBTOutputsData(const CWallet* pwallet, PartiallySignedTransaction& psb
         psbt_out.FillSignatureData(sigdata);
 
         MutableTransactionSignatureCreator creator(&tx, 0 /* nIn, ignored */, out.nValue, 1 /* sighashtype, ignored */);
-        ProduceSignature(HidingSigningProvider(pwallet->GetSigningProvider(), true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
+        ProduceSignature(HidingSigningProvider(provider, true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
         psbt_out.FromSignatureData(sigdata);
     }
 }
@@ -179,7 +219,7 @@ TransactionError FillPSBT(const CWallet* pwallet, PartiallySignedTransaction& ps
         return te;
     }
     // For backwards compatibility, do not check if amounts balance before signing in this case.
-    te = SignPSBT(pwallet, psbtx, complete, sighash_type, sign, true);
+    te = SignPSBT(pwallet, psbtx, complete, sighash_type, sign, true, bip32derivs);
     if (te != TransactionError::OK) {
         return te;
     }
