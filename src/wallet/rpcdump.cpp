@@ -1531,8 +1531,11 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
     ret.pushKV("liquid_pak", HexStr(pwallet->online_key));
     ret.pushKV("liquid_pak_address", EncodeDestination(PKHash(pwallet->online_key)));
 
+    // We know that the number is non-negative from earlier check
+    unsigned int counter = (unsigned int)pwallet->offline_counter;
+
     UniValue address_list(UniValue::VARR);
-    for (unsigned int i = 0; i < 3; i++) {
+    for (unsigned int i = counter; i < counter+3; i++) {
         std::vector<CScript> scripts;
         if (!desc->Expand(i, provider, scripts, provider)) {
             throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. This is a bug.");
