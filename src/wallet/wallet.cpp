@@ -2798,7 +2798,8 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
     // Always assume that we are at least sending policyAsset.
     mapValue[::policyAsset] = 0;
     std::vector<std::unique_ptr<ReserveDestination>> reservedest;
-    reservedest.emplace_back(new ReserveDestination(this)); // policy asset
+    const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
+    reservedest.emplace_back(new ReserveDestination(this, change_type)); // policy asset
     int nChangePosRequest = nChangePosInOut;
     std::map<CAsset, int> vChangePosInOut;
     unsigned int nSubtractFeeFromAmount = 0;
@@ -2809,7 +2810,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
         // Pad change keys to cover total possible number of assets
         // One already exists(for policyAsset), so one for each destination
         if (assets_seen.insert(recipient.asset).second) {
-            reservedest.emplace_back(new ReserveDestination(this));
+            reservedest.emplace_back(new ReserveDestination(this, change_type));
         }
 
         // Skip over issuance outputs, no need to select those coins
@@ -2881,12 +2882,11 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     return false;
                 }
 
-                const OutputType change_type = TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : m_default_change_type, vecSend);
                 // One change script per output asset.
                 size_t index = 0;
                 for (const auto& value : mapValue) {
                     CTxDestination dest;
-                    if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(change_type, dest, true)) {
+                    if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true)) {
                         strFailReason = _("Keypool ran out, please call keypoolrefill first").translated;
                         return false;
                     }
@@ -2912,7 +2912,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                     }
 
                     CTxDestination dest;
-                    if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(change_type, dest, true)) {
+                    if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true)) {
                         strFailReason = _("Keypool ran out, please call keypoolrefill first").translated;
                         return false;
                     }
@@ -3798,14 +3798,14 @@ bool CWallet::GetNewChangeDestination(const OutputType type, CTxDestination& des
 
     m_spk_man->TopUp();
 
-    ReserveDestination reservedest(this);
-    if (!reservedest.GetReservedDestination(type, dest, true)) {
+    ReserveDestination reservedest(this, type);
+    if (!reservedest.GetReservedDestination(dest, true)) {
         error = "Error: Keypool ran out, please call keypoolrefill first";
         return false;
     }
     if (add_blinding_key) {
         CPubKey blinding_pubkey = GetBlindingPubKey(GetScriptForDestination(dest));
-        reservedest.SetBlindingPubKey(type, blinding_pubkey, dest);
+        reservedest.SetBlindingPubKey(blinding_pubkey, dest);
     }
 
     reservedest.KeepDestination();
@@ -3973,7 +3973,7 @@ std::set<CTxDestination> CWallet::GetLabelAddresses(const std::string& label) co
     return result;
 }
 
-bool ReserveDestination::GetReservedDestination(const OutputType type, CTxDestination& dest, bool internal)
+bool ReserveDestination::GetReservedDestination(CTxDestination& dest, bool internal)
 {
     m_spk_man = pwallet->GetLegacyScriptPubKeyMan();
     if (!m_spk_man) {
@@ -3994,13 +3994,12 @@ bool ReserveDestination::GetReservedDestination(const OutputType type, CTxDestin
         fInternal = keypool.fInternal;
     }
     assert(vchPubKey.IsValid());
-    m_spk_man->LearnRelatedScripts(vchPubKey, type);
     address = GetDestinationForKey(vchPubKey, type);
     dest = address;
     return true;
 }
 
-void ReserveDestination::SetBlindingPubKey(const OutputType type, const CPubKey& blinding_pubkey, CTxDestination& dest)
+void ReserveDestination::SetBlindingPubKey(const CPubKey& blinding_pubkey, CTxDestination& dest)
 {
     address = GetDestinationForKey(vchPubKey, type, blinding_pubkey);
     dest = address;
@@ -4008,8 +4007,10 @@ void ReserveDestination::SetBlindingPubKey(const OutputType type, const CPubKey&
 
 void ReserveDestination::KeepDestination()
 {
-    if (nIndex != -1)
+    if (nIndex != -1) {
         m_spk_man->KeepDestination(nIndex);
+        m_spk_man->LearnRelatedScripts(vchPubKey, type);
+    }
     nIndex = -1;
     vchPubKey = CPubKey();
     address = CNoDestination();
