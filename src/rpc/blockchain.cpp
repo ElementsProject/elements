@@ -1309,6 +1309,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             "  \"chainwork\": \"xxxx\"           (string) total amount of work in active chain, in hexadecimal\n"
             "  \"size_on_disk\": xxxxxx,       (numeric) the estimated size of the block and undo files on disk\n"
             "  \"pruned\": xx,                 (boolean) if the blocks are subject to pruning\n"
+            "  \"current_params_root\": \"xxxx\", (string) the root of the currently active dynafed params in hex\n"
             "  \"signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data from genesis block.\n"
             "  \"signblock_hex\" : \"xxxx\", (string) Hex of sign block challenge data from genesis block.\n"
             "  \"current_signblock_asm\" : \"xxxx\", (string) ASM of sign block challenge data enforced on the next block.\n"
@@ -1387,6 +1388,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             obj.pushKV("extension_space", arr);
         } else {
             const DynaFedParamEntry entry = ComputeNextBlockFullCurrentParameters(::ChainActive().Tip(), chainparams.GetConsensus());
+            obj.pushKV("current_params_root", entry.CalculateRoot().GetHex());
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
             obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
             obj.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);
