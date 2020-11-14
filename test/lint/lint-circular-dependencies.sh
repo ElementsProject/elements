@@ -26,7 +26,6 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "wallet/wallet -> wallet/walletdb -> wallet/wallet"
     "policy/fees -> txmempool -> validation -> policy/fees"
     "wallet/coinselection -> wallet/wallet -> wallet/coinselection"
-    "wallet/scriptpubkeyman -> wallet/wallet -> wallet/scriptpubkeyman"
 )
 
 EXIT_CODE=0

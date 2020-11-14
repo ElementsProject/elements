@@ -59,13 +59,13 @@ TransactionError FillPSBTInputsData(const CWallet* pwallet, PartiallySignedTrans
         }
         SignatureData sigdata;
         input.FillSignatureData(sigdata);
-        const SigningProvider* provider = pwallet->GetSigningProvider(script, sigdata);
+        std::unique_ptr<SigningProvider> provider = pwallet->GetSigningProvider(script, sigdata);
         if (!provider) {
             continue;
         }
 
         // Get key origin info for input, if bip32derivs is true. Does not actually sign anything.
-        SignPSBTInput(HidingSigningProvider(provider, true /* don't sign */, !bip32derivs), psbtx, i, 1 /* SIGHASH_ALL, ignored */);
+        SignPSBTInput(HidingSigningProvider(provider.get(), true /* don't sign */, !bip32derivs), psbtx, i, 1 /* SIGHASH_ALL, ignored */);
     }
 
     return TransactionError::OK;
@@ -191,14 +191,14 @@ TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& ps
         }
         SignatureData sigdata;
         input.FillSignatureData(sigdata);
-        const SigningProvider* provider = pwallet->GetSigningProvider(script, sigdata);
+        std::unique_ptr<SigningProvider> provider = pwallet->GetSigningProvider(script, sigdata);
         if (!provider) {
             complete = false;
             continue;
         }
 
         // Here we _only_ sign, and do not e.g. fill in key origin data.
-        complete &= SignPSBTInput(HidingSigningProvider(provider, !sign, !bip32derivs), psbtx, i, sighash_type);
+        complete &= SignPSBTInput(HidingSigningProvider(provider.get(), !sign, !bip32derivs), psbtx, i, sighash_type);
     }
 
     // Restore the saved transaction, to remove our temporary munging.
@@ -213,7 +213,6 @@ void FillPSBTOutputsData(const CWallet* pwallet, PartiallySignedTransaction& psb
     // Fill in the bip32 keypaths and redeemscripts for the outputs so that hardware wallets can identify change
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {
         const CTxOut& out = tx.vout.at(i);
-        const SigningProvider* provider = pwallet->GetSigningProvider(out.scriptPubKey);
         PSBTOutput& psbt_out = psbtx.outputs.at(i);
 
         // Fill a SignatureData with output info
@@ -221,7 +220,10 @@ void FillPSBTOutputsData(const CWallet* pwallet, PartiallySignedTransaction& psb
         psbt_out.FillSignatureData(sigdata);
 
         MutableTransactionSignatureCreator creator(&tx, 0 /* nIn, ignored */, out.nValue, 1 /* sighashtype, ignored */);
-        ProduceSignature(HidingSigningProvider(provider, true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
+        std::unique_ptr<SigningProvider> provider = pwallet->GetSigningProvider(out.scriptPubKey);
+        if (provider) {
+            ProduceSignature(HidingSigningProvider(provider.get(), true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
+        }
         psbt_out.FromSignatureData(sigdata);
     }
 }
