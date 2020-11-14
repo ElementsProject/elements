@@ -93,6 +93,7 @@ static void add_coin(CWallet& wallet, const CAmount& nValue, int nAge = 6*24, bo
         CAmountMap map;
         map[CAsset()] = 1;
         wtx->m_amounts[CWalletTx::DEBIT].Set(ISMINE_SPENDABLE, map);
+        wtx->m_is_cache_empty = false;
     }
     COutput output(wtx.get(), nInput, nAge, true /* spendable */, true /* solvable */, true /* safe */);
     vCoins.push_back(output);
