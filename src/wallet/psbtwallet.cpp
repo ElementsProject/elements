@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <confidential_validation.h>
+#include <pegins.h>
 #include <wallet/psbtwallet.h>
 
 TransactionError FillPSBTInputsData(const CWallet* pwallet, PartiallySignedTransaction& psbtx, bool bip32derivs)
@@ -109,6 +110,27 @@ TransactionError SignPSBT(const CWallet* pwallet, PartiallySignedTransaction& ps
         }
         if (!output.surjection_proof.empty()) {
             outwit.vchSurjectionproof = output.surjection_proof;
+        }
+    }
+
+    // Stuff in the peg-in data
+    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+        PSBTInput& input = psbtx.inputs[i];
+        if (input.value && input.peg_in_tx.which() != 0 && input.txout_proof.which() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
+            CScriptWitness pegin_witness;
+            if (Params().GetConsensus().ParentChainHasPow()) {
+                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
+                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, btc_peg_in_tx, btc_txout_proof);
+            } else {
+                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
+                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, elem_peg_in_tx, elem_txout_proof);
+            }
+            tx.vin[i].m_is_pegin = true;
+            tx.witness.vtxinwit[i].m_pegin_witness = pegin_witness;
+            // Set the witness utxo
+            input.witness_utxo = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
         }
     }
 

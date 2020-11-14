@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <pegins.h>
 #include <psbt.h>
 #include <util/strencodings.h>
 #include <confidential_validation.h>
@@ -159,6 +160,11 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (value_blinding_factor.IsNull() && !input.value_blinding_factor.IsNull()) value_blinding_factor = input.value_blinding_factor;
     if (asset.IsNull() && !input.asset.IsNull()) asset = input.asset;
     if (asset_blinding_factor.IsNull() && !input.asset_blinding_factor.IsNull()) asset_blinding_factor = input.asset_blinding_factor;
+
+    if (peg_in_tx.which() == 0 && peg_in_tx.which() > 0) peg_in_tx = input.peg_in_tx;
+    if (txout_proof.which() == 0 && peg_in_tx.which() > 0) txout_proof = input.txout_proof;
+    if (claim_script.empty() && !input.claim_script.empty()) claim_script = input.claim_script;
+    if (genesis_hash.IsNull() && !input.genesis_hash.IsNull()) genesis_hash = input.genesis_hash;
 }
 
 bool PSBTInput::IsSane() const
@@ -341,6 +347,22 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
     for (unsigned int i = 0; i < result.vin.size(); ++i) {
         result.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
         result.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
+        PSBTInput& input = psbtx.inputs[i];
+
+        if (input.value && input.peg_in_tx.which() != 0 && input.txout_proof.which() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
+            CScriptWitness pegin_witness;
+            if (Params().GetConsensus().ParentChainHasPow()) {
+                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
+                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, btc_peg_in_tx, btc_txout_proof);
+            } else {
+                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
+                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, elem_peg_in_tx, elem_txout_proof);
+            }
+            result.vin[i].m_is_pegin = true;
+            result.witness.vtxinwit[i].m_pegin_witness = pegin_witness;
+        }
     }
 
     result.witness.vtxoutwit.resize(result.vout.size());

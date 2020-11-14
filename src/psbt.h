@@ -6,13 +6,19 @@
 #define BITCOIN_PSBT_H
 
 #include <attributes.h>
+#include <chainparams.h>
 #include <node/transaction.h>
 #include <optional.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
+#include <primitives/bitcoin/transaction.h>
+#include <primitives/bitcoin/merkleblock.h>
+#include <merkleblock.h>
 #include <pubkey.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
+
+#include <boost/variant.hpp>
 
 // Magic bytes
 static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
@@ -38,6 +44,11 @@ static constexpr uint8_t PSBT_IN_VALUE = 0x00;
 static constexpr uint8_t PSBT_IN_VALUE_BLINDER = 0x01;
 static constexpr uint8_t PSBT_IN_ASSET = 0x02;
 static constexpr uint8_t PSBT_IN_ASSET_BLINDER = 0x03;
+// Peg-in stuff
+static constexpr uint8_t PSBT_IN_PEG_IN_TX = 0x04;
+static constexpr uint8_t PSBT_IN_TXOUT_PROOF = 0x05;
+static constexpr uint8_t PSBT_IN_GENESIS_HASH = 0x06;
+static constexpr uint8_t PSBT_IN_CLAIM_SCRIPT = 0x07;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
@@ -79,6 +90,11 @@ struct PSBTInput
     uint256 value_blinding_factor;
     CAsset asset;
     uint256 asset_blinding_factor;
+
+    boost::variant<boost::blank, CTransactionRef, Sidechain::Bitcoin::CTransactionRef> peg_in_tx;
+    boost::variant<boost::blank, CMerkleBlock, Sidechain::Bitcoin::CMerkleBlock> txout_proof;
+    CScript claim_script;
+    uint256 genesis_hash;
 
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
@@ -159,6 +175,49 @@ struct PSBTInput
         if (!final_script_witness.IsNull()) {
             SerializeToVector(s, PSBT_IN_SCRIPTWITNESS);
             SerializeToVector(s, final_script_witness.stack);
+        }
+
+        // Write peg-in data
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            if (peg_in_tx.which() > 0) {
+                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(peg_in_tx);
+                if (btc_peg_in_tx) {
+                    SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_PEG_IN_TX);
+                    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
+                    SerializeToVector(os, btc_peg_in_tx);
+                }
+            }
+            if (txout_proof.which() > 0) {
+                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(txout_proof);
+                if (!btc_txout_proof.header.IsNull()) {
+                    SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_TXOUT_PROOF);
+                    SerializeToVector(s, btc_txout_proof);
+                }
+            }
+        } else {
+            if (peg_in_tx.which() > 0) {
+                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(peg_in_tx);
+                if (elem_peg_in_tx) {
+                    SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_PEG_IN_TX);
+                    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
+                    SerializeToVector(os, elem_peg_in_tx);
+                }
+            }
+            if (txout_proof.which() > 0) {
+                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(txout_proof);
+                if (!elem_txout_proof.header.IsNull()) {
+                    SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_TXOUT_PROOF);
+                    SerializeToVector(s, elem_txout_proof);
+                }
+            }
+        }
+        if (!claim_script.empty()) {
+            SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_CLAIM_SCRIPT);
+            s << claim_script;
+        }
+        if (!genesis_hash.IsNull()) {
+            SerializeToVector(s, PSBT_IN_PROPRIETARY, PSBT_ELEMENTS_ID, PSBT_IN_GENESIS_HASH);
+            SerializeToVector(s, genesis_hash);
         }
 
         // Write unknown things
@@ -346,6 +405,64 @@ struct PSBTInput
                                 throw std::ios_base::failure("Final asset_blinding_factor key is more than one byte type");
                             }
                             UnserializeFromVector(s, asset_blinding_factor);
+                            break;
+                        }
+                        case PSBT_IN_PEG_IN_TX:
+                        {
+                            if (peg_in_tx.which() != 0) {
+                                throw std::ios_base::failure("Duplicate Key, peg-in tx already provided");
+                            } else if (subkey_len != 1) {
+                                throw std::ios_base::failure("Peg-in tx key is more than one byte type");
+                            }
+                            if (Params().GetConsensus().ParentChainHasPow()) {
+                                Sidechain::Bitcoin::CTransactionRef tx_btc;
+                                OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
+                                UnserializeFromVector(os, tx_btc);
+                                peg_in_tx = tx_btc;
+                            } else {
+                                CTransactionRef tx_btc;
+                                OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
+                                UnserializeFromVector(os, tx_btc);
+                                peg_in_tx = tx_btc;
+                            }
+                            break;
+                        }
+                        case PSBT_IN_TXOUT_PROOF:
+                        {
+                            if (txout_proof.which() != 0) {
+                                throw std::ios_base::failure("Duplicate Key, peg-in txout proof already provided");
+                            } else if (subkey_len != 1) {
+                                throw std::ios_base::failure("Peg-in txout proof key is more than one byte type");
+                            }
+                            if (Params().GetConsensus().ParentChainHasPow()) {
+                                Sidechain::Bitcoin::CMerkleBlock tx_proof;
+                                UnserializeFromVector(s, tx_proof);
+                                txout_proof = tx_proof;
+                            } else {
+                                CMerkleBlock tx_proof;
+                                UnserializeFromVector(s, tx_proof);
+                                txout_proof = tx_proof;
+                            }
+                            break;
+                        }
+                        case PSBT_IN_CLAIM_SCRIPT:
+                        {
+                            if (!claim_script.empty()) {
+                                throw std::ios_base::failure("Duplicate Key, peg-in claim script already provided");
+                            } else if (subkey_len != 1) {
+                                throw std::ios_base::failure("Peg-in claim script key is more than one byte type");
+                            }
+                            s >> claim_script;
+                            break;
+                        }
+                        case PSBT_IN_GENESIS_HASH:
+                        {
+                            if (!genesis_hash.IsNull()) {
+                                throw std::ios_base::failure("Duplicate Key, peg-in genesis hash already provided");
+                            } else if (subkey_len != 1) {
+                                throw std::ios_base::failure("Peg-in genesis hash is more than one byte type");
+                            }
+                            UnserializeFromVector(s, genesis_hash);
                             break;
                         }
                     }
