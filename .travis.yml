@@ -94,7 +94,7 @@ jobs:
         - set -o errexit; source .travis/lint_06_script.sh
 
     - stage: test
-      name: 'ARM  [GOAL: install]  [unit tests, functional tests]'
+      name: 'ARM  [GOAL: install]  [bionic]  [unit tests, functional tests]'
       arch: arm64
       env: >-
         HOST=arm-linux-gnueabihf
@@ -108,7 +108,7 @@ jobs:
         QEMU_USER_CMD=""  # Can run the tests natively without qemu
 
     - stage: test
-      name: 'S390x  [GOAL: install]  [unit tests, functional tests]'
+      name: 'S390x  [GOAL: install]  [bionic]  [unit tests, functional tests]'
       arch: s390x
       env: >-
         FILE_ENV="./ci/test/00_setup_env_s390x.sh"
