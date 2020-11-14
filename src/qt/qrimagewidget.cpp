@@ -64,10 +64,13 @@ bool QRImageWidget::setQR(const QString& data, const QString& text)
     }
     QRcode_free(code);
 
-    QImage qrAddrImage = QImage(QR_IMAGE_SIZE, QR_IMAGE_SIZE + (text.isEmpty() ? 0 : 20), QImage::Format_RGB32);
+    // Elements: Hack to get QR address to print right
+    const size_t MORE_WIDTH = 80;
+￼
+    QImage qrAddrImage = QImage(QR_IMAGE_SIZE + MORE_WIDTH, QR_IMAGE_SIZE + 16 + fm.height(), QImage::Format_RGB32);
     qrAddrImage.fill(0xffffff);
     QPainter painter(&qrAddrImage);
-    painter.drawImage(0, 0, qrImage.scaled(QR_IMAGE_SIZE, QR_IMAGE_SIZE));
+    painter.drawImage(MORE_WIDTH/2, 0, qrImage.scaled(QR_IMAGE_SIZE, QR_IMAGE_SIZE));
 
     if (!text.isEmpty()) {
         QFont font = GUIUtil::fixedPitchFont();
