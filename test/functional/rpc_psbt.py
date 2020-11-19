@@ -248,6 +248,7 @@ class PSBTTest(BitcoinTestFramework):
         #res2 =
         self.nodes[1].walletcreatefundedpsbt(inputs, outputs, 0, {"feeRate": fee_rate_sb / 100000.0, "add_inputs": True})
         #assert_approx(res2["fee"], 0.055, 0.005) # ELEMENTS: no "fee" field
+
         self.log.info("Test min fee rate checks with walletcreatefundedpsbt are bypassed, e.g. a fee_rate under 1 sat/vB is allowed")
         #res3 =
         self.nodes[1].walletcreatefundedpsbt(inputs, outputs, 0, {"fee_rate": 0.99999999, "add_inputs": True})
@@ -256,20 +257,20 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[1].walletcreatefundedpsbt(inputs, outputs, 0, {"feeRate": 0.00000999, "add_inputs": True})
         #assert_approx(res4["fee"], 0.00000381, 0.0000001) # ELEMENTS: no "fee" field
 
+        self.log.info("Test min fee rate checks with walletcreatefundedpsbt are bypassed and that funding non-standard 'zero-fee' transactions is valid")
+        for param in ["fee_rate", "feeRate"]:
+            assert_equal(self.nodes[1].walletcreatefundedpsbt(inputs, outputs, 0, {param: 0, "add_inputs": True})["fee"], 0)
+
         self.log.info("Test invalid fee rate settings")
-        assert_raises_rpc_error(-8, "Invalid fee_rate 0.000 sat/vB (must be greater than 0)",
-            self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {"fee_rate": 0, "add_inputs": True})
-        assert_raises_rpc_error(-8, "Invalid feeRate 0.00000000 BTC/kvB (must be greater than 0)",
-            self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {"feeRate": 0, "add_inputs": True})
         for param, value in {("fee_rate", 100000), ("feeRate", 1)}:
             assert_raises_rpc_error(-4, "Fee exceeds maximum configured by user (e.g. -maxtxfee, maxfeerate)",
                 self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {param: value, "add_inputs": True})
             assert_raises_rpc_error(-3, "Amount out of range",
-                self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {"fee_rate": -1, "add_inputs": True})
+                self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {param: -1, "add_inputs": True})
             assert_raises_rpc_error(-3, "Amount is not a number or string",
-                self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {"fee_rate": {"foo": "bar"}, "add_inputs": True})
+                self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {param: {"foo": "bar"}, "add_inputs": True})
             assert_raises_rpc_error(-3, "Invalid amount",
-                self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {"fee_rate": "", "add_inputs": True})
+                self.nodes[1].walletcreatefundedpsbt, inputs, outputs, 0, {param: "", "add_inputs": True})
 
         self.log.info("- raises RPC error if both feeRate and fee_rate are passed")
         assert_raises_rpc_error(-8, "Cannot specify both fee_rate (sat/vB) and feeRate (BTC/kvB)",
