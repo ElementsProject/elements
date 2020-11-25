@@ -5094,11 +5094,24 @@ static RPCHelpMan walletcreatefundedpsbt()
     coin_control.m_add_inputs = rawTx.vin.size() == 0;
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
     PartiallySignedTransaction psbtx(rawTx, psbt_version);
+    // Find an input that is ours
+    unsigned int blinder_index = 0;
+    {
+        LOCK(pwallet->cs_wallet);
+        for (; blinder_index < rawTx.vin.size(); ++blinder_index) {
+            const CTxIn& txin = rawTx.vin[blinder_index];
+            if (pwallet->IsMine(txin) != ISMINE_NO) {
+                break;
+            }
+        }
+    }
+    assert(blinder_index < rawTx.vin.size()); // We added inputs, or existing inputs are ours, we should have a blinder index at this point.
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         PSBTOutput& output = psbtx.outputs[i];
         if (!rawTx.vout[i].nNonce.IsNull()) {
             psbtx.outputs[i].m_blinding_pubkey = CPubKey(rawTx.vout[i].nNonce.vchCommitment);
             psbtx.outputs[i].m_ecdh_pubkey = CPubKey();
+            psbtx.outputs[i].m_blinder_index = blinder_index;
         }
         // Check the asset
         if (new_assets.count(output.m_asset) > 0) {
