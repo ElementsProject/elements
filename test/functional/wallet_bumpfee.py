@@ -264,8 +264,7 @@ def test_dust_to_fee(self, rbf_node, dest_address):
     # ELEMENTS: 116 vbytes added (9 for fee spk+value, 99 for assets, 3 for value tags, 3 for null nonces, 2 for elements tx encoding)
     # size of transaction (p2wpkh, 1 input, 3 outputs): 257 vbytes
     if not 140 + 116 <= fulltx["vsize"] <= 141 + 116:
-        print("Error: Invalid tx vsize of {} (140-141 expected), full tx: {}".format(fulltx["vsize"], fulltx))
-        raise AssertionError
+        raise AssertionError("Invalid tx vsize of {} (256-257 expected), full tx: {}".format(fulltx["vsize"], fulltx))
     # bump with fee_rate of 0.00190000 BTC per 1000 vbytes
     # expected bump fee of 257 vbytes * fee_rate 0.00190000 BTC / 1000 vbytes = 0.00048830 BTC
     # but dust is dropped, so actual bump fee is 0.00050000
