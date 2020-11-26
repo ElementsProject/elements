@@ -30,9 +30,12 @@ namespace interfaces
 
 QT_BEGIN_NAMESPACE
 class QAbstractItemView;
+class QAction;
 class QDateTime;
 class QFont;
 class QLineEdit;
+class QMenu;
+class QPoint;
 class QProgressDialog;
 class QUrl;
 class QWidget;
@@ -284,6 +287,11 @@ namespace GUIUtil
      * Writes to debug.log short info about the used Qt and the host system.
      */
     void LogQtInfo();
+
+    /**
+     * Call QMenu::popup() only on supported QT_QPA_PLATFORM.
+     */
+    void PopupMenu(QMenu* menu, const QPoint& point, QAction* at_action = nullptr);
 } // namespace GUIUtil
 
 #endif // BITCOIN_QT_GUIUTIL_H
