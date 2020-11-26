@@ -6,6 +6,7 @@
 #define BITCOIN_RPC_RAWTRANSACTION_UTIL_H
 
 #include <map>
+#include <string>
 #include <vector>
 
 #include <merkleblock.h>
@@ -31,6 +32,7 @@ class SigningProvider;
  * @param result         JSON object where signed transaction results accumulate
  */
 void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result);
+void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, std::map<int, std::string>& input_errors, bool immature_pegin, UniValue& result);
 
 /**
   * Parse a prevtxs UniValue array and get the map of coins from it
@@ -49,5 +51,8 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 /** Create a peg-in input */
 void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
 void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::Bitcoin::CTransactionRef& tx_btc, Sidechain::Bitcoin::CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
+
+/** Check a peg-in input against the current fedpeg parameters */
+bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int, std::string>& input_errors);
 
 #endif // BITCOIN_RPC_RAWTRANSACTION_UTIL_H

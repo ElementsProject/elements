@@ -27,6 +27,7 @@
 #include <policy/settings.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
+#include <script/pegins.h>
 #include <random.h>
 #include <reverse_iterator.h>
 #include <script/script.h>

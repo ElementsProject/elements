@@ -22,8 +22,6 @@ bool GetAmountFromParentChainPegin(CAmount& amount, const CTransaction& txBTC, u
 bool CheckParentProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&);
 /** Checks pegin witness for validity */
 bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<std::pair<CScript, CScript>>& fedpegscripts, const COutPoint& prevout, std::string& err_msg, bool check_depth);
-// Constructs unblinded output to be used in amount and scriptpubkey checks during pegin
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness);
 
 /* Consensus-critical. Matching against telescoped multisig used on Liquid v1:
  * Pseudo-structure:

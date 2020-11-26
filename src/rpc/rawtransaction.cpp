@@ -29,6 +29,7 @@
 #include <rpc/rawtransaction_util.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
+#include <script/pegins.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>

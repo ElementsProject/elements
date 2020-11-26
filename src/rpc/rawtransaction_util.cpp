@@ -496,78 +496,55 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
     }
 }
 
+// ELEMENTS: check whether pegin inputs make sense against the current fedpegscript
+bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int, std::string>& input_errors)
+{
+    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
+    // Track an immature peg-in that's otherwise valid, give warning
+    bool immature_pegin = false;
+
+    for (unsigned int i = 0; i < mtx.vin.size(); i++) {
+        const CTxIn& txin = mtx.vin[i];
+        std::string err;
+        if (txin.m_is_pegin && (mtx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false))) {
+            input_errors[i] = "Peg-in input has invalid proof.";
+            continue;
+        }
+        // Report warning about immature peg-in though
+        if(txin.m_is_pegin && !IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true)) {
+            assert(err == "Needs more confirmations.");
+            immature_pegin = true;
+        }
+    }
+    return immature_pegin;
+}
+
 void SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, const UniValue& hashType, UniValue& result)
 {
     int nHashType = ParseSighashString(hashType);
 
-    bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
-
     // Script verification errors
+    std::map<int, std::string> input_errors;
+
+    bool immature_pegin = ValidateTransactionPeginInputs(mtx, input_errors);
+    bool complete = SignTransaction(mtx, keystore, coins, nHashType, input_errors);
+    SignTransactionResultToJSON(mtx, complete, coins, input_errors, immature_pegin, result);
+}
+
+void SignTransactionResultToJSON(CMutableTransaction& mtx, bool complete, const std::map<COutPoint, Coin>& coins, std::map<int, std::string>& input_errors, bool immature_pegin, UniValue& result)
+{
+    // Make errors UniValue
     UniValue vErrors(UniValue::VARR);
-
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
-
-    // ELEMENTS:
-    // Track an immature peg-in that's otherwise valid, give warning
-    bool immature_pegin = false;
-
-    // Use CTransaction for the constant parts of the
-    // transaction to avoid rehashing.
-    const CTransaction txConst(mtx);
-    // Sign what we can, including pegin inputs:
-    mtx.witness.vtxinwit.resize(mtx.vin.size());
-    for (unsigned int i = 0; i < mtx.vin.size(); i++) {
-        CTxIn& txin = mtx.vin[i];
-        const CTxInWitness& inWitness = mtx.witness.vtxinwit[i];
-        auto coin = coins.find(txin.prevout);
-
-        std::string err;
-        if (!txin.m_is_pegin && (coin == coins.end() || coin->second.IsSpent())) {
-            TxInErrorToJSON(txin, inWitness, vErrors, "Input not found or already spent");
-            continue;
-        } else if (txin.m_is_pegin && (txConst.witness.vtxinwit.size() <= i || !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, false))) {
-            TxInErrorToJSON(txin, inWitness, vErrors, "Peg-in input has invalid proof.");
-            continue;
+    for (const auto& err_pair : input_errors) {
+        if (err_pair.second == "Missing amount") {
+            // This particular error needs to be an exception for some reason
+            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coins.at(mtx.vin.at(err_pair.first).prevout).out.ToString()));
         }
-        // Report warning about immature peg-in though
-        if(txin.m_is_pegin && !IsValidPeginWitness(txConst.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true)) {
-            assert(err == "Needs more confirmations.");
-            immature_pegin = true;
-        }
-
-        const CScript& prevPubKey = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).scriptPubKey : coin->second.out.scriptPubKey;
-        const CConfidentialValue& amount = txin.m_is_pegin ? GetPeginOutputFromWitness(txConst.witness.vtxinwit[i].m_pegin_witness).nValue : coin->second.out.nValue;
-
-        SignatureData sigdata = DataFromTransaction(mtx, i, coin->second.out);
-        // Only sign SIGHASH_SINGLE if there's a corresponding output:
-        if (!fHashSingle || (i < mtx.vout.size())) {
-            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
-        }
-
-        UpdateTransaction(mtx, i, sigdata);
-
-        // amount must be specified for valid segwit signature
-        if (amount.IsExplicit() && amount.GetAmount() == MAX_MONEY && !mtx.witness.vtxinwit[i].scriptWitness.IsNull()) {
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing amount for %s", coin->second.out.ToString()));
-        }
-
-        ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
-            if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
-                // Unable to sign input and verification failed (possible attempt to partially sign).
-                TxInErrorToJSON(txin, inWitness, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");
-            } else if (serror == SCRIPT_ERR_SIG_NULLFAIL) {
-                // Verification failed (possibly due to insufficient signatures).
-                TxInErrorToJSON(txin, inWitness, vErrors, "CHECK(MULTI)SIG failing with non-zero signature (possibly need more signatures)");
-            } else {
-                TxInErrorToJSON(txin, inWitness, vErrors, ScriptErrorString(serror));
-            }
-        }
+        TxInErrorToJSON(mtx.vin.at(err_pair.first), mtx.witness.vtxinwit.at(err_pair.first), vErrors, err_pair.second);
     }
-    bool fComplete = vErrors.empty();
 
     result.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
-    result.pushKV("complete", fComplete);
+    result.pushKV("complete", complete);
     if (!vErrors.empty()) {
         if (result.exists("errors")) {
             vErrors.push_backV(result["errors"].getValues());

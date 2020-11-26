@@ -9,8 +9,8 @@
 
 #include <consensus/validation.h>
 #include <coins.h>
-#include <pegins.h>
 #include <primitives/pak.h>
+#include <script/pegins.h>
 #include <chainparams.h> // Peg-out enforcement
 
 // ELEMENTS:

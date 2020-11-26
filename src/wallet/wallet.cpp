@@ -14,11 +14,13 @@
 #include <key.h>
 #include <key_io.h>
 #include <optional.h>
+#include <pegins.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <script/descriptor.h>
+#include <script/pegins.h>
 #include <script/script.h>
 #include <script/signingprovider.h>
 #include <util/bip32.h>
@@ -1467,7 +1469,7 @@ bool CWallet::DummySignTx(CMutableTransaction &txNew, const std::vector<CTxOut> 
     int nIn = 0;
     for (const auto& txout : txouts)
     {
-        std::unique_ptr<SigningProvider> provider = GetSigningProvider(txout.scriptPubKey);
+        std::unique_ptr<SigningProvider> provider = GetSolvingProvider(txout.scriptPubKey);
         // Use max sig if watch only inputs were used or if this particular input is an external input
         bool use_max_sig = coin_control && (coin_control->fAllowWatchOnly || (coin_control && coin_control->IsExternalSelected(txNew.vin[nIn].prevout)));
         if (!provider || !DummySignInput(provider.get(), txNew, nIn, txout, use_max_sig)) {
@@ -1577,7 +1579,7 @@ int CalculateMaximumSignedInputSize(const CTxOut& txout, const SigningProvider* 
 
 int CalculateMaximumSignedInputSize(const CTxOut& txout, const CWallet* wallet, bool use_max_sig)
 {
-    std::unique_ptr<SigningProvider> provider = wallet->GetSigningProvider(txout.scriptPubKey);
+    std::unique_ptr<SigningProvider> provider = wallet->GetSolvingProvider(txout.scriptPubKey);
     return CalculateMaximumSignedInputSize(txout, provider.get(), use_max_sig);
 }
 
@@ -2256,7 +2258,7 @@ void CWallet::AvailableCoins(interfaces::Chain::Lock& locked_chain, std::vector<
                 continue;
             }
 
-            std::unique_ptr<SigningProvider> provider = GetSigningProvider(wtx.tx->vout[i].scriptPubKey);
+            std::unique_ptr<SigningProvider> provider = GetSolvingProvider(wtx.tx->vout[i].scriptPubKey);
 
             bool solvable = provider ? IsSolvable(*provider, wtx.tx->vout[i].scriptPubKey) : false;
             bool spendable = ((mine & ISMINE_SPENDABLE) != ISMINE_NO) || (((mine & ISMINE_WATCH_ONLY) != ISMINE_NO) && (coinControl && coinControl->fAllowWatchOnly && solvable));
@@ -2583,34 +2585,369 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
     return res;
 }
 
-bool CWallet::SignTransaction(CMutableTransaction& tx)
+bool CWallet::SignTransaction(CMutableTransaction& tx) const
 {
     AssertLockHeld(cs_wallet);
 
-    // sign the new tx
-    int nIn = 0;
+    // Build coins map
+    std::map<COutPoint, Coin> coins;
     for (auto& input : tx.vin) {
         std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(input.prevout.hash);
         if(mi == mapWallet.end() || input.prevout.n >= mi->second.tx->vout.size()) {
             return false;
         }
-        const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
-        const CConfidentialValue& amount = mi->second.tx->vout[input.prevout.n].nValue;
-        SignatureData sigdata;
+        const CWalletTx& wtx = mi->second;
+        coins[input.prevout] = Coin(wtx.tx->vout[input.prevout.n], wtx.m_confirm.block_height, wtx.IsCoinBase());
+    }
+    std::map<int, std::string> input_errors;
+    return SignTransaction(tx, coins, SIGHASH_ALL, input_errors);
+}
 
-        std::unique_ptr<SigningProvider> provider = GetSigningProvider(scriptPubKey);
-        if (!provider) {
-            // We don't know about this scriptpbuKey;
-            return false;
+bool CWallet::SignTransaction(CMutableTransaction& tx, const std::map<COutPoint, Coin>& coins, int sighash, std::map<int, std::string>& input_errors) const
+{
+    // Sign the tx with ScriptPubKeyMans
+    // Because each ScriptPubKeyMan can sign more than one input, we need to keep track of each ScriptPubKeyMan that has signed this transaction.
+    // Each iteration, we may sign more txins than the txin that is specified in that iteration.
+    // We assume that each input is signed by only one ScriptPubKeyMan.
+    std::set<uint256> visited_spk_mans;
+    tx.witness.vtxinwit.resize(tx.vin.size());
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        CTxIn& txin = tx.vin[i];
+        CTxOut prevTxOut;
+        if (txin.m_is_pegin) {
+            prevTxOut = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
+        } else {
+            auto coin = coins.find(txin.prevout);
+            if (coin == coins.end() || coin->second.IsSpent()) {
+                input_errors[i] = "Input not found or already spent";
+                continue;
+            }
+            prevTxOut = coin->second.out;
         }
 
-        if (!ProduceSignature(*provider, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
+        // Check if this input is complete
+        SignatureData sigdata = DataFromTransaction(tx, i, prevTxOut);
+        if (sigdata.complete) {
+            continue;
+        }
+
+        // Input needs to be signed, find the right ScriptPubKeyMan
+        std::set<ScriptPubKeyMan*> spk_mans = GetScriptPubKeyMans(prevTxOut.scriptPubKey, sigdata);
+        if (spk_mans.size() == 0) {
+            input_errors[i] = "Unable to sign input, missing keys";
+            continue;
+        }
+
+        for (auto& spk_man : spk_mans) {
+            // If we've already been signed by this spk_man, skip it
+            if (visited_spk_mans.count(spk_man->GetID()) > 0) {
+                continue;
+            }
+
+            // Sign the tx.
+            // spk_man->SignTransaction will return true if the transaction is complete,
+            // so we can exit early and return true if that happens.
+            if (spk_man->SignTransaction(tx, coins, sighash, input_errors)) {
+                return true;
+            }
+
+            // Add this spk_man to visited_spk_mans so we can skip it later
+            visited_spk_mans.insert(spk_man->GetID());
+        }
+    }
+
+    // ELEMENTS: In our functional tests we often spend OP_TRUE outputs, which
+    //  will be skipped in the above loop; so explicitly check for completeness
+    //  here since we can't assume the above `return true`.
+    for (unsigned int i = 0; i < tx.vin.size(); i++) {
+        CTxIn& txin = tx.vin[i];
+        CTxOut prevTxOut;
+        if (txin.m_is_pegin) {
+            prevTxOut = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
+        } else {
+            auto coin = coins.find(txin.prevout);
+            if (coin == coins.end() || coin->second.IsSpent()) {
+                return false;
+            }
+            prevTxOut = coin->second.out;
+        }
+        SignatureData sigdata = DataFromTransaction(tx, i, prevTxOut);
+        if (!sigdata.complete) {
             return false;
         }
-        UpdateTransaction(tx, nIn, sigdata);
-        nIn++;
     }
     return true;
+}
+
+// ELEMENTS: split FillPSBT into FillPSBData and SignPSBT
+TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs) const
+{
+    LOCK(cs_wallet);
+
+    // Get all of the previous transactions
+    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
+        const CTxIn& txin = psbtx.tx->vin[i];
+        PSBTInput& input = psbtx.inputs.at(i);
+
+        if (PSBTInputSigned(input)) {
+            continue;
+        }
+
+        // Verify input looks sane. This will check that we have at most one uxto, witness or non-witness.
+        if (!input.IsSane()) {
+            return TransactionError::INVALID_PSBT;
+        }
+
+        // If we have no utxo, grab it from the wallet.
+        if (!input.non_witness_utxo && input.witness_utxo.IsNull()) {
+            const uint256& txhash = txin.prevout.hash;
+            const auto it = mapWallet.find(txhash);
+            if (it != mapWallet.end()) {
+                const CWalletTx& wtx = it->second;
+                // We only need the non_witness_utxo, which is a superset of the witness_utxo.
+                //   The signing code will switch to the smaller witness_utxo if this is ok.
+                input.non_witness_utxo = wtx.tx;
+
+                // ELEMENTS: Grab the CA data
+                CAmount val_tmp;
+                wtx.GetNonIssuanceBlindingData(txin.prevout.n, nullptr, &val_tmp, &input.value_blinding_factor, &input.asset, &input.asset_blinding_factor);
+                if (val_tmp != -1) {
+                    input.value = val_tmp;
+                }
+            }
+        }
+    }
+
+    // Fill in information from ScriptPubKeyMans
+    // Because each ScriptPubKeyMan may be able to fill more than one input, we need to keep track of each ScriptPubKeyMan that has filled this psbt.
+    // Each iteration, we may fill more inputs than the input that is specified in that iteration.
+    // We assume that each input is filled by only one ScriptPubKeyMan
+    std::set<uint256> visited_spk_mans;
+    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
+        const CTxIn& txin = psbtx.tx->vin[i];
+        PSBTInput& input = psbtx.inputs.at(i);
+
+        if (PSBTInputSigned(input)) {
+            continue;
+        }
+
+        // Get the scriptPubKey to know which ScriptPubKeyMan to use
+        CScript script;
+        if (!input.witness_utxo.IsNull()) {
+            script = input.witness_utxo.scriptPubKey;
+        } else if (input.non_witness_utxo) {
+            if (txin.prevout.n >= input.non_witness_utxo->vout.size()) {
+                return TransactionError::MISSING_INPUTS;
+            }
+            script = input.non_witness_utxo->vout[txin.prevout.n].scriptPubKey;
+        } else {
+            // There's no UTXO so we can just skip this now
+            continue;
+        }
+        SignatureData sigdata;
+        input.FillSignatureData(sigdata);
+        std::set<ScriptPubKeyMan*> spk_mans = GetScriptPubKeyMans(script, sigdata);
+        if (spk_mans.size() == 0) {
+            continue;
+        }
+
+        for (auto& spk_man : spk_mans) {
+            // If we've already been signed by this spk_man, skip it
+            if (visited_spk_mans.count(spk_man->GetID()) > 0) {
+                continue;
+            }
+
+            // Fill in the information from the spk_man
+            // ELEMENTS: Get key origin info for input, if bip32derivs is true. Does not actually sign anything.
+            TransactionError res = spk_man->FillPSBT(psbtx, 1, false /* don't sign */, bip32derivs);
+            if (res != TransactionError::OK) {
+                return res;
+            }
+
+            // Add this spk_man to visited_spk_mans so we can skip it later
+            visited_spk_mans.insert(spk_man->GetID());
+        }
+    }
+
+    return TransactionError::OK;
+}
+
+TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs) const
+{
+    // If we're signing, check that the transaction is not still in need of blinding
+    if (sign) {
+        for (const PSBTOutput& o : psbtx.outputs) {
+            if (o.blinding_pubkey.IsValid()) {
+                return TransactionError::BLINDING_REQUIRED;
+            }
+        }
+    }
+
+    // Save the original transaction since we need to munge it temporarily, which would violate the PSBT rules
+    CTransaction oldtx = CTransaction(*psbtx.tx);
+
+    LOCK(cs_wallet);
+    CMutableTransaction& tx = *psbtx.tx;
+    tx.witness.vtxoutwit.resize(tx.vout.size());
+
+    // Stuff in auxiliary CA blinding data, if we have it
+    for (unsigned int i = 0; i < tx.vout.size(); ++i) {
+        PSBTOutput& output = psbtx.outputs.at(i);
+        CTxOut& out = tx.vout[i];
+
+        if (!output.value_commitment.IsNull()) {
+            out.nValue = output.value_commitment;
+        }
+        if (!output.asset_commitment.IsNull()) {
+            out.nAsset = output.asset_commitment;
+        }
+        if (!output.nonce_commitment.IsNull()) {
+            out.nNonce = output.nonce_commitment;
+        }
+
+        // The signature can't depend on witness contents, so these are technically not necessary to sign.
+        // HOWEVER, as long as we're checking that values balance before signing, they are required.
+        CTxOutWitness& outwit = tx.witness.vtxoutwit[i];
+        if (!output.range_proof.empty()) {
+            outwit.vchRangeproof = output.range_proof;
+        }
+        if (!output.surjection_proof.empty()) {
+            outwit.vchSurjectionproof = output.surjection_proof;
+        }
+    }
+
+    // Stuff in the peg-in data
+    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+        PSBTInput& input = psbtx.inputs[i];
+        if (input.value && input.peg_in_tx.which() != 0 && input.txout_proof.which() != 0 && !input.claim_script.empty() && !input.genesis_hash.IsNull()) {
+            CScriptWitness pegin_witness;
+            if (Params().GetConsensus().ParentChainHasPow()) {
+                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
+                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, btc_peg_in_tx, btc_txout_proof);
+            } else {
+                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
+                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
+                pegin_witness = CreatePeginWitness(*input.value, input.asset, input.genesis_hash, input.claim_script, elem_peg_in_tx, elem_txout_proof);
+            }
+            tx.vin[i].m_is_pegin = true;
+            tx.witness.vtxinwit[i].m_pegin_witness = pegin_witness;
+            // Set the witness utxo
+            input.witness_utxo = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
+        }
+    }
+
+    // This is a convenience/usability check -- it's not invalid to sign an unbalanced transaction, but it's easy to shoot yourself in the foot.
+    if (!imbalance_ok) {
+        // Get UTXOs for all inputs, to check that amounts balance before signing.
+        std::vector<CTxOut> inputs_utxos;
+        for (size_t i = 0; i < psbtx.inputs.size(); ++i) {
+            PSBTInput& inp = psbtx.inputs[i];
+            if (inp.non_witness_utxo) {
+                if (inp.non_witness_utxo->GetHash() != tx.vin[i].prevout.hash) {
+                    return TransactionError::INVALID_PSBT;
+                }
+                if (!inp.witness_utxo.IsNull() && inp.non_witness_utxo->vout[tx.vin[i].prevout.n] != inp.witness_utxo) {
+                    return TransactionError::INVALID_PSBT;
+                }
+                inputs_utxos.push_back(inp.non_witness_utxo->vout[tx.vin[i].prevout.n]);
+            } else if (!inp.witness_utxo.IsNull()) {
+                inputs_utxos.push_back(inp.witness_utxo);
+            } else {
+                return TransactionError::UTXOS_MISSING_BALANCE_CHECK;
+            }
+        }
+
+        CTransaction tx_tmp(tx);
+        if (!VerifyAmounts(inputs_utxos, tx_tmp, nullptr, false)) {
+            return TransactionError::VALUE_IMBALANCE;
+        }
+    }
+
+    std::set<uint256> visited_spk_mans;
+    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
+        const CTxIn& txin = psbtx.tx->vin[i];
+        PSBTInput& input = psbtx.inputs.at(i);
+
+        if (PSBTInputSigned(input)) {
+            continue;
+        }
+
+        // Get the scriptPubKey to know which ScriptPubKeyMan to use
+        CScript script;
+        if (!input.witness_utxo.IsNull()) {
+            script = input.witness_utxo.scriptPubKey;
+        } else if (input.non_witness_utxo) {
+            if (txin.prevout.n >= input.non_witness_utxo->vout.size()) {
+                return TransactionError::MISSING_INPUTS;
+            }
+            script = input.non_witness_utxo->vout[txin.prevout.n].scriptPubKey;
+        } else {
+            // There's no UTXO so we can just skip this now
+            continue;
+        }
+        SignatureData sigdata;
+        input.FillSignatureData(sigdata);
+        std::set<ScriptPubKeyMan*> spk_mans = GetScriptPubKeyMans(script, sigdata);
+        if (spk_mans.size() == 0) {
+            continue;
+        }
+
+        for (auto& spk_man : spk_mans) {
+            // If we've already been signed by this spk_man, skip it
+            if (visited_spk_mans.count(spk_man->GetID()) > 0) {
+                continue;
+            }
+
+            // ELEMENTS: Here we _only_ sign, and do not e.g. fill in key origin data.
+            TransactionError res = spk_man->FillPSBT(psbtx, sighash_type, sign, bip32derivs);
+            if (res != TransactionError::OK) {
+                return res;
+            }
+
+            // Add this spk_man to visited_spk_mans so we can skip it later
+            visited_spk_mans.insert(spk_man->GetID());
+        }
+    }
+
+    // Complete if every input is now signed
+    complete = true;
+    for (const auto& input : psbtx.inputs) {
+        complete &= PSBTInputSigned(input);
+    }
+
+    // Restore the saved transaction, to remove our temporary munging.
+    psbtx.tx = (CMutableTransaction)oldtx;
+    return TransactionError::OK;
+}
+
+// This function remains for backwards compatibility. It will not succeed in Elements unless everything involved is non-blinded.
+TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs) const
+{
+    complete = false;
+    TransactionError te;
+    te = FillPSBTData(psbtx, bip32derivs);
+    if (te != TransactionError::OK) {
+        return te;
+    }
+    // For backwards compatibility, do not check if amounts balance before signing in this case.
+    te = SignPSBT(psbtx, complete, sighash_type, sign, true, bip32derivs);
+    if (te != TransactionError::OK) {
+        return te;
+    }
+    return TransactionError::OK;
+}
+
+SigningResult CWallet::SignMessage(const std::string& message, const PKHash& pkhash, std::string& str_sig) const
+{
+    SignatureData sigdata;
+    CScript script_pub_key = GetScriptForDestination(pkhash);
+    for (const auto& spk_man_pair : m_spk_managers) {
+        if (spk_man_pair.second->CanProvide(script_pub_key, sigdata)) {
+            return spk_man_pair.second->SignMessage(message, pkhash, str_sig);
+        }
+    }
+    return SigningResult::PRIVATE_KEY_NOT_AVAILABLE;
 }
 
 bool CWallet::FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, std::string& strFailReason, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl coinControl)
@@ -3557,24 +3894,10 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
             WalletLogPrintf(summary+"\n");
         }
 
-        if (sign)
-        {
-            int nIn = 0;
-            for (const auto& coin : selected_coins)
-            {
-                const CScript& scriptPubKey = coin.txout.scriptPubKey;
-                SignatureData sigdata;
-
-                std::unique_ptr<SigningProvider> provider = GetSigningProvider(scriptPubKey);
-                if (!provider || !ProduceSignature(*provider, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
-                {
-                    strFailReason = _("Signing transaction failed").translated;
-                    return false;
-                } else {
-                    UpdateTransaction(txNew, nIn, sigdata);
-                }
-
-                nIn++;
+        if (sign) {
+            if (!SignTransaction(txNew)) {
+                strFailReason = _("Signing transaction failed").translated;
+                return false;
             }
         } else if (blind_details) {
             // "sign" also means blind for the purposes of making a complete tx
@@ -4882,6 +5205,17 @@ ScriptPubKeyMan* CWallet::GetScriptPubKeyMan(const OutputType& type, bool intern
     return it->second;
 }
 
+std::set<ScriptPubKeyMan*> CWallet::GetScriptPubKeyMans(const CScript& script, SignatureData& sigdata) const
+{
+    std::set<ScriptPubKeyMan*> spk_mans;
+    for (const auto& spk_man_pair : m_spk_managers) {
+        if (spk_man_pair.second->CanProvide(script, sigdata)) {
+            spk_mans.insert(spk_man_pair.second.get());
+        }
+    }
+    return spk_mans;
+}
+
 ScriptPubKeyMan* CWallet::GetScriptPubKeyMan(const CScript& script) const
 {
     SignatureData sigdata;
@@ -4911,17 +5245,17 @@ ScriptPubKeyMan* CWallet::GetScriptPubKeyMan(const uint256& id) const
     return nullptr;
 }
 
-std::unique_ptr<SigningProvider> CWallet::GetSigningProvider(const CScript& script) const
+std::unique_ptr<SigningProvider> CWallet::GetSolvingProvider(const CScript& script) const
 {
     SignatureData sigdata;
-    return GetSigningProvider(script, sigdata);
+    return GetSolvingProvider(script, sigdata);
 }
 
-std::unique_ptr<SigningProvider> CWallet::GetSigningProvider(const CScript& script, SignatureData& sigdata) const
+std::unique_ptr<SigningProvider> CWallet::GetSolvingProvider(const CScript& script, SignatureData& sigdata) const
 {
     for (const auto& spk_man_pair : m_spk_managers) {
         if (spk_man_pair.second->CanProvide(script, sigdata)) {
-            return spk_man_pair.second->GetSigningProvider(script);
+            return spk_man_pair.second->GetSolvingProvider(script);
         }
     }
     return nullptr;

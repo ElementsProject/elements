@@ -378,15 +378,6 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<
     return true;
 }
 
-// Constructs unblinded "bitcoin" output to be used in amount and scriptpubkey checks during pegin validation.
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
-    CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
-    CAmount value;
-    stream >> value;
-
-    return CTxOut(CAsset(pegin_witness.stack[1]), CConfidentialValue(value), CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
-}
-
 bool MatchLiquidWatchman(const CScript& script)
 {
     CScript::const_iterator it = script.begin();

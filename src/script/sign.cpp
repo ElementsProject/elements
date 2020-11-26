@@ -6,8 +6,10 @@
 #include <script/sign.h>
 
 #include <key.h>
+#include <pegins.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
+#include <script/pegins.h>  // for GetPeginOutputFromWitness()
 #include <script/signingprovider.h>
 #include <script/standard.h>
 #include <uint256.h>
@@ -473,4 +475,61 @@ bool IsSegWitOutput(const SigningProvider& provider, const CScript& script)
         }
     }
     return false;
+}
+
+bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, const std::map<COutPoint, Coin>& coins, int nHashType, std::map<int, std::string>& input_errors)
+{
+    bool fHashSingle = ((nHashType & ~SIGHASH_ANYONECANPAY) == SIGHASH_SINGLE);
+
+    // Use CTransaction for the constant parts of the
+    // transaction to avoid rehashing.
+    const CTransaction txConst(mtx);
+    // Sign what we can, including pegin inputs:
+    mtx.witness.vtxinwit.resize(mtx.vin.size());
+    for (unsigned int i = 0; i < mtx.vin.size(); i++) {
+        CTxIn& txin = mtx.vin[i];
+        const CTxInWitness& inWitness = mtx.witness.vtxinwit[i];
+
+        CTxOut prevTxOut;
+        if (txin.m_is_pegin) {
+            prevTxOut = GetPeginOutputFromWitness(mtx.witness.vtxinwit[i].m_pegin_witness);
+        } else {
+            auto coin = coins.find(txin.prevout);
+            prevTxOut = coin->second.out;
+        }
+
+        const CScript& prevPubKey = prevTxOut.scriptPubKey;
+        const CConfidentialValue& amount = prevTxOut.nValue;
+
+        SignatureData sigdata = DataFromTransaction(mtx, i, prevTxOut);
+        // Only sign SIGHASH_SINGLE if there's a corresponding output:
+        if (!fHashSingle || (i < mtx.vout.size())) {
+            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
+        }
+
+        UpdateTransaction(mtx, i, sigdata); // ELEMENTS: is UpdateInput in Core
+
+        // amount must be specified for valid segwit signature
+        if (amount.IsExplicit() && amount.GetAmount() == MAX_MONEY && !mtx.witness.vtxinwit[i].scriptWitness.IsNull()) {
+            input_errors[i] = "Missing amount";
+            continue;
+        }
+
+        ScriptError serror = SCRIPT_ERR_OK;
+        if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
+            if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
+                // Unable to sign input and verification failed (possible attempt to partially sign).
+                input_errors[i] = "Unable to sign input, invalid stack size (possibly missing key)";
+            } else if (serror == SCRIPT_ERR_SIG_NULLFAIL) {
+                // Verification failed (possibly due to insufficient signatures).
+                input_errors[i] = "CHECK(MULTI)SIG failing with non-zero signature (possibly need more signatures)";
+            } else {
+                input_errors[i] = ScriptErrorString(serror);
+            }
+        } else {
+            // If this input succeeds, make sure there is no error set for it
+            input_errors.erase(i);
+        }
+    }
+    return input_errors.empty();
 }

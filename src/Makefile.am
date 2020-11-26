@@ -200,6 +200,7 @@ BITCOIN_CORE_H = \
   script/descriptor.h \
   script/generic.hpp \
   script/keyorigin.h \
+  script/pegins.h \
   script/sigcache.h \
   script/sign.h \
   script/signingprovider.h \
@@ -252,7 +253,6 @@ BITCOIN_CORE_H = \
   wallet/fees.h \
   wallet/ismine.h \
   wallet/load.h \
-  wallet/psbtwallet.h \
   wallet/rpcwallet.h \
   wallet/scriptpubkeyman.h \
   wallet/wallet.h \
@@ -366,7 +366,6 @@ libbitcoin_wallet_a_SOURCES = \
   wallet/feebumper.cpp \
   wallet/fees.cpp \
   wallet/load.cpp \
-  wallet/psbtwallet.cpp \
   wallet/rpcdump.cpp \
   wallet/rpcwallet.cpp \
   wallet/scriptpubkeyman.cpp \
@@ -519,6 +518,7 @@ libbitcoin_common_a_SOURCES = \
   rpc/util.cpp \
   scheduler.cpp \
   script/descriptor.cpp \
+  script/pegins.cpp \
   script/sign.cpp \
   script/signingprovider.cpp \
   script/standard.cpp \

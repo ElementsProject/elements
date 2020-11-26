@@ -9,6 +9,7 @@
 #include <pegins.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <script/pegins.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
