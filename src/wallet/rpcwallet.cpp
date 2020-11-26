@@ -5868,7 +5868,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
 
     // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
     TxValidationState acceptState;
-    LockAssertion lock(::cs_main); //TODO(stevenroose) replace with locked_chain later
+    LOCK(::cs_main);
     bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx),
                             nullptr /* plTxnReplaced */, false /* bypass_limits */, pwallet->m_default_max_tx_fee, true /* test_accept */);
     if (!accepted) {
