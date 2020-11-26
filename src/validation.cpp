@@ -3607,7 +3607,14 @@ int GetWitnessCommitmentIndex(const CBlock& block)
     int commitpos = -1;
     if (!block.vtx.empty()) {
         for (size_t o = 0; o < block.vtx[0]->vout.size(); o++) {
-            if (block.vtx[0]->vout[o].scriptPubKey.size() >= 38 && block.vtx[0]->vout[o].scriptPubKey[0] == OP_RETURN && block.vtx[0]->vout[o].scriptPubKey[1] == 0x24 && block.vtx[0]->vout[o].scriptPubKey[2] == 0xaa && block.vtx[0]->vout[o].scriptPubKey[3] == 0x21 && block.vtx[0]->vout[o].scriptPubKey[4] == 0xa9 && block.vtx[0]->vout[o].scriptPubKey[5] == 0xed) {
+            const CTxOut& vout = block.vtx[0]->vout[o];
+            if (vout.scriptPubKey.size() >= MINIMUM_WITNESS_COMMITMENT &&
+                vout.scriptPubKey[0] == OP_RETURN &&
+                vout.scriptPubKey[1] == 0x24 &&
+                vout.scriptPubKey[2] == 0xaa &&
+                vout.scriptPubKey[3] == 0x21 &&
+                vout.scriptPubKey[4] == 0xa9 &&
+                vout.scriptPubKey[5] == 0xed) {
                 commitpos = o;
             }
         }
@@ -3650,7 +3657,7 @@ std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBloc
             CTxOut out;
             out.nValue = 0;
             out.nAsset = policyAsset;
-            out.scriptPubKey.resize(38);
+            out.scriptPubKey.resize(MINIMUM_WITNESS_COMMITMENT);
             out.scriptPubKey[0] = OP_RETURN;
             out.scriptPubKey[1] = 0x24;
             out.scriptPubKey[2] = 0xaa;
