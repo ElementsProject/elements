@@ -1298,24 +1298,27 @@ UniValue decodepsbt(const JSONRPCRequest& request)
         const PSBTInput& input = psbtx.inputs[i];
         UniValue in(UniValue::VOBJ);
         // UTXOs
+        CTxOut txout;
         if (!input.witness_utxo.IsNull()) {
-            const CTxOut& txout = input.witness_utxo;
+            txout = input.witness_utxo;
+
+            UniValue o(UniValue::VOBJ);
+            ScriptToUniv(txout.scriptPubKey, o, true);
 
             UniValue out(UniValue::VOBJ);
-
             if (txout.nValue.IsExplicit()) {
                 CAmount nValue = txout.nValue.GetAmount();
                 out.pushKV("amount", ValueFromAmount(nValue));
             } else {
                 out.pushKV("amountcommitment", txout.nValue.GetHex());
             }
-
-            UniValue o(UniValue::VOBJ);
-            ScriptToUniv(txout.scriptPubKey, o, true);
             out.pushKV("scriptPubKey", o);
+
             in.pushKV("witness_utxo", out);
         }
         if (input.non_witness_utxo) {
+            txout = input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n];
+
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
             in.pushKV("non_witness_utxo", non_wit);
