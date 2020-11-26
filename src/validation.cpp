@@ -2809,6 +2809,7 @@ bool CChainState::ConnectTip(BlockValidationState& state, const CChainParams& ch
             return error("%s: ConnectBlock %s failed, %s", __func__, pindexNew->GetBlockHash().ToString(), state.ToString());
         }
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
+        assert(nBlocksTotal > 0);
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
         bool flushed = view.Flush();
         assert(flushed);
