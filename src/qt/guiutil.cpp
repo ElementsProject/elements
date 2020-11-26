@@ -93,7 +93,7 @@ static std::string DummyAddress(const CChainParams &params)
     std::vector<unsigned char> dummydata = ParseHex("02217226f8114ad5807e90402a534ff3311a44f498ce5c0f1f56ccd9e60383d01e");
     std::vector<unsigned char> sourcedata;
     CPubKey dummy_key(dummydata);
-    ScriptHash script_dest(uint160(), dummy_key);
+    ScriptHash script_dest(CScriptID(), dummy_key);
     std::string dest_str = EncodeDestination(script_dest);
     if (!DecodeBase58(dest_str, sourcedata, 21)) {
         return "";

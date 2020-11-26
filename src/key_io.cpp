@@ -140,7 +140,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& pubkey_prefix = params.Base58Prefix(type_pkh);
         if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
-            return PKHash(hash);
+            return PKHash(CKeyID(hash));
         } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size &&
                 std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) &&
                 std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin() + blinded_prefix.size())) {
@@ -148,7 +148,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             CPubKey pubkey;
             pubkey.Set(payload_start, payload_start + pk_size);
             std::copy(payload_start + pk_size, data.end(), hash.begin());
-            return PKHash(hash, pubkey);
+            return PKHash(CKeyID(hash), pubkey);
         }
 
         // Script-hash-addresses have version 5 (or 196 testnet).
@@ -157,7 +157,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& script_prefix = params.Base58Prefix(type_sh);
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
-            return ScriptHash(hash);
+            return ScriptHash(CScriptID(hash));
         } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size &&
                 std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) &&
                 std::equal(script_prefix.begin(), script_prefix.end(), data.begin() + blinded_prefix.size())) {
@@ -165,7 +165,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             CPubKey pubkey;
             pubkey.Set(payload_start, payload_start + pk_size);
             std::copy(payload_start + pk_size, data.end(), hash.begin());
-            return ScriptHash(hash, pubkey);
+            return ScriptHash(CScriptID(hash), pubkey);
         }
     }
     data.clear();

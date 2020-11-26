@@ -20,14 +20,90 @@ static const bool DEFAULT_ACCEPT_DATACARRIER = true;
 
 class CKeyID;
 class CScript;
+struct ScriptHash;
+
+template<typename HashType>
+class BaseHash
+{
+protected:
+    HashType m_hash;
+
+public:
+    BaseHash() : m_hash() {}
+    BaseHash(const HashType& in) : m_hash(in) {}
+
+    unsigned char* begin()
+    {
+        return m_hash.begin();
+    }
+
+    const unsigned char* begin() const
+    {
+        return m_hash.begin();
+    }
+
+    unsigned char* end()
+    {
+        return m_hash.end();
+    }
+
+    const unsigned char* end() const
+    {
+        return m_hash.end();
+    }
+
+    operator std::vector<unsigned char>() const
+    {
+        return std::vector<unsigned char>{m_hash.begin(), m_hash.end()};
+    }
+
+    std::string ToString() const
+    {
+        return m_hash.ToString();
+    }
+
+    bool operator==(const BaseHash<HashType>& other) const noexcept
+    {
+        return m_hash == other.m_hash;
+    }
+
+    bool operator!=(const BaseHash<HashType>& other) const noexcept
+    {
+        return !(m_hash == other.m_hash);
+    }
+
+    bool operator<(const BaseHash<HashType>& other) const noexcept
+    {
+        return m_hash < other.m_hash;
+    }
+
+    size_t size() const
+    {
+        return m_hash.size();
+    }
+};
 
 /** A reference to a CScript: the Hash160 of its serialization (see script.h) */
-class CScriptID : public uint160
+class CScriptID : public BaseHash<uint160>
 {
 public:
-    CScriptID() : uint160() {}
+    CScriptID() : BaseHash() {}
     explicit CScriptID(const CScript& in);
-    CScriptID(const uint160& in) : uint160(in) {}
+    explicit CScriptID(const uint160& in) : BaseHash(in) {}
+    explicit CScriptID(const ScriptHash& in);
+
+    // ELEMENTS: we write these to the wallet to store blinding keys
+    template<typename Stream>
+    void Serialize(Stream& s) const
+    {
+        m_hash.Serialize(s);
+    }
+
+    template<typename Stream>
+    void Unserialize(Stream& s)
+    {
+        m_hash.Unserialize(s);
+    }
 };
 
 /**
@@ -78,51 +154,54 @@ public:
     friend bool operator<(const CNoDestination &a, const CNoDestination &b) { return true; }
 };
 
-struct PKHash : public uint160
+struct PKHash : public BaseHash<uint160>
 {
-    PKHash() : uint160() {}
-    explicit PKHash(const uint160& hash) : uint160(hash) {}
+    PKHash() : BaseHash() {}
+    explicit PKHash(const uint160& hash) : BaseHash(hash) {}
     explicit PKHash(const CPubKey& pubkey);
+    explicit PKHash(const CKeyID& pubkey_id);
     explicit PKHash(const CPubKey& pubkey, const CPubKey& blinding_pubkey);
-    explicit PKHash(const uint160& hash, const CPubKey& blinding_pubkey);
-    using uint160::uint160;
+    explicit PKHash(const CKeyID& hash, const CPubKey& blinding_pubkey);
     CPubKey blinding_pubkey;
 };
+CKeyID ToKeyID(const PKHash& key_hash);
 
 struct WitnessV0KeyHash;
-struct ScriptHash : public uint160
+struct ScriptHash : public BaseHash<uint160>
 {
-    ScriptHash() : uint160() {}
+    ScriptHash() : BaseHash() {}
     // These don't do what you'd expect.
     // Use ScriptHash(GetScriptForDestination(...)) instead.
     explicit ScriptHash(const WitnessV0KeyHash& hash) = delete;
     explicit ScriptHash(const PKHash& hash) = delete;
-    explicit ScriptHash(const uint160& hash) : uint160(hash) {}
+
+    explicit ScriptHash(const uint160& hash) : BaseHash(hash) {}
     explicit ScriptHash(const CScript& script);
+    explicit ScriptHash(const CScriptID& script);
     explicit ScriptHash(const CScript& script, const CPubKey& blinding_pubkey);
-    explicit ScriptHash(const uint160& hash, const CPubKey& blinding_pubkey);
-    using uint160::uint160;
+    explicit ScriptHash(const CScriptID& hash, const CPubKey& blinding_pubkey);
     CPubKey blinding_pubkey;
 };
 
-struct WitnessV0ScriptHash : public uint256
+struct WitnessV0ScriptHash : public BaseHash<uint256>
 {
-    WitnessV0ScriptHash() : uint256() {}
-    explicit WitnessV0ScriptHash(const uint256& hash) : uint256(hash) {}
+    WitnessV0ScriptHash() : BaseHash() {}
+    explicit WitnessV0ScriptHash(const uint256& hash) : BaseHash(hash) {}
     explicit WitnessV0ScriptHash(const CScript& script);
     explicit WitnessV0ScriptHash(const CScript& script, const CPubKey& blinding_pubkey);
-    using uint256::uint256;
     CPubKey blinding_pubkey;
 };
 
-struct WitnessV0KeyHash : public uint160
+struct WitnessV0KeyHash : public BaseHash<uint160>
 {
-    WitnessV0KeyHash() : uint160() {}
-    explicit WitnessV0KeyHash(const uint160& hash) : uint160(hash) {}
-    explicit WitnessV0KeyHash(const uint160& hash, const CPubKey& blinding_pubkey_in) : uint160(hash), blinding_pubkey(blinding_pubkey_in) {}
-    using uint160::uint160;
+    WitnessV0KeyHash() : BaseHash() {}
+    explicit WitnessV0KeyHash(const uint160& hash) : BaseHash(hash) {}
+    explicit WitnessV0KeyHash(const CPubKey& pubkey);
+    explicit WitnessV0KeyHash(const PKHash& hash, const CPubKey& blinding_pubkey_in) : BaseHash(hash), blinding_pubkey(blinding_pubkey_in) {}
+    explicit WitnessV0KeyHash(const PKHash& pubkey_hash);
     CPubKey blinding_pubkey;
 };
+CKeyID ToKeyID(const WitnessV0KeyHash& key_hash);
 
 //! CTxDestination subtype to encode any future Witness version
 struct WitnessUnknown
@@ -252,7 +331,5 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
  * the various witness-specific CTxDestination subtypes.
  */
 CScript GetScriptForWitness(const CScript& redeemscript);
-
-bool MatchMultisig(const CScript& script, unsigned int& required, std::vector<std::vector<unsigned char>>& pubkeys);
 
 #endif // BITCOIN_SCRIPT_STANDARD_H

@@ -120,7 +120,7 @@ IsMineResult IsMineInner(const LegacyScriptPubKeyMan& keystore, const CScript& s
             // This also applies to the P2WSH case.
             break;
         }
-        ret = std::max(ret, IsMineInner(keystore, GetScriptForDestination(PKHash(uint160(vSolutions[0]))), IsMineSigVersion::WITNESS_V0));
+        ret = std::max(ret, IsMineInner(keystore, GetScriptForDestination(PKHash(CKeyID(uint160(vSolutions[0])))), IsMineSigVersion::WITNESS_V0));
         break;
     }
     case TX_PUBKEYHASH:
@@ -580,9 +580,8 @@ bool LegacyScriptPubKeyMan::SignTransaction(CMutableTransaction& tx, const std::
 
 SigningResult LegacyScriptPubKeyMan::SignMessage(const std::string& message, const PKHash& pkhash, std::string& str_sig) const
 {
-    CKeyID key_id(pkhash);
     CKey key;
-    if (!GetKey(key_id, key)) {
+    if (!GetKey(ToKeyID(pkhash), key)) {
         return SigningResult::PRIVATE_KEY_NOT_AVAILABLE;
     }
 
@@ -2059,9 +2058,8 @@ SigningResult DescriptorScriptPubKeyMan::SignMessage(const std::string& message,
         return SigningResult::PRIVATE_KEY_NOT_AVAILABLE;
     }
 
-    CKeyID key_id(pkhash);
     CKey key;
-    if (!keys->GetKey(key_id, key)) {
+    if (!keys->GetKey(ToKeyID(pkhash), key)) {
         return SigningResult::PRIVATE_KEY_NOT_AVAILABLE;
     }
 

@@ -268,7 +268,7 @@ bool WalletBatch::WriteBlindingDerivationKey(const uint256& key) {
      return WriteIC(std::string("blindingderivationkey"), key);
 }
 
-bool WalletBatch::WriteSpecificBlindingKey(const uint160& scriptid, const uint256& key) {
+bool WalletBatch::WriteSpecificBlindingKey(const CScriptID& scriptid, const uint256& key) {
     return WriteIC(std::make_pair(std::string("specificblindingkey"), scriptid), key);
 }
 // end ELEMENTS
@@ -616,11 +616,11 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         }
         else if (strType == "specificblindingkey")
         {
-            CScriptID scriptid;
+            uint160 scriptid;
             ssKey >> scriptid;
             uint256 key;
             ssValue >> key;
-            if (!pwallet->LoadSpecificBlindingKey(scriptid, key)) {
+            if (!pwallet->LoadSpecificBlindingKey(CScriptID(scriptid), key)) {
                 strErr = "Error reading wallet database: LoadSpecificBlindingKey failed";
                 return false;
             }
