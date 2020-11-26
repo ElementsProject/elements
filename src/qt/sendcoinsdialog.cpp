@@ -58,6 +58,7 @@ SendCoinsDialog::SendCoinsDialog(const PlatformStyle *_platformStyle, QWidget *p
     ui(new Ui::SendCoinsDialog),
     clientModel(nullptr),
     model(nullptr),
+    m_coin_control(new CCoinControl),
     fNewRecipientAllowed(true),
     fFeeMinimized(true),
     platformStyle(_platformStyle)
@@ -260,14 +261,9 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
     m_current_transaction = MakeUnique<WalletModelTransaction>(recipients);
     WalletModel::SendCoinsReturn prepareStatus;
 
-    // Always use a CCoinControl instance, use the CoinControlDialog instance if CoinControl has been enabled
-    CCoinControl ctrl;
-    if (model->getOptionsModel()->getCoinControlFeatures())
-        ctrl = *CoinControlDialog::coinControl();
+    updateCoinControlState(*m_coin_control);
 
-    updateCoinControlState(ctrl);
-
-    prepareStatus = model->prepareTransaction(*m_current_transaction, ctrl);
+    prepareStatus = model->prepareTransaction(*m_current_transaction, *m_coin_control);
 
     // process prepareStatus and on error generate message shown to user
     processSendCoinsReturn(prepareStatus,
@@ -462,7 +458,7 @@ void SendCoinsDialog::on_sendButton_clicked()
     }
     if (!send_failure) {
         accept();
-        CoinControlDialog::coinControl()->UnSelectAll();
+        m_coin_control->UnSelectAll();
         coinControlUpdateLabels();
     }
     fNewRecipientAllowed = true;
@@ -474,7 +470,7 @@ void SendCoinsDialog::clear()
     m_current_transaction.reset();
 
     // Clear coin control settings
-    CoinControlDialog::coinControl()->UnSelectAll();
+    m_coin_control->UnSelectAll();
     ui->checkBoxCoinControlChange->setChecked(false);
     ui->lineEditCoinControlChange->clear();
     coinControlUpdateLabels();
@@ -697,17 +693,11 @@ void SendCoinsDialog::on_buttonMinimizeFee_clicked()
 
 void SendCoinsDialog::useAvailableBalance(SendCoinsEntry* entry)
 {
-    // Get CCoinControl instance if CoinControl is enabled or create a new one.
-    CCoinControl coin_control;
-    if (model->getOptionsModel()->getCoinControlFeatures()) {
-        coin_control = *CoinControlDialog::coinControl();
-    }
-
     // Include watch-only for wallets without private key
-    coin_control.fAllowWatchOnly = model->wallet().privateKeysDisabled();
+    m_coin_control->fAllowWatchOnly = model->wallet().privateKeysDisabled();
 
     // Calculate available amount to send.
-    CAmount amount = valueFor(model->wallet().getAvailableBalance(coin_control), ::policyAsset);
+    CAmount amount = valueFor(model->wallet().getAvailableBalance(*m_coin_control), ::policyAsset);
     for (int i = 0; i < ui->entries->count(); ++i) {
         SendCoinsEntry* e = qobject_cast<SendCoinsEntry*>(ui->entries->itemAt(i)->widget());
         if (e && !e->isHidden() && e != entry) {
@@ -766,12 +756,11 @@ void SendCoinsDialog::updateSmartFeeLabel()
 {
     if(!model || !model->getOptionsModel())
         return;
-    CCoinControl coin_control;
-    updateCoinControlState(coin_control);
-    coin_control.m_feerate.reset(); // Explicitly use only fee estimation rate for smart fee labels
+    updateCoinControlState(*m_coin_control);
+    m_coin_control->m_feerate.reset(); // Explicitly use only fee estimation rate for smart fee labels
     int returned_target;
     FeeReason reason;
-    CFeeRate feeRate = CFeeRate(model->wallet().getMinimumFee(1000, coin_control, &returned_target, &reason));
+    CFeeRate feeRate = CFeeRate(model->wallet().getMinimumFee(1000, *m_coin_control, &returned_target, &reason));
 
     ui->labelSmartFee->setText(BitcoinUnits::formatWithUnit(model->getOptionsModel()->getDisplayUnit(), feeRate.GetFeePerK()) + "/kB");
 
@@ -842,7 +831,7 @@ void SendCoinsDialog::coinControlFeatureChanged(bool checked)
     ui->frameCoinControl->setVisible(checked);
 
     if (!checked && model) // coin control features disabled
-        CoinControlDialog::coinControl()->SetNull();
+        m_coin_control->SetNull();
 
     coinControlUpdateLabels();
 }
@@ -850,8 +839,7 @@ void SendCoinsDialog::coinControlFeatureChanged(bool checked)
 // Coin Control: button inputs -> show actual coin control dialog
 void SendCoinsDialog::coinControlButtonClicked()
 {
-    CoinControlDialog dlg(platformStyle);
-    dlg.setModel(model);
+    CoinControlDialog dlg(*m_coin_control, model, platformStyle);
     dlg.exec();
     coinControlUpdateLabels();
 }
@@ -862,7 +850,7 @@ void SendCoinsDialog::coinControlChangeChecked(int state)
     if (state == Qt::Unchecked)
     {
         // ELEMENTS: it's a map now, should be initialized automatically
-        //CoinControlDialog::coinControl()->destChange = CNoDestination();
+        //m_coin_control->destChange = CNoDestination();
         ui->labelCoinControlChangeLabel->clear();
     }
     else
@@ -879,7 +867,7 @@ void SendCoinsDialog::coinControlChangeEdited(const QString& text)
     {
         // Default to no change address until verified
         // ELEMENTS: it's a map now, should be initialized automatically
-        //CoinControlDialog::coinControl()->destChange = CNoDestination();
+        //m_coin_control->destChange = CNoDestination();
         ui->labelCoinControlChangeLabel->setStyleSheet("QLabel{color:red;}");
 
         const CTxDestination dest = DecodeDestination(text.toStdString());
@@ -903,7 +891,7 @@ void SendCoinsDialog::coinControlChangeEdited(const QString& text)
 
                 if(btnRetVal == QMessageBox::Yes) {
                     // ELEMENTS: it's a map now
-                    //CoinControlDialog::coinControl()->destChange = dest;
+                    //m_coin_control->destChange = dest;
                 }
                 else
                 {
@@ -924,7 +912,7 @@ void SendCoinsDialog::coinControlChangeEdited(const QString& text)
                     ui->labelCoinControlChangeLabel->setText(tr("(no label)"));
 
                 // ELEMENTS: it's a map now
-                //CoinControlDialog::coinControl()->destChange = dest;
+                //m_coin_control->destChange = dest;
             }
         }
     }
@@ -936,7 +924,7 @@ void SendCoinsDialog::coinControlUpdateLabels()
     if (!model || !model->getOptionsModel())
         return;
 
-    updateCoinControlState(*CoinControlDialog::coinControl());
+    updateCoinControlState(*m_coin_control);
 
     // set pay amounts
     CoinControlDialog::payAmounts.clear();
@@ -956,10 +944,10 @@ void SendCoinsDialog::coinControlUpdateLabels()
         }
     }
 
-    if (CoinControlDialog::coinControl()->HasSelected())
+    if (m_coin_control->HasSelected())
     {
         // actual coin control calculation
-        CoinControlDialog::updateLabels(model, this);
+        CoinControlDialog::updateLabels(*m_coin_control, model, this);
 
         // show coin control stats
         ui->labelCoinControlAutomaticallySelected->hide();
