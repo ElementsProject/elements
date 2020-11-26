@@ -684,6 +684,10 @@ class PSBTTest(BitcoinTestFramework):
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Input 0 has invalid value')
 
+        self.log.info("PSBT with signed, but not finalized, inputs should have Finalizer as next")
+        analysis = self.nodes[0].analyzepsbt('cHNldP8BAKICAAAAAAHYbiiIXZVA0g5BCdsnj0s4KXCJx3pqo3Pryd+r3hnzyQAAAAAA/////wIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAASoEa2AAFgAU8emriaOLtUHQk5/pUpRdxCOHLgYBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAAABhqAAAAAAAAAAAQFCASMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAQAAAAEqBfIAABYAFPwVpav0Q0fyp8tYa1U5gdVojHjvC/wIZWxlbWVudHMACADyBSoBAAAAC/wIZWxlbWVudHMCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyIgICVqRGlkGH70G3mdLiflAxd0yjzpmR3jktvc8fdnAND3dHMEQCIAsdyIwp4Q8Yi6+KrlPYBd01pcAQqrGODarU5yquh3ifAiBN0s3pYaf5qLvMSDd+UdZ9mSnzVbvQZtEADf0ovkEHfAEAAAA=')
+        assert_equal(analysis['next'], 'finalizer')
+
         analysis = self.nodes[0].analyzepsbt('cHNldP8BALgCAAAAAAHwNNARYAJurafOkaMMB+gTCJkDS+c11HE0/e16Cxs9AQAAAAAA/////wIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAfQ42qBgAAAFgAUKNw0x8HRctAgmvoevm4u1SbN7XIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUC7fwAFgAU9yTiAXuIvg0vjC19EAqBBuCGJNQAAAAAAAEBQgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABKgXyAAAWABSVA7cX9jx6OuNRxDgTgCLxTDU69gAAAA==')
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Output amount invalid')
