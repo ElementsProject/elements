@@ -160,7 +160,7 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
     int unit = walletModel->getOptionsModel()->getDisplayUnit();
     m_balances = balances;
 
-    if (walletModel->privateKeysDisabled()) {
+    if (walletModel->wallet().privateKeysDisabled()) {
         ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
         ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
         ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
@@ -183,7 +183,7 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
     // for symmetry reasons also show immature label when the watch-only one is shown
     ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature);
     ui->labelImmatureText->setVisible(showImmature || showWatchOnlyImmature);
-    ui->labelWatchImmature->setVisible(!walletModel->privateKeysDisabled() && showWatchOnlyImmature); // show watch-only immature balance
+    ui->labelWatchImmature->setVisible(!walletModel->wallet().privateKeysDisabled() && showWatchOnlyImmature); // show watch-only immature balance
 
     // Resize the QScrollArea content widget
     QSize grid_size = ui->gridLayout->sizeHint();
@@ -239,9 +239,9 @@ void OverviewPage::setWalletModel(WalletModel *model)
 
         connect(model->getOptionsModel(), &OptionsModel::displayUnitChanged, this, &OverviewPage::updateDisplayUnit);
 
-        updateWatchOnlyLabels(wallet.haveWatchOnly() && !model->privateKeysDisabled());
+        updateWatchOnlyLabels(wallet.haveWatchOnly() && !model->wallet().privateKeysDisabled());
         connect(model, &WalletModel::notifyWatchonlyChanged, [this](bool showWatchOnly) {
-            updateWatchOnlyLabels(showWatchOnly && !walletModel->privateKeysDisabled());
+            updateWatchOnlyLabels(showWatchOnly && !walletModel->wallet().privateKeysDisabled());
         });
     }
 
