@@ -148,7 +148,6 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 //
 
                 TransactionRecord sub(hash, nTime);
-                CTxDestination address;
                 sub.idx = i; // vout index
                 sub.amount = wtx.txout_amounts[i];
                 sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
