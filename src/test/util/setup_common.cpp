@@ -5,6 +5,7 @@
 #include <test/util/setup_common.h>
 
 #include <asset.h>
+#include <assetsdir.h>
 #include <banman.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
@@ -31,6 +32,7 @@
 #include <util/time.h>
 #include <util/translation.h>
 #include <util/url.h>
+#include <util/vector.h>
 #include <validation.h>
 #include <validationinterface.h>
 
@@ -68,7 +70,7 @@ std::ostream& operator<<(std::ostream& os, const uint256& num)
     return os;
 }
 
-BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript)
+BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
     : m_path_root{fs::temp_directory_path() / "test_common_" PACKAGE_NAME / g_insecure_rand_ctx_temp_path.rand256().ToString()}
 {
     // Hack to allow testing of fedpeg args
@@ -78,14 +80,32 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
         gArgs.SoftSetBoolArg("-validatepegin", false);
     }
 
+    const std::vector<const char*> arguments = Cat(
+        {
+            "dummy",
+            "-printtoconsole=0",
+            "-logtimemicros",
+            "-debug",
+            "-debugexclude=libevent",
+            "-debugexclude=leveldb",
+        },
+        extra_args);
+
     fs::create_directories(m_path_root);
     gArgs.ForceSetArg("-datadir", m_path_root.string());
     ClearDatadirCache();
+    {
+        SetupServerArgs(m_node);
+        std::string error;
+        const bool success{m_node.args->ParseParameters(arguments.size(), arguments.data(), error)};
+        assert(success);
+        assert(error.empty());
+    }
     SelectParams(chainName);
     SeedInsecureRand();
-    gArgs.ForceSetArg("-printtoconsole", "0");
     if (G_TEST_LOG_FUN) LogInstance().PushBackCallback(G_TEST_LOG_FUN);
     InitLogging();
+    AppInitParameterInteraction();
     LogInstance().StartLogging();
     SHA256AutoDetect();
     ECC_Start();
@@ -115,12 +135,15 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
 
 BasicTestingSetup::~BasicTestingSetup()
 {
+    ClearGlobalAssetDir();
     LogInstance().DisconnectTestLogger();
     fs::remove_all(m_path_root);
+    gArgs.ClearArgs();
     ECC_Stop();
 }
 
-TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript) : BasicTestingSetup(chainName, fedpegscript)
+TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedpegscript, const std::vector<const char*>& extra_args)
+    : BasicTestingSetup(chainName, fedpegscript, extra_args)
 {
     const CChainParams& chainparams = Params();
     // Ideally we'd move all the RPC tests to the functional testing framework
@@ -181,6 +204,7 @@ TestingSetup::~TestingSetup()
     g_rpc_node = nullptr;
     m_node.connman.reset();
     m_node.banman.reset();
+    m_node.args = nullptr;
     m_node.mempool = nullptr;
     m_node.scheduler.reset();
     UnloadBlockIndex();

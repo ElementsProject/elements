@@ -4,6 +4,7 @@
 
 #include <qt/test/apptests.h>
 
+#include <assetsdir.h>
 #include <chainparams.h>
 #include <key.h>
 #include <qt/bitcoin.h>
@@ -65,6 +66,9 @@ void AppTests::appTests()
     BasicTestingSetup test{CBaseChainParams::REGTEST}; // Create a temp data directory to backup the gui settings to
     ECC_Stop(); // Already started by the common test setup, so stop it to avoid interference
     LogInstance().DisconnectTestLogger();
+    // ELEMENTS: asset dir initialized by common test setup, will be re-set by
+    //  baseInitialize below, clear it to avoid "duplicate asset" errors
+    ClearGlobalAssetDir();
 
     m_app.parameterSetup();
     m_app.createOptionsModel(true /* reset settings */);
