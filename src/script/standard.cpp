@@ -327,14 +327,11 @@ public:
         return script;
     }
 };
-
-const CScriptVisitor g_script_visitor;
-
 } // namespace
 
 CScript GetScriptForDestination(const CTxDestination& dest)
 {
-    return boost::apply_visitor(::g_script_visitor, dest);
+    return boost::apply_visitor(CScriptVisitor{}, dest);
 }
 
 CScript GetScriptForRawPubKey(const CPubKey& pubKey)
