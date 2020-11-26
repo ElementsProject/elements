@@ -209,6 +209,8 @@ void Shutdown(NodeContext& node)
 
     // After everything has been shut down, but before things get flushed, stop the
     // CScheduler/checkqueue threadGroup
+    if (node.scheduler) node.scheduler->stop();
+    if (node.reverification_scheduler) node.reverification_scheduler->stop();
     threadGroup.interrupt_all();
     threadGroup.join_all();
 
