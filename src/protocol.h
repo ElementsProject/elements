@@ -257,7 +257,7 @@ const std::vector<std::string>& getAllNetMessageTypes();
 
 /** nServices flags */
 enum ServiceFlags : uint64_t {
-    // NOTE: When adding here, be sure to update qt/guiutil.cpp's formatServicesStr too
+    // NOTE: When adding here, be sure to update serviceFlagToStr too
     // Nothing
     NODE_NONE = 0,
     // NODE_NETWORK means that the node is capable of serving the complete block chain. It is currently
@@ -289,6 +289,8 @@ enum ServiceFlags : uint64_t {
 
     NODE_REPLACE_BY_FEE = (1 << 26),
 };
+
+std::string serviceFlagToStr(uint64_t mask, int bit);
 
 /**
  * Gets the set of service flags which are "desirable" for a given peer.
