@@ -334,7 +334,7 @@ class FedPegTest(BitcoinTestFramework):
             for val in out.values():
                 out_bal += Decimal(val)
         assert_greater_than(out_bal, 50)
-        pegin_psbt = sidechain.walletcreatefundedpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs)
+        pegin_psbt = sidechain.walletcreatefundedpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs, 0, {'add_inputs': True})
         signed_psbt = sidechain.walletsignpsbt(pegin_psbt['psbt'])
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
         assert fin_psbt['complete']
