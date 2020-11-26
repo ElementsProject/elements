@@ -5,14 +5,12 @@
 src/elements
 src/elementsd
 src/elements-cli
-src/elements-gui
-src/elements-node
 src/elements-tx
 src/elements-wallet
 src/test/fuzz
 !src/test/fuzz/*.*
 src/test/test_bitcoin
-src/qt/test/test_bitcoin-qt
+src/qt/test/test_elements-qt
 
 # autoreconf
 Makefile.in
