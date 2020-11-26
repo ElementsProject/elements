@@ -179,25 +179,25 @@ void OverviewPage::setBalance(const interfaces::WalletBalances& balances)
 
     if (walletModel->wallet().isLegacy()) {
         if (walletModel->wallet().privateKeysDisabled()) {
-            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
         } else {
-            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelWatchAvailable->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelWatchPending->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelWatchImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-            ui->labelWatchTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+            ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchAvailable->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchPending->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+            ui->labelWatchTotal->setText(GUIUtil::formatMultiAssetAmount(balances.watch_only_balance + balances.unconfirmed_watch_only_balance + balances.immature_watch_only_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
         }
     } else {
-        ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::separatorAlways, "\n"));
-        ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-        ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::separatorAlways, "\n"));
-        ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::separatorAlways, "\n"));
+        ui->labelBalance->setText(GUIUtil::formatMultiAssetAmount(balances.balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelUnconfirmed->setText(GUIUtil::formatMultiAssetAmount(balances.unconfirmed_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelImmature->setText(GUIUtil::formatMultiAssetAmount(balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
+        ui->labelTotal->setText(GUIUtil::formatMultiAssetAmount(balances.balance + balances.unconfirmed_balance + balances.immature_balance, unit, BitcoinUnits::SeparatorStyle::ALWAYS, "\n"));
     }
     // only show immature (newly mined) balance if it's non-zero, so as not to complicate things
     // for the non-mining users

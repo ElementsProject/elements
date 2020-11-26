@@ -280,7 +280,7 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
     for (const SendAssetsRecipient &rcp : m_current_transaction->getRecipients())
     {
         // generate amount string with wallet name in case of multiwallet
-        QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::separatorStandard, true);
+        QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::SeparatorStyle::STANDARD, true);
         if (model->isMultiwallet()) {
             amount.append(tr(" from wallet '%1'").arg(GUIUtil::HtmlEscape(model->getWalletName())));
         }
@@ -359,7 +359,7 @@ bool SendCoinsDialog::PrepareSendText(QString& question_string, QString& informa
         .arg(alternativeUnits.join(" " + tr("or") + " ")));
     totalAmount.erase(Params().GetConsensus().pegged_asset);
     if (!!totalAmount) {
-        question_string.append(" " + tr("and") + "<br />" + GUIUtil::formatMultiAssetAmount(totalAmount, -1 /*bitcoin unit, hide*/, BitcoinUnits::separatorStandard, ";<br />"));
+        question_string.append(" " + tr("and") + "<br />" + GUIUtil::formatMultiAssetAmount(totalAmount, -1 /*bitcoin unit, hide*/, BitcoinUnits::SeparatorStyle::STANDARD, ";<br />"));
     }
 
     if (formatted.size() > 1) {
@@ -422,7 +422,7 @@ void SendCoinsDialog::on_sendButton_clicked()
                     fileNameSuggestion.append(" - ");
                 }
                 QString labelOrAddress = rcp.label.isEmpty() ? rcp.address : rcp.label;
-                QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::separatorStandard, true);
+                QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::BitcoinUnits::SeparatorStyle::STANDARD, true);
                 fileNameSuggestion.append(labelOrAddress + "-" + amount);
                 first = false;
             }

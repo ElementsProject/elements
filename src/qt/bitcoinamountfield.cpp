@@ -67,7 +67,7 @@ public:
         if(valid)
         {
             val = qBound(m_min_amount, val, m_max_amount);
-            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::separatorAlways, false);
+            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::SeparatorStyle::ALWAYS, false);
             lineEdit()->setText(input);
         }
     }
@@ -86,7 +86,7 @@ public:
     void setValue(const CAsset& asset, CAmount value)
     {
         current_asset = asset;
-        lineEdit()->setText(GUIUtil::formatAssetAmount(asset, value, currentUnit, BitcoinUnits::separatorAlways, false));
+        lineEdit()->setText(GUIUtil::formatAssetAmount(asset, value, currentUnit, BitcoinUnits::SeparatorStyle::ALWAYS, false));
         Q_EMIT valueChanged();
     }
 
@@ -155,7 +155,7 @@ public:
 
         current_asset = Params().GetConsensus().pegged_asset;
         currentUnit = unit;
-        lineEdit()->setPlaceholderText(BitcoinUnits::format(currentUnit, m_min_amount, false, BitcoinUnits::separatorAlways));
+        lineEdit()->setPlaceholderText(BitcoinUnits::format(currentUnit, m_min_amount, false, BitcoinUnits::SeparatorStyle::ALWAYS));
 
         if (!was_pegged) {
             // Leave the text as-is, if it's valid
@@ -184,7 +184,7 @@ public:
 
             const QFontMetrics fm(fontMetrics());
             int h = lineEdit()->minimumSizeHint().height();
-            int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnits::BTC, BitcoinUnits::maxMoney(), false, BitcoinUnits::separatorAlways));
+            int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnits::BTC, BitcoinUnits::maxMoney(), false, BitcoinUnits::SeparatorStyle::ALWAYS));
             w += 2; // cursor blinking space
 
             QStyleOptionSpinBox opt;
