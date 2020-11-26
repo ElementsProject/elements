@@ -82,29 +82,6 @@ public:
     }
 };
 
-struct CCoinsCacheEntry
-{
-    Coin coin; // The actual cached data.
-    unsigned char flags;
-    // ELEMENTS:
-    bool peginSpent;
-
-    enum Flags {
-        DIRTY = (1 << 0), // This cache entry is potentially different from the version in the parent view.
-        FRESH = (1 << 1), // The parent view does not have this entry (or it is pruned).
-        /* Note that FRESH is a performance optimization with which we can
-         * erase coins that are fully spent if we know we do not need to
-         * flush the changes to the parent cache.  It is always safe to
-         * not mark FRESH if that condition is not guaranteed.
-         */
-        // ELEMENTS:
-        PEGIN = (1 << 2), // represents a pegin (coins is actually empty/useless, look at peginSpent instead)
-    };
-
-    CCoinsCacheEntry() : flags(0) {}
-    explicit CCoinsCacheEntry(Coin&& coin_) : coin(std::move(coin_)), flags(0) {}
-};
-
 // For PEGIN entries, the first is the genesis hash, the second is the outpoint.
 // For ~PEGIN entries, the first is zero, the second is the outpoint.
 typedef std::pair<uint256, COutPoint> CCoinsMapKey;
@@ -137,6 +114,60 @@ public:
         return SipHashUint256Extra(k0, k1, id.hash, id.n);
     }
 };
+
+/**
+ * A Coin in one level of the coins database caching hierarchy.
+ *
+ * A coin can either be:
+ * - unspent or spent (in which case the Coin object will be nulled out - see Coin.Clear())
+ * - DIRTY or not DIRTY
+ * - FRESH or not FRESH
+ *
+ * Out of these 2^3 = 8 states, only some combinations are valid:
+ * - unspent, FRESH, DIRTY (e.g. a new coin created in the cache)
+ * - unspent, not FRESH, DIRTY (e.g. a coin changed in the cache during a reorg)
+ * - unspent, not FRESH, not DIRTY (e.g. an unspent coin fetched from the parent cache)
+ * - spent, FRESH, not DIRTY (e.g. a spent coin fetched from the parent cache)
+ * - spent, not FRESH, DIRTY (e.g. a coin is spent and spentness needs to be flushed to the parent)
+ */
+struct CCoinsCacheEntry
+{
+    Coin coin; // The actual cached data.
+    unsigned char flags;
+    // ELEMENTS:
+    bool peginSpent;
+
+    enum Flags {
+        /**
+         * DIRTY means the CCoinsCacheEntry is potentially different from the
+         * version in the parent cache. Failure to mark a coin as DIRTY when
+         * it is potentially different from the parent cache will cause a
+         * consensus failure, since the coin's state won't get written to the
+         * parent when the cache is flushed.
+         */
+        DIRTY = (1 << 0),
+        /**
+         * FRESH means the parent cache does not have this coin or that it is a
+         * spent coin in the parent cache. If a FRESH coin in the cache is
+         * later spent, it can be deleted entirely and doesn't ever need to be
+         * flushed to the parent. This is a performance optimization. Marking a
+         * coin as FRESH when it exists unspent in the parent cache will cause a
+         * consensus failure, since it might not be deleted from the parent
+         * when this cache is flushed.
+         */
+        FRESH = (1 << 1),
+        // ELEMENTS:
+        /**
+         * PEGIN means the coin refers to an entry on the mainchain (coin is actually
+         * empty/useless, look at peginSpent instead)
+         */
+        PEGIN = (1 << 2),
+    };
+
+    CCoinsCacheEntry() : flags(0) {}
+    explicit CCoinsCacheEntry(Coin&& coin_) : coin(std::move(coin_)), flags(0) {}
+};
+
 typedef std::unordered_map<CCoinsMapKey, CCoinsCacheEntry, SaltedOutpointHasher> CCoinsMap;
 
 /** Cursor for iterating over CoinsView state */
@@ -264,7 +295,7 @@ public:
     bool HaveCoinInCache(const COutPoint &outpoint) const;
 
     /**
-     * Return a reference to Coin in the cache, or a pruned one if not found. This is
+     * Return a reference to Coin in the cache, or coinEmpty if not found. This is
      * more efficient than GetCoin.
      *
      * Generally, do not hold the reference returned for more than a short scope.
@@ -276,10 +307,10 @@ public:
     const Coin& AccessCoin(const COutPoint &output) const;
 
     /**
-     * Add a coin. Set potential_overwrite to true if a non-pruned version may
-     * already exist.
+     * Add a coin. Set possible_overwrite to true if an unspent version may
+     * already exist in the cache.
      */
-    void AddCoin(const COutPoint& outpoint, Coin&& coin, bool potential_overwrite);
+    void AddCoin(const COutPoint& outpoint, Coin&& coin, bool possible_overwrite);
 
     /**
      * Spend a coin. Pass moveto in order to get the deleted data.
