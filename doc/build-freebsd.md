@@ -41,6 +41,7 @@ export BDB_PREFIX="$PWD/db4"
 With wallet:
 ```bash
 ./autogen.sh
+MAKE=gmake CC=cc CXX=c++ CPPFLAGS=-I/usr/local/include \
 ./configure --with-gui=no \
     BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" \
     BDB_CFLAGS="-I${BDB_PREFIX}/include" \
@@ -50,7 +51,8 @@ With wallet:
 Without wallet:
 ```bash
 ./autogen.sh
-./configure --with-gui=no --disable-wallet MAKE=gmake
+MAKE=gmake CC=cc CXX=c++ CPPFLAGS=-I/usr/local/include \
+./configure --with-gui=no --disable-wallet
 ```
 
 followed by:
