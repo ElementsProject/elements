@@ -9,6 +9,8 @@
 #include <tinyformat.h>
 #include <util/strencodings.h>
 
+#include <assert.h>
+
 bool g_con_elementsmode = false;
 
 std::string COutPoint::ToString() const
@@ -128,11 +130,12 @@ CAmountMap CTransaction::GetValueOutMap() const {
         if (tx_out.nValue.IsExplicit() && tx_out.nAsset.IsExplicit()) {
             CAmountMap m;
             m[tx_out.nAsset.GetAsset()] = tx_out.nValue.GetAmount();
-            values += m;
-            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset.GetAsset()]))
+            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset.GetAsset()] + tx_out.nValue.GetAmount()))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
+            values += m;
         }
     }
+    assert(MoneyRange(values));
     return values;
 }
 
