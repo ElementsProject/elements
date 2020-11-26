@@ -5517,7 +5517,7 @@ bool MainchainRPCCheck(const bool init)
                     // warmup; in that case, just wait and retry.
                     // If this is not the initial call, just report failure.
                     if (init && error["code"].get_int() == RPC_IN_WARMUP) {
-                        MilliSleep(1000);
+                        UninterruptibleSleep(std::chrono::milliseconds{1000});
                         continue;
                     }
                     else {
