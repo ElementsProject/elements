@@ -496,6 +496,10 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
         } else {
             auto coin = coins.find(txin.prevout);
             prevTxOut = coin->second.out;
+            if (coin == coins.end() || coin->second.IsSpent()) {
+                input_errors[i] = "Input not found or already spent";
+                continue;
+            }
         }
 
         const CScript& prevPubKey = prevTxOut.scriptPubKey;
