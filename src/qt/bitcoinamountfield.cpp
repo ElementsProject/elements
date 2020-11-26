@@ -41,7 +41,7 @@ public:
         connect(lineEdit(), &QLineEdit::textEdited, this, &AmountSpinBox::valueChanged);
     }
 
-    QValidator::State validate(QString &text, int &pos) const
+    QValidator::State validate(QString &text, int &pos) const override
     {
         if(text.isEmpty())
             return QValidator::Intermediate;
@@ -51,7 +51,7 @@ public:
         return valid ? QValidator::Intermediate : QValidator::Invalid;
     }
 
-    void fixup(QString &input) const
+    void fixup(QString &input) const override
     {
         bool valid;
         CAmount val;
@@ -110,7 +110,7 @@ public:
         m_max_amount = value;
     }
 
-    void stepBy(int steps)
+    void stepBy(int steps) override
     {
         bool valid = false;
         auto val = value(&valid);
@@ -176,7 +176,7 @@ public:
         singleStep = step;
     }
 
-    QSize minimumSizeHint() const
+    QSize minimumSizeHint() const override
     {
         if(cachedMinimumSizeHint.isEmpty())
         {
@@ -240,7 +240,7 @@ private:
     }
 
 protected:
-    bool event(QEvent *event)
+    bool event(QEvent *event) override
     {
         if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
         {
@@ -255,7 +255,7 @@ protected:
         return QAbstractSpinBox::event(event);
     }
 
-    StepEnabled stepEnabled() const
+    StepEnabled stepEnabled() const override
     {
         if (isReadOnly()) // Disable steps when AmountSpinBox is read-only
             return StepNone;

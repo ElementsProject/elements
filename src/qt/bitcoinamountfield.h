@@ -79,7 +79,7 @@ Q_SIGNALS:
 
 protected:
     /** Intercept focus-in event and ',' key presses */
-    bool eventFilter(QObject *object, QEvent *event);
+    bool eventFilter(QObject *object, QEvent *event) override;
 
 private:
     std::set<CAsset> m_allowed_assets;
