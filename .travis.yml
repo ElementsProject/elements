@@ -211,6 +211,11 @@ jobs:
         BITCOIN_CONFIG="--enable-zmq --with-incompatible-bdb --enable-glibc-back-compat --enable-reduce-exports --with-gui=qt5 CPPFLAGS=-DDEBUG_LOCKORDER"
 
     - stage: test
+      name: 'x86_64 Linux [GOAL: install]  [bionic]  [multiprocess]'
+      if: type != pull_request OR commit_message =~ /depends:|multiprocess:/ # Skip on non-depends, non-multiprocess PRs
+      env: >-
+        FILE_ENV="./ci/test/00_setup_env_native_multiprocess.sh"
+
 # x86_64 Linux w/ single fedpeg test that uses upstream bitcoind as mainchain
     - stage: test
       name: 'x86_64 Linux  [GOAL: install]  [bitcoind fedpeg test]'

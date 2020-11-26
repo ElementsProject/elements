@@ -85,6 +85,10 @@ if BUILD_BITCOIND
   bin_PROGRAMS += elementsd
 endif
 
+if BUILD_BITCOIN_NODE
+  bin_PROGRAMS += elements-node
+endif
+
 if BUILD_BITCOIN_CLI
   bin_PROGRAMS += elements-cli
 endif
@@ -589,22 +593,21 @@ libbitcoin_cli_a_SOURCES = \
 nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 #
 
-# bitcoind binary #
-elementsd_SOURCES = bitcoind.cpp
-elementsd_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elementsd_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elementsd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+# bitcoind & bitcoin-node binaries #
+elements_daemon_sources = bitcoind.cpp
+elements_bin_cppflags = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+elements_bin_cxxflags = $(AM_CXXFLAGS) $(PIE_FLAGS)
+elements_bin_ldflags = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-elementsd_SOURCES += bitcoind-res.rc
+elements_daemon_sources += bitcoind-res.rc
 endif
 
-elementsd_LDADD = \
-  $(LIBBITCOIN_SERVER) \
+elements_bin_ldadd = \
   $(LIBBITCOIN_WALLET) \
   $(LIBBITCOIN_COMMON) \
-  $(LIBUNIVALUE) \
   $(LIBBITCOIN_UTIL) \
+  $(LIBUNIVALUE) \
   $(LIBBITCOIN_ZMQ) \
   $(LIBBITCOIN_CONSENSUS) \
   $(LIBBITCOIN_CRYPTO) \
@@ -613,7 +616,19 @@ elementsd_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1)
 
-elementsd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+elements_bin_ldadd += $(BOOST_LIBS) $(BDB_LIBS) $(MINIUPNPC_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(ZMQ_LIBS)
+
+elementsd_SOURCES = $(elements_daemon_sources)
+elementsd_CPPFLAGS = $(elements_bin_cppflags)
+elementsd_CXXFLAGS = $(elements_bin_cxxflags)
+elementsd_LDFLAGS = $(elements_bin_ldflags)
+elementsd_LDADD = $(LIBBITCOIN_SERVER) $(elements_bin_ldadd)
+
+elements_node_SOURCES = $(elements_daemon_sources)
+elements_node_CPPFLAGS = $(elements_bin_cppflags)
+elements_node_CXXFLAGS = $(elements_bin_cxxflags)
+elements_node_LDFLAGS = $(elements_bin_ldflags)
+elements_node_LDADD = $(LIBBITCOIN_SERVER) $(elements_bin_ldadd)
 
 # bitcoin-cli binary #
 elements_cli_SOURCES = bitcoin-cli.cpp
@@ -657,29 +672,14 @@ elements_tx_LDADD += $(BOOST_LIBS)
 
 # bitcoin-wallet binary #
 elements_wallet_SOURCES = bitcoin-wallet.cpp
-elements_wallet_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-elements_wallet_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elements_wallet_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_wallet_CPPFLAGS = $(elements_bin_cppflags)
+elements_wallet_CXXFLAGS = $(elements_bin_cxxflags)
+elements_wallet_LDFLAGS = $(elements_bin_ldflags)
+elements_wallet_LDADD = $(LIBBITCOIN_WALLET_TOOL) $(elements_bin_ldadd)
 
 if TARGET_WINDOWS
 elements_wallet_SOURCES += bitcoin-wallet-res.rc
 endif
-
-elements_wallet_LDADD = \
-  $(LIBBITCOIN_WALLET_TOOL) \
-  $(LIBBITCOIN_WALLET) \
-  $(LIBBITCOIN_COMMON) \
-  $(LIBBITCOIN_CONSENSUS) \
-  $(LIBBITCOIN_UTIL) \
-  $(LIBBITCOIN_CRYPTO) \
-  $(LIBBITCOIN_ZMQ) \
-  $(LIBLEVELDB) \
-  $(LIBLEVELDB_SSE42) \
-  $(LIBMEMENV) \
-  $(LIBSECP256K1) \
-  $(LIBUNIVALUE)
-
-elements_wallet_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
 #
 
 # bitcoinconsensus library #
