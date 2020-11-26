@@ -254,6 +254,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         }
         in.pushKV("sequence", (int64_t)txin.nSequence);
 
+        // ELEMENTS:
         if (tx.witness.vtxinwit.size() > i) {
             const CScriptWitness &scriptWitness = tx.witness.vtxinwit[i].scriptWitness;
             if (!scriptWitness.IsNull()) {
@@ -265,7 +266,6 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             }
         }
 
-        // ELEMENTS:
         if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
             UniValue pegin_witness(UniValue::VARR);
             for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
