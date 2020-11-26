@@ -39,7 +39,7 @@ class ConfArgsTest(BitcoinTestFramework):
         if self.is_wallet_compiled():
             with open(inc_conf_file_path, 'w', encoding='utf8') as conf:
                 conf.write("wallet=foo\n")
-            self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Config setting for -wallet only applied on elementsregtest network when in [elementsregtest] section.')
+            self.nodes[0].assert_start_raises_init_error(expected_msg='Error: Config setting for -wallet only applied on %s network when in [%s] section.' % (self.chain, self.chain))
 
         # ELEMENTS: FIXME we shouldn't have to disable this test, but at this point
         # we have set `chain=elementsregtest` and there is apparently no way to "break
@@ -136,7 +136,7 @@ class ConfArgsTest(BitcoinTestFramework):
         # Check that using non-existent datadir in conf file fails
         conf_file = os.path.join(default_data_dir, "elements.conf")
 
-        # datadir needs to be set before [regtest] section
+        # datadir needs to be set before [chain] section
         conf_file_contents = open(conf_file, encoding='utf8').read()
         with open(conf_file, 'w', encoding='utf8') as f:
             f.write("datadir=" + new_data_dir + "\n")
