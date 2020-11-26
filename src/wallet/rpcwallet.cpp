@@ -632,6 +632,61 @@ static UniValue signmessage(const JSONRPCRequest& request)
     return signature;
 }
 
+static CAmountMap GetReceived(interfaces::Chain::Lock& locked_chain, const CWallet& wallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+{
+    std::set<CTxDestination> address_set;
+
+    if (by_label) {
+        // Get the set of addresses assigned to label
+        std::string label = LabelFromValue(params[0]);
+        address_set = wallet.GetLabelAddresses(label);
+    } else {
+        // Get the address
+        CTxDestination dest = DecodeDestination(params[0].get_str());
+        if (!IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
+        }
+        CScript script_pub_key = GetScriptForDestination(dest);
+        if (!wallet.IsMine(script_pub_key)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Address not found in wallet");
+        }
+        address_set.insert(dest);
+    }
+
+    // Minimum confirmations
+    int min_depth = 1;
+    if (!params[1].isNull())
+        min_depth = params[1].get_int();
+
+    // Tally
+    CAmountMap amounts;
+    for (auto& pairWtx : wallet.mapWallet) {
+        const CWalletTx& wtx = pairWtx.second;
+        if (wtx.IsCoinBase() || !locked_chain.checkFinalTx(*wtx.tx)) {
+            continue;
+        }
+
+        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
+            const CTxOut& txout = wtx.tx->vout[i];
+            CTxDestination address;
+            if (ExtractDestination(txout.scriptPubKey, address) && wallet.IsMine(address) && address_set.count(address)) {
+                if (wtx.GetDepthInMainChain() >= min_depth) {
+                    CAmountMap wtxValue;
+                    CAmount amt = wtx.GetOutputValueOut(i);
+                    if (amt < 0) {
+                        continue;
+                    }
+                    wtxValue[wtx.GetOutputAsset(i)] = amt;
+                    amounts += wtxValue;
+                }
+            }
+        }
+    }
+
+    return amounts;
+}
+
+
 static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
 {
     std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
@@ -670,51 +725,12 @@ static UniValue getreceivedbyaddress(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    // Bitcoin address
-    CTxDestination dest = DecodeDestination(request.params[0].get_str());
-    if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
-    }
-    CScript scriptPubKey = GetScriptForDestination(dest);
-    if (!pwallet->IsMine(scriptPubKey)) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Address not found in wallet");
-    }
-
-    // Minimum confirmations
-    int nMinDepth = 1;
-    if (!request.params[1].isNull())
-        nMinDepth = request.params[1].get_int();
-
-    // Tally
-    CAmountMap amounts;
-    for (auto& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
-        if (wtx.IsCoinBase() || !locked_chain->checkFinalTx(*wtx.tx)) {
-            continue;
-        }
-
-        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
-            const CTxOut& txout = wtx.tx->vout[i];
-            if (txout.scriptPubKey == scriptPubKey) {
-                if (wtx.GetDepthInMainChain() >= nMinDepth) {
-                    CAmountMap wtxValue;
-                    CAmount amt = wtx.GetOutputValueOut(i);
-                    if (amt < 0) {
-                        continue;
-                    }
-                    wtxValue[wtx.GetOutputAsset(i)] = amt;
-                    amounts += wtxValue;
-                }
-            }
-        }
-    }
-
     std::string asset = "";
     if (request.params.size() > 2 && request.params[2].isStr()) {
         asset = request.params[2].get_str();
     }
 
-    return AmountMapToUniv(amounts, asset);
+    return AmountMapToUniv(GetReceived(*locked_chain, *pwallet, request.params, /* by_label */ false), asset);
 }
 
 
@@ -756,46 +772,12 @@ static UniValue getreceivedbylabel(const JSONRPCRequest& request)
     auto locked_chain = pwallet->chain().lock();
     LOCK(pwallet->cs_wallet);
 
-    // Minimum confirmations
-    int nMinDepth = 1;
-    if (!request.params[1].isNull())
-        nMinDepth = request.params[1].get_int();
-
-    // Get the set of pub keys assigned to label
-    std::string label = LabelFromValue(request.params[0]);
-    std::set<CTxDestination> setAddress = pwallet->GetLabelAddresses(label);
-
-    // Tally
-    CAmountMap amounts;
-    for (auto& pairWtx : pwallet->mapWallet) {
-        const CWalletTx& wtx = pairWtx.second;
-        if (wtx.IsCoinBase() || !locked_chain->checkFinalTx(*wtx.tx)) {
-            continue;
-        }
-
-        for (unsigned int i = 0; i < wtx.tx->vout.size(); i++) {
-            const CTxOut& txout = wtx.tx->vout[i];
-            CTxDestination address;
-            if (ExtractDestination(txout.scriptPubKey, address) && pwallet->IsMine(address) && setAddress.count(address)) {
-                if (wtx.GetDepthInMainChain() >= nMinDepth) {
-                    CAmountMap wtxValue;
-                    CAmount amt = wtx.GetOutputValueOut(i);
-                    if (amt < 0) {
-                        continue;
-                    }
-                    wtxValue[wtx.GetOutputAsset(i)] = amt;
-                    amounts += wtxValue;
-                }
-            }
-        }
-    }
-
     std::string asset = "";
     if (request.params.size() > 2 && request.params[2].isStr()) {
         asset = request.params[2].get_str();
     }
 
-    return AmountMapToUniv(amounts, asset);
+    return AmountMapToUniv(GetReceived(*locked_chain, *pwallet, request.params, /* by_label */ true), asset);
 }
 
 
