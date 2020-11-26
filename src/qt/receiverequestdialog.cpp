@@ -32,6 +32,8 @@ ReceiveRequestDialog::ReceiveRequestDialog(QWidget *parent) :
 #endif
 
     connect(ui->btnSaveAs, &QPushButton::clicked, ui->lblQRCode, &QRImageWidget::saveImage);
+
+    GUIUtil::handleCloseWindowShortcut(this);
 }
 
 ReceiveRequestDialog::~ReceiveRequestDialog()
