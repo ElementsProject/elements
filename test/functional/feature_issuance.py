@@ -16,7 +16,7 @@ def process_raw_issuance(node, issuance_list):
         raise Exception('Issuance list too long')
     # Make enough outputs for any subsequent spend
     next_destinations = {}
-    output_values = (node.getbalance()['bitcoin']-1)/5
+    output_values = Decimal('%.8f' % ((node.getbalance()['bitcoin']-1)/5))
     for i in range(5):
         next_destinations[node.getnewaddress()] = output_values
 
