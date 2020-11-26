@@ -749,7 +749,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     // the user could have gotten from another RPC command prior to now
     wallet.BlockUntilSyncedToCurrentChain();
 
-    LOCK2(pwallet->cs_wallet, spk_man.cs_KeyStore);
+    LOCK2(wallet.cs_wallet, spk_man.cs_KeyStore);
 
     EnsureWalletIsUnlocked(&wallet);
 
@@ -772,7 +772,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
 
     std::map<CKeyID, int64_t> mapKeyBirth;
     const std::map<CKeyID, int64_t>& mapKeyPool = spk_man.GetAllReserveKeys();
-    pwallet->GetKeyBirthTimes(mapKeyBirth);
+    wallet.GetKeyBirthTimes(mapKeyBirth);
 
     std::set<CScriptID> scripts = spk_man.GetCScripts();
 
