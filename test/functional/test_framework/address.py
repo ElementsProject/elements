@@ -48,18 +48,18 @@ def keyhash_to_p2pkh(hash, main = False):
     version = 235
     return byte_to_base58(hash, version)
 
-def scripthash_to_p2sh(hash, main = False):
+def scripthash_to_p2sh(hash, main = False, prefix = 75):
     assert len(hash) == 20
-    version = 75
+    version = prefix
     return byte_to_base58(hash, version)
 
 def key_to_p2pkh(key, main = False):
     key = check_key(key)
     return keyhash_to_p2pkh(hash160(key), main)
 
-def script_to_p2sh(script, main = False):
+def script_to_p2sh(script, main = False, prefix = 75):
     script = check_script(script)
-    return scripthash_to_p2sh(hash160(script), main)
+    return scripthash_to_p2sh(hash160(script), main, prefix)
 
 def key_to_p2sh_p2wpkh(key, main = False):
     key = check_key(key)
