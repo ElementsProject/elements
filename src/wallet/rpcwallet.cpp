@@ -6327,13 +6327,13 @@ UniValue issueasset(const JSONRPCRequest& request)
     CPubKey token_dest_blindpub;
 
     if (nAmount > 0) {
-        if (!pwallet->GetNewDestination(OutputType::LEGACY, "", asset_dest, error)) {
+        if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
         }
         asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
     }
     if (nTokens > 0) {
-        if (!pwallet->GetNewDestination(OutputType::LEGACY, "", token_dest, error)) {
+        if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
         }
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
@@ -6431,14 +6431,14 @@ UniValue reissueasset(const JSONRPCRequest& request)
     // Add destination for the to-be-created asset
     std::string error;
     CTxDestination asset_dest;
-    if (!pwallet->GetNewDestination(OutputType::LEGACY, "", asset_dest, error)) {
+    if (!pwallet->GetNewDestination(OutputType::BECH32, "", asset_dest, error)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
     CPubKey asset_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(asset_dest));
 
     // Add destination for tokens we are moving
     CTxDestination token_dest;
-    if (!pwallet->GetNewDestination(OutputType::LEGACY, "", token_dest, error)) {
+    if (!pwallet->GetNewDestination(OutputType::BECH32, "", token_dest, error)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, error);
     }
     CPubKey token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
