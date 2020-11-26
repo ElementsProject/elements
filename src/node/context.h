@@ -6,6 +6,7 @@
 #define BITCOIN_NODE_CONTEXT_H
 
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -42,6 +43,7 @@ struct NodeContext {
     std::vector<std::unique_ptr<interfaces::ChainClient>> chain_clients;
     std::unique_ptr<CScheduler> scheduler;
     std::unique_ptr<CScheduler> reverification_scheduler;
+    std::function<void()> rpc_interruption_point = [] {};
 
     //! Declare default constructor and destructor that are not inline, so code
     //! instantiating the NodeContext struct doesn't need to #include class
