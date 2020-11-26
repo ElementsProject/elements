@@ -3194,6 +3194,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
         LOCK(cs_wallet);
         txNew.nLockTime = GetLocktimeForNewTransaction(chain(), GetLastBlockHash(), GetLastBlockHeight());
         {
+            CScript dummy_script = CScript() << 0x00;
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, &coin_control, 1, MAX_MONEY, MAX_MONEY, 0);
             CoinSelectionParams coin_selection_params; // Parameters for coin selection, init with dummy
@@ -3225,7 +3226,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                         //  failures in `BlindTransaction`). We also set the index to -1, indicating
                         //  that this destination is not actually used, and therefore should not be
                         //  returned by the `ReturnDestination` loop below.
-                        mapScriptChange[value.first] = std::pair<int, CScript>(-1, CScript() << 0x00);
+                        mapScriptChange[value.first] = std::pair<int, CScript>(-1, dummy_script);
                     } else {
                         mapScriptChange[value.first] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
                         ++index;
@@ -3260,7 +3261,10 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     }
 
                     CScript scriptChange = GetScriptForDestination(dest);
-                    assert(!dest.empty() || scriptChange.empty());
+                    // A valid destination implies a change script (and
+                    // vice-versa). An empty change script will abort later, if the
+                    // change keypool ran out, but change is required.
+                    CHECK_NONFATAL(IsValidDestination(dest) != (scriptChange == dummy_script));
                     mapScriptChange[asset] = std::pair<int, CScript>(index, scriptChange);
                     ++index;
                 }
@@ -3759,9 +3763,9 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                 continue;
             }
 
-            // Give up if change keypool ran out and we failed to find a solution without change:
+            // Give up if change keypool ran out and change is required
             for (const auto& it : vChangePosInOut) {
-                if (mapScriptChange[it.first].second == (CScript() << 0x00)) {
+                if (mapScriptChange[it.first].second == dummy_script) {
                     return false;
                 }
             }
