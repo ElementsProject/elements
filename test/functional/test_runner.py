@@ -220,6 +220,8 @@ BASE_SCRIPTS = [
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
     'rpc_dumptxoutset.py',
+    #'feature_minchainwork.py', # ELEMENTS: we deleted this at some point, not applicable to signed blocks
+    'rpc_estimatefee.py',
     'rpc_getblockstats.py',
     'wallet_create_tx.py',
     'p2p_fingerprint.py',
