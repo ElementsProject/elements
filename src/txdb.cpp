@@ -16,8 +16,6 @@
 
 #include <stdint.h>
 
-#include <boost/thread.hpp>
-
 // ELEMENTS
 #include <block_proof.h> // CheckProof
 
@@ -286,7 +284,6 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
 
     // Load m_block_index
     while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
         if (ShutdownRequested()) return false;
         std::pair<char, uint256> key;
         if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
@@ -405,7 +402,6 @@ bool CCoinsViewDB::Upgrade() {
     std::pair<unsigned char, uint256> key;
     std::pair<unsigned char, uint256> prev_key = {DB_COINS, uint256()};
     while (pcursor->Valid()) {
-        boost::this_thread::interruption_point();
         if (ShutdownRequested()) {
             break;
         }

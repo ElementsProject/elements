@@ -71,11 +71,9 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/signals2/signal.hpp>
-#include <boost/thread.hpp>
+#include <boost/thread/thread.hpp>
 
 #include <assetsdir.h> // InitGlobalAssetDir
 #include <pegins.h>
