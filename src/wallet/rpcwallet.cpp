@@ -59,6 +59,7 @@
 #include <issuance.h>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
+static const std::string HELP_REQUIRING_PASSPHRASE{"\nRequires wallet passphrase to be set with walletpassphrase call if wallet is encrypted.\n"};
 
 static inline bool GetAvoidReuseFlag(const CWallet* const pwallet, const UniValue& param) {
     bool can_avoid_reuse = pwallet->IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE);
@@ -117,13 +118,6 @@ std::shared_ptr<CWallet> GetWalletForJSONRPCRequest(const JSONRPCRequest& reques
 
     std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
     return wallets.size() == 1 || (request.fHelp && wallets.size() > 0) ? wallets[0] : nullptr;
-}
-
-std::string HelpRequiringPassphrase(const CWallet* pwallet)
-{
-    return pwallet && pwallet->IsCrypted()
-        ? "\nRequires wallet passphrase to be set with walletpassphrase call."
-        : "";
 }
 
 bool EnsureWalletIsAvailable(const CWallet* pwallet, bool avoidException)
@@ -414,7 +408,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
             RPCHelpMan{"sendtoaddress",
                 "\nSend an amount to a given address." +
-                    HelpRequiringPassphrase(pwallet) + "\n",
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to send to."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount in " + CURRENCY_UNIT + " to send. eg 0.1"},
@@ -588,7 +582,7 @@ static UniValue signmessage(const JSONRPCRequest& request)
 
             RPCHelpMan{"signmessage",
                 "\nSign a message with the private key of an address" +
-                    HelpRequiringPassphrase(pwallet) + "\n",
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The address to use for the private key."},
                     {"message", RPCArg::Type::STR, RPCArg::Optional::NO, "The message to create a signature of."},
@@ -910,7 +904,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     RPCHelpMan{"sendmany",
                 "\nSend multiple times. Amounts are double-precision floating point numbers." +
-                    HelpRequiringPassphrase(pwallet) + "\n",
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"dummy", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be set to \"\" for backwards compatibility.", "\"\""},
                     {"amounts", RPCArg::Type::OBJ, RPCArg::Optional::NO, "The addresses and amounts",
@@ -2089,7 +2083,7 @@ static UniValue keypoolrefill(const JSONRPCRequest& request)
 
             RPCHelpMan{"keypoolrefill",
                 "\nFills the keypool."+
-                    HelpRequiringPassphrase(pwallet) + "\n",
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"newsize", RPCArg::Type::NUM, /* default */ "100", "The new keypool size"},
                 },
@@ -3639,7 +3633,7 @@ UniValue signrawtransactionwithwallet(const JSONRPCRequest& request)
                 "\nSign inputs for raw transaction (serialized, hex-encoded).\n"
                 "The second optional argument (may be null) is an array of previous transaction outputs that\n"
                 "this transaction depends on but may not yet be in the block chain." +
-                    HelpRequiringPassphrase(pwallet) + "\n",
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"hexstring", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction hex string"},
                     {"prevtxs", RPCArg::Type::ARR, RPCArg::Optional::OMITTED_NAMED_ARG, "The previous dependent transaction outputs",
@@ -4469,7 +4463,7 @@ UniValue sethdseed(const JSONRPCRequest& request)
                 "\nSet or generate a new HD wallet seed. Non-HD wallets will not be upgraded to being a HD wallet. Wallets that are already\n"
                 "HD will have a new HD seed set so that new keys added to the keypool will be derived from this new seed.\n"
                 "\nNote that you will need to MAKE A NEW BACKUP of your wallet after setting the HD wallet seed." +
-                    HelpRequiringPassphrase(pwallet) + "\n",
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"newkeypool", RPCArg::Type::BOOL, /* default */ "true", "Whether to flush old unused addresses, including change addresses, from the keypool and regenerate it.\n"
             "                             If true, the next address from getnewaddress and change address from getrawchangeaddress will be from this new seed.\n"
@@ -4549,8 +4543,8 @@ UniValue walletfillpsbtdata(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw std::runtime_error(
             RPCHelpMan{"walletfillpsbtdata",
-                "\nUpdate a PSBT with input information from our wallet\n"
-                + HelpRequiringPassphrase(pwallet) + "\n",
+                "\nUpdate a PSBT with input information from our wallet\n" +
+        HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
                     {"bip32derivs", RPCArg::Type::BOOL, /* default */ "true", "Include BIP 32 derivation paths for public keys if we know them"},
@@ -4604,7 +4598,7 @@ UniValue walletsignpsbt(const JSONRPCRequest& request)
         throw std::runtime_error(
             RPCHelpMan{"walletsignpsbt",
                 "\nSign all PSBT iputs that we can sign for.\n"
-                + HelpRequiringPassphrase(pwallet) + "\n",
+                + HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
                     {"sighashtype", RPCArg::Type::STR, /* default */ "ALL", "The signature hash type to sign with if not specified by the PSBT. Must be one of\n"
@@ -4678,7 +4672,7 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
                 " - walletfillpsbtdata\n"
                 " - blindpsbt\n"
                 " - walletsignpsbt\n" +
-                    HelpRequiringPassphrase(pwallet) + "\n",
+                    HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
                     {"sign", RPCArg::Type::BOOL, /* default */ "true", "Also sign the transaction when updating"},
@@ -5151,7 +5145,7 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
         throw std::runtime_error(
             RPCHelpMan{"initpegoutwallet",
                 "\nThis call is for Liquid network initialization on the Liquid wallet. The wallet generates a new Liquid pegout authorization key (PAK) and stores it in the Liquid wallet. It then combines this with the `bitcoin_descriptor` to finally create a PAK entry for the network. This allows the user to send Liquid coins directly to a secure offline Bitcoin wallet at the derived path from the bitcoin_descriptor using the `sendtomainchain` command. Losing the Liquid PAK or offline Bitcoin root key will result in the inability to pegout funds, so immediate backup upon initialization is required.\n" +
-                HelpRequiringPassphrase(pwallet),
+                HELP_REQUIRING_PASSPHRASE,
                 {
                     {"bitcoin_descriptor", RPCArg::Type::STR, RPCArg::Optional::NO, "The Bitcoin descriptor that includes a single extended pubkey. Must be one of the following: pkh(<xpub>), sh(wpkh(<xpub>)), or wpkh(<xpub>). This is used as the destination chain for the Bitcoin destination wallet. The derivation path from the xpub is given by the descriptor, typically `0/k`, reflecting the external chain of the wallet. DEPRECATED: If a plain xpub is given, pkh(<xpub>) is assumed, with the `0/k` derivation from that xpub. See link for more details on script descriptors: https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md"},
                     {"bip32_counter", RPCArg::Type::NUM , /* default */ "0", "The `k` in `0/k` to be set as the next address to derive from the `bitcoin_descriptor`. This will be stored in the wallet and incremented on each successful `sendtomainchain` invocation."},
@@ -5334,7 +5328,7 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
         throw std::runtime_error(
             RPCHelpMan{"sendtomainchain",
                 "\nSends sidechain funds to the given mainchain address, through the federated pegin mechanism\n"
-                + HelpRequiringPassphrase(pwallet),
+                + HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The destination address on Bitcoin mainchain"},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to Bitcoin mainchain"},
@@ -5440,7 +5434,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
         throw std::runtime_error(
             RPCHelpMan{"sendtomainchain",
                 "\nSends Liquid funds to the Bitcoin mainchain, through the federated withdraw mechanism. The wallet internally generates the returned `bitcoin_address` via `bitcoin_descriptor` and `bip32_counter` previously set in `initpegoutwallet`. The counter will be incremented upon successful send, avoiding address re-use.\n"
-                + HelpRequiringPassphrase(pwallet),
+                + HELP_REQUIRING_PASSPHRASE,
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be \"\". Only for non-PAK `sendtomainchain` compatibility."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to `bitcoin_address`."},
