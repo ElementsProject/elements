@@ -240,8 +240,9 @@ BITCOIN_TESTS =\
   test/uint256_tests.cpp \
   test/util_tests.cpp \
   test/validation_block_tests.cpp \
-  test/versionbits_tests.cpp \
   test/validation_flush_tests.cpp \
+  test/validationinterface_tests.cpp \
+  test/versionbits_tests.cpp \
   test/pegin_spent_tests.cpp \
   test/dynafed_tests.cpp \
   test/blind_tests.cpp
