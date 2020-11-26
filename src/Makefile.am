@@ -114,10 +114,10 @@ BITCOIN_CORE_H = \
   bech32.h \
   blech32.h \
   blind.h \
-  bloom.h \
   blockencodings.h \
   blockfilter.h \
   block_proof.h \
+  bloom.h \
   chain.h \
   chainparams.h \
   chainparamsbase.h \
@@ -139,6 +139,7 @@ BITCOIN_CORE_H = \
   core_io.h \
   core_memusage.h \
   cuckoocache.h \
+  dbwrapper.h \
   dynafed.h \
   flatfile.h \
   fs.h \
@@ -156,7 +157,6 @@ BITCOIN_CORE_H = \
   issuance.h \
   key.h \
   key_io.h \
-  dbwrapper.h \
   limitedmap.h \
   logging.h \
   logging/timer.h \
@@ -176,6 +176,7 @@ BITCOIN_CORE_H = \
   node/context.h \
   node/psbt.h \
   node/transaction.h \
+  node/ui_interface.h \
   node/utxo_snapshot.h \
   noui.h \
   optional.h \
@@ -218,13 +219,12 @@ BITCOIN_CORE_H = \
   support/events.h \
   support/lockedpool.h \
   sync.h \
-  threadsafety.h \
   threadinterrupt.h \
+  threadsafety.h \
   timedata.h \
   torcontrol.h \
   txdb.h \
   txmempool.h \
-  ui_interface.h \
   undo.h \
   util/asmap.h \
   util/bip32.h \
@@ -233,8 +233,6 @@ BITCOIN_CORE_H = \
   util/error.h \
   util/fees.h \
   util/golombrice.h \
-  util/spanparsing.h \
-  util/system.h \
   util/macros.h \
   util/memory.h \
   util/message.h \
@@ -242,19 +240,22 @@ BITCOIN_CORE_H = \
   util/rbf.h \
   util/ref.h \
   util/settings.h \
+  util/spanparsing.h \
   util/string.h \
+  util/system.h \
   util/threadnames.h \
   util/time.h \
   util/translation.h \
+  util/ui_change_type.h \
   util/url.h \
   util/vector.h \
   validation.h \
   validationinterface.h \
   versionbits.h \
   versionbitsinfo.h \
-  walletinitinterface.h \
   wallet/bdb.h \
   wallet/coincontrol.h \
+  wallet/coinselection.h \
   wallet/context.h \
   wallet/crypter.h \
   wallet/db.h \
@@ -269,7 +270,7 @@ BITCOIN_CORE_H = \
   wallet/walletdb.h \
   wallet/wallettool.h \
   wallet/walletutil.h \
-  wallet/coinselection.h \
+  walletinitinterface.h \
   warnings.h \
   zmq/zmqabstractnotifier.h \
   zmq/zmqconfig.h\
@@ -301,16 +302,16 @@ libbitcoin_server_a_SOURCES = \
   chain.cpp \
   confidential_validation.cpp \
   consensus/tx_verify.cpp \
+  dbwrapper.cpp \
   flatfile.cpp \
   httprpc.cpp \
   httpserver.cpp \
   index/base.cpp \
   index/blockfilterindex.cpp \
   index/txindex.cpp \
+  init.cpp \
   interfaces/chain.cpp \
   interfaces/node.cpp \
-  init.cpp \
-  dbwrapper.cpp \
   mainchainrpc.cpp \
   miner.cpp \
   net.cpp \
@@ -320,6 +321,7 @@ libbitcoin_server_a_SOURCES = \
   node/context.cpp \
   node/psbt.cpp \
   node/transaction.cpp \
+  node/ui_interface.cpp \
   noui.cpp \
   pegins.cpp \
   policy/fees.cpp \
@@ -339,7 +341,6 @@ libbitcoin_server_a_SOURCES = \
   torcontrol.cpp \
   txdb.cpp \
   txmempool.cpp \
-  ui_interface.cpp \
   validation.cpp \
   validationinterface.cpp \
   versionbits.cpp \

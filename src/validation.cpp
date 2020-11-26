@@ -21,6 +21,7 @@
 #include <logging.h>
 #include <logging/timer.h>
 #include <mainchainrpc.h>
+#include <node/ui_interface.h>
 #include <optional.h>
 #include <pegins.h>
 #include <policy/fees.h>
@@ -38,7 +39,6 @@
 #include <tinyformat.h>
 #include <txdb.h>
 #include <txmempool.h>
-#include <ui_interface.h>
 #include <uint256.h>
 #include <undo.h>
 #include <util/moneystr.h>

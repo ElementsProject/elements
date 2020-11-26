@@ -21,10 +21,10 @@
 #include <chainparams.h>
 #include <interfaces/node.h>
 #include <key_io.h>
+#include <node/ui_interface.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <txmempool.h>
-#include <ui_interface.h>
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
