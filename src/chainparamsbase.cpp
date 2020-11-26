@@ -16,6 +16,8 @@ const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
 const std::string CBaseChainParams::LIQUID1 = "liquidv1";
 
+const std::string CBaseChainParams::DEFAULT = CBaseChainParams::LIQUID1;
+
 void SetupChainParamsBaseOptions()
 {
     gArgs.AddArg("-chain=<chain>", "Use the chain <chain> (default: main). Reserved values: main, test, regtest", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);

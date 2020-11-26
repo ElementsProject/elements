@@ -666,7 +666,7 @@ BOOST_AUTO_TEST_CASE(util_ReadConfigStream)
     test_args.SetNetworkOnlyArg("-ccc");
     test_args.SetNetworkOnlyArg("-h");
 
-    test_args.SelectConfigNetwork(CBaseChainParams::MAIN);
+    test_args.SelectConfigNetwork(CBaseChainParams::DEFAULT);
     BOOST_CHECK(test_args.GetArg("-d", "xxx") == "e");
     BOOST_CHECK(test_args.GetArgs("-ccc").size() == 2);
     BOOST_CHECK(test_args.GetArg("-h", "xxx") == "0");
@@ -996,7 +996,7 @@ BOOST_FIXTURE_TEST_CASE(util_ArgsMerge, ArgsMergeTestingSetup)
     // Results file is formatted like:
     //
     //   <input> || <IsArgSet/IsArgNegated/GetArg output> | <GetArgs output> | <GetUnsuitable output>
-    BOOST_CHECK_EQUAL(out_sha_hex, "b835eef5977d69114eb039a976201f8c7121f34fe2b7ea2b73cafb516e5c9dc8");
+    BOOST_CHECK_EQUAL(out_sha_hex, "08c5432d4056908de004f869ff5b07ba055e99e3d5a30127a7be6880ba717844");
 }
 
 // Similar test as above, but for ArgsManager::GetChainName function.

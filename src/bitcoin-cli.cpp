@@ -39,7 +39,7 @@ static void SetupCliArgs()
 {
     SetupHelpOptions(gArgs);
 
-    const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
+    const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::DEFAULT);
     const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
     const auto regtestBaseParams = CreateBaseChainParams(CBaseChainParams::REGTEST);
 

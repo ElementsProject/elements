@@ -246,7 +246,7 @@ const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
     if (m_network.empty()) return std::set<std::string> {};
 
     // if it's okay to use the default section for this network, don't worry
-    if (m_network == CBaseChainParams::MAIN) return std::set<std::string> {};
+    if (m_network == CBaseChainParams::DEFAULT) return std::set<std::string> {};
 
     for (const auto& arg : m_network_only_args) {
         if (OnlyHasDefaultSectionSetting(m_settings, m_network, SettingName(arg))) {
@@ -254,21 +254,6 @@ const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
         }
     }
     return unsuitables;
-}
-
-const std::list<SectionInfo> ArgsManager::GetUnrecognizedSections() const
-{
-    // Section names to be recognized in the config file.
-    static const std::set<std::string> available_sections{
-        CBaseChainParams::REGTEST,
-        CBaseChainParams::TESTNET,
-        CBaseChainParams::MAIN
-    };
-
-    LOCK(cs_args);
-    std::list<SectionInfo> unrecognized = m_config_sections;
-    unrecognized.remove_if([](const SectionInfo& appeared){ return available_sections.find(appeared.m_name) != available_sections.end(); });
-    return unrecognized;
 }
 
 void ArgsManager::SelectConfigNetwork(const std::string& network)
@@ -881,13 +866,13 @@ std::string ArgsManager::GetChainName() const
     if (fTestNet)
         return CBaseChainParams::TESTNET;
 
-    std::string default_chain = "liquidv1";
+    std::string default_chain = CBaseChainParams::DEFAULT;
     return GetArg("-chain", default_chain);
 }
 
 bool ArgsManager::UseDefaultSection(const std::string& arg) const
 {
-    return m_network == CBaseChainParams::MAIN || m_network_only_args.count(arg) == 0;
+    return m_network == CBaseChainParams::DEFAULT || m_network_only_args.count(arg) == 0;
 }
 
 util::SettingsValue ArgsManager::GetSetting(const std::string& arg) const

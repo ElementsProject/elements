@@ -23,6 +23,8 @@ public:
     static const std::string LIQUID1;
     ///@}
 
+    static const std::string DEFAULT;
+
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
     int MainchainRPCPort() const { return nMainchainRPCPort; }

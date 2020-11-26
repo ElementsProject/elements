@@ -356,10 +356,12 @@ void SetupServerArgs()
     SetupHelpOptions(gArgs);
     gArgs.AddArg("-help-debug", "Print help message with debugging options and exit", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST); // server-only for now
 
-    const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
+    const auto defaultBaseParams = CreateBaseChainParams(CBaseChainParams::DEFAULT);
+    const auto mainnetBaseParams = CreateBaseChainParams(CBaseChainParams::MAIN);
     const auto testnetBaseParams = CreateBaseChainParams(CBaseChainParams::TESTNET);
     const auto regtestBaseParams = CreateBaseChainParams(CBaseChainParams::REGTEST);
-    const auto defaultChainParams = CreateChainParams(CBaseChainParams::MAIN);
+    const auto defaultChainParams = CreateChainParams(CBaseChainParams::DEFAULT);
+    const auto mainnetChainParams = CreateChainParams(CBaseChainParams::MAIN);
     const auto testnetChainParams = CreateChainParams(CBaseChainParams::TESTNET);
     const auto regtestChainParams = CreateChainParams(CBaseChainParams::REGTEST);
 
