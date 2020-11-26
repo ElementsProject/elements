@@ -246,6 +246,9 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
             return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", "value in != value out");
         }
         fee_map += GetFeeMap(tx);
+        if (!MoneyRange(fee_map)) {
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-block-total-fee-outofrange");
+        }
     } else {
         const CAmount value_out = tx.GetValueOutMap()[CAsset()];
         if (nValueIn < value_out) {
