@@ -2757,7 +2757,7 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     return TransactionError::OK;
 }
 
-TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs) const
+TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs, size_t* n_signed) const
 {
     // If we're signing, check that the transaction is not still in need of blinding
     if (sign) {
@@ -2766,6 +2766,10 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
                 return TransactionError::BLINDING_REQUIRED;
             }
         }
+    }
+
+    if (n_signed) {
+        *n_signed = 0;
     }
 
     // Save the original transaction since we need to munge it temporarily, which would violate the PSBT rules
@@ -2850,10 +2854,15 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
     }
 
     for (ScriptPubKeyMan* spk_man : GetAllScriptPubKeyMans()) {
+        int n_signed_this_spkm = 0;
         // ELEMENTS: Here we _only_ sign, and do not e.g. fill in key origin data.
-        TransactionError res = spk_man->FillPSBT(psbtx, sighash_type, sign, bip32derivs);
+        TransactionError res = spk_man->FillPSBT(psbtx, sighash_type, sign, bip32derivs, &n_signed_this_spkm);
         if (res != TransactionError::OK) {
             return res;
+        }
+
+        if (n_signed) {
+            (*n_signed) += n_signed_this_spkm;
         }
     }
 
@@ -2869,7 +2878,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
 }
 
 // This function remains for backwards compatibility. It will not succeed in Elements unless everything involved is non-blinded.
-TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs) const
+TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool bip32derivs, size_t* n_signed) const
 {
     complete = false;
     TransactionError te;
@@ -2878,7 +2887,7 @@ TransactionError CWallet::FillPSBT(PartiallySignedTransaction& psbtx, bool& comp
         return te;
     }
     // For backwards compatibility, do not check if amounts balance before signing in this case.
-    te = SignPSBT(psbtx, complete, sighash_type, sign, true, bip32derivs);
+    te = SignPSBT(psbtx, complete, sighash_type, sign, true, bip32derivs, n_signed);
     if (te != TransactionError::OK) {
         return te;
     }

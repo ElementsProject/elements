@@ -1077,11 +1077,12 @@ public:
                   bool& complete,
                   int sighash_type = 1 /* SIGHASH_ALL */,
                   bool sign = true,
-                  bool bip32derivs = true) const;
+                  bool bip32derivs = true,
+                  size_t* n_signed = nullptr) const;
 
     // ELEMENTS
     TransactionError FillPSBTData(PartiallySignedTransaction& psbtx, bool bip32derivs = false) const;
-    TransactionError SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false, bool bip32derivs = false) const;
+    TransactionError SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type = 1, bool sign = true, bool imbalance_ok = false, bool bip32derivs = false, size_t* n_signed = nullptr) const;
     // end ELEMENTS
 
     /**
