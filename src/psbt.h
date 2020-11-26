@@ -72,6 +72,10 @@ static const std::string PSBT_ELEMENTS_ID("elements");
 // as a 0 length key which indicates that this is the separator. The separator has no value.
 static constexpr uint8_t PSBT_SEPARATOR = 0x00;
 
+// BIP 174 does not specify a maximum file size, but we set a limit anyway
+// to prevent reading a stream indefinately and running out of memory.
+const std::streamsize MAX_FILE_SIZE_PSBT = 100000000; // 100 MiB
+
 /** A structure for PSBTs which contain per-input information */
 struct PSBTInput
 {
