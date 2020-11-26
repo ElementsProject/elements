@@ -62,13 +62,10 @@ void AppTests::appTests()
         return;
     }
 #endif
-
-    BasicTestingSetup test{CBaseChainParams::REGTEST}; // Create a temp data directory to backup the gui settings to
-    ECC_Stop(); // Already started by the common test setup, so stop it to avoid interference
-    LogInstance().DisconnectTestLogger();
-    // ELEMENTS: asset dir initialized by common test setup, will be re-set by
-    //  baseInitialize below, clear it to avoid "duplicate asset" errors
-    ClearGlobalAssetDir();
+    fs::create_directories([] {
+        BasicTestingSetup test{CBaseChainParams::REGTEST}; // Create a temp data directory to backup the gui settings to
+        return GetDataDir() / "blocks";
+    }());
 
     m_app.parameterSetup();
     m_app.createOptionsModel(true /* reset settings */);
@@ -84,6 +81,8 @@ void AppTests::appTests()
     m_app.exec();
 
     // Reset global state to avoid interfering with later tests.
+    ClearGlobalAssetDir();
+    LogInstance().DisconnectTestLogger();
     AbortShutdown();
     UnloadBlockIndex();
     WITH_LOCK(::cs_main, g_chainman.Reset());
