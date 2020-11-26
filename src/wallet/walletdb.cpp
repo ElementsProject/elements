@@ -18,8 +18,6 @@
 #include <atomic>
 #include <string>
 
-#include <boost/thread.hpp>
-
 namespace DBKeys {
 const std::string ACENTRY{"acentry"};
 const std::string ACTIVEEXTERNALSPK{"activeexternalspk"};
@@ -822,11 +820,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
                 pwallet->WalletLogPrintf("%s\n", strErr);
         }
         pcursor->close();
-    }
-    catch (const boost::thread_interrupted&) {
-        throw;
-    }
-    catch (...) {
+    } catch (...) {
         result = DBErrors::CORRUPT;
     }
 
@@ -974,11 +968,7 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::list<CWal
             }
         }
         pcursor->close();
-    }
-    catch (const boost::thread_interrupted&) {
-        throw;
-    }
-    catch (...) {
+    } catch (...) {
         result = DBErrors::CORRUPT;
     }
 
