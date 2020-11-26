@@ -3,7 +3,7 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, sync_blocks, Decimal, assert_greater_than, sync_mempools
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, Decimal, assert_greater_than
 
 '''
     This test focuses on enforcement of PAK, not on transitioning lists
@@ -123,17 +123,17 @@ class PAKTest (BitcoinTestFramework):
         fork_hash = self.nodes[1].getblockhash(2)
         for i in range(self.num_nodes):
            self.nodes[i].invalidateblock(fork_hash)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         for _ in range(num_block_rollback):
             block = self.nodes[1].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":3, "fedpegscript":"51", "extension_space":extension_space_proposal})
             self.nodes[1].submitblock(block)
 
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # node 0 puts the peg-out back in its mempool, can't sync all
         self.nodes[0].sendrawtransaction(raw_node1_pegout)
-        sync_mempools(self.nodes[1:])
+        self.sync_mempools(self.nodes[1:])
 
         # rejected in mempool
         assert_raises_rpc_error(-26, "invalid-pegout-proof", self.nodes[1].sendrawtransaction, raw_node1_pegout)
@@ -180,7 +180,7 @@ class PAKTest (BitcoinTestFramework):
         for _ in range(10):
             block = self.nodes[1].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":3, "fedpegscript":"51", "extension_space":wpkh_pak_prop})
             self.nodes[1].submitblock(block)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Get some block subsidy and send off
         self.nodes[1].generatetoaddress(101, self.nodes[1].getnewaddress())
@@ -212,7 +212,7 @@ class PAKTest (BitcoinTestFramework):
         for _ in range(10):
             block = self.nodes[1].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":3, "fedpegscript":"51", "extension_space":sh_wpkh_pak_prop})
             self.nodes[1].submitblock(block)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         self.nodes[1].generatetoaddress(1, self.nodes[1].getnewaddress())
         sh_wpkh_txid = self.nodes[1].sendtomainchain("", 1)['txid']

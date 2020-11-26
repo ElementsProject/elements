@@ -20,7 +20,7 @@ previously ejected transactions are allowed back into the mempool when appropria
 
 """
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_raises_rpc_error, assert_equal, sync_blocks
+from test_framework.util import assert_raises_rpc_error, assert_equal
 
 # Hardcoded PAK that's in chainparams to make sure PAK is enforced even when dynafed is not
 initial_online = "02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f"
@@ -350,7 +350,7 @@ class DynaFedTest(BitcoinTestFramework):
         # Now generate an epoch of blocks on node 1 to show that non-transitions don't dump
         # PAK or peg-in transactions from mempool
         self.nodes[1].generatetoaddress(10, self.nodes[1].getnewaddress())
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
         # Transactions are still in mempool
@@ -364,7 +364,7 @@ class DynaFedTest(BitcoinTestFramework):
             block = self.nodes[1].getnewblockhex(0, pak_prop)
             assert_equal(self.nodes[1].submitblock(block), None)
 
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
         # After the 10th block, nothing gets the boot
@@ -383,7 +383,7 @@ class DynaFedTest(BitcoinTestFramework):
             assert pegout_child_id in raw_pool
             block = self.nodes[1].getnewblockhex(0, pak_prop)
             assert_equal(self.nodes[1].submitblock(block), None)
-            sync_blocks(self.nodes)
+            self.sync_blocks()
 
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
@@ -399,7 +399,7 @@ class DynaFedTest(BitcoinTestFramework):
         for _ in range(10):
             assert claim_id in self.nodes[0].getrawmempool()
             self.nodes[1].submitblock(self.nodes[1].getnewblockhex())
-            sync_blocks(self.nodes)
+            self.sync_blocks()
 
         # After 10 blocks(no proposal), peg-in is finally dumped
         assert claim_id not in self.nodes[0].getrawmempool()
