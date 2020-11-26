@@ -121,7 +121,9 @@ class PSBTTest(BitcoinTestFramework):
         assert_raises_rpc_error(-4, "Insufficient funds", self.nodes[0].walletcreatefundedpsbt, [{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):90})
 
         psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):90}, 0, {"add_inputs": True})['psbt']
-        assert_equal(len(self.nodes[0].decodepsbt(psbtx1)['tx']['vin']), 2)
+        # ELEMENTS: we are on the edge between 2 and 3 inputs; don't check exact value,
+        #  just make sure that we added at least one input
+        assert len(self.nodes[0].decodepsbt(psbtx1)['tx']['vin']) > 1
 
         # Node 1 should not be able to add anything to it but still return the psbtx same as before
         psbtx = self.nodes[1].walletfillpsbtdata(psbtx1)['psbt']
@@ -203,14 +205,16 @@ class PSBTTest(BitcoinTestFramework):
                 p2pkh_pos = out['n']
 
         # spend single key from node 1
-        rawtx = self.nodes[1].walletcreatefundedpsbt([{"txid":txid,"vout":p2wpkh_pos},{"txid":txid,"vout":p2sh_p2wpkh_pos},{"txid":txid,"vout":p2pkh_pos}], {self.get_address(confidential, 1):29.99})['psbt']
-        filled = self.nodes[1].walletfillpsbtdata(rawtx)['psbt']
+        created_psbt = self.nodes[1].walletcreatefundedpsbt([{"txid":txid,"vout":p2wpkh_pos},{"txid":txid,"vout":p2sh_p2wpkh_pos},{"txid":txid,"vout":p2pkh_pos}], {self.get_address(confidential, 1):29.99})
+        filled = self.nodes[1].walletfillpsbtdata(created_psbt['psbt'])['psbt']
         blinded = self.nodes[1].blindpsbt(filled)
         walletsignpsbt_out = self.nodes[1].walletsignpsbt(blinded)
         # Make sure it has both types of UTXOs
         decoded = self.nodes[1].decodepsbt(walletsignpsbt_out['psbt'])
         assert 'non_witness_utxo' in decoded['inputs'][0]
         assert 'witness_utxo' in decoded['inputs'][0]
+        # Check decodepsbt fee calculation (input values shall only be counted once per UTXO)
+        #assert_equal(decoded['fee'], created_psbt['fee']) # ELEMENTS: we do not have this field. Should be fixed by #900
         assert_equal(walletsignpsbt_out['complete'], True)
         hex_tx = self.nodes[1].finalizepsbt(walletsignpsbt_out['psbt'])['hex']
         if confidential:
