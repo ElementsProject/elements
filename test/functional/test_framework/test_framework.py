@@ -458,7 +458,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         assert_equal(len(chain), num_nodes)
         for i in range(num_nodes):
             numnode = len(self.nodes)
-            self.nodes.append(TestNode(
+            test_node_i = TestNode(
                 numnode,
                 get_datadir_path(self.options.tmpdir, numnode),
                 chain=chain[i],
@@ -477,7 +477,15 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 chain_in_args=chain_in_args[i],
                 use_valgrind=self.options.valgrind,
                 descriptors=self.options.descriptors,
-            ))
+            )
+            self.nodes.append(test_node_i)
+            if not test_node_i.version_is_at_least(170000):
+                # adjust conf for pre 17
+                conf_file = test_node_i.bitcoinconf
+                with open(conf_file, 'r', encoding='utf8') as conf:
+                    conf_data = conf.read()
+                with open(conf_file, 'w', encoding='utf8') as conf:
+                    conf.write(conf_data.replace('[regtest]', ''))
 
     def start_node(self, i, *args, **kwargs):
         """Start a bitcoind"""
