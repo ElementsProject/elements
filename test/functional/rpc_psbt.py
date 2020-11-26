@@ -41,6 +41,7 @@ class PSBTTest(BitcoinTestFramework):
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
+    # TODO: Re-enable this test with segwit v1
     def test_utxo_conversion(self):
         mining_node = self.nodes[2]
         offline_node = self.nodes[0]
@@ -206,6 +207,10 @@ class PSBTTest(BitcoinTestFramework):
         filled = self.nodes[1].walletfillpsbtdata(rawtx)['psbt']
         blinded = self.nodes[1].blindpsbt(filled)
         walletsignpsbt_out = self.nodes[1].walletsignpsbt(blinded)
+        # Make sure it has both types of UTXOs
+        decoded = self.nodes[1].decodepsbt(walletsignpsbt_out['psbt'])
+        assert 'non_witness_utxo' in decoded['inputs'][0]
+        assert 'witness_utxo' in decoded['inputs'][0]
         assert_equal(walletsignpsbt_out['complete'], True)
         hex_tx = self.nodes[1].finalizepsbt(walletsignpsbt_out['psbt'])['hex']
         if confidential:
@@ -601,7 +606,8 @@ class PSBTTest(BitcoinTestFramework):
         # Some Confidential-Assets-specific tests
         self.run_ca_tests()
 
-        self.test_utxo_conversion()
+        # TODO: Re-enable this for segwit v1
+        # self.test_utxo_conversion()
 
         # Test that psbts with p2pkh outputs are created properly
         p2pkh = self.nodes[0].getnewaddress(address_type='legacy')
