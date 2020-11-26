@@ -251,6 +251,7 @@ BASE_SCRIPTS = [
     #'feature_loadblock.py', # ELEMENTS: fixme figure out why this doesn't work
     #'p2p_dos_header_tree.py', # ELEMENTS: this test requires connecting to testnet3
     'p2p_unrequested_blocks.py',
+    'p2p_blockfilters.py',
     'feature_includeconf.py',
     'feature_asmap.py',
     'mempool_unbroadcast.py',
