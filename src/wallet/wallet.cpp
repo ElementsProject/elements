@@ -3891,7 +3891,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     }
 
     if (nFeeRet > m_default_max_tx_fee) {
-        error = Untranslated(TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED));
+        error = TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED);
         return false;
     }
 
