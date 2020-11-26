@@ -206,28 +206,12 @@ void CreateValueCommitment(CConfidentialValue& conf_value, secp256k1_pedersen_co
     assert(conf_value.IsValid());
 }
 
-size_t GetNumIssuances(const CTransaction& tx)
-{
-    unsigned int num_issuances = 0;
-    for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        if (!tx.vin[i].assetIssuance.IsNull()) {
-            if (!tx.vin[i].assetIssuance.nAmount.IsNull()) {
-                num_issuances++;
-            }
-            if (!tx.vin[i].assetIssuance.nInflationKeys.IsNull()) {
-                num_issuances++;
-            }
-        }
-    }
-    return num_issuances;
-}
-
 int BlindTransaction(std::vector<uint256 >& input_value_blinding_factors, const std::vector<uint256 >& input_asset_blinding_factors, const std::vector<CAsset >& input_assets, const std::vector<CAmount >& input_amounts, std::vector<uint256 >& out_val_blind_factors, std::vector<uint256 >& out_asset_blind_factors, const std::vector<CPubKey>& output_pubkeys, const std::vector<CKey>& issuance_blinding_privkey, const std::vector<CKey>& token_blinding_privkey, CMutableTransaction& tx, std::vector<std::vector<unsigned char> >* auxiliary_generators)
 {
     // Sanity check input data and output_pubkey size, clear other output data
     assert(tx.vout.size() >= output_pubkeys.size());
-    assert(tx.vin.size()+GetNumIssuances(CTransaction(tx)) >= issuance_blinding_privkey.size());
-    assert(tx.vin.size()+GetNumIssuances(CTransaction(tx)) >= token_blinding_privkey.size());
+    assert(tx.vin.size() >= issuance_blinding_privkey.size());
+    assert(tx.vin.size() >= token_blinding_privkey.size());
     out_val_blind_factors.clear();
     out_val_blind_factors.resize(tx.vout.size());
     out_asset_blind_factors.clear();
