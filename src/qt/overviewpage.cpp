@@ -18,7 +18,9 @@
 #include <policy/policy.h>
 
 #include <QAbstractItemDelegate>
+#include <QApplication>
 #include <QPainter>
+#include <QStatusTipEvent>
 
 #define DECORATION_SIZE 54
 #define NUM_ITEMS 5
@@ -148,6 +150,21 @@ void OverviewPage::handleTransactionClicked(const QModelIndex &index)
 void OverviewPage::handleOutOfSyncWarningClicks()
 {
     Q_EMIT outOfSyncWarningClicked();
+}
+
+void OverviewPage::setPrivacy(bool privacy)
+{
+    m_privacy = privacy;
+    if (m_balances.balance[::policyAsset] != -1) {
+        setBalance(m_balances);
+    }
+
+    ui->listTransactions->setVisible(!m_privacy);
+
+    const QString status_tip = m_privacy ? tr("Privacy mode activated for the Overview tab. To unmask the values, uncheck Settings->Mask values.") : "";
+    setStatusTip(status_tip);
+    QStatusTipEvent event(status_tip);
+    QApplication::sendEvent(this, &event);
 }
 
 OverviewPage::~OverviewPage()
