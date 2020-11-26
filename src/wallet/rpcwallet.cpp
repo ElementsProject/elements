@@ -4563,7 +4563,7 @@ UniValue walletfillpsbtdata(const JSONRPCRequest& request)
                 + HelpRequiringPassphrase(pwallet) + "\n",
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "false", "If true, includes the BIP 32 derivation paths for public keys if we know them"},
+                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "true", "Include BIP 32 derivation paths for public keys if we know them"},
                 },
                 RPCResult{
                     "{\n"
@@ -4586,7 +4586,7 @@ UniValue walletfillpsbtdata(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
 
-    bool bip32derivs = request.params[1].isNull() ? false : request.params[1].get_bool();
+    bool bip32derivs = request.params[1].isNull() ? true : request.params[1].get_bool();
     const TransactionError err = FillPSBTData(pwallet, psbtx, bip32derivs);
     if (err != TransactionError::OK) {
         throw JSONRPCTransactionError(err);
@@ -4697,7 +4697,7 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
             "       \"ALL|ANYONECANPAY\"\n"
             "       \"NONE|ANYONECANPAY\"\n"
             "       \"SINGLE|ANYONECANPAY\""},
-                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "false", "If true, includes the BIP 32 derivation paths for public keys if we know them"},
+                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "true", "Include BIP 32 derivation paths for public keys if we know them"},
                 },
                 RPCResult{
             "{\n"
@@ -4725,7 +4725,7 @@ UniValue walletprocesspsbt(const JSONRPCRequest& request)
 
     // Fill transaction with our data and also sign
     bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
-    bool bip32derivs = request.params[3].isNull() ? false : request.params[3].get_bool();
+    bool bip32derivs = request.params[3].isNull() ? true : request.params[3].get_bool();
     bool complete = true;
     const TransactionError err = FillPSBT(pwallet, psbtx, complete, nHashType, sign, bip32derivs);
     if (err != TransactionError::OK) {
@@ -4814,7 +4814,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
                             "         \"CONSERVATIVE\""},
                         },
                         "options"},
-                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "false", "If true, includes the BIP 32 derivation paths for public keys if we know them"},
+                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "true", "Include BIP 32 derivation paths for public keys if we know them"},
                     {"solving_data", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED_NAMED_ARG, "Keys and scripts needed for producing a final transaction with a dummy signature. Used for fee estimation during coin selection.\n",
                         {
                             {"pubkeys", RPCArg::Type::ARR, /* default */ "empty array", "A json array of public keys.\n",
@@ -4882,7 +4882,7 @@ UniValue walletcreatefundedpsbt(const JSONRPCRequest& request)
     }
 
     // Fill transaction with out data but don't sign
-    bool bip32derivs = request.params[4].isNull() ? false : request.params[4].get_bool();
+    bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
     bool complete = true;
     const TransactionError err = FillPSBT(pwallet, psbtx, complete, 1, false, bip32derivs);
     if (err != TransactionError::OK) {

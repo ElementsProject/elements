@@ -27,7 +27,7 @@ NODISCARD TransactionError FillPSBT(const CWallet* pwallet,
               bool& complete,
               int sighash_type = 1 /* SIGHASH_ALL */,
               bool sign = true,
-              bool bip32derivs = false);
+              bool bip32derivs = true);
 
 
 NODISCARD TransactionError FillPSBTData(const CWallet* pwallet, PartiallySignedTransaction& psbtx, bool bip32derivs = false);
