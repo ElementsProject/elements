@@ -18,8 +18,8 @@ static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& po
     LockPoints lp;
     std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
     pool.addUnchecked(CTxMemPoolEntry(
-                                         tx, nFee, nTime, nHeight,
-                                         spendsCoinbase, sigOpCost, lp, setPeginsSpent));
+        tx, nFee, nTime, nHeight,
+        spendsCoinbase, sigOpCost, lp, setPeginsSpent));
 }
 
 // Right now this is only testing eviction performance in an extremely small
@@ -27,7 +27,13 @@ static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& po
 // unique transactions for a more meaningful performance measurement.
 static void MempoolEviction(benchmark::State& state)
 {
-    RegTestingSetup test_setup;
+    TestingSetup test_setup{
+        CBaseChainParams::REGTEST,
+        /* extra_args */ {
+            "-nodebuglogfile",
+            "-nodebug",
+        },
+    };
 
     CMutableTransaction tx1 = CMutableTransaction();
     tx1.vin.resize(1);
