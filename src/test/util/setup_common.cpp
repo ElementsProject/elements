@@ -24,6 +24,7 @@
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/register.h>
+#include <scheduler.h>
 #include <script/sigcache.h>
 #include <txdb.h>
 #include <util/memory.h>
