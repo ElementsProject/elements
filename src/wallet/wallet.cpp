@@ -3397,6 +3397,14 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 if (!coin_selection_params.m_subtract_fee_outputs) {
                     coin_selection_params.tx_noinputs_size = 11; // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 output count, 1 witness overhead (dummy, flag, stack size)
                 }
+
+                // Account for the fee output in the tx.
+                if (g_con_elementsmode) {
+                    CTxOut fee(::policyAsset, nFeeRet, CScript());
+                    assert(fee.IsFee());
+                    coin_selection_params.tx_noinputs_size += ::GetSerializeSize(fee, PROTOCOL_VERSION);
+                }
+
                 for (const auto& recipient : vecSend)
                 {
                     CTxOut txout(recipient.asset, recipient.nAmount, recipient.scriptPubKey);
@@ -3418,11 +3426,6 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             txout.nValue = txout.nValue.GetAmount() - nFeeRet % nSubtractFeeFromAmount;
                         }
                     }
-                    // Include the fee cost for outputs. Note this is only used for BnB right now
-                    if (!coin_selection_params.m_subtract_fee_outputs) {
-                        coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
-                    }
-
                     // ELEMENTS: Core's logic isn't great here. We should be computing
                     // cost of making output + future spend. We're not as concerned
                     // about dust anyways, so let's focus upstream.
@@ -3439,12 +3442,19 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             strFailReason = _("Transaction amount too small").translated;
                         return false;
                     }
+
+                    // Include the fee cost for outputs. Note this is only used for BnB right now
+                    if (!coin_selection_params.m_subtract_fee_outputs) {
+                        coin_selection_params.tx_noinputs_size += ::GetSerializeSize(txout, PROTOCOL_VERSION);
+                    }
                     txNew.vout.push_back(txout);
+
                     if (blind_details) {
                         blind_details->o_pubkeys.push_back(recipient.confidentiality_key);
                         if (blind_details->o_pubkeys.back().IsFullyValid()) {
                             blind_details->num_to_blind++;
                             blind_details->only_recipient_blind_index = txNew.vout.size()-1;
+                            coin_selection_params.tx_noinputs_size += (MAX_RANGEPROOF_SIZE + DEFAULT_SURJECTIONPROOF_SIZE + WITNESS_SCALE_FACTOR - 1)/WITNESS_SCALE_FACTOR;
                         }
                     }
                 }
