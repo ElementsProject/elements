@@ -168,11 +168,11 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
     out.pushKV("hex", HexStr(script));
 
     std::vector<std::vector<unsigned char>> solns;
-    txnouttype type = Solver(script, solns);
+    TxoutType type = Solver(script, solns);
     out.pushKV("type", GetTxnOutputType(type));
 
     CTxDestination address;
-    if (include_address && ExtractDestination(script, address) && type != TX_PUBKEY) {
+    if (include_address && ExtractDestination(script, address) && type != TxoutType::PUBKEY) {
         out.pushKV("address", EncodeDestination(address));
     }
 }
@@ -181,7 +181,7 @@ void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
 static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex, bool is_parent_chain)
 {
     const std::string prefix = is_parent_chain ? "pegout_" : "";
-    txnouttype type;
+    TxoutType type;
     std::vector<CTxDestination> addresses;
     int nRequired;
 
@@ -189,7 +189,7 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
     if (fIncludeHex)
         out.pushKV(prefix + "hex", HexStr(scriptPubKey));
 
-    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired) || type == TX_PUBKEY) {
+    if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired) || type == TxoutType::PUBKEY) {
         out.pushKV(prefix + "type", GetTxnOutputType(type));
         return;
     }
