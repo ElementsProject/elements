@@ -5851,7 +5851,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     //   brittle hack, and further examples of this pattern should not be introduced.
 
     // Get raw peg-in transaction
-    JSONRPCRequest req;
+    JSONRPCRequest req(request.context);
     req.URI = request.URI;
     req.params = request.params;
     UniValue ret(createrawpegin(req));  // See the note above, on why this is a bad idea.
@@ -5862,7 +5862,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     }
 
     // Sign it
-    JSONRPCRequest req2;
+    JSONRPCRequest req2(request.context);
     req2.URI = request.URI;
     UniValue varr(UniValue::VARR);
     varr.push_back(ret["hex"]);
