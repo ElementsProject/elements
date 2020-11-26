@@ -36,7 +36,6 @@
 #include <util/string.h>
 #include <util/system.h>
 #include <util/url.h>
-#include <util/validation.h> // For FormatStateMessage()
 #include <validation.h>
 #include <wallet/coincontrol.h>
 #include <wallet/feebumper.h>
@@ -5873,7 +5872,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
     bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx),
                             nullptr /* plTxnReplaced */, false /* bypass_limits */, pwallet->m_default_max_tx_fee, true /* test_accept */);
     if (!accepted) {
-        std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", FormatStateMessage(acceptState));
+        std::string strError = strprintf("Error: The transaction was rejected! Reason given: %s", acceptState.ToString());
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
 
