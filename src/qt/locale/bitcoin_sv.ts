@@ -948,8 +948,8 @@ Försök igen.</translation>
         <translation>Ungefär %1 GB data kommer att lagras i den här katalogen.</translation>
     </message>
     <message>
-        <source>%1 will download and store a copy of the Bitcoin block chain.</source>
-        <translation>%1 kommer att ladda ner och lagra en kopia av Bitcoins blockkedja.</translation>
+        <source>%1 will download and store a copy of the %2 block chain.</source>
+        <translation>%1 kommer att ladda ner och lagra en kopia av %2s blockkedja.</translation>
     </message>
     <message>
         <source>The wallet will also be stored in this directory.</source>
