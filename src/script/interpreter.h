@@ -125,7 +125,12 @@ bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned i
 struct PrecomputedTransactionData
 {
     uint256 hashPrevouts, hashSequence, hashOutputs, hashIssuance;
-    bool ready = false;
+    bool m_ready = false;
+
+    PrecomputedTransactionData() = default;
+
+    template <class T>
+    void Init(const T& tx);
 
     template <class T>
     explicit PrecomputedTransactionData(const T& tx);
