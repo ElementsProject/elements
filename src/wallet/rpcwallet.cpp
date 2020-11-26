@@ -5288,6 +5288,19 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "bitcoin_descriptor must be a ranged descriptor.");
     }
 
+    // Check if we can actually generate addresses(catches hardened derivation steps etc) before
+    // writing to cache
+    UniValue address_list(UniValue::VARR);
+    for (int i = counter; i < counter+3; i++) {
+        std::vector<CScript> scripts;
+        if (!desc->Expand(i, provider, scripts, provider)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. Are there hardened derivations after the xpub?");
+        }
+        CTxDestination destination;
+        ExtractDestination(scripts[0], destination);
+        address_list.push_back(EncodeParentDestination(destination));
+    }
+
     // For our manual pattern matching, we don't want the checksum part.
     auto checksum_char = bitcoin_desc.find('#');
     if (checksum_char != std::string::npos) {
@@ -5356,16 +5369,6 @@ UniValue initpegoutwallet(const JSONRPCRequest& request)
     assert(len == 33);
     assert(negatedpubkeybytes.size() == 33);
 
-    UniValue address_list(UniValue::VARR);
-    for (int i = counter; i < counter+3; i++) {
-        std::vector<CScript> scripts;
-        if (!desc->Expand(i, provider, scripts, provider)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate lookahead addresses with descriptor. This is a bug.");
-        }
-        CTxDestination destination;
-        ExtractDestination(scripts[0], destination);
-        address_list.push_back(EncodeParentDestination(destination));
-    }
     UniValue pak(UniValue::VOBJ);
     pak.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey));
     pak.pushKV("liquid_pak", HexStr(online_pubkey));
