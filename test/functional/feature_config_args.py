@@ -69,13 +69,13 @@ class ConfArgsTest(BitcoinTestFramework):
         #inc_conf_file2_path = os.path.join(self.nodes[0].datadir, 'include2.conf')
         #with open(os.path.join(self.nodes[0].datadir, 'bitcoin.conf'), 'a', encoding='utf-8') as conf:
         #    conf.write('includeconf={}\n'.format(inc_conf_file2_path))
-        #
+
         #with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
         #    conf.write('testnot.datadir=1\n')
         #with open(inc_conf_file2_path, 'w', encoding='utf-8') as conf:
         #    conf.write('[testnet]\n')
         #self.restart_node(0)
-        #self.nodes[0].stop_node(expected_stderr='Warning: ' + inc_conf_file_path + ':1 Section [testnot] is not recognized.' + os.linesep + 'Warning: ' + inc_conf_file2_path + ':1 Section [testnet] is not recognized.')
+        #self.nodes[0].stop_node(expected_stderr='Warning: ' + inc_conf_file_path + ':1 Section [testnot] is not recognized.' + os.linesep + inc_conf_file2_path + ':1 Section [testnet] is not recognized.')
 
         with open(inc_conf_file_path, 'w', encoding='utf-8') as conf:
             conf.write('')  # clear
