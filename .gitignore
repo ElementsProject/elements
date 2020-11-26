@@ -5,6 +5,8 @@
 src/elements
 src/elementsd
 src/elements-cli
+src/elements-gui
+src/elements-node
 src/elements-tx
 src/elements-wallet
 src/test/fuzz
