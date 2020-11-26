@@ -227,7 +227,7 @@ public:
         obj.pushKV("isscript", false);
         obj.pushKV("iswitness", true);
         obj.pushKV("witness_version", 0);
-        obj.pushKV("witness_program", HexStr(id.begin(), id.end()));
+        obj.pushKV("witness_program", HexStr(id));
         return obj;
     }
 
@@ -237,7 +237,7 @@ public:
         obj.pushKV("isscript", true);
         obj.pushKV("iswitness", true);
         obj.pushKV("witness_version", 0);
-        obj.pushKV("witness_program", HexStr(id.begin(), id.end()));
+        obj.pushKV("witness_program", HexStr(id));
         return obj;
     }
 
@@ -927,7 +927,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         const CPubKey& blind_pub = pkhash.blinding_pubkey;
         if (IsBlindDestination(pkhash)) {
-            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            obj.pushKV("confidential_key", HexStr(blind_pub));
             PKHash unblinded(pkhash);
             unblinded.blinding_pubkey = CPubKey();
             obj.pushKV("unconfidential", EncodeDestination(unblinded));
@@ -943,7 +943,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         const CPubKey& blind_pub = scripthash.blinding_pubkey;
         if (IsBlindDestination(scripthash)) {
-            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            obj.pushKV("confidential_key", HexStr(blind_pub));
             ScriptHash unblinded(scripthash);
             unblinded.blinding_pubkey = CPubKey();
             obj.pushKV("unconfidential", EncodeDestination(unblinded));
@@ -960,7 +960,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         const CPubKey& blind_pub = id.blinding_pubkey;
         if (IsBlindDestination(id)) {
-            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            obj.pushKV("confidential_key", HexStr(blind_pub));
             WitnessV0KeyHash unblinded(id);
             unblinded.blinding_pubkey = CPubKey();
             obj.pushKV("unconfidential", EncodeDestination(unblinded));
@@ -977,7 +977,7 @@ public:
         UniValue obj(UniValue::VOBJ);
         const CPubKey& blind_pub = id.blinding_pubkey;
         if (IsBlindDestination(id)) {
-            obj.pushKV("confidential_key", HexStr(blind_pub.begin(), blind_pub.end()));
+            obj.pushKV("confidential_key", HexStr(blind_pub));
             WitnessV0ScriptHash unblinded(id);
             unblinded.blinding_pubkey = CPubKey();
             obj.pushKV("unconfidential", EncodeDestination(unblinded));

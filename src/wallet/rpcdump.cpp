@@ -824,7 +824,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
             create_time = FormatISO8601DateTime(it->second.nCreateTime);
         }
         if(spk_man.GetCScript(scriptid, script)) {
-            file << strprintf("%s %s script=1", HexStr(script.begin(), script.end()), create_time);
+            file << strprintf("%s %s script=1", HexStr(script), create_time);
             file << strprintf(" # addr=%s\n", address);
         }
     }
@@ -1217,7 +1217,7 @@ static UniValue ProcessImport(CWallet * const pwallet, const UniValue& data, con
         // Check whether we have any work to do
         for (const CScript& script : script_pub_keys) {
             if (pwallet->IsMine(script) & ISMINE_SPENDABLE) {
-                throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this address or script (\"" + HexStr(script.begin(), script.end()) + "\")");
+                throw JSONRPCError(RPC_WALLET_ERROR, "The wallet already contains the private key for this address or script (\"" + HexStr(script) + "\")");
             }
 
             // ELEMENTS:
@@ -2021,7 +2021,7 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
     if (key.IsValid()) {
         CPubKey pubkey(key.GetPubKey());
         if (pubkey == GetDestinationBlindingKey(dest)) {
-            return HexStr(key.begin(), key.end());
+            return HexStr(key);
         }
     }
 
@@ -2110,7 +2110,7 @@ UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
             CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(pcoin->tx->vin[vindex].prevout.hash.begin(), pcoin->tx->vin[vindex].prevout.hash.end()) << pcoin->tx->vin[vindex].prevout.n);
             CKey key;
             key = pwallet->GetBlindingKey(&blindingScript);
-            return HexStr(key.begin(), key.end());
+            return HexStr(key);
         } else {
             // We don't know how to deblind this using our wallet
             throw JSONRPCError(RPC_WALLET_ERROR, "Unable to unblind issuance with wallet blinding key.");

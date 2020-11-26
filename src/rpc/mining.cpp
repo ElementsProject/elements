@@ -895,7 +895,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty()) {
-        result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
+        result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment));
     }
 
     return result;
@@ -1308,7 +1308,7 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
 
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssBlock << pblocktemplate->block;
-    return HexStr(ssBlock.begin(), ssBlock.end());
+    return HexStr(ssBlock);
 }
 
 UniValue combineblocksigs(const JSONRPCRequest& request)
@@ -1394,7 +1394,7 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
     ssBlock << block;
     UniValue result(UniValue::VOBJ);
-    result.pushKV("hex", HexStr(ssBlock.begin(), ssBlock.end()));
+    result.pushKV("hex", HexStr(ssBlock));
     result.pushKV("complete", CheckProof(block, params));
     return result;
 }
@@ -1426,7 +1426,7 @@ UniValue getcompactsketch(const JSONRPCRequest& request)
 
     CDataStream ssCompactBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssCompactBlock << cmpctblock;
-    return HexStr(ssCompactBlock.begin(), ssCompactBlock.end());
+    return HexStr(ssCompactBlock);
 
 }
 
@@ -1496,14 +1496,14 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         ssBlock << *pblock;
 
-        ret.pushKV("blockhex", HexStr(ssBlock.begin(), ssBlock.end()));
+        ret.pushKV("blockhex", HexStr(ssBlock));
     } else {
         // Serialize the list of transactions we found
         CDataStream ssFound(SER_NETWORK, PROTOCOL_VERSION);
         ssFound << found;
 
-        ret.pushKV("block_tx_req", HexStr(ssReq.begin(), ssReq.end()));
-        ret.pushKV("found_transactions", HexStr(ssFound.begin(), ssFound.end()));
+        ret.pushKV("block_tx_req", HexStr(ssReq));
+        ret.pushKV("found_transactions", HexStr(ssFound));
     }
     return ret;
 }
@@ -1549,7 +1549,7 @@ UniValue consumegetblocktxn(const JSONRPCRequest& request)
     CDataStream ssResp(SER_NETWORK, PROTOCOL_VERSION);
     ssResp << resp;
 
-    return HexStr(ssResp.begin(), ssResp.end());
+    return HexStr(ssResp);
 }
 
 UniValue finalizecompactblock(const JSONRPCRequest& request)
@@ -1618,7 +1618,7 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssBlock << *pblock;
 
-    return HexStr(ssBlock.begin(), ssBlock.end());
+    return HexStr(ssBlock);
 }
 
 UniValue testproposedblock(const JSONRPCRequest& request)

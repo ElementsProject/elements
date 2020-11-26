@@ -325,7 +325,7 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     CDataStream ssMB(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
     CMerkleBlock mb(block, setTxids);
     ssMB << mb;
-    std::string strHex = HexStr(ssMB.begin(), ssMB.end());
+    std::string strHex = HexStr(ssMB);
     return strHex;
 }
 
@@ -1370,7 +1370,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
         if (!input.final_script_witness.IsNull()) {
             UniValue txinwitness(UniValue::VARR);
             for (const auto& item : input.final_script_witness.stack) {
-                txinwitness.push_back(HexStr(item.begin(), item.end()));
+                txinwitness.push_back(HexStr(item));
             }
             in.pushKV("final_scriptwitness", txinwitness);
         }
@@ -1402,7 +1402,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
                 if (btc_peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
                     ss_tx << btc_peg_in_tx;
-                    in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx.begin(), ss_tx.end()));
+                    in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
             if (input.txout_proof.which() > 0) {
@@ -1410,7 +1410,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
                 if (!btc_txout_proof.header.IsNull()) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
                     ss_mb << btc_txout_proof;
-                    in.pushKV("pegin_txout_proof", HexStr(ss_mb.begin(), ss_mb.end()));
+                    in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
         } else {
@@ -1419,7 +1419,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
                 if (elem_peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
                     ss_tx << elem_peg_in_tx;
-                    in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx.begin(), ss_tx.end()));
+                    in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
             if (input.txout_proof.which() > 0) {
@@ -1427,12 +1427,12 @@ UniValue decodepsbt(const JSONRPCRequest& request)
                 if (!elem_txout_proof.header.IsNull()) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
                     ss_mb << elem_txout_proof;
-                    in.pushKV("pegin_txout_proof", HexStr(ss_mb.begin(), ss_mb.end()));
+                    in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
         }
         if (!input.claim_script.empty()) {
-            in.pushKV("pegin_claim_script", HexStr(input.claim_script.begin(), input.claim_script.end()));
+            in.pushKV("pegin_claim_script", HexStr(input.claim_script));
         }
         if (!input.genesis_hash.IsNull()) {
             in.pushKV("pegin_genesis_hash", input.genesis_hash.GetHex());

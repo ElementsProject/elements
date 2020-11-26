@@ -362,10 +362,10 @@ static void TxInErrorToJSON(const CTxIn& txin, const CTxInWitness& txinwit, UniV
     entry.pushKV("vout", (uint64_t)txin.prevout.n);
     UniValue witness(UniValue::VARR);
     for (unsigned int i = 0; i < txinwit.scriptWitness.stack.size(); i++) {
-        witness.push_back(HexStr(txinwit.scriptWitness.stack[i].begin(), txinwit.scriptWitness.stack[i].end()));
+        witness.push_back(HexStr(txinwit.scriptWitness.stack[i]));
     }
     entry.pushKV("witness", witness);
-    entry.pushKV("scriptSig", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+    entry.pushKV("scriptSig", HexStr(txin.scriptSig));
     entry.pushKV("sequence", (uint64_t)txin.nSequence);
     entry.pushKV("error", strMessage);
     vErrorsRet.push_back(entry);

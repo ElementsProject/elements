@@ -839,7 +839,7 @@ static UniValue getblockheader(const JSONRPCRequest& request)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
         ssBlock << pblockindex->GetBlockHeader();
-        std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+        std::string strHex = HexStr(ssBlock);
         return strHex;
     }
 
@@ -984,7 +984,7 @@ static UniValue getblock(const JSONRPCRequest& request)
     {
         CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
         ssBlock << block;
-        std::string strHex = HexStr(ssBlock.begin(), ssBlock.end());
+        std::string strHex = HexStr(ssBlock);
         return strHex;
     }
 
@@ -2321,7 +2321,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
                 UniValue unspent(UniValue::VOBJ);
                 unspent.pushKV("txid", outpoint.hash.GetHex());
                 unspent.pushKV("vout", (int32_t)outpoint.n);
-                unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
+                unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey));
                 unspent.pushKV("desc", descriptors[txo.scriptPubKey]);
                 unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
                 unspent.pushKV("height", (int32_t)coin.nHeight);
@@ -2344,7 +2344,7 @@ UniValue scantxoutset(const JSONRPCRequest& request)
                 UniValue unspent(UniValue::VOBJ);
                 unspent.pushKV("txid", outpoint.hash.GetHex());
                 unspent.pushKV("vout", (int32_t)outpoint.n);
-                unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey.begin(), txo.scriptPubKey.end()));
+                unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey));
                 unspent.pushKV("desc", descriptors[txo.scriptPubKey]);
                 if (txo.nValue.IsExplicit()) {
                     unspent.pushKV("amount", ValueFromAmount(txo.nValue.GetAmount()));
@@ -2409,7 +2409,7 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     const uint256& parent_blockhash = Params().ParentGenesisBlockHash();
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript.begin(), consensus.fedpegScript.end()));
+    obj.pushKV("fedpegscript", HexStr(consensus.fedpegScript));
     // We use mempool_validation as true to show what is enforced for *next* block
     std::vector<std::pair<CScript, CScript>> fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), consensus, true /* nextblock_validation */);
     UniValue fedpeg_prog_entries(UniValue::VARR);

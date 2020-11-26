@@ -159,13 +159,13 @@ std::string EncodeHexTx(const CTransaction& tx, const int serializeFlags)
 {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION | serializeFlags);
     ssTx << tx;
-    return HexStr(ssTx.begin(), ssTx.end());
+    return HexStr(ssTx);
 }
 
 void ScriptToUniv(const CScript& script, UniValue& out, bool include_address)
 {
     out.pushKV("asm", ScriptToAsmStr(script));
-    out.pushKV("hex", HexStr(script.begin(), script.end()));
+    out.pushKV("hex", HexStr(script));
 
     std::vector<std::vector<unsigned char>> solns;
     txnouttype type = Solver(script, solns);
@@ -187,7 +187,7 @@ static void SidechainScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& o
 
     out.pushKV(prefix + "asm", ScriptToAsmStr(scriptPubKey));
     if (fIncludeHex)
-        out.pushKV(prefix + "hex", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+        out.pushKV(prefix + "hex", HexStr(scriptPubKey));
 
     if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired) || type == TX_PUBKEY) {
         out.pushKV(prefix + "type", GetTxnOutputType(type));
@@ -242,13 +242,13 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         const CTxIn& txin = tx.vin[i];
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
-            in.pushKV("coinbase", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+            in.pushKV("coinbase", HexStr(txin.scriptSig));
         else {
             in.pushKV("txid", txin.prevout.hash.GetHex());
             in.pushKV("vout", (int64_t)txin.prevout.n);
             UniValue o(UniValue::VOBJ);
             o.pushKV("asm", ScriptToAsmStr(txin.scriptSig, true));
-            o.pushKV("hex", HexStr(txin.scriptSig.begin(), txin.scriptSig.end()));
+            o.pushKV("hex", HexStr(txin.scriptSig));
             in.pushKV("scriptSig", o);
             in.pushKV("is_pegin", txin.m_is_pegin);
         }
@@ -260,7 +260,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
             if (!scriptWitness.IsNull()) {
                 UniValue txinwitness(UniValue::VARR);
                 for (const auto &item : scriptWitness.stack) {
-                    txinwitness.push_back(HexStr(item.begin(), item.end()));
+                    txinwitness.push_back(HexStr(item));
                 }
                 in.pushKV("txinwitness", txinwitness);
             }
@@ -269,7 +269,7 @@ void TxToUniv(const CTransaction& tx, const uint256& hashBlock, UniValue& entry,
         if (tx.witness.vtxinwit.size() > i && !tx.witness.vtxinwit[i].m_pegin_witness.IsNull()) {
             UniValue pegin_witness(UniValue::VARR);
             for (const auto& item : tx.witness.vtxinwit[i].m_pegin_witness.stack) {
-                pegin_witness.push_back(HexStr(item.begin(), item.end()));
+                pegin_witness.push_back(HexStr(item));
             }
             in.pushKV("pegin_witness", pegin_witness);
         }
