@@ -84,7 +84,7 @@ void AppTests::appTests()
     ClearGlobalAssetDir();
     LogInstance().DisconnectTestLogger();
     AbortShutdown();
-    UnloadBlockIndex();
+    UnloadBlockIndex(/* mempool */ nullptr);
     WITH_LOCK(::cs_main, g_chainman.Reset());
 }
 
