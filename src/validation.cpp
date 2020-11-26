@@ -595,8 +595,9 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     size_t& nConflictingSize = ws.m_conflicting_size;
     std::set<std::pair<uint256, COutPoint> >& setPeginsSpent = ws.m_set_pegins_spent;
 
-    if (!CheckTransaction(tx, state))
+    if (!CheckTransaction(tx, state)) {
         return false; // state filled in by CheckTransaction
+    }
 
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
@@ -750,7 +751,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
 
     CAmountMap fee_map;
     if (!Consensus::CheckTxInputs(tx, state, m_view, GetSpendHeight(m_view), fee_map, setPeginsSpent, NULL, true, true, fedpegscripts)) {
-        return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), state.ToString());
+        return false; // state filled in by CheckTxInputs
     }
 
     // Check for non-standard pay-to-script-hash in inputs
