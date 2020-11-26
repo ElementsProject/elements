@@ -27,13 +27,13 @@ BOOST_FIXTURE_TEST_SUITE(pegin_spent_tests, TestingSetup)
 class CCoinsViewTester : public CCoinsView {
 public:
     bool IsPeginSpentCalled;
-    bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const {
+    bool IsPeginSpent(const std::pair<uint256, COutPoint> &outpoint) const override {
         const_cast<bool&>(IsPeginSpentCalled) = true;
         return CCoinsView::IsPeginSpent(outpoint);
     }
 
     CCoinsMap mapCoinsWritten;
-    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) {
+    bool BatchWrite(CCoinsMap &mapCoins, const uint256 &hashBlock) override {
         mapCoinsWritten.clear();
         for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end(); it = mapCoins.erase(it)) {
             mapCoinsWritten[it->first] = it->second;
