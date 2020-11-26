@@ -210,54 +210,86 @@ public:
         SetNull();
     }
 
+    // ELEMENTS: we give explicit serialization methods so that we can
+    //  mask in the dynafed bit and to selectively embed the blocktime
+
     // HF bit to detect dynamic federation blocks
     static const uint32_t DYNAFED_HF_MASK = 1 << 31;
 
-    ADD_SERIALIZE_METHODS;
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
+        const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+        // Detect dynamic federation block serialization using "HF bit",
+        // or the signed bit which is invalid in Bitcoin
+        bool is_dyna = false;
+        int32_t nVersion = this->nVersion;
+        if (!m_dynafed_params.IsNull()) {
+            nVersion |= DYNAFED_HF_MASK;
+            is_dyna = true;
+        }
+        s << (nVersion);
+
+        if (is_dyna) {
+            s << hashPrevBlock;
+            s << hashMerkleRoot;
+            s << nTime;
+            s << block_height;
+            s << m_dynafed_params;
+            // We do not serialize witness for hashes, or weight calculation
+            if (!(s.GetType() & SER_GETHASH) && fAllowWitness) {
+                s << m_signblock_witness.stack;
+            }
+        } else {
+            s << hashPrevBlock;
+            s << hashMerkleRoot;
+            s << nTime;
+            if (g_con_blockheightinheader) {
+                s << block_height;
+            }
+            if (g_signed_blocks) {
+                s << proof;
+            } else {
+                s << nBits;
+                s << nNonce;
+            }
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
         const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
         // Detect dynamic federation block serialization using "HF bit",
         // or the signed bit which is invalid in Bitcoin
         bool is_dyna = false;
         int32_t nVersion;
-        if (ser_action.ForRead()) {
-            READWRITE(nVersion);
-            is_dyna = nVersion < 0;
-            this->nVersion = ~DYNAFED_HF_MASK & nVersion;
-        } else {
-            nVersion = this->nVersion;
-            if (!m_dynafed_params.IsNull()) {
-                nVersion |= DYNAFED_HF_MASK;
-                is_dyna = true;
-            }
-            READWRITE(nVersion);
-        }
+        s >> nVersion;
+        is_dyna = nVersion < 0;
+        this->nVersion = ~DYNAFED_HF_MASK & nVersion;
 
         if (is_dyna) {
-            READWRITE(hashPrevBlock);
-            READWRITE(hashMerkleRoot);
-            READWRITE(nTime);
-            READWRITE(block_height);
-            READWRITE(m_dynafed_params);
+            s >> hashPrevBlock;
+            s >> hashMerkleRoot;
+            s >> nTime;
+            s >> block_height;
+            s >> m_dynafed_params;
             // We do not serialize witness for hashes, or weight calculation
             if (!(s.GetType() & SER_GETHASH) && fAllowWitness) {
-                READWRITE(m_signblock_witness.stack);
+                s >> m_signblock_witness.stack;
             }
         } else {
-            READWRITE(hashPrevBlock);
-            READWRITE(hashMerkleRoot);
-            READWRITE(nTime);
+            s >> hashPrevBlock;
+            s >> hashMerkleRoot;
+            s >> nTime;
             if (g_con_blockheightinheader) {
-                READWRITE(block_height);
+                s >> block_height;
             }
             if (g_signed_blocks) {
-                READWRITE(proof);
+                s >> proof;
             } else {
-                READWRITE(nBits);
-                READWRITE(nNonce);
+                s >> nBits;
+                s >> nNonce;
             }
         }
     }
@@ -312,12 +344,10 @@ public:
         *(static_cast<CBlockHeader*>(this)) = header;
     }
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CBlockHeader, *this);
-        READWRITE(vtx);
+    SERIALIZE_METHODS(CBlock, obj)
+    {
+        READWRITEAS(CBlockHeader, obj);
+        READWRITE(obj.vtx);
     }
 
     void SetNull()
@@ -357,14 +387,12 @@ struct CBlockLocator
 
     explicit CBlockLocator(const std::vector<uint256>& vHaveIn) : vHave(vHaveIn) {}
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    SERIALIZE_METHODS(CBlockLocator, obj)
+    {
         int nVersion = s.GetVersion();
         if (!(s.GetType() & SER_GETHASH))
             READWRITE(nVersion);
-        READWRITE(vHave);
+        READWRITE(obj.vHave);
     }
 
     void SetNull()
