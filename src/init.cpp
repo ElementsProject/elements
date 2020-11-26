@@ -89,10 +89,6 @@ static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 
-// Dump addresses to banlist.dat every 15 minutes (900s)
-static constexpr int DUMP_BANS_INTERVAL = 60 * 15;
-
-
 #ifdef WIN32
 // Win32 LevelDB doesn't use filedescriptors, and the ones used for
 // accessing block files don't count towards the fd_set size limit
@@ -1334,7 +1330,7 @@ bool AppInitMain(NodeContext& node)
     // Gather some entropy once per minute.
     node.scheduler->scheduleEvery([]{
         RandAddPeriodic();
-    }, 60000);
+    }, std::chrono::minutes{1});
 
     GetMainSignals().RegisterBackgroundSignalScheduler(*node.scheduler);
 
@@ -1940,9 +1936,9 @@ bool AppInitMain(NodeContext& node)
     threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "reevaluation_scheduler", reevaluationLoop));
 
     CScheduler::Function f2 = boost::bind(&MainchainRPCCheck, false);
-    unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120) * 1000;
+    unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120);
     if (check_rpc_every) {
-        node.reverification_scheduler->scheduleEvery(f2, check_rpc_every);
+        node.reverification_scheduler->scheduleEvery(f2, std::chrono::seconds(check_rpc_every));
     }
 
     uiInterface.InitMessage(_("Done loading").translated);
@@ -1954,7 +1950,7 @@ bool AppInitMain(NodeContext& node)
     BanMan* banman = node.banman.get();
     node.scheduler->scheduleEvery([banman]{
         banman->DumpBanlist();
-    }, DUMP_BANS_INTERVAL * 1000);
+    }, DUMP_BANS_INTERVAL);
 
     return true;
 }
