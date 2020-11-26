@@ -156,7 +156,7 @@ jobs:
 
 # x86_64 Linux (xenial, no depends, only system libs)
     - stage: test
-      name: 'x86_64 Linux  [GOAL: install]  [focal]  [depends, sanitizers: thread (TSan), no wallet, no gui]'
+      name: 'x86_64 Linux  [GOAL: install]  [focal]  [depends, sanitizers: thread (TSan), no gui]'
       # Not enough memory on travis machines, so feature_block is excluded for now
       env: >-
         HOST=x86_64-unknown-linux-gnu
