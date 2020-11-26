@@ -340,6 +340,27 @@ BOOST_AUTO_TEST_CASE(util_ParseParameters)
     BOOST_CHECK(testArgs.GetArgs("-ccc").size() == 2);
 }
 
+BOOST_AUTO_TEST_CASE(util_ParseInvalidParameters)
+{
+    TestArgsManager test;
+    test.SetupArgs({{"-registered", ArgsManager::ALLOW_ANY}});
+
+    const char* argv[] = {"ignored", "-registered"};
+    std::string error;
+    BOOST_CHECK(test.ParseParameters(2, (char**)argv, error));
+    BOOST_CHECK_EQUAL(error, "");
+
+    argv[1] = "-unregistered";
+    BOOST_CHECK(!test.ParseParameters(2, (char**)argv, error));
+    BOOST_CHECK_EQUAL(error, "Invalid parameter -unregistered");
+
+    // Make sure registered parameters prefixed with a chain name trigger errors.
+    // (Previously, they were accepted and ignored.)
+    argv[1] = "-test.registered";
+    BOOST_CHECK(!test.ParseParameters(2, (char**)argv, error));
+    BOOST_CHECK_EQUAL(error, "Invalid parameter -test.registered");
+}
+
 static void TestParse(const std::string& str, bool expected_bool, int64_t expected_int)
 {
     TestArgsManager test;
@@ -836,7 +857,8 @@ struct ArgsMergeTestingSetup : public BasicTestingSetup {
     void ForEachMergeSetup(Fn&& fn)
     {
         ActionList arg_actions = {};
-        ForEachNoDup(arg_actions, SET, SECTION_NEGATE, [&] {
+        // command_line_options do not have sections. Only iterate over SET and NEGATE
+        ForEachNoDup(arg_actions, SET, NEGATE, [&] {
             ActionList conf_actions = {};
             ForEachNoDup(conf_actions, SET, SECTION_NEGATE, [&] {
                 for (bool soft_set : {false, true}) {
@@ -996,7 +1018,7 @@ BOOST_FIXTURE_TEST_CASE(util_ArgsMerge, ArgsMergeTestingSetup)
     // Results file is formatted like:
     //
     //   <input> || <IsArgSet/IsArgNegated/GetArg output> | <GetArgs output> | <GetUnsuitable output>
-    BOOST_CHECK_EQUAL(out_sha_hex, "08c5432d4056908de004f869ff5b07ba055e99e3d5a30127a7be6880ba717844");
+    BOOST_CHECK_EQUAL(out_sha_hex, "5f18df2b48aedde7163c9845cd65b1490fbc51fc00cde7fcef830c66d074de49");
 }
 
 // Similar test as above, but for ArgsManager::GetChainName function.
