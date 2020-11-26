@@ -691,7 +691,7 @@ UniValue dumpprivkey(const JSONRPCRequest& request)
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The bitcoin address for the private key"},
                 },
                 RPCResult{
-            "\"key\"                (string) The private key\n"
+                    RPCResult::Type::STR, "key", "The private key"
                 },
                 RPCExamples{
                     HelpExampleCli("dumpprivkey", "\"myaddress\"")
@@ -741,9 +741,10 @@ UniValue dumpwallet(const JSONRPCRequest& request)
                     {"filename", RPCArg::Type::STR, RPCArg::Optional::NO, "The filename with path (either absolute or relative to bitcoind)"},
                 },
                 RPCResult{
-            "{                           (json object)\n"
-            "  \"filename\" : {        (string) The filename with full absolute path\n"
-            "}\n"
+                    RPCResult::Type::OBJ, "", "",
+                    {
+                        {RPCResult::Type::STR, "filename", "The filename with full absolute path"},
+                    }
                 },
                 RPCExamples{
                     HelpExampleCli("dumpwallet", "\"test\"")
@@ -1354,19 +1355,21 @@ UniValue importmulti(const JSONRPCRequest& mainRequest)
                         "\"options\""},
                 },
                 RPCResult{
-            "[                              (json array) Response is an array with the same size as the input that has the execution result\n"
-            "  {                            (json object)\n"
-            "    \"success\" : true|false,    (boolean)\n"
-            "    \"warnings\" : [             (json array, optional)\n"
-            "      \"str\",                   (string)\n"
-            "      ...\n"
-            "    ],\n"
-            "    \"error\" : {                (json object, optional)\n"
-            "        ...                    JSONRPC error\n"
-            "    },\n"
-            "  },\n"
-            "  ...\n"
-            "]\n"
+                    RPCResult::Type::ARR, "", "Response is an array with the same size as the input that has the execution result",
+                    {
+                        {RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::BOOL, "success", ""},
+                            {RPCResult::Type::ARR, "warnings", /* optional */ true, "",
+                            {
+                                {RPCResult::Type::STR, "", ""},
+                            }},
+                            {RPCResult::Type::OBJ, "error", /* optional */ true, "",
+                            {
+                                {RPCResult::Type::ELISION, "", "JSONRPC error"},
+                            }},
+                        }},
+                    }
                 },
                 RPCExamples{
                     HelpExampleCli("importmulti", "'[{ \"scriptPubKey\": { \"address\": \"<my address>\" }, \"timestamp\":1455191478 }, "
@@ -1508,13 +1511,15 @@ UniValue getwalletpakinfo(const JSONRPCRequest& request)
                 "\nReturns relevant pegout authorization key (PAK) information about this wallet. Throws an error if initpegoutwallet` has not been invoked on this wallet.\n",
                 {},
                 RPCResult{
-            "{\n"
-                "\"bip32_counter\"  (string) The next index to be used by the wallet for `sendtomainchain`.\n"
-                "\"bitcoin_descriptor\"     (string) The Bitcoin script descriptor loaded in the wallet for pegouts.\n"
-                "\"liquid_pak\"       (string) Pubkey in hex corresponding to the Liquid PAK loaded in the wallet for pegouts.\n"
-                "\"liquid_pak_address\" (string) The corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer.\n"
-                "\"address_lookahead\"(array)  The three next Bitcoin addresses the wallet will use for `sendtomainchain` based on the internal counter.\n"
-            "}\n"
+                    RPCResult::Type::OBJ, "", "",
+                    {
+                        {RPCResult::Type::STR, "bip32_counter", "next index to be used by the wallet for `sendtomainchain`"},
+                        {RPCResult::Type::STR, "bitcoin_descriptor", "Bitcoin script descriptor loaded in the wallet for pegouts"},
+                        {RPCResult::Type::STR_HEX, "liquid_pak", "pubkey corresponding to the Liquid PAK loaded in the wallet for pegouts"},
+                        {RPCResult::Type::STR, "liquid_pak_address", "corresponding address for `liquid_pak`. Useful for `dumpprivkey` for wallet backup or transfer"},
+                        {RPCResult::Type::ARR_FIXED, "address_lookahead", "the three next Bitcoin addresses the wallet will use for `sendtomainchain` based on the internal counter",
+                            {RPCResult{RPCResult::Type::STR, "", ""}}},
+                    }
                 },
                 RPCExamples{""},
             }.ToString());
@@ -1758,7 +1763,7 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The CT address"},
                 },
                 RPCResult{
-            "\"blindingkey\"      (string) The blinding key\n"
+                    RPCResult::Type::STR, "blindingkey", "the blinding key",
                 },
                 RPCExamples{
                     HelpExampleCli("dumpblindingkey", "\"my address\"")
@@ -1803,7 +1808,7 @@ UniValue dumpmasterblindingkey(const JSONRPCRequest& request)
                 "\nDumps the master private blinding key in hex.",
                 {},
                 RPCResult{
-            "\"blindingkey\"      (string) The master blinding key\n"
+                    RPCResult::Type::STR, "blindingkey", "the master blinding key",
                 },
                 RPCExamples{
                     HelpExampleCli("dumpmasterblindingkey", "")
@@ -1838,7 +1843,7 @@ UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
                     {"vin", RPCArg::Type::NUM, RPCArg::Optional::NO, "The input number of the issuance in the transaction."},
                 },
                 RPCResult{
-            "\"blindingkey\"      (string) The blinding key\n"
+                    RPCResult::Type::STR, "blindingkey", "the issuance blinding key",
                 },
                 RPCExamples{
                     HelpExampleCli("dumpissuanceblindingkey", "\"<txid>\", 0")
