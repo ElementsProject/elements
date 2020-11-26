@@ -18,16 +18,7 @@ public:
     // Re-use script witness struct to include its own witness
     CScriptWitness m_pegin_witness;
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(vchIssuanceAmountRangeproof);
-        READWRITE(vchInflationKeysRangeproof);
-        READWRITE(scriptWitness.stack);
-        READWRITE(m_pegin_witness.stack);
-    }
+    SERIALIZE_METHODS(CTxInWitness, obj) { READWRITE(obj.vchIssuanceAmountRangeproof, obj.vchInflationKeysRangeproof, obj.scriptWitness.stack, obj.m_pegin_witness.stack); }
 
     CTxInWitness() { }
 
@@ -58,14 +49,7 @@ public:
     std::vector<unsigned char> vchSurjectionproof;
     std::vector<unsigned char> vchRangeproof;
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(vchSurjectionproof);
-        READWRITE(vchRangeproof);
-    }
+    SERIALIZE_METHODS(CTxOutWitness, obj) { READWRITE(obj.vchSurjectionproof, obj.vchRangeproof); }
 
     CTxOutWitness() { }
 
@@ -97,16 +81,27 @@ public:
 
     CTxWitness() {}
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
         for (size_t n = 0; n < vtxinwit.size(); n++) {
-            READWRITE(vtxinwit[n]);
+            s << vtxinwit[n];
         }
         for (size_t n = 0; n < vtxoutwit.size(); n++) {
-            READWRITE(vtxoutwit[n]);
+            s << vtxoutwit[n];
+        }
+        if (IsNull()) {
+            /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */
+            assert(false && "Superfluous witness record");
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        for (size_t n = 0; n < vtxinwit.size(); n++) {
+            s >> vtxinwit[n];
+        }
+        for (size_t n = 0; n < vtxoutwit.size(); n++) {
+            s >> vtxoutwit[n];
         }
         if (IsNull()) {
             /* It's illegal to encode a witness when all vtxinwit and vtxoutwit entries are empty. */

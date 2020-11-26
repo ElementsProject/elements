@@ -352,8 +352,8 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         if (flags & 1) {
             /* The witness flag is present. */
             flags ^= 1;
-            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
-            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            tx.witness.vtxinwit.resize(tx.vin.size());
+            tx.witness.vtxoutwit.resize(tx.vout.size());
             s >> tx.witness;
             if (!tx.HasWitness()) {
                 /* It's illegal to encode witnesses when all witness stacks are empty. */
@@ -380,8 +380,8 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         if ((flags & 1) && fAllowWitness) {
             /* The witness flag is present. */
             flags ^= 1;
-            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
-            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            tx.witness.vtxinwit.resize(tx.vin.size());
+            tx.witness.vtxoutwit.resize(tx.vout.size());
             for (size_t i = 0; i < tx.vin.size(); i++) {
                 s >> tx.witness.vtxinwit[i].scriptWitness.stack;
                 // ELEMENTS:

@@ -26,35 +26,42 @@ public:
 
     CConfidentialCommitment() { SetNull(); }
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
         unsigned char version = vchCommitment.empty()? 0: vchCommitment[0];
-        READWRITE(version);
-        if (ser_action.ForRead()) {
-            switch (version) {
-                /* Null */
-                case 0:
-                    vchCommitment.clear();
-                    return;
-                /* Explicit value */
-                case 1:
-                    vchCommitment.resize(nExplicitSize);
-                    break;
-                /* Confidential commitment */
-                case PrefixA:
-                case PrefixB:
-                    vchCommitment.resize(nCommittedSize);
-                    break;
-                /* Invalid serialization! */
-                default:
-                    throw std::ios_base::failure("Unrecognized serialization prefix");
-            }
-            vchCommitment[0] = version;
-        }
+        s << version;
         if (vchCommitment.size() > 1) {
-            READWRITE(REF(Span<unsigned char>(vchCommitment.data() + 1, vchCommitment.size()-1)));
+            for (size_t i = 0; i < vchCommitment.size() - 1; i++) {
+                s << vchCommitment[i + 1];
+            }
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        unsigned char version = vchCommitment.empty()? 0: vchCommitment[0];
+        s >> version;
+        switch (version) {
+            /* Null */
+            case 0:
+                vchCommitment.clear();
+                return;
+            /* Explicit value */
+            case 1:
+                vchCommitment.resize(nExplicitSize);
+                break;
+            /* Confidential commitment */
+            case PrefixA:
+            case PrefixB:
+                vchCommitment.resize(nCommittedSize);
+                break;
+            /* Invalid serialization! */
+            default:
+                throw std::ios_base::failure("Unrecognized serialization prefix");
+        }
+        vchCommitment[0] = version;
+        if (vchCommitment.size() > 1) {
+            s >> Span<unsigned char>(vchCommitment.data() + 1, vchCommitment.size()-1);
         }
     }
 
@@ -191,16 +198,7 @@ public:
         SetNull();
     }
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(assetBlindingNonce);
-        READWRITE(assetEntropy);
-        READWRITE(nAmount);
-        READWRITE(nInflationKeys);
-    }
+    SERIALIZE_METHODS(CAssetIssuance, obj) { READWRITE(obj.assetBlindingNonce, obj.assetEntropy, obj.nAmount, obj.nInflationKeys); }
 
     void SetNull() { nAmount.SetNull(); nInflationKeys.SetNull(); }
     bool IsNull() const { return (nAmount.IsNull() && nInflationKeys.IsNull()); }

@@ -23,12 +23,7 @@ struct CAsset {
     explicit CAsset(const uint256& idIn) : id(idIn) { }
     explicit CAsset(const std::vector<unsigned char>& vchIDIn) : id(vchIDIn) { }
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(id);
-    }
+    SERIALIZE_METHODS(CAsset, obj) { READWRITE(obj.id); }
 
     bool IsNull() const { return id.IsNull(); }
     void SetNull() { id.SetNull(); }

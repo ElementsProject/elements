@@ -25,16 +25,20 @@ public:
     CProof() {}
     CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(*(CScriptBase*)(&challenge));
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
+        s << *(CScriptBase*)(&challenge);
         if (!(s.GetType() & SER_GETHASH))
-            READWRITE(*(CScriptBase*)(&solution));
+            s << *(CScriptBase*)(&solution);
     }
 
+    template <typename Stream>
+    inline void Unserialize(Stream& s) const {
+        s >> *(CScriptBase*)(&challenge);
+        if (!(s.GetType() & SER_GETHASH))
+            s >> *(CScriptBase*)(&solution);
+    }
+         
     void SetNull()
     {
         challenge.clear();
@@ -76,26 +80,48 @@ public:
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const uint256 elided_root_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_elided_root(elided_root_in) { m_serialize_type = 1; };
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpeg_program_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpeg_program(fedpeg_program_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(m_serialize_type);
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
+        s << m_serialize_type;
         switch(m_serialize_type) {
             case 0:
                 /* Null entry, used to signal "no vote" proposal */
                 break;
             case 1:
-                READWRITE(m_signblockscript);
-                READWRITE(m_signblock_witness_limit);
-                READWRITE(m_elided_root);
+                s << m_signblockscript;
+                s << m_signblock_witness_limit;
+                s << m_elided_root;
                 break;
             case 2:
-                READWRITE(m_signblockscript);
-                READWRITE(m_signblock_witness_limit);
-                READWRITE(m_fedpeg_program);
-                READWRITE(m_fedpegscript);
-                READWRITE(m_extension_space);
+                s << m_signblockscript;
+                s << m_signblock_witness_limit;
+                s << m_fedpeg_program;
+                s << m_fedpegscript;
+                s << m_extension_space;
+                break;
+            default:
+                assert(false && "Invalid consensus parameter entry type");
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        s >> m_serialize_type;
+        switch(m_serialize_type) {
+            case 0:
+                /* Null entry, used to signal "no vote" proposal */
+                break;
+            case 1:
+                s >> m_signblockscript;
+                s >> m_signblock_witness_limit;
+                s >> m_elided_root;
+                break;
+            case 2:
+                s >> m_signblockscript;
+                s >> m_signblock_witness_limit;
+                s >> m_fedpeg_program;
+                s >> m_fedpegscript;
+                s >> m_extension_space;
                 break;
             default:
                 throw std::ios_base::failure("Invalid consensus parameter entry type");
@@ -157,13 +183,7 @@ public:
     DynaFedParams() {};
     DynaFedParams(const DynaFedParamEntry& current, const DynaFedParamEntry& proposed)  : m_current(current), m_proposed(proposed) {};
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(m_current);
-        READWRITE(m_proposed);
-    }
+    SERIALIZE_METHODS(DynaFedParams, obj) { READWRITE(obj.m_current, obj.m_proposed); }
 
     uint256 CalculateRoot() const;
 
