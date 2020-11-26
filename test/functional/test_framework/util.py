@@ -350,6 +350,13 @@ def initialize_datadir(dirname, n, chain):
         os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
     return datadir
 
+def adjust_bitcoin_conf_for_pre_17(conf_file):
+    with open(conf_file,'r', encoding='utf8') as conf:
+        conf_data = conf.read()
+    with open(conf_file, 'w', encoding='utf8') as conf:
+        conf_data_changed = conf_data.replace('[regtest]', '')
+        conf.write(conf_data_changed)
+
 def append_config(datadir, options):
     with open(os.path.join(datadir, "elements.conf"), 'a', encoding='utf8') as f:
         for option in options:
