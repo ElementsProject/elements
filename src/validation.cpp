@@ -1397,12 +1397,6 @@ bool CChainState::IsInitialBlockDownload() const
 
 static CBlockIndex *pindexBestForkTip = nullptr, *pindexBestForkBase = nullptr;
 
-BlockMap& BlockIndex()
-{
-    LOCK(::cs_main);
-    return g_chainman.m_blockman.m_block_index;
-}
-
 static void AlertNotify(const std::string& strMessage)
 {
     uiInterface.NotifyAlertChanged();
@@ -5647,8 +5641,9 @@ bool MainchainRPCCheck(const bool init)
     std::vector<uint256> vblocksToReconsiderAgain;
     for(uint256& blockhash : vblocksToReconsider) {
         LOCK(cs_main);
-        if (::BlockIndex().count(blockhash)) {
-            CBlockIndex* pblockindex = ::BlockIndex()[blockhash];
+        ChainstateManager& chainman = g_chainman;
+        if (chainman.BlockIndex().count(blockhash)) {
+            CBlockIndex* pblockindex = chainman.BlockIndex()[blockhash];
             if ((pblockindex->nStatus & BLOCK_FAILED_MASK)) {
                 vblocksToReconsiderAgain.push_back(blockhash);
             }
@@ -5723,9 +5718,10 @@ bool MainchainRPCCheck(const bool init)
         for(const uint256& blockhash : vblocksToReconsider) {
             {
                 LOCK(cs_main);
-                if (::BlockIndex().count(blockhash) == 0)
+                ChainstateManager& chainman = g_chainman;
+                if (chainman.BlockIndex().count(blockhash) == 0)
                     continue;
-                CBlockIndex* pblockindex = ::BlockIndex()[blockhash];
+                CBlockIndex* pblockindex = chainman.BlockIndex()[blockhash];
                 ResetBlockFailureFlags(pblockindex);
             }
         }
@@ -5740,8 +5736,9 @@ bool MainchainRPCCheck(const bool init)
         //Now to clear out now-valid blocks
         for(const uint256& blockhash : vblocksToReconsider) {
             LOCK(cs_main);
-            if (::BlockIndex().count(blockhash)) {
-                CBlockIndex* pblockindex = ::BlockIndex()[blockhash];
+            ChainstateManager& chainman = g_chainman;
+            if (chainman.BlockIndex().count(blockhash)) {
+                CBlockIndex* pblockindex = chainman.BlockIndex()[blockhash];
 
                 //Marked as invalid still, put back into queue
                 if((pblockindex->nStatus & BLOCK_FAILED_MASK)) {

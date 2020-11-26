@@ -4869,6 +4869,7 @@ UniValue signblock(const JSONRPCRequest& request)
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
+    ChainstateManager& chainman = g_chainman; // FIXME avoid using this global, see #19413
     LOCK(cs_main);
 
     LegacyScriptPubKeyMan* spk_man = pwallet->GetLegacyScriptPubKeyMan();
@@ -4877,8 +4878,8 @@ UniValue signblock(const JSONRPCRequest& request)
     }
 
     uint256 hash = block.GetHash();
-    BlockMap::iterator mi = ::BlockIndex().find(hash);
-    if (mi != ::BlockIndex().end())
+    BlockMap::iterator mi = chainman.BlockIndex().find(hash);
+    if (mi != chainman.BlockIndex().end())
         throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
     CBlockIndex* const pindexPrev = ::ChainActive().Tip();

@@ -1641,11 +1641,12 @@ UniValue testproposedblock(const JSONRPCRequest& request)
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
+    ChainstateManager& chainman = EnsureChainman(request.context);
     LOCK(cs_main);
 
     uint256 hash = block.GetHash();
-    BlockMap::iterator mi = ::BlockIndex().find(hash);
-    if (mi != ::BlockIndex().end())
+    BlockMap::iterator mi = chainman.BlockIndex().find(hash);
+    if (mi != chainman.BlockIndex().end())
         throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
     CBlockIndex* const pindexPrev = ::ChainActive().Tip();
