@@ -16,6 +16,7 @@
 
 static void AssembleBlock(benchmark::State& state)
 {
+    RegTestingSetup test_setup;
     const std::vector<unsigned char> op_true{OP_TRUE};
     CScriptWitness witness;
     witness.stack.push_back(op_true);
@@ -30,7 +31,7 @@ static void AssembleBlock(benchmark::State& state)
     std::array<CTransactionRef, NUM_BLOCKS - COINBASE_MATURITY + 1> txs;
     for (size_t b{0}; b < NUM_BLOCKS; ++b) {
         CMutableTransaction tx;
-        tx.vin.push_back(MineBlock(g_testing_setup->m_node, SCRIPT_PUB));
+        tx.vin.push_back(MineBlock(test_setup.m_node, SCRIPT_PUB));
         tx.witness.vtxinwit.resize(1);
         tx.witness.vtxinwit.back().scriptWitness = witness;
         tx.vout.emplace_back(CTxOut(CAsset(), 1337, SCRIPT_PUB));
@@ -42,13 +43,13 @@ static void AssembleBlock(benchmark::State& state)
 
         for (const auto& txr : txs) {
             TxValidationState state;
-            bool ret{::AcceptToMemoryPool(::mempool, state, txr, nullptr /* plTxnReplaced */, false /* bypass_limits */, /* nAbsurdFee */ 0)};
+            bool ret{::AcceptToMemoryPool(*test_setup.m_node.mempool, state, txr, nullptr /* plTxnReplaced */, false /* bypass_limits */, /* nAbsurdFee */ 0)};
             assert(ret);
         }
     }
 
     while (state.KeepRunning()) {
-        PrepareBlock(g_testing_setup->m_node, SCRIPT_PUB);
+        PrepareBlock(test_setup.m_node, SCRIPT_PUB);
     }
 }
 
