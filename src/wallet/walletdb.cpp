@@ -1105,3 +1105,8 @@ bool WalletBatch::TxnAbort()
 {
     return m_batch.TxnAbort();
 }
+
+bool IsWalletLoaded(const fs::path& wallet_path)
+{
+    return IsBDBWalletLoaded(wallet_path);
+}
