@@ -397,42 +397,65 @@ static UniValue setlabel(const JSONRPCRequest& request)
     return NullUniValue;
 }
 
+void ParseRecipients(const UniValue& address_amounts, const UniValue& address_assets, const UniValue& subtract_fee_outputs, std::vector<CRecipient> &recipients) {
+    std::set<CTxDestination> destinations;
+    int i = 0;
+    for (const std::string& address: address_amounts.getKeys()) {
+        CAsset asset = Params().GetConsensus().pegged_asset;
+        if (!address_assets.isNull() && address_assets[address].isStr()) {
+            std::string strasset = address_assets[address].get_str();
+            asset = GetAssetFromString(strasset);
+        }
+        if (asset.IsNull() && g_con_elementsmode) {
+            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
+        }
 
-static CTransactionRef SendMoney(CWallet * const pwallet, const CTxDestination &address, CAmount nValue, const CAsset& asset, bool fSubtractFeeFromAmount, const CCoinControl& coin_control, mapValue_t mapValue, bool ignore_blind_fail)
+        CTxDestination dest = DecodeDestination(address);
+        if (!IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + address);
+        }
+
+        if (destinations.count(dest)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + address);
+        }
+        destinations.insert(dest);
+
+        CScript script_pub_key = GetScriptForDestination(dest);
+        CAmount amount = AmountFromValue(address_amounts[i++]);
+
+        bool subtract_fee = false;
+        for (unsigned int idx = 0; idx < subtract_fee_outputs.size(); idx++) {
+            const UniValue& addr = subtract_fee_outputs[idx];
+            if (addr.get_str() == address) {
+                subtract_fee = true;
+            }
+        }
+
+        CRecipient recipient = {script_pub_key, amount, asset, GetDestinationBlindingKey(dest), subtract_fee};
+        recipients.push_back(recipient);
+    }
+}
+
+UniValue SendMoney(CWallet* const pwallet, const CCoinControl &coin_control, std::vector<CRecipient> &recipients, mapValue_t map_value, bool ignore_blind_fail)
 {
-    CAmountMap curBalance = pwallet->GetBalance(0, coin_control.m_avoid_address_reuse).m_mine_trusted;
+    EnsureWalletIsUnlocked(pwallet);
 
-    // Check amount
-    if (nValue <= 0)
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid amount");
+    // Shuffle recipient list
+    std::shuffle(recipients.begin(), recipients.end(), FastRandomContext());
 
-    if (nValue > curBalance[asset])
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds");
-
-    // Parse Bitcoin address
-    CScript scriptPubKey = GetScriptForDestination(address);
-
-    // Create the lower bound number of reserve keys.
-    std::vector<COutPoint> vPresetInputs;
-    coin_control.ListSelected(vPresetInputs);
-
-    // Create and send the transaction
+    // Send
     CAmount nFeeRequired = 0;
-    bilingual_str error;
-    std::vector<CRecipient> vecSend;
     int nChangePosRet = -1;
-    CRecipient recipient = {scriptPubKey, nValue, asset, GetDestinationBlindingKey(address), fSubtractFeeFromAmount};
-    vecSend.push_back(recipient);
+    bilingual_str error;
     CTransactionRef tx;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
-    if (!pwallet->CreateTransaction(vecSend, tx, nFeeRequired, nChangePosRet, error, coin_control, true, blind_details)) {
-        if (!fSubtractFeeFromAmount && nValue + nFeeRequired > curBalance[policyAsset])
-            error = strprintf(Untranslated("Error: This transaction requires a transaction fee of at least %s"), FormatMoney(nFeeRequired));
-        throw JSONRPCError(RPC_WALLET_ERROR, error.original);
+    bool fCreated = pwallet->CreateTransaction(recipients, tx, nFeeRequired, nChangePosRet, error, coin_control, !pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS), blind_details);
+    if (!fCreated) {
+        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, error.original);
     }
-    pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, blind_details);
-    return tx;
+    pwallet->CommitTransaction(tx, std::move(map_value), {} /* orderForm */, blind_details);
+    return tx->GetHash().GetHex();
 }
 
 static UniValue sendtoaddress(const JSONRPCRequest& request)
@@ -482,16 +505,6 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     LOCK(pwallet->cs_wallet);
 
-    CTxDestination dest = DecodeDestination(request.params[0].get_str());
-    if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
-    }
-
-    // Amount
-    CAmount nAmount = AmountFromValue(request.params[1]);
-    if (nAmount <= 0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
-
     // Wallet comments
     mapValue_t mapValue;
     if (!request.params[2].isNull() && !request.params[2].get_str().empty())
@@ -531,8 +544,20 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
 
     EnsureWalletIsUnlocked(pwallet);
 
-    CTransactionRef tx = SendMoney(pwallet, dest, nAmount, asset, fSubtractFeeFromAmount, coin_control, std::move(mapValue), ignore_blind_fail);
-    return tx->GetHash().GetHex();
+    UniValue address_amounts(UniValue::VOBJ);
+    UniValue address_assets(UniValue::VOBJ);
+    const std::string address = request.params[0].get_str();
+    address_amounts.pushKV(address, request.params[1]);
+    address_assets.pushKV(address, asset.GetHex());
+    UniValue subtractFeeFromAmount(UniValue::VARR);
+    if (fSubtractFeeFromAmount) {
+        subtractFeeFromAmount.push_back(address);
+    }
+
+    std::vector<CRecipient> recipients;
+    ParseRecipients(address_amounts, address_assets, subtractFeeFromAmount, recipients);
+
+    return SendMoney(pwallet, coin_control, recipients, mapValue, ignore_blind_fail);
 }
 
 static UniValue listaddressgroupings(const JSONRPCRequest& request)
@@ -970,67 +995,10 @@ static UniValue sendmany(const JSONRPCRequest& request)
         ignore_blind_fail = request.params[9].get_bool();
     }
 
-    std::set<CTxDestination> destinations;
-    std::vector<CRecipient> vecSend;
+    std::vector<CRecipient> recipients;
+    ParseRecipients(sendTo, assets, subtractFeeFromAmount, recipients);
 
-    std::vector<std::string> keys = sendTo.getKeys();
-    for (const std::string& name_ : keys) {
-        std::string strasset = Params().GetConsensus().pegged_asset.GetHex();
-        if (!assets.isNull() && assets[name_].isStr()) {
-            strasset = assets[name_].get_str();
-        }
-        CAsset asset = GetAssetFromString(strasset);
-        if (asset.IsNull() && g_con_elementsmode) {
-            throw JSONRPCError(RPC_WALLET_ERROR, strprintf("Unknown label and invalid asset hex: %s", asset.GetHex()));
-        }
-
-        CTxDestination dest = DecodeDestination(name_);
-        if (!IsValidDestination(dest)) {
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
-        }
-
-        if (destinations.count(dest)) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated address: ") + name_);
-        }
-        destinations.insert(dest);
-
-        CScript scriptPubKey = GetScriptForDestination(dest);
-        CAmount nAmount = AmountFromValue(sendTo[name_]);
-        if (nAmount <= 0)
-            throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount for send");
-
-        bool fSubtractFeeFromAmount = false;
-        for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {
-            const UniValue& addr = subtractFeeFromAmount[idx];
-            if (addr.get_str() == name_)
-                fSubtractFeeFromAmount = true;
-        }
-
-        CRecipient recipient = {scriptPubKey, nAmount, asset, GetDestinationBlindingKey(dest), fSubtractFeeFromAmount};
-        vecSend.push_back(recipient);
-    }
-
-    EnsureWalletIsUnlocked(pwallet);
-
-    // Shuffle recipient list
-    std::shuffle(vecSend.begin(), vecSend.end(), FastRandomContext());
-
-    // Send
-    CAmount nFeeRequired = 0;
-    int nChangePosRet = -1;
-    bilingual_str error;
-    CTransactionRef tx;
-    BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
-    if (g_con_elementsmode) {
-        blind_details->ignore_blind_failure = ignore_blind_fail;
-    }
-    bool fCreated = pwallet->CreateTransaction(vecSend, tx, nFeeRequired, nChangePosRet, error, coin_control, true, blind_details);
-    if (!fCreated) {
-        throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, error.original);
-    }
-
-    pwallet->CommitTransaction(tx, std::move(mapValue), {} /* orderForm */, blind_details);
-    return tx->GetHash().GetHex();
+    return SendMoney(pwallet, coin_control, recipients, std::move(mapValue), ignore_blind_fail);
 }
 
 static UniValue addmultisigaddress(const JSONRPCRequest& request)
@@ -5254,13 +5222,15 @@ UniValue sendtomainchain_base(const JSONRPCRequest& request)
     nulldata << std::vector<unsigned char>(mainchain_script.begin(), mainchain_script.end());
     CTxDestination address(nulldata);
 
+    std::vector<CRecipient> recipients;
+    CRecipient recipient = {GetScriptForDestination(address), nAmount, Params().GetConsensus().pegged_asset, CPubKey(), subtract_fee};
+    recipients.push_back(recipient);
+
     EnsureWalletIsUnlocked(pwallet);
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
-
-    return (*tx).GetHash().GetHex();
+    return SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), true /* ignore_blind_fail */);
 
 }
 
@@ -5497,13 +5467,17 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     CTxDestination address(nulldata);
     assert(GetScriptForDestination(nulldata).IsPegoutScript(genesisBlockHash));
 
+    std::vector<CRecipient> recipients;
+    CRecipient recipient = {GetScriptForDestination(address), nAmount, Params().GetConsensus().pegged_asset, CPubKey(), subtract_fee};
+    recipients.push_back(recipient);
+
     if (!ScriptHasValidPAKProof(GetScriptForDestination(nulldata), Params().ParentGenesisBlockHash(), paklist)) {
         throw JSONRPCError(RPC_TYPE_ERROR, "Resulting scriptPubKey is non-standard. Ensure pak=reject is not set");
     }
 
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, Params().GetConsensus().pegged_asset, subtract_fee, no_coin_control, std::move(mapValue), true /* ignore_blind_fail */);
+    UniValue tx_hash_hex = SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), true /* ignore_blind_fail */);
 
     pwallet->SetOfflineCounter(counter+1);
 
@@ -5511,7 +5485,7 @@ UniValue sendtomainchain_pak(const JSONRPCRequest& request)
     ss << counter;
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("txid", tx->GetHash().GetHex());
+    obj.pushKV("txid", tx_hash_hex);
     obj.pushKV("bitcoin_address", EncodeParentDestination(bitcoin_address));
     obj.pushKV("bip32_counter", ss.str());
     obj.pushKV("bitcoin_descriptor", pwallet->offline_desc);
@@ -6458,10 +6432,11 @@ UniValue destroyamount(const JSONRPCRequest& request)
 
     NullData nulldata;
     CTxDestination address(nulldata);
+    std::vector<CRecipient> recipients;
+    CRecipient recipient = {GetScriptForDestination(address), nAmount, asset, CPubKey(), false /* subtract_fee */};
+    recipients.push_back(recipient);
     CCoinControl no_coin_control; // This is a deprecated API
-    CTransactionRef tx = SendMoney(pwallet, address, nAmount, asset, false, no_coin_control, std::move(mapValue), true);
-
-    return tx->GetHash().GetHex();
+    return SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), true /* ignore_blind_fail */);
 }
 
 // Only used for functionary integration tests
