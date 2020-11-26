@@ -5,11 +5,12 @@
 
 #include <script/standard.h>
 
+#include <chainparams.h>
 #include <crypto/sha256.h>
 #include <pubkey.h>
 #include <script/script.h>
 
-#include <chainparams.h>
+#include <string>
 
 typedef std::vector<unsigned char> valtype;
 
@@ -38,7 +39,7 @@ WitnessV0ScriptHash::WitnessV0ScriptHash(const CScript& in, const CPubKey& blind
 }
 
 
-const char* GetTxnOutputType(txnouttype t)
+std::string GetTxnOutputType(txnouttype t)
 {
     switch (t)
     {
@@ -54,7 +55,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_TRUE: return "true";
     case TX_FEE: return "fee";
     }
-    return nullptr;
+    assert(false);
 }
 
 static bool MatchPayToPubkey(const CScript& script, valtype& pubkey)

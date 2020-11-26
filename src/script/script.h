@@ -205,7 +205,7 @@ enum opcodetype
 // Maximum value that an opcode can be
 static const unsigned int MAX_OPCODE = OP_SUBSTR_LAZY; // 0xc3
 
-const char* GetOpName(opcodetype opcode);
+std::string GetOpName(opcodetype opcode);
 
 class scriptnum_error : public std::runtime_error
 {
