@@ -230,6 +230,7 @@ BASE_SCRIPTS = [
     #'p2p_dos_header_tree.py', # ELEMENTS: this test requires connecting to testnet3
     'p2p_unrequested_blocks.py',
     'feature_includeconf.py',
+    'feature_asmap.py',
     'rpc_deriveaddresses.py',
     'rpc_deriveaddresses.py --usecli',
     'rpc_scantxoutset.py',
