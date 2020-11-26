@@ -90,7 +90,7 @@ src/qt/bitcoin-qt.includes
 *.qm
 Makefile
 !depends/Makefile
-elements-qt
+src/qt/elements-qt
 Elements-Qt.app
 background.tiff*
 
