@@ -188,7 +188,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # feeRate of 0.1 BTC / KB produces a total fee slightly below -maxtxfee (~0.05420000):
         if confidential:
-            fee_rate = 0.04
+            fee_rate = 0.035
         else:
             fee_rate = 0.1
         res = self.nodes[1].walletcreatefundedpsbt([{"txid":txid,"vout":p2wpkh_pos},{"txid":txid,"vout":p2sh_p2wpkh_pos},{"txid":txid,"vout":p2pkh_pos}], {self.nodes[1].getnewaddress():29.99}, 0, {"feeRate": fee_rate})

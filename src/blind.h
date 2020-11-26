@@ -15,8 +15,8 @@
 #include <secp256k1_surjectionproof.h>
 
 //! ELEMENTS:
-// 36-bit rangeproof size
-static const size_t DEFAULT_RANGEPROOF_SIZE = 2893;
+// 52-bit rangeproof size
+static const size_t DEFAULT_RANGEPROOF_SIZE = 4174;
 // 64-bit rangeproof size
 static const size_t MAX_RANGEPROOF_SIZE = 5126;
 // 3-input ASP size

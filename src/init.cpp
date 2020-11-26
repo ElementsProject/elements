@@ -602,7 +602,7 @@ void SetupServerArgs()
     gArgs.AddArg("-feeasset=<hex>", strprintf("Asset ID (hex) for mempool/relay fees (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-subsidyasset=<hex>", strprintf("Asset ID (hex) for the block subsidy (default: %s)", defaultChainParams->GetConsensus().pegged_asset.GetHex()), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-initialreissuancetokens=<n>", "The amount of reissuance tokens created in the genesis block. (default: 0)", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-ct_bits", strprintf("The default number of hiding bits in a rangeproof. Will be exceeded to cover amounts exceeding the maximum hiding value. (default: %d)", 36), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-ct_bits", strprintf("The default number of hiding bits in a rangeproof. Will be exceeded to cover amounts exceeding the maximum hiding value. (default: %d)", 52), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-ct_exponent", strprintf("The hiding exponent. (default: %s)", 0), ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
 
     // Add the hidden options
