@@ -2439,7 +2439,7 @@ UniValue getsidechaininfo(const JSONRPCRequest& request)
     if (!consensus.ParentChainHasPow()) {
         obj.pushKV("parent_chain_signblockscript_asm", ScriptToAsmStr(consensus.parent_chain_signblockscript));
         obj.pushKV("parent_chain_signblockscript_hex", HexStr(consensus.parent_chain_signblockscript));
-        obj.pushKV("parent_pegged_asset", HexStr(consensus.parent_pegged_asset));
+        obj.pushKV("parent_pegged_asset", consensus.parent_pegged_asset.GetHex());
     }
     return obj;
 }

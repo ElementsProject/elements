@@ -37,7 +37,7 @@ std::string static EncodeDumpString(const std::string &str) {
     std::stringstream ret;
     for (const unsigned char c : str) {
         if (c <= 32 || c >= 128 || c == '%') {
-            ret << '%' << HexStr(&c, &c + 1);
+            ret << '%' << HexStr(Span<const unsigned char>(&c, 1));
         } else {
             ret << c;
         }
@@ -2021,7 +2021,7 @@ UniValue dumpblindingkey(const JSONRPCRequest& request)
     if (key.IsValid()) {
         CPubKey pubkey(key.GetPubKey());
         if (pubkey == GetDestinationBlindingKey(dest)) {
-            return HexStr(key);
+            return HexStr(Span<const unsigned char>(key.begin(), key.size()));
         }
     }
 
@@ -2110,7 +2110,7 @@ UniValue dumpissuanceblindingkey(const JSONRPCRequest& request)
             CScript blindingScript(CScript() << OP_RETURN << std::vector<unsigned char>(pcoin->tx->vin[vindex].prevout.hash.begin(), pcoin->tx->vin[vindex].prevout.hash.end()) << pcoin->tx->vin[vindex].prevout.n);
             CKey key;
             key = pwallet->GetBlindingKey(&blindingScript);
-            return HexStr(key);
+            return HexStr(Span<const unsigned char>(key.begin(), key.size()));
         } else {
             // We don't know how to deblind this using our wallet
             throw JSONRPCError(RPC_WALLET_ERROR, "Unable to unblind issuance with wallet blinding key.");
