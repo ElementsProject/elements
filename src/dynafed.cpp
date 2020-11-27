@@ -69,7 +69,7 @@ DynaFedParamEntry ComputeNextBlockFullCurrentParameters(const CBlockIndex* pinde
         uint256 fedpegscript_redeemscript;
         CSHA256().Write(consensus.fedpegScript.data(), consensus.fedpegScript.size()).Finalize(fedpegscript_redeemscript.begin());
         CScript fedpeg_p2sw = CScript() << OP_0 << ToByteVector(fedpegscript_redeemscript);
-        uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw.begin(), fedpeg_p2sw.end()));
+        uint160 fedpeg_p2sh(Hash160(fedpeg_p2sw));
         CScript sh_wsh_fedpeg_program = CScript() << OP_HASH160 << ToByteVector(fedpeg_p2sh) << OP_EQUAL;
 
         // Put them in winning proposal

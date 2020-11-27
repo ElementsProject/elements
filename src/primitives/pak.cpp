@@ -134,7 +134,7 @@ bool ScriptHasValidPAKProof(const CScript& script, const uint256& genesis_hash, 
         // Take full_pubkey, and hash it to match against chain_dest
         CScript p2wpkh(CScript() << OP_0 << ToByteVector(full_pubkey.GetID()));
         unsigned char h160[20];
-        CHash160().Write(p2wpkh.data(), p2wpkh.size()).Finalize(h160);
+        CHash160().Write(p2wpkh).Finalize(h160);
         if (memcmp(h160, chain_dest.data()+2, sizeof(h160))) {
             return false;
         }
