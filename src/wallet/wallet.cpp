@@ -2662,35 +2662,6 @@ bool CWallet::SignTransaction(CMutableTransaction& tx, const std::map<COutPoint,
     }
 
     // At this point, one input was not fully signed otherwise we would have exited already
-    // Find that input and figure out what went wrong.
-    for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        CTxIn& txin = tx.vin[i];
-        CTxOut prevTxOut;
-        if (txin.m_is_pegin) {
-            prevTxOut = GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness);
-        } else {
-            auto coin = coins.find(txin.prevout);
-            if (coin == coins.end() || coin->second.IsSpent()) {
-                input_errors[i] = "Input not found or already spent";
-                continue;
-            }
-            prevTxOut = coin->second.out;
-        }
-
-        // Check if this input is complete
-        SignatureData sigdata = DataFromTransaction(tx, i, prevTxOut);
-        if (sigdata.complete) {
-            continue;
-        }
-
-        // Input needs to be signed, find the right ScriptPubKeyMan
-        std::set<ScriptPubKeyMan*> spk_mans = GetScriptPubKeyMans(prevTxOut.scriptPubKey, sigdata);
-        if (spk_mans.size() == 0) {
-            input_errors[i] = "Unable to sign input, missing keys";
-            continue;
-        }
-    }
-
     return false;
 }
 
