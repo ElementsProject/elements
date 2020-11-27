@@ -74,7 +74,7 @@ class MempoolUpdateFromBlockTest(BitcoinTestFramework):
                 n_outputs = size - tx_count
                 output_value = ((inputs_value - fee) / Decimal(n_outputs)).quantize(Decimal('0.00000001'))
                 outputs = {}
-                for n in range(0, n_outputs):
+                for _ in range(n_outputs):
                     outputs_value += output_value
                     outputs[self.nodes[0].getnewaddress()] = output_value
             else:
