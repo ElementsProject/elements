@@ -200,6 +200,27 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         assert_equal(spending_tx_signed['complete'], True)
         self.nodes[0].sendrawtransaction(spending_tx_signed['hex'])
 
+    def OP_1NEGATE_test(self):
+        self.log.info("Test OP_1NEGATE (0x4f) satisfies BIP62 minimal push standardness rule")
+        hex_str = (
+            "020000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+            "ffffffffff00000000044f024f9cfdffffff010a12121212121212121212121212"
+            "12121212121212121212121212121212121212010000000005f5b9f00023210277"
+            "77777777777777777777777777777777777777777777777777777777777777ac66"
+            "030000"
+        )
+        prev_txs = [
+            {
+                "txid": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+                "vout": 0,
+                "scriptPubKey": "A914AE44AB6E9AA0B71F1CD2B453B69340E9BFBAEF6087",
+                "redeemScript": "4F9C",
+                "amount": 1,
+            }
+        ]
+        txn = self.nodes[0].signrawtransactionwithwallet(hex_str, prev_txs)
+        assert txn["complete"]
+
     def run_test(self):
         self.nodes[0].set_deterministic_priv_key('2Mysp7FKKe52eoC2JmU46irt1dt58TpCvhQ', 'cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ')
         self.nodes[0].importprivkey("cTNbtVJmhx75RXomhYWSZAafuNNNKPd1cr2ZiUcAeukLNGrHWjvJ")
@@ -207,6 +228,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.successful_signing_test()
         self.script_verification_error_test()
         self.witness_script_test()
+        self.OP_1NEGATE_test()
         self.test_with_lock_outputs()
 
 
