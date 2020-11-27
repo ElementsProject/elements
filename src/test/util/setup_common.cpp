@@ -13,6 +13,7 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
+#include <interfaces/chain.h>
 #include <miner.h>
 #include <net.h>
 #include <net_processing.h>
@@ -36,6 +37,7 @@
 #include <util/vector.h>
 #include <validation.h>
 #include <validationinterface.h>
+#include <walletinitinterface.h>
 
 #include <functional>
 
@@ -118,6 +120,8 @@ BasicTestingSetup::BasicTestingSetup(const std::string& chainName, const std::st
     InitScriptExecutionCache();
     InitRangeproofCache();
     InitSurjectionproofCache();
+    m_node.chain = interfaces::MakeChain(m_node);
+    g_wallet_init_interface.Construct(m_node);
     fCheckBlockIndex = true;
 
     // ELEMENTS:
