@@ -708,7 +708,8 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
     CScript claim_script = CScript(scriptData.begin(), scriptData.end());
 
     CScript tweaked_script = calculate_contract(fedpegscript, claim_script);
-    CTxDestination parent_addr(ScriptHash(GetScriptForWitness(tweaked_script)));
+    CScript redeem_script = GetScriptForDestination(WitnessV0ScriptHash(tweaked_script));
+    CTxDestination parent_addr{ScriptHash(redeem_script)};
 
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("script", HexStr(tweaked_script));

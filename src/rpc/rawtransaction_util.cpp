@@ -28,7 +28,7 @@ template<typename T_tx>
 unsigned int GetPeginTxnOutputIndex(const T_tx& txn, const CScript& witnessProgram, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     for (const auto & scripts : fedpegscripts) {
-        CScript mainchain_script = GetScriptForWitness(calculate_contract(scripts.second, witnessProgram));
+        CScript mainchain_script = GetScriptForDestination(WitnessV0ScriptHash(calculate_contract(scripts.second, witnessProgram)));
         if (scripts.first.IsPayToScriptHash()) {
             mainchain_script = GetScriptForDestination(ScriptHash(mainchain_script));
         }

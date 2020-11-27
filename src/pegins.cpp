@@ -185,7 +185,7 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
         }
         CScript tweaked_fedpegscript = calculate_contract(scripts.second, claim_script);
         // TODO: Remove script/standard.h dep for GetScriptFor*
-        CScript expected_script(GetScriptForWitness(tweaked_fedpegscript));
+        CScript expected_script(GetScriptForDestination(WitnessV0ScriptHash(tweaked_fedpegscript)));
         if (scripts.first.IsPayToScriptHash()) {
             expected_script = GetScriptForDestination(ScriptHash(expected_script));
         }
