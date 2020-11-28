@@ -4299,10 +4299,6 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances() const
                     continue;
 
                 CAmount n = IsSpent(walletEntry.first, i) ? 0 : wtx.GetOutputValueOut(i);
-
-                if (!balances.count(addr))
-                    balances[addr] = 0;
-
                 if (n < 0) {
                     continue;
                 }
