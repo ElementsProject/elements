@@ -416,8 +416,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
                     newcoin.out.nValue = CConfidentialValue(AmountFromValue(find_value(prevOut, "amount")));
                 } else if (prevOut.exists("amountcommitment")) {
                     // Segwit sigs require the amount commitment to be sighashed
-                    uint256 asset_commit = uint256S(prevOut["amountcommitment"].get_str());
-                    newcoin.out.nValue.vchCommitment = std::vector<unsigned char>(asset_commit.begin(), asset_commit.end());
+                    newcoin.out.nValue.vchCommitment = ParseHexO(prevOut, "amountcommitment");
                 }
                 newcoin.nHeight = 1;
                 coins[out] = std::move(newcoin);
