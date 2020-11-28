@@ -33,6 +33,7 @@ packages:
 # Elements
 - "icnsutils"
 - "imagemagick"
+- "librsvg2-2"
 - "librsvg2-bin"
 remotes:
 - "url": "https://github.com/ElementsProject/elements.git"
@@ -60,10 +61,6 @@ script: |
     export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
     mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
   fi
-
-  ls librsvg*.deb || wget http://mirrors.kernel.org/ubuntu/pool/main/libr/librsvg/librsvg2-2_2.40.13-3_amd64.deb
-  dpkg -x librsvg*.deb new-rsvg
-  export LD_LIBRARY_PATH="$(echo $PWD/new-rsvg/usr/lib/*/)"
 
   # Use $LIB in LD_PRELOAD to avoid hardcoding the dir (See `man ld.so`)
   function create_global_faketime_wrappers {

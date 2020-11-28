@@ -12,6 +12,7 @@ packages:
 - "git"
 - "icnsutils"
 - "imagemagick"
+- "librsvg2-2"
 - "librsvg2-bin"
 - "pkg-config"
 - "autoconf"
@@ -50,10 +51,6 @@ script: |
     export BASE_CACHE=${GBUILD_PACKAGE_CACHE}
     mkdir -p ${BASE_CACHE} ${SOURCES_PATH}
   fi
-
-  ls librsvg*.deb || wget http://mirrors.kernel.org/ubuntu/pool/main/libr/librsvg/librsvg2-2_2.40.13-3_amd64.deb
-  dpkg -x librsvg*.deb new-rsvg
-  export LD_LIBRARY_PATH="$(echo $PWD/new-rsvg/usr/lib/*/)"
 
   # Use $LIB in LD_PRELOAD to avoid hardcoding the dir (See `man ld.so`)
   function create_global_faketime_wrappers {
@@ -154,11 +151,5 @@ script: |
   cp -rf contrib/windeploy $BUILD_DIR
   cd $BUILD_DIR/windeploy
   mkdir unsigned
-<<<<<<< HEAD
-  cp $OUTDIR/elements-*setup-unsigned.exe unsigned/
-||||||| ac21090f20
-  cp $OUTDIR/bitcoin-*setup-unsigned.exe unsigned/
-=======
   cp ${OUTDIR}/${DISTNAME}-win64-setup-unsigned.exe unsigned/
->>>>>>> 65fb3dfc8d
   find . | sort | tar --mtime="$REFERENCE_DATETIME" --no-recursion --mode='u+rw,go+r-w,a+X' --owner=0 --group=0 -c -T - | gzip -9n > ${OUTDIR}/${DISTNAME}-win-unsigned.tar.gz
