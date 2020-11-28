@@ -413,7 +413,7 @@ std::string EncodePSBT(const PartiallySignedTransaction& psbt)
 {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << psbt;
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
+    return EncodeBase64(MakeUCharSpan(ssTx));
 }
 
 
