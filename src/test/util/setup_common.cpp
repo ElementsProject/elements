@@ -166,8 +166,11 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
 
     pblocktree.reset(new CBlockTreeDB(1 << 20, true));
 
+    m_node.mempool = &::mempool;
+    m_node.mempool->setSanityCheck(1.0);
+
     m_node.chainman = &::g_chainman;
-    m_node.chainman->InitializeChainstate();
+    m_node.chainman->InitializeChainstate(*m_node.mempool);
     ::ChainstateActive().InitCoinsDB(
         /* cache_size_bytes */ 1 << 23, /* in_memory */ true, /* should_wipe */ false);
     assert(!::ChainstateActive().CanFlushToDisk());
@@ -189,8 +192,6 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::string& fedp
     }
     g_parallel_script_checks = true;
 
-    m_node.mempool = &::mempool;
-    m_node.mempool->setSanityCheck(1.0);
     m_node.banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
     m_node.connman = MakeUnique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
     m_node.peer_logic = MakeUnique<PeerLogicValidation>(*m_node.connman, m_node.banman.get(), *m_node.scheduler, *m_node.chainman, *m_node.mempool);
