@@ -6622,24 +6622,24 @@ UniValue getpegoutkeys(const JSONRPCRequest& request)
 // END ELEMENTS commands
 //
 
-UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue importblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue importmasterblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue importissuanceblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue dumpblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue dumpmasterblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue dumpissuanceblindingkey(const JSONRPCRequest& request); // in rpcdump.cpp
-UniValue importprivkey(const JSONRPCRequest& request);
-UniValue importaddress(const JSONRPCRequest& request);
-UniValue importpubkey(const JSONRPCRequest& request);
-UniValue dumpwallet(const JSONRPCRequest& request);
-UniValue importwallet(const JSONRPCRequest& request);
-UniValue importprunedfunds(const JSONRPCRequest& request);
-UniValue removeprunedfunds(const JSONRPCRequest& request);
-UniValue importmulti(const JSONRPCRequest& request);
-UniValue importdescriptors(const JSONRPCRequest& request);
-UniValue getwalletpakinfo(const JSONRPCRequest& request);
+RPCHelpMan abortrescan(); // in rpcdump.cpp
+RPCHelpMan dumpprivkey(); // in rpcdump.cpp
+RPCHelpMan importblindingkey(); // in rpcdump.cpp
+RPCHelpMan importmasterblindingkey(); // in rpcdump.cpp
+RPCHelpMan importissuanceblindingkey(); // in rpcdump.cpp
+RPCHelpMan dumpblindingkey(); // in rpcdump.cpp
+RPCHelpMan dumpmasterblindingkey(); // in rpcdump.cpp
+RPCHelpMan dumpissuanceblindingkey(); // in rpcdump.cpp
+RPCHelpMan importprivkey();
+RPCHelpMan importaddress();
+RPCHelpMan importpubkey();
+RPCHelpMan dumpwallet();
+RPCHelpMan importwallet();
+RPCHelpMan importprunedfunds();
+RPCHelpMan removeprunedfunds();
+RPCHelpMan importmulti();
+RPCHelpMan importdescriptors();
+RPCHelpMan getwalletpakinfo();
 
 Span<const CRPCCommand> GetWalletRPCCommands()
 {
