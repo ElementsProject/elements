@@ -113,6 +113,7 @@ class PSBTTest(BitcoinTestFramework):
         return result
 
     def run_basic_tests(self, confidential):
+        starting_n_unspent = len(self.nodes[0].listlockunspent()) # ELEMENTS
         # Create and fund a raw tx for sending 10 BTC
         psbtx1 = self.nodes[0].walletcreatefundedpsbt([], {self.get_address(confidential, 2):10})['psbt']
 
@@ -139,7 +140,16 @@ class PSBTTest(BitcoinTestFramework):
             assert(self.num_blinded_outputs(final_tx) > 0)
         self.nodes[0].sendrawtransaction(final_tx)
 
-        # Get pubkeys
+        # Manually selected inputs can be locked:
+        assert_equal(len(self.nodes[0].listlockunspent()), starting_n_unspent)
+        utxo1 = self.nodes[0].listunspent()[0]
+        psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):1}, 0,{"lockUnspents": True})["psbt"]
+        assert_equal(len(self.nodes[0].listlockunspent()), starting_n_unspent + 1)
+
+        # Locks are ignored for manually selected inputs
+        self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):1}, 0)
+
+        # Create p2sh, p2wpkh, and p2wsh addresses
         pubkey0 = self.nodes[0].getaddressinfo(self.get_address(confidential, 0))['pubkey']
         pubkey1 = self.nodes[1].getaddressinfo(self.get_address(confidential, 1))['pubkey']
         pubkey2 = self.nodes[2].getaddressinfo(self.get_address(confidential, 2))['pubkey']
