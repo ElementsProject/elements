@@ -23,7 +23,7 @@ CMD_GREP_WALLET_ARGS = r"git grep --function-context 'void WalletInit::AddWallet
 CMD_GREP_WALLET_HIDDEN_ARGS = r"git grep --function-context 'void DummyWalletInit::AddWalletOptions' -- {}".format(CMD_ROOT_DIR)
 CMD_GREP_DOCS = r"git grep --perl-regexp '{}' {}".format(REGEX_DOC, CMD_ROOT_DIR)
 # list unsupported, deprecated and duplicate args as they need no documentation
-SET_DOC_OPTIONAL = set(['-h', '-help', '-dbcrashratio', '-forcecompactdb'])
+SET_DOC_OPTIONAL = set(['-h', '-help', '-dbcrashratio', '-forcecompactdb', '-zapwallettxes'])
 
 SET_DOC_OPTIONAL.update(['-con_fpowallowmindifficultyblocks', '-con_fpownoretargeting', '-con_nsubsidyhalvinginterval', '-con_bip16exception', '-con_bip34height', '-con_bip65height', '-con_bip66height', '-con_npowtargettimespan', '-con_npowtargetspacing', '-con_nrulechangeactivationthreshold', '-con_nminerconfirmationwindow', '-con_powlimit', '-con_bip34hash', '-con_nminimumchainwork', '-con_defaultassumevalid', '-npruneafterheight', '-fdefaultconsistencychecks', '-fmineblocksondemand', '-bech32_hrp', '-fallback_fee_enabled', '-pubkeyprefix', '-scriptprefix', '-secretprefix', '-extpubkeyprefix', '-extprvkeyprefix', '-pchmessagestart'])
 
