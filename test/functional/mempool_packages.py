@@ -14,7 +14,6 @@ from test_framework.util import (
     assert_greater_than,
     assert_raises_rpc_error,
     satoshi_round,
-    wait_until,
 )
 import time
 
@@ -297,8 +296,8 @@ class MempoolPackagesTest(BitcoinTestFramework):
         # - txs from previous ancestor test (-> custom ancestor limit)
         # - parent tx for descendant test
         # - txs chained off parent tx (-> custom descendant limit)
-        wait_until(lambda: len(self.nodes[1].getrawmempool(False)) ==
-                           MAX_ANCESTORS_CUSTOM + 1 + MAX_DESCENDANTS_CUSTOM, timeout=10)
+        self.wait_until(lambda: len(self.nodes[1].getrawmempool(False)) ==
+                                MAX_ANCESTORS_CUSTOM + 1 + MAX_DESCENDANTS_CUSTOM, timeout=10)
         mempool0 = self.nodes[0].getrawmempool(False)
         mempool1 = self.nodes[1].getrawmempool(False)
         assert set(mempool1).issubset(set(mempool0))
