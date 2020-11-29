@@ -3325,19 +3325,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
             coinControl.SelectExternal(txin.prevout, txout);
         }
     }
-    CCoinsView viewDummy;
-    CCoinsViewCache view(&viewDummy);
-    {
-        LOCK2(cs_main, mempool.cs);
-        CCoinsViewCache& chain_view = ::ChainstateActive().CoinsTip();
-        CCoinsViewMemPool mempool_view(&chain_view, mempool);
-        for (auto& coin : coins) {
-            if (!mempool_view.GetCoin(coin.first, coin.second)) {
-                // Either the coin is not in the CCoinsViewCache or is spent. Clear it.
-                coin.second.Clear();
-            }
-        }
-    }
+    pwallet->chain().findCoins(coins);
     for (const auto& coin : coins) {
         if (!coin.second.out.IsNull()) {
             coinControl.SelectExternal(coin.first, coin.second.out);
@@ -5695,9 +5683,7 @@ UniValue claimpegin(const JSONRPCRequest& request)
 
     // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
     TxValidationState acceptState;
-    LOCK(::cs_main);
-    bool accepted = ::AcceptToMemoryPool(mempool, acceptState, MakeTransactionRef(mtx),
-                            nullptr /* plTxnReplaced */, false /* bypass_limits */, pwallet->m_default_max_tx_fee, true /* test_accept */);
+    bool accepted = pwallet->chain().testPeginClaimAcceptance(acceptState, MakeTransactionRef(mtx), pwallet->m_default_max_tx_fee);
     if (!accepted) {
         bilingual_str error = Untranslated(strprintf("Error: The transaction was rejected! Reason given: %s", acceptState.ToString()));
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);

@@ -1319,7 +1319,8 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
 
     CScript feeDestinationScript = Params().GetConsensus().mandatory_coinbase_destination;
     if (feeDestinationScript == CScript()) feeDestinationScript = CScript() << OP_TRUE;
-    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitment.empty() ? nullptr : &data_commitment));
+    const NodeContext& node = EnsureNodeContext(request.context);
+    std::unique_ptr<CBlockTemplate> pblocktemplate(BlockAssembler(*node.mempool, Params()).CreateNewBlock(feeDestinationScript, std::chrono::seconds(required_wait), &proposed, data_commitment.empty() ? nullptr : &data_commitment));
     if (!pblocktemplate.get()) {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Wallet keypool empty");
     }
@@ -1495,8 +1496,9 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
     CBlockHeaderAndShortTxIDs cmpctblock;
     ssBlock >> cmpctblock;
 
-    LOCK(mempool.cs);
-    PartiallyDownloadedBlock partialBlock(&mempool);
+    const NodeContext& node = EnsureNodeContext(request.context);
+    LOCK(node.mempool->cs);
+    PartiallyDownloadedBlock partialBlock(node.mempool.get());
     const std::vector<std::pair<uint256, CTransactionRef>> dummy;
     ReadStatus status = partialBlock.InitData(cmpctblock, dummy);
     if (status != READ_STATUS_OK) {

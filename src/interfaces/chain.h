@@ -29,6 +29,7 @@ struct bilingual_str;
 struct CBlockLocator;
 struct FeeCalculation;
 struct NodeContext;
+class TxValidationState;
 
 namespace interfaces {
 
@@ -285,6 +286,9 @@ public:
     //! to be prepared to handle this by ignoring notifications about unknown
     //! removed transactions and already added new transactions.
     virtual void requestMempoolTransactions(Notifications& notifications) = 0;
+
+// ELEMENTS
+    virtual bool testPeginClaimAcceptance(TxValidationState& acceptState, const CTransactionRef tx, const CAmount& max_tx_fee) = 0;
 };
 
 //! Interface to let node manage chain clients (wallets, or maybe tools for
