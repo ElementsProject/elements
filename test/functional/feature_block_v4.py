@@ -27,7 +27,7 @@ class BlockV4Test(BitcoinTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 0)
         assert softfork_active(self.nodes[0], 'csv')
 
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        peer = self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.nodeaddress = self.nodes[0].getnewaddress()
 
@@ -46,7 +46,7 @@ class BlockV4Test(BitcoinTestFramework):
         # ... we rejected it because it is v3
         with self.nodes[0].assert_debug_log(expected_msgs=['{}, bad-version(0x00000003)'.format(block.hash)]):
             # Send it to the node
-            self.nodes[0].p2p.send_and_ping(msg_block(block))
+            peer.send_and_ping(msg_block(block))
 
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
 
@@ -73,7 +73,7 @@ class BlockV4Test(BitcoinTestFramework):
         block.solve()
 
         # Send block and check that it becomes new best block
-        self.nodes[0].p2p.send_and_ping(msg_block(block))
+        peer.send_and_ping(msg_block(block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.sha256)
 
 if __name__ == '__main__':

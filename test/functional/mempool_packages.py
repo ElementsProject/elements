@@ -79,7 +79,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "min_tx_age must be non-negative.", self.nodes[0].getnewblockhex, -1)
 
         # Mine some blocks and have them mature.
-        self.nodes[0].add_p2p_connection(P2PTxInvStore()) # keep track of invs
+        peer_inv_store = self.nodes[0].add_p2p_connection(P2PTxInvStore()) # keep track of invs
         self.nodes[0].generate(101)
         utxos = []
         for utxo in self.nodes[0].listunspent(10):
@@ -108,7 +108,7 @@ class MempoolPackagesTest(BitcoinTestFramework):
 
         # Wait until mempool transactions have passed initial broadcast (sent inv and received getdata)
         # Otherwise, getrawmempool may be inconsistent with getmempoolentry if unbroadcast changes in between
-        self.nodes[0].p2p.wait_for_broadcast(witness_chain)
+        peer_inv_store.wait_for_broadcast(witness_chain)
 
         # Check mempool has MAX_ANCESTORS transactions in it, and descendant and ancestor
         # count and fees should look correct
