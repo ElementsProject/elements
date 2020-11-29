@@ -85,8 +85,11 @@ void AppTests::appTests()
     ClearGlobalAssetDir();
     LogInstance().DisconnectTestLogger();
     AbortShutdown();
-    UnloadBlockIndex(/* mempool */ nullptr);
-    WITH_LOCK(::cs_main, g_chainman.Reset());
+    {
+        LOCK(cs_main);
+        UnloadBlockIndex(/* mempool */ nullptr, g_chainman);
+        g_chainman.Reset();
+    }
 }
 
 //! Entry point for BitcoinGUI tests.
