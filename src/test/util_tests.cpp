@@ -849,8 +849,8 @@ struct ArgsMergeTestingSetup : public BasicTestingSetup {
             ForEachNoDup(conf_actions, SET, SECTION_NEGATE, [&] {
                 for (bool soft_set : {false, true}) {
                     for (bool force_set : {false, true}) {
-                        for (const std::string& section : {CBaseChainParams::MAIN, CBaseChainParams::TESTNET}) {
-                            for (const std::string& network : {CBaseChainParams::MAIN, CBaseChainParams::TESTNET}) {
+                        for (const std::string& section : {CBaseChainParams::MAIN, CBaseChainParams::TESTNET, CBaseChainParams::SIGNET}) {
+                            for (const std::string& network : {CBaseChainParams::MAIN, CBaseChainParams::TESTNET, CBaseChainParams::SIGNET}) {
                                 for (bool net_specific : {false, true}) {
                                     fn(arg_actions, conf_actions, soft_set, force_set, section, network, net_specific);
                                 }
@@ -1004,7 +1004,7 @@ BOOST_FIXTURE_TEST_CASE(util_ArgsMerge, ArgsMergeTestingSetup)
     // Results file is formatted like:
     //
     //   <input> || <IsArgSet/IsArgNegated/GetArg output> | <GetArgs output> | <GetUnsuitable output>
-    BOOST_CHECK_EQUAL(out_sha_hex, "5f18df2b48aedde7163c9845cd65b1490fbc51fc00cde7fcef830c66d074de49");
+    BOOST_CHECK_EQUAL(out_sha_hex, "f0a5a84ec85569ae13bf8c94f0dd5d5c6989c84041fb56bd4fb41e1a09818e40");
 }
 
 // Similar test as above, but for ArgsManager::GetChainName function.
@@ -1107,7 +1107,7 @@ BOOST_FIXTURE_TEST_CASE(util_ChainMerge, ChainMergeTestingSetup)
     // Results file is formatted like:
     //
     //   <input> || <output>
-    BOOST_CHECK_EQUAL(out_sha_hex, "ae4d9a5bd511bb820d236949d21f4601621a17ea0a6ec25a5b1d1c1be8a06075");
+    BOOST_CHECK_EQUAL(out_sha_hex, "4b5aebc617224a00e19eeda5e11986506256c859b0e4068ddc338edb9ba341be");
 }
 
 BOOST_AUTO_TEST_CASE(util_ReadWriteSettings)

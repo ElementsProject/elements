@@ -13,6 +13,7 @@
 
 const std::string CBaseChainParams::MAIN = "main";
 const std::string CBaseChainParams::TESTNET = "test";
+const std::string CBaseChainParams::SIGNET = "signet";
 const std::string CBaseChainParams::REGTEST = "regtest";
 const std::string CBaseChainParams::LIQUID1 = "liquidv1";
 
@@ -27,6 +28,10 @@ void SetupChainParamsBaseOptions(ArgsManager& argsman)
     argsman.AddArg("-testnet", "Use the test chain. Equivalent to -chain=test.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     argsman.AddArg("-seednode=<ip>", "Use specified node as seed node. This option can be specified multiple times to connect to multiple nodes. (custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+
+    argsman.AddArg("-signet", "Use the signet chain. Note that the network is defined by the -signetchallenge parameter", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-signetchallenge", "Blocks must satisfy the given script to be considered valid (only for signet networks; defaults to the global default signet test network challenge)", ArgsManager::ALLOW_STRING, OptionsCategory::CHAINPARAMS);
+    argsman.AddArg("-signetseednode", "Specify a seed node for the signet network, in the hostname[:port] format, e.g. sig.net:1234 (may be used multiple times to specify multiple seed nodes; defaults to the global default signet test network seed node(s))", ArgsManager::ALLOW_STRING, OptionsCategory::CHAINPARAMS);
 
     //
     // ELEMENTS
@@ -67,14 +72,17 @@ const CBaseChainParams& BaseParams()
 
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
-    if (chain == CBaseChainParams::MAIN)
+    if (chain == CBaseChainParams::MAIN) {
         return MakeUnique<CBaseChainParams>("", 8332, 18332);
-    else if (chain == CBaseChainParams::TESTNET)
+    } else if (chain == CBaseChainParams::TESTNET) {
         return MakeUnique<CBaseChainParams>("testnet3", 18332, 8332);
-    else if (chain == CBaseChainParams::REGTEST)
+    } else if (chain == CBaseChainParams::SIGNET) {
+        return MakeUnique<CBaseChainParams>("signet", 38332, 18332);
+    } else if (chain == CBaseChainParams::REGTEST) {
         return MakeUnique<CBaseChainParams>("regtest", 18443, 18332);
-    else if (chain == CBaseChainParams::LIQUID1)
+    } else if (chain == CBaseChainParams::LIQUID1) {
         return MakeUnique<CBaseChainParams>("liquidv1", 7041, 8332);
+    }
 
     // ELEMENTS:
     return MakeUnique<CBaseChainParams>(chain, 7040, 18332);

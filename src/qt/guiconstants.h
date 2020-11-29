@@ -47,6 +47,7 @@ static const int TOOLTIP_WRAP_THRESHOLD = 80;
 
 #define QAPP_APP_NAME_DEFAULT "Elements-Qt"
 #define QAPP_APP_NAME_TESTNET "Elements-Qt-testnet"
+#define QAPP_APP_NAME_SIGNET "Elements-Qt-signet"
 #define QAPP_APP_NAME_REGTEST "Elements-Qt-regtest"
 #define QAPP_APP_NAME_LIQUID "Elements-Qt (Liquid)"
 
