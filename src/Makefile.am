@@ -4,10 +4,11 @@
 
 DIST_SUBDIRS = secp256k1 univalue
 
-AM_LDFLAGS = $(PTHREAD_CFLAGS) $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
+AM_LDFLAGS = $(LIBTOOL_LDFLAGS) $(HARDENED_LDFLAGS) $(GPROF_LDFLAGS) $(SANITIZER_LDFLAGS)
 AM_CXXFLAGS = $(DEBUG_CXXFLAGS) $(HARDENED_CXXFLAGS) $(WARN_CXXFLAGS) $(NOWARN_CXXFLAGS) $(ERROR_CXXFLAGS) $(GPROF_CXXFLAGS) $(SANITIZER_CXXFLAGS)
 AM_CPPFLAGS = $(DEBUG_CPPFLAGS) $(HARDENED_CPPFLAGS)
 AM_LIBTOOLFLAGS = --preserve-dup-deps
+PTHREAD_FLAGS = $(PTHREAD_CFLAGS) $(PTHREAD_LIBS)
 EXTRA_LIBRARIES =
 
 if EMBEDDED_UNIVALUE
@@ -609,7 +610,7 @@ nodist_libbitcoin_util_a_SOURCES = $(srcdir)/obj/build.h
 elements_daemon_sources = bitcoind.cpp
 elements_bin_cppflags = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 elements_bin_cxxflags = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elements_bin_ldflags = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_bin_ldflags = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
 elements_daemon_sources += bitcoind-res.rc
@@ -646,7 +647,7 @@ elements_node_LDADD = $(LIBBITCOIN_SERVER) $(elements_bin_ldadd)
 elements_cli_SOURCES = bitcoin-cli.cpp
 elements_cli_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(EVENT_CFLAGS)
 elements_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elements_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
 elements_cli_SOURCES += bitcoin-cli-res.rc
@@ -665,7 +666,7 @@ elements_cli_LDADD += $(BOOST_LIBS) $(EVENT_LIBS)
 elements_tx_SOURCES = bitcoin-tx.cpp
 elements_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 elements_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+elements_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) $(PTHREAD_FLAGS)
 
 if TARGET_WINDOWS
 elements_tx_SOURCES += bitcoin-tx-res.rc
