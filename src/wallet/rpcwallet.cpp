@@ -6014,7 +6014,7 @@ static RPCHelpMan claimpegin()
 
     // To check if it's not double spending an existing pegin UTXO, we check mempool acceptance.
     TxValidationState acceptState;
-    bool accepted = pwallet->chain().testPeginClaimAcceptance(acceptState, MakeTransactionRef(mtx), pwallet->m_default_max_tx_fee);
+    bool accepted = pwallet->chain().testPeginClaimAcceptance(acceptState, MakeTransactionRef(mtx));
     if (!accepted) {
         bilingual_str error = Untranslated(strprintf("Error: The transaction was rejected! Reason given: %s", acceptState.ToString()));
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);

@@ -288,7 +288,7 @@ public:
     virtual void requestMempoolTransactions(Notifications& notifications) = 0;
 
 // ELEMENTS
-    virtual bool testPeginClaimAcceptance(TxValidationState& acceptState, const CTransactionRef tx, const CAmount& max_tx_fee) = 0;
+    virtual bool testPeginClaimAcceptance(TxValidationState& acceptState, const CTransactionRef tx) = 0;
 };
 
 //! Interface to let node manage chain clients (wallets, or maybe tools for

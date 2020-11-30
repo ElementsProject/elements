@@ -410,9 +410,9 @@ public:
         }
     }
 // ELEMENTS
-    bool testPeginClaimAcceptance(TxValidationState& acceptState, const CTransactionRef tx, const CAmount& max_tx_fee) override {
+    bool testPeginClaimAcceptance(TxValidationState& acceptState, const CTransactionRef tx) override {
         LOCK(::cs_main);
-        return ::AcceptToMemoryPool(*m_node.mempool, acceptState, tx, nullptr /* plTxnReplaced */, false /* bypass_limits */, max_tx_fee, true /* test_accept */);
+        return ::AcceptToMemoryPool(*m_node.mempool, acceptState, tx, nullptr /* plTxnReplaced */, false /* bypass_limits */, true /* test_accept */);
     }
 // end ELEMENTS
     NodeContext& m_node;
