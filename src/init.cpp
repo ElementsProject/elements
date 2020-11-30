@@ -1231,6 +1231,10 @@ bool AppInitParameterInteraction(const ArgsManager& args)
 
     nMaxTipAge = args.GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
 
+    if (args.IsArgSet("-proxy") && args.GetArg("-proxy", "").empty()) {
+        return InitError(_("No proxy server specified. Use -proxy=<ip> or -proxy=<ip:port>."));
+    }
+
     try {
         const std::string default_asset_name = gArgs.GetArg("-defaultpeggedassetname", "bitcoin");
         InitGlobalAssetDir(gArgs.GetArgs("-assetdir"), default_asset_name);
