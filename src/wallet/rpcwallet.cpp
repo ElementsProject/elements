@@ -443,7 +443,7 @@ void ParseRecipients(const UniValue& address_amounts, const UniValue& address_as
     }
 }
 
-UniValue SendMoney(CWallet* const pwallet, const CCoinControl &coin_control, std::vector<CRecipient> &recipients, mapValue_t map_value, bool ignore_blind_fail)
+UniValue SendMoney(CWallet* const pwallet, const CCoinControl &coin_control, std::vector<CRecipient> &recipients, mapValue_t map_value, bool verbose, bool ignore_blind_fail)
 {
     EnsureWalletIsUnlocked(pwallet);
 
@@ -455,13 +455,20 @@ UniValue SendMoney(CWallet* const pwallet, const CCoinControl &coin_control, std
     int nChangePosRet = -1;
     bilingual_str error;
     CTransactionRef tx;
+    FeeCalculation fee_calc_out;
     BlindDetails* blind_details = g_con_elementsmode ? new BlindDetails() : NULL;
     if (blind_details) blind_details->ignore_blind_failure = ignore_blind_fail;
-    bool fCreated = pwallet->CreateTransaction(recipients, tx, nFeeRequired, nChangePosRet, error, coin_control, !pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS), blind_details);
+    bool fCreated = pwallet->CreateTransaction(recipients, tx, nFeeRequired, nChangePosRet, error, coin_control, fee_calc_out, !pwallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS), blind_details);
     if (!fCreated) {
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, error.original);
     }
     pwallet->CommitTransaction(tx, std::move(map_value), {} /* orderForm */, blind_details);
+    if (verbose) {
+        UniValue entry(UniValue::VOBJ);
+        entry.pushKV("txid", tx->GetHash().GetHex());
+        entry.pushKV("fee_reason", StringForFeeReason(fee_calc_out.reason));
+        return entry;
+    }
     return tx->GetHash().GetHex();
 }
 
@@ -488,9 +495,19 @@ static RPCHelpMan sendtoaddress()
             "                             dirty if they have previously been used in a transaction."},
                     {"assetlabel", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "Hex asset id or asset label for balance."},
                     {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra information about the transaction."},
                 },
-                RPCResult{
-                    RPCResult::Type::STR_HEX, "txid", "The transaction id."
+                {
+                    RPCResult{"if verbose is not set or set to false",
+                        RPCResult::Type::STR_HEX, "txid", "The transaction id."
+                    },
+                    RPCResult{"if verbose is set to true",
+                        RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::STR_HEX, "txid", "The transaction id."},
+                            {RPCResult::Type::STR, "fee reason", "The transaction fee reason."}
+                        },
+                    },
                 },
                 RPCExamples{
                     HelpExampleCli("sendtoaddress", "\"" + EXAMPLE_ADDRESS[0] + "\" 0.1")
@@ -543,7 +560,7 @@ static RPCHelpMan sendtoaddress()
     }
 
     bool ignore_blind_fail = true;
-    if (request.params.size() > 10) {
+    if (!request.params[10].isNull()) {
         ignore_blind_fail = request.params[10].get_bool();
     }
 
@@ -563,8 +580,9 @@ static RPCHelpMan sendtoaddress()
 
     std::vector<CRecipient> recipients;
     ParseRecipients(address_amounts, address_assets, subtractFeeFromAmount, recipients);
+    bool verbose = request.params[11].isNull() ? false: request.params[11].get_bool();
 
-    return SendMoney(pwallet, coin_control, recipients, mapValue, ignore_blind_fail);
+    return SendMoney(pwallet, coin_control, recipients, mapValue, verbose, ignore_blind_fail);
 },
     };
 }
@@ -956,11 +974,22 @@ static RPCHelpMan sendmany()
                         },
                     },
                     {"ignoreblindfail", RPCArg::Type::BOOL, /* default */ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
+                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra infomration about the transaction."},
                 },
-                 RPCResult{
-                     RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only 1 transaction is created regardless of\n"
-            "the number of addresses."
-                 },
+                {
+                    RPCResult{"if verbose is not set or set to false",
+                        RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only  1 transaction is created regardless of\n"
+                "the number of addresses."
+                    },
+                    RPCResult{"if verbose is set to true",
+                        RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::STR_HEX, "txid", "The transaction id for the send. Only 1 transaction is created regardless of\n"
+                "the number of addresses."},
+                            {RPCResult::Type::STR, "fee reason", "The transaction fee reason."}
+                        },
+                    },
+                },
                 RPCExamples{
             "\nSend two amounts to two different addresses:\n"
             + HelpExampleCli("sendmany", "\"\" \"{\\\"" + EXAMPLE_ADDRESS[0] + "\\\":0.01,\\\"" + EXAMPLE_ADDRESS[1] + "\\\":0.02}\"") +
@@ -1012,17 +1041,19 @@ static RPCHelpMan sendmany()
     }
 
     bool ignore_blind_fail = true;
-    if (request.params.size() > 9) {
+    if (!request.params[9].isNull()) {
         ignore_blind_fail = request.params[9].get_bool();
     }
 
     std::vector<CRecipient> recipients;
     ParseRecipients(sendTo, assets, subtractFeeFromAmount, recipients);
+    bool verbose = request.params[10].isNull() ? false : request.params[10].get_bool();
 
-    return SendMoney(pwallet, coin_control, recipients, std::move(mapValue), ignore_blind_fail);
+    return SendMoney(pwallet, coin_control, recipients, std::move(mapValue), verbose, ignore_blind_fail);
 },
     };
 }
+
 
 static RPCHelpMan addmultisigaddress()
 {
@@ -5429,9 +5460,19 @@ static RPCHelpMan sendtomainchain_base()
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The destination address on Bitcoin mainchain"},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to Bitcoin mainchain"},
                     {"subtractfeefromamount", RPCArg::Type::BOOL, /* default */ "false", "The fee will be deducted from the amount being pegged-out."},
+                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra information about the transaction."},
                 },
-                RPCResult{
-                    RPCResult::Type::STR_HEX, "txid", "Transaction ID of the resulting sidechain transaction",
+                {
+                    RPCResult{"if verbose is not set or set to false",
+                        RPCResult::Type::STR_HEX, "txid", "Transaction ID of the resulting sidechain transaction",
+                    },
+                    RPCResult{"if verbose is set to true",
+                        RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::STR_HEX, "txid", "The transaction id."},
+                            {RPCResult::Type::STR, "fee reason", "The transaction fee reason."}
+                        },
+                    },
                 },
                 RPCExamples{
                     HelpExampleCli("sendtomainchain", "\"mgWEy4vBJSHt3mC8C2SEWJQitifb4qeZQq\" 0.1")
@@ -5477,9 +5518,10 @@ static RPCHelpMan sendtomainchain_base()
 
     EnsureWalletIsUnlocked(pwallet);
 
+    bool verbose = request.params[3].isNull() ? false: request.params[3].get_bool();
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    return SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), true /* ignore_blind_fail */);
+    return SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), verbose, true /* ignore_blind_fail */);
 },
     };
 }
@@ -5533,12 +5575,14 @@ static RPCHelpMan sendtomainchain_pak()
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Must be \"\". Only for non-PAK `sendtomainchain` compatibility."},
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount being sent to `bitcoin_address`."},
                     {"subtractfeefromamount", RPCArg::Type::BOOL, /* default */ "false", "The fee will be deducted from the amount being pegged-out."},
+                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra information about the transaction."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR, "bitcoin_address", "destination address on Bitcoin mainchain"},
                         {RPCResult::Type::STR_HEX, "txid", "transaction ID of the resulting Liquid transaction"},
+                        {RPCResult::Type::STR, "fee reason", "If verbose is set to true, the Liquid transaction fee reason"},
                         {RPCResult::Type::STR, "bitcoin_descriptor", "xpubkey of the child destination address"},
                         {RPCResult::Type::STR, "bip32_counter", "derivation counter for the `bitcoin_descriptor`"},
                     },
@@ -5723,9 +5767,10 @@ static RPCHelpMan sendtomainchain_pak()
         throw JSONRPCError(RPC_TYPE_ERROR, "Resulting scriptPubKey is non-standard. Ensure pak=reject is not set");
     }
 
+    bool verbose = request.params[3].isNull() ? false: request.params[3].get_bool();
     mapValue_t mapValue;
     CCoinControl no_coin_control; // This is a deprecated API
-    UniValue tx_hash_hex = SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), true /* ignore_blind_fail */);
+    UniValue tx_hash_hex = SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), verbose, true /* ignore_blind_fail */);
 
     pwallet->SetOfflineCounter(counter+1);
 
@@ -5733,7 +5778,12 @@ static RPCHelpMan sendtomainchain_pak()
     ss << counter;
 
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("txid", tx_hash_hex);
+    if (!verbose) {
+        obj.pushKV("txid", tx_hash_hex);
+    } else {
+        obj.pushKV("txid", tx_hash_hex["txid"]);
+        obj.pushKV("fee_reason", tx_hash_hex["fee_reason"]);
+    }
     obj.pushKV("bitcoin_address", EncodeParentDestination(bitcoin_address));
     obj.pushKV("bip32_counter", ss.str());
     obj.pushKV("bitcoin_descriptor", pwallet->offline_desc);
@@ -6339,10 +6389,11 @@ static CTransactionRef SendGenerationTransaction(const CScript& asset_script, co
     CAmount nFeeRequired;
     int nChangePosRet = -1;
     bilingual_str error;
+    FeeCalculation fee_calc_out;
     CCoinControl dummy_control;
     BlindDetails blind_details;
     CTransactionRef tx_ref(MakeTransactionRef());
-    if (!pwallet->CreateTransaction(vecSend, tx_ref, nFeeRequired, nChangePosRet, error, dummy_control, true, &blind_details, issuance_details)) {
+    if (!pwallet->CreateTransaction(vecSend, tx_ref, nFeeRequired, nChangePosRet, error, dummy_control, fee_calc_out, true, &blind_details, issuance_details)) {
         throw JSONRPCError(RPC_WALLET_ERROR, error.original);
     }
 
@@ -6643,9 +6694,19 @@ static RPCHelpMan destroyamount()
                     {"amount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "The amount to destroy (8 decimals above the minimal unit)."},
                     {"comment", RPCArg::Type::STR, RPCArg::Optional::OMITTED_NAMED_ARG, "A comment used to store what the transaction is for.\n"
             "                             This is not part of the transaction, just kept in your wallet."},
+                    {"verbose", RPCArg::Type::BOOL, /* default */ "false", "If true, return extra information about the transaction."},
                 },
-                RPCResult{
-                    RPCResult::Type::STR_HEX, "transactionid", "the transaction id",
+                {
+                    RPCResult{"if verbose is not set or set to false",
+                        RPCResult::Type::STR_HEX, "transactionid", "the transaction id",
+                    },
+                    RPCResult{"if verbose is set to true",
+                        RPCResult::Type::OBJ, "", "",
+                        {
+                            {RPCResult::Type::STR_HEX, "transactionid", "the transaction id"},
+                            {RPCResult::Type::STR, "fee reason", "The transaction fee reason."},
+                        },
+                    },
                 },
                 RPCExamples{
                     HelpExampleCli("destroyamount", "\"bitcoin\" 100")
@@ -6675,13 +6736,14 @@ static RPCHelpMan destroyamount()
 
     EnsureWalletIsUnlocked(pwallet);
 
+    bool verbose = request.params[3].isNull() ? false : request.params[3].get_bool();
     NullData nulldata;
     CTxDestination address(nulldata);
     std::vector<CRecipient> recipients;
     CRecipient recipient = {GetScriptForDestination(address), nAmount, asset, CPubKey(), false /* subtract_fee */};
     recipients.push_back(recipient);
     CCoinControl no_coin_control; // This is a deprecated API
-    return SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), true /* ignore_blind_fail */);
+    return SendMoney(pwallet, no_coin_control, recipients, std::move(mapValue), verbose, true /* ignore_blind_fail */);
 },
     };
 }
@@ -6938,8 +7000,8 @@ static const CRPCCommand commands[] =
     { "wallet",             "removeprunedfunds",                &removeprunedfunds,             {"txid"} },
     { "wallet",             "rescanblockchain",                 &rescanblockchain,              {"start_height", "stop_height"} },
     { "wallet",             "send",                             &send,                          {"outputs","conf_target","estimate_mode","options"} },
-    { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode", "output_assets", "ignoreblindfail"} },
-    { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode","avoid_reuse", "assetlabel", "ignoreblindfail"} },
+    { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode", "output_assets", "ignoreblindfail", "verbose"} },
+    { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode","avoid_reuse", "assetlabel", "ignoreblindfail", "verbose"} },
     { "wallet",             "sethdseed",                        &sethdseed,                     {"newkeypool","seed"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
     { "wallet",             "settxfee",                         &settxfee,                      {"amount"} },
@@ -6961,7 +7023,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "createrawpegin",                   &createrawpegin,                {"bitcoin_tx", "txoutproof", "claim_script"} },
     { "wallet",             "blindrawtransaction",              &blindrawtransaction,           {"hexstring", "ignoreblindfail", "asset_commitments", "blind_issuances", "totalblinder"} },
     { "wallet",             "unblindrawtransaction",            &unblindrawtransaction,         {"hex"} },
-    { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount"} },
+    { "wallet",             "sendtomainchain",                  &sendtomainchain,               {"address", "amount", "subtractfeefromamount", "verbose"} },
     { "wallet",             "initpegoutwallet",                 &initpegoutwallet,              {"bitcoin_descriptor", "bip32_counter", "liquid_pak"} },
     { "wallet",             "getwalletpakinfo",                 &getwalletpakinfo,              {} },
     { "wallet",             "importblindingkey",                &importblindingkey,             {"address", "hexkey"}},
@@ -6974,7 +7036,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "listissuances",                    &listissuances,                 {"asset"}},
     { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
-    { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment"} },
+    { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment", "verbose"} },
     { "hidden",             "generatepegoutproof",              &generatepegoutproof,           {"sumkey", "btcpubkey", "onlinepubkey"} },
     { "hidden",             "getpegoutkeys",                    &getpegoutkeys,                 {"btcprivkey", "offlinepubkey"} },
 };

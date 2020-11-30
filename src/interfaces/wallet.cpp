@@ -244,9 +244,10 @@ public:
     {
         LOCK(m_wallet->cs_wallet);
         CTransactionRef tx;
+        FeeCalculation fee_calc_out;
         BlindDetails blind_details;
         if (!m_wallet->CreateTransaction(recipients, tx, fee, change_pos,
-                fail_reason, coin_control, sign, gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) ? &blind_details : nullptr)) {
+                fail_reason, coin_control, fee_calc_out, sign, gArgs.GetBoolArg("-blindedaddresses", g_con_elementsmode) ? &blind_details : nullptr)) {
             return {};
         }
         out_amounts = blind_details.o_amounts;

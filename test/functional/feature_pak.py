@@ -108,6 +108,7 @@ class PAKTest (BitcoinTestFramework):
 
         # Node 1 will now make a PAK peg-out, accepted in all mempools and blocks
         pegout_info = self.nodes[1].sendtomainchain("", 1)
+        print(pegout_info)
         raw_node1_pegout = self.nodes[1].gettransaction(pegout_info["txid"])["hex"]
         self.sync_all() # mempool sync
         self.nodes[1].generatetoaddress(1, self.nodes[0].getnewaddress())
