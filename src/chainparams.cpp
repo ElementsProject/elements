@@ -577,7 +577,7 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
  * Custom params for testing.
  */
 class CCustomParams : public CRegTestParams {
-    void UpdateFromArgs(ArgsManager& args)
+    void UpdateFromArgs(const ArgsManager& args)
     {
         UpdateActivationParametersFromArgs(args);
 
@@ -750,7 +750,7 @@ class CCustomParams : public CRegTestParams {
     }
 
 public:
-    CCustomParams(const std::string& chain, ArgsManager& args) : CRegTestParams(args)
+    CCustomParams(const std::string& chain, const ArgsManager& args) : CRegTestParams(args)
     {
         strNetworkID = chain;
         UpdateFromArgs(args);
@@ -976,7 +976,7 @@ const CChainParams &Params() {
     return *globalChainParams;
 }
 
-std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
+std::unique_ptr<const CChainParams> CreateChainParams(const ArgsManager& args, const std::string& chain)
 {
     // Reserved names for non-custom chains
     if (chain == CBaseChainParams::MAIN) {
@@ -984,17 +984,17 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
     } else if (chain == CBaseChainParams::TESTNET) {
         return std::unique_ptr<CChainParams>(new CTestNetParams());
     } else if (chain == CBaseChainParams::SIGNET) {
-        return std::unique_ptr<CChainParams>(new SigNetParams(gArgs));
+        return std::unique_ptr<CChainParams>(new SigNetParams(args));
     } else if (chain == CBaseChainParams::REGTEST) {
-        return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
+        return std::unique_ptr<CChainParams>(new CRegTestParams(args));
     } else if (chain == CBaseChainParams::LIQUID1) {
         return std::unique_ptr<CChainParams>(new CLiquidV1Params());
     }
-    return std::unique_ptr<CChainParams>(new CCustomParams(chain, gArgs));
+    return std::unique_ptr<CChainParams>(new CCustomParams(chain, args));
 }
 
 void SelectParams(const std::string& network)
 {
     SelectBaseParams(network);
-    globalChainParams = CreateChainParams(network);
+    globalChainParams = CreateChainParams(gArgs, network);
 }
