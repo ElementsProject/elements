@@ -109,6 +109,7 @@ BASE_SCRIPTS = [
     'wallet_hd.py',
     'wallet_hd.py --descriptors',
     'wallet_backup.py',
+    'wallet_backup.py --descriptors',
     # vv Tests less than 5m vv
     # ELEMENTS: no longpolling
     #'mining_getblocktemplate_longpoll.py',
@@ -162,6 +163,7 @@ BASE_SCRIPTS = [
     'mempool_reorg.py',
     'mempool_persist.py',
     'wallet_multiwallet.py',
+    'wallet_multiwallet.py --descriptors',
     'wallet_multiwallet.py --usecli',
     'wallet_createwallet.py',
     'wallet_createwallet.py --usecli',
