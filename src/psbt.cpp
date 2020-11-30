@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <blind.h>
 #include <pegins.h>
 #include <psbt.h>
 #include <util/strencodings.h>
@@ -443,3 +444,43 @@ bool DecodeRawPSBT(PartiallySignedTransaction& psbt, const std::string& tx_data,
     }
     return true;
 }
+
+bool CheckPSBTBlinding(const PartiallySignedTransaction& psbtx, std::string& error) {
+    // Plausibly, we may want a way to let the user continue anyway. However, we
+    //   want to fail by default, to make it as hard as possible to do something
+    //   really dangerous. And since this way of handling blinded PSBTs is going
+    //   away "real soon now" in favor of a better one, no sense in trying too
+    //   hard about it.
+
+    for (size_t i = 0; i < psbtx.outputs.size(); ++i) {
+        const PSBTOutput& output = psbtx.outputs[i];
+        const CTxOut& txo = psbtx.tx->vout[i];
+
+        if (txo.nValue.IsCommitment() || txo.nAsset.IsCommitment()) {
+            error = "PSBT's 'tx' field may not have pre-blinded outputs.";
+            return false;
+        }
+
+        if (!output.value_commitment.IsCommitment() &&
+            !output.asset_commitment.IsCommitment() &&
+            output.value_blinding_factor.IsNull() &&
+            output.asset_blinding_factor.IsNull()) {
+            // Nothing blinded, nothing to check.
+            continue;
+        } else if (!output.value_commitment.IsCommitment() ||
+            !output.asset_commitment.IsCommitment() ||
+            output.value_blinding_factor.IsNull() ||
+            output.asset_blinding_factor.IsNull()) {
+            // Something blinded, but not everything? That's not expected.
+            error = "PSBT has a partially-blinded output. Blinded outputs must be fully blinded.";
+            return false;
+        }
+
+        if (!VerifyConfidentialPair(output.value_commitment, output.asset_commitment, txo.nValue.GetAmount(), txo.nAsset.GetAsset(), output.value_blinding_factor, output.asset_blinding_factor)) {
+            error = "PSBT's 'tx' field output values do not match blinded output values (or are invalid in some way)! Either there is a bug, or the blinder is attacking you.";
+            return false;
+        }
+    }
+    return true;
+}
+

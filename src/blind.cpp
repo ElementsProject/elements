@@ -36,6 +36,74 @@ public:
 
 static Blind_ECC_Init ecc_init_on_load;
 
+bool VerifyConfidentialPair(const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CAmount& claimed_value, const CAsset& claimed_asset, const uint256& value_blinding_factor, const uint256& asset_blinding_factor) {
+    if (conf_value.IsNull() || conf_asset.IsNull() || claimed_asset.IsNull()) {
+        return false;
+    }
+
+    if (conf_value.IsExplicit()) {
+        // Match behavior of UnblindConfidentialPair
+        return false;
+    }
+    if (conf_asset.IsExplicit() && conf_asset.GetAsset() != claimed_asset) {
+        return false;
+    }
+
+    // Just to be safe
+    if (!MoneyRange(claimed_value)) {
+        return false;
+    }
+
+    // Valid asset commitment?
+    secp256k1_generator observed_gen;
+    if (conf_asset.IsCommitment()) {
+        if (secp256k1_generator_parse(secp256k1_blind_context, &observed_gen, &conf_asset.vchCommitment[0]) != 1)
+            return false;
+    } else if (conf_asset.IsExplicit()) {
+        if (secp256k1_generator_generate(secp256k1_blind_context, &observed_gen, conf_asset.GetAsset().begin()) != 1)
+            return false;
+    }
+
+    // Valid value commitment?
+    secp256k1_pedersen_commitment value_commit;
+    if (secp256k1_pedersen_commitment_parse(secp256k1_blind_context, &value_commit, conf_value.vchCommitment.data()) != 1) {
+        return false;
+    }
+
+    const unsigned char *asset_type = claimed_asset.id.begin();
+    const unsigned char *asset_blinder = asset_blinding_factor.begin();
+    secp256k1_generator recalculated_gen;
+    if (secp256k1_generator_generate_blinded(secp256k1_blind_context, &recalculated_gen, asset_type, asset_blinder) != 1) {
+        return false;
+    }
+
+    // Serialize both generators then compare
+    unsigned char observed_generator[33];
+    unsigned char derived_generator[33];
+    secp256k1_generator_serialize(secp256k1_blind_context, observed_generator, &observed_gen);
+    secp256k1_generator_serialize(secp256k1_blind_context, derived_generator, &recalculated_gen);
+    if (memcmp(observed_generator, derived_generator, sizeof(observed_generator))) {
+        return false;
+    }
+
+    const unsigned char *value_blinder = value_blinding_factor.begin();
+    secp256k1_pedersen_commitment recalculated_commit;
+    if(secp256k1_pedersen_commit(secp256k1_blind_context, &recalculated_commit, value_blinder, claimed_value, &observed_gen) != 1) {
+        return false;
+    }
+
+    // Serialize both value commitments then compare
+    unsigned char claimed_commitment[33];
+    unsigned char derived_commitment[33];
+    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, claimed_commitment, &value_commit);
+    secp256k1_pedersen_commitment_serialize(secp256k1_blind_context, derived_commitment, &recalculated_commit);
+    if (memcmp(claimed_commitment, derived_commitment, sizeof(claimed_commitment))) {
+        return false;
+    }
+
+    return true;
+}
+
 bool UnblindConfidentialPair(const CKey& blinding_key, const CConfidentialValue& conf_value, const CConfidentialAsset& conf_asset, const CConfidentialNonce& nonce_commitment, const CScript& committedScript, const std::vector<unsigned char>& vchRangeproof, CAmount& amount_out, uint256& blinding_factor_out, CAsset& asset_out, uint256& asset_blinding_factor_out)
 {
     if (!blinding_key.IsValid() || vchRangeproof.size() == 0) {

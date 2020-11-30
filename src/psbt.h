@@ -1001,4 +1001,7 @@ NODISCARD bool DecodeRawPSBT(PartiallySignedTransaction& decoded_psbt, const std
 
 std::string EncodePSBT(const PartiallySignedTransaction& psbt);
 
+/** Check that the blinder did not tamper with the values in a blinded PSBT. */
+bool CheckPSBTBlinding(const PartiallySignedTransaction& psbtx, std::string& error);
+
 #endif // BITCOIN_PSBT_H

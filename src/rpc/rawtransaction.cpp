@@ -1298,6 +1298,9 @@ static RPCHelpMan decodepsbt()
     if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
+    if (!CheckPSBTBlinding(psbtx, error)) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, error);
+    }
 
     UniValue result(UniValue::VOBJ);
 
