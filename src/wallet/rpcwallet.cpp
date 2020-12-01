@@ -2584,6 +2584,7 @@ static RPCHelpMan getwalletinfo()
                         {
                         {RPCResult::Type::STR, "walletname", "the wallet name"},
                         {RPCResult::Type::NUM, "walletversion", "the wallet version"},
+                        {RPCResult::Type::STR, "format", "the database format (bdb or sqlite)"},
                         {RPCResult::Type::STR_AMOUNT, "balance", "DEPRECATED. Identical to getbalances().mine.trusted"},
                         {RPCResult::Type::STR_AMOUNT, "unconfirmed_balance", "DEPRECATED. Identical to getbalances().mine.untrusted_pending"},
                         {RPCResult::Type::STR_AMOUNT, "immature_balance", "DEPRECATED. Identical to getbalances().mine.immature"},
@@ -2627,6 +2628,7 @@ static RPCHelpMan getwalletinfo()
     int64_t kp_oldest = pwallet->GetOldestKeyPoolTime();
     obj.pushKV("walletname", pwallet->GetName());
     obj.pushKV("walletversion", pwallet->GetVersion());
+    obj.pushKV("format", pwallet->GetDatabase().Format());
     obj.pushKV("balance", AmountMapToUniv(bal.m_mine_trusted, ""));
     obj.pushKV("unconfirmed_balance", AmountMapToUniv(bal.m_mine_untrusted_pending, ""));
     obj.pushKV("immature_balance", AmountMapToUniv(bal.m_mine_immature,  ""));
