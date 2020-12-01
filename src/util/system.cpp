@@ -34,6 +34,7 @@
 #endif // __linux__
 
 #include <algorithm>
+#include <cassert>
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/resource.h>
@@ -669,10 +670,9 @@ fs::path GetDefaultDataDir()
 #else
 fs::path GetDefaultDataDir()
 {
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Bitcoin
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Bitcoin
-    // Mac: ~/Library/Application Support/Bitcoin
-    // Unix: ~/.bitcoin
+    // Windows: C:\Users\Username\AppData\Roaming\Bitcoin
+    // macOS: ~/Library/Application Support/Bitcoin
+    // Unix-like: ~/.bitcoin
 #ifdef WIN32
     // Windows
     return GetSpecialFolderPath(CSIDL_APPDATA) / "Elements";
@@ -684,15 +684,28 @@ fs::path GetDefaultDataDir()
     else
         pathRet = fs::path(pszHome);
 #ifdef MAC_OSX
-    // Mac
+    // macOS
     return pathRet / "Library/Application Support/Elements";
 #else
-    // Unix
+    // Unix-like
     return pathRet / ".elements";
 #endif
 #endif
 }
 #endif
+
+namespace {
+fs::path StripRedundantLastElementsOfPath(const fs::path& path)
+{
+    auto result = path;
+    while (result.filename().string() == ".") {
+        result = result.parent_path();
+    }
+
+    assert(fs::equivalent(result, path));
+    return result;
+}
+} // namespace
 
 static fs::path g_blocks_path_cache_net_specific;
 static fs::path pathCached;
@@ -721,6 +734,7 @@ const fs::path &GetBlocksDir()
     path /= BaseParams().DataDir();
     path /= "blocks";
     fs::create_directories(path);
+    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
@@ -751,6 +765,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
         fs::create_directories(path / "wallets");
     }
 
+    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
