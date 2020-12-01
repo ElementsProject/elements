@@ -18,7 +18,6 @@ from test_framework.messages import (
     CTxOutWitness,
 )
 from test_framework.util import (
-    connect_nodes,
     assert_equal,
     hex_str_to_bytes,
     BITCOIN_ASSET_OUT,
@@ -43,9 +42,9 @@ class CTTest (BitcoinTestFramework):
 
     def setup_network(self, split=False):
         self.setup_nodes()
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[1], 2)
-        connect_nodes(self.nodes[0], 2)
+        self.connect_nodes(0, 1)
+        self.connect_nodes(1, 2)
+        self.connect_nodes(0, 2)
         self.sync_all()
 
     def skip_test_if_missing_module(self):

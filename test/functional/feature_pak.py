@@ -3,7 +3,7 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes, Decimal, assert_greater_than
+from test_framework.util import assert_equal, assert_raises_rpc_error, Decimal, assert_greater_than
 
 '''
     This test focuses on enforcement of PAK, not on transitioning lists
@@ -73,8 +73,8 @@ class PAKTest (BitcoinTestFramework):
         # Restart and connect peers to check wallet persistence
         self.stop_nodes()
         self.start_nodes()
-        connect_nodes(self.nodes[0],1)
-        connect_nodes(self.nodes[1],2)
+        self.connect_nodes(0,1)
+        self.connect_nodes(1,2)
 
         # Check PAK settings persistence in wallet across restart
         restarted_info = self.nodes[1].getwalletpakinfo()

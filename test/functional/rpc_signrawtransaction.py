@@ -6,7 +6,7 @@
 
 from test_framework.address import check_script, script_to_p2sh
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, find_vout_for_address, connect_nodes, hex_str_to_bytes
+from test_framework.util import assert_equal, assert_raises_rpc_error, find_vout_for_address, hex_str_to_bytes
 from test_framework.messages import sha256
 from test_framework.script import CScript, OP_0, OP_CHECKSIG
 
@@ -26,7 +26,7 @@ class SignRawTransactionsTest(BitcoinTestFramework):
     def setup_network(self):
         # Start with split network:
         self.setup_nodes()
-        connect_nodes(self.nodes[0], 1)
+        self.connect_nodes(0, 1)
         self.sync_all(self.nodes[:2])
         self.sync_all(self.nodes[2:])
 

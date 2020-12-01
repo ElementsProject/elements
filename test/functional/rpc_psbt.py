@@ -11,8 +11,6 @@ from test_framework.util import (
     assert_equal,
     assert_greater_than,
     assert_raises_rpc_error,
-    connect_nodes,
-    disconnect_nodes,
     find_output,
 )
 from decimal import Decimal
@@ -49,7 +47,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # Disconnect offline node from others
         # Topology of test network is linear, so this one call is enough
-        disconnect_nodes(offline_node, 1)
+        self.disconnect_nodes(0, 1)
 
         # Create watchonly on online_node
         online_node.createwallet(wallet_name='wonline', disable_private_keys=True)
@@ -83,8 +81,8 @@ class PSBTTest(BitcoinTestFramework):
         wonline.unloadwallet()
 
         # Reconnect
-        connect_nodes(self.nodes[0], 1)
-        connect_nodes(self.nodes[0], 2)
+        self.connect_nodes(0, 1)
+        self.connect_nodes(0, 2)
 
     def get_address(self, confidential, node_num, addr_mode=None):
         if (addr_mode):
