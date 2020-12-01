@@ -71,7 +71,6 @@ class FedPegTest(BitcoinTestFramework):
             extra_args = [
                 "-port="+str(p2p_port(n)),
                 "-rpcport="+str(rpc_port(n)),
-                "-wallet="
             ]
             if self.options.parent_bitcoin:
                 # bitcoind can't read elements.conf config files
@@ -129,7 +128,6 @@ class FedPegTest(BitcoinTestFramework):
                 # Turn of consistency checks that can cause assert when parent node stops
                 # and a peg-in transaction fails this belt-and-suspenders check.
                 '-checkmempool=0',
-                '-wallet='
             ]
             if not self.options.parent_bitcoin:
                 extra_args.extend([
@@ -189,6 +187,8 @@ class FedPegTest(BitcoinTestFramework):
         assert_equal(sidechain.gettransaction(pegout_txid)["confirmations"], 1)
 
     def run_test(self):
+        self.import_deterministic_coinbase_privkeys() # Create wallets for all nodes
+
         parent = self.nodes[0]
         #parent2 = self.nodes[1]
         sidechain = self.nodes[2]
