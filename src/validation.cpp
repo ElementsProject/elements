@@ -1617,24 +1617,29 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState &state, const C
         return true;
     }
 
-    if (!txdata.m_ready) {
-        txdata.Init(tx);
+    if (!txdata.m_spent_outputs_ready) {
+        std::vector<CTxOut> spent_outputs;
+        spent_outputs.reserve(tx.vin.size());
+
+        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            const COutPoint& prevout = tx.vin[i].prevout;
+            // ELEMENTS:
+            // If input is peg-in, create "coin" to evaluate against
+            Coin pegin_coin;
+            if (tx.vin[i].m_is_pegin) {
+                // Height of "output" in script evaluation will be 0
+                pegin_coin = Coin(GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness), 0, false);
+            }
+            const Coin& coin = tx.vin[i].m_is_pegin ? pegin_coin : inputs.AccessCoin(prevout);
+            // end ELEMENTS
+            assert(!coin.IsSpent());
+            spent_outputs.emplace_back(coin.out);
+        }
+        txdata.Init(tx, std::move(spent_outputs));
     }
+    assert(txdata.m_spent_outputs.size() == tx.vin.size());
 
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
-        const COutPoint &prevout = tx.vin[i].prevout;
-
-        // ELEMENTS:
-        // If input is peg-in, create "coin" to evaluate against
-        Coin pegin_coin;
-        if (tx.vin[i].m_is_pegin) {
-            // Height of "output" in script evaluation will be 0
-            pegin_coin = Coin(GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness), 0, false);
-        }
-
-        const Coin& coin = tx.vin[i].m_is_pegin ? pegin_coin : inputs.AccessCoin(prevout);
-        assert(!coin.IsSpent());
-
         // We very carefully only pass in things to CScriptCheck which
         // are clearly committed to by tx' witness hash. This provides
         // a sanity check that our caching is not introducing consensus
@@ -1642,7 +1647,7 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState &state, const C
         // spent being checked as a part of CScriptCheck.
 
         // Verify signature
-        CCheck* check = new CScriptCheck(coin.out, tx, i, flags, cacheSigStore, &txdata);
+        CCheck* check = new CScriptCheck(txdata.m_spent_outputs[i], tx, i, flags, cacheSigStore, &txdata);
         ScriptError serror = QueueCheck(pvChecks, check);
         if (serror != SCRIPT_ERR_OK) {
             if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
@@ -1654,7 +1659,7 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState &state, const C
                 // splitting the network between upgraded and
                 // non-upgraded nodes by banning CONSENSUS-failing
                 // data providers.
-                CScriptCheck check2(coin.out, tx, i,
+                CScriptCheck check2(txdata.m_spent_outputs[i], tx, i,
                         flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
                 if (check2()) {
                     return state.Invalid(TxValidationResult::TX_NOT_STANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(serror)));
@@ -2030,6 +2035,11 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     // Start enforcing BIP112 (CHECKSEQUENCEVERIFY)
     if (pindex->nHeight >= consensusparams.CSVHeight) {
         flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
+    }
+
+    // Start enforcing Taproot using versionbits logic.
+    if (VersionBitsState(pindex->pprev, consensusparams, Consensus::DEPLOYMENT_TAPROOT, versionbitscache) == ThresholdState::ACTIVE) {
+        flags |= SCRIPT_VERIFY_TAPROOT;
     }
 
     // Start enforcing BIP147 NULLDUMMY (activated simultaneously with segwit)

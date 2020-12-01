@@ -19,7 +19,7 @@ public:
     bool sighash_byte;
 
     SimpleSignatureChecker(const uint256& hashIn, bool sighash_byte_in) : hash(hashIn), sighash_byte(sighash_byte_in) {};
-    bool CheckSig(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override
+    bool CheckECDSASignature(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override
     {
         std::vector<unsigned char> vchSigCopy(vchSig);
         CPubKey pubkey(vchPubKey);
