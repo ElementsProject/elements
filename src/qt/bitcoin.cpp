@@ -482,6 +482,9 @@ int GuiMain(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
+    // Install global event filter that makes sure that long tooltips can be word-wrapped
+    app.installEventFilter(new GUIUtil::ToolTipToRichTextFilter(TOOLTIP_WRAP_THRESHOLD, &app));
+
     /// 5. Now that settings and translations are available, ask user for data directory
     // User language is set up: pick a data directory
     bool did_show_intro = false;
@@ -534,8 +537,6 @@ int GuiMain(int argc, char* argv[])
     /// 8. Payment server removed in Elements since we do not have "elements:" URIs
 
     /// 9. Main GUI initialization
-    // Install global event filter that makes sure that long tooltips can be word-wrapped
-    app.installEventFilter(new GUIUtil::ToolTipToRichTextFilter(TOOLTIP_WRAP_THRESHOLD, &app));
     // Install global event filter that makes sure that out-of-focus labels do not contain text cursor.
     app.installEventFilter(new GUIUtil::LabelOutOfFocusEventFilter(&app));
 #if defined(Q_OS_WIN)
