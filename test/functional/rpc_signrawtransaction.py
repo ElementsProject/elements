@@ -315,7 +315,9 @@ class SignRawTransactionsTest(BitcoinTestFramework):
         self.OP_1NEGATE_test()
         self.test_with_lock_outputs()
 
-        self.witness_blind_pubkey_test()
+        # Blinded descriptors not supported yet
+        if not self.options.descriptors:
+            self.witness_blind_pubkey_test()
 
 
 if __name__ == '__main__':
