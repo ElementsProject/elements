@@ -696,9 +696,11 @@ def SegwitVersion1SignatureHash(script, txTo, inIdx, hashtype, amount):
 
     if not (hashtype & SIGHASH_ANYONECANPAY):
         serialize_issuance = bytes()
-        # TODO actually serialize issuances
-        for _ in txTo.vin:
-            serialize_issuance += b'\x00'
+        for i in txTo.vin:
+            if i.assetIssuance.isNull():
+                serialize_issuance += b'\x00'
+            else:
+                serialize_issuance += i.assetIssuance.serialize()
         hashIssuance = uint256_from_str(hash256(serialize_issuance))
 
     if ((hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
@@ -719,6 +721,8 @@ def SegwitVersion1SignatureHash(script, txTo, inIdx, hashtype, amount):
     ss += ser_string(script)
     ss += amount.serialize()
     ss += struct.pack("<I", txTo.vin[inIdx].nSequence)
+    if not txTo.vin[inIdx].assetIssuance.isNull():
+        ss += txTo.vin[inIdx].assetIssuance.serialize()
     ss += ser_uint256(hashOutputs)
     ss += struct.pack("<i", txTo.nLockTime)
     ss += struct.pack("<I", hashtype)
