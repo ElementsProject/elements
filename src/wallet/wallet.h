@@ -1086,6 +1086,7 @@ public:
                   int sighash_type = 1 /* SIGHASH_ALL */,
                   bool sign = true,
                   bool bip32derivs = true,
+                  bool imbalance_ok = false,
                   size_t* n_signed = nullptr) const;
 
     // ELEMENTS
