@@ -53,10 +53,18 @@ class NULLDUMMYTest(BitcoinTestFramework):
 
     def run_test(self):
         util.node_fastmerkle = self.nodes[0]
-        self.address = self.nodes[0].getnewaddress()
-        self.ms_address = self.nodes[0].addmultisigaddress(1, [self.address])['address']
-        self.wit_address = self.nodes[0].getnewaddress(address_type='p2sh-segwit')
-        self.wit_ms_address = self.nodes[0].addmultisigaddress(1, [self.address], '', 'p2sh-segwit')['address']
+        self.nodes[0].createwallet(wallet_name='wmulti', disable_private_keys=True)
+        wmulti = self.nodes[0].get_wallet_rpc('wmulti')
+        w0 = self.nodes[0].get_wallet_rpc(self.default_wallet_name)
+        self.address = w0.getnewaddress()
+        self.pubkey = w0.getaddressinfo(self.address)['pubkey']
+        self.ms_address = wmulti.addmultisigaddress(1, [self.pubkey])['address']
+        self.wit_address = w0.getnewaddress(address_type='p2sh-segwit')
+        self.wit_ms_address = wmulti.addmultisigaddress(1, [self.pubkey], '', 'p2sh-segwit')['address']
+        if not self.options.descriptors:
+            # Legacy wallets need to import these so that they are watched by the wallet. This is unnecssary (and does not need to be tested) for descriptor wallets
+            wmulti.importaddress(self.ms_address)
+            wmulti.importaddress(self.wit_ms_address)
 
         self.coinbase_blocks = self.nodes[0].generate(2)  # Block 2
         coinbase_txid = []
@@ -68,12 +76,12 @@ class NULLDUMMYTest(BitcoinTestFramework):
         self.lastblocktime = int(time.time()) + 429
 
         self.log.info("Test 1: NULLDUMMY compliant base transactions should be accepted to mempool and mined before activation [430]")
-        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(coinbase_txid[0])["hex"])["vout"][0]["value"]
+        coinbase_value = self.nodes[0].gettxout(coinbase_txid[0], 0)["value"]
         test1txs = [create_transaction(self.nodes[0], coinbase_txid[0], self.ms_address, amount=49, fee=coinbase_value-49)]
         txid1 = self.nodes[0].sendrawtransaction(test1txs[0].serialize_with_witness().hex(), 0)
         test1txs.append(create_transaction(self.nodes[0], txid1, self.ms_address, amount=48, fee=49-48))
         txid2 = self.nodes[0].sendrawtransaction(test1txs[1].serialize_with_witness().hex(), 0)
-        coinbase_value = self.nodes[0].decoderawtransaction(self.nodes[0].gettransaction(coinbase_txid[1])["hex"])["vout"][0]["value"]
+        coinbase_value = self.nodes[0].gettxout(coinbase_txid[1], 0)["value"]
         test1txs.append(create_transaction(self.nodes[0], coinbase_txid[1], self.wit_ms_address, amount=49, fee=coinbase_value-49))
         txid3 = self.nodes[0].sendrawtransaction(test1txs[2].serialize_with_witness().hex(), 0)
 

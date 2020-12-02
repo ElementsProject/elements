@@ -183,9 +183,8 @@ def create_tx_with_script(prevtx, n, script_sig=b"", *, amount, fee=0, script_pu
 
 def create_transaction(node, txid, to_address, *, amount, fee):
     """ Return signed transaction spending the first output of the
-        input txid. Note that the node must be able to sign for the
-        output that is being spent, and the node must not be running
-        multiple wallets.
+        input txid. Note that the node must have a wallet that can
+        sign for the output that is being spent.
     """
     raw_tx = create_raw_transaction(node, txid, to_address, amount=amount, fee=fee)
     tx = CTransaction()
@@ -194,14 +193,23 @@ def create_transaction(node, txid, to_address, *, amount, fee):
 
 def create_raw_transaction(node, txid, to_address, *, amount, fee):
     """ Return raw signed transaction spending the first output of the
-        input txid. Note that the node must be able to sign for the
-        output that is being spent, and the node must not be running
-        multiple wallets.
+        input txid. Note that the node must have a wallet that can sign
+        for the output that is being spent.
     """
-    rawtx = node.createrawtransaction(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee})
-    signresult = node.signrawtransactionwithwallet(rawtx)
-    assert_equal(signresult["complete"], True)
-    return signresult['hex']
+    psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs={to_address: amount, "fee": fee})
+    for _ in range(2):
+        for w in node.listwallets():
+            wrpc = node.get_wallet_rpc(w)
+            filled_psbt = wrpc.walletfillpsbtdata(psbt)
+            blinded_psbt = wrpc.blindpsbt(filled_psbt['psbt'])
+            try: # ELEMENTS: if we are missing UTXOs we will refuse to sign as we cannot check tx balance. Post-#900 we should review this
+                signed_psbt = wrpc.walletsignpsbt(blinded_psbt)
+                psbt = signed_psbt['psbt']
+            except:
+                pass
+    final_psbt = node.finalizepsbt(psbt)
+    assert_equal(final_psbt["complete"], True)
+    return final_psbt['hex']
 
 def get_legacy_sigopcount_block(block, accurate=True):
     count = 0
