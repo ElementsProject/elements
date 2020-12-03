@@ -262,12 +262,7 @@ static RPCHelpMan generatetodescriptor()
 static RPCHelpMan generate()
 {
     return RPCHelpMan{"generate", "has been replaced by the -generate cli option. Refer to -help for more information.", {}, {}, RPCExamples{""}, [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
-
-    if (request.fHelp) {
-        throw std::runtime_error(self.ToString());
-    } else {
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, self.ToString());
-    }
     }};
 }
 
@@ -1234,11 +1229,9 @@ static RPCHelpMan estimaterawfee()
 //
 // ELEMENTS:
 
-UniValue getnewblockhex(const JSONRPCRequest& request)
+static RPCHelpMan getnewblockhex()
 {
-    if (request.fHelp || request.params.size() > 3)
-        throw std::runtime_error(
-            RPCHelpMan{"getnewblockhex",
+    return RPCHelpMan{"getnewblockhex",
                 "\nGets hex representation of a proposed, unmined new block\n",
                 {
                     {"min_tx_age", RPCArg::Type::NUM, /* default */ "0", "How many seconds a transaction must have been in the mempool to be inluded in the block proposal. This may help with faster block convergence among functionaries using compact blocks."},
@@ -1261,9 +1254,9 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     HelpExampleCli("getnewblockhex", ""),
-                }
-            }.ToString());
-
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     int required_wait = !request.params[0].isNull() ? request.params[0].get_int() : 0;
     if (required_wait < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "min_tx_age must be non-negative.");
@@ -1342,13 +1335,13 @@ UniValue getnewblockhex(const JSONRPCRequest& request)
     CDataStream ssBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssBlock << pblocktemplate->block;
     return HexStr(ssBlock);
+},
+    };
 }
 
-UniValue combineblocksigs(const JSONRPCRequest& request)
+static RPCHelpMan combineblocksigs()
 {
-    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3)
-        throw std::runtime_error(
-            RPCHelpMan{"combineblocksigs",
+    return RPCHelpMan{"combineblocksigs",
                 "\nMerges signatures on a block proposal\n",
                 {
                     {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
@@ -1374,8 +1367,8 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
                 RPCExamples{
                     HelpExampleCli("combineblocksigs", "<hex> '[{\"pubkey\":\"hex\",\"sig\":\"hex\"}, ...]'"),
                 },
-            }.ToString());
-
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     if (!g_signed_blocks) {
         throw JSONRPCError(RPC_MISC_ERROR, "Signed blocks are not active for this network.");
     }
@@ -1430,13 +1423,13 @@ UniValue combineblocksigs(const JSONRPCRequest& request)
     result.pushKV("hex", HexStr(ssBlock));
     result.pushKV("complete", CheckProof(block, params));
     return result;
+},
+    };
 }
 
-UniValue getcompactsketch(const JSONRPCRequest& request)
+static RPCHelpMan getcompactsketch()
 {
-    if (request.fHelp || request.params.size() != 1)
-        throw std::runtime_error(
-            RPCHelpMan{"getcompactsketch block_hex",
+    return RPCHelpMan{"getcompactsketch",
                 "\nGets hex representation of a proposed compact block sketch.\n"
                 "It is consumed by `consumecompactsketch.`\n",
                 {
@@ -1447,9 +1440,9 @@ UniValue getcompactsketch(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     HelpExampleCli("getcompactsketch", ""),
-                }
-            }.ToString());
-
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     CBlock block;
     std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
     CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
@@ -1460,14 +1453,13 @@ UniValue getcompactsketch(const JSONRPCRequest& request)
     CDataStream ssCompactBlock(SER_NETWORK, PROTOCOL_VERSION);
     ssCompactBlock << cmpctblock;
     return HexStr(ssCompactBlock);
-
+},
+    };
 }
 
-UniValue consumecompactsketch(const JSONRPCRequest& request)
+static RPCHelpMan consumecompactsketch()
 {
-    if (request.fHelp || request.params.size() != 1)
-        throw std::runtime_error(
-            RPCHelpMan{"consumecompactsketch sketch",
+    return RPCHelpMan{"consumecompactsketch",
                 "\nTakes hex representation of a proposed compact block sketch and fills it in\n"
                 "using mempool. Returns the block if complete, and a list\n"
                 "of missing transaction indices serialized as a native structure."
@@ -1486,9 +1478,9 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     HelpExampleCli("consumecompactsketch", "<sketch>"),
-                }
-            }.ToString());
-
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     UniValue ret(UniValue::VOBJ);
 
     std::vector<unsigned char> compact_block_bytes(ParseHex(request.params[0].get_str()));
@@ -1540,13 +1532,13 @@ UniValue consumecompactsketch(const JSONRPCRequest& request)
         ret.pushKV("found_transactions", HexStr(ssFound));
     }
     return ret;
+},
+    };
 }
 
-UniValue consumegetblocktxn(const JSONRPCRequest& request)
+static RPCHelpMan consumegetblocktxn()
 {
-    if (request.fHelp || request.params.size() != 2)
-        throw std::runtime_error(
-            RPCHelpMan{"consumegetblocktxn",
+    return RPCHelpMan{"consumegetblocktxn",
                 "Consumes a transaction request for a compact block sketch.",
                 {
                     {"full_block", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialied block that corresponds to the block request `block_tx_req`."},
@@ -1557,9 +1549,9 @@ UniValue consumegetblocktxn(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     HelpExampleCli("consumegetblocktxn", "<block_tx_req>")
-                }
-            }.ToString());
-
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     CBlock block;
     std::vector<unsigned char> block_bytes(ParseHex(request.params[0].get_str()));
     CDataStream ssBlock(block_bytes, SER_NETWORK, PROTOCOL_VERSION);
@@ -1584,13 +1576,13 @@ UniValue consumegetblocktxn(const JSONRPCRequest& request)
     ssResp << resp;
 
     return HexStr(ssResp);
+},
+    };
 }
 
-UniValue finalizecompactblock(const JSONRPCRequest& request)
+static RPCHelpMan finalizecompactblock()
 {
-    if (request.fHelp || request.params.size() != 3)
-        throw std::runtime_error(
-            RPCHelpMan{"finalizecompactblock",
+    return RPCHelpMan{"finalizecompactblock",
                 "Takes the two transaction lists, fills out the compact block and attempts to finalize it.",
                 {
                     {"compact_hex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Hex serialized compact block."},
@@ -1602,9 +1594,9 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
                 },
                 RPCExamples{
                     HelpExampleCli("finalizecompactblock", "<compact_hex> <block_transactions> <found_transactions>")
-                }
-            }.ToString());
-
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     // Compact block
     std::vector<unsigned char> compact_block_bytes(ParseHex(request.params[0].get_str()));
     CDataStream ssCompactBlock(compact_block_bytes, SER_NETWORK, PROTOCOL_VERSION);
@@ -1653,13 +1645,13 @@ UniValue finalizecompactblock(const JSONRPCRequest& request)
     ssBlock << *pblock;
 
     return HexStr(ssBlock);
+},
+    };
 }
 
-UniValue testproposedblock(const JSONRPCRequest& request)
+static RPCHelpMan testproposedblock()
 {
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
-        throw std::runtime_error(
-            RPCHelpMan{"testproposedblock",
+    return RPCHelpMan{"testproposedblock",
                 "\nChecks a block proposal for validity, and that it extends chaintip\n",
                 {
                     {"blockhex", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The hex-encoded block from getnewblockhex"},
@@ -1668,9 +1660,9 @@ UniValue testproposedblock(const JSONRPCRequest& request)
                 RPCResults{},
                 RPCExamples{
                     HelpExampleCli("testproposedblock", "<hex>")
-                }
-            }.ToString());
-
+                },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     CBlock block;
     if (!DecodeHexBlk(block, request.params[0].get_str()))
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
@@ -1707,8 +1699,9 @@ UniValue testproposedblock(const JSONRPCRequest& request)
             }
         }
     }
-
     return NullUniValue;
+},
+    };
 }
 
 // END ELEMENTS
@@ -1725,7 +1718,7 @@ static const CRPCCommand commands[] =
     { "mining",             "getmininginfo",          &getmininginfo,          {} },
     { "mining",             "prioritisetransaction",  &prioritisetransaction,  {"txid","dummy","fee_delta"} },
     { "mining",             "getblocktemplate",       &getblocktemplate,       {"template_request"} },
-    { "generating",         "combineblocksigs",       &combineblocksigs,       {"blockhex","signatures"} },
+    { "generating",         "combineblocksigs",       &combineblocksigs,       {"blockhex","signatures","witnessScript"} },
     { "mining",             "submitheader",           &submitheader,           {"hexdata"} },
     { "generating",         "getnewblockhex",         &getnewblockhex,         {"min_tx_age", "proposed_parameters", "commit_data"} },
     { "generating",         "getcompactsketch",       &getcompactsketch,       {"block_hex"} },
