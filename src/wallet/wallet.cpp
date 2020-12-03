@@ -3285,23 +3285,24 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 //  rediscover unknown transactions that were written with keys of ours to recover
                 //  post-backup change.
 
-                // Reserve a new key pair from key pool
-                if (!CanGetAddresses(true)) {
-                    strFailReason = _("Can't generate a change-address key. No keys in the internal keypool and can't generate any keys.").translated;
-                    return false;
-                }
-
                 // One change script per output asset.
                 size_t index = 0;
                 for (const auto& value : mapValue) {
+                    // Reserve a new key pair from key pool. If it fails, provide a dummy
+                    // destination in case we don't need change.
                     CTxDestination dest;
                     if (index >= reservedest.size() || !reservedest[index]->GetReservedDestination(dest, true)) {
-                        strFailReason = _("Keypool ran out, please call keypoolrefill first").translated;
-                        return false;
+                        strFailReason = _("Transaction needs a change address, but we can't generate it. Please call keypoolrefill first.").translated;
+                        // ELEMENTS: We need to put a dummy destination here. Core uses an empty script
+                        //  but we can't because empty scripts indicate fees (which trigger assertation
+                        //  failures in `BlindTransaction`). We also set the index to -1, indicating
+                        //  that this destination is not actually used, and therefore should not be
+                        //  returned by the `ReturnDestination` loop below.
+                        mapScriptChange[value.first] = std::pair<int, CScript>(-1, CScript() << 0x00);
+                    } else {
+                        mapScriptChange[value.first] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
+                        ++index;
                     }
-
-                    mapScriptChange[value.first] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
-                    ++index;
                 }
 
                 // Also make sure we have change scripts for the pre-selected inputs.
@@ -3331,7 +3332,9 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                         return false;
                     }
 
-                    mapScriptChange[asset] = std::pair<int, CScript>(index, GetScriptForDestination(dest));
+                    CScript scriptChange = GetScriptForDestination(dest);
+                    assert(!dest.empty() || scriptChange.empty());
+                    mapScriptChange[asset] = std::pair<int, CScript>(index, scriptChange);
                     ++index;
                 }
             }
@@ -3828,6 +3831,13 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 coin_selection_params.use_bnb = false;
                 continue;
             }
+
+            // Give up if change keypool ran out and we failed to find a solution without change:
+            for (const auto& it : vChangePosInOut) {
+                if (mapScriptChange[it.first].second == (CScript() << 0x00)) {
+                    return false;
+                }
+            }
         }
 
         // Release any change keys that we didn't use.
@@ -4217,7 +4227,7 @@ bool CWallet::GetNewChangeDestination(const OutputType type, CTxDestination& des
 
     ReserveDestination reservedest(this, type);
     if (!reservedest.GetReservedDestination(dest, true)) {
-        error = "Error: Keypool ran out, please call keypoolrefill first";
+        error = _("Error: Keypool ran out, please call keypoolrefill first").translated;
         return false;
     }
     if (add_blinding_key) {
