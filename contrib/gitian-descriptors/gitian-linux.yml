@@ -1,5 +1,5 @@
 ---
-name: "elements-linux-0.22"
+name: "elements-core-linux-22"
 enable_cache: true
 distro: "ubuntu"
 suites:
