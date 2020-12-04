@@ -930,7 +930,9 @@ class DynaFedParamEntry:
     # null = 0
     # signblock-related fields = 1, required for m_current on non-epoch-starts
     # all fields = 2, required for epoch starts
-    def __init__(self, m_signblockscript=b"", m_signblock_witness_limit=0, m_fedpeg_program=b"", m_fedpegscript=b"", m_extension_space=[], m_elided_root=0):
+    def __init__(self, m_signblockscript=b"", m_signblock_witness_limit=0, m_fedpeg_program=b"", m_fedpegscript=b"", m_extension_space=None, m_elided_root=0):
+        if m_extension_space is None:
+            m_extension_space = []
         self.m_signblockscript = m_signblockscript
         self.m_signblock_witness_limit = m_signblock_witness_limit
         self.m_fedpeg_program = m_fedpeg_program

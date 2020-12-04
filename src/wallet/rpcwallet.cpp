@@ -4746,7 +4746,7 @@ static RPCHelpMan walletsignpsbt()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR, "psbt", "the base64-encoded partially signed transaction"},
-			{RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
+                        {RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
                     },
                 },
                 RPCExamples{
@@ -4822,7 +4822,7 @@ static RPCHelpMan walletprocesspsbt()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR, "psbt", "the base64-encoded partially signed transaction"},
-			{RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
+                        {RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
                     },
                 },
                 RPCExamples{
@@ -5235,7 +5235,7 @@ static RPCHelpMan getpeginaddress()
                     RPCResult::Type::OBJ, "", "",
                     {
                         {RPCResult::Type::STR, "mainchain_address", "mainchain deposit address to send bitcoin to"},
-			{RPCResult::Type::STR_HEX, "claim_script", "claim script committed to by the mainchain address. This may be required in `claimpegin` to retrieve pegged-in funds\n"},
+                        {RPCResult::Type::STR_HEX, "claim_script", "claim script committed to by the mainchain address. This may be required in `claimpegin` to retrieve pegged-in funds\n"},
                     },
                 },
                 RPCExamples{

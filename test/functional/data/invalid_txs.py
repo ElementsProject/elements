@@ -34,21 +34,21 @@ from test_framework import script as sc
 from test_framework.blocktools import create_tx_with_script, MAX_BLOCK_SIGOPS
 from test_framework.script import (
     CScript,
-    OP_CAT,
-    OP_SUBSTR,
-    OP_LEFT,
-    OP_RIGHT,
-    OP_INVERT,
-    OP_AND,
-    OP_OR,
-    OP_XOR,
+#    OP_CAT,
+#    OP_SUBSTR,
+#    OP_LEFT,
+#    OP_RIGHT,
+#    OP_INVERT,
+#    OP_AND,
+#    OP_OR,
+#    OP_XOR,
     OP_2MUL,
     OP_2DIV,
     OP_MUL,
     OP_DIV,
     OP_MOD,
-    OP_LSHIFT,
-    OP_RSHIFT
+#    OP_LSHIFT,
+#    OP_RSHIFT
 )
 basic_p2sh = sc.CScript([sc.OP_HASH160, sc.hash160(sc.CScript([sc.OP_0])), sc.OP_EQUAL])
 

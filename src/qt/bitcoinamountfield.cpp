@@ -8,7 +8,6 @@
 #include <qt/guiconstants.h>
 #include <qt/guiutil.h>
 #include <qt/qvaluecombobox.h>
-#include <qt/guiutil.h>
 
 #include <assetsdir.h>
 #include <chainparams.h>

@@ -69,7 +69,7 @@ std::string GetTxnOutputType(TxoutType t)
     case TxoutType::WITNESS_V0_SCRIPTHASH: return "witness_v0_scripthash";
     case TxoutType::WITNESS_V1_TAPROOT: return "witness_v1_taproot";
     case TxoutType::WITNESS_UNKNOWN: return "witness_unknown";
-    case TxoutType::TRUE: return "true";
+    case TxoutType::OP_TRUE: return "true";
     case TxoutType::FEE: return "fee";
     }
     assert(false);
@@ -126,7 +126,7 @@ TxoutType Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned c
     vSolutionsRet.clear();
 
     if (Params().anyonecanspend_aremine && scriptPubKey == CScript() << OP_TRUE) {
-        return TxoutType::TRUE;
+        return TxoutType::OP_TRUE;
     }
 
     // Fee outputs are for elements-style transactions only

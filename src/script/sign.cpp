@@ -179,7 +179,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         sigdata.missing_witness_script = uint256(vSolutions[0]);
         return false;
 
-    case TxoutType::TRUE:
+    case TxoutType::OP_TRUE:
         return Params().anyonecanspend_aremine;
 
     default:

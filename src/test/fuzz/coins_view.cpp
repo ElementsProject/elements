@@ -132,7 +132,15 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                     }
                     coins_cache_entry.coin = *opt_coin;
                 }
-                coins_map.emplace(random_out_point, std::move(coins_cache_entry));
+                // ELEMENTS
+                if (fuzzed_data_provider.ConsumeBool()) {
+                    // non-pegin
+                    coins_map.emplace(std::pair(uint256(), random_out_point), std::move(coins_cache_entry));
+                } else {
+                    // pegin
+                    const uint256 genhash(fuzzed_data_provider.ConsumeBytes<unsigned char>(sizeof(uint256)));
+                    coins_map.emplace(std::pair(genhash, random_out_point), std::move(coins_cache_entry));
+                }
             }
             bool expected_code_path = false;
             try {
@@ -235,7 +243,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
         }
         case 2: {
             TxValidationState state;
-            CAmount tx_fee_out;
+            CAmountMap tx_fee_map;
             const CTransaction transaction{random_mutable_transaction};
             if (ContainsSpentInput(transaction, coins_view_cache)) {
                 // Avoid:
@@ -243,8 +251,10 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                 break;
             }
             try {
-                (void)Consensus::CheckTxInputs(transaction, state, coins_view_cache, fuzzed_data_provider.ConsumeIntegralInRange<int>(0, std::numeric_limits<int>::max()), tx_fee_out);
-                assert(MoneyRange(tx_fee_out));
+                std::vector<std::pair<CScript, CScript>> fedpegscripts; // ELEMENTS: we ought to populate this and have a more useful fuzztest
+                std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
+                (void)Consensus::CheckTxInputs(transaction, state, coins_view_cache, fuzzed_data_provider.ConsumeIntegralInRange<int>(0, std::numeric_limits<int>::max()), tx_fee_map, setPeginsSpent, NULL, false, true, fedpegscripts);
+                assert(MoneyRange(tx_fee_map));
             } catch (const std::runtime_error&) {
             }
             break;

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import codecs
-import hashlib
-import random
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (assert_raises_rpc_error, assert_equal)
