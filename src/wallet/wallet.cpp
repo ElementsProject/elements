@@ -2591,7 +2591,7 @@ bool CWallet::SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAm
         mapValueFromPresetInputs[coin.asset] += coin.value;
         if (coin.m_input_bytes <= 0) {
             // ELEMENTS: if we're here we can't compute the coin's effective value. At
-	    //  this point in the rebase this is only used for BnB, and our functional
+            //  this point in the rebase this is only used for BnB, and our functional
             //  tests expect the user to get a "missing data" error rather than an
             //  "insufficient funds" error, which means we need some way to make
             //  SelectCoins pass. So rather than "return false;" as in upstream we
@@ -5279,7 +5279,7 @@ const CKeyingMaterial& CWallet::GetEncryptionKey() const
 {
     return vMasterKey;
 }
- 
+
 bool CWallet::HasEncryptionKeys() const
 {
     return !mapMasterKeys.empty();

@@ -114,7 +114,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     } catch (const std::runtime_error&) {
     }
     (void)args_manager.GetHelpMessage();
-    (void)args_manager.GetUnrecognizedSections();
+    //(void)args_manager.GetUnrecognizedSections(); // ELEMENTS
     (void)args_manager.GetUnsuitableSectionOnlyArgs();
     (void)args_manager.IsArgNegated(s1);
     (void)args_manager.IsArgSet(s1);

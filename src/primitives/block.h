@@ -38,7 +38,7 @@ public:
         if (!(s.GetType() & SER_GETHASH))
             s >> *(CScriptBase*)(&solution);
     }
-         
+
     void SetNull()
     {
         challenge.clear();

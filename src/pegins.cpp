@@ -456,7 +456,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
 
     std::vector<std::pair<CScript, CScript>> fedpegscripts;
 
-    const int32_t epoch_length = params.dynamic_epoch_length;
+    const int32_t epoch_length = (int32_t) params.dynamic_epoch_length;
     const int32_t epoch_age = pblockindex->nHeight % epoch_length;
     const int32_t epoch_start_height = pblockindex->nHeight - epoch_age;
 

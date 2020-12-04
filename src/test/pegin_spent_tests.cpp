@@ -116,9 +116,9 @@ BOOST_AUTO_TEST_CASE(PeginSpent_validity)
     coinsCache.SetPeginSpent(outpoint4, true);
 
     // Check the final state of coinsCache.mapCoins is sane.
-    BOOST_CHECK_EQUAL(coins.mapCoinsWritten.size(), 0);
+    BOOST_CHECK_EQUAL(coins.mapCoinsWritten.size(), 0U);
     coinsCache.Flush();
-    BOOST_CHECK_EQUAL(coins.mapCoinsWritten.size(), 4);
+    BOOST_CHECK_EQUAL(coins.mapCoinsWritten.size(), 4U);
     BOOST_CHECK_EQUAL(coins.mapCoinsWritten[outpoint].flags, CCoinsCacheEntry::DIRTY | CCoinsCacheEntry::FRESH | CCoinsCacheEntry::PEGIN);
     BOOST_CHECK_EQUAL(coins.mapCoinsWritten[outpoint].peginSpent, true);
     BOOST_CHECK_EQUAL(coins.mapCoinsWritten[outpoint2].flags, CCoinsCacheEntry::FRESH | CCoinsCacheEntry::PEGIN);
@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE(PeginSpent_validity)
     CCoinsViewCache coinsCache2(&coins2);
     BOOST_CHECK(coinsCache2.BatchWrite(coins.mapCoinsWritten, uint256()));
     coinsCache2.Flush();
-    BOOST_CHECK_EQUAL(coins2.mapCoinsWritten.size(), 3);
+    BOOST_CHECK_EQUAL(coins2.mapCoinsWritten.size(), 3U);
     BOOST_CHECK_EQUAL(coins2.mapCoinsWritten[outpoint].flags, CCoinsCacheEntry::DIRTY | CCoinsCacheEntry::FRESH | CCoinsCacheEntry::PEGIN);
     BOOST_CHECK_EQUAL(coins2.mapCoinsWritten[outpoint].peginSpent, true);
     BOOST_CHECK_EQUAL(coins2.mapCoinsWritten[outpoint3].flags, CCoinsCacheEntry::DIRTY | CCoinsCacheEntry::FRESH | CCoinsCacheEntry::PEGIN);

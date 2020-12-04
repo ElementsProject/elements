@@ -75,7 +75,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     (void)tx.GetHash();
     (void)tx.GetTotalSize();
     try {
-        (void)tx.GetValueOut();
+        (void)tx.GetValueOutMap();
     } catch (const std::runtime_error&) {
     }
     (void)tx.GetWitnessHash();
@@ -86,6 +86,8 @@ void test_one_input(const std::vector<uint8_t>& buffer)
 
     (void)EncodeHexTx(tx);
     (void)GetLegacySigOpCount(tx);
+    (void)GetTransactionInputWeight(tx, 0); // ELEMENTS: moved from tx_in.cpp
+    (void)GetVirtualTransactionInputSize(tx); // ELEMENTS: moved from tx_in.cpp
     (void)GetTransactionWeight(tx);
     (void)GetVirtualTransactionSize(tx);
     (void)IsFinalTx(tx, /* nBlockHeight= */ 1024, /* nBlockTime= */ 1024);
@@ -103,7 +105,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     // ValueFromAmount(i) not defined when i == std::numeric_limits<int64_t>::min()
     bool skip_tx_to_univ = false;
     for (const CTxOut& txout : tx.vout) {
-        if (txout.nValue == std::numeric_limits<int64_t>::min()) {
+        if (txout.nValue.GetAmount() == std::numeric_limits<int64_t>::min()) {
             skip_tx_to_univ = true;
         }
     }

@@ -395,7 +395,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert feeDelta <= self.fee_tolerance 
+        assert feeDelta <= self.fee_tolerance
 
     def test_fee_p2pkh_multi_out(self):
         """Compare fee of a standard pubkeyhash transaction with multiple outputs."""
@@ -418,7 +418,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert feeDelta <= self.fee_tolerance 
+        assert feeDelta <= self.fee_tolerance
 
     def test_fee_p2sh(self):
         """Compare fee of a 2-of-2 multisig p2sh transaction."""
@@ -442,7 +442,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert feeDelta <= self.fee_tolerance 
+        assert feeDelta <= self.fee_tolerance
 
     def test_fee_4of5(self):
         """Compare fee of a standard pubkeyhash transaction."""
@@ -483,7 +483,7 @@ class RawTransactionsTest(BitcoinTestFramework):
 
         # Compare fee.
         feeDelta = Decimal(fundedTx['fee']) - Decimal(signedFee)
-        assert feeDelta <= self.fee_tolerance 
+        assert feeDelta <= self.fee_tolerance
 
     def test_spend_2of2(self):
         """Spend a 2-of-2 multisig transaction over fundraw."""
@@ -611,7 +611,6 @@ class RawTransactionsTest(BitcoinTestFramework):
         outputs = {self.nodes[0].getnewaddress():0.15,self.nodes[0].getnewaddress():0.04}
         rawtx = self.nodes[1].createrawtransaction(inputs, outputs)
         fundedTx = self.nodes[1].fundrawtransaction(rawtx)
-        blindedTx = self.nodes[1].blindrawtransaction(fundedTx['hex'])
 
         # Create same transaction over sendtoaddress.
         txId = self.nodes[1].sendmany("", outputs)

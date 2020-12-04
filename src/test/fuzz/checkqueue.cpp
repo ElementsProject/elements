@@ -39,13 +39,13 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     const unsigned int batch_size = fuzzed_data_provider.ConsumeIntegralInRange<unsigned int>(0, 1024);
     CCheckQueue<DumbCheck> check_queue_1{batch_size};
     CCheckQueue<DumbCheck> check_queue_2{batch_size};
-    std::vector<DumbCheck> checks_1;
-    std::vector<DumbCheck> checks_2;
+    std::vector<DumbCheck*> checks_1;
+    std::vector<DumbCheck*> checks_2;
     const int size = fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 1024);
     for (int i = 0; i < size; ++i) {
         const bool result = fuzzed_data_provider.ConsumeBool();
-        checks_1.emplace_back(result);
-        checks_2.emplace_back(result);
+        checks_1.emplace_back(new DumbCheck(result));
+        checks_2.emplace_back(new DumbCheck(result));
     }
     if (fuzzed_data_provider.ConsumeBool()) {
         check_queue_1.Add(checks_1);

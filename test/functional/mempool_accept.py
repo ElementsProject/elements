@@ -6,7 +6,6 @@
 
 from decimal import Decimal
 from io import BytesIO
-from decimal import Decimal
 import math
 
 from test_framework.test_framework import BitcoinTestFramework

@@ -67,7 +67,7 @@ bool QRImageWidget::setQR(const QString& data, const QString& text)
 
     // Elements: Hack to get QR address to print right
     const size_t MORE_WIDTH = 80;
-￼
+
     const int qr_image_size = QR_IMAGE_SIZE + MORE_WIDTH + (text.isEmpty() ? 0 : 2 * QR_IMAGE_MARGIN);
     QImage qrAddrImage(qr_image_size, qr_image_size, QImage::Format_RGB32);
     qrAddrImage.fill(0xffffff);
