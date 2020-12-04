@@ -8,7 +8,7 @@
 
 export LC_ALL=C
 EXIT_CODE=0
-OUTPUT=$(git grep -E '^\s*def [a-zA-Z0-9_]+\(.*=\s*(\[|\{)' -- "*.py")
+OUTPUT=$(git grep -E '^\s*def [a-zA-Z0-9_]+\(.*=\s*(\[|\{)' -- "*.py" ':!*/bitcoin_functional/*')
 if [[ ${OUTPUT} != "" ]]; then
     echo "A mutable list or dict seems to be used as default parameter value:"
     echo
