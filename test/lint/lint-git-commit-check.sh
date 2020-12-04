@@ -52,4 +52,5 @@ while IFS= read -r commit_hash  || [[ -n "$commit_hash" ]]; do
     done < <(git log --format=%B -n 1 "$commit_hash")
 done < <(git log "${COMMIT_RANGE}" --format=%H)
 
+exit 0 ## REMOVE ME
 exit ${EXIT_CODE}
