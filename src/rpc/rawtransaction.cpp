@@ -2374,8 +2374,8 @@ struct RawIssuanceDetails
 // to exist (the fee output, which must be last).
 void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_details, const CAmount asset_amount, const CAmount token_amount, const CTxDestination& asset_dest, const CTxDestination& token_dest, const bool blind_issuance, const uint256& contract_hash)
 {
-    assert(asset_amount > 0 || token_amount > 0);
-    assert(mtx.vout.size() > 0);
+    CHECK_NONFATAL(asset_amount > 0 || token_amount > 0);
+    CHECK_NONFATAL(mtx.vout.size() > 0);
 
     CScript asset_script = GetScriptForDestination(asset_dest);
     CScript token_script = GetScriptForDestination(token_dest);
@@ -2446,9 +2446,9 @@ void issueasset_base(CMutableTransaction& mtx, RawIssuanceDetails& issuance_deta
 // least one output to exist (the fee output, which must be last).
 void reissueasset_base(CMutableTransaction& mtx, size_t issuance_input_index, const CAmount asset_amount, const CTxDestination& asset_dest, const uint256& asset_blinder, const uint256& entropy)
 {
-    assert(mtx.vout.size() > 0);
-    assert(asset_amount > 0);
-    assert(mtx.vin[issuance_input_index].assetIssuance.IsNull());
+    CHECK_NONFATAL(mtx.vout.size() > 0);
+    CHECK_NONFATAL(asset_amount > 0);
+    CHECK_NONFATAL(mtx.vin[issuance_input_index].assetIssuance.IsNull());
 
     CScript asset_script = GetScriptForDestination(asset_dest);
 
@@ -2726,7 +2726,7 @@ static const CRPCCommand commands[] =
 { //  category              name                            actor (function)            argNames
   //  --------------------- ------------------------        -----------------------     ----------
     { "rawtransactions",    "getrawtransaction",            &getrawtransaction,         {"txid","verbose","blockhash"} },
-    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","replaceable", "output_assets"} },
+    { "rawtransactions",    "createrawtransaction",         &createrawtransaction,      {"inputs","outputs","locktime","replaceable","output_assets"} },
     { "rawtransactions",    "decoderawtransaction",         &decoderawtransaction,      {"hexstring","iswitness"} },
     { "rawtransactions",    "decodescript",                 &decodescript,              {"hexstring"} },
     { "rawtransactions",    "sendrawtransaction",           &sendrawtransaction,        {"hexstring","maxfeerate"} },
@@ -2736,18 +2736,18 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
     { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
     { "rawtransactions",    "blindpsbt",                    &blindpsbt,                 {"psbt","ignoreblindfail"} },
-    { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt", "extract"} },
+    { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt","extract"} },
     { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable","output_assets"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },
-    { "rawtransactions",    "utxoupdatepsbt",               &utxoupdatepsbt,            {"psbt", "descriptors"} },
+    { "rawtransactions",    "utxoupdatepsbt",               &utxoupdatepsbt,            {"psbt","descriptors"} },
     { "rawtransactions",    "joinpsbts",                    &joinpsbts,                 {"txs"} },
     { "rawtransactions",    "analyzepsbt",                  &analyzepsbt,               {"psbt"} },
 
-    { "blockchain",         "gettxoutproof",                &gettxoutproof,             {"txids", "blockhash"} },
+    { "blockchain",         "gettxoutproof",                &gettxoutproof,             {"txids","blockhash"} },
     { "blockchain",         "verifytxoutproof",             &verifytxoutproof,          {"proof"} },
-    { "rawtransactions",    "rawissueasset",                &rawissueasset,             {"transaction", "issuances"}},
-    { "rawtransactions",    "rawreissueasset",              &rawreissueasset,           {"transaction", "reissuances"}},
-    { "rawtransactions",    "rawblindrawtransaction",       &rawblindrawtransaction,    {"hexstring", "inputamountblinders", "inputamounts", "inputassets", "inputassetblinders", "totalblinder", "ignoreblindfail"} },
+    { "rawtransactions",    "rawissueasset",                &rawissueasset,             {"transaction","issuances"}},
+    { "rawtransactions",    "rawreissueasset",              &rawreissueasset,           {"transaction","reissuances"}},
+    { "rawtransactions",    "rawblindrawtransaction",       &rawblindrawtransaction,    {"hexstring","inputamountblinders","inputamounts","inputassets","inputassetblinders","totalblinder","ignoreblindfail"} },
 };
 // clang-format on
     for (const auto& c : commands) {

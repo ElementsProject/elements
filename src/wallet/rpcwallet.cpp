@@ -1896,7 +1896,7 @@ static RPCHelpMan gettransaction()
     CAmountMap nCredit = wtx.GetCredit(filter);
     CAmountMap nDebit = wtx.GetDebit(filter);
     CAmountMap nNet = nCredit - nDebit;
-    assert(HasValidFee(*wtx.tx));
+    CHECK_NONFATAL(HasValidFee(*wtx.tx));
     CAmountMap nFee = wtx.IsFromMe(filter) ? CAmountMap() - GetFeeMap(*wtx.tx) : CAmountMap();
     if (!g_con_elementsmode) {
         CAmount total_out = 0;
@@ -5303,7 +5303,7 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
             return false;
         }
         keyParent.Derive(keyChild, ccChild, vPath[i], ccParent, &tweak);
-        assert(tweak.size() == 32);
+        CHECK_NONFATAL(tweak.size() == 32);
         ccParent = ccChild;
         keyParent = keyChild;
         if (i == 0) {
@@ -5485,9 +5485,9 @@ static RPCHelpMan initpegoutwallet()
     negatedpubkeybytes.resize(33);
     size_t len = 33;
     ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &negatedpubkeybytes[0], &len, &masterpub_secp, SECP256K1_EC_COMPRESSED);
-    assert(ret == 1);
-    assert(len == 33);
-    assert(negatedpubkeybytes.size() == 33);
+    CHECK_NONFATAL(ret == 1);
+    CHECK_NONFATAL(len == 33);
+    CHECK_NONFATAL(negatedpubkeybytes.size() == 33);
 
     UniValue pak(UniValue::VOBJ);
     pak.pushKV("pakentry", "pak=" + HexStr(negatedpubkeybytes) + ":" + HexStr(online_pubkey));
@@ -5759,15 +5759,15 @@ static RPCHelpMan sendtomainchain_pak()
         throw JSONRPCError(RPC_WALLET_ERROR, "Could not create xpub tweak to generate proof.");
     }
     ret = secp256k1_ec_pubkey_tweak_add(secp256k1_ctx, &btcpub_secp, tweakSum.data());
-    assert(ret);
+    CHECK_NONFATAL(ret);
 
     std::vector<unsigned char> btcpubkeybytes;
     btcpubkeybytes.resize(33);
     size_t btclen = 33;
     ret = secp256k1_ec_pubkey_serialize(secp256k1_ctx, &btcpubkeybytes[0], &btclen, &btcpub_secp, SECP256K1_EC_COMPRESSED);
-    assert(ret == 1);
-    assert(btclen == 33);
-    assert(btcpubkeybytes.size() == 33);
+    CHECK_NONFATAL(ret == 1);
+    CHECK_NONFATAL(btclen == 33);
+    CHECK_NONFATAL(btcpubkeybytes.size() == 33);
 
     //Create, verify whitelist proof
     secp256k1_whitelist_signature sig;
@@ -5781,11 +5781,11 @@ static RPCHelpMan sendtomainchain_pak()
 
     //Serialize
     const size_t expectedOutputSize = 1 + 32 * (1 + paklist.size());
-    assert(1 + 32 * (1 + 256) >= expectedOutputSize);
+    CHECK_NONFATAL(1 + 32 * (1 + 256) >= expectedOutputSize);
     unsigned char output[1 + 32 * (1 + 256)];
     size_t outlen = expectedOutputSize;
     secp256k1_whitelist_signature_serialize(secp256k1_ctx, output, &outlen, &sig);
-    assert(outlen == expectedOutputSize);
+    CHECK_NONFATAL(outlen == expectedOutputSize);
     std::vector<unsigned char> whitelistproof(output, output + expectedOutputSize / sizeof(unsigned char));
 
     // Derive the end address in mainchain
@@ -5793,7 +5793,7 @@ static RPCHelpMan sendtomainchain_pak()
     if (!descriptor->Expand(counter, provider, scripts, provider)) {
         throw JSONRPCError(RPC_WALLET_ERROR, "Could not generate mainchain destination with descriptor. This is a bug.");
     }
-    assert(scripts.size() == 1);
+    CHECK_NONFATAL(scripts.size() == 1);
     CScript mainchain_script = scripts[0];
     CTxDestination bitcoin_address;
     ExtractDestination(mainchain_script, bitcoin_address);
@@ -5805,7 +5805,7 @@ static RPCHelpMan sendtomainchain_pak()
     nulldata << btcpubkeybytes;
     nulldata << whitelistproof;
     CTxDestination address(nulldata);
-    assert(GetScriptForDestination(nulldata).IsPegoutScript(genesisBlockHash));
+    CHECK_NONFATAL(GetScriptForDestination(nulldata).IsPegoutScript(genesisBlockHash));
 
     std::vector<CRecipient> recipients;
     CRecipient recipient = {GetScriptForDestination(address), nAmount, Params().GetConsensus().pegged_asset, CPubKey(), subtract_fee};
@@ -6529,7 +6529,7 @@ static RPCHelpMan issueasset()
     // Calculate asset type, assumes first vin is used for issuance
     CAsset asset;
     CAsset token;
-    assert(!tx_ref->vin.empty());
+    CHECK_NONFATAL(!tx_ref->vin.empty());
     GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, uint256());
     CalculateAsset(asset, issuance_details.entropy);
     CalculateReissuanceToken(token, issuance_details.entropy, blind_issuances);
@@ -6623,7 +6623,7 @@ static RPCHelpMan reissueasset()
 
     // Attempt a send.
     CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, -1, &issuance_details, pwallet);
-    assert(!tx_ref->vin.empty());
+    CHECK_NONFATAL(!tx_ref->vin.empty());
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("txid", tx_ref->GetHash().GetHex());
@@ -6886,10 +6886,10 @@ static RPCHelpMan generatepegoutproof()
     //Serialize and return as hex
     size_t expectedOutputSize = 1 + 32 * (1 + paklist.size());
     const size_t preSize = expectedOutputSize;
-    assert(1 + 32 * (1 + 256) >= expectedOutputSize);
+    CHECK_NONFATAL(1 + 32 * (1 + 256) >= expectedOutputSize);
     unsigned char output[1 + 32 * (1 + 256)];
     secp256k1_whitelist_signature_serialize(secp256k1_ctx, output, &expectedOutputSize, &sig);
-    assert(expectedOutputSize == preSize);
+    CHECK_NONFATAL(expectedOutputSize == preSize);
     std::vector<unsigned char> voutput(output, output + expectedOutputSize / sizeof(output[0]));
 
     return HexStr(voutput);
@@ -6954,7 +6954,7 @@ static RPCHelpMan getpegoutkeys()
     }
 
     CPubKey bitcoinpubkey = bitcoinkey.GetPubKey();
-    assert(bitcoinkey.VerifyPubKey(bitcoinpubkey));
+    CHECK_NONFATAL(bitcoinkey.VerifyPubKey(bitcoinpubkey));
 
     std::vector<unsigned char> pegoutkeybytes(pegoutkey.begin(), pegoutkey.end());
     std::vector<unsigned char> pegoutsubkeybytes(bitcoinkey.begin(), bitcoinkey.end());
@@ -7048,7 +7048,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "removeprunedfunds",                &removeprunedfunds,             {"txid"} },
     { "wallet",             "rescanblockchain",                 &rescanblockchain,              {"start_height", "stop_height"} },
     { "wallet",             "send",                             &send,                          {"outputs","conf_target","estimate_mode","fee_rate","options"} },
-    { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode", "output_assets", "ignoreblindfail", "fee_rate", "verbose"} },
+    { "wallet",             "sendmany",                         &sendmany,                      {"dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode","output_assets","ignoreblindfail","fee_rate","verbose"} },
     { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode","avoid_reuse", "assetlabel", "ignoreblindfail", "fee_rate", "verbose"} },
     { "wallet",             "sethdseed",                        &sethdseed,                     {"newkeypool","seed"} },
     { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
