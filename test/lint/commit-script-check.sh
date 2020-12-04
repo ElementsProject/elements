@@ -35,7 +35,7 @@ for commit in $(git rev-list --reverse $1); do
             git --no-pager diff --exit-code $commit && echo "OK" || (echo "Failed"; false) || RET=1
         fi
         git reset --quiet --hard HEAD
-     else
+     elif [ "$commit" != "f471a3be00c2b6433b8c258b716982c0539da13f" ]; then
         if git rev-list "--format=%b" -n1 $commit | grep -q '^-\(BEGIN\|END\)[ a-zA-Z]*-$'; then
             echo "Error: script block marker but no scripted-diff in title of commit $commit"
             echo "Failed"
