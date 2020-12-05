@@ -47,6 +47,7 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''outpoint'' (36): the <code>COutPoint</code> of this input (32-byte hash + 4-byte little-endian).
 *** '''''NEW''''' ''nAsset'' (33): assetID of the previous output spent by this input, in fixed-length format
 *** '''''NEW''''' ''nValue'' (33): (possibly confidential) amount of the previous output spent by this input, in fixed-length format
+*** '''''NEW''''' ''nNonce'' (33): (possibly confidential) nonce of the previous output spent by this input, in fixed-length format
 *** ''scriptPubKey'' (35): ''scriptPubKey'' of the previous output spent by this input, serialized as script inside <code>CTxOut</code>. Its size is always 35 bytes.
 *** ''nSequence'' (4): ''nSequence'' of this input.
 *** '''''NEW''''' ''asset_issuance'' (130): if ''outpoint_flag & 0x80 == 0x80'': asset issuance data of this input; otherwise 130 zero bytes
@@ -59,5 +60,5 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''sha_single_output'' (32): the SHA256 of the corresponding output in extended <code>CTxOut</code> format.
 *** '''''NEW''''' ''sha_single_output_witness'' (32): the SHA256 of the serialization of the corresponding output witnesses (rangeproof and surjection proof) in <code>CTxWitness</code> format.
 
-The total length of ''SigMsg()'' is ''442'' bytes for <code>ANYONECANPAY</code> sighashes, ''366'' bytes for non-<code>ANYONECANPAY</code> sighashes, and both numbers are reduced by 64 bytes for <code>SIGHASH_NONE</code> sighashes. Note that this does not include the size of sub-hashes such as ''sha_prevouts'', which may be cached across signatures of the same transaction.
+The total length of ''SigMsg()'' is ''473'' bytes for <code>ANYONECANPAY</code> sighashes, ''366'' bytes for non-<code>ANYONECANPAY</code> sighashes, and both numbers are reduced by 64 bytes for <code>SIGHASH_NONE</code> sighashes. Note that this does not include the size of sub-hashes such as ''sha_prevouts'', which may be cached across signatures of the same transaction.
 
