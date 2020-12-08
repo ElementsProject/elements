@@ -26,6 +26,8 @@ void test_one_input(const std::vector<uint8_t>& buffer)
 {
     PartiallySignedTransaction psbt_mut;
     const std::string raw_psbt{buffer.begin(), buffer.end()};
+    // ELEMENTS: needed as Solver depends on Params()
+    SelectParams(CBaseChainParams::LIQUID1);
     std::string error;
     if (!DecodeRawPSBT(psbt_mut, raw_psbt, error)) {
         return;

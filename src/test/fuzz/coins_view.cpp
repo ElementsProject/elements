@@ -133,13 +133,14 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                     coins_cache_entry.coin = *opt_coin;
                 }
                 // ELEMENTS
-                if (fuzzed_data_provider.ConsumeBool()) {
-                    // non-pegin
-                    coins_map.emplace(std::pair(uint256(), random_out_point), std::move(coins_cache_entry));
+                if (coins_cache_entry.flags & CCoinsCacheEntry::PEGIN) {
+                    const std::optional<uint256> genhash = ConsumeDeserializable<uint256>(fuzzed_data_provider);
+                    if (genhash) {
+                        coins_cache_entry.peginSpent = fuzzed_data_provider.ConsumeBool();
+                        coins_map.emplace(std::pair(*genhash, random_out_point), std::move(coins_cache_entry));
+                    }
                 } else {
-                    // pegin
-                    const uint256 genhash(fuzzed_data_provider.ConsumeBytes<unsigned char>(sizeof(uint256)));
-                    coins_map.emplace(std::pair(genhash, random_out_point), std::move(coins_cache_entry));
+                    coins_map.emplace(std::pair(uint256(), random_out_point), std::move(coins_cache_entry));
                 }
             }
             bool expected_code_path = false;

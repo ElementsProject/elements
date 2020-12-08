@@ -155,7 +155,7 @@ public:
 
     ~CCheckQueue()
     {
-        assert(queue.empty());
+        for (auto remaining : queue) delete remaining;
     }
 
 };

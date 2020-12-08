@@ -261,6 +261,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Recovers_From_Failure)
                 for (size_t i = 0; i < 100; i++) {
                     vChecks.push_back(new FailingCheck(false));
                 }
+                delete vChecks[99];
                 vChecks[99] = new FailingCheck(end_fails);
                 control.Add(vChecks);
             }

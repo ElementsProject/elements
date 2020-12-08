@@ -39,7 +39,9 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     bool valid_tx = true;
     const CTransaction tx = [&] {
         try {
-            return CTransaction(deserialize, ds);
+            CMutableTransaction mtx{deserialize, ds};
+            mtx.witness.vtxinwit.resize(mtx.vin.size());
+            return CTransaction(mtx);
         } catch (const std::ios_base::failure&) {
             valid_tx = false;
             return CTransaction();
@@ -86,8 +88,10 @@ void test_one_input(const std::vector<uint8_t>& buffer)
 
     (void)EncodeHexTx(tx);
     (void)GetLegacySigOpCount(tx);
-    (void)GetTransactionInputWeight(tx, 0); // ELEMENTS: moved from tx_in.cpp
-    (void)GetVirtualTransactionInputSize(tx); // ELEMENTS: moved from tx_in.cpp
+    if (!tx.vin.empty()) {
+        (void)GetTransactionInputWeight(tx, 0); // ELEMENTS: moved from tx_in.cpp
+        (void)GetVirtualTransactionInputSize(tx); // ELEMENTS: moved from tx_in.cpp
+    }
     (void)GetTransactionWeight(tx);
     (void)GetVirtualTransactionSize(tx);
     (void)IsFinalTx(tx, /* nBlockHeight= */ 1024, /* nBlockTime= */ 1024);
