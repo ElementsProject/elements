@@ -78,3 +78,7 @@ implicit-signed-integer-truncation:torcontrol.cpp
 implicit-unsigned-integer-truncation:crypto/*
 implicit-unsigned-integer-truncation:leveldb/*
 implicit-integer-sign-change:crc32c/*
+
+implicit-signed-integer-truncation:script/interpreter.cpp
+implicit-integer-sign-change:primitives/confidential.cpp
+implicit-integer-sign-change:primitives/confidential.h

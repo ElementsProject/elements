@@ -49,6 +49,8 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     }
     if (fuzzed_data_provider.ConsumeBool()) {
         check_queue_1.Add(checks_1);
+    } else {
+        for (auto check : checks_1) delete check;
     }
     if (fuzzed_data_provider.ConsumeBool()) {
         (void)check_queue_1.Wait();
@@ -57,6 +59,8 @@ void test_one_input(const std::vector<uint8_t>& buffer)
     CCheckQueueControl<DumbCheck> check_queue_control{&check_queue_2};
     if (fuzzed_data_provider.ConsumeBool()) {
         check_queue_control.Add(checks_2);
+    } else {
+        for (auto check : checks_2) delete check;
     }
     if (fuzzed_data_provider.ConsumeBool()) {
         (void)check_queue_control.Wait();

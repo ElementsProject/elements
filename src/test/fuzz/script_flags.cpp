@@ -31,6 +31,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
 
     try {
         const CTransaction tx(deserialize, ds);
+        tx.witness.vtxinwit.resize(tx.vin.size());
 
         unsigned int verify_flags;
         ds >> verify_flags;

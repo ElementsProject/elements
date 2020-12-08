@@ -276,6 +276,7 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK_EQUAL(mantissa, 52); // 52 bit default
         BOOST_CHECK_EQUAL(min_value, 1ULL);
         BOOST_CHECK_EQUAL(max_value, 4503599627370496ULL);
+        secp256k1_context_destroy(ctx);
     }
     {
         inputs.clear();

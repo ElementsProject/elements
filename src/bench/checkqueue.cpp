@@ -56,8 +56,9 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
     std::vector<std::vector<PrevectorJob*>> vBatches(BATCHES);
     for (auto& vChecks : vBatches) {
         vChecks.reserve(BATCH_SIZE);
+        // ELEMENTS: allocate new jobs...
         for (size_t x = 0; x < BATCH_SIZE; ++x)
-            vChecks.emplace_back(new PrevectorJob(insecure_rand));
+            vChecks[x] = new PrevectorJob(insecure_rand);
     }
 
     bench.minEpochIterations(10).batch(BATCH_SIZE * BATCHES).unit("job").run([&] {
@@ -72,6 +73,12 @@ static void CCheckQueueSpeedPrevectorJob(benchmark::Bench& bench)
     });
     tg.interrupt_all();
     tg.join_all();
+
+    // ELEMENTS: ...and deallocate them
+    for (auto& vChecks : vBatches)
+        for (size_t x = 0; x < BATCH_SIZE; ++x)
+            delete vChecks[x];
+
     ECC_Stop();
 }
 BENCHMARK(CCheckQueueSpeedPrevectorJob);
