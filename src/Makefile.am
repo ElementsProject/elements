@@ -798,60 +798,6 @@ include Makefile.crc32c.include
 include Makefile.leveldb.include
 endif
 
-# Rendered icons must be here, not in Makefile.qt.include, since they are distributed with the source tarball
-
-RES_RENDERED_ICON_SRC = qt/res/src/bitcoin.svg
-
-RES_RENDERED_ICONS = \
-  qt/res/rendered_icons/about.png \
-  qt/res/rendered_icons/bitcoin.ico \
-  qt/res/rendered_icons/bitcoin_testnet.ico \
-  qt/res/rendered_icons/bitcoin1024.png
-
-RES_ALL_RENDERED_ICONS = $(RES_RENDERED_ICONS) \
-  qt/res/rendered_icons/about.svg \
-  $(patsubst %,qt/res/rendered_icons/bitcoin%.png,16 32 48 256 512 1024) \
-  qt/res/rendered_icons/bitcoin.icns \
-  qt/res/rendered_icons/nsis-wizard.svg \
-  qt/res/rendered_icons/nsis-wizard.bmp
-
-EXTRA_DIST += $(RES_RENDERED_ICON_SRC) $(RES_ALL_RENDERED_ICONS)
-
-if CAN_RENDER_ICONS
-
-qt/res/rendered_icons/about.png: qt/res/rendered_icons/about.svg
-	$(RSVG_CONVERT) -f png -d 142 -p 142 < $< | $(IMAGEMAGICK_CONVERT) - -bordercolor transparent -colorspace Gray -strip $@
-
-qt/res/rendered_icons/about.svg: qt/res/src/bitcoin.svg
-	@$(MKDIR_P) $(@D)
-	sed '/fill="#000"/d;s/fill="[^"]*"//g' < $< > $@
-
-qt/res/rendered_icons/bitcoin%.png: qt/res/src/bitcoin.svg
-	@$(MKDIR_P) $(@D)
-	$(RSVG_CONVERT) -f png -d $* -p $* < $< > $@
-
-# NOTE: ImageMagick will never convert transparent PNGs to 8-bit ICOs, but GIF is fine
-qt/res/rendered_icons/bitcoin%d8.gif: qt/res/rendered_icons/bitcoin%.png
-	$(IMAGEMAGICK_CONVERT) $^ -colors 256 -channel A -threshold '50%' $@
-
-qt/res/rendered_icons/bitcoin.icns: $(patsubst %,qt/res/rendered_icons/bitcoin%.png,256 512 1024 32 16)
-	$(PNG2ICNS) $@ $^
-
-qt/res/rendered_icons/bitcoin.ico: qt/res/rendered_icons/bitcoin32d8.gif $(patsubst %,qt/res/rendered_icons/bitcoin%.png,256 64 48 32 20 16)
-	$(IMAGEMAGICK_CONVERT) $^ $@
-
-qt/res/rendered_icons/bitcoin_testnet.ico: qt/res/rendered_icons/bitcoin.ico
-	$(IMAGEMAGICK_CONVERT) $^ $@
-
-qt/res/rendered_icons/nsis-wizard.svg: qt/res/src/bitcoin.svg
-	@$(MKDIR_P) $(@D)
-	sed '/fill="#000"/d' < $< > $@
-
-qt/res/rendered_icons/nsis-wizard.bmp: qt/res/rendered_icons/nsis-wizard.svg
-	$(RSVG_CONVERT) -f png -d 360 -p 360 < $< | $(IMAGEMAGICK_CONVERT) - -strip BMP3:$@
-
-endif
-
 include Makefile.test_util.include
 include Makefile.test_fuzz.include
 
