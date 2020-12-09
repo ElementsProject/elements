@@ -4813,8 +4813,9 @@ static RPCHelpMan walletprocesspsbt()
         }
     }
     if (needs_blinding) {
-        if (pwallet->WalletBlindPSBT(psbtx) != BlindingStatus::OK) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Something went wrong");
+        BlindingStatus status = pwallet->WalletBlindPSBT(psbtx);
+        if (status != BlindingStatus::OK) {
+            throw JSONRPCError(RPC_WALLET_ERROR, GetBlindingStatusError(status));
         }
     }
 
@@ -4873,8 +4874,9 @@ static RPCHelpMan walletblindpsbt()
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
 
-    if (pwallet->WalletBlindPSBT(psbtx) != BlindingStatus::OK) {
-        throw JSONRPCError(RPC_WALLET_ERROR, "Something went wrong");
+    BlindingStatus status = pwallet->WalletBlindPSBT(psbtx);
+    if (status != BlindingStatus::OK) {
+        throw JSONRPCError(RPC_WALLET_ERROR, GetBlindingStatusError(status));
     }
 
     UniValue result(UniValue::VOBJ);

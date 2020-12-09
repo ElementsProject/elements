@@ -12,6 +12,27 @@
 #include <random.h>
 #include <util/system.h>
 
+std::string GetBlindingStatusError(const BlindingStatus& status)
+{
+    switch(status) {
+    case BlindingStatus::OK:
+        return "No error";
+    case BlindingStatus::NEEDS_UTXOS:
+        return "Inputs are missing UTXOs (or peg-in data for peg-in inputs)";
+    case BlindingStatus::INVALID_ASSET:
+        return "Provided asset tag is invalid";
+    case BlindingStatus::INVALID_ASSET_COMMITMENT:
+        return "Provided asset commitment is invalid";
+    case BlindingStatus::SCALAR_UNABLE:
+        return "Unable to compute the scalars for the final blinder";
+    case BlindingStatus::INVALID_BLINDER:
+        return "Computed blinding factor is invalid";
+    case BlindingStatus::ASP_UNABLE:
+        return "Unable to create an asset surjection proof";
+    }
+    assert(false);
+}
+
 // Create surjection proof
 bool CreateAssetSurjectionProof(std::vector<unsigned char>& output_proof, const std::vector<secp256k1_fixed_asset_tag>& fixed_input_tags, const std::vector<secp256k1_generator>& ephemeral_input_tags, const std::vector<uint256>& input_asset_blinders, const uint256& output_asset_blinder, const secp256k1_generator& output_asset_tag, const CAsset& asset)
 {
