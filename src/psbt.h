@@ -1271,6 +1271,10 @@ struct PartiallySignedTransaction
     PartiallySignedTransaction() {}
     PartiallySignedTransaction(uint32_t version);
     explicit PartiallySignedTransaction(const CMutableTransaction& tx, uint32_t version = 0);
+    /** Returns whether the PSBT has outputs that require blinding. Said outputs may already be blinded */
+    bool IsBlinded() const;
+    /** Returns whether the PSBT is fully blinded. Fully blinded means that no blinding is required, so this includes PSBTs that do not require blinding at all */
+    bool IsFullyBlinded() const;
 
     template <typename Stream>
     inline void Serialize(Stream& s) const {

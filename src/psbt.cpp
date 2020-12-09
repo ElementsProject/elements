@@ -277,6 +277,26 @@ COutPoint PSBTInput::GetOutPoint() const
     return COutPoint(prev_txid, *prev_out);
 }
 
+bool PartiallySignedTransaction::IsBlinded() const
+{
+    for (const PSBTOutput& out : outputs) {
+        if (out.IsBlinded()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool PartiallySignedTransaction::IsFullyBlinded() const
+{
+    for (const PSBTOutput& out : outputs) {
+        if (out.IsBlinded() && !out.IsFullyBlinded()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool PSBTInput::IsNull() const
 {
     return !non_witness_utxo && witness_utxo.IsNull() && partial_sigs.empty() && unknown.empty() && hd_keypaths.empty() && redeem_script.empty() && witness_script.empty();
