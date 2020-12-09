@@ -226,11 +226,11 @@ void TestGUI(interfaces::Node& node)
     int initialRowCount = requestTableModel->rowCount({});
     QPushButton* requestPaymentButton = receiveCoinsDialog.findChild<QPushButton*>("receiveButton");
     requestPaymentButton->click();
+    /* URI are disabled for Elements-QT
     for (QWidget* widget : QApplication::topLevelWidgets()) {
         if (widget->inherits("ReceiveRequestDialog")) {
 
             ReceiveRequestDialog* receiveRequestDialog = qobject_cast<ReceiveRequestDialog*>(widget);
-            /* URI are disabled for Elements-QT
             QCOMPARE(receiveRequestDialog->QObject::findChild<QLabel*>("payment_header")->text(), QString("Payment information"));
             QCOMPARE(receiveRequestDialog->QObject::findChild<QLabel*>("uri_tag")->text(), QString("URI:"));
             QString uri = receiveRequestDialog->QObject::findChild<QLabel*>("uri_content")->text();
@@ -248,9 +248,9 @@ void TestGUI(interfaces::Node& node)
             QCOMPARE(uri.count("message=TEST_MESSAGE_1"), 2);
             QCOMPARE(receiveRequestDialog->QObject::findChild<QLabel*>("message_tag")->text(), QString("Message:"));
             QCOMPARE(receiveRequestDialog->QObject::findChild<QLabel*>("message_content")->text(), QString("TEST_MESSAGE_1"));
-            */
         }
     }
+    */
 
     // Clear button
     QPushButton* clearButton = receiveCoinsDialog.findChild<QPushButton*>("clearButton");
