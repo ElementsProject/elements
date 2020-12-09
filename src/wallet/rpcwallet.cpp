@@ -4820,11 +4820,13 @@ static RPCHelpMan walletprocesspsbt()
     }
 
     // If fully blinded, sign if we want to
-    bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
-    if (sign) {
-        const TransactionError err = pwallet->FillPSBT(psbtx, complete, nHashType, sign, bip32derivs, false);
-        if (err != TransactionError::OK) {
-            throw JSONRPCTransactionError(err);
+    if (psbtx.IsFullyBlinded()) {
+        bool sign = request.params[1].isNull() ? true : request.params[1].get_bool();
+        if (sign) {
+            const TransactionError err = pwallet->FillPSBT(psbtx, complete, nHashType, sign, bip32derivs, false);
+            if (err != TransactionError::OK) {
+                throw JSONRPCTransactionError(err);
+            }
         }
     }
 

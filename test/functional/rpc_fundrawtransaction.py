@@ -519,10 +519,9 @@ class RawTransactionsTest(BitcoinTestFramework):
         outputs = {self.nodes[1].getnewaddress():1.1}
         funded_psbt = wmulti.walletcreatefundedpsbt(inputs=inputs, outputs=outputs, options={'changeAddress': w2.getrawchangeaddress()})['psbt']
 
-        filled_psbt = w2.walletfillpsbtdata(funded_psbt)
-        blinded_psbt = w2.blindpsbt(filled_psbt['psbt'])
-        signed_psbt = w2.walletsignpsbt(blinded_psbt)
-        final_psbt = w2.finalizepsbt(signed_psbt['psbt'])
+        blinded_psbt = wmulti.walletprocesspsbt(funded_psbt)
+        processed_psbt = w2.walletprocesspsbt(blinded_psbt["psbt"])
+        final_psbt = w2.finalizepsbt(processed_psbt['psbt'])
         self.nodes[2].sendrawtransaction(final_psbt['hex'])
         self.nodes[2].generate(1)
         self.sync_all()
