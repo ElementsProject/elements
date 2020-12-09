@@ -24,11 +24,6 @@
 
 #include <cmath>
 
-/* Minimum free space (in GB) needed for data directory */
-constexpr uint64_t BLOCK_CHAIN_SIZE = 1;
-/* Minimum free space (in GB) needed for data directory when pruned; Does not include prune target */
-static const uint64_t CHAIN_STATE_SIZE = 0;
-
 /* Check free space asynchronously to prevent hanging the UI thread.
 
    Up to one request to check a path is in flight to this thread; when the check()

@@ -3676,7 +3676,6 @@ RPCHelpMan signrawtransactionwithwallet()
     EnsureWalletIsUnlocked(pwallet);
 
     // Fetch previous transactions (inputs):
-    const auto& fedpegscripts = GetValidFedpegScripts(::ChainActive().Tip(), Params().GetConsensus(), true /* nextblock_validation */);
     std::map<COutPoint, Coin> coins;
     for (const CTxIn& txin : mtx.vin) {
         coins[txin.prevout]; // Create empty map entry keyed by prevout.
@@ -6520,7 +6519,6 @@ static RPCHelpMan issueasset()
         token_dest_blindpub = pwallet->GetBlindingPubKey(GetScriptForDestination(token_dest));
     }
 
-    uint256 dummyentropy;
     CAsset dummyasset;
     IssuanceDetails issuance_details;
     issuance_details.blind_issuance = blind_issuances;
