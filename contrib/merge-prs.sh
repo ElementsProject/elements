@@ -72,7 +72,8 @@ do
         # The following is an expansion of `make check` that skips the libsecp
         # tests and also the benchmarks (though it does build them!)
         chronic make -j8
-        chronic make -j8 -C src/ check-TESTS
+        chronic make -j1 check
+        chronic ./ci/lint/06_script.sh
         chronic ./test/util/bitcoin-util-test.py
         chronic ./test/util/rpcauth-test.py
         chronic make -C src/univalue/ check
