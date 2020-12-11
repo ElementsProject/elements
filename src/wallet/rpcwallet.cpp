@@ -5160,29 +5160,31 @@ static RPCHelpMan signblock()
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Block decode failed");
 
     ChainstateManager& chainman = g_chainman; // FIXME avoid using this global, see #19413
-    LOCK(cs_main);
 
     LegacyScriptPubKeyMan* spk_man = pwallet->GetLegacyScriptPubKeyMan();
     if (!spk_man) {
         throw JSONRPCError(RPC_WALLET_ERROR, "This type of wallet does not support this command");
     }
 
-    uint256 hash = block.GetHash();
-    BlockMap::iterator mi = chainman.BlockIndex().find(hash);
-    if (mi != chainman.BlockIndex().end())
-        throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
+    {
+        LOCK(cs_main);
+        uint256 hash = block.GetHash();
+        BlockMap::iterator mi = chainman.BlockIndex().find(hash);
+        if (mi != chainman.BlockIndex().end())
+            throw JSONRPCError(RPC_VERIFY_ERROR, "already have block");
 
-    CBlockIndex* const pindexPrev = ::ChainActive().Tip();
-    // TestBlockValidity only supports blocks built on the current Tip
-    if (block.hashPrevBlock != pindexPrev->GetBlockHash())
-        throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
+        CBlockIndex* const pindexPrev = ::ChainActive().Tip();
+        // TestBlockValidity only supports blocks built on the current Tip
+        if (block.hashPrevBlock != pindexPrev->GetBlockHash())
+            throw JSONRPCError(RPC_VERIFY_ERROR, "proposal was not based on our best chain");
 
-    BlockValidationState state;
-    if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
-        std::string strRejectReason = state.GetRejectReason();
-        if (strRejectReason.empty())
-            throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
-        throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+        BlockValidationState state;
+        if (!TestBlockValidity(state, Params(), block, pindexPrev, false, true) || !state.IsValid()) {
+            std::string strRejectReason = state.GetRejectReason();
+            if (strRejectReason.empty())
+                throw JSONRPCError(RPC_VERIFY_ERROR, state.IsInvalid() ? "Block proposal was invalid" : "Error checking block proposal");
+            throw JSONRPCError(RPC_VERIFY_ERROR, strRejectReason);
+        }
     }
 
     // Expose SignatureData internals in return value in lieu of "Partially Signed Bitcoin Blocks"
