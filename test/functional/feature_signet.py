@@ -51,7 +51,9 @@ class SignetBasicTest(BitcoinTestFramework):
         assert_equal(mining_info['networkhashps'], Decimal('0'))
         assert_equal(mining_info['pooledtx'], 0)
 
-        self.nodes[0].set_deterministic_priv_key(self.nodes[0].getnewaddress(), '') # ELEMENTS: override our own fixed generation keys
+        # ELEMENTS: override our own fixed generation keys with a fixed random
+        #  testnet/signet address, since we need the prefix to be correct
+        self.nodes[0].set_deterministic_priv_key('tb1qet2shcx0pzm4qxymku73vcv266nyfk7kvf2t65', '')
         self.nodes[0].generate(1)
 
         self.log.info("pregenerated signet blocks check")
