@@ -220,8 +220,9 @@ BASE_SCRIPTS = [
     'example_test.py',
     'wallet_txn_doublespend.py',
     'wallet_txn_doublespend.py --descriptors',
-    'feature_backwards_compatibility.py',
-    'feature_backwards_compatibility.py --descriptors',
+    # ELEMENTS: need to point past versions at our own release server
+    #'feature_backwards_compatibility.py',
+    #'feature_backwards_compatibility.py --descriptors',
     'wallet_txn_clone.py --mineblock',
     # ELEMENTS: needs to be fixed
     #'feature_notifications.py',
@@ -251,7 +252,8 @@ BASE_SCRIPTS = [
     'wallet_import_rescan.py --legacy-wallet',
     'wallet_import_with_label.py --legacy-wallet',
     'wallet_importdescriptors.py --descriptors',
-    'wallet_upgradewallet.py',
+    # ELEMENTS: need to point past versions at our own release server
+    #'wallet_upgradewallet.py',
     'rpc_bind.py --ipv4',
     'rpc_bind.py --ipv6',
     'rpc_bind.py --nonloopback',
@@ -292,7 +294,8 @@ BASE_SCRIPTS = [
     'feature_includeconf.py',
     'feature_asmap.py',
     'mempool_unbroadcast.py',
-    'mempool_compatibility.py',
+    # ELEMENTS: need to point past versions at our own release server
+    #'mempool_compatibility.py',
     'rpc_deriveaddresses.py',
     'rpc_deriveaddresses.py --usecli',
     'p2p_ping.py',
