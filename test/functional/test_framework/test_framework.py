@@ -604,7 +604,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         self.connect_nodes(1, 2)
         self.sync_all()
 
-    def sync_blocks(self, nodes=None, wait=1, timeout=60):
+    def sync_blocks(self, nodes=None, wait=1, timeout=60, expect_disconnected=False):
         """
         Wait until everybody has the same tip.
         sync_blocks needs to be called with an rpc_connections set that has least
@@ -618,8 +618,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             best_hash = [x.getbestblockhash() for x in rpc_connections]
             if best_hash.count(best_hash[0]) == len(rpc_connections):
                 return
-            # Check that each peer has at least one connection
-            assert (all([len(x.getpeerinfo()) for x in rpc_connections]))
+            if not expect_disconnected:
+                assert (all([len(x.getpeerinfo()) for x in rpc_connections]))
             time.sleep(wait)
         raise AssertionError("Block sync timed out after {}s:{}".format(
             timeout,
@@ -649,8 +649,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             "".join("\n  {!r}".format(m) for m in pool),
         ))
 
-    def sync_all(self, nodes=None):
-        self.sync_blocks(nodes)
+    def sync_all(self, nodes=None, expect_disconnected=False):
+        self.sync_blocks(nodes, expect_disconnected=expect_disconnected)
         self.sync_mempools(nodes)
 
     def wait_until(self, test_function, timeout=60):
