@@ -189,6 +189,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   policy/settings.h \
   pow.h \
+  primitives/pak.h \
   protocol.h \
   psbt.h \
   random.h \
@@ -306,6 +307,7 @@ libbitcoin_server_a_SOURCES = \
   chain.cpp \
   confidential_validation.cpp \
   consensus/tx_verify.cpp \
+  dynafed.cpp \
   dbwrapper.cpp \
   flatfile.cpp \
   httprpc.cpp \
@@ -332,6 +334,7 @@ libbitcoin_server_a_SOURCES = \
   policy/rbf.cpp \
   policy/settings.cpp \
   pow.cpp \
+  primitives/pak.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
@@ -472,14 +475,11 @@ libelements_consensus_a_SOURCES = \
   arith_uint256.cpp \
   arith_uint256.h \
   asset.cpp \
-  chain.h \
-  chain.cpp \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
   consensus/tx_check.cpp \
   consensus/validation.h \
-  dynafed.cpp \
   hash.cpp \
   hash.h \
   prevector.h \
@@ -491,8 +491,6 @@ libelements_consensus_a_SOURCES = \
   primitives/txwitness.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
-  primitives/pak.cpp \
-  primitives/pak.h \
   primitives/bitcoin/block.cpp \
   primitives/bitcoin/block.h \
   primitives/bitcoin/merkleblock.cpp \
