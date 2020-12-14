@@ -468,7 +468,11 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
     }
 
     // Next we walk backwards up to M epoch starts
-    for (size_t i = 0; i < params.total_valid_epochs; i++) {
+    for (int32_t i = 0; i < (int32_t) params.total_valid_epochs; i++) {
+        // We are within total_valid_epochs of the genesis
+        if (i * epoch_length > epoch_start_height) {
+            break;
+        }
 
         const CBlockIndex* p_epoch_start = pblockindex->GetAncestor(epoch_start_height-i*epoch_length);
 

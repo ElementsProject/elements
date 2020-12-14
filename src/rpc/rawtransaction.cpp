@@ -1107,7 +1107,7 @@ static RPCHelpMan blindpsbt()
 
     // How many are we trying to blind?
     int num_pubkeys = 0;
-    unsigned int keyIndex = -1;
+    unsigned int keyIndex = (unsigned) -1;
     for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
         const CPubKey& key = output_pubkeys[i];
         if (key.IsValid()) {
@@ -2324,7 +2324,7 @@ static RPCHelpMan rawblindrawtransaction()
 
     // How many are we trying to blind?
     int num_pubkeys = 0;
-    unsigned int keyIndex = -1;
+    unsigned int keyIndex = (unsigned) -1;
     for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
         const CPubKey& key = output_pubkeys[i];
         if (key.IsValid()) {
@@ -2689,13 +2689,13 @@ static RPCHelpMan rawreissueasset()
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid asset address provided: %s", asset_address_uni.get_str()));
         }
 
-        size_t input_index = -1;
+        int input_index = -1;
         const UniValue& input_index_o = issuance_o["input_index"];
         if (input_index_o.isNum()) {
             input_index = input_index_o.get_int();
             if (input_index < 0) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must be non-negative.");
-            } else if (input_index >= mtx.vin.size()) {
+            } else if ((size_t) input_index >= mtx.vin.size()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Input index must exist in transaction.");
             } else if (!mtx.vin[input_index].assetIssuance.IsNull()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Selected transaction input already has issuance data.");
