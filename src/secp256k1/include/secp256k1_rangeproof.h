@@ -55,9 +55,6 @@ SECP256K1_API int secp256k1_pedersen_commitment_serialize(
     const secp256k1_pedersen_commitment* commit
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
-/** Initialize a context for usage with Pedersen commitments. */
-void secp256k1_pedersen_context_initialize(secp256k1_context* ctx);
-
 /** Generate a pedersen commitment.
  *  Returns 1: Commitment successfully created.
  *          0: Error. The blinding factor is larger than the group order
@@ -160,9 +157,6 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_generato
   size_t n_total,
   size_t n_inputs
 );
-
-/** Initialize a context for usage with Pedersen commitments. */
-void secp256k1_rangeproof_context_initialize(secp256k1_context* ctx);
 
 /** Verify a proof that a committed value is within a range.
  * Returns 1: Value is within the range [0..2^64), the specifically proven range is in the min/max value outputs.

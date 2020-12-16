@@ -20,9 +20,9 @@
 #include <limits.h>
 #include <string.h>
 
-#ifdef WORDS_BIGENDIAN
+#if defined(SECP256K1_BIG_ENDIAN)
 #define BE32(x) (x)
-#else
+#elif defined(SECP256K1_LITTLE_ENDIAN)
 #define BE32(p) ((((p) & 0xFF) << 24) | (((p) & 0xFF00) << 8) | (((p) & 0xFF0000) >> 8) | (((p) & 0xFF000000) >> 24))
 #endif
 

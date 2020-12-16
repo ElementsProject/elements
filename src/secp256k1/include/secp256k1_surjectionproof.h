@@ -11,6 +11,9 @@ extern "C" {
 /** Maximum number of inputs that may be given in a surjection proof */
 #define SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS 256
 
+/** Maximum number of inputs that may be used in a surjection proof */
+#define SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS 256
+
 /** Number of bytes a serialized surjection proof requires given the
  *  number of inputs and the number of used inputs.
  */
@@ -19,7 +22,7 @@ extern "C" {
 
 /** Maximum number of bytes a serialized surjection proof requires. */
 #define SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX \
-    SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS)
+    SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES(SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS, SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS)
 
 /** Opaque data structure that holds a parsed surjection proof
  *
@@ -46,9 +49,10 @@ typedef struct {
     /** Bitmap of which input tags are used in the surjection proof */
     unsigned char used_inputs[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8];
     /** Borromean signature: e0, scalars */
-    unsigned char data[32 * (1 + SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS)];
+    unsigned char data[32 * (1 + SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS)];
 } secp256k1_surjectionproof;
 
+#ifndef USE_REDUCED_SURJECTION_PROOF_SIZE
 /** Parse a surjection proof
  *
  *  Returns: 1 when the proof could be parsed, 0 otherwise.
@@ -70,6 +74,7 @@ SECP256K1_API int secp256k1_surjectionproof_parse(
   const unsigned char *input,
   size_t inputlen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
+#endif
 
 /** Serialize a surjection proof
  *
@@ -134,6 +139,7 @@ SECP256K1_API size_t secp256k1_surjectionproof_serialized_size(
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
 
 /** Surjection proof initialization function; decides on inputs to use
+ *  To be used to initialize stack-allocated secp256k1_surjectionproof struct
  * Returns 0: inputs could not be selected
  *         n: inputs were selected after n iterations of random selection
  *
@@ -142,7 +148,8 @@ SECP256K1_API size_t secp256k1_surjectionproof_serialized_size(
  *                        e.g. in a coinjoin with others' inputs, an ephemeral tag can be given;
  *                        this won't match the output tag but might be used in the anonymity set.)
  *          n_input_tags: the number of entries in the fixed_input_tags array
- *      n_input_tags_to_use: the number of inputs to select randomly to put in the anonymity set
+ *   n_input_tags_to_use: the number of inputs to select randomly to put in the anonymity set
+ *                        Must be <= SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS
  *      fixed_output_tag: fixed output tag
  *      max_n_iterations: the maximum number of iterations to do before giving up. Because the
  *                        maximum number of inputs (SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS) is
@@ -165,6 +172,51 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_initial
   const size_t n_max_iterations,
   const unsigned char *random_seed32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7);
+
+
+/** Surjection proof allocation and initialization function; decides on inputs to use
+ * Returns 0: inputs could not be selected, or malloc failure
+ *         n: inputs were selected after n iterations of random selection
+ *
+ * In:               ctx: pointer to a context object
+ *           proof_out_p: a pointer to a pointer to `secp256k1_surjectionproof*`.
+ *                        the newly-allocated struct pointer will be saved here.
+ *      fixed_input_tags: fixed input tags `A_i` for all inputs. (If the fixed tag is not known,
+ *                        e.g. in a coinjoin with others' inputs, an ephemeral tag can be given;
+ *                        this won't match the output tag but might be used in the anonymity set.)
+ *          n_input_tags: the number of entries in the fixed_input_tags array
+ *      n_input_tags_to_use: the number of inputs to select randomly to put in the anonymity set
+ *      fixed_output_tag: fixed output tag
+ *      max_n_iterations: the maximum number of iterations to do before giving up. Because the
+ *                        maximum number of inputs (SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS) is
+ *                        limited to 256 the probability of giving up is smaller than
+ *                        (255/256)^(n_input_tags_to_use*max_n_iterations).
+ *
+ *         random_seed32: a random seed to be used for input selection
+ * Out:      proof_out_p: The pointer to newly-allocated proof whose bitvector will be initialized.
+ *                        In case of failure, the pointer will be NULL.
+ *          input_index: The index of the actual input that is secretly mapped to the output
+ */
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_allocate_initialized(
+        const secp256k1_context* ctx,
+        secp256k1_surjectionproof** proof_out_p,
+        size_t *input_index,
+        const secp256k1_fixed_asset_tag* fixed_input_tags,
+        const size_t n_input_tags,
+        const size_t n_input_tags_to_use,
+        const secp256k1_fixed_asset_tag* fixed_output_tag,
+        const size_t n_max_iterations,
+        const unsigned char *random_seed32
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7);
+
+/** Surjection proof destroy function
+ *  deallocates the struct that was allocated with secp256k1_surjectionproof_allocate_initialized
+ *
+ * In:               proof: pointer to secp256k1_surjectionproof struct
+ */
+SECP256K1_API void secp256k1_surjectionproof_destroy(
+        secp256k1_surjectionproof* proof
+) SECP256K1_ARG_NONNULL(1);
 
 /** Surjection proof generation function
  * Returns 0: proof could not be created
@@ -191,6 +243,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_surjectionproof_generat
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8);
 
 
+#ifndef USE_REDUCED_SURJECTION_PROOF_SIZE
 /** Surjection proof verification function
  * Returns 0: proof was invalid
  *         1: proof was valid
@@ -208,6 +261,7 @@ SECP256K1_API int secp256k1_surjectionproof_verify(
   size_t n_ephemeral_input_tags,
   const secp256k1_generator* ephemeral_output_tag
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
+#endif
 
 #ifdef __cplusplus
 }

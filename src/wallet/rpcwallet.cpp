@@ -4774,9 +4774,13 @@ bool DerivePubTweak(const std::vector<uint32_t>& vPath, const CPubKey& keyMaster
         assert(tweak.size() == 32);
         ccParent = ccChild;
         keyParent = keyChild;
-        bool ret = secp256k1_ec_privkey_tweak_add(secp256k1_ctx, tweakSum.data(), tweak.data());
-        if (!ret) {
-            return false;
+        if (i == 0) {
+            tweakSum = tweak;
+        } else {
+            bool ret = secp256k1_ec_privkey_tweak_add(secp256k1_ctx, tweakSum.data(), tweak.data());
+            if (!ret) {
+                return false;
+            }
         }
     }
     return true;
