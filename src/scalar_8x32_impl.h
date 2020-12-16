@@ -7,6 +7,8 @@
 #ifndef SECP256K1_SCALAR_REPR_IMPL_H
 #define SECP256K1_SCALAR_REPR_IMPL_H
 
+#include <string.h>
+
 /* Limbs of the secp256k1 order. */
 #define SECP256K1_N_0 ((uint32_t)0xD0364141UL)
 #define SECP256K1_N_1 ((uint32_t)0xBFD25E8CUL)
@@ -282,9 +284,9 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
         tl = t; \
     } \
     c0 += tl;                 /* overflow is handled on the next line */ \
-    th += (c0 < tl) ? 1 : 0;  /* at most 0xFFFFFFFF */ \
+    th += (c0 < tl);          /* at most 0xFFFFFFFF */ \
     c1 += th;                 /* overflow is handled on the next line */ \
-    c2 += (c1 < th) ? 1 : 0;  /* never overflows by contract (verified in the next line) */ \
+    c2 += (c1 < th);          /* never overflows by contract (verified in the next line) */ \
     VERIFY_CHECK((c1 >= th) || (c2 != 0)); \
 }
 
@@ -297,7 +299,7 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
         tl = t; \
     } \
     c0 += tl;                 /* overflow is handled on the next line */ \
-    th += (c0 < tl) ? 1 : 0;  /* at most 0xFFFFFFFF */ \
+    th += (c0 < tl);          /* at most 0xFFFFFFFF */ \
     c1 += th;                 /* never overflows by contract (verified in the next line) */ \
     VERIFY_CHECK(c1 >= th); \
 }
@@ -311,16 +313,16 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
         tl = t; \
     } \
     th2 = th + th;                  /* at most 0xFFFFFFFE (in case th was 0x7FFFFFFF) */ \
-    c2 += (th2 < th) ? 1 : 0;       /* never overflows by contract (verified the next line) */ \
+    c2 += (th2 < th);               /* never overflows by contract (verified the next line) */ \
     VERIFY_CHECK((th2 >= th) || (c2 != 0)); \
     tl2 = tl + tl;                  /* at most 0xFFFFFFFE (in case the lowest 63 bits of tl were 0x7FFFFFFF) */ \
-    th2 += (tl2 < tl) ? 1 : 0;      /* at most 0xFFFFFFFF */ \
+    th2 += (tl2 < tl);              /* at most 0xFFFFFFFF */ \
     c0 += tl2;                      /* overflow is handled on the next line */ \
-    th2 += (c0 < tl2) ? 1 : 0;      /* second overflow is handled on the next line */ \
+    th2 += (c0 < tl2);              /* second overflow is handled on the next line */ \
     c2 += (c0 < tl2) & (th2 == 0);  /* never overflows by contract (verified the next line) */ \
     VERIFY_CHECK((c0 >= tl2) || (th2 != 0) || (c2 != 0)); \
     c1 += th2;                      /* overflow is handled on the next line */ \
-    c2 += (c1 < th2) ? 1 : 0;       /* never overflows by contract (verified the next line) */ \
+    c2 += (c1 < th2);               /* never overflows by contract (verified the next line) */ \
     VERIFY_CHECK((c1 >= th2) || (c2 != 0)); \
 }
 
@@ -328,15 +330,15 @@ static int secp256k1_scalar_cond_negate(secp256k1_scalar *r, int flag) {
 #define sumadd(a) { \
     unsigned int over; \
     c0 += (a);                  /* overflow is handled on the next line */ \
-    over = (c0 < (a)) ? 1 : 0; \
+    over = (c0 < (a)); \
     c1 += over;                 /* overflow is handled on the next line */ \
-    c2 += (c1 < over) ? 1 : 0;  /* never overflows by contract */ \
+    c2 += (c1 < over);          /* never overflows by contract */ \
 }
 
 /** Add a to the number defined by (c0,c1). c1 must never overflow, c2 must be zero. */
 #define sumadd_fast(a) { \
     c0 += (a);                 /* overflow is handled on the next line */ \
-    c1 += (c0 < (a)) ? 1 : 0;  /* never overflows by contract (verified the next line) */ \
+    c1 += (c0 < (a));          /* never overflows by contract (verified the next line) */ \
     VERIFY_CHECK((c1 != 0) | (c0 >= (a))); \
     VERIFY_CHECK(c2 == 0); \
 }
@@ -683,26 +685,24 @@ static void secp256k1_scalar_sqr(secp256k1_scalar *r, const secp256k1_scalar *a)
     secp256k1_scalar_reduce_512(r, l);
 }
 
-#ifdef USE_ENDOMORPHISM
-static void secp256k1_scalar_split_128(secp256k1_scalar *r1, secp256k1_scalar *r2, const secp256k1_scalar *a) {
-    r1->d[0] = a->d[0];
-    r1->d[1] = a->d[1];
-    r1->d[2] = a->d[2];
-    r1->d[3] = a->d[3];
+static void secp256k1_scalar_split_128(secp256k1_scalar *r1, secp256k1_scalar *r2, const secp256k1_scalar *k) {
+    r1->d[0] = k->d[0];
+    r1->d[1] = k->d[1];
+    r1->d[2] = k->d[2];
+    r1->d[3] = k->d[3];
     r1->d[4] = 0;
     r1->d[5] = 0;
     r1->d[6] = 0;
     r1->d[7] = 0;
-    r2->d[0] = a->d[4];
-    r2->d[1] = a->d[5];
-    r2->d[2] = a->d[6];
-    r2->d[3] = a->d[7];
+    r2->d[0] = k->d[4];
+    r2->d[1] = k->d[5];
+    r2->d[2] = k->d[6];
+    r2->d[3] = k->d[7];
     r2->d[4] = 0;
     r2->d[5] = 0;
     r2->d[6] = 0;
     r2->d[7] = 0;
 }
-#endif
 
 SECP256K1_INLINE static int secp256k1_scalar_eq(const secp256k1_scalar *a, const secp256k1_scalar *b) {
     return ((a->d[0] ^ b->d[0]) | (a->d[1] ^ b->d[1]) | (a->d[2] ^ b->d[2]) | (a->d[3] ^ b->d[3]) | (a->d[4] ^ b->d[4]) | (a->d[5] ^ b->d[5]) | (a->d[6] ^ b->d[6]) | (a->d[7] ^ b->d[7])) == 0;
@@ -728,5 +728,115 @@ SECP256K1_INLINE static void secp256k1_scalar_mul_shift_var(secp256k1_scalar *r,
     r->d[7] = shift < 288 ? (l[7 + shiftlimbs] >> shiftlow)  : 0;
     secp256k1_scalar_cadd_bit(r, 0, (l[(shift - 1) >> 5] >> ((shift - 1) & 0x1f)) & 1);
 }
+
+static SECP256K1_INLINE void secp256k1_scalar_cmov(secp256k1_scalar *r, const secp256k1_scalar *a, int flag) {
+    uint32_t mask0, mask1;
+    VG_CHECK_VERIFY(r->d, sizeof(r->d));
+    mask0 = flag + ~((uint32_t)0);
+    mask1 = ~mask0;
+    r->d[0] = (r->d[0] & mask0) | (a->d[0] & mask1);
+    r->d[1] = (r->d[1] & mask0) | (a->d[1] & mask1);
+    r->d[2] = (r->d[2] & mask0) | (a->d[2] & mask1);
+    r->d[3] = (r->d[3] & mask0) | (a->d[3] & mask1);
+    r->d[4] = (r->d[4] & mask0) | (a->d[4] & mask1);
+    r->d[5] = (r->d[5] & mask0) | (a->d[5] & mask1);
+    r->d[6] = (r->d[6] & mask0) | (a->d[6] & mask1);
+    r->d[7] = (r->d[7] & mask0) | (a->d[7] & mask1);
+}
+
+#define ROTL32(x,n) ((x) << (n) | (x) >> (32-(n)))
+#define QUARTERROUND(a,b,c,d) \
+  a += b; d = ROTL32(d ^ a, 16); \
+  c += d; b = ROTL32(b ^ c, 12); \
+  a += b; d = ROTL32(d ^ a, 8); \
+  c += d; b = ROTL32(b ^ c, 7);
+
+#if defined(SECP256K1_BIG_ENDIAN)
+#define LE32(p) ((((p) & 0xFF) << 24) | (((p) & 0xFF00) << 8) | (((p) & 0xFF0000) >> 8) | (((p) & 0xFF000000) >> 24))
+#elif defined(SECP256K1_LITTLE_ENDIAN)
+#define LE32(p) (p)
+#endif
+
+static void secp256k1_scalar_chacha20(secp256k1_scalar *r1, secp256k1_scalar *r2, const unsigned char *seed, uint64_t idx) {
+    size_t n;
+    size_t over_count = 0;
+    uint32_t seed32[8];
+    uint32_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
+    int over1, over2;
+
+    memcpy((void *) seed32, (const void *) seed, 32);
+    do {
+        x0 = 0x61707865;
+        x1 = 0x3320646e;
+        x2 = 0x79622d32;
+        x3 = 0x6b206574;
+        x4 = LE32(seed32[0]);
+        x5 = LE32(seed32[1]);
+        x6 = LE32(seed32[2]);
+        x7 = LE32(seed32[3]);
+        x8 = LE32(seed32[4]);
+        x9 = LE32(seed32[5]);
+        x10 = LE32(seed32[6]);
+        x11 = LE32(seed32[7]);
+        x12 = idx;
+        x13 = idx >> 32;
+        x14 = 0;
+        x15 = over_count;
+
+        n = 10;
+        while (n--) {
+            QUARTERROUND(x0, x4, x8,x12)
+            QUARTERROUND(x1, x5, x9,x13)
+            QUARTERROUND(x2, x6,x10,x14)
+            QUARTERROUND(x3, x7,x11,x15)
+            QUARTERROUND(x0, x5,x10,x15)
+            QUARTERROUND(x1, x6,x11,x12)
+            QUARTERROUND(x2, x7, x8,x13)
+            QUARTERROUND(x3, x4, x9,x14)
+        }
+
+        x0 += 0x61707865;
+        x1 += 0x3320646e;
+        x2 += 0x79622d32;
+        x3 += 0x6b206574;
+        x4 += LE32(seed32[0]);
+        x5 += LE32(seed32[1]);
+        x6 += LE32(seed32[2]);
+        x7 += LE32(seed32[3]);
+        x8 += LE32(seed32[4]);
+        x9 += LE32(seed32[5]);
+        x10 += LE32(seed32[6]);
+        x11 += LE32(seed32[7]);
+        x12 += idx;
+        x13 += idx >> 32;
+        x14 += 0;
+        x15 += over_count;
+
+        r1->d[7] = x0;
+        r1->d[6] = x1;
+        r1->d[5] = x2;
+        r1->d[4] = x3;
+        r1->d[3] = x4;
+        r1->d[2] = x5;
+        r1->d[1] = x6;
+        r1->d[0] = x7;
+        r2->d[7] = x8;
+        r2->d[6] = x9;
+        r2->d[5] = x10;
+        r2->d[4] = x11;
+        r2->d[3] = x12;
+        r2->d[2] = x13;
+        r2->d[1] = x14;
+        r2->d[0] = x15;
+
+        over1 = secp256k1_scalar_check_overflow(r1);
+        over2 = secp256k1_scalar_check_overflow(r2);
+        over_count++;
+   } while (over1 | over2);
+}
+
+#undef ROTL32
+#undef QUARTERROUND
+#undef LE32
 
 #endif /* SECP256K1_SCALAR_REPR_IMPL_H */

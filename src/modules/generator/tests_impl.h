@@ -33,8 +33,8 @@ void test_generator_api(void) {
     secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_rand256(key);
-    secp256k1_rand256(blind);
+    secp256k1_testrand256(key);
+    secp256k1_testrand256(blind);
 
     CHECK(secp256k1_generator_generate(none, &gen, key) == 1);
     CHECK(ecount == 0);
@@ -173,7 +173,7 @@ void test_generator_generate(void) {
     secp256k1_ge_storage ges;
     int i;
     unsigned char v[32];
-    static const unsigned char s[32] = {0};
+    unsigned char s[32] = {0};
     secp256k1_scalar sc;
     secp256k1_scalar_set_b32(&sc, s, NULL);
     for (i = 1; i <= 32; i++) {
@@ -188,6 +188,14 @@ void test_generator_generate(void) {
         secp256k1_ge_to_storage(&ges, &ge);
         CHECK(memcmp(&ges, &results[i - 1], sizeof(secp256k1_ge_storage)) == 0);
     }
+
+    /* There is no range restriction on the value, but the blinder must be a
+     * valid scalar. Check that an invalid blinder causes the call to fail
+     * but not crash. */
+    memset(v, 0xff, 32);
+    CHECK(secp256k1_generator_generate(ctx, &gen, v));
+    memset(s, 0xff, 32);
+    CHECK(!secp256k1_generator_generate_blinded(ctx, &gen, v, s));
 }
 
 void test_generator_fixed_vector(void) {

@@ -34,11 +34,11 @@ static void bench_rangeproof_setup(void* arg) {
     CHECK(secp256k1_rangeproof_verify(data->ctx, &minv, &maxv, &data->commit, data->proof, data->len, NULL, 0, secp256k1_generator_h));
 }
 
-static void bench_rangeproof(void* arg) {
+static void bench_rangeproof(void* arg, int iters) {
     int i;
     bench_rangeproof_t *data = (bench_rangeproof_t*)arg;
 
-    for (i = 0; i < 1000; i++) {
+    for (i = 0; i < iters/data->min_bits; i++) {
         int j;
         uint64_t minv;
         uint64_t maxv;
@@ -51,12 +51,14 @@ static void bench_rangeproof(void* arg) {
 
 int main(void) {
     bench_rangeproof_t data;
+    int iters;
 
     data.ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
     data.min_bits = 32;
+    iters = data.min_bits*get_iters(32);
 
-    run_benchmark("rangeproof_verify_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, 1000 * data.min_bits);
+    run_benchmark("rangeproof_verify_bit", bench_rangeproof, bench_rangeproof_setup, NULL, &data, 10, iters);
 
     secp256k1_context_destroy(data.ctx);
     return 0;

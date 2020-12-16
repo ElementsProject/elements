@@ -9,11 +9,20 @@
 #include <assert.h>
 #include <string.h>
 
+#if defined HAVE_CONFIG_H
+#include "libsecp256k1-config.h"
+#endif
+
+#include "include/secp256k1_rangeproof.h"
+#include "include/secp256k1_surjectionproof.h"
 #include "modules/rangeproof/borromean.h"
 #include "modules/surjection/surjection_impl.h"
 #include "hash.h"
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_surjectionproof.h"
+
+#ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
+#undef SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS
+#define SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS 16
+#endif
 
 static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) {
     size_t ret = 0;
@@ -35,6 +44,9 @@ static size_t secp256k1_count_bits_set(const unsigned char* data, size_t count) 
     return ret;
 }
 
+#ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
+static
+#endif
 int secp256k1_surjectionproof_parse(const secp256k1_context* ctx, secp256k1_surjectionproof *proof, const unsigned char *input, size_t inputlen) {
     size_t n_inputs;
     size_t signature_len;
@@ -53,6 +65,15 @@ int secp256k1_surjectionproof_parse(const secp256k1_context* ctx, secp256k1_surj
     }
     if (inputlen < 2 + (n_inputs + 7) / 8) {
         return 0;
+    }
+
+    /* Check that the bitvector of used inputs is of the claimed
+     * length; i.e. the final byte has no "padding bits" set */
+    if (n_inputs % 8 != 0) {
+        const unsigned char padding_mask = (~0U) << (n_inputs % 8);
+        if ((input[2 + (n_inputs + 7) / 8 - 1] & padding_mask) != 0) {
+            return 0;
+        }
     }
 
     signature_len = 32 * (1 + secp256k1_count_bits_set(&input[2], (n_inputs + 7) / 8));
@@ -151,6 +172,48 @@ static size_t secp256k1_surjectionproof_csprng_next(secp256k1_surjectionproof_cs
     }
 }
 
+/* While '_allocate_initialized' may be a wordy suffix for this function, and '_create'
+ * may have been more appropriate, '_create' could be confused with '_generate',
+ * as the meanings for the words are close. Therefore, more wordy, but less
+ * ambiguous suffix was chosen. */
+int secp256k1_surjectionproof_allocate_initialized(const secp256k1_context* ctx, secp256k1_surjectionproof** proof_out_p, size_t *input_index, const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, const secp256k1_fixed_asset_tag* fixed_output_tag, const size_t n_max_iterations, const unsigned char *random_seed32) {
+    int ret = 0;
+    secp256k1_surjectionproof* proof;
+
+    VERIFY_CHECK(ctx != NULL);
+
+    ARG_CHECK(proof_out_p != NULL);
+    *proof_out_p = 0;
+
+    proof = (secp256k1_surjectionproof*)checked_malloc(&ctx->error_callback, sizeof(secp256k1_surjectionproof));
+    if (proof != NULL) {
+        ret = secp256k1_surjectionproof_initialize(ctx, proof, input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, fixed_output_tag, n_max_iterations, random_seed32);
+        if (ret) {
+            *proof_out_p = proof;
+        }
+        else {
+            free(proof);
+        }
+    }
+    return ret;
+}
+
+/* secp256k1_surjectionproof structure may also be allocated on the stack,
+ * and initialized explicitly via secp256k1_surjectionproof_initialize().
+ * Supplying stack-allocated struct to _destroy() will result in calling
+ * free() with the pointer that points at the stack, with disasterous
+ * consequences. Thus, it is not advised to mix heap- and stack-allocating
+ * approaches to working with this struct. It is possible to detect this
+ * situation by using additional field in the struct that can be set to
+ * special value depending on the allocation path, and check it here.
+ * But currently, it is not seen as big enough concern to warrant this extra code .*/
+void secp256k1_surjectionproof_destroy(secp256k1_surjectionproof* proof) {
+    if (proof != NULL) {
+        VERIFY_CHECK(proof->n_inputs <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+        free(proof);
+    }
+}
+
 int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, size_t *input_index, const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, const secp256k1_fixed_asset_tag* fixed_output_tag, const size_t n_max_iterations, const unsigned char *random_seed32) {
     secp256k1_surjectionproof_csprng csprng;
     size_t n_iterations = 0;
@@ -162,6 +225,7 @@ int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1
     ARG_CHECK(fixed_output_tag != NULL);
     ARG_CHECK(random_seed32 != NULL);
     ARG_CHECK(n_input_tags <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    ARG_CHECK(n_input_tags_to_use <= SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS);
     ARG_CHECK(n_input_tags_to_use <= n_input_tags);
     (void) ctx;
 
@@ -219,10 +283,8 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     size_t n_total_pubkeys;
     size_t n_used_pubkeys;
     size_t ring_input_index = 0;
-    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge inputs[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge output;
+    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
+    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
@@ -261,17 +323,14 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
         return 0;
     }
 
-    secp256k1_generator_load(&output, ephemeral_output_tag);
-    for (i = 0; i < n_total_pubkeys; i++) {
-        secp256k1_generator_load(&inputs[i], &ephemeral_input_tags[i]);
+    if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, input_index, &ring_input_index) == 0) {
+        return 0;
     }
-
-    secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, inputs, n_total_pubkeys, proof->used_inputs, &output, input_index, &ring_input_index);
 
     /* Produce signature */
     rsizes[0] = (int) n_used_pubkeys;
     indices[0] = (int) ring_input_index;
-    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, &output);
+    secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
     if (secp256k1_surjection_genrand(borromean_s, n_used_pubkeys, &blinding_key) == 0) {
         return 0;
     }
@@ -289,15 +348,16 @@ int secp256k1_surjectionproof_generate(const secp256k1_context* ctx, secp256k1_s
     return 1;
 }
 
+#ifdef USE_REDUCED_SURJECTION_PROOF_SIZE
+static
+#endif
 int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256k1_surjectionproof* proof, const secp256k1_generator* ephemeral_input_tags, size_t n_ephemeral_input_tags, const secp256k1_generator* ephemeral_output_tag) {
     size_t rsizes[1];    /* array needed for borromean sig API */
     size_t i;
     size_t n_total_pubkeys;
     size_t n_used_pubkeys;
-    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge inputs[SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS];
-    secp256k1_ge output;
+    secp256k1_gej ring_pubkeys[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
+    secp256k1_scalar borromean_s[SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS];
     unsigned char msg32[32];
 
     VERIFY_CHECK(ctx != NULL);
@@ -313,12 +373,12 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
         return 0;
     }
 
-    secp256k1_generator_load(&output, ephemeral_output_tag);
-    for (i = 0; i < n_total_pubkeys; i++) {
-        secp256k1_generator_load(&inputs[i], &ephemeral_input_tags[i]);
+    /* Reject proofs with too many used inputs in USE_REDUCED_SURJECTION_PROOF_SIZE mode */
+    if (n_used_pubkeys > SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS) {
+        return 0;
     }
 
-    if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, inputs, n_total_pubkeys, proof->used_inputs, &output, 0, NULL) == 0) {
+    if (secp256k1_surjection_compute_public_keys(ring_pubkeys, n_used_pubkeys, ephemeral_input_tags, n_total_pubkeys, proof->used_inputs, ephemeral_output_tag, 0, NULL) == 0) {
         return 0;
     }
 
@@ -331,7 +391,7 @@ int secp256k1_surjectionproof_verify(const secp256k1_context* ctx, const secp256
             return 0;
         }
     }
-    secp256k1_surjection_genmessage(msg32, inputs, n_total_pubkeys, &output);
+    secp256k1_surjection_genmessage(msg32, ephemeral_input_tags, n_total_pubkeys, ephemeral_output_tag);
     return secp256k1_borromean_verify(&ctx->ecmult_ctx, NULL, &proof->data[0], borromean_s, ring_pubkeys, rsizes, 1, msg32, 32);
 }
 
