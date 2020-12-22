@@ -80,6 +80,7 @@ BASE_SCRIPTS = [
     'feature_blocksign.py',
     'rpc_calcfastmerkleroot.py',
     'feature_txwitness.py',
+    'feature_checkexchange.py',
     'rpc_tweakfedpeg.py',
     'feature_issuance.py',
     'feature_confidential_transactions.py',
