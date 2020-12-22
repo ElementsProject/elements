@@ -590,6 +590,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
     const CMutableTransaction txv{tx};
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
+    CAmountMap input_map;
 
     if (!registers.count("privatekeys"))
         throw std::runtime_error("privatekeys register variable must be set.");
@@ -645,6 +646,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
                         ScriptToAsmStr(scriptPubKey);
                     throw std::runtime_error(err);
                 }
+                coin.out.TryRetrieve(input_map);
                 Coin newcoin;
                 newcoin.out.scriptPubKey = scriptPubKey;
                 newcoin.out.nValue = 0;
@@ -684,7 +686,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
         SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mergedTx.vout.size()))
-            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(keystore, MutableTransactionSignatureCreator(&mergedTx, i, amount, input_map, prevPubKey, nHashType), prevPubKey, sigdata);
 
         UpdateTransaction(mergedTx, i, sigdata);
     }

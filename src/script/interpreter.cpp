@@ -470,7 +470,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
 
                 case OP_NOP1: case OP_NOP4: case OP_NOP5:
-                case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9: case OP_NOP10:
+                case OP_NOP6: case OP_NOP7: case OP_NOP8: case OP_NOP9:
                 {
                     if (flags & SCRIPT_VERIFY_DISCOURAGE_UPGRADABLE_NOPS)
                         return set_error(serror, SCRIPT_ERR_DISCOURAGE_UPGRADABLE_NOPS);
@@ -1341,6 +1341,54 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                 }
                 break;
 
+                case OP_CHECKEXCHANGE:
+                {
+                    // [withdraw_asset] [withdraw_maximum] [...] [withdraw_count] [pay_asset] [pay_minimum] [pay_dest] [...] [pay_count] -- bool
+                    // the 0 0 case is consensus invalid, thus there must be at least 4 items on the stack
+                    if (stack.size() < 4) return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+
+                    int payments = CScriptNum(stacktop(-1), true).getint();
+
+                    if (payments < 0 || payments > MAX_EXCHANGE_PAYMENTS) return set_error(serror, SCRIPT_ERR_OP_COUNT);
+                    if (stack.size() < (uint64_t)payments * 3 + 2) return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    popstack(stack);
+
+                    bool success = true;
+
+                    for (int p = 0; p < payments; ++p) {
+                        if (success) {
+                            // asset, minimum, dest taken from the end of the stack (i.e. reverse order)
+                            CScript dest(stacktop(-1));
+                            CAmount minimum = CScriptNum(stacktop(-2), true).getint64();
+                            CAsset asset(stacktop(-3));
+                            success = checker.CheckPayment(asset, minimum, dest);
+                        }
+                        popstack(stack);
+                        popstack(stack);
+                        popstack(stack);
+                    }
+
+                    int withdrawals = CScriptNum(stacktop(-1), true).getint();
+
+                    if (withdrawals < 0 || withdrawals > MAX_EXCHANGE_WITHDRAWALS) return set_error(serror, SCRIPT_ERR_OP_COUNT);
+                    if (stack.size() < (uint64_t)withdrawals * 2 + 1) return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+                    popstack(stack);
+
+                    for (int w = 0; w < withdrawals; ++w) {
+                        if (success) {
+                            // asset, maximum taken from the end of the stack (i.e. reverse order)
+                            CAmount maximum = CScriptNum(stacktop(-1), true).getint64();
+                            CAsset asset(stacktop(-2));
+                            success = checker.CheckWithdrawal(asset, maximum);
+                        }
+                        popstack(stack);
+                        popstack(stack);
+                    }
+
+                    stack.push_back(success ? vchTrue : vchFalse);
+                }
+                break;
+
                 case OP_DETERMINISTICRANDOM:
                 {
                     if (stack.size() < 3)
@@ -1813,6 +1861,57 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
         return false;
 
     return true;
+}
+
+template <class T>
+bool GenericTransactionSignatureChecker<T>::CheckWithdrawal(const CAsset& assetType, CAmount max) const
+{
+    //              Operator (m_source) User
+    // Pre state:   X assetType         Y assetType
+    // Post state:  X - Z assetType     Y + Z assetType
+    //                  (0 <= Z <= max; Z <= X)
+    if (!m_input_map.count(assetType)) return false;
+    CAmount fed = m_input_map.at(assetType);
+    CAmount returned = 0;
+    for (const auto& output : txTo->vout) {
+        if (output.nAsset.IsExplicit() &&
+            output.nValue.IsExplicit() &&
+            output.nAsset.GetAsset() == assetType &&
+            output.scriptPubKey == m_source) {
+                // we do not count multiple payments to the same destination; pay once or not at all!
+                returned = output.nValue.GetAmount();
+                break;
+        }
+    }
+    return (fed - returned <= max);
+}
+
+template <class T>
+bool GenericTransactionSignatureChecker<T>::CheckPayment(const CAsset& assetType, CAmount amount, CScript& dest) const
+{
+    //              User            Target (dest)
+    // Pre state:   Y assetType     V assetType
+    // Post state:  Y - Z assetType V + Z assetType
+    //                  (amount <= Z <= Y)
+
+    // if Operator (m_source) held assets of assetType, anyone could use them as inputs to pay dest; thus, the two
+    // must, by consensus, by different.
+    if (dest == m_source) return false;
+    // TODO: sort out why the resulting output ends up wrapped in a push op
+    CScript comparison(dest.begin() + 1, dest.end());
+
+    CAmount paid = 0;
+    for (const auto& output : txTo->vout) {
+        if (output.nAsset.IsExplicit() &&
+            output.nValue.IsExplicit() &&
+            output.nAsset.GetAsset() == assetType &&
+            output.scriptPubKey == comparison) {
+                // we do not count multiple payments to the same destination; pay once or not at all!
+                paid = output.nValue.GetAmount();
+                break;
+        }
+    }
+    return paid >= amount;
 }
 
 // explicit instantiation

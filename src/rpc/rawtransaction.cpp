@@ -1041,6 +1041,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
+    CAmountMap input_map;
     {
         LOCK(cs_main);
         LOCK(mempool.cs);
@@ -1049,7 +1050,8 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
         for (const CTxIn& txin : mergedTx.vin) {
-            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+            const Coin& coin = view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+            coin.out.TryRetrieve(input_map);
         }
 
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
@@ -1070,7 +1072,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
                 sigdata.MergeSignatureData(DataFromTransaction(txv, i, coin.out));
             }
         }
-        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, 1), coin.out.scriptPubKey, sigdata);
+        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(&mergedTx, i, coin.out.nValue, input_map, coin.out.scriptPubKey, 1), coin.out.scriptPubKey, sigdata);
 
         UpdateTransaction(mergedTx, i, sigdata);
     }
@@ -1080,6 +1082,8 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
 
 UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType)
 {
+    CAmountMap input_map;
+
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
     CCoinsViewCache view(&viewDummy);
@@ -1090,7 +1094,8 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
         for (const CTxIn& txin : mtx.vin) {
-            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+            const Coin& coin = view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+            coin.out.TryRetrieve(input_map);
         }
 
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
@@ -1196,6 +1201,7 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         CTxIn& txin = mtx.vin[i];
         const CTxInWitness& inWitness = mtx.witness.vtxinwit[i];
         const Coin& coin = view.AccessCoin(txin.prevout);
+        coin.out.TryRetrieve(input_map);
 
         std::string err;
         if (!txin.m_is_pegin && coin.IsSpent()) {
@@ -1217,7 +1223,7 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         SignatureData sigdata = DataFromTransaction(mtx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:
         if (!fHashSingle || (i < mtx.vout.size())) {
-            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, nHashType), prevPubKey, sigdata);
+            ProduceSignature(*keystore, MutableTransactionSignatureCreator(&mtx, i, amount, input_map, prevPubKey, nHashType), prevPubKey, sigdata);
         }
 
         UpdateTransaction(mtx, i, sigdata);
@@ -1228,7 +1234,7 @@ UniValue SignTransaction(interfaces::Chain& chain, CMutableTransaction& mtx, con
         }
 
         ScriptError serror = SCRIPT_ERR_OK;
-        if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount), &serror)) {
+        if (!VerifyScript(txin.scriptSig, prevPubKey, &inWitness.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, amount, input_map, prevPubKey), &serror)) {
             if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
                 // Unable to sign input and verification failed (possible attempt to partially sign).
                 TxInErrorToJSON(txin, inWitness, vErrors, "Unable to sign input, invalid stack size (possibly missing key)");

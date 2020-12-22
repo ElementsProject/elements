@@ -163,6 +163,27 @@ public:
          return false;
     }
 
+    /**
+     * Check that a withdrawal was legal
+     *
+     * Withdrawals are operations sending up to a maximum amount `max` of a given asset type `assetType` to some destination,
+     * sending the remaining balance back to the original script.
+     */
+    virtual bool CheckWithdrawal(const CAsset& assetType, CAmount max) const
+    {
+        return false;
+    }
+
+    /**
+     * Check that a payment was made
+     *
+     * Payments are operations sending (at least) the given amount to the specified destination.
+     */
+    virtual bool CheckPayment(const CAsset& assetType, CAmount amount, CScript& dest) const
+    {
+        return false;
+    }
+
     virtual ~BaseSignatureChecker() {}
 };
 
@@ -173,17 +194,21 @@ private:
     const T* txTo;
     unsigned int nIn;
     const CConfidentialValue amount;
+    const CAmountMap m_input_map;    // a map of all known input assets and summed values; required by CheckWithdrawal (but not CheckPayment)
+    const CScript& m_source;         // the scriptPubKey of the input's vout; required by CheckWithdrawal (but not CheckPayment)
     const PrecomputedTransactionData* txdata;
 
 protected:
     virtual bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
 
 public:
-    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(nullptr) {}
-    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(&txdataIn) {}
+    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const CAmountMap& input_map, const CScript& source) : txTo(txToIn), nIn(nInIn), amount(amountIn), m_input_map(input_map), m_source(source), txdata(nullptr) {}
+    GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn, const CAmountMap& input_map, const CScript& source) : txTo(txToIn), nIn(nInIn), amount(amountIn), m_input_map(input_map), m_source(source), txdata(&txdataIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;
     bool CheckSequence(const CScriptNum& nSequence) const override;
+    bool CheckWithdrawal(const CAsset& assetType, CAmount max) const override;
+    bool CheckPayment(const CAsset& assetType, CAmount amount, CScript& dest) const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;

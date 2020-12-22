@@ -2782,15 +2782,20 @@ bool CWallet::SignTransaction(CMutableTransaction &tx)
 
     // sign the new tx
     int nIn = 0;
+    CAmountMap input_map;
     for (auto& input : tx.vin) {
         std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(input.prevout.hash);
-        if(mi == mapWallet.end() || input.prevout.n >= mi->second.tx->vout.size()) {
+        if (mi == mapWallet.end() || input.prevout.n >= mi->second.tx->vout.size()) {
             return false;
         }
+        mi->second.tx->vout[input.prevout.n].TryRetrieve(input_map);
+    }
+    for (auto& input : tx.vin) {
+        std::map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(input.prevout.hash);
         const CScript& scriptPubKey = mi->second.tx->vout[input.prevout.n].scriptPubKey;
         const CConfidentialValue& amount = mi->second.tx->vout[input.prevout.n].nValue;
         SignatureData sigdata;
-        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, SIGHASH_ALL), scriptPubKey, sigdata)) {
+        if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&tx, nIn, amount, input_map, scriptPubKey, SIGHASH_ALL), scriptPubKey, sigdata)) {
             return false;
         }
         UpdateTransaction(tx, nIn, sigdata);
@@ -3126,6 +3131,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
 
     FeeCalculation feeCalc;
     CAmount nFeeNeeded;
+    CAmountMap input_map;
     int nBytes;
     {
         std::set<CInputCoin> setCoins;
@@ -3259,6 +3265,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 txNew.vin.clear();
                 txNew.vout.clear();
                 txNew.witness.SetNull();
+                input_map.clear();
                 bool fFirst = true;
 
                 CAmountMap mapValueToSelect = mapValue;
@@ -3353,6 +3360,9 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                             strFailReason = _("Insufficient funds");
                             return false;
                         }
+                    }
+                    for (const auto& coin : setCoins) {
+                        coin.txout.TryRetrieve(input_map);
                     }
                 } else {
                     bnb_used = false;
@@ -3780,7 +3790,7 @@ bool CWallet::CreateTransaction(interfaces::Chain::Lock& locked_chain, const std
                 const CScript& scriptPubKey = coin.txout.scriptPubKey;
                 SignatureData sigdata;
 
-                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, SIGHASH_ALL), scriptPubKey, sigdata))
+                if (!ProduceSignature(*this, MutableTransactionSignatureCreator(&txNew, nIn, coin.txout.nValue, input_map, scriptPubKey, SIGHASH_ALL), scriptPubKey, sigdata))
                 {
                     strFailReason = _("Signing transaction failed");
                     return false;

@@ -32,6 +32,10 @@ static const int MAX_OPS_PER_SCRIPT = 201;
 // Maximum number of public keys per multisig
 static const int MAX_PUBKEYS_PER_MULTISIG = 20;
 
+// Maximum number of payments/withdrawals in an exchange operation
+static const int MAX_EXCHANGE_PAYMENTS = 10;
+static const int MAX_EXCHANGE_WITHDRAWALS = 10;
+
 // Maximum script length in bytes
 static const int MAX_SCRIPT_SIZE = 10000;
 
@@ -185,6 +189,9 @@ enum opcodetype
     OP_CHECKSIGFROMSTACK = 0xc1,
     OP_CHECKSIGFROMSTACKVERIFY = 0xc2,
 
+    // exchange
+    OP_CHECKEXCHANGE = 0xb9,
+
     // expansion
     OP_NOP1 = 0xb0,
     OP_CHECKLOCKTIMEVERIFY = 0xb1,
@@ -197,7 +204,6 @@ enum opcodetype
     OP_NOP7 = 0xb6,
     OP_NOP8 = 0xb7,
     OP_NOP9 = 0xb8,
-    OP_NOP10 = 0xb9,
 
     OP_INVALIDOPCODE = 0xff,
 };
@@ -326,6 +332,11 @@ public:
             return std::numeric_limits<int>::max();
         else if (m_value < std::numeric_limits<int>::min())
             return std::numeric_limits<int>::min();
+        return m_value;
+    }
+
+    int64_t getint64() const
+    {
         return m_value;
     }
 

@@ -131,6 +131,9 @@ const char* GetOpName(opcodetype opcode)
     case OP_CHECKSIGFROMSTACK      : return "OP_CHECKSIGFROMSTACK";
     case OP_CHECKSIGFROMSTACKVERIFY: return "OP_CHECKSIGFROMSTACKVERIFY";
 
+    // exchange
+    case OP_CHECKEXCHANGE          : return "OP_CHECKEXCHANGE";
+
     // expansion
     case OP_NOP1                   : return "OP_NOP1";
     case OP_CHECKLOCKTIMEVERIFY    : return "OP_CHECKLOCKTIMEVERIFY";
@@ -141,7 +144,6 @@ const char* GetOpName(opcodetype opcode)
     case OP_NOP7                   : return "OP_NOP7";
     case OP_NOP8                   : return "OP_NOP8";
     case OP_NOP9                   : return "OP_NOP9";
-    case OP_NOP10                  : return "OP_NOP10";
 
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 

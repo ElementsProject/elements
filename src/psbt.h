@@ -88,6 +88,15 @@ struct PSBTInput
     CAsset asset;
     uint256 asset_blinding_factor;
 
+    bool TryExtract(CAmountMap& input_map) const
+    {
+        if (!asset.IsNull() && value) {
+            input_map[asset] += *value;
+            return true;
+        }
+        return false;
+    }
+
     boost::variant<boost::blank, CTransactionRef, Sidechain::Bitcoin::CTransactionRef> peg_in_tx;
     boost::variant<boost::blank, CMerkleBlock, Sidechain::Bitcoin::CMerkleBlock> txout_proof;
     CScript claim_script;
@@ -759,6 +768,15 @@ struct PartiallySignedTransaction
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
 
     bool IsNull() const;
+
+    CAmountMap GetInputMap() const
+    {
+        CAmountMap input_map;
+        for (const auto& i : inputs) {
+            i.TryExtract(input_map);
+        }
+        return input_map;
+    }
 
     /** Merge psbt into this. The two psbts must have the same underlying CTransaction (i.e. the
       * same actual Bitcoin transaction.) Returns true if the merge succeeded, false otherwise. */

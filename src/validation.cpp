@@ -1419,7 +1419,7 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     const CScriptWitness *witness = ptxTo->witness.vtxinwit.size() > nIn ? &ptxTo->witness.vtxinwit[nIn].scriptWitness : NULL;
-    return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), &error);
+    return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, m_input_map, m_tx_out.scriptPubKey, cacheStore, *txdata), &error);
 }
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
@@ -1488,6 +1488,24 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 return true;
             }
 
+            CAmountMap input_map;
+
+            for (unsigned int i = 0; i < tx.vin.size(); i++) {
+                const COutPoint &prevout = tx.vin[i].prevout;
+
+                // ELEMENTS:
+                // If input is peg-in, create "coin" to evaluate against
+                Coin pegin_coin;
+                if (tx.vin[i].m_is_pegin) {
+                    // Height of "output" in script evaluation will be 0
+                    pegin_coin = Coin(GetPeginOutputFromWitness(tx.witness.vtxinwit[i].m_pegin_witness), 0, false);
+                }
+
+                const Coin& coin = tx.vin[i].m_is_pegin ? pegin_coin : inputs.AccessCoin(prevout);
+                assert(!coin.IsSpent());
+                coin.out.TryRetrieve(input_map);
+            }
+
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
 
@@ -1509,7 +1527,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                 // spent being checked as a part of CScriptCheck.
 
                 // Verify signature
-                CCheck* check = new CScriptCheck(coin.out, tx, i, flags, cacheSigStore, &txdata);
+                CCheck* check = new CScriptCheck(coin.out, tx, i, flags, cacheSigStore, &txdata, input_map);
                 ScriptError serror = QueueCheck(pvChecks, check);
                 if (serror != SCRIPT_ERR_OK) {
                     if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
@@ -1520,7 +1538,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsVi
                         // avoid splitting the network between upgraded and
                         // non-upgraded nodes.
                         CScriptCheck check2(coin.out, tx, i,
-                                flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
+                                flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata, input_map);
                         if (check2()) {
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(serror)));
                         }

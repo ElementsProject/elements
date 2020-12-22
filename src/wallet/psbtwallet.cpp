@@ -174,7 +174,7 @@ void FillPSBTOutputsData(const CWallet* pwallet, PartiallySignedTransaction& psb
         SignatureData sigdata;
         psbt_out.FillSignatureData(sigdata);
 
-        MutableTransactionSignatureCreator creator(&tx, 0 /* nIn, ignored */, out.nValue, 1 /* sighashtype, ignored */);
+        MutableTransactionSignatureCreator creator(&tx, 0 /* nIn, ignored */, out.nValue, psbtx.GetInputMap(), out.scriptPubKey, 1 /* sighashtype, ignored */);
         ProduceSignature(HidingSigningProvider(pwallet, true /* don't sign */, !bip32derivs), creator, out.scriptPubKey, sigdata);
         psbt_out.FromSignatureData(sigdata);
     }

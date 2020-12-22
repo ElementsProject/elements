@@ -312,6 +312,23 @@ public:
         return !(a == b);
     }
 
+    bool TryRetrieve(CAmountMap& amount_map) const
+    {
+        if (nAsset.IsExplicit() && nValue.IsExplicit()) {
+            amount_map[nAsset.GetAsset()] += nValue.GetAmount();
+            return true;
+        }
+        return false;
+    }
+
+    CAmount TryRetrieve(const CAsset& asset) const
+    {
+        if (nAsset.IsExplicit() && nValue.IsExplicit() && nAsset.GetAsset() == asset) {
+            return nValue.GetAmount();
+        }
+        return 0;
+    }
+
     std::string ToString() const;
 };
 
