@@ -159,10 +159,10 @@ void test_one_input(const std::vector<uint8_t>& buffer)
         PrefilledTransaction prefilled_transaction;
         DeserializeFromFuzzingInput(buffer, prefilled_transaction);
 #elif PSBT_INPUT_DESERIALIZE
-        PSBTInput psbt_input;
+        PSBTInput psbt_input(2);
         DeserializeFromFuzzingInput(buffer, psbt_input);
 #elif PSBT_OUTPUT_DESERIALIZE
-        PSBTOutput psbt_output;
+        PSBTOutput psbt_output(2);
         DeserializeFromFuzzingInput(buffer, psbt_output);
 #elif BLOCK_DESERIALIZE
         CBlock block;

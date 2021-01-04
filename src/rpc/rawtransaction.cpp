@@ -1975,10 +1975,10 @@ static RPCHelpMan converttopsbt()
     // Make a blank psbt
     PartiallySignedTransaction psbtx;
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
-        psbtx.inputs.push_back(PSBTInput());
+        psbtx.inputs.push_back(PSBTInput(0));
     }
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {
-        psbtx.outputs.push_back(PSBTOutput());
+        psbtx.outputs.push_back(PSBTOutput(0));
 /*
         // At this point, if the nonce field is present it should be a smuggled
         //   pubkey, and not a real nonce. Convert it back to a pubkey and strip
