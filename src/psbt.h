@@ -20,6 +20,11 @@ static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
 // Global types
 static constexpr uint8_t PSBT_GLOBAL_UNSIGNED_TX = 0x00;
 static constexpr uint8_t PSBT_GLOBAL_XPUB = 0x01;
+static constexpr uint8_t PSBT_GLOBAL_TX_VERSION = 0x02;
+static constexpr uint8_t PSBT_GLOBAL_FALLBACK_LOCKTIME = 0x03;
+static constexpr uint8_t PSBT_GLOBAL_INPUT_COUNT = 0x04;
+static constexpr uint8_t PSBT_GLOBAL_OUTPUT_COUNT = 0x05;
+static constexpr uint8_t PSBT_GLOBAL_TX_MODIFIABLE = 0x06;
 static constexpr uint8_t PSBT_GLOBAL_VERSION = 0xFB;
 static constexpr uint8_t PSBT_GLOBAL_PROPRIETARY = 0xFC;
 
@@ -33,12 +38,19 @@ static constexpr uint8_t PSBT_IN_WITNESSSCRIPT = 0x05;
 static constexpr uint8_t PSBT_IN_BIP32_DERIVATION = 0x06;
 static constexpr uint8_t PSBT_IN_SCRIPTSIG = 0x07;
 static constexpr uint8_t PSBT_IN_SCRIPTWITNESS = 0x08;
+static constexpr uint8_t PSBT_IN_PREVIOUS_TXID = 0x0e;
+static constexpr uint8_t PSBT_IN_OUTPUT_INDEX = 0x0f;
+static constexpr uint8_t PSBT_IN_SEQUENCE = 0x10;
+static constexpr uint8_t PSBT_IN_REQUIRED_TIME_LOCKTIME = 0x11;
+static constexpr uint8_t PSBT_IN_REQUIRED_HEIGHT_LOCKTIME = 0x12;
 static constexpr uint8_t PSBT_IN_PROPRIETARY = 0xFC;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
 static constexpr uint8_t PSBT_OUT_WITNESSSCRIPT = 0x01;
 static constexpr uint8_t PSBT_OUT_BIP32_DERIVATION = 0x02;
+static constexpr uint8_t PSBT_OUT_AMOUNT = 0x03;
+static constexpr uint8_t PSBT_OUT_SCRIPT = 0x04;
 static constexpr uint8_t PSBT_OUT_PROPRIETARY = 0xFC;
 
 // The separator is 0x00. Reading this in means that the unserializer can interpret it
