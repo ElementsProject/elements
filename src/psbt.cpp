@@ -45,6 +45,41 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
     return true;
 }
 
+bool PartiallySignedTransaction::ComputeTimeLock(uint32_t& locktime) const
+{
+    Optional<uint32_t> time_lock{0};
+    Optional<uint32_t> height_lock{0};
+    for (const PSBTInput& input : inputs) {
+        if (input.time_locktime != nullopt && input.height_locktime == nullopt) {
+            height_lock.reset(); // Transaction can no longer have a height locktime
+            if (time_lock == nullopt) {
+                return false;
+            }
+        } else if (input.time_locktime == nullopt && input.height_locktime != nullopt) {
+            time_lock.reset(); // Transaction can no longer have a time locktime
+            if (height_lock == nullopt) {
+                return false;
+            }
+        }
+        if (input.time_locktime && time_lock != nullopt) {
+            time_lock = std::max(time_lock, input.time_locktime);
+        }
+        if (input.height_locktime && height_lock != nullopt) {
+            height_lock = std::max(height_lock, input.height_locktime);
+        }
+    }
+    if (height_lock != nullopt && *height_lock > 0) {
+        locktime = *height_lock;
+        return true;
+    }
+    if (time_lock != nullopt && *time_lock > 0) {
+        locktime = *time_lock;
+        return true;
+    }
+    locktime = fallback_locktime.value_or(0);
+    return true;
+}
+
 bool PartiallySignedTransaction::AddInput(const CTxIn& txin, PSBTInput& psbtin)
 {
     if (std::find(tx->vin.begin(), tx->vin.end(), txin) != tx->vin.end()) {
