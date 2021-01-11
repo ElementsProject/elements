@@ -1357,10 +1357,12 @@ static RPCHelpMan decodepsbt()
 
     UniValue result(UniValue::VOBJ);
 
-    // Add the decoded tx
-    UniValue tx_univ(UniValue::VOBJ);
-    TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
-    result.pushKV("tx", tx_univ);
+    if (psbtx.tx != std::nullopt) {
+        // Add the decoded tx
+        UniValue tx_univ(UniValue::VOBJ);
+        TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
+        result.pushKV("tx", tx_univ);
+    }
 
     // Add the global xpubs
     UniValue global_xpubs(UniValue::VARR);
@@ -1394,7 +1396,7 @@ static RPCHelpMan decodepsbt()
     }
     result.pushKV("proprietary", proprietary);
 
-    result.pushKV("fees", AmountMapToUniv(GetFeeMap(CTransaction(*psbtx.tx)), ""));
+    result.pushKV("fees", AmountMapToUniv(GetFeeMap(CTransaction(psbtx.GetUnsignedTx())), ""));
 
     // Unknown data
     UniValue unknowns(UniValue::VOBJ);
@@ -1428,7 +1430,7 @@ static RPCHelpMan decodepsbt()
             in.pushKV("witness_utxo", out);
         }
         if (input.non_witness_utxo) {
-            txout = input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n];
+            txout = input.non_witness_utxo->vout[*input.prev_out];
 
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
@@ -2051,22 +2053,22 @@ static RPCHelpMan utxoupdatepsbt()
         CCoinsViewMemPool viewMempool(&viewChain, mempool);
         view.SetBackend(viewMempool); // temporarily switch cache backend to db+mempool view
 
-        for (const CTxIn& txin : psbtx.tx->vin) {
-            view.AccessCoin(txin.prevout); // Load entries from viewChain into view; can fail.
+        for (const PSBTInput& txin : psbtx.inputs) {
+            view.AccessCoin(txin.GetOutPoint()); // Load entries from viewChain into view; can fail.
         }
 
         view.SetBackend(viewDummy); // switch back to avoid locking mempool for too long
     }
 
     // Fill the inputs
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         PSBTInput& input = psbtx.inputs.at(i);
 
         if (input.non_witness_utxo || !input.witness_utxo.IsNull()) {
             continue;
         }
 
-        const Coin& coin = view.AccessCoin(psbtx.tx->vin[i].prevout);
+        const Coin& coin = view.AccessCoin(input.GetOutPoint());
 
         if (IsSegWitOutput(provider, coin.out.scriptPubKey)) {
             input.witness_utxo = coin.out;
@@ -2079,7 +2081,7 @@ static RPCHelpMan utxoupdatepsbt()
     }
 
     // Update script/keypath information using descriptor data.
-    for (unsigned int i = 0; i < psbtx.tx->vout.size(); ++i) {
+    for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
         UpdatePSBTOutput(public_provider, psbtx, i);
     }
 
@@ -2119,7 +2121,7 @@ static RPCHelpMan joinpsbts()
         throw JSONRPCError(RPC_INVALID_PARAMETER, "At least two PSBTs are required to join PSBTs.");
     }
 
-    uint32_t best_version = 1;
+    int32_t best_version = 1;
     uint32_t best_locktime = 0xffffffff;
     for (unsigned int i = 0; i < txs.size(); ++i) {
         PartiallySignedTransaction psbtx;
@@ -2129,29 +2131,33 @@ static RPCHelpMan joinpsbts()
         }
         psbtxs.push_back(psbtx);
         // Choose the highest version number
-        if (static_cast<uint32_t>(psbtx.tx->nVersion) > best_version) {
+        if (*psbtx.tx_version > best_version) {
+            best_version = *psbtx.tx_version;
             best_version = static_cast<uint32_t>(psbtx.tx->nVersion);
         }
         // Choose the lowest lock time
-        if (psbtx.tx->nLockTime < best_locktime) {
-            best_locktime = psbtx.tx->nLockTime;
+        if (*psbtx.fallback_locktime < best_locktime) {
+            best_locktime = *psbtx.fallback_locktime;
         }
     }
 
     // Create a blank psbt where everything will be added
     PartiallySignedTransaction merged_psbt;
+    merged_psbt.tx_version = best_version;
+    merged_psbt.fallback_locktime = best_locktime;
+    // TODO: Remove for PSBTv2
     merged_psbt.tx = CMutableTransaction();
-    merged_psbt.tx->nVersion = static_cast<int32_t>(best_version);
+    merged_psbt.tx->nVersion = best_version;
     merged_psbt.tx->nLockTime = best_locktime;
 
     // Merge
     for (auto& psbt : psbtxs) {
-        for (unsigned int i = 0; i < psbt.tx->vin.size(); ++i) {
+        for (unsigned int i = 0; i < psbt.inputs.size(); ++i) {
             if (!merged_psbt.AddInput(psbt.inputs[i])) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input %s:%d exists in multiple PSBTs", psbt.tx->vin[i].prevout.hash.ToString(), psbt.tx->vin[i].prevout.n));
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Input %s:%d exists in multiple PSBTs", psbt.inputs[i].prev_txid.ToString(), *psbt.inputs[i].prev_out));
             }
         }
-        for (unsigned int i = 0; i < psbt.tx->vout.size(); ++i) {
+        for (unsigned int i = 0; i < psbt.outputs.size(); ++i) {
             merged_psbt.AddOutput(psbt.outputs[i]);
         }
         for (auto& xpub_pair : psbt.m_xpubs) {
@@ -2175,6 +2181,9 @@ static RPCHelpMan joinpsbts()
     Shuffle(output_indices.begin(), output_indices.end(), FastRandomContext());
 
     PartiallySignedTransaction shuffled_psbt;
+    shuffled_psbt.tx_version = merged_psbt.tx_version;
+    shuffled_psbt.fallback_locktime = merged_psbt.fallback_locktime;
+    // TODO: Remove for PSBTv2
     shuffled_psbt.tx = CMutableTransaction();
     shuffled_psbt.tx->nVersion = merged_psbt.tx->nVersion;
     shuffled_psbt.tx->nLockTime = merged_psbt.tx->nLockTime;
