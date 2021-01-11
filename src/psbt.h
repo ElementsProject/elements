@@ -197,6 +197,7 @@ struct PSBTInput
     void FromSignatureData(const SignatureData& sigdata);
     void Merge(const PSBTInput& input);
     bool GetUTXO(CTxOut& utxo) const;
+    COutPoint GetOutPoint() const;
     PSBTInput(uint32_t version) : m_psbt_version(version) {}
 
     template <typename Stream>
