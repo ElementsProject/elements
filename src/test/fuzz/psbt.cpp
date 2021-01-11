@@ -59,7 +59,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
 
     for (size_t i = 0; i < psbt.tx->vin.size(); ++i) {
         CTxOut tx_out;
-        if (psbt.GetInputUTXO(tx_out, i)) {
+        if (psbt.inputs.at(i).GetUTXO(tx_out)) {
             (void)tx_out.IsNull();
             (void)tx_out.ToString();
         }

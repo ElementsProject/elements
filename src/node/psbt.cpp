@@ -31,7 +31,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
         // Check for a UTXO
         CTxOut utxo;
-        if (psbtx.GetInputUTXO(utxo, i)) {
+        if (input.GetUTXO(utxo)) {
             //TODO(gwillen) do PSBT inputs always have explicit assets & amounts?
             if (!MoneyRange(utxo.nValue.GetAmount()) || !MoneyRange(in_amts[utxo.nAsset.GetAsset()] + utxo.nValue.GetAmount())) {
                 result.SetInvalid(strprintf("PSBT is not valid. Input %u has invalid value", i));
@@ -127,7 +127,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
             PSBTInput& input = psbtx.inputs[i];
             Coin newcoin;
 
-            if (!SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, 1, nullptr, true) || !psbtx.GetInputUTXO(newcoin.out, i)) {
+            if (!SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, 1, nullptr, true) || !input.GetUTXO(newcoin.out)) {
                 success = false;
                 break;
             } else {
