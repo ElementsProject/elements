@@ -28,6 +28,7 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
         return false;
     }
 
+    assert(*tx_version == psbt.tx_version);
     for (unsigned int i = 0; i < inputs.size(); ++i) {
         inputs[i].Merge(psbt.inputs[i]);
     }
@@ -41,6 +42,8 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
             m_xpubs[xpub_pair.first].insert(xpub_pair.second.begin(), xpub_pair.second.end());
         }
     }
+    if (fallback_locktime == nullopt && psbt.fallback_locktime != nullopt) fallback_locktime = psbt.fallback_locktime;
+    if (m_tx_modifiable == nullopt && psbt.m_tx_modifiable != nullopt) m_tx_modifiable = psbt.m_tx_modifiable;
     unknown.insert(psbt.unknown.begin(), psbt.unknown.end());
 
     return true;
@@ -244,6 +247,9 @@ void PSBTInput::FromSignatureData(const SignatureData& sigdata)
 
 void PSBTInput::Merge(const PSBTInput& input)
 {
+    assert(prev_txid == input.prev_txid);
+    assert(*prev_out == *input.prev_out);
+
     if (!non_witness_utxo && input.non_witness_utxo) non_witness_utxo = input.non_witness_utxo;
     if (witness_utxo.IsNull() && !input.witness_utxo.IsNull()) {
         // TODO: For segwit v1, we will want to clear out the non-witness utxo when setting a witness one. For v0 and non-segwit, this is not safe
@@ -258,6 +264,9 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (witness_script.empty() && !input.witness_script.empty()) witness_script = input.witness_script;
     if (final_script_sig.empty() && !input.final_script_sig.empty()) final_script_sig = input.final_script_sig;
     if (final_script_witness.IsNull() && !input.final_script_witness.IsNull()) final_script_witness = input.final_script_witness;
+    if (sequence == nullopt && input.sequence != nullopt) sequence = input.sequence;
+    if (time_locktime == nullopt && input.time_locktime != nullopt) time_locktime = input.time_locktime;
+    if (height_locktime == nullopt && input.height_locktime != nullopt) height_locktime = input.height_locktime;
 }
 
 void PSBTOutput::FillSignatureData(SignatureData& sigdata) const
@@ -293,6 +302,9 @@ bool PSBTOutput::IsNull() const
 
 void PSBTOutput::Merge(const PSBTOutput& output)
 {
+    assert(*amount == *output.amount);
+    assert(script == output.script);
+
     hd_keypaths.insert(output.hd_keypaths.begin(), output.hd_keypaths.end());
     unknown.insert(output.unknown.begin(), output.unknown.end());
 
