@@ -355,7 +355,7 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
 bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, int sighash, SignatureData* out_sigdata, bool use_dummy)
 {
     PSBTInput& input = psbt.inputs.at(index);
-    const CMutableTransaction& tx = *psbt.tx;
+    const CMutableTransaction& tx = psbt.GetUnsignedTx();
 
     if (PSBTInputSigned(input)) {
         return true;
@@ -371,7 +371,7 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
 
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
-        COutPoint prevout = tx.vin[index].prevout;
+        COutPoint prevout = input.GetOutPoint();
         if (prevout.n >= input.non_witness_utxo->vout.size()) {
             return false;
         }
