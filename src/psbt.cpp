@@ -427,7 +427,7 @@ bool FinalizePSBT(PartiallySignedTransaction& psbtx)
     //   PartiallySignedTransaction did not understand them), this will combine them into a final
     //   script.
     bool complete = true;
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
+    for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
         complete &= SignPSBTInput(DUMMY_SIGNING_PROVIDER, psbtx, i, SIGHASH_ALL);
     }
 
@@ -442,7 +442,7 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
         return false;
     }
 
-    result = *psbtx.tx;
+    result = psbtx.GetUnsignedTx();
     for (unsigned int i = 0; i < result.vin.size(); ++i) {
         result.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
         result.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
