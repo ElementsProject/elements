@@ -2714,17 +2714,14 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     LOCK(cs_wallet);
 
     // Get all of the previous transactions
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
-        const CTxIn& txin = psbtx.tx->vin[i];
-        PSBTInput& input = psbtx.inputs.at(i);
-
+    for (PSBTInput& input : psbtx.inputs) {
         if (PSBTInputSigned(input)) {
             continue;
         }
 
         // If we have no utxo, grab it from the wallet.
         if (!input.non_witness_utxo) {
-            const uint256& txhash = txin.prevout.hash;
+            const uint256& txhash = input.prev_txid;
             const auto it = mapWallet.find(txhash);
             if (it != mapWallet.end()) {
                 const CWalletTx& wtx = it->second;
@@ -2749,10 +2746,7 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
     // Each iteration, we may fill more inputs than the input that is specified in that iteration.
     // We assume that each input is filled by only one ScriptPubKeyMan
     std::set<uint256> visited_spk_mans;
-    for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
-        const CTxIn& txin = psbtx.tx->vin[i];
-        PSBTInput& input = psbtx.inputs.at(i);
-
+    for (PSBTInput& input : psbtx.inputs) {
         if (PSBTInputSigned(input)) {
             continue;
         }
@@ -2762,10 +2756,10 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
         if (!input.witness_utxo.IsNull()) {
             script = input.witness_utxo.scriptPubKey;
         } else if (input.non_witness_utxo) {
-            if (txin.prevout.n >= input.non_witness_utxo->vout.size()) {
+            if (*input.prev_out >= input.non_witness_utxo->vout.size()) {
                 return TransactionError::MISSING_INPUTS;
             }
-            script = input.non_witness_utxo->vout[txin.prevout.n].scriptPubKey;
+            script = input.non_witness_utxo->vout[*input.prev_out].scriptPubKey;
         } else {
             // There's no UTXO so we can just skip this now
             continue;
