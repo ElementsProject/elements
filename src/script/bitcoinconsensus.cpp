@@ -8,6 +8,7 @@
 #include <primitives/transaction.h>
 #include <pubkey.h>
 #include <script/interpreter.h>
+#include <streams.h>
 #include <version.h>
 
 namespace {
@@ -76,7 +77,8 @@ static bool verify_flags(unsigned int flags)
     return (flags & ~(bitcoinconsensus_SCRIPT_FLAGS_VERIFY_ALL)) == 0;
 }
 
-static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, CConfidentialValue amount,
+static int verify_script(const unsigned char *parent_genesis_hash, const unsigned char *parent_pegged_asset,
+                                    const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen, CConfidentialValue amount,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
 {
@@ -94,7 +96,10 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
         // Regardless of the verification result, the tx did not error.
         set_error(err, bitcoinconsensus_ERR_OK);
 
-        PrecomputedTransactionData txdata(tx);
+        auto parent_genesis_hash_ = parent_genesis_hash ? uint256{parent_genesis_hash, 32} : uint256{};
+        auto parent_pegged_asset_ = CAsset(parent_pegged_asset ? uint256{parent_pegged_asset, 32} : uint256{});
+        PrecomputedTransactionData txdata(parent_genesis_hash_, parent_pegged_asset_);
+        txdata.Init(tx, {});
         const CScriptWitness* pScriptWitness = (tx.witness.vtxinwit.size() > nIn ? &tx.witness.vtxinwit[nIn].scriptWitness : NULL);
         return VerifyScript(tx.vin[nIn].scriptSig, CScript(scriptPubKey, scriptPubKey + scriptPubKeyLen), pScriptWitness, flags, TransactionSignatureChecker(&tx, nIn, amount, txdata), NULL);
     } catch (const std::exception&) {
@@ -102,7 +107,8 @@ static int verify_script(const unsigned char *scriptPubKey, unsigned int scriptP
     }
 }
 
-int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
+int bitcoinconsensus_verify_script_with_amount(const unsigned char *parent_genesis_hash, const unsigned char *parent_pegged_asset,
+                                    const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
                                     const unsigned char *amount, unsigned int amountLen,
                                     const unsigned char *txTo        , unsigned int txToLen,
                                     unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
@@ -112,14 +118,15 @@ int bitcoinconsensus_verify_script_with_amount(const unsigned char *scriptPubKey
         CConfidentialValue am;
         stream >> am;
 
-        return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
+        return ::verify_script(parent_genesis_hash, parent_pegged_asset, scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
     } catch (const std::exception&) {
         return set_error(err, bitcoinconsensus_ERR_TX_DESERIALIZE); // Error deserializing
     }
 }
 
 
-int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
+int bitcoinconsensus_verify_script(const unsigned char *parent_genesis_hash, const unsigned char *parent_pegged_asset,
+                                   const unsigned char *scriptPubKey, unsigned int scriptPubKeyLen,
                                    const unsigned char *txTo        , unsigned int txToLen,
                                    unsigned int nIn, unsigned int flags, bitcoinconsensus_error* err)
 {
@@ -128,7 +135,7 @@ int bitcoinconsensus_verify_script(const unsigned char *scriptPubKey, unsigned i
     }
 
     CConfidentialValue am(0);
-    return ::verify_script(scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
+    return ::verify_script(parent_genesis_hash, parent_pegged_asset, scriptPubKey, scriptPubKeyLen, am, txTo, txToLen, nIn, flags, err);
 }
 
 unsigned int bitcoinconsensus_version()

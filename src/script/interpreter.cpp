@@ -1896,6 +1896,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
 
 template <class T>
 PrecomputedTransactionData::PrecomputedTransactionData(const T& txTo)
+     : PrecomputedTransactionData(uint256{}, CAsset{})
 {
     Init(txTo, {});
 }
@@ -1906,10 +1907,13 @@ template void PrecomputedTransactionData::Init(const CMutableTransaction& txTo, 
 template PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo);
 template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
 
-static const CHashWriter HASHER_TAPSIGHASH = TaggedHash("TapSighash");
 static const CHashWriter HASHER_TAPLEAF = TaggedHash("TapLeaf");
 static const CHashWriter HASHER_TAPBRANCH = TaggedHash("TapBranch");
 static const CHashWriter HASHER_TAPTWEAK = TaggedHash("TapTweak");
+static const CHashWriter HASHER_TAPSIGHASH = TaggedHash("TapSighash");
+
+PrecomputedTransactionData::PrecomputedTransactionData(const uint256& parent_genesis_hash, const CAsset& parent_pegged_asset)
+        : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH) << parent_genesis_hash << parent_pegged_asset) {}
 
 template<typename T>
 bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata, const T& tx_to, uint32_t in_pos, uint8_t hash_type, SigVersion sigversion, const PrecomputedTransactionData& cache)
@@ -1934,7 +1938,7 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
     assert(in_pos < tx_to.vin.size());
     assert(cache.m_bip341_taproot_ready && cache.m_spent_outputs_ready);
 
-    CHashWriter ss = HASHER_TAPSIGHASH;
+    CHashWriter ss = cache.m_tapsighash_hasher;
 
     // Epoch
     static constexpr uint8_t EPOCH = 0;

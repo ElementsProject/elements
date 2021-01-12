@@ -27,6 +27,7 @@ public:
     constexpr explicit base_blob(uint8_t v) : m_data{v} {}
 
     explicit base_blob(const std::vector<unsigned char>& vch);
+    explicit base_blob(const unsigned char* data, size_t len);
 
     bool IsNull() const
     {
@@ -126,6 +127,7 @@ public:
     constexpr uint256() {}
     constexpr explicit uint256(uint8_t v) : base_blob<256>(v) {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
+    explicit uint256(const unsigned char* data, size_t len) : base_blob<256>(data, len) {}
     static const uint256 ZERO;
     static const uint256 ONE;
 };

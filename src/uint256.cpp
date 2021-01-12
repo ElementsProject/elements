@@ -17,6 +17,13 @@ base_blob<BITS>::base_blob(const std::vector<unsigned char>& vch)
 }
 
 template <unsigned int BITS>
+base_blob<BITS>::base_blob(const unsigned char* data, size_t len)
+{
+    assert(len == sizeof(m_data));
+    memcpy(m_data, data, sizeof(m_data));
+}
+
+template <unsigned int BITS>
 std::string base_blob<BITS>::GetHex() const
 {
     uint8_t m_data_rev[WIDTH];
@@ -68,6 +75,7 @@ std::string base_blob<BITS>::ToString() const
 
 // Explicit instantiations for base_blob<160>
 template base_blob<160>::base_blob(const std::vector<unsigned char>&);
+template base_blob<160>::base_blob(const unsigned char*, size_t);
 template std::string base_blob<160>::GetHex() const;
 template std::string base_blob<160>::ToString() const;
 template void base_blob<160>::SetHex(const char*);
@@ -75,6 +83,7 @@ template void base_blob<160>::SetHex(const std::string&);
 
 // Explicit instantiations for base_blob<256>
 template base_blob<256>::base_blob(const std::vector<unsigned char>&);
+template base_blob<256>::base_blob(const unsigned char*, size_t);
 template std::string base_blob<256>::GetHex() const;
 template std::string base_blob<256>::ToString() const;
 template void base_blob<256>::SetHex(const char*);
