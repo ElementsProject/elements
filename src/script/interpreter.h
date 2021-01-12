@@ -6,6 +6,7 @@
 #ifndef BITCOIN_SCRIPT_INTERPRETER_H
 #define BITCOIN_SCRIPT_INTERPRETER_H
 
+#include <hash.h>
 #include <script/script_error.h>
 #include <span.h>
 #include <primitives/transaction.h>
@@ -178,7 +179,11 @@ struct PrecomputedTransactionData
     //! Whether m_spent_outputs is initialized.
     bool m_spent_outputs_ready = false;
 
-    PrecomputedTransactionData() = default;
+    //! ELEMENTS: parent genesis hash
+    CHashWriter m_tapsighash_hasher;
+
+    explicit PrecomputedTransactionData(const uint256& parent_genesis_hash, const CAsset& parent_pegged_asset);
+    explicit PrecomputedTransactionData() : PrecomputedTransactionData(uint256{}, CAsset()) {}
 
     template <class T>
     void Init(const T& tx, std::vector<CTxOut>&& spent_outputs);

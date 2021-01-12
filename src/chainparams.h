@@ -97,7 +97,8 @@ public:
     const CCheckpointData& Checkpoints() const { return checkpointData; }
     const ChainTxData& TxData() const { return chainTxData; }
     // ELEMENTS extra fields:
-    const uint256 ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
+    const uint256& ParentGenesisBlockHash() const { return parentGenesisBlockHash; }
+    const CAsset& ParentPeggedAsset() const { return consensus.parent_pegged_asset; }
     bool anyonecanspend_aremine;
     const std::string& ParentBech32HRP() const { return parent_bech32_hrp; }
     const std::string& ParentBlech32HRP() const { return parent_blech32_hrp; }
