@@ -1190,6 +1190,15 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::STR, "path", "The path"},
                             }},
                         }},
+                        {RPCResult::Type::NUM, "tx_version", "The version number of the unsigned transaction. Not to be confused with PSBT version"},
+                        {RPCResult::Type::NUM, "fallback_locktime", "The locktime to fallback to if no inputs specify a required locktime."},
+                        {RPCResult::Type::NUM, "input_count", "The number of inputs in this psbt"},
+                        {RPCResult::Type::NUM, "output_count", "The number of outputs in this psbt."},
+                        {RPCResult::Type::NUM, "inputs_modifiable", "Whether inputs can be modified"},
+                        {RPCResult::Type::NUM, "outputs_modifiable", "Whether outputs can be modified"},
+                        {RPCResult::Type::ARR, "sighash_single_indexes", "The indexes which have SIGHASH_SINGLE signatures",
+                            {{RPCResult::Type::NUM, "", "Index of an input with a SIGHASH_SINGLE signature"}},
+                        },
                         {RPCResult::Type::NUM, "psbt_version", "The PSBT version number. Not to be confused with the unsigned transaction version"},
                         {RPCResult::Type::OBJ, "proprietary", "The global proprietary map",
                         {
@@ -1258,6 +1267,11 @@ static RPCHelpMan decodepsbt()
                                 {
                                     {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
                                 }},
+                                {RPCResult::Type::STR_HEX, "previous_txid", "TXID of the transaction containing the output being spent by this input."},
+                                {RPCResult::Type::NUM, "previous_vout", "Index of the output being spent"},
+                                {RPCResult::Type::NUM, "sequence", "Sequence number for this inputs"},
+                                {RPCResult::Type::NUM, "time_locktime", "Required time-based locktime for this input"},
+                                {RPCResult::Type::NUM, "height_locktime", "Required height-based locktime for this input"},
                                 {RPCResult::Type::NUM, "value", "The (unblinded) value of the input in " + CURRENCY_UNIT},
                                 {RPCResult::Type::STR_HEX, "value_blinding_factor", "The value blinding factor from the output being spent"},
                                 {RPCResult::Type::STR_HEX, "asset", "The (unblinded) asset id of the input"},
@@ -1307,6 +1321,10 @@ static RPCHelpMan decodepsbt()
                                         {RPCResult::Type::STR, "path", "The path"},
                                     }},
                                 }},
+                                {RPCResult::Type::NUM, "amount", "The amount (nValue) for this output"},
+                                {RPCResult::Type::OBJ, "script", "The output script (scriptPubKey) for this output",
+                                    {{RPCResult::Type::ELISION, "", "The layout is the same as the output of scriptPubKeys in decoderawtransaction."}},
+                                },
                                 {RPCResult::Type::STR_HEX, "value_commitment", "The blinded value of the output"},
                                 {RPCResult::Type::STR_HEX, "value_blinding_factor", "The value blinding factor for the output"},
                                 {RPCResult::Type::STR_HEX, "asset_commiment", "The blinded asset id of the output"},
@@ -1380,6 +1398,23 @@ static RPCHelpMan decodepsbt()
         }
     }
     result.pushKV("global_xpubs", global_xpubs);
+
+    // Add PSBTv2 stuff
+    if (psbtx.GetVersion() == 2) {
+        if (psbtx.tx_version != std::nullopt) {
+            result.pushKV("tx_version", *psbtx.tx_version);
+        }
+        if (psbtx.fallback_locktime != std::nullopt) {
+            result.pushKV("fallback_locktime", static_cast<uint64_t>(*psbtx.fallback_locktime));
+        }
+        result.pushKV("input_count", static_cast<uint64_t>(psbtx.inputs.size()));
+        result.pushKV("output_count", static_cast<uint64_t>(psbtx.inputs.size()));
+        if (psbtx.m_tx_modifiable != nullopt) {
+            result.pushKV("inputs_modifiable", psbtx.m_tx_modifiable->test(0));
+            result.pushKV("outputs_modifiable", psbtx.m_tx_modifiable->test(1));
+            result.pushKV("has_sighash_single", psbtx.m_tx_modifiable->test(2));
+        }
+    }
 
     // PSBT version
     result.pushKV("psbt_version", static_cast<uint64_t>(psbtx.GetVersion()));
@@ -1490,6 +1525,25 @@ static RPCHelpMan decodepsbt()
                 txinwitness.push_back(HexStr(item));
             }
             in.pushKV("final_scriptwitness", txinwitness);
+        }
+
+        // PSBTv2
+        if (psbtx.GetVersion() == 2) {
+            if (!input.prev_txid.IsNull()) {
+                in.pushKV("previous_txid", input.prev_txid.GetHex());
+            }
+            if (input.prev_out != std::nullopt) {
+                in.pushKV("previous_vout", static_cast<uint64_t>(*input.prev_out));
+            }
+            if (input.sequence != std::nullopt) {
+                in.pushKV("sequence", static_cast<uint64_t>(*input.sequence));
+            }
+            if (input.time_locktime != std::nullopt) {
+                in.pushKV("time_locktime", static_cast<uint64_t>(*input.time_locktime));
+            }
+            if (input.height_locktime!= std::nullopt) {
+                in.pushKV("height_locktime", static_cast<uint64_t>(*input.height_locktime));
+            }
         }
 
         // Value
@@ -1610,6 +1664,18 @@ static RPCHelpMan decodepsbt()
                 keypaths.push_back(keypath);
             }
             out.pushKV("bip32_derivs", keypaths);
+        }
+
+        // PSBTv2 stuff
+        if (psbtx.GetVersion() == 2) {
+            if (output.amount != std::nullopt) {
+                out.pushKV("amount", ValueFromAmount(*output.amount));
+            }
+            if (!output.script.empty()) {
+                UniValue spk(UniValue::VOBJ);
+                ScriptPubKeyToUniv(output.script, spk, true);
+                out.pushKV("script", spk);
+            }
         }
 
         // Value commitment
