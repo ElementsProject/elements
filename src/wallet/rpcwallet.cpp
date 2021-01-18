@@ -3855,7 +3855,7 @@ static RPCHelpMan bumpfee_helper(std::string method_name)
 
         result.pushKV("txid", txid.GetHex());
     } else {
-        PartiallySignedTransaction psbtx(mtx);
+        PartiallySignedTransaction psbtx(mtx, 2 /* version */);
         bool complete = false;
         const TransactionError err = pwallet->FillPSBT(psbtx, complete, SIGHASH_ALL, false /* sign */, true /* bip32derivs */);
         CHECK_NONFATAL(err == TransactionError::OK);
@@ -4564,7 +4564,7 @@ static RPCHelpMan send()
             }
 
             // Make a blank psbt
-            PartiallySignedTransaction psbtx(rawTx);
+            PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
 
             // Fill transaction with our data and sign
             bool complete = true;
@@ -5003,7 +5003,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx(rawTx);
+    PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
 /*
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         if (!psbtx.tx->vout[i].nNonce.IsNull()) {

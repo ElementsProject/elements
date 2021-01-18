@@ -116,7 +116,7 @@ class PSBTTest(BitcoinTestFramework):
         # The decodepsbt RPC is stateless and independent of any settings, we can always just call it on the first node
         decoded_psbt = self.nodes[0].decodepsbt(psbtx["psbt"])
         changepos = psbtx["changepos"]
-        assert_equal(decoded_psbt["tx"]["vout"][changepos]["scriptPubKey"]["type"], expected_type)
+        assert_equal(decoded_psbt["outputs"][changepos]["scriptPubKey"]["type"], expected_type)
 
     def run_basic_tests(self, confidential):
         starting_n_unspent = len(self.nodes[0].listlockunspent()) # ELEMENTS
@@ -130,7 +130,7 @@ class PSBTTest(BitcoinTestFramework):
         psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):90}, 0, {"add_inputs": True})['psbt']
         # ELEMENTS: we are on the edge between 2 and 3 inputs; don't check exact value,
         #  just make sure that we added at least one input
-        assert len(self.nodes[0].decodepsbt(psbtx1)['tx']['vin']) > 1
+        assert len(self.nodes[0].decodepsbt(psbtx1)["inputs"]) > 1
 
         # Inputs argument can be null
         self.nodes[0].walletcreatefundedpsbt(None, {self.nodes[2].getnewaddress():10})
@@ -410,12 +410,14 @@ class PSBTTest(BitcoinTestFramework):
             # Update psbts, should only have data for one input and not the other
             psbt1 = self.nodes[1].walletprocesspsbt(psbt_orig, False, "ALL")['psbt']
             psbt1_decoded = self.nodes[0].decodepsbt(psbt1)
-            assert psbt1_decoded['inputs'][0] and not psbt1_decoded['inputs'][1]
+            assert len(psbt1_decoded["inputs"][0].keys()) > 3
+            assert len(psbt2_decoded["inputs"][1].keys()) == 3
             # Check that BIP32 path was added
             assert "bip32_derivs" in psbt1_decoded['inputs'][0]
             psbt2 = self.nodes[2].walletprocesspsbt(psbt_orig, False, "ALL", False)['psbt']
             psbt2_decoded = self.nodes[0].decodepsbt(psbt2)
-            assert not psbt2_decoded['inputs'][0] and psbt2_decoded['inputs'][1]
+            assert len(psbt2_decoded["inputs"][0].keys()) == 3
+            assert len(psbt2_decoded["inputs"][1].keys()) > 3
             # Check that BIP32 paths were not added
             assert "bip32_derivs" not in psbt2_decoded['inputs'][1]
 
@@ -439,33 +441,33 @@ class PSBTTest(BitcoinTestFramework):
         unspent = self.nodes[0].listunspent()[0]
         psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.get_address(confidential, 2):unspent["amount"]+1}], block_height+2, {"replaceable": False, "add_inputs": True}, False)
         decoded_psbt = self.nodes[0].decodepsbt(psbtx_info["psbt"])
-        for tx_in, psbt_in in zip(decoded_psbt["tx"]["vin"], decoded_psbt["inputs"]):
-            assert_greater_than(tx_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
+        for psbt_in in decoded_psbt["inputs"]:
+            assert_greater_than(psbt_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
             assert "bip32_derivs" not in psbt_in
-        assert_equal(decoded_psbt["tx"]["locktime"], block_height+2)
+        assert_equal(decoded_psbt["fallback_locktime"], block_height+2)
 
         # Same construction with only locktime set and RBF explicitly enabled
         psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.get_address(confidential, 2):unspent["amount"]+1}], block_height, {"replaceable": True, "add_inputs": True}, True)
         decoded_psbt = self.nodes[0].decodepsbt(psbtx_info["psbt"])
-        for tx_in, psbt_in in zip(decoded_psbt["tx"]["vin"], decoded_psbt["inputs"]):
-            assert_equal(tx_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
+        for psbt_in in decoded_psbt["inputs"]:
+            assert_equal(psbt_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
             assert "bip32_derivs" in psbt_in
-        assert_equal(decoded_psbt["tx"]["locktime"], block_height)
+        assert_equal(decoded_psbt["fallback_locktime"], block_height)
 
         # Same construction without optional arguments
         psbtx_info = self.nodes[0].walletcreatefundedpsbt([], [{self.get_address(confidential, 2):unspent["amount"]+1}])
         decoded_psbt = self.nodes[0].decodepsbt(psbtx_info["psbt"])
-        for tx_in, psbt_in in zip(decoded_psbt["tx"]["vin"], decoded_psbt["inputs"]):
-            assert_equal(tx_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
+        for psbt_in in decoded_psbt["inputs"]:
+            assert_equal(psbt_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
             assert "bip32_derivs" in psbt_in
-        assert_equal(decoded_psbt["tx"]["locktime"], 0)
+        assert_equal(decoded_psbt["fallback_locktime"], 0)
 
         # Same construction without optional arguments, for a node with -walletrbf=0
         unspent1 = self.nodes[1].listunspent()[0]
         psbtx_info = self.nodes[1].walletcreatefundedpsbt([{"txid":unspent1["txid"], "vout":unspent1["vout"]}], [{self.nodes[2].getnewaddress():unspent1["amount"]+1}], block_height, {"add_inputs": True})
         decoded_psbt = self.nodes[1].decodepsbt(psbtx_info["psbt"])
-        for tx_in, psbt_in in zip(decoded_psbt["tx"]["vin"], decoded_psbt["inputs"]):
-            assert_greater_than(tx_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
+        for psbt_in in decoded_psbt["inputs"]:
+            assert_greater_than(psbt_in["sequence"], MAX_BIP125_RBF_SEQUENCE)
             assert "bip32_derivs" in psbt_in
 
         # Make sure change address wallet does not have P2SH innerscript access to results in success

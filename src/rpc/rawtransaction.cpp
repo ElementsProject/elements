@@ -1934,7 +1934,7 @@ static RPCHelpMan createpsbt()
     CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, request.params[4], &output_pubkeys);
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx(rawTx);
+    PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
 /*
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         psbtx.outputs[i].blinding_pubkey = output_pubkeys[i];
@@ -2041,12 +2041,7 @@ static RPCHelpMan converttopsbt()
     tx.witness.SetNull();
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx;
-    for (unsigned int i = 0; i < tx.vin.size(); ++i) {
-        psbtx.inputs.push_back(PSBTInput(0));
-    }
-    for (unsigned int i = 0; i < tx.vout.size(); ++i) {
-        psbtx.outputs.push_back(PSBTOutput(0));
+    PartiallySignedTransaction psbtx(tx, 2 /* version */);
 /*
         // At this point, if the nonce field is present it should be a smuggled
         //   pubkey, and not a real nonce. Convert it back to a pubkey and strip
@@ -2054,7 +2049,6 @@ static RPCHelpMan converttopsbt()
         psbtx.outputs[i].blinding_pubkey = CPubKey(tx.vout[i].nNonce.vchCommitment);
         tx.vout[i].nNonce.SetNull();
 */
-    }
 
     psbtx.tx = tx;
 
