@@ -4953,6 +4953,7 @@ static RPCHelpMan walletcreatefundedpsbt()
                             }
                         }
                     },
+                    {"psbt_version", RPCArg::Type::NUM, /* default */ "2", "The PSBT version number to use."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -4980,7 +4981,9 @@ static RPCHelpMan walletcreatefundedpsbt()
         UniValueType(), // ARR or OBJ, checked later
         UniValue::VNUM,
         UniValue::VOBJ,
-        UniValue::VBOOL
+        UniValue::VBOOL,
+        UniValue::VOBJ,
+        UniValue::VNUM,
         }, true
     );
 
@@ -5003,7 +5006,15 @@ static RPCHelpMan walletcreatefundedpsbt()
     FundTransaction(pwallet, rawTx, fee, change_position, request.params[3], coin_control, /* solving_data */ request.params[5], /* override_min_fee */ true);
 
     // Make a blank psbt
-    PartiallySignedTransaction psbtx(rawTx, 2 /* version */);
+    uint32_t psbt_version = 2;
+    if (!request.params[5].isNull()) {
+        psbt_version = request.params[5].get_int();
+    }
+    if (psbt_version != 2 && psbt_version != 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2 or 0");
+    }
+
+    PartiallySignedTransaction psbtx(rawTx, psbt_version);
 /*
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         if (!psbtx.tx->vout[i].nNonce.IsNull()) {
@@ -7064,7 +7075,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype"} },
     { "wallet",             "unloadwallet",                     &unloadwallet,                  {"wallet_name", "load_on_startup"} },
     { "wallet",             "upgradewallet",                    &upgradewallet,                 {"version"} },
-    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs","solving_data"} },
+    { "wallet",             "walletcreatefundedpsbt",           &walletcreatefundedpsbt,        {"inputs","outputs","locktime","options","bip32derivs","solving_data","psbt_version"} },
     { "wallet",             "walletlock",                       &walletlock,                    {} },
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
