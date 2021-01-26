@@ -927,4 +927,4 @@ def taproot_construct(pubkey, scripts=None):
     return TaprootInfo(CScript([OP_1, tweaked]), pubkey, negated + 0, tweak, leaves)
 
 def is_op_success(o):
-    return o == 0x50 or o == 0x62 or o == 0x89 or o == 0x8a or o == 0x8d or o == 0x8e or (o >= 0x7e and o <= 0x81) or (o >= 0x83 and o <= 0x86) or (o >= 0x95 and o <= 0x99) or (o >= 0xbb and o <= 0xfe)
+    return o == 80 or o == 98 or (o >= 137 and o <= 138) or (o >= 141 and o <= 142) or (o >= 149 and o <= 151) or (o >= 187 and o <= 191) or (o >= 196 and o <= 254)
