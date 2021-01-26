@@ -182,8 +182,8 @@ struct PrecomputedTransactionData
     //! ELEMENTS: parent genesis hash
     CHashWriter m_tapsighash_hasher;
 
-    explicit PrecomputedTransactionData(const uint256& parent_genesis_hash, const CAsset& parent_pegged_asset);
-    explicit PrecomputedTransactionData() : PrecomputedTransactionData(uint256{}, CAsset()) {}
+    explicit PrecomputedTransactionData(const uint256& hash_genesis_block);
+    explicit PrecomputedTransactionData() : PrecomputedTransactionData(uint256{}) {}
 
     template <class T>
     void Init(const T& tx, std::vector<CTxOut>&& spent_outputs);

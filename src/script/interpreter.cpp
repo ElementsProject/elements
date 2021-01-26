@@ -1896,7 +1896,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
 
 template <class T>
 PrecomputedTransactionData::PrecomputedTransactionData(const T& txTo)
-     : PrecomputedTransactionData(uint256{}, CAsset{})
+     : PrecomputedTransactionData(uint256{})
 {
     Init(txTo, {});
 }
@@ -1912,8 +1912,8 @@ static const CHashWriter HASHER_TAPBRANCH = TaggedHash("TapBranch");
 static const CHashWriter HASHER_TAPTWEAK = TaggedHash("TapTweak");
 static const CHashWriter HASHER_TAPSIGHASH = TaggedHash("TapSighash");
 
-PrecomputedTransactionData::PrecomputedTransactionData(const uint256& parent_genesis_hash, const CAsset& parent_pegged_asset)
-        : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH) << parent_genesis_hash << parent_pegged_asset) {}
+PrecomputedTransactionData::PrecomputedTransactionData(const uint256& hash_genesis_block)
+        : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH) << hash_genesis_block << hash_genesis_block) {}
 
 template<typename T>
 bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata, const T& tx_to, uint32_t in_pos, uint8_t hash_type, SigVersion sigversion, const PrecomputedTransactionData& cache)
