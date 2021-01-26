@@ -88,6 +88,7 @@ BASE_SCRIPTS = [
     'feature_initial_reissuance_token.py',
     'feature_progress.py',
     'feature_dynafed.py',
+    'feature_sighash_rangeproof.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py',
     'wallet_backup.py',
