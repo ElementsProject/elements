@@ -183,6 +183,11 @@ def FromHex(obj, hex_string):
 def ToHex(obj):
     return bytes_to_hex_str(obj.serialize())
 
+# Convert a binary-serializable object to hex (eg for submission via RPC)
+# This variant also serializes the witness.
+def WitToHex(obj):
+    return bytes_to_hex_str(obj.serialize(with_witness=True))
+
 # Objects that map to bitcoind objects, which can be serialized/deserialized
 
 
@@ -754,8 +759,11 @@ class CTransaction:
             r += self.wit.serialize()
         return r
 
-    def serialize(self):
-        return self.serialize_with_witness()
+    def serialize(self, with_witness=True):
+        if with_witness:
+            return self.serialize_with_witness()
+        else:
+            return self.serialize_without_witness()
 
     def rehash(self):
         self.sha256 = None
