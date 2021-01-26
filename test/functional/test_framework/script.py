@@ -793,35 +793,48 @@ class TestFrameworkScript(unittest.TestCase):
         for value in values:
             self.assertEqual(CScriptNum.decode(CScriptNum.encode(CScriptNum(value))), value)
 
-def TaprootSignatureHash(txTo, spent_utxos, hash_type, input_index = 0, scriptpath = False, script = CScript(), codeseparator_pos = -1, annex = None, leaf_ver = LEAF_VERSION_TAPSCRIPT):
+def TaprootSignatureHash(txTo, spent_utxos, hash_type, genesis_hash, input_index = 0, scriptpath = False, script = CScript(), codeseparator_pos = -1, annex = None, leaf_ver = LEAF_VERSION_TAPSCRIPT):
     assert (len(txTo.vin) == len(spent_utxos))
     assert (input_index < len(txTo.vin))
     out_type = SIGHASH_ALL if hash_type == 0 else hash_type & 3
     in_type = hash_type & SIGHASH_ANYONECANPAY
     spk = spent_utxos[input_index].scriptPubKey
-    ss = bytes([0, hash_type]) # epoch, hash_type
+    ss = b""
+    ss += ser_uint256(genesis_hash)
+    ss += ser_uint256(genesis_hash)
+    ss += bytes([hash_type]) # hash_type
     ss += struct.pack("<i", txTo.nVersion)
     ss += struct.pack("<I", txTo.nLockTime)
     if in_type != SIGHASH_ANYONECANPAY:
+        ss += sha256(b"".join(struct.pack("B", ((not i.assetIssuance.isNull()) << 7) + (i.m_is_pegin << 6)) for i in txTo.vin))
         ss += sha256(b"".join(i.prevout.serialize() for i in txTo.vin))
-        ss += sha256(b"".join(u.nValue.serialize() for u in spent_utxos))
+        ss += sha256(b"".join(u.nAsset.serialize() + u.nValue.serialize() for u in spent_utxos))
         ss += sha256(b"".join(ser_string(u.scriptPubKey) for u in spent_utxos))
         ss += sha256(b"".join(struct.pack("<I", i.nSequence) for i in txTo.vin))
+        ss += sha256(b"".join(i.assetIssuance.taphash_asset_issuance_serialize() for i in txTo.vin))
+        ss += sha256(b"".join(iwit.serialize_issuance_proofs() for iwit in txTo.wit.vtxinwit))
     if out_type == SIGHASH_ALL:
         ss += sha256(b"".join(o.serialize() for o in txTo.vout))
+        ss += sha256(b"".join(owit.serialize() for owit in txTo.wit.vtxoutwit))
     spend_type = 0
     if annex is not None:
         spend_type |= 1
     if (scriptpath):
         spend_type |= 2
     ss += bytes([spend_type])
+
     if in_type == SIGHASH_ANYONECANPAY:
+        ss += struct.pack("B", ((not txTo.vin[input_index].assetIssuance.isNull()) << 7) + (txTo.vin[input_index].m_is_pegin << 6))
         ss += txTo.vin[input_index].prevout.serialize()
         ss += spent_utxos[input_index].nAsset.serialize()
         ss += spent_utxos[input_index].nValue.serialize()
-        ss += spent_utxos[input_index].nNonce.serialize()
         ss += ser_string(spk)
         ss += struct.pack("<I", txTo.vin[input_index].nSequence)
+        if txTo.vin[input_index].assetIssuance.isNull():
+            ss += b'\x00'
+        else:
+            ss += txTo.vin[input_index].assetIssuance.serialize()
+            ss += sha256(txTo.wit.vtxinwit[input_index].serialize_issuance_proofs())
     else:
         ss += struct.pack("<I", input_index)
     if (spend_type & 1):
@@ -829,15 +842,25 @@ def TaprootSignatureHash(txTo, spent_utxos, hash_type, input_index = 0, scriptpa
     if out_type == SIGHASH_SINGLE:
         if input_index < len(txTo.vout):
             ss += sha256(txTo.vout[input_index].serialize())
+            ss += sha256(txTo.wit.vtxoutwit[input_index].serialize())
         else:
+            # Why do we have a case for in > len ?
+            # Maybe useful in testing. C++ code should never reach here
+            ss += bytes(0 for _ in range(32))
             ss += bytes(0 for _ in range(32))
     if (scriptpath):
-        ss += TaggedHash("TapLeaf", bytes([leaf_ver]) + ser_string(script))
+        ss += TaggedHash("TapLeaf/elements", bytes([leaf_ver]) + ser_string(script))
         ss += bytes([0])
         ss += struct.pack("<i", codeseparator_pos)
     # ELEMENTS -35 since we encode nAsset (33) + nValue (9) + nNonce (1) rather than nValue (8)
-    assert len(ss) == 175 - (in_type == SIGHASH_ANYONECANPAY) * (49 - 35) - (out_type != SIGHASH_ALL and out_type != SIGHASH_SINGLE) * 32 + (annex is not None) * 32 + scriptpath * 37
-    return TaggedHash("TapSighash", ss)
+    exp_non_acp_len = 366 - (out_type != SIGHASH_ALL and out_type != SIGHASH_SINGLE) * 64 + (annex is not None) * 32 + scriptpath * 37
+    if in_type != SIGHASH_ANYONECANPAY:
+        assert len(ss) == exp_non_acp_len
+    else:
+        # 119 when explicit outs with no issuance. 304 when when conf tx with conf issuances.
+        assert len(ss) >= exp_non_acp_len - (228 - 119)
+        assert len(ss) <= exp_non_acp_len - (228 - 304)
+    return TaggedHash("TapSighash/elements", ss)
 
 def taproot_tree_helper(scripts):
     if len(scripts) == 0:
@@ -856,7 +879,7 @@ def taproot_tree_helper(scripts):
             version = script[2]
         assert version & 1 == 0
         assert isinstance(code, bytes)
-        h = TaggedHash("TapLeaf", bytes([version]) + ser_string(code))
+        h = TaggedHash("TapLeaf/elements", bytes([version]) + ser_string(code))
         if name is None:
             return ([], h)
         return ([(name, version, code, bytes())], h)
@@ -875,7 +898,7 @@ def taproot_tree_helper(scripts):
         right = [(name, version, script, control + left_h) for name, version, script, control in right]
     if right_h < left_h:
         right_h, left_h = left_h, right_h
-    h = TaggedHash("TapBranch", left_h + right_h)
+    h = TaggedHash("TapBranch/elements", left_h + right_h)
     return (left + right, h)
 
 TaprootInfo = namedtuple("TaprootInfo", "scriptPubKey,inner_pubkey,negflag,tweak,leaves")
@@ -898,7 +921,7 @@ def taproot_construct(pubkey, scripts=None):
         scripts = []
 
     ret, h = taproot_tree_helper(scripts)
-    tweak = TaggedHash("TapTweak", pubkey + h)
+    tweak = TaggedHash("TapTweak/elements", pubkey + h)
     tweaked, negated = tweak_add_pubkey(pubkey, tweak)
     leaves = dict((name, TaprootLeafInfo(script, version, merklebranch)) for name, version, script, merklebranch in ret)
     return TaprootInfo(CScript([OP_1, tweaked]), pubkey, negated + 0, tweak, leaves)

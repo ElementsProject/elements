@@ -405,6 +405,14 @@ class CAssetIssuance():
         r += self.nInflationKeys.serialize()
         return r
 
+    # serialization of asset issuance used in taproot sighash
+    def taphash_asset_issuance_serialize(self):
+        if self.isNull():
+            return b'\x00'
+        r = b''
+        r += self.serialize()
+        return r
+
     def __repr__(self):
         return "CAssetIssuance(assetBlindingNonce=%064x assetEntropy=%064x nAmount=%s nInflationKeys=%s)" % (self.assetBlindingNonce, self.assetEntropy, self.nAmount.vchCommitment, self.nInflationKeys.vchCommitment)
 
@@ -665,6 +673,13 @@ class CTxInWitness:
         r += ser_string(self.vchInflationKeysRangeproof)
         r += ser_string_vector(self.scriptWitness.stack)
         r += ser_string_vector(self.peginWitness.stack)
+        return r
+
+    # Used in taproot sighash calculation
+    def serialize_issuance_proofs(self):
+        r = b''
+        r += ser_string(self.vchIssuanceAmountRangeproof)
+        r += ser_string(self.vchInflationKeysRangeproof)
         return r
 
     def calc_witness_hash(self):
