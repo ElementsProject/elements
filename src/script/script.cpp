@@ -411,8 +411,10 @@ bool GetScriptOp(CScriptBase::const_iterator& pc, CScriptBase::const_iterator en
 
 bool IsOpSuccess(const opcodetype& opcode)
 {
-    return opcode == 80 || opcode == 98 || (opcode >= 126 && opcode <= 129) ||
-           (opcode >= 131 && opcode <= 134) || (opcode >= 137 && opcode <= 138) ||
-           (opcode >= 141 && opcode <= 142) || (opcode >= 149 && opcode <= 153) ||
-           (opcode >= 187 && opcode <= 254);
+    // ELEMENTS: Don't mark opcodes (OP_CAT, OP_SUBSTR, OP_LEFT, OP_RIGHT) as OP_SUCCESS
+    return opcode == 80 || opcode == 98 || (opcode >= 137 && opcode <= 138) ||
+            // ELEMENTS: Don't mark OP_INVERT , OP_AND, OP_OR, OP_XOR. OP_LSHIFT, OP_RSHIFT as success
+           (opcode >= 141 && opcode <= 142) || (opcode >= 149 && opcode <= 151) ||
+           // ELEMENTS: Exclude OP_DETERMINISTICRANDOM, OP_CHECKSIGFROMSTACK(VERIFY), OP_SUBSTRLAZY
+           (opcode >= 187 && opcode <= 191) || (opcode >= 196 && opcode <= 254);
 }
