@@ -1757,6 +1757,17 @@ public:
     }
 };
 
+/** Compute the (single) SHA256 of the concatenation of all outpoint flags of a tx. */
+template <class T>
+uint256 GetOutpointFlagsSHA256(const T& txTo)
+{
+    CHashWriter ss(SER_GETHASH, 0);
+    for (const auto& txin : txTo.vin) {
+        ss << (unsigned char) ((!txin.assetIssuance.IsNull() << 7) + (txin.m_is_pegin << 6));
+    }
+    return ss.GetSHA256();
+}
+
 /** Compute the (single) SHA256 of the concatenation of all prevouts of a tx. */
 template <class T>
 uint256 GetPrevoutsSHA256(const T& txTo)
@@ -1779,7 +1790,8 @@ uint256 GetSequencesSHA256(const T& txTo)
     return ss.GetSHA256();
 }
 
-/** Compute the (single) SHA256 of the concatenation of all txouts of a tx. */
+/** Compute the (single) SHA256 of the concatenation of all issuances of a tx. */
+// Used for segwitv0/taproot sighash calculation
 template <class T>
 uint256 GetIssuanceSHA256(const T& txTo)
 {
@@ -1793,6 +1805,34 @@ uint256 GetIssuanceSHA256(const T& txTo)
     return ss.GetSHA256();
 }
 
+/** Compute the (single) SHA256 of the concatenation of all output witnesses
+ * (rangeproof and surjection proof) in `CTxWitness`*/
+// Used in taphash calculation
+template <class T>
+uint256 GetOutputWitnessesSHA256(const T& txTo)
+{
+    CHashWriter ss(SER_GETHASH, 0);
+    for (const auto& outwit : txTo.witness.vtxoutwit) {
+        ss << outwit;
+    }
+    return ss.GetSHA256();
+}
+
+/** Compute the (single) SHA256 of the concatenation of all input issuance witnesses
+ * (vchIssuanceAmountRangeproof and vchInflationKeysRangeproof proof) in `CTxInWitness`*/
+// Used in taphash calculation
+template <class T>
+uint256 GetIssuanceRangeproofsSHA256(const T& txTo)
+{
+    CHashWriter ss(SER_GETHASH, 0);
+    for (const auto& inwit : txTo.witness.vtxinwit) {
+        ss << inwit.vchIssuanceAmountRangeproof;
+        ss << inwit.vchInflationKeysRangeproof;
+    }
+    return ss.GetSHA256();
+}
+
+// Compute a (single) SHA256 of the concatenation of all outputs
 template <class T>
 uint256 GetOutputsSHA256(const T& txTo)
 {
@@ -1803,11 +1843,13 @@ uint256 GetOutputsSHA256(const T& txTo)
     return ss.GetSHA256();
 }
 
-/** Compute the (single) SHA256 of the concatenation of all amounts spent by a tx. */
-uint256 GetSpentAmountsSHA256(const std::vector<CTxOut>& outputs_spent)
+/** Compute the (single) SHA256 of the concatenation of all asset and amounts commitments spent by a tx. */
+// Elements TapHash only
+uint256 GetSpentAssetsAmountsSHA256(const std::vector<CTxOut>& outputs_spent)
 {
     CHashWriter ss(SER_GETHASH, 0);
     for (const auto& txout : outputs_spent) {
+        ss << txout.nAsset;
         ss << txout.nValue;
     }
     return ss.GetSHA256();
@@ -1878,17 +1920,21 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         m_prevouts_single_hash = GetPrevoutsSHA256(txTo);
         m_sequences_single_hash = GetSequencesSHA256(txTo);
         m_outputs_single_hash = GetOutputsSHA256(txTo);
+        m_issuances_single_hash = GetIssuanceSHA256(txTo);
     }
     if (uses_bip143_segwit) {
         hashPrevouts = SHA256Uint256(m_prevouts_single_hash);
         hashSequence = SHA256Uint256(m_sequences_single_hash);
-        hashIssuance = SHA256Uint256(GetIssuanceSHA256(txTo));
+        hashIssuance = SHA256Uint256(m_issuances_single_hash);
         hashOutputs = SHA256Uint256(m_outputs_single_hash);
         hashRangeproofs = GetRangeproofsHash(txTo);
         m_bip143_segwit_ready = true;
     }
     if (uses_bip341_taproot) {
-        m_spent_amounts_single_hash = GetSpentAmountsSHA256(m_spent_outputs);
+        m_outpoints_flag_single_hash = GetOutpointFlagsSHA256(txTo);
+        m_spent_asset_amounts_single_hash = GetSpentAssetsAmountsSHA256(m_spent_outputs);
+        m_issuance_rangeproofs_single_hash = GetIssuanceRangeproofsSHA256(txTo);
+        m_output_witnesses_single_hash = GetOutputWitnessesSHA256(txTo);
         m_spent_scripts_single_hash = GetSpentScriptsSHA256(m_spent_outputs);
         m_bip341_taproot_ready = true;
     }
@@ -1907,13 +1953,14 @@ template void PrecomputedTransactionData::Init(const CMutableTransaction& txTo, 
 template PrecomputedTransactionData::PrecomputedTransactionData(const CTransaction& txTo);
 template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
 
-static const CHashWriter HASHER_TAPLEAF = TaggedHash("TapLeaf");
-static const CHashWriter HASHER_TAPBRANCH = TaggedHash("TapBranch");
-static const CHashWriter HASHER_TAPTWEAK = TaggedHash("TapTweak");
-static const CHashWriter HASHER_TAPSIGHASH = TaggedHash("TapSighash");
+
+static const CHashWriter HASHER_TAPLEAF_ELEMENTS = TaggedHash("TapLeaf/elements");
+static const CHashWriter HASHER_TAPBRANCH_ELEMENTS = TaggedHash("TapBranch/elements");
+static const CHashWriter HASHER_TAPTWEAK_ELEMENTS = TaggedHash("TapTweak/elements");
+static const CHashWriter HASHER_TAPSIGHASH_ELEMENTS = TaggedHash("TapSighash/elements");
 
 PrecomputedTransactionData::PrecomputedTransactionData(const uint256& hash_genesis_block)
-        : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH) << hash_genesis_block << hash_genesis_block) {}
+        : m_tapsighash_hasher(CHashWriter(HASHER_TAPSIGHASH_ELEMENTS) << hash_genesis_block << hash_genesis_block) {}
 
 template<typename T>
 bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata, const T& tx_to, uint32_t in_pos, uint8_t hash_type, SigVersion sigversion, const PrecomputedTransactionData& cache)
@@ -1940,9 +1987,9 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
 
     CHashWriter ss = cache.m_tapsighash_hasher;
 
-    // Epoch
-    static constexpr uint8_t EPOCH = 0;
-    ss << EPOCH;
+    // no epoch in elements taphash
+    // static constexpr uint8_t EPOCH = 0;
+    // ss << EPOCH;
 
     // Hash type
     const uint8_t output_type = (hash_type == SIGHASH_DEFAULT) ? SIGHASH_ALL : (hash_type & SIGHASH_OUTPUT_MASK); // Default (no sighash byte) is equivalent to SIGHASH_ALL
@@ -1954,37 +2001,56 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
     ss << tx_to.nVersion;
     ss << tx_to.nLockTime;
     if (input_type != SIGHASH_ANYONECANPAY) {
+        ss << cache.m_outpoints_flag_single_hash;
         ss << cache.m_prevouts_single_hash;
-        ss << cache.m_spent_amounts_single_hash;
+        ss << cache.m_spent_asset_amounts_single_hash;
         ss << cache.m_spent_scripts_single_hash;
         ss << cache.m_sequences_single_hash;
+        ss << cache.m_issuances_single_hash;
+        ss << cache.m_issuance_rangeproofs_single_hash;
     }
     if (output_type == SIGHASH_ALL) {
         ss << cache.m_outputs_single_hash;
+        ss << cache.m_output_witnesses_single_hash;
     }
-
     // Data about the input/prevout being spent
     assert(execdata.m_annex_init);
     const bool have_annex = execdata.m_annex_present;
     const uint8_t spend_type = (ext_flag << 1) + (have_annex ? 1 : 0); // The low bit indicates whether an annex is present.
     ss << spend_type;
     if (input_type == SIGHASH_ANYONECANPAY) {
+        ss << (unsigned char) ((!tx_to.vin[in_pos].assetIssuance.IsNull() << 7) + (tx_to.vin[in_pos].m_is_pegin << 6));
         ss << tx_to.vin[in_pos].prevout;
-        ss << cache.m_spent_outputs[in_pos];
+        ss << cache.m_spent_outputs[in_pos].nAsset;
+        ss << cache.m_spent_outputs[in_pos].nValue;
+        ss << cache.m_spent_outputs[in_pos].scriptPubKey;
         ss << tx_to.vin[in_pos].nSequence;
+        if (tx_to.vin[in_pos].assetIssuance.IsNull()) {
+            ss << (unsigned char)0;
+        } else {
+            ss << tx_to.vin[in_pos].assetIssuance;
+
+            CHashWriter sha_single_input_issuance_witness(SER_GETHASH, 0);
+            sha_single_input_issuance_witness << tx_to.witness.vtxinwit[in_pos].vchIssuanceAmountRangeproof;
+            sha_single_input_issuance_witness << tx_to.witness.vtxinwit[in_pos].vchInflationKeysRangeproof;
+            ss << sha_single_input_issuance_witness.GetSHA256();
+        }
     } else {
         ss << in_pos;
     }
     if (have_annex) {
         ss << execdata.m_annex_hash;
     }
-
     // Data about the output (if only one).
     if (output_type == SIGHASH_SINGLE) {
         if (in_pos >= tx_to.vout.size()) return false;
         CHashWriter sha_single_output(SER_GETHASH, 0);
         sha_single_output << tx_to.vout[in_pos];
         ss << sha_single_output.GetSHA256();
+
+        CHashWriter sha_single_output_witness(SER_GETHASH, 0);
+        sha_single_output_witness << tx_to.witness.vtxoutwit[in_pos];
+        ss << sha_single_output_witness.GetSHA256();
     }
 
     // Additional data for BIP 342 signatures
@@ -2301,10 +2367,10 @@ static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, c
     const int path_len = (control.size() - TAPROOT_CONTROL_BASE_SIZE) / TAPROOT_CONTROL_NODE_SIZE;
     const XOnlyPubKey p{uint256(std::vector<unsigned char>(control.begin() + 1, control.begin() + TAPROOT_CONTROL_BASE_SIZE))};
     const XOnlyPubKey q{uint256(program)};
-    tapleaf_hash = (CHashWriter(HASHER_TAPLEAF) << uint8_t(control[0] & TAPROOT_LEAF_MASK) << script).GetSHA256();
+    tapleaf_hash = (CHashWriter(HASHER_TAPLEAF_ELEMENTS) << uint8_t(control[0] & TAPROOT_LEAF_MASK) << script).GetSHA256();
     uint256 k = tapleaf_hash;
     for (int i = 0; i < path_len; ++i) {
-        CHashWriter ss_branch{HASHER_TAPBRANCH};
+        CHashWriter ss_branch = CHashWriter{HASHER_TAPBRANCH_ELEMENTS};
         Span<const unsigned char> node(control.data() + TAPROOT_CONTROL_BASE_SIZE + TAPROOT_CONTROL_NODE_SIZE * i, TAPROOT_CONTROL_NODE_SIZE);
         if (std::lexicographical_compare(k.begin(), k.end(), node.begin(), node.end())) {
             ss_branch << k << node;
@@ -2313,7 +2379,7 @@ static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, c
         }
         k = ss_branch.GetSHA256();
     }
-    k = (CHashWriter(HASHER_TAPTWEAK) << MakeSpan(p) << k).GetSHA256();
+    k = (CHashWriter(HASHER_TAPTWEAK_ELEMENTS) << MakeSpan(p) << k).GetSHA256();
     return q.CheckPayToContract(p, k, control[0] & 1);
 }
 

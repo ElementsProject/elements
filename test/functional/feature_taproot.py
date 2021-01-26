@@ -18,8 +18,8 @@ from test_framework.messages import (
     CTxIn,
     CTxInWitness,
     CTxOut,
-    CTxOutValue,
-    ToHex,
+    CTxOutValue, CTxOutWitness,
+    ToHex, uint256_from_str,
 )
 from test_framework.script import (
     ANNEX_TAG,
@@ -123,6 +123,11 @@ import random
 #
 # in that ctx3 will globally use hashtype=SIGHASH_DEFAULT (including in the hashtype byte appended to the signature)
 # while ctx2 only uses the modified hashtype inside the sighash calculation.
+#
+# ELEMENTS:
+# Elements taphash calculation also depends on genesis_block_hash which is stored as
+# `genesis_hash` in the test config
+g_genesis_hash = None
 
 def deep_eval(ctx, expr):
     """Recursively replace any callables c in expr (including inside lists) with c(ctx)."""
@@ -191,11 +196,13 @@ def default_controlblock(ctx):
     """Default expression for "controlblock": combine leafversion, negflag, pubkey_inner, merklebranch."""
     return bytes([get(ctx, "leafversion") + get(ctx, "negflag")]) + get(ctx, "pubkey_inner") + get(ctx, "merklebranch")
 
+#ELEMENTS: taphash depends on genesis hash
 def default_sighash(ctx):
     """Default expression for "sighash": depending on mode, compute BIP341, BIP143, or legacy sighash."""
     tx = get(ctx, "tx")
     idx = get(ctx, "idx")
     hashtype = get(ctx, "hashtype_actual")
+    genesis_hash = get(ctx, "genesis_hash")
     mode = get(ctx, "mode")
     if mode == "taproot":
         # BIP341 signature hash
@@ -205,9 +212,9 @@ def default_sighash(ctx):
             codeseppos = get(ctx, "codeseppos")
             leaf_ver = get(ctx, "leafversion")
             script = get(ctx, "script_taproot")
-            return TaprootSignatureHash(tx, utxos, hashtype, idx, scriptpath=True, script=script, leaf_ver=leaf_ver, codeseparator_pos=codeseppos, annex=annex)
+            return TaprootSignatureHash(tx, utxos, hashtype, genesis_hash, idx, scriptpath=True, script=script, leaf_ver=leaf_ver, codeseparator_pos=codeseppos, annex=annex)
         else:
-            return TaprootSignatureHash(tx, utxos, hashtype, idx, scriptpath=False, annex=annex)
+            return TaprootSignatureHash(tx, utxos, hashtype, genesis_hash, idx, scriptpath=False, annex=annex)
     elif mode == "witv0":
         # BIP143 signature hash
         scriptcode = get(ctx, "scriptcode")
@@ -373,6 +380,8 @@ DEFAULT_CONTEXT = {
     "leaf": None,
     # The input arguments to provide to the executed script
     "inputs": [],
+    # Genesis hash(required for taproot outputs)
+    "genesis_hash": None,
 
     # == Parameters to be set before evaluation: ==
     # - mode: what spending style to use ("taproot", "witv0", or "legacy").
@@ -382,6 +391,7 @@ DEFAULT_CONTEXT = {
     # - utxos: the UTXOs being spent (needed in mode=="witv0" and mode=="taproot").
     # - idx: the input position being signed.
     # - scriptcode: the scriptcode to include in legacy and witv0 sighashes.
+    # - genesisHash: The genesis hash of the block
 }
 
 def flatten(lst):
@@ -433,7 +443,7 @@ def spend(tx, idx, utxos, **kwargs):
 
 Spender = namedtuple("Spender", "script,comment,is_standard,sat_function,err_msg,sigops_weight,no_fail,need_vin_vout_mismatch")
 
-def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=False, spk_mutate_pre_p2sh=None, failure=None, standard=True, err_msg=None, sigops_weight=0, need_vin_vout_mismatch=False, **kwargs):
+def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=False, genesis_hash=None, spk_mutate_pre_p2sh=None, failure=None, standard=True, err_msg=None, sigops_weight=0, need_vin_vout_mismatch=False, **kwargs):
     """Helper for constructing Spender objects using the context signing framework.
 
     * tap: a TaprootInfo object (see taproot_construct), for Taproot spends (cannot be combined with pkh, witv0, or script)
@@ -449,6 +459,10 @@ def make_spender(comment, *, tap=None, witv0=False, script=None, pkh=None, p2sh=
     """
 
     conf = dict()
+    global g_genesis_hash
+    if genesis_hash is None:
+        genesis_hash = g_genesis_hash
+    conf["genesis_hash"] = genesis_hash
 
     # Compute scriptPubKey and set useful defaults based on the inputs.
     if witv0:
@@ -1216,7 +1230,6 @@ class TaprootTest(BitcoinTestFramework):
         extra_output_script = CScript([OP_CHECKSIG]*((MAX_BLOCK_SIGOPS_WEIGHT - sigops_weight) // WITNESS_SCALE_FACTOR))
         if extra_output_script == CScript():
             extra_output_script = None  ## ELEMENTS: an explicitly empty coinbase scriptpubkey would be rejected with bad-cb-fee
-
         block = create_block(self.tip, create_coinbase(self.lastblockheight + 1, pubkey=cb_pubkey, extra_output_script=extra_output_script, fees=fees), self.lastblocktime + 1)
         block.nVersion = 4
         for tx in txs:
@@ -1309,9 +1322,12 @@ class TaprootTest(BitcoinTestFramework):
                 amount = int(random.randrange(int(avg*0.85 + 0.5), int(avg*1.15 + 0.5)) + 0.5)
                 balance -= amount
                 fund_tx.vout.append(CTxOut(amount, spenders[done + i].script))
+                fund_tx.wit.vtxoutwit.append(CTxOutWitness())
             # Add change
             fund_tx.vout.append(CTxOut(balance - 10000, random.choice(host_spks)))
+            fund_tx.wit.vtxoutwit.append(CTxOutWitness())
             fund_tx.vout.append(CTxOut(10000)) # ELEMENTS: and fee
+            fund_tx.wit.vtxoutwit.append(CTxOutWitness())
             # Ask the wallet to sign
             ss = BytesIO(bytes.fromhex(node.signrawtransactionwithwallet(ToHex(fund_tx))["hex"]))
             fund_tx.deserialize(ss)
@@ -1387,6 +1403,7 @@ class TaprootTest(BitcoinTestFramework):
             assert in_value >= 0 and fee - num_outputs * DUST_LIMIT >= MIN_FEE
             for i in range(num_outputs):
                 tx.vout.append(CTxOut())
+                tx.wit.vtxoutwit.append(CTxOutWitness())
                 if in_value <= DUST_LIMIT:
                     tx.vout[-1].nValue = CTxOutValue(DUST_LIMIT)
                 elif i < num_outputs - 1:
@@ -1399,6 +1416,7 @@ class TaprootTest(BitcoinTestFramework):
             fee += in_value
             assert fee >= 0
             tx.vout.append(CTxOut(fee))
+            tx.wit.vtxoutwit.append(CTxOutWitness())
 
             # Select coinbase pubkey
             cb_pubkey = random.choice(host_pubkeys)
@@ -1453,6 +1471,8 @@ class TaprootTest(BitcoinTestFramework):
         # Post-taproot activation tests go first (pre-taproot tests' blocks are invalid post-taproot).
         self.log.info("Post-activation tests...")
         self.nodes[1].generate(101)
+        global g_genesis_hash
+        g_genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[1].getblockhash(0))[::-1])
         self.test_spenders(self.nodes[1], spenders_taproot_active(), input_counts=[1, 2, 2, 2, 2, 3])
 
         # Transfer funds to pre-taproot node.
