@@ -31,7 +31,7 @@ def make_signblockscript(num_nodes, required_signers, keys):
     for i in range(num_nodes):
         k = keys[i]
         script += "21"
-        script += codecs.encode(k.get_pubkey(), 'hex_codec').decode("utf-8")
+        script += codecs.encode(k.get_pubkey().get_bytes(), 'hex_codec').decode("utf-8")
     script += "{}".format(50 + num_nodes) # num keys
     script += "ae" # OP_CHECKMULTISIG
     return script
@@ -66,11 +66,10 @@ class BlockSignTest(BitcoinTestFramework):
         self.keys = []
         self.wifs = []
         for i in range(num_keys):
-            k = key.CECKey()
-            pk_bytes = hashlib.sha256(str(random.getrandbits(256)).encode('utf-8')).digest()
-            k.set_secretbytes(pk_bytes)
-            k.set_compressed(True)
-            w = wif(pk_bytes)
+            k = key.ECKey()
+            sk_bytes = hashlib.sha256(str(random.getrandbits(256)).encode('utf-8')).digest()
+            k.set(sk_bytes, True)
+            w = wif(sk_bytes)
             self.keys.append(k)
             self.wifs.append(w)
 
