@@ -20,6 +20,7 @@ from .messages import (
     CTxOut,
     CTxOutAsset,
     CTxOutValue,
+    MAX_SCRIPT_SIZE,
     hash256,
     ser_compact_size,
     ser_string,
@@ -598,6 +599,10 @@ class CScript(bytes):
                     n += 20
             lastOpcode = opcode
         return n
+
+    def IsUnspendable(self):
+        return (len(self) > 0 and next(iter(self)) == OP_RETURN) or (len(self) > MAX_SCRIPT_SIZE) \
+            or len(self) == 0 # Elements rule for fee outputs
 
 
 SIGHASH_DEFAULT = 0 # Taproot-only default, semantics same as SIGHASH_ALL

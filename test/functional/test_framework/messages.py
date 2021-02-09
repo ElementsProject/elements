@@ -43,6 +43,7 @@ MAX_BLOOM_HASH_FUNCS = 50
 
 COIN = 100000000  # 1 btc in satoshis
 MAX_MONEY = 21000000 * COIN
+MAX_SCRIPT_SIZE = 10000
 
 BIP125_SEQUENCE_NUMBER = 0xfffffffd  # Sequence number that is BIP 125 opt-in and BIP 68-opt-out
 
@@ -69,6 +70,9 @@ MSG_WITNESS_TX = MSG_TX | MSG_WITNESS_FLAG
 FILTER_TYPE_BASIC = 0
 
 WITNESS_SCALE_FACTOR = 4
+
+CT_EXPONENT = 0
+CT_BITS = 52
 
 # Serialization/deserialization tools
 def sha256(s):
@@ -377,6 +381,25 @@ OUTPOINT_ISSUANCE_FLAG = (1 << 31)
 OUTPOINT_PEGIN_FLAG = (1 << 30)
 OUTPOINT_INDEX_MASK = 0x3fffffff
 
+class CAsset:
+    __slots__ = ('id')
+    def __init__(self, id = None):
+        self.id = id
+
+    def isNull(self):
+        return self.id is None
+
+    def deserialize(self, f):
+        self.id = f.read(32)
+
+    def serialize(self):
+        r = b""
+        r += self.id
+        return r
+
+    def __repr__(self):
+        return "CAsset(id=%064x)" % (self.id)
+
 class CAssetIssuance():
     __slots__ = ("assetBlindingNonce", "assetEntropy", "nAmount", "nInflationKeys")
 
@@ -501,9 +524,19 @@ class CTxOutAsset:
         return r
 
     def setToAsset(self, val):
-       if len(val) != 32:
-           raise 'invalid asset hash (expected 32 bytes)'
-       self.vchCommitment = b'\x01' + val
+        if len(val) != 32:
+            raise 'invalid asset hash (expected 32 bytes)'
+        self.vchCommitment = b'\x01' + val
+
+    def isExplicit(self):
+        return self.vchCommitment[0] == 1 and len(self.vchCommitment) == 33
+
+    def to_explicit(self):
+        assert(self.vchCommitment[0] == 1)
+        return self.vchCommitment[1:]
+
+    def getAsset(self):
+        return CAsset(self.to_explicit())
 
     def __repr__(self):
         return "CTxOutAsset(vchCommitment=%s)" % self.vchCommitment
@@ -562,6 +595,9 @@ class CTxOutValue:
             ret |= self.vchCommitment[i+1]
         return ret
 
+    def isExplicit(self):
+        return self.vchCommitment[0] == 1 and len(self.vchCommitment) == 9
+
     def __repr__(self):
         return "CTxOutValue(vchCommitment=%s)" % self.vchCommitment
 
@@ -615,7 +651,7 @@ class CTxOut():
         self.scriptPubKey = b''
 
     def is_fee(self):
-        return len(self.scriptPubKey) == 0
+        return len(self.scriptPubKey) == 0 and self.nAsset.isExplicit() and self.nValue.isExplicit()
 
     def deserialize(self, f):
         self.nAsset = CTxOutAsset()
