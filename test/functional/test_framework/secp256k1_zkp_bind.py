@@ -19,7 +19,7 @@
 import ctypes
 from typing import List
 
-from bitcointx.core.secp256k1 import (
+from .secp256k1_bind import (
     load_secp256k1_library,
     SECP256K1_CONTEXT_SIGN, SECP256K1_CONTEXT_VERIFY,
     secp256k1_create_and_init_context

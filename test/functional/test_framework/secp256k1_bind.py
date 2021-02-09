@@ -26,13 +26,44 @@
 # python's byte instance is supposed to be immutable, and for mutable byte
 # buffers you should use ctypes.create_string_buffer().
 
+# There are static type checks using types and typing supported.
+# No explicit effort has been put to maintain the static typing rules
+# from the original code
 import os
 import ctypes
 import ctypes.util
 from types import FunctionType
 from typing import Dict, Union, Any, Optional, cast
 
-import bitcointx.util
+
+# Rewrite context vars sing threading
+import threading
+
+class ContextVarsCompat(threading.local):
+    _context_vars_defaults__ = {}
+
+    def __init__(self, **kwargs):
+        assert self.__class__ is not ContextVarsCompat, "Must be subclassed"
+        defaults = self.__class__._context_vars_defaults__
+
+        if not kwargs:
+            kwargs = defaults
+        elif defaults and kwargs != defaults:
+            raise ValueError(
+                f'{self.__class__.__name__} cannot be instantiated twice '
+                f'with different default values')
+        else:
+            self.__class__._context_vars_defaults__ = kwargs
+
+        for name, default_value in kwargs.items():
+            setattr(self, name, default_value)
+
+    def __setattr__(self, name, value):
+        if name not in self.__class__._context_vars_defaults__:
+            raise AttributeError(
+                f'context variable {name} was present in '
+                f'{self.__class__.__name__} ')
+        super().__setattr__(name, value)
 
 
 PUBLIC_KEY_SIZE             = 65
@@ -61,10 +92,10 @@ SECP256K1_EC_COMPRESSED = (SECP256K1_FLAGS_TYPE_COMPRESSION | SECP256K1_FLAGS_BI
 SECP256K1_EC_UNCOMPRESSED = (SECP256K1_FLAGS_TYPE_COMPRESSION)
 
 
-class Secp256k1LastErrorContextVar(bitcointx.util.ContextVarsCompat):
+class Secp256k1LastErrorContextVar(ContextVarsCompat):
     last_error: Optional[Dict[str, Union[int, str]]]
 
-
+_secp256k1_library_path: Optional[str] = None
 _secp256k1_error_storage = Secp256k1LastErrorContextVar(last_error=None)
 
 _ctypes_functype = getattr(ctypes, 'WINFUNCTYPE', getattr(ctypes, 'CFUNCTYPE'))
@@ -248,7 +279,7 @@ def load_secp256k1_library(path: Optional[str] = None) -> ctypes.CDLL:
 # the handle is not exported purposefully: ctypes interface is low-level,
 # you are basically calling the C functions directly.
 # Anyone that uses it directly should know that they are doing.
-_secp256k1 = load_secp256k1_library(bitcointx.util._secp256k1_library_path)
+_secp256k1 = load_secp256k1_library(_secp256k1_library_path)
 
 secp256k1_context_sign = secp256k1_create_and_init_context(_secp256k1, SECP256K1_CONTEXT_SIGN)
 secp256k1_context_verify = secp256k1_create_and_init_context(_secp256k1, SECP256K1_CONTEXT_VERIFY)
