@@ -18,6 +18,20 @@ import os
 import hashlib
 
 """
+Build with 
+~/secp256k1-zkp$ ./configure --enable-experimental \
+                            --enable-module-generator \
+                            --enable-module-rangeproof \
+                            --enable-module-surjectionproof \
+                            --enable-module-ecdh \
+                            --enable-module-recovery
+and provide the location of the so file in LD_LIBRARY_PATH variable
+
+If secp256k1_zkp is built at home, that would be
+export LD_LIBRARY_PATH=$HOME/secp256k1-zkp/.libs/ 
+"""
+
+"""
 Parse a serialized compressed bitcoin public key into secp key
 """
 def parse_raw_pk(pk):
