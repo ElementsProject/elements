@@ -66,6 +66,8 @@ class DynaFedTest(BitcoinTestFramework):
         self.extra_args = [["-con_dyna_deploy_start=1000", "-enforce_pak=1", "-con_parent_chain_signblockscript=51", "-peginconfirmationdepth=1", "-parentscriptprefix=75", "-parent_bech32_hrp=ert"] for i in range(self.num_nodes)]
         # second node will not mine transactions
         self.extra_args[1].append("-blocksonly=1")
+        # Make sure nothing breaks if peers have a different activation.
+        self.extra_args[1][0] = "-con_dyna_deploy_start=937"
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
