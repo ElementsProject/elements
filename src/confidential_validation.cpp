@@ -52,9 +52,7 @@ CAmountMap GetFeeMap(const CTransaction& tx) {
 }
 
 bool CRangeCheck::operator()() {
-    if (val->IsExplicit()) {
-        return true;
-    }
+    assert(val->IsCommitment());
 
     if (!CachingRangeProofChecker(store).VerifyRangeProof(rangeproof, val->vchCommitment, assetCommitment, scriptPubKey, secp256k1_ctx_verify_amounts)) {
         error = SCRIPT_ERR_RANGEPROOF;
