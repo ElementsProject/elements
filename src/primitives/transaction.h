@@ -119,8 +119,14 @@ public:
     static const uint32_t SEQUENCE_LOCKTIME_TYPE_FLAG = (1 << 22);
 
     /* If CTxIn::nSequence encodes a relative lock-time, this mask is
-     * applied to extract that lock-time from the sequence field. */
+     * applied to extract that lock-time from the sequence field.
+     * This value is used when Dynafed is not active. */
     static const uint32_t SEQUENCE_LOCKTIME_MASK = 0x0000ffff;
+
+    /* If CTxIn::nSequence encodes a relative lock-time, this mask is
+     * applied to extract that lock-time from the sequence field.
+     * This value is used when Dynafed is active. */
+    static const uint32_t SEQUENCE_LOCKTIME_MASK_DYNAFED = 0x000fffff;
 
     /* In order to use the same number of bits to encode roughly the
      * same wall-clock duration, and because blocks are naturally

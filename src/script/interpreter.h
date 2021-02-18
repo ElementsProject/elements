@@ -126,8 +126,9 @@ enum
     //
     SCRIPT_NO_SIGHASH_BYTE = (1U << 17),
 
-    // Support/allow
+    // Support/allow dynafed hardfork features:
     // - SIGHASH_RANGEPROOF
+    // - extended CSV range (see SEQUENCE_LOCKTIME_MASK_DYNAFED)
     //
     SCRIPT_DYNAFED_ACTIVE = (1U << 18),
 };
@@ -169,7 +170,7 @@ public:
          return false;
     }
 
-    virtual bool CheckSequence(const CScriptNum& nSequence) const
+    virtual bool CheckSequence(const CScriptNum& nSequence, unsigned int flags) const
     {
          return false;
     }
@@ -194,7 +195,7 @@ public:
     GenericTransactionSignatureChecker(const T* txToIn, unsigned int nInIn, const CConfidentialValue& amountIn, const PrecomputedTransactionData& txdataIn) : txTo(txToIn), nIn(nInIn), amount(amountIn), txdata(&txdataIn) {}
     bool CheckSig(const std::vector<unsigned char>& scriptSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override;
     bool CheckLockTime(const CScriptNum& nLockTime) const override;
-    bool CheckSequence(const CScriptNum& nSequence) const override;
+    bool CheckSequence(const CScriptNum& nSequence, unsigned int flags) const override;
 };
 
 using TransactionSignatureChecker = GenericTransactionSignatureChecker<CTransaction>;
@@ -208,5 +209,8 @@ size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey,
 int FindAndDelete(CScript& script, const CScript& b);
 
 bool CheckMinimalPush(const std::vector<unsigned char>& data, opcodetype opcode);
+
+/** Get the CSV mask that is currently active. */
+uint32_t SequenceLocktimeMask(unsigned int flags);
 
 #endif // BITCOIN_SCRIPT_INTERPRETER_H
