@@ -193,7 +193,7 @@ bool static IsDefinedHashtypeSignature(const valtype &vchSig, unsigned int flags
     unsigned char nHashType = vchSig[vchSig.size() - 1] & (~(SIGHASH_ANYONECANPAY));
 
     // ELEMENTS: Only allow SIGHASH_RANGEPROOF if the flag is set (after dynafed activation).
-    if ((flags & SCRIPT_SIGHASH_RANGEPROOF) == SCRIPT_SIGHASH_RANGEPROOF) {
+    if ((flags & SCRIPT_DYNAFED_ACTIVE) == SCRIPT_DYNAFED_ACTIVE) {
         nHashType = nHashType & (~(SIGHASH_RANGEPROOF));
     }
 
@@ -1481,7 +1481,7 @@ public:
     CTransactionSignatureSerializer(const T& txToIn, const CScript& scriptCodeIn, unsigned int nInIn, int nHashTypeIn, unsigned int flags) :
         txTo(txToIn), scriptCode(scriptCodeIn), nIn(nInIn),
         fAnyoneCanPay(!!(nHashTypeIn & SIGHASH_ANYONECANPAY)),
-        fRangeproof(!!(flags & SCRIPT_SIGHASH_RANGEPROOF) && !!(nHashTypeIn & SIGHASH_RANGEPROOF)),
+        fRangeproof(!!(flags & SCRIPT_DYNAFED_ACTIVE) && !!(nHashTypeIn & SIGHASH_RANGEPROOF)),
         fHashSingle((nHashTypeIn & 0x1f) == SIGHASH_SINGLE),
         fHashNone((nHashTypeIn & 0x1f) == SIGHASH_NONE) {}
 
@@ -1667,7 +1667,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
         uint256 hashOutputs;
         uint256 hashRangeproofs;
         const bool cacheready = cache && cache->ready;
-        bool fRangeproof = !!(flags & SCRIPT_SIGHASH_RANGEPROOF) && !!(nHashType & SIGHASH_RANGEPROOF);
+        bool fRangeproof = !!(flags & SCRIPT_DYNAFED_ACTIVE) && !!(nHashType & SIGHASH_RANGEPROOF);
 
         if (!(nHashType & SIGHASH_ANYONECANPAY)) {
             hashPrevouts = cacheready ? cache->hashPrevouts : GetPrevoutHash(txTo);

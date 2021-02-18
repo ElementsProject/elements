@@ -975,7 +975,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // Dynamic Federations. This can be included in the
         // STANDARD_LOCKTIME_VERIFY_FLAGS in a release post-activation.
         if (IsDynaFedEnabled(chainActive.Tip(), chainparams.GetConsensus())) {
-            scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
+            scriptVerifyFlags |= SCRIPT_DYNAFED_ACTIVE;
         }
 
         // Check against previous transactions
@@ -1910,7 +1910,7 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     }
 
     if (IsDynaFedEnabled(pindex->pprev, consensusparams)) {
-        flags |= SCRIPT_SIGHASH_RANGEPROOF;
+        flags |= SCRIPT_DYNAFED_ACTIVE;
     }
 
     return flags;

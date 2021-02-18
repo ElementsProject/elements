@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE(sighash_test)
 
         uint256 sh, sho;
         sho = SignatureHashOld(scriptCode, CTransaction(txTo), nIn, nHashType);
-        sh = SignatureHash(scriptCode, txTo, nIn, nHashType, 0, SigVersion::BASE, SCRIPT_SIGHASH_RANGEPROOF);
+        sh = SignatureHash(scriptCode, txTo, nIn, nHashType, 0, SigVersion::BASE, SCRIPT_DYNAFED_ACTIVE);
         #if defined(PRINT_SIGHASH_JSON)
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << txTo;

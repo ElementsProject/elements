@@ -126,9 +126,10 @@ enum
     //
     SCRIPT_NO_SIGHASH_BYTE = (1U << 17),
 
-    // Support/allow SIGHASH_RANGEPROOF.
+    // Support/allow
+    // - SIGHASH_RANGEPROOF
     //
-    SCRIPT_SIGHASH_RANGEPROOF = (1U << 18),
+    SCRIPT_DYNAFED_ACTIVE = (1U << 18),
 };
 
 bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned int flags, ScriptError* serror);
