@@ -13,10 +13,13 @@ import shlex
 
 from typing import List, Dict, Any
 
+# XXX: Requires bitcoin, upstream, apolestra remotes to exist!!
 BITCOIN_MASTER = "bitcoin/master"
 ELEMENTS_MASTER = "upstream/master"
 MERGED_MASTER = "apoelstra/merged-master"
 MERGED_MASTER_REVIEWED = "merged-master-reviewed"
+
+ECHO_COMMANDS = True
 
 class CommandFailed(Exception):
     """Exception for failure of a shell command."""
@@ -39,6 +42,8 @@ def shell(cmd: str, suppress_stderr=False, check_returncode=True) -> List[str]:
     handle_stderr = subprocess.PIPE if suppress_stderr else None
 
     # If check is True, a CalledProcessError will be raised on nonzero exit code.
+    if ECHO_COMMANDS:
+        print(f" > {cmd}")
     result = subprocess.run(["sh", "-c", cmd], stdout=subprocess.PIPE, stderr=handle_stderr, check=check_returncode)
     return result.stdout.decode("utf-8").rstrip().split("\n")
 
@@ -161,7 +166,9 @@ def check_commit(commit, last_reviewed, incoming_commit) -> None:
         raise Exception("First parent of next commit to review should be last commit reviewed.")
 
     if full_merged_cid != incoming_commit["cid"]:
-        raise Exception("Merge isn't merging the next expected Bitcoin/Elements commit.")
+        print("WARNING: Merge isn't merging the next expected Bitcoin/Elements commit.")
+        print("This could mean something was skipped, or it could just mean that some extra fixup commits were added.")
+        print("If the diff looks really wrong, stop here -- some manual review will be required.")
 
     commit["parent_cid"] = parent_cids[0]
     commit["merged_cid"] = full_merged_cid
@@ -212,9 +219,9 @@ def main() -> None:
     if len("".join(untracked)) != 0:
         print("You have untracked files in your working directory! Please be careful; checkouts may overwrite them!")
 
-    cstyle = shell_oneline("git config --get merge.conflictstyle")
+    cstyle = shell_oneline("git config --get merge.conflictstyle", check_returncode=False)
     if cstyle != "diff3":
-        print("You may want to run git 'config --global merge.conflictstyle diff3' to get more useful diffs when running this script (and in general.)")
+        print("You may want to run 'git config --global merge.conflictstyle diff3' to get more useful diffs when running this script (and in general.)")
 
     if prompt_chars("Ready to start?", "yn") != "y":
         sys.exit(1)
@@ -223,14 +230,21 @@ def main() -> None:
     SKIP_CLEAN = False
 
     for commit in merged_commits:
+        REQUIRE_MANUAL_REVIEW = False
         # Figure out what incoming/upstream commit this is merging, from which side.
         incoming_commit: Dict[str, Any] = {}
         if commit["chain"] == "Bitcoin":
             incoming_commit = bitcoin_commits.pop(0)
         elif commit["chain"] == "Elements":
             incoming_commit = elements_commits.pop(0)
+        elif commit["fromsecp"]:
+            incoming_commit = {"cid": commit["merged_cid"]}
+            print()
+            print("WARNING: The next commit claims to merge a libsecp256k1 commit. We have no way to verify where it came from.")
+            print()
+            REQUIRE_MANUAL_REVIEW = True
         else:
-            raise Exception("This is neither a Bitcoin nor an Elements merge; I don't know what to do with it.")
+            raise Exception(f"This is neither a Bitcoin nor an Elements merge; I don't know what to do with it. Details: {commit}")
 
         check_commit(commit, last_reviewed, incoming_commit)
 
@@ -247,12 +261,14 @@ def main() -> None:
         shell(f"git -C {WQ} add -u")
         shell(f"git -C {WQ} commit -m 'TEMP REVIEW COMMIT'")
 
-        diff = shell(f"git -C {WQ} diff --color=always --histogram HEAD {cid}")
+        diff = shell(f"git -C {WQ} diff --histogram HEAD {cid}")
         diffstr = "\n".join(diff)
-        if len(diffstr) == 0 and SKIP_CLEAN:
+        if len(diffstr) == 0 and SKIP_CLEAN and (not REQUIRE_MANUAL_REVIEW):
             last_reviewed = cid
             continue
 
+        # Force 'less' to always wait before exiting, so that short output doesn't get lost when followed by long output.
+        os.environ["LESS"] = "RSX"
         said = ""
         while said != "y":
             print()
@@ -266,7 +282,7 @@ def main() -> None:
             if len(diffstr) > 0:
                 print("** AND HERE'S THE DIFF:")
                 print()
-                print(diffstr)
+                os.system(f"git -C {WQ} diff --color=always --color-moved=dimmed_zebra --ignore-space-change --histogram HEAD {cid}")
             else:
                 print("** No diff, merge was clean!")
 
@@ -276,12 +292,13 @@ def main() -> None:
             if said == "a":
                 SKIP_CLEAN = not SKIP_CLEAN
                 print("Autoskip clean diffs: " + ("on" if SKIP_CLEAN else "off"))
+                said = "y"
                 continue
             elif said == "r":
                 continue
             elif said == "n":
                 print(f"The current commit (in `{WORKTREE_LOCATION}`) is the conflicted diff as git produced it. The command we used to diff it against the actual merge was:")
-                print(f"git -C {WQ} diff --color=always --histogram --exit-code HEAD {cid}")
+                print(f"git -C {WQ} diff --color=always --color=moved=dimmed_zebra --ignore-space-change --histogram --exit-code HEAD {cid}")
                 print("Look over the commits however you like, or contact someone for assistance. If you are satisfied that the diff is okay, run the review script again.")
                 sys.exit(1)
 
