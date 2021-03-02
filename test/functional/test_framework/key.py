@@ -8,6 +8,8 @@ keys, and is trivially vulnerable to side channel attacks. Do not use for
 anything but tests."""
 import random
 
+from .address import base58_to_byte
+
 def modinv(a, n):
     """Compute the modular inverse of a modulo n
 
@@ -336,6 +338,13 @@ class ECKey():
         if self.valid:
             self.secret = secret
             self.compressed = compressed
+
+    def set_wif(self, wif):
+        (b, v) = base58_to_byte(wif)
+        if len(b) != 32 and len(b) != 33:
+            raise ValueError("invalid WIF: unexpected length {}".format(len(b)))
+        compressed = len(b) == 33
+        self.set(b[0:32], compressed)
 
     def generate(self, compressed=True):
         """Generate a random private key (compressed or uncompressed)."""
