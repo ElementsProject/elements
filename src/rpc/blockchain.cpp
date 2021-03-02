@@ -1464,6 +1464,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
             obj.pushKV("current_signblock_asm", ScriptToAsmStr(entry.m_signblockscript));
             obj.pushKV("current_signblock_hex", HexStr(entry.m_signblockscript));
             obj.pushKV("max_block_witness", (uint64_t)entry.m_signblock_witness_limit);
+            obj.pushKV("current_fedpeg_program", HexStr(entry.m_fedpeg_program));
+            obj.pushKV("current_fedpeg_script", HexStr(entry.m_fedpegscript));
             UniValue arr(UniValue::VARR);
             for (const auto& extension : entry.m_extension_space) {
                 arr.push_back(HexStr(extension));
