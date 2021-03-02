@@ -5,7 +5,7 @@
 """Encode and decode BASE58, P2PKH and P2SH addresses."""
 
 from .script import hash256, hash160, sha256, CScript, OP_0
-from .util import bytes_to_hex_str, hex_str_to_bytes
+from .util import bytes_to_hex_str, hex_str_to_bytes, assert_equal
 
 from . import segwit_addr
 
@@ -29,7 +29,36 @@ def byte_to_base58(b, version):
         str = str[2:]
     return result
 
-# TODO: def base58_decode
+
+def base58_to_byte(s):
+    """Converts a base58-encoded string to its data and version.
+
+    Throws if the base58 checksum is invalid."""
+    if not s:
+        return b''
+    n = 0
+    for c in s:
+        n *= 58
+        assert c in chars
+        digit = chars.index(c)
+        n += digit
+    h = '%x' % n
+    if len(h) % 2:
+        h = '0' + h
+    res = n.to_bytes((n.bit_length() + 7) // 8, 'big')
+    pad = 0
+    for c in s:
+        if c == chars[0]:
+            pad += 1
+        else:
+            break
+    res = b'\x00' * pad + res
+
+    # Assert if the checksum is invalid
+    assert_equal(hash256(res[:-4])[:4], res[-4:])
+
+    return res[1:-4], int(res[0])
+
 
 def keyhash_to_p2pkh(hash, main = False):
     assert (len(hash) == 20)
