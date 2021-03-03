@@ -1059,6 +1059,8 @@ static RPCHelpMan blindpsbt()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    throw std::runtime_error("RPC disabled");
+/*
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
@@ -1160,6 +1162,7 @@ static RPCHelpMan blindpsbt()
     }
 
     return EncodePSBT(psbtx);
+*/
 },
     };
 }
@@ -1295,6 +1298,8 @@ static RPCHelpMan decodepsbt()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
+    throw std::runtime_error("RPC disabled");
+/*
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
@@ -1569,6 +1574,7 @@ static RPCHelpMan decodepsbt()
     result.pushKV("outputs", outputs);
 
     return result;
+*/
 },
     };
 }
@@ -1760,6 +1766,7 @@ static RPCHelpMan createpsbt()
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
+/*
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         psbtx.outputs[i].blinding_pubkey = output_pubkeys[i];
     }
@@ -1799,6 +1806,7 @@ static RPCHelpMan createpsbt()
             psbtx.tx->vin[i].m_is_pegin = false;
         }
     }
+*/
 
     return EncodePSBT(psbtx);
 },
@@ -1870,11 +1878,13 @@ static RPCHelpMan converttopsbt()
     }
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {
         psbtx.outputs.push_back(PSBTOutput());
+/*
         // At this point, if the nonce field is present it should be a smuggled
         //   pubkey, and not a real nonce. Convert it back to a pubkey and strip
         //   it out.
         psbtx.outputs[i].blinding_pubkey = CPubKey(tx.vout[i].nNonce.vchCommitment);
         tx.vout[i].nNonce.SetNull();
+*/
     }
 
     psbtx.tx = tx;

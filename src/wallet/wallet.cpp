@@ -2732,12 +2732,14 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
                 //   The signing code will switch to the smaller witness_utxo if this is ok.
                 input.non_witness_utxo = wtx.tx;
 
+/*
                 // ELEMENTS: Grab the CA data
                 CAmount val_tmp;
                 wtx.GetNonIssuanceBlindingData(txin.prevout.n, nullptr, &val_tmp, &input.value_blinding_factor, &input.asset, &input.asset_blinding_factor);
                 if (val_tmp != -1) {
                     input.value = val_tmp;
                 }
+*/
             }
         }
     }
@@ -2798,6 +2800,7 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
 
 TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& complete, int sighash_type, bool sign, bool imbalance_ok, bool bip32derivs, size_t* n_signed) const
 {
+/*
     // If we're signing, check that the transaction is not still in need of blinding
     if (sign) {
         for (const PSBTOutput& o : psbtx.outputs) {
@@ -2806,6 +2809,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
             }
         }
     }
+*/
 
     if (n_signed) {
         *n_signed = 0;
@@ -2818,6 +2822,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
     CMutableTransaction& tx = *psbtx.tx;
     tx.witness.vtxoutwit.resize(tx.vout.size());
 
+/*
     // Stuff in auxiliary CA blinding data, if we have it
     for (unsigned int i = 0; i < tx.vout.size(); ++i) {
         PSBTOutput& output = psbtx.outputs.at(i);
@@ -2891,6 +2896,7 @@ TransactionError CWallet::SignPSBT(PartiallySignedTransaction& psbtx, bool& comp
             return TransactionError::VALUE_IMBALANCE;
         }
     }
+*/
 
     for (ScriptPubKeyMan* spk_man : GetAllScriptPubKeyMans()) {
         int n_signed_this_spkm = 0;

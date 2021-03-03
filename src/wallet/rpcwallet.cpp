@@ -4769,9 +4769,11 @@ static RPCHelpMan walletsignpsbt()
     if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
+/*
     if (!CheckPSBTBlinding(psbtx, error)) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, error);
     }
+*/
 
     // Get the sighash type
     int nHashType = ParseSighashString(request.params[1]);
@@ -5002,6 +5004,7 @@ static RPCHelpMan walletcreatefundedpsbt()
 
     // Make a blank psbt
     PartiallySignedTransaction psbtx(rawTx);
+/*
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         if (!psbtx.tx->vout[i].nNonce.IsNull()) {
             // Extract blinding key and clear the nonce
@@ -5009,6 +5012,7 @@ static RPCHelpMan walletcreatefundedpsbt()
             psbtx.tx->vout[i].nNonce.SetNull();
         }
     }
+*/
 
     // Fill transaction with out data but don't sign
     bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
@@ -5018,6 +5022,7 @@ static RPCHelpMan walletcreatefundedpsbt()
         throw JSONRPCTransactionError(err);
     }
 
+/*
     // Add peg-in stuff if it's there
     for (unsigned int i = 0; i < rawTx.vin.size(); ++i) {
         if (psbtx.tx->vin[i].m_is_pegin) {
@@ -5053,6 +5058,7 @@ static RPCHelpMan walletcreatefundedpsbt()
             psbtx.tx->vin[i].m_is_pegin = false;
         }
     }
+*/
 
     // Serialize the PSBT
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
