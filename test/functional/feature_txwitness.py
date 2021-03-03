@@ -14,7 +14,7 @@
 
 """
 
-from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, uint256_from_str, CTxOut, ToHex, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
+from test_framework.messages import CTransaction, CBlock, ser_uint256, FromHex, uint256_from_str, CTxOut, ToHex, WitToHex, CTxIn, COutPoint, OUTPOINT_ISSUANCE_FLAG, ser_string
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import assert_equal, bytes_to_hex_str, hex_str_to_bytes, assert_raises_rpc_error, assert_greater_than
 from test_framework import util
@@ -125,9 +125,6 @@ class TxWitnessTest(BitcoinTestFramework):
         assert_equal(block.hash, self.nodes[0].getbestblockhash())
 
     def test_coinbase_witness(self):
-
-        def WitToHex(obj):
-            return bytes_to_hex_str(obj.serialize(with_witness=True))
 
         block = self.nodes[0].getnewblockhex()
         block_struct = FromHex(CBlock(), block)

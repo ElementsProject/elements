@@ -18,7 +18,7 @@ public:
     bool sighash_byte;
 
     SimpleSignatureChecker(const uint256& hashIn, bool sighash_byte_in) : hash(hashIn), sighash_byte(sighash_byte_in) {};
-    bool CheckSig(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const
+    bool CheckSig(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override
     {
         std::vector<unsigned char> vchSigCopy(vchSig);
         CPubKey pubkey(vchPubKey);
@@ -47,7 +47,7 @@ class SimpleSignatureCreator : public BaseSignatureCreator
 public:
     SimpleSignatureCreator(const uint256& hashIn, bool sighash_byte_in) : checker(hashIn, sighash_byte_in), sighash_byte(sighash_byte_in) {};
     const BaseSignatureChecker& Checker() const { return checker; }
-    bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion) const
+    bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override
     {
         CKey key;
         if (!provider.GetKey(keyid, key))
