@@ -882,9 +882,10 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
-        // Not active yet.
+        // Activated from block 1,000,000.
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
-        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = 1000000;
+        // Allow blocksigners to delay activation.
+        consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = gArgs.GetArg("-con_dyna_deploy_start", 1000000);
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
 
