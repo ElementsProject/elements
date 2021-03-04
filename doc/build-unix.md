@@ -134,9 +134,9 @@ Optional:
 
     sudo dnf install miniupnpc-devel
 
-To build with Qt 5 you need the following:
+To build elements-qt you need the following:
 
-    sudo dnf install qt5-qttools-devel qt5-qtbase-devel protobuf-devel
+    sudo dnf install qt5-qttools-devel qt5-qtbase-devel protobuf-devel ImageMagick librsvg2-tools
 
 libqrencode (optional) can be installed with:
 
