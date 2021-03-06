@@ -6,10 +6,13 @@
 #define BITCOIN_PSBT_H
 
 #include <attributes.h>
+#include <chainparams.h>
 #include <node/transaction.h>
 #include <optional.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
+#include <primitives/bitcoin/transaction.h>
+#include <primitives/bitcoin/merkleblock.h>
 #include <pubkey.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
@@ -17,7 +20,8 @@
 #include <bitset>
 
 // Magic bytes
-static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
+// static constexpr uint8_t PSBT_MAGIC_BYTES[5] = {'p', 's', 'b', 't', 0xff};
+static constexpr uint8_t PSBT_ELEMENTS_MAGIC_BYTES[5] = {'p', 's', 'e', 't', 0xff};
 
 // Global types
 static constexpr uint8_t PSBT_GLOBAL_UNSIGNED_TX = 0x00;
@@ -29,6 +33,9 @@ static constexpr uint8_t PSBT_GLOBAL_OUTPUT_COUNT = 0x05;
 static constexpr uint8_t PSBT_GLOBAL_TX_MODIFIABLE = 0x06;
 static constexpr uint8_t PSBT_GLOBAL_VERSION = 0xFB;
 static constexpr uint8_t PSBT_GLOBAL_PROPRIETARY = 0xFC;
+// Elements proprietary types
+static constexpr uint8_t PSBT_ELEMENTS_GLOBAL_SCALAR = 0x00;
+static constexpr uint8_t PSBT_ELEMENTS_GLOBAL_TX_MODIFIABLE = 0x01;
 
 // Input types
 static constexpr uint8_t PSBT_IN_NON_WITNESS_UTXO = 0x00;
@@ -46,6 +53,22 @@ static constexpr uint8_t PSBT_IN_SEQUENCE = 0x10;
 static constexpr uint8_t PSBT_IN_REQUIRED_TIME_LOCKTIME = 0x11;
 static constexpr uint8_t PSBT_IN_REQUIRED_HEIGHT_LOCKTIME = 0x12;
 static constexpr uint8_t PSBT_IN_PROPRIETARY = 0xFC;
+// Elements proprietary types
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_VALUE = 0x00;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT = 0x01;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_VALUE_RANGEPROOF = 0x02;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_RANGEPROOF = 0x03;
+static constexpr uint8_t PSBT_ELEMENTS_IN_PEG_IN_TX = 0x04;
+static constexpr uint8_t PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF = 0x05;
+static constexpr uint8_t PSBT_ELEMENTS_IN_PEG_IN_GENESIS_HASH = 0x06;
+static constexpr uint8_t PSBT_ELEMENTS_IN_PEG_IN_CLAIM_SCRIPT = 0x07;
+static constexpr uint8_t PSBT_ELEMENTS_IN_PEG_IN_VALUE = 0x08;
+static constexpr uint8_t PSBT_ELEMENTS_IN_PEG_IN_WITNESS = 0x09;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT = 0x0a;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT = 0x0b;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_BLINDING_NONCE = 0x0c;
+static constexpr uint8_t PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY = 0x0d;
+static constexpr uint8_t PSBT_ELEMENTS_IN_UTXO_RANGEPROOF = 0x0e;
 
 // Output types
 static constexpr uint8_t PSBT_OUT_REDEEMSCRIPT = 0x00;
@@ -54,6 +77,18 @@ static constexpr uint8_t PSBT_OUT_BIP32_DERIVATION = 0x02;
 static constexpr uint8_t PSBT_OUT_AMOUNT = 0x03;
 static constexpr uint8_t PSBT_OUT_SCRIPT = 0x04;
 static constexpr uint8_t PSBT_OUT_PROPRIETARY = 0xFC;
+// Elements proprietary types
+static constexpr uint8_t PSBT_ELEMENTS_OUT_VALUE_COMMITMENT = 0x01;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_ASSET = 0x02;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_ASSET_COMMITMENT = 0x03;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_VALUE_RANGEPROOF = 0x04;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_ASSET_SURJECTION_PROOF = 0x05;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDING_PUBKEY = 0x06;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_ECDH_PUBKEY = 0x07;
+static constexpr uint8_t PSBT_ELEMENTS_OUT_BLINDER_INDEX = 0x08;
+
+// Proprietary type identifer string
+static const std::vector<unsigned char> PSBT_ELEMENTS_ID = {'p', 's', 'e', 't'};
 
 // The separator is 0x00. Reading this in means that the unserializer can interpret it
 // as a 0 length key which indicates that this is the separator. The separator has no value.
@@ -192,6 +227,28 @@ struct PSBTInput
 
     uint32_t m_psbt_version;
 
+    // Elements proprietary fields
+    // Issuances
+    Optional<CAmount> m_issuance_value;
+    CConfidentialValue m_issuance_value_commitment;
+    std::vector<unsigned char> m_issuance_rangeproof;
+    std::vector<unsigned char> m_issuance_inflation_keys_rangeproof;
+    Optional<CAmount> m_issuance_inflation_keys_amount;
+    CConfidentialValue m_issuance_inflation_keys_commitment;
+    uint256 m_issuance_blinding_nonce;
+    uint256 m_issuance_asset_entropy;
+
+    // Peg-in
+    boost::variant<boost::blank, Sidechain::Bitcoin::CTransactionRef, CTransactionRef> m_peg_in_tx;
+    boost::variant<boost::blank, Sidechain::Bitcoin::CMerkleBlock, CMerkleBlock> m_peg_in_txout_proof;
+    CScript m_peg_in_claim_script;
+    uint256 m_peg_in_genesis_hash;
+    Optional<CAmount> m_peg_in_value;
+    CScriptWitness m_peg_in_witness;
+
+    // Auxiliary elements stuff
+    std::vector<unsigned char> m_utxo_rangeproof;
+
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
     void FromSignatureData(const SignatureData& sigdata);
@@ -275,6 +332,123 @@ struct PSBTInput
             if (height_locktime != nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_IN_REQUIRED_HEIGHT_LOCKTIME));
                 SerializeToVector(s, *height_locktime);
+            }
+
+            // Elements proprietary fields are only allowed with v2
+            // Issuance value
+            // We shouldn't have both value and value commitment. If we do, ignore the explicit value
+            if (!m_issuance_value_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT));
+                SerializeToVector(s, m_issuance_value_commitment);
+            } else if (m_issuance_value != nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE));
+                SerializeToVector(s, *m_issuance_value);
+            }
+
+            // Issuance rangeproof
+            if (!m_issuance_rangeproof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_VALUE_RANGEPROOF));
+                s << m_issuance_rangeproof;
+            }
+
+            // Issuance inflation keys rangeproof
+            if (!m_issuance_inflation_keys_rangeproof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_RANGEPROOF));
+                s << m_issuance_inflation_keys_rangeproof;
+            }
+
+            if (Params().GetConsensus().ParentChainHasPow()) {
+                // Peg-in tx
+                if (m_peg_in_tx.which() > 0) {
+                    const Sidechain::Bitcoin::CTransactionRef& peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(m_peg_in_tx);
+                    if (peg_in_tx) {
+                        SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TX));
+                        OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
+                        SerializeToVector(os, peg_in_tx);
+                    }
+                }
+
+                // Peg-in proof
+                if (m_peg_in_txout_proof.which() > 0) {
+                    const Sidechain::Bitcoin::CMerkleBlock& txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(m_peg_in_txout_proof);
+                    if (!txout_proof.header.IsNull()) {
+                        SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF));
+                        SerializeToVector(s, txout_proof);
+                    }
+                }
+            } else {
+                // Peg-in tx
+                if (m_peg_in_tx.which() > 0) {
+                    const CTransactionRef& peg_in_tx = boost::get<CTransactionRef>(m_peg_in_tx);
+                    if (peg_in_tx) {
+                        SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TX));
+                        OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
+                        SerializeToVector(os, peg_in_tx);
+                    }
+                }
+
+                // Peg-in proof
+                if (m_peg_in_txout_proof.which() > 0) {
+                    const CMerkleBlock& txout_proof = boost::get<CMerkleBlock>(m_peg_in_txout_proof);
+                    if (!txout_proof.header.IsNull()) {
+                        SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF));
+                        SerializeToVector(s, txout_proof);
+                    }
+                }
+            }
+
+            // Peg-in genesis hash
+            if (!m_peg_in_genesis_hash.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_GENESIS_HASH));
+                SerializeToVector(s, m_peg_in_genesis_hash);
+            }
+
+            // Peg-in claim script
+            if (!m_peg_in_claim_script.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_CLAIM_SCRIPT));
+                s << m_peg_in_claim_script;
+            }
+
+            // Peg-in value
+            if (m_peg_in_value != nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_VALUE));
+                SerializeToVector(s, *m_peg_in_value);
+            }
+
+            // Peg-in witness
+            if (!m_peg_in_witness.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_PEG_IN_WITNESS));
+                SerializeToVector(s, m_peg_in_witness.stack);
+            }
+
+            // Issuance inflation keys amount
+            if (m_issuance_inflation_keys_amount != nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT));
+                SerializeToVector(s, *m_issuance_inflation_keys_amount);
+            }
+
+            // Issuance inflation keys commitment
+            if (!m_issuance_inflation_keys_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT));
+                SerializeToVector(s, m_issuance_inflation_keys_commitment);
+            }
+
+            // Issuance blinding nonce
+            if (!m_issuance_blinding_nonce.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_BLINDING_NONCE));
+                SerializeToVector(s, m_issuance_blinding_nonce);
+            }
+
+            // Issuance asset entropy
+            if (!m_issuance_asset_entropy.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_IN_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY));
+                SerializeToVector(s, m_issuance_asset_entropy);
+            }
+
+            // UTXO rangeproof
+            if (!m_utxo_rangeproof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_IN_UTXO_RANGEPROOF));
+                s << m_utxo_rangeproof;
             }
         }
 
@@ -485,16 +659,207 @@ struct PSBTInput
                 }
                 case PSBT_IN_PROPRIETARY:
                 {
+                    bool known = false;
                     PSBTProprietary this_prop;
                     skey >> this_prop.identifier;
+                    size_t subkey_len = skey.size();
                     this_prop.subtype = ReadCompactSize(skey);
-                    this_prop.key = key;
 
-                    if (m_proprietary.count(this_prop) > 0) {
-                        throw std::ios_base::failure("Duplicate Key, proprietary key already found");
+                    if (this_prop.identifier == PSBT_ELEMENTS_ID) {
+                        known = true;
+
+                        switch(this_prop.subtype) {
+                            case PSBT_ELEMENTS_IN_ISSUANCE_VALUE:
+                            {
+                                if (m_issuance_value != nullopt) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance value already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance value is more than one byte type");
+                                }
+                                CAmount amt;
+                                UnserializeFromVector(s, amt);
+                                m_issuance_value = amt;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_VALUE_COMMITMENT:
+                            {
+                                if (!m_issuance_value_commitment.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance value commitment already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance value commitment key is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_issuance_value_commitment);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_VALUE_RANGEPROOF:
+                            {
+                                if (!m_issuance_rangeproof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance value rangeproof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance value rangeproof key is more than one byte type");
+                                }
+                                s >> m_issuance_rangeproof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_RANGEPROOF:
+                            {
+                                if (!m_issuance_inflation_keys_rangeproof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance inflation keys rangeproof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance inflation keys rangeproof key is more than one byte type");
+                                }
+                                s >> m_issuance_inflation_keys_rangeproof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_PEG_IN_TX:
+                            {
+                                if (m_peg_in_tx.which() != 0) {
+                                    throw std::ios_base::failure("Duplicate Key, peg-in tx already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Peg-in tx key is more than one byte type");
+                                }
+                                if (Params().GetConsensus().ParentChainHasPow()) {
+                                    Sidechain::Bitcoin::CTransactionRef tx;
+                                    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
+                                    UnserializeFromVector(os, tx);
+                                    m_peg_in_tx = tx;
+                                } else {
+                                    CTransactionRef tx;
+                                    OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion());
+                                    UnserializeFromVector(os, tx);
+                                    m_peg_in_tx = tx;
+                                }
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_PEG_IN_TXOUT_PROOF:
+                            {
+                                if (m_peg_in_txout_proof.which() != 0) {
+                                    throw std::ios_base::failure("Duplicate Key, peg-in txout proof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Peg-in txout proof key is more than one byte type");
+                                }
+                                if (Params().GetConsensus().ParentChainHasPow()) {
+                                    Sidechain::Bitcoin::CMerkleBlock tx_proof;
+                                    UnserializeFromVector(s, tx_proof);
+                                    m_peg_in_txout_proof = tx_proof;
+                                } else {
+                                    CMerkleBlock tx_proof;
+                                    UnserializeFromVector(s, tx_proof);
+                                    m_peg_in_txout_proof = tx_proof;
+                                }
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_PEG_IN_GENESIS_HASH:
+                            {
+                                if (!m_peg_in_genesis_hash.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, peg-in genesis hash already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Peg-in genesis hash is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_peg_in_genesis_hash);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_PEG_IN_CLAIM_SCRIPT:
+                            {
+                                if (!m_peg_in_claim_script.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, peg-in claim script already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Peg-in claim script key is more than one byte type");
+                                }
+                                s >> m_peg_in_claim_script;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_PEG_IN_VALUE:
+                            {
+                                if (m_peg_in_value != nullopt) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance value already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance value is more than one byte type");
+                                }
+                                CAmount amt;
+                                UnserializeFromVector(s, amt);
+                                m_peg_in_value = amt;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_PEG_IN_WITNESS:
+                            {
+                                if (!m_peg_in_witness.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, input peg-in witness already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input peg-in witness key is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_peg_in_witness.stack);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_AMOUNT:
+                            {
+                                if (m_issuance_inflation_keys_amount != nullopt) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance inflation keys already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance inflation keys is more than one byte type");
+                                }
+                                CAmount amt;
+                                UnserializeFromVector(s, amt);
+                                m_issuance_inflation_keys_amount = amt;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_INFLATION_KEYS_COMMITMENT:
+                            {
+                                if (!m_issuance_inflation_keys_commitment.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance inflation keys commitment already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance inflation keys commitment key is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_issuance_inflation_keys_commitment);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_BLINDING_NONCE:
+                            {
+                                if (!m_issuance_blinding_nonce.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance blinding nonce already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance blinding nonce is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_issuance_blinding_nonce);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_ISSUANCE_ASSET_ENTROPY:
+                            {
+                                if (!m_issuance_asset_entropy.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, input issuance asset entropy already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input issuance asset entropy is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_issuance_asset_entropy);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_IN_UTXO_RANGEPROOF:
+                            {
+                                if (!m_utxo_rangeproof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, input utxo rangeproof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Input UTXO rangeproof key is more than one byte type");
+                                }
+                                s >> m_utxo_rangeproof;
+                                break;
+                            }
+                            default:
+                            {
+                                known = false;
+                                break;
+                            }
+                        }
                     }
-                    s >> this_prop.value;
-                    m_proprietary.insert(this_prop);
+
+                    if (!known) {
+                        this_prop.key = key;
+
+                        if (m_proprietary.count(this_prop) > 0) {
+                            throw std::ios_base::failure("Duplicate Key, proprietary key already found");
+                        }
+                        s >> this_prop.value;
+                        m_proprietary.insert(this_prop);
+                    }
                     break;
                 }
                 // Unknown stuff
@@ -544,6 +909,16 @@ struct PSBTOutput
 
     uint32_t m_psbt_version;
 
+    // Elements proprietary fields
+    CConfidentialValue m_value_commitment;
+    uint256 m_asset;
+    CConfidentialAsset m_asset_commitment;
+    std::vector<unsigned char> m_value_rangeproof;
+    std::vector<unsigned char> m_asset_surjection_proof;
+    CPubKey m_ecdh_pubkey;
+    CPubKey m_blinding_pubkey;
+    Optional<uint32_t> m_blinder_index;
+
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
     void FromSignatureData(const SignatureData& sigdata);
@@ -568,14 +943,61 @@ struct PSBTOutput
         SerializeHDKeypaths(s, hd_keypaths, CompactSizeWriter(PSBT_OUT_BIP32_DERIVATION));
 
         if (m_psbt_version >= 2) {
-            // Write amount and spk
-            if (amount != nullopt) {
-                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
-                SerializeToVector(s, *amount);
-            }
+            // Write spk
             if (!script.empty()) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_SCRIPT));
                 s << script;
+            }
+
+            // Elements proprietary fields are v2 only
+            // Amount
+            // We shouldn't have both amount and amount commitment. If we do, only write the amount commitment
+            if (!m_value_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_VALUE_COMMITMENT));
+                SerializeToVector(s, m_value_commitment);
+            } else if (amount != nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_AMOUNT));
+                SerializeToVector(s, *amount);
+            }
+
+            // Asset
+            // We shouldn't have both asset and asset commitment, but if we do, write only the asset commitment
+            if (!m_asset_commitment.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_COMMITMENT));
+                SerializeToVector(s, m_asset_commitment);
+            } else if (!m_asset.IsNull()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET));
+                SerializeToVector(s, m_asset);
+            }
+
+            // Value rangeproof
+            if (!m_value_rangeproof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_VALUE_RANGEPROOF));
+                s << m_value_rangeproof;
+            }
+
+            // Asset surjection proof
+            if (!m_asset_surjection_proof.empty()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ASSET_SURJECTION_PROOF));
+                s << m_asset_surjection_proof;
+            }
+
+            // Blinding pubkey
+            if (m_blinding_pubkey.IsValid()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLINDING_PUBKEY));
+                s << m_blinding_pubkey;
+            }
+
+            // ECDH pubkey
+            if (m_ecdh_pubkey.IsValid()) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_ECDH_PUBKEY));
+                s << m_ecdh_pubkey;
+            }
+
+            // Blinder index
+            if (m_blinder_index != nullopt) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_OUT_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_OUT_BLINDER_INDEX));
+                SerializeToVector(s, *m_blinder_index);
             }
         }
 
@@ -669,16 +1091,110 @@ struct PSBTOutput
                 }
                 case PSBT_OUT_PROPRIETARY:
                 {
+                    bool known = false;
                     PSBTProprietary this_prop;
                     skey >> this_prop.identifier;
+                    size_t subkey_len = skey.size();
                     this_prop.subtype = ReadCompactSize(skey);
-                    this_prop.key = key;
 
-                    if (m_proprietary.count(this_prop) > 0) {
-                        throw std::ios_base::failure("Duplicate Key, proprietary key already found");
+                    if (this_prop.identifier == PSBT_ELEMENTS_ID) {
+                        known = true;
+
+                        switch(this_prop.subtype) {
+                            case PSBT_ELEMENTS_OUT_VALUE_COMMITMENT:
+                            {
+                                if (!m_value_commitment.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, output value commitment already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output value cmmitment key is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_value_commitment);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_ASSET:
+                            {
+                                if (!m_asset.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, output asset already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output asset key is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_asset);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_ASSET_COMMITMENT:
+                            {
+                                if (!m_asset_commitment.IsNull()) {
+                                    throw std::ios_base::failure("Duplicate Key, output asset commitment already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output asset commitment key is more than one byte type");
+                                }
+                                UnserializeFromVector(s, m_asset_commitment);
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_VALUE_RANGEPROOF:
+                            {
+                                if (!m_value_rangeproof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, output value rangeproof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output value rangeproof key is more than one byte type");
+                                }
+                                s >> m_value_rangeproof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_ASSET_SURJECTION_PROOF:
+                            {
+                                if (!m_asset_surjection_proof.empty()) {
+                                    throw std::ios_base::failure("Duplicate Key, output asset surjection proof already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output asset surjection proof key is more than one byte type");
+                                }
+                                s >> m_asset_surjection_proof;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_BLINDING_PUBKEY:
+                            {
+                                if (m_blinding_pubkey.IsValid()) {
+                                    throw std::ios_base::failure("Duplicate Key, output blinding pubkey already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output blinding pubkey key is more than one byte type");
+                                }
+                                s >> m_blinding_pubkey;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_ECDH_PUBKEY:
+                            {
+                                if (m_ecdh_pubkey.IsValid()) {
+                                    throw std::ios_base::failure("Duplicate Key, output ecdh pubkey already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output ecdh pubkey key is more than one byte type");
+                                }
+                                s >> m_ecdh_pubkey;
+                                break;
+                            }
+                            case PSBT_ELEMENTS_OUT_BLINDER_INDEX:
+                            {
+                                if (m_blinder_index != nullopt) {
+                                    throw std::ios_base::failure("Duplicate Key, output blinder_index already provided");
+                                } else if (subkey_len != 1) {
+                                    throw std::ios_base::failure("Output blinder_index key is more than one byte type");
+                                }
+                                uint32_t i;
+                                UnserializeFromVector(s, i);
+                                m_blinder_index = i;
+                                break;
+                            }
+                        }
                     }
-                    s >> this_prop.value;
-                    m_proprietary.insert(this_prop);
+
+                    if (!known) {
+                        this_prop.key = key;
+
+                        if (m_proprietary.count(this_prop) > 0) {
+                            throw std::ios_base::failure("Duplicate Key, proprietary key already found");
+                        }
+                        s >> this_prop.value;
+                        m_proprietary.insert(this_prop);
+                    }
                     break;
                 }
                 // Unknown stuff
@@ -732,6 +1248,9 @@ struct PartiallySignedTransaction
     Optional<uint32_t> m_version;
     std::set<PSBTProprietary> m_proprietary;
 
+    // Elements proprietary fields
+    std::set<uint256> m_scalar_offsets;
+
     bool IsNull() const;
     uint32_t GetVersion() const;
 
@@ -753,7 +1272,7 @@ struct PartiallySignedTransaction
     inline void Serialize(Stream& s) const {
 
         // magic bytes
-        s << PSBT_MAGIC_BYTES;
+        s << PSBT_ELEMENTS_MAGIC_BYTES;
 
         if (GetVersion() == 0) {
             // unsigned tx flag
@@ -795,6 +1314,13 @@ struct PartiallySignedTransaction
                 SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_TX_MODIFIABLE));
                 SerializeToVector(s, static_cast<uint8_t>(m_tx_modifiable->to_ulong()));
             }
+
+            // Elements proprietary fields
+            // Scalar offsets
+            for (const uint256& scalar : m_scalar_offsets) {
+                SerializeToVector(s, CompactSizeWriter(PSBT_GLOBAL_PROPRIETARY), PSBT_ELEMENTS_ID, CompactSizeWriter(PSBT_ELEMENTS_GLOBAL_SCALAR), scalar);
+                SerializeToVector(s, std::vector<unsigned char>());
+            }
         }
 
         // PSBT version
@@ -834,7 +1360,7 @@ struct PartiallySignedTransaction
         // Read the magic bytes
         uint8_t magic[5];
         s >> magic;
-        if (!std::equal(magic, magic + 5, PSBT_MAGIC_BYTES)) {
+        if (!std::equal(magic, magic + 5, PSBT_ELEMENTS_MAGIC_BYTES)) {
             throw std::ios_base::failure("Invalid PSBT magic bytes");
         }
 
@@ -870,6 +1396,9 @@ struct PartiallySignedTransaction
             switch(type) {
                 case PSBT_GLOBAL_UNSIGNED_TX:
                 {
+                    if (g_con_elementsmode) {
+                        throw std::ios_base::failure("Unsigned tx is not allowed in PSET");
+                    }
                     if (!key_lookup.emplace(key).second) {
                         throw std::ios_base::failure("Duplicate Key, unsigned tx already provided");
                     } else if (key.size() != 1) {
@@ -999,16 +1528,45 @@ struct PartiallySignedTransaction
                 }
                 case PSBT_GLOBAL_PROPRIETARY:
                 {
+                    bool known = false;
                     PSBTProprietary this_prop;
                     skey >> this_prop.identifier;
+                    size_t subkey_len = skey.size();
                     this_prop.subtype = ReadCompactSize(skey);
-                    this_prop.key = key;
 
-                    if (m_proprietary.count(this_prop) > 0) {
-                        throw std::ios_base::failure("Duplicate Key, proprietary key already found");
+                    if (this_prop.identifier == PSBT_ELEMENTS_ID) {
+                        known = true;
+
+                        switch(this_prop.subtype) {
+                            case PSBT_ELEMENTS_GLOBAL_SCALAR:
+                            {
+                                uint256 scalar;
+                                skey >> scalar;
+                                if (m_scalar_offsets.count(scalar) > 0) {
+                                    throw std::ios_base::failure("Duplicate key, the same scalar offset was provided multiple times");
+                                } else if (subkey_len != 33) {
+                                    throw std::ios_base::failure("Global scalar offset key was not the expected length");
+                                }
+                                std::vector<unsigned char> val;
+                                UnserializeFromVector(s, val);
+                                if (val.size() != 0) {
+                                    throw std::ios_base::failure("Global scalar value was not empty");
+                                }
+                                m_scalar_offsets.insert(scalar);
+                                break;
+                            }
+                        }
                     }
-                    s >> this_prop.value;
-                    m_proprietary.insert(this_prop);
+
+                    if (!known) {
+                        this_prop.key = key;
+
+                        if (m_proprietary.count(this_prop) > 0) {
+                            throw std::ios_base::failure("Duplicate Key, proprietary key already found");
+                        }
+                        s >> this_prop.value;
+                        m_proprietary.insert(this_prop);
+                    }
                     break;
                 }
                 // Unknown stuff
