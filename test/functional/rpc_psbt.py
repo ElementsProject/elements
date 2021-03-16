@@ -116,7 +116,7 @@ class PSBTTest(BitcoinTestFramework):
         # The decodepsbt RPC is stateless and independent of any settings, we can always just call it on the first node
         decoded_psbt = self.nodes[0].decodepsbt(psbtx["psbt"])
         changepos = psbtx["changepos"]
-        assert_equal(decoded_psbt["outputs"][changepos]["scriptPubKey"]["type"], expected_type)
+        assert_equal(decoded_psbt["outputs"][changepos]["script"]["type"], expected_type)
 
     def run_basic_tests(self, confidential):
         starting_n_unspent = len(self.nodes[0].listlockunspent()) # ELEMENTS

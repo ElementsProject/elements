@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <asset.h>
+#include <base58.h>
 #include <block_proof.h>
 #include <chain.h>
 #include <coins.h>
@@ -1170,7 +1171,8 @@ static RPCHelpMan blindpsbt()
 static RPCHelpMan decodepsbt()
 {
     return RPCHelpMan{"decodepsbt",
-                "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n",
+                "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n"
+                "\nNote that for Elements, PSBTs (or PSET) follow the Partially Signed Elements Transaction specification.\n",
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The PSBT base64 string"},
                 },
@@ -1200,6 +1202,10 @@ static RPCHelpMan decodepsbt()
                             {{RPCResult::Type::NUM, "", "Index of an input with a SIGHASH_SINGLE signature"}},
                         },
                         {RPCResult::Type::NUM, "psbt_version", "The PSBT version number. Not to be confused with the unsigned transaction version"},
+                        {RPCResult::Type::OBJ_DYN, "scalar_offsets", "The PSET scalar elements",
+                        {
+                             {RPCResult::Type::STR_HEX, "scalar", "A scalar offset stored in the PSET"},
+                        }},
                         {RPCResult::Type::OBJ, "proprietary", "The global proprietary map",
                         {
                             {RPCResult::Type::OBJ, "", "",
@@ -1272,14 +1278,24 @@ static RPCHelpMan decodepsbt()
                                 {RPCResult::Type::NUM, "sequence", "Sequence number for this inputs"},
                                 {RPCResult::Type::NUM, "time_locktime", "Required time-based locktime for this input"},
                                 {RPCResult::Type::NUM, "height_locktime", "Required height-based locktime for this input"},
-                                {RPCResult::Type::NUM, "value", "The (unblinded) value of the input in " + CURRENCY_UNIT},
-                                {RPCResult::Type::STR_HEX, "value_blinding_factor", "The value blinding factor from the output being spent"},
-                                {RPCResult::Type::STR_HEX, "asset", "The (unblinded) asset id of the input"},
-                                {RPCResult::Type::STR_HEX, "asset_blinding_factor", "The asset blinding factor from the output being spent\n"},
+                                {RPCResult::Type::NUM, "issuance_value", "The explicit value of the issuance in this input in " + CURRENCY_UNIT},
+                                {RPCResult::Type::STR_HEX, "issuance_value_commitment", "The commitment of the value of the issuance in this input."},
+                                {RPCResult::Type::STR_HEX, "issuance_value_rangeproof", "The rangeproof for the value commitment of the issuance in this input."},
+                                {RPCResult::Type::NUM, "issuance_reissuance_amount", "The explicit amount available for the reissuance output."},
+                                {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_commitment", "The commitment of the reissuance amount."},
+                                {RPCResult::Type::STR_HEX, "issuance_reissuance_amount_rangeproof", "The rangeproof for the amount commitment of the reissuance amount."},
+                                {RPCResult::Type::STR_HEX, "issuance_blinding_nonce", "The blinding nonce for the issuance in this input."},
+                                {RPCResult::Type::STR_HEX, "issuance_asset_entropy", "The asset entropy for the issuance in this input."},
                                 {RPCResult::Type::STR_HEX, "pegin_bitcoin_tx", "The tx providing the peg-in in the format of the getrawtransaction RPC"},
                                 {RPCResult::Type::STR_HEX, "pegin_claim_script", "The claim script for the peg-in input"},
                                 {RPCResult::Type::STR_HEX, "pegin_txout_proof", "The tx providing the peg-in input"},
                                 {RPCResult::Type::STR_HEX, "pegin_genesis_hash", "The hash of the genesis block for this peg-in"},
+                                {RPCResult::Type::NUM, "pegin_value", "The value of this peg-in."},
+                                {RPCResult::Type::ARR, "pegin_witness", "",
+                                {
+                                    {RPCResult::Type::STR_HEX, "", "hex-encoded witness data (if any)"},
+                                }},
+                                {RPCResult::Type::STR_HEX, "utxo_rangeproof", "The rangeproof for the UTXO"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                                 {
                                     {RPCResult::Type::STR_HEX, "key", "(key-value pair) An unknown key-value pair"},
@@ -1326,11 +1342,11 @@ static RPCHelpMan decodepsbt()
                                     {{RPCResult::Type::ELISION, "", "The layout is the same as the output of scriptPubKeys in decoderawtransaction."}},
                                 },
                                 {RPCResult::Type::STR_HEX, "value_commitment", "The blinded value of the output"},
-                                {RPCResult::Type::STR_HEX, "value_blinding_factor", "The value blinding factor for the output"},
                                 {RPCResult::Type::STR_HEX, "asset_commiment", "The blinded asset id of the output"},
-                                {RPCResult::Type::STR_HEX, "asset_blinding_factor", "The asset blinding factor for the output"},
-                                {RPCResult::Type::STR_HEX, "nonce_commiment", "The nonce for the output"},
+                                {RPCResult::Type::STR_HEX, "asset", "The explicit asset for the output"},
+                                {RPCResult::Type::STR_HEX, "rangeproof", "The rangeproof for the output"},
                                 {RPCResult::Type::STR_HEX, "surjection_proof", "The surjection proof for the output"},
+                                {RPCResult::Type::STR_HEX, "ecdh_pubkey", "The ecdh pubkey for the output"},
                                 {RPCResult::Type::STR_HEX, "blinding_pubkey", "The blinding pubkey for the output"},
                                 {RPCResult::Type::OBJ_DYN, "unknown", "The unknown global fields",
                                 {
@@ -1356,8 +1372,6 @@ static RPCHelpMan decodepsbt()
                 },
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    throw std::runtime_error("RPC disabled");
-/*
     if (!g_con_elementsmode)
         throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
 
@@ -1369,13 +1383,10 @@ static RPCHelpMan decodepsbt()
     if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
     }
-    if (!CheckPSBTBlinding(psbtx, error)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, error);
-    }
 
     UniValue result(UniValue::VOBJ);
 
-    if (psbtx.tx != std::nullopt) {
+    if (psbtx.tx != nullopt) {
         // Add the decoded tx
         UniValue tx_univ(UniValue::VOBJ);
         TxToUniv(CTransaction(*psbtx.tx), uint256(), tx_univ, false);
@@ -1401,10 +1412,10 @@ static RPCHelpMan decodepsbt()
 
     // Add PSBTv2 stuff
     if (psbtx.GetVersion() == 2) {
-        if (psbtx.tx_version != std::nullopt) {
+        if (psbtx.tx_version != nullopt) {
             result.pushKV("tx_version", *psbtx.tx_version);
         }
-        if (psbtx.fallback_locktime != std::nullopt) {
+        if (psbtx.fallback_locktime != nullopt) {
             result.pushKV("fallback_locktime", static_cast<uint64_t>(*psbtx.fallback_locktime));
         }
         result.pushKV("input_count", static_cast<uint64_t>(psbtx.inputs.size()));
@@ -1418,6 +1429,15 @@ static RPCHelpMan decodepsbt()
 
     // PSBT version
     result.pushKV("psbt_version", static_cast<uint64_t>(psbtx.GetVersion()));
+
+    // Elements: scalar offsets
+    if (psbtx.m_scalar_offsets.size() > 0) {
+        UniValue scalars(UniValue::VARR);
+        for (const auto& scalar : psbtx.m_scalar_offsets) {
+            scalars.push_back(HexStr(scalar));
+        }
+        result.pushKV("scalar_offsets", scalars);
+    }
 
     // Proprietary
     UniValue proprietary(UniValue::VARR);
@@ -1532,81 +1552,115 @@ static RPCHelpMan decodepsbt()
             if (!input.prev_txid.IsNull()) {
                 in.pushKV("previous_txid", input.prev_txid.GetHex());
             }
-            if (input.prev_out != std::nullopt) {
+            if (input.prev_out != nullopt) {
                 in.pushKV("previous_vout", static_cast<uint64_t>(*input.prev_out));
             }
-            if (input.sequence != std::nullopt) {
+            if (input.sequence != nullopt) {
                 in.pushKV("sequence", static_cast<uint64_t>(*input.sequence));
             }
-            if (input.time_locktime != std::nullopt) {
+            if (input.time_locktime != nullopt) {
                 in.pushKV("time_locktime", static_cast<uint64_t>(*input.time_locktime));
             }
-            if (input.height_locktime!= std::nullopt) {
+            if (input.height_locktime!= nullopt) {
                 in.pushKV("height_locktime", static_cast<uint64_t>(*input.height_locktime));
             }
         }
 
-        // Value
-        if (input.value) {
-            in.pushKV("value", ValueFromAmount(*input.value));
+        // Issuance Value
+        if (input.m_issuance_value != nullopt) {
+            in.pushKV("issuance_value", ValueFromAmount(*input.m_issuance_value));
         }
 
-        // Value blinder
-        if (!input.value_blinding_factor.IsNull()) {
-            in.pushKV("value_blinding_factor", input.value_blinding_factor.GetHex());
+        // Issuance value commitment
+        if (!input.m_issuance_value_commitment.IsNull()) {
+            in.pushKV("issuance_value_commitment", input.m_issuance_value_commitment.GetHex());
         }
 
-        // Asset
-        if (!input.asset.IsNull()) {
-            in.pushKV("asset", input.asset.id.GetHex());
+        // Issuance value rangeproof
+        if (!input.m_issuance_rangeproof.empty()) {
+            in.pushKV("issuance_value_rangeproof", HexStr(input.m_issuance_rangeproof));
         }
 
-        // Asset blinder
-        if (!input.asset_blinding_factor.IsNull()) {
-            in.pushKV("asset_blinding_factor", input.asset_blinding_factor.GetHex());
+        // Issuance inflation keys amount
+        if (input.m_issuance_inflation_keys_amount != nullopt) {
+            in.pushKV("issuance_reissuance_amount", ValueFromAmount(*input.m_issuance_inflation_keys_amount));
+        }
+
+        // Issuance inflation keys value commitment
+        if (!input.m_issuance_inflation_keys_commitment.IsNull()) {
+            in.pushKV("issuance_reissuance_amount_commitment", input.m_issuance_inflation_keys_commitment.GetHex());
+        }
+
+        // Issuance inflation keys value rangeproof
+        if (!input.m_issuance_inflation_keys_rangeproof.empty()) {
+            in.pushKV("issuance_reissuance_amount_rangeproof", HexStr(input.m_issuance_inflation_keys_rangeproof));
+        }
+
+        // Issuance blinding nonce
+        if (!input.m_issuance_blinding_nonce.IsNull()) {
+            in.pushKV("issuance_blinding_nonce", input.m_issuance_blinding_nonce.GetHex());
+        }
+
+        // Issuance asset entropy
+        if (!input.m_issuance_asset_entropy.IsNull()) {
+            in.pushKV("issuance_asset_entropy", input.m_issuance_asset_entropy.GetHex());
         }
 
         // Peg-in stuff
         if (Params().GetConsensus().ParentChainHasPow()) {
-            if (input.peg_in_tx.which() > 0) {
-                const Sidechain::Bitcoin::CTransactionRef& btc_peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.peg_in_tx);
-                if (btc_peg_in_tx) {
+            if (input.m_peg_in_tx.which() > 0) {
+                const Sidechain::Bitcoin::CTransactionRef& peg_in_tx = boost::get<Sidechain::Bitcoin::CTransactionRef>(input.m_peg_in_tx);
+                if (peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_tx << btc_peg_in_tx;
+                    ss_tx << peg_in_tx;
                     in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
-            if (input.txout_proof.which() > 0) {
-                const Sidechain::Bitcoin::CMerkleBlock& btc_txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.txout_proof);
-                if (!btc_txout_proof.header.IsNull()) {
+            if (input.m_peg_in_txout_proof.which() > 0) {
+                const Sidechain::Bitcoin::CMerkleBlock& txout_proof = boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.m_peg_in_txout_proof);
+                if (!txout_proof.header.IsNull()) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_mb << btc_txout_proof;
+                    ss_mb << txout_proof;
                     in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
         } else {
-            if (input.peg_in_tx.which() > 0) {
-                const CTransactionRef& elem_peg_in_tx = boost::get<CTransactionRef>(input.peg_in_tx);
-                if (elem_peg_in_tx) {
+            if (input.m_peg_in_tx.which() > 0) {
+                const CTransactionRef& peg_in_tx = boost::get<CTransactionRef>(input.m_peg_in_tx);
+                if (peg_in_tx) {
                     CDataStream ss_tx(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_tx << elem_peg_in_tx;
+                    ss_tx << peg_in_tx;
                     in.pushKV("pegin_bitcoin_tx", HexStr(ss_tx));
                 }
             }
-            if (input.txout_proof.which() > 0) {
-                const CMerkleBlock& elem_txout_proof = boost::get<CMerkleBlock>(input.txout_proof);
-                if (!elem_txout_proof.header.IsNull()) {
+            if (input.m_peg_in_txout_proof.which() > 0) {
+                const CMerkleBlock& txout_proof = boost::get<CMerkleBlock>(input.m_peg_in_txout_proof);
+                if (!txout_proof.header.IsNull()) {
                     CDataStream ss_mb(SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-                    ss_mb << elem_txout_proof;
+                    ss_mb << txout_proof;
                     in.pushKV("pegin_txout_proof", HexStr(ss_mb));
                 }
             }
         }
-        if (!input.claim_script.empty()) {
-            in.pushKV("pegin_claim_script", HexStr(input.claim_script));
+
+        if (!input.m_peg_in_claim_script.empty()) {
+            in.pushKV("pegin_claim_script", HexStr(input.m_peg_in_claim_script));
         }
-        if (!input.genesis_hash.IsNull()) {
-            in.pushKV("pegin_genesis_hash", input.genesis_hash.GetHex());
+        if (!input.m_peg_in_genesis_hash.IsNull()) {
+            in.pushKV("pegin_genesis_hash", input.m_peg_in_genesis_hash.GetHex());
+        }
+        if (input.m_peg_in_value != nullopt) {
+            in.pushKV("pegin_value", ValueFromAmount(*input.m_peg_in_value));
+        }
+        if (!input.m_peg_in_witness.IsNull()) {
+            UniValue witness(UniValue::VARR);
+            for (const auto& item : input.m_peg_in_witness.stack) {
+                witness.push_back(HexStr(item));
+            }
+            in.pushKV("pegin_witness", witness);
+        }
+        if (!input.m_utxo_rangeproof.empty()) {
+            in.pushKV("utxo_rangeproof", HexStr(input.m_utxo_rangeproof));
         }
 
         // Proprietary
@@ -1668,7 +1722,7 @@ static RPCHelpMan decodepsbt()
 
         // PSBTv2 stuff
         if (psbtx.GetVersion() == 2) {
-            if (output.amount != std::nullopt) {
+            if (output.amount != nullopt) {
                 out.pushKV("amount", ValueFromAmount(*output.amount));
             }
             if (!output.script.empty()) {
@@ -1679,40 +1733,43 @@ static RPCHelpMan decodepsbt()
         }
 
         // Value commitment
-        if (!output.value_commitment.IsNull()) {
-            out.pushKV("value_commitment", output.value_commitment.GetHex());
-        }
-
-        // Value blinder
-        if (!output.value_blinding_factor.IsNull()) {
-            out.pushKV("value_blinding_factor", output.value_blinding_factor.GetHex());
+        if (!output.m_value_commitment.IsNull()) {
+            out.pushKV("value_commitment", output.m_value_commitment.GetHex());
         }
 
         // Asset commitment
-        if (!output.asset_commitment.IsNull()) {
-            out.pushKV("asset_commitment", output.asset_commitment.GetHex());
+        if (!output.m_asset_commitment.IsNull()) {
+            out.pushKV("asset_commitment", output.m_asset_commitment.GetHex());
         }
 
-        // Asset blinder
-        if (!output.asset_blinding_factor.IsNull()) {
-            out.pushKV("asset_blinding_factor", output.asset_blinding_factor.GetHex());
+        // Asset
+        if (!output.m_asset.IsNull()) {
+            out.pushKV("asset", output.m_asset.GetHex());
         }
 
-        // Nonce commitment
-        if (!output.nonce_commitment.IsNull()) {
-            out.pushKV("nonce_commitment", output.nonce_commitment.GetHex());
+        // Rangeproof
+        if (!output.m_value_rangeproof.empty()) {
+            out.pushKV("rangeproof", HexStr(output.m_value_rangeproof));
         }
-
-        // Range proof omitted due to size
 
         // Surjection proof
-        if (!output.surjection_proof.empty()) {
-            out.pushKV("surjection_proof", HexStr(output.surjection_proof));
+        if (!output.m_asset_surjection_proof.empty()) {
+            out.pushKV("surjection_proof", HexStr(output.m_asset_surjection_proof));
+        }
+
+        // ECDH pubkey
+        if (output.m_ecdh_pubkey.IsValid()) {
+            out.pushKV("ecdh_pubkey", HexStr(output.m_ecdh_pubkey));
         }
 
         // Blinding pubkey
-        if (output.blinding_pubkey.IsValid()) {
-            out.pushKV("blinding_pubkey", HexStr(output.blinding_pubkey));
+        if (output.m_blinding_pubkey.IsValid()) {
+            out.pushKV("blinding_pubkey", HexStr(output.m_blinding_pubkey));
+        }
+
+        // Blinder index
+        if (output.m_blinder_index != nullopt) {
+            out.pushKV("blinder_index", (int64_t)*output.m_blinder_index);
         }
 
         // Proprietary
@@ -1743,7 +1800,6 @@ static RPCHelpMan decodepsbt()
     result.pushKV("outputs", outputs);
 
     return result;
-*/
 },
     };
 }
