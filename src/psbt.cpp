@@ -395,6 +395,34 @@ void PSBTOutput::Merge(const PSBTOutput& output)
     if (redeem_script.empty() && !output.redeem_script.empty()) redeem_script = output.redeem_script;
     if (witness_script.empty() && !output.witness_script.empty()) witness_script = output.witness_script;
 }
+
+bool PSBTOutput::IsBlinded() const
+{
+    return m_blinding_pubkey.IsValid();
+}
+
+bool PSBTOutput::IsPartiallyBlinded() const
+{
+    return IsBlinded() && (!amount ||
+        !m_value_commitment.IsNull() ||
+        !m_asset_commitment.IsNull() ||
+        m_asset.IsNull() ||
+        !m_value_rangeproof.empty() ||
+        !m_asset_surjection_proof.empty() ||
+        m_ecdh_pubkey.IsValid());
+}
+
+bool PSBTOutput::IsFullyBlinded() const
+{
+    return IsBlinded() && !amount &&
+        !m_value_commitment.IsNull() &&
+        !m_asset_commitment.IsNull() &&
+        m_asset.IsNull() &&
+        !m_value_rangeproof.empty() &&
+        !m_asset_surjection_proof.empty() &&
+        m_ecdh_pubkey.IsValid();
+}
+
 bool PSBTInputSigned(const PSBTInput& input)
 {
     return !input.final_script_sig.empty() || !input.final_script_witness.IsNull();
