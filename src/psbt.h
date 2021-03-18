@@ -9,6 +9,7 @@
 #include <chainparams.h>
 #include <node/transaction.h>
 #include <optional.h>
+#include <pegins.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <primitives/bitcoin/transaction.h>

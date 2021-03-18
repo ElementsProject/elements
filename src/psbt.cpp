@@ -609,14 +609,62 @@ void PartiallySignedTransaction::SetupFromTx(const CMutableTransaction& tx)
         input.prev_txid = txin.prevout.hash;
         input.prev_out = txin.prevout.n;
         input.sequence = txin.nSequence;
+
+        // Elements things
+        if (!txin.assetIssuance.IsNull()) {
+            if (txin.assetIssuance.nAmount.IsExplicit()) {
+                input.m_issuance_value = txin.assetIssuance.nAmount.GetAmount();
+            } else {
+                input.m_issuance_value_commitment = txin.assetIssuance.nAmount;
+            }
+
+            if (txin.assetIssuance.nInflationKeys.IsExplicit()) {
+                input.m_issuance_inflation_keys_amount = txin.assetIssuance.nInflationKeys.GetAmount();
+            } else {
+                input.m_issuance_inflation_keys_commitment = txin.assetIssuance.nInflationKeys;
+            }
+
+            if (!txin.assetIssuance.assetBlindingNonce.IsNull()) {
+                input.m_issuance_blinding_nonce = txin.assetIssuance.assetBlindingNonce;
+            }
+            if (!txin.assetIssuance.assetEntropy.IsNull()) {
+                input.m_issuance_asset_entropy = txin.assetIssuance.assetEntropy;
+            }
+        }
+        // Peg-in things
+        if (txin.m_is_pegin) {
+            CAmount peg_in_value;
+            CAsset asset;
+            if (DecomposePeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, peg_in_value, asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, input.m_peg_in_tx, input.m_peg_in_txout_proof)) {
+                input.m_peg_in_value = peg_in_value;
+                assert(asset == Params().GetConsensus().pegged_asset);
+            }
+        }
     }
 
     for (i = 0; i < tx.vout.size(); ++i) {
         PSBTOutput& output = outputs.at(i);
         const CTxOut& txout = tx.vout.at(i);
 
-        output.amount = txout.nValue.GetAmount();
         output.script = txout.scriptPubKey;
+
+        // Elements things
+        if (txout.nAsset.IsExplicit()) {
+            output.m_asset = txout.nAsset.GetAsset().id;
+        } else {
+            output.m_asset_commitment = txout.nAsset;
+        }
+
+        if (txout.nValue.IsExplicit()) {
+            output.amount = txout.nValue.GetAmount();
+        } else {
+            output.m_value_commitment = txout.nValue;
+        }
+
+        // Usually the blinding pubkey is put into the nonce, so pull it out of there
+        if (txout.nNonce.IsCommitment()) {
+            output.m_blinding_pubkey.Set(txout.nNonce.vchCommitment.begin(), txout.nNonce.vchCommitment.end());
+        }
     }
 }
 
