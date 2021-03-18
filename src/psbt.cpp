@@ -4,6 +4,7 @@
 
 #include <psbt.h>
 
+#include <chainparams.h>
 #include <primitives/transaction.h>
 #include <util/check.h>
 #include <util/strencodings.h>
@@ -258,6 +259,9 @@ bool PSBTInput::GetUTXO(CTxOut& utxo) const
         utxo = non_witness_utxo->vout[*prev_out];
     } else if (!witness_utxo.IsNull()) {
         utxo = witness_utxo;
+    } else if (m_peg_in_value && !m_peg_in_claim_script.empty()) {
+        // For Peg-ins, get the UTXO from the peg-in stuff
+        utxo = CTxOut(Params().GetConsensus().pegged_asset, CConfidentialValue(*m_peg_in_value), m_peg_in_claim_script);
     } else {
         return false;
     }
