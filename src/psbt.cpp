@@ -42,10 +42,14 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
 
     assert(*tx_version == psbt.tx_version);
     for (unsigned int i = 0; i < inputs.size(); ++i) {
-        inputs[i].Merge(psbt.inputs[i]);
+        if (!inputs[i].Merge(psbt.inputs[i])) {
+            return false;
+        }
     }
     for (unsigned int i = 0; i < outputs.size(); ++i) {
-        outputs[i].Merge(psbt.outputs[i]);
+        if (!outputs[i].Merge(psbt.outputs[i])) {
+            return false;
+        }
     }
     for (auto& xpub_pair : psbt.m_xpubs) {
         if (m_xpubs.count(xpub_pair.first) == 0) {
@@ -333,7 +337,7 @@ void PSBTInput::FromSignatureData(const SignatureData& sigdata)
     }
 }
 
-void PSBTInput::Merge(const PSBTInput& input)
+bool PSBTInput::Merge(const PSBTInput& input)
 {
     assert(prev_txid == input.prev_txid);
     assert(*prev_out == *input.prev_out);
@@ -355,6 +359,30 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (sequence == nullopt && input.sequence != nullopt) sequence = input.sequence;
     if (time_locktime == nullopt && input.time_locktime != nullopt) time_locktime = input.time_locktime;
     if (height_locktime == nullopt && input.height_locktime != nullopt) height_locktime = input.height_locktime;
+
+    if (m_issuance_value == nullopt && m_issuance_value_commitment.IsNull() && input.m_issuance_value != nullopt) m_issuance_value = input.m_issuance_value;
+    if (m_issuance_value_commitment.IsNull() && !input.m_issuance_value_commitment.IsNull()) {
+        m_issuance_value_commitment = input.m_issuance_value_commitment;
+        m_issuance_value.reset();
+    }
+    if (m_issuance_rangeproof.empty() && !input.m_issuance_rangeproof.empty()) m_issuance_rangeproof = input.m_issuance_rangeproof;
+    if (m_issuance_inflation_keys_rangeproof.empty() && !input.m_issuance_inflation_keys_rangeproof.empty()) m_issuance_inflation_keys_rangeproof = input.m_issuance_inflation_keys_rangeproof;
+    if (m_issuance_inflation_keys_amount == nullopt && m_issuance_inflation_keys_commitment.IsNull() && input.m_issuance_inflation_keys_amount != nullopt) m_issuance_inflation_keys_amount = m_issuance_inflation_keys_amount;
+    if (m_issuance_inflation_keys_commitment.IsNull() && !input.m_issuance_inflation_keys_commitment.IsNull()) {
+        m_issuance_inflation_keys_commitment = input.m_issuance_inflation_keys_commitment;
+        m_issuance_inflation_keys_amount.reset();
+    }
+    if (m_issuance_blinding_nonce.IsNull() && !input.m_issuance_blinding_nonce.IsNull()) m_issuance_blinding_nonce = input.m_issuance_blinding_nonce;
+    if (m_issuance_asset_entropy.IsNull() && !input.m_issuance_asset_entropy.IsNull()) m_issuance_asset_entropy = input.m_issuance_asset_entropy;
+
+    if (m_peg_in_tx.which() == 0 && input.m_peg_in_tx.which() != 0) m_peg_in_tx = input.m_peg_in_tx;
+    if (m_peg_in_txout_proof.which() == 0 && input.m_peg_in_txout_proof.which() != 0) m_peg_in_txout_proof = input.m_peg_in_txout_proof;
+    if (m_peg_in_claim_script.empty() && !input.m_peg_in_claim_script.empty()) m_peg_in_claim_script = input.m_peg_in_claim_script;
+    if (m_peg_in_genesis_hash.IsNull() && !input.m_peg_in_genesis_hash.IsNull()) m_peg_in_genesis_hash = input.m_peg_in_genesis_hash;
+    if (m_peg_in_value == nullopt && input.m_peg_in_value != nullopt) m_peg_in_value = input.m_peg_in_value;
+    if (m_peg_in_witness.IsNull() && !input.m_peg_in_witness.IsNull()) m_peg_in_witness = input.m_peg_in_witness;
+
+    return true;
 }
 
 void PSBTOutput::FillSignatureData(SignatureData& sigdata) const
@@ -388,16 +416,45 @@ bool PSBTOutput::IsNull() const
     return redeem_script.empty() && witness_script.empty() && hd_keypaths.empty() && unknown.empty();
 }
 
-void PSBTOutput::Merge(const PSBTOutput& output)
+bool PSBTOutput::Merge(const PSBTOutput& output)
 {
-    assert(*amount == *output.amount);
+    assert(amount == output.amount);
     assert(script == output.script);
+    assert(m_value_commitment == output.m_value_commitment);
+    assert(m_asset_commitment == output.m_asset_commitment);
 
     hd_keypaths.insert(output.hd_keypaths.begin(), output.hd_keypaths.end());
     unknown.insert(output.unknown.begin(), output.unknown.end());
 
     if (redeem_script.empty() && !output.redeem_script.empty()) redeem_script = output.redeem_script;
     if (witness_script.empty() && !output.witness_script.empty()) witness_script = output.witness_script;
+
+    // If this IsBlinded and output IsBlinded, make sure the creator added fields are the same
+    if (IsBlinded() && output.IsBlinded()) {
+        if (!m_blinding_pubkey.IsValid() || !output.m_blinding_pubkey.IsValid() || !m_blinder_index || !output.m_blinder_index) return false;
+        if (m_blinding_pubkey != output.m_blinding_pubkey) return false;
+        if (m_blinder_index != output.m_blinder_index) return false;
+    }
+
+    // If this IsFullyBlinded and output IsFullyBlinded, just double check them
+    if (IsFullyBlinded() && output.IsFullyBlinded()) {
+        if (!m_value_commitment.IsNull() && !output.m_value_commitment.IsNull() && (m_value_commitment != output.m_value_commitment)) return false;
+        if (!m_asset_commitment.IsNull() && !output.m_asset_commitment.IsNull() && (m_asset_commitment != output.m_asset_commitment)) return false;
+        if (!m_value_rangeproof.empty() && !output.m_value_rangeproof.empty() && (m_value_rangeproof != output.m_value_rangeproof)) return false;
+        if (!m_asset_surjection_proof.empty() && !output.m_asset_surjection_proof.empty() && (m_asset_surjection_proof != output.m_asset_surjection_proof)) return false;
+        if (amount|| output.amount || !m_asset.IsNull() || !output.m_asset.IsNull()) return false;
+    }
+
+    // If output IsFullyBlinded and this is not, copy the blinding data and remove the explicits
+    if (IsBlinded() && !IsFullyBlinded() && output.IsFullyBlinded()) {
+        m_value_commitment = output.m_value_commitment;
+        m_asset_commitment = output.m_asset_commitment;
+        m_value_rangeproof = output.m_value_rangeproof;
+        m_asset_surjection_proof = output.m_asset_surjection_proof;
+        m_ecdh_pubkey = output.m_ecdh_pubkey;
+    }
+
+    return true;
 }
 
 bool PSBTOutput::IsBlinded() const

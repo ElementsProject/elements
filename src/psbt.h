@@ -253,7 +253,7 @@ struct PSBTInput
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
     void FromSignatureData(const SignatureData& sigdata);
-    void Merge(const PSBTInput& input);
+    bool Merge(const PSBTInput& input);
     bool GetUTXO(CTxOut& utxo) const;
     COutPoint GetOutPoint() const;
     PSBTInput(uint32_t version) : m_psbt_version(version) {}
@@ -923,7 +923,7 @@ struct PSBTOutput
     bool IsNull() const;
     void FillSignatureData(SignatureData& sigdata) const;
     void FromSignatureData(const SignatureData& sigdata);
-    void Merge(const PSBTOutput& output);
+    bool Merge(const PSBTOutput& output);
     bool IsBlinded() const; //! This output has a blinding pubkey and is or will be blinded.
     bool IsPartiallyBlinded() const; //! This output has some blinding information. This is not a good state to be in.
     bool IsFullyBlinded() const; //! This output has all of the blinding information and is actually blinded.

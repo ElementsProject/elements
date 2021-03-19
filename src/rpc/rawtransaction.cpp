@@ -1844,10 +1844,49 @@ static RPCHelpMan combinepsbt()
         psbtxs.push_back(psbtx);
     }
 
+    // Find if (and which) psbt has all the output blinding stuff set
+    unsigned int base_psbt_index = 0;
+    bool has_fully_blinded = false;
+    for (unsigned int i = 0; i < psbtxs.size(); ++i) {
+        const auto& psbt = psbtxs[i];
+        bool is_fully_blinded = true;
+        int unblinded_count = 0;
+        for (const auto& psbt_out : psbt.outputs) {
+            if (psbt_out.IsBlinded()) {
+                is_fully_blinded &= psbt_out.IsFullyBlinded();
+            } else {
+                unblinded_count++;
+            }
+        }
+        if (is_fully_blinded) {
+            base_psbt_index = i;
+            has_fully_blinded = true;
+            break;
+        }
+    }
+
+    // Swap the psbt we want to use as base with the 0'th psbt which is the position for the base psbt
+    if (base_psbt_index > 0) {
+        std::swap(psbtxs[base_psbt_index], psbtxs[0]);
+    }
+
     PartiallySignedTransaction merged_psbt;
     const TransactionError error = CombinePSBTs(merged_psbt, psbtxs);
     if (error != TransactionError::OK) {
         throw JSONRPCTransactionError(error);
+    }
+
+    // If we did not use a fully blinded psbt as the base, but the result is now fully blinded, that's not good so fail
+    if (!has_fully_blinded) {
+        bool is_fully_blinded = true;
+        for (const auto& psbt_out : merged_psbt.outputs) {
+            if (psbt_out.IsBlinded()) {
+                is_fully_blinded &= psbt_out.IsFullyBlinded();
+            }
+        }
+        if (!is_fully_blinded) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Cannot combine PSETs");
+        }
     }
 
     return EncodePSBT(merged_psbt);
