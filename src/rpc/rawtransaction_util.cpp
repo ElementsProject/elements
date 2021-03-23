@@ -143,7 +143,7 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::B
     CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out, bool allow_peg_in)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out, bool allow_peg_in, bool allow_issuance)
 {
     if (outputs_in.isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
@@ -207,6 +207,42 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         }
 
         CTxIn in(COutPoint(txid, nOutput), CScript(), nSequence);
+
+        // Get issuance stuff if it's there
+        const UniValue& blinding_nonce_v = find_value(o, "asset_blinding_nonce");
+        const UniValue& entropy_v = find_value(o, "asset_entropy");
+        const UniValue& amount_v = find_value(o, "issuance_amount");
+        const UniValue& issuance_tokens_v = find_value(o, "issuance_tokens");
+        const UniValue& blind_reissuance_v = find_value(o, "blind_reissuance");
+        if (!amount_v.isNull() && allow_issuance) {
+            if (!amount_v.isNum()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "issuance_amount is not a number");
+            }
+            CAmount amt = AmountFromValue(amount_v);
+            // issuance_tokens may be null for reissuance
+            if (!issuance_tokens_v.isNull()) {
+                if (!issuance_tokens_v.isNum()) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "issuance_tokens is not a number");
+                }
+                CAmount num_inflation = AmountFromValue(issuance_tokens_v);
+                in.assetIssuance.nInflationKeys.SetToAmount(num_inflation);
+            }
+            uint256 blinding_nonce;
+            if (!blinding_nonce_v.isNull()) {
+                blinding_nonce = ParseHashV(blinding_nonce_v, "asset_blinding_nonce");
+            }
+            uint256 entropy;
+            if (!entropy_v.isNull()) {
+                entropy = ParseHashV(entropy_v, "asset_entropy");
+            }
+            in.assetIssuance.nAmount.SetToAmount(amt);
+            in.assetIssuance.assetBlindingNonce = blinding_nonce;
+            in.assetIssuance.assetEntropy = entropy;
+        } else if (!blinding_nonce_v.isNull() || !entropy_v.isNull() || !issuance_tokens_v.isNull() || !blind_reissuance_v.isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "auxiliary issuance arguments provided without issuance amount");
+        }
+
+        // Add to the tx
         rawTx.vin.push_back(in);
 
         // Get the pegin stuff if it's there
@@ -244,6 +280,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "pegin_ arguments provided but this command does not support peg-ins");
             }
         }
+
     }
 
     if (!outputs_is_obj) {
