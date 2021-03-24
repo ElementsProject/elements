@@ -193,7 +193,7 @@ bool static IsDefinedHashtypeSignature(const valtype &vchSig, unsigned int flags
     unsigned char nHashType = vchSig[vchSig.size() - 1] & (~(SIGHASH_ANYONECANPAY));
 
     // ELEMENTS: Only allow SIGHASH_RANGEPROOF if the flag is set (after dynafed activation).
-    if ((flags & SCRIPT_SIGHASH_RANGEPROOF) == SCRIPT_SIGHASH_RANGEPROOF) {
+    if ((flags & SCRIPT_DYNAFED_ACTIVE) == SCRIPT_DYNAFED_ACTIVE) {
         nHashType = nHashType & (~(SIGHASH_RANGEPROOF));
     }
 
@@ -469,7 +469,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         break;
 
                     // Compare the specified sequence number with the input.
-                    if (!checker.CheckSequence(nSequence))
+                    if (!checker.CheckSequence(nSequence, flags))
                         return set_error(serror, SCRIPT_ERR_UNSATISFIED_LOCKTIME);
 
                     break;
@@ -1481,7 +1481,7 @@ public:
     CTransactionSignatureSerializer(const T& txToIn, const CScript& scriptCodeIn, unsigned int nInIn, int nHashTypeIn, unsigned int flags) :
         txTo(txToIn), scriptCode(scriptCodeIn), nIn(nInIn),
         fAnyoneCanPay(!!(nHashTypeIn & SIGHASH_ANYONECANPAY)),
-        fRangeproof(!!(flags & SCRIPT_SIGHASH_RANGEPROOF) && !!(nHashTypeIn & SIGHASH_RANGEPROOF)),
+        fRangeproof(!!(flags & SCRIPT_DYNAFED_ACTIVE) && !!(nHashTypeIn & SIGHASH_RANGEPROOF)),
         fHashSingle((nHashTypeIn & 0x1f) == SIGHASH_SINGLE),
         fHashNone((nHashTypeIn & 0x1f) == SIGHASH_NONE) {}
 
@@ -1667,7 +1667,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
         uint256 hashOutputs;
         uint256 hashRangeproofs;
         const bool cacheready = cache && cache->ready;
-        bool fRangeproof = !!(flags & SCRIPT_SIGHASH_RANGEPROOF) && !!(nHashType & SIGHASH_RANGEPROOF);
+        bool fRangeproof = !!(flags & SCRIPT_DYNAFED_ACTIVE) && !!(nHashType & SIGHASH_RANGEPROOF);
 
         if (!(nHashType & SIGHASH_ANYONECANPAY)) {
             hashPrevouts = cacheready ? cache->hashPrevouts : GetPrevoutHash(txTo);
@@ -1829,7 +1829,7 @@ bool GenericTransactionSignatureChecker<T>::CheckLockTime(const CScriptNum& nLoc
 }
 
 template <class T>
-bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSequence) const
+bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSequence, unsigned int flags) const
 {
     // Relative lock times are supported by comparing the passed
     // in operand to the sequence number of the input.
@@ -1849,7 +1849,8 @@ bool GenericTransactionSignatureChecker<T>::CheckSequence(const CScriptNum& nSeq
 
     // Mask off any bits that do not have consensus-enforced meaning
     // before doing the integer comparisons
-    const uint32_t nLockTimeMask = CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG | CTxIn::SEQUENCE_LOCKTIME_MASK;
+    const uint32_t sequenceLocktimeMask = SequenceLocktimeMask(flags);
+    const uint32_t nLockTimeMask = CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG | sequenceLocktimeMask;
     const int64_t txToSequenceMasked = txToSequence & nLockTimeMask;
     const CScriptNum nSequenceMasked = nSequence & nLockTimeMask;
 
@@ -2096,4 +2097,12 @@ size_t CountWitnessSigOps(const CScript& scriptSig, const CScript& scriptPubKey,
     }
 
     return 0;
+}
+
+uint32_t SequenceLocktimeMask(unsigned int flags) {
+    if (!!(flags & SCRIPT_DYNAFED_ACTIVE)) {
+        return CTxIn::SEQUENCE_LOCKTIME_MASK_DYNAFED;
+    } else {
+        return CTxIn::SEQUENCE_LOCKTIME_MASK;
+    }
 }

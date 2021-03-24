@@ -199,8 +199,8 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
 
     // We will already activate SIGHASH_RANGEPROOF for signing. This means that
     // users using the flag before it activates will produce invalid signatures.
-    unsigned int signFlags = SCRIPT_SIGHASH_RANGEPROOF;
-    unsigned int verifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_SIGHASH_RANGEPROOF | additional_flags;
+    unsigned int signFlags = SCRIPT_DYNAFED_ACTIVE;
+    unsigned int verifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS | SCRIPT_DYNAFED_ACTIVE | additional_flags;
 
     std::vector<valtype> result;
     txnouttype whichType;
@@ -337,7 +337,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
         sigversion = SigVersion::WITNESS_V0;
     }
     // We enable SIGHASH_RANGEPROOF for signing.
-    unsigned int flags = SCRIPT_SIGHASH_RANGEPROOF;
+    unsigned int flags = SCRIPT_DYNAFED_ACTIVE;
     if (script_type == TX_MULTISIG && !stack.script.empty()) {
         // Build a map of pubkey -> signature by matching sigs to pubkeys:
         assert(solutions.size() > 1);
