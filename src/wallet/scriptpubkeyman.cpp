@@ -621,7 +621,7 @@ TransactionError LegacyScriptPubKeyMan::FillPSBT(PartiallySignedTransaction& psb
             if (*input.prev_out >= input.non_witness_utxo->vout.size()) {
                 return TransactionError::MISSING_INPUTS;
             }
-        } else if (input.witness_utxo.IsNull()) {
+        } else if (input.witness_utxo.IsNull() && (!input.m_peg_in_value || input.m_peg_in_claim_script.empty())) {
             // There's no UTXO so we can just skip this now
             continue;
         }
@@ -2111,6 +2111,9 @@ TransactionError DescriptorScriptPubKeyMan::FillPSBT(PartiallySignedTransaction&
                 return TransactionError::MISSING_INPUTS;
             }
             script = input.non_witness_utxo->vout[*input.prev_out].scriptPubKey;
+        } else if (input.witness_utxo.IsNull() && (!input.m_peg_in_value || input.m_peg_in_claim_script.empty())) {
+            // There's no UTXO so we can just skip this now
+            continue;
         } else {
             // There's no UTXO so we can just skip this now
             continue;

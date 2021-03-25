@@ -554,6 +554,8 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
         // information directly in the hash), but not for non-witness signatures. Remember that we require
         // a witness signature in this situation.
         require_witness_sig = true;
+    } else if (input.m_peg_in_value && !input.m_peg_in_claim_script.empty()) {
+        utxo = CTxOut(Params().GetConsensus().pegged_asset, CConfidentialValue(*input.m_peg_in_value), input.m_peg_in_claim_script);
     } else {
         return false;
     }
