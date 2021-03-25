@@ -1000,7 +1000,14 @@ bool MemPoolAccept::PolicyScriptChecks(ATMPArgs& args, Workspace& ws, Precompute
 
     TxValidationState &state = args.m_state;
 
-    constexpr unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+    unsigned int scriptVerifyFlags = STANDARD_SCRIPT_VERIFY_FLAGS;
+
+    // Temporarily add additional script flags based on the activation of
+    // Dynamic Federations. This can be included in the
+    // STANDARD_LOCKTIME_VERIFY_FLAGS in a release post-activation.
+    if (IsDynaFedEnabled(::ChainActive().Tip(), args.m_chainparams.GetConsensus())) {
+        scriptVerifyFlags |= SCRIPT_SIGHASH_RANGEPROOF;
+    }
 
     // Check input scripts and signatures.
     // This is done last to help prevent CPU exhaustion denial-of-service attacks.
@@ -2047,6 +2054,10 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
     // Start enforcing BIP147 NULLDUMMY (activated simultaneously with segwit)
     if (IsWitnessEnabled(pindex->pprev, consensusparams)) {
         flags |= SCRIPT_VERIFY_NULLDUMMY;
+    }
+
+    if (IsDynaFedEnabled(pindex->pprev, consensusparams)) {
+        flags |= SCRIPT_SIGHASH_RANGEPROOF;
     }
 
     return flags;

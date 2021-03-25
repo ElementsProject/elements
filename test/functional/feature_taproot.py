@@ -212,11 +212,11 @@ def default_sighash(ctx):
         # BIP143 signature hash
         scriptcode = get(ctx, "scriptcode")
         utxos = get(ctx, "utxos")
-        return SegwitV0SignatureHash(scriptcode, tx, idx, hashtype, utxos[idx].nValue)
+        return SegwitV0SignatureHash(scriptcode, tx, idx, hashtype, utxos[idx].nValue, enable_sighash_rangeproof=False)
     else:
         # Pre-segwit signature hash
         scriptcode = get(ctx, "scriptcode")
-        return LegacySignatureHash(scriptcode, tx, idx, hashtype)[0]
+        return LegacySignatureHash(scriptcode, tx, idx, hashtype, enable_sighash_rangeproof=False)[0]
 
 def default_tweak(ctx):
     """Default expression for "tweak": None if a leaf is specified, tap[0] otherwise."""

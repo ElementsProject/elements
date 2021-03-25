@@ -186,11 +186,17 @@ bool static IsLowDERSignature(const valtype &vchSig, ScriptError* serror) {
     return true;
 }
 
-bool static IsDefinedHashtypeSignature(const valtype &vchSig) {
+bool static IsDefinedHashtypeSignature(const valtype &vchSig, unsigned int flags) {
     if (vchSig.size() == 0) {
         return false;
     }
     unsigned char nHashType = vchSig[vchSig.size() - 1] & (~(SIGHASH_ANYONECANPAY));
+
+    // ELEMENTS: Only allow SIGHASH_RANGEPROOF if the flag is set (after dynafed activation).
+    if ((flags & SCRIPT_SIGHASH_RANGEPROOF) == SCRIPT_SIGHASH_RANGEPROOF) {
+        nHashType = nHashType & (~(SIGHASH_RANGEPROOF));
+    }
+
     if (nHashType < SIGHASH_ALL || nHashType > SIGHASH_SINGLE)
         return false;
 
@@ -216,7 +222,7 @@ bool CheckSignatureEncoding(const std::vector<unsigned char> &vchSig, unsigned i
     } else if ((flags & SCRIPT_VERIFY_LOW_S) != 0 && !IsLowDERSignature(vchSigCopy, serror)) {
         // serror is set
         return false;
-    } else if ((flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSigCopy)) {
+    } else if ((flags & SCRIPT_VERIFY_STRICTENC) != 0 && !IsDefinedHashtypeSignature(vchSigCopy, flags)) {
         return set_error(serror, SCRIPT_ERR_SIG_HASHTYPE);
     }
     return true;
@@ -368,7 +374,7 @@ static bool EvalChecksigPreTapscript(const valtype& vchSig, const valtype& vchPu
         //serror is set
         return false;
     }
-    fSuccess = checker.CheckECDSASignature(vchSig, vchPubKey, scriptCode, sigversion);
+    fSuccess = checker.CheckECDSASignature(vchSig, vchPubKey, scriptCode, sigversion, flags);
 
     if (!fSuccess && (flags & SCRIPT_VERIFY_NULLFAIL) && vchSig.size())
         return set_error(serror, SCRIPT_ERR_SIG_NULLFAIL);
@@ -1466,7 +1472,7 @@ bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& 
                         }
 
                         // Check signature
-                        bool fOk = checker.CheckECDSASignature(vchSig, vchPubKey, scriptCode, sigversion);
+                        bool fOk = checker.CheckECDSASignature(vchSig, vchPubKey, scriptCode, sigversion, flags);
 
                         if (fOk) {
                             isig++;
@@ -1647,13 +1653,15 @@ private:
     const CScript& scriptCode; //!< output script being consumed
     const unsigned int nIn;    //!< input index of txTo being signed
     const bool fAnyoneCanPay;  //!< whether the hashtype has the SIGHASH_ANYONECANPAY flag set
+    const bool fRangeproof;    //!< whether the hashtype has the SIGHASH_RANGEPROOF flag set
     const bool fHashSingle;    //!< whether the hashtype is SIGHASH_SINGLE
     const bool fHashNone;      //!< whether the hashtype is SIGHASH_NONE
 
 public:
-    CTransactionSignatureSerializer(const T& txToIn, const CScript& scriptCodeIn, unsigned int nInIn, int nHashTypeIn) :
+    CTransactionSignatureSerializer(const T& txToIn, const CScript& scriptCodeIn, unsigned int nInIn, int nHashTypeIn, unsigned int flags) :
         txTo(txToIn), scriptCode(scriptCodeIn), nIn(nInIn),
         fAnyoneCanPay(!!(nHashTypeIn & SIGHASH_ANYONECANPAY)),
+        fRangeproof(!!(flags & SCRIPT_SIGHASH_RANGEPROOF) && !!(nHashTypeIn & SIGHASH_RANGEPROOF)),
         fHashSingle((nHashTypeIn & 0x1f) == SIGHASH_SINGLE),
         fHashNone((nHashTypeIn & 0x1f) == SIGHASH_NONE) {}
 
@@ -1710,11 +1718,23 @@ public:
     /** Serialize an output of txTo */
     template<typename S>
     void SerializeOutput(S &s, unsigned int nOutput) const {
-        if (fHashSingle && nOutput != nIn)
+        if (fHashSingle && nOutput != nIn) {
             // Do not lock-in the txout payee at other indices as txin
             ::Serialize(s, CTxOut());
-        else
+        } else {
             ::Serialize(s, txTo.vout[nOutput]);
+
+            // Serialize rangeproof
+            if (fRangeproof) {
+                if (nOutput < txTo.witness.vtxoutwit.size()) {
+                    ::Serialize(s, txTo.witness.vtxoutwit[nOutput].vchRangeproof);
+                    ::Serialize(s, txTo.witness.vtxoutwit[nOutput].vchSurjectionproof);
+                } else {
+                    ::Serialize(s, (unsigned char) 0);
+                    ::Serialize(s, (unsigned char) 0);
+                }
+            }
+        }
     }
 
     /** Serialize txTo */
@@ -1803,6 +1823,20 @@ uint256 GetSpentScriptsSHA256(const std::vector<CTxOut>& outputs_spent)
     return ss.GetSHA256();
 }
 
+template <class T>
+uint256 GetRangeproofsHash(const T& txTo) {
+    CHashWriter ss(SER_GETHASH, 0);
+    for (size_t i = 0; i < txTo.vout.size(); i++) {
+        if (i < txTo.witness.vtxoutwit.size()) {
+            ss << txTo.witness.vtxoutwit[i].vchRangeproof;
+            ss << txTo.witness.vtxoutwit[i].vchSurjectionproof;
+        } else {
+            ss << (unsigned char) 0;
+            ss << (unsigned char) 0;
+        }
+    }
+    return ss.GetHash();
+}
 
 } // namespace
 
@@ -1850,6 +1884,7 @@ void PrecomputedTransactionData::Init(const T& txTo, std::vector<CTxOut>&& spent
         hashSequence = SHA256Uint256(m_sequences_single_hash);
         hashIssuance = SHA256Uint256(GetIssuanceSHA256(txTo));
         hashOutputs = SHA256Uint256(m_outputs_single_hash);
+        hashRangeproofs = GetRangeproofsHash(txTo);
         m_bip143_segwit_ready = true;
     }
     if (uses_bip341_taproot) {
@@ -1962,7 +1997,7 @@ bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata
 }
 
 template <class T>
-uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, const PrecomputedTransactionData* cache)
+uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn, int nHashType, const CConfidentialValue& amount, SigVersion sigversion, unsigned int flags, const PrecomputedTransactionData* cache)
 {
     assert(nIn < txTo.vin.size());
 
@@ -1971,7 +2006,9 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
         uint256 hashSequence;
         uint256 hashIssuance;
         uint256 hashOutputs;
+        uint256 hashRangeproofs;
         const bool cacheready = cache && cache->m_bip143_segwit_ready;
+        bool fRangeproof = !!(flags & SCRIPT_SIGHASH_RANGEPROOF) && !!(nHashType & SIGHASH_RANGEPROOF);
 
         if (!(nHashType & SIGHASH_ANYONECANPAY)) {
             hashPrevouts = cacheready ? cache->hashPrevouts : SHA256Uint256(GetPrevoutsSHA256(txTo));
@@ -1987,10 +2024,26 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
 
         if ((nHashType & 0x1f) != SIGHASH_SINGLE && (nHashType & 0x1f) != SIGHASH_NONE) {
             hashOutputs = cacheready ? cache->hashOutputs : SHA256Uint256(GetOutputsSHA256(txTo));
+
+            if (fRangeproof) {
+                hashRangeproofs = cacheready ? cache->hashRangeproofs : SHA256Uint256(GetRangeproofsHash(txTo));
+            }
         } else if ((nHashType & 0x1f) == SIGHASH_SINGLE && nIn < txTo.vout.size()) {
             CHashWriter ss(SER_GETHASH, 0);
             ss << txTo.vout[nIn];
             hashOutputs = ss.GetHash();
+
+            if (fRangeproof) {
+                CHashWriter ss(SER_GETHASH, 0);
+                if (nIn < txTo.witness.vtxoutwit.size()) {
+                    ss << txTo.witness.vtxoutwit[nIn].vchRangeproof;
+                    ss << txTo.witness.vtxoutwit[nIn].vchSurjectionproof;
+                } else {
+                    ss << (unsigned char) 0;
+                    ss << (unsigned char) 0;
+                }
+                hashRangeproofs = ss.GetHash();
+            }
         }
 
         CHashWriter ss(SER_GETHASH, 0);
@@ -2019,6 +2072,11 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
         }
         // Outputs (none/one/all, depending on flags)
         ss << hashOutputs;
+        if (fRangeproof) {
+            // This addition must be conditional because it was added after
+            // the segwit sighash was specified.
+            ss << hashRangeproofs;
+        }
         // Locktime
         ss << txTo.nLockTime;
         // Sighash type
@@ -2036,7 +2094,7 @@ uint256 SignatureHash(const CScript& scriptCode, const T& txTo, unsigned int nIn
     }
 
     // Wrapper to serialize only the necessary parts of the transaction being signed
-    CTransactionSignatureSerializer<T> txTmp(txTo, scriptCode, nIn, nHashType);
+    CTransactionSignatureSerializer<T> txTmp(txTo, scriptCode, nIn, nHashType, flags);
 
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
@@ -2057,7 +2115,7 @@ bool GenericTransactionSignatureChecker<T>::VerifySchnorrSignature(Span<const un
 }
 
 template <class T>
-bool GenericTransactionSignatureChecker<T>::CheckECDSASignature(const std::vector<unsigned char>& vchSigIn, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion) const
+bool GenericTransactionSignatureChecker<T>::CheckECDSASignature(const std::vector<unsigned char>& vchSigIn, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const
 {
     CPubKey pubkey(vchPubKey);
     if (!pubkey.IsValid())
@@ -2070,7 +2128,7 @@ bool GenericTransactionSignatureChecker<T>::CheckECDSASignature(const std::vecto
     int nHashType = vchSig.back();
     vchSig.pop_back();
 
-    uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion, this->txdata);
+    uint256 sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, sigversion, flags, this->txdata);
 
     if (!VerifyECDSASignature(vchSig, pubkey, sighash))
         return false;

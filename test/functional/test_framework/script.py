@@ -21,6 +21,7 @@ from .messages import (
     CTxOutAsset,
     CTxOutValue,
     hash256,
+    ser_compact_size,
     ser_string,
     ser_uint256,
     ser_vector,
@@ -604,6 +605,8 @@ SIGHASH_ALL = 1
 SIGHASH_NONE = 2
 SIGHASH_SINGLE = 3
 SIGHASH_ANYONECANPAY = 0x80
+# ELEMENTS:
+SIGHASH_RANGEPROOF = 0x40
 
 def FindAndDelete(script, sig):
     """Consensus critical, see FindAndDelete() in Satoshi codebase"""
@@ -622,7 +625,7 @@ def FindAndDelete(script, sig):
         r += script[last_sop_idx:]
     return CScript(r)
 
-def LegacySignatureHash(script, txTo, inIdx, hashtype):
+def LegacySignatureHash(script, txTo, inIdx, hashtype, enable_sighash_rangeproof=True):
     """Consensus-correct SignatureHash
 
     Returns (hash, err) to precisely match the consensus-critical behavior of
@@ -670,7 +673,18 @@ def LegacySignatureHash(script, txTo, inIdx, hashtype):
     s = b""
     s += struct.pack("<i", txtmp.nVersion)
     s += ser_vector(txtmp.vin)
-    s += ser_vector(txtmp.vout)
+    # If SIGHASH_RANGEPROOF is set, we need to add the rangeproof serialization after each output
+    if enable_sighash_rangeproof and hashtype & SIGHASH_RANGEPROOF:
+        s += ser_compact_size(len(txtmp.vout))
+        for i in range(len(txtmp.vout)):
+            s += txtmp.vout[i].serialize()
+            if i < len(txtmp.wit.vtxoutwit):
+                s += ser_string(txtmp.wit.vtxoutwit[i].vchRangeproof)
+                s += ser_string(txtmp.wit.vtxoutwit[i].vchSurjectionproof)
+            else:
+                s += bytes([0, 0])
+    else:
+        s += ser_vector(txtmp.vout)
     s += struct.pack("<I", txtmp.nLockTime)
 
     # add sighash type
@@ -684,12 +698,13 @@ def LegacySignatureHash(script, txTo, inIdx, hashtype):
 # Performance optimization probably not necessary for python tests, however.
 # Note that this corresponds to sigversion == 1 in EvalScript, which is used
 # for version 0 witnesses.
-def SegwitV0SignatureHash(script, txTo, inIdx, hashtype, amount):
+def SegwitV0SignatureHash(script, txTo, inIdx, hashtype, amount, enable_sighash_rangeproof=True):
 
     hashPrevouts = 0
     hashSequence = 0
     hashIssuance = 0
     hashOutputs = 0
+    hashRangeproofs = 0
 
     if not (hashtype & SIGHASH_ANYONECANPAY):
         serialize_prevouts = bytes()
@@ -715,9 +730,23 @@ def SegwitV0SignatureHash(script, txTo, inIdx, hashtype, amount):
         for o in txTo.vout:
             serialize_outputs += o.serialize()
         hashOutputs = uint256_from_str(hash256(serialize_outputs))
+
+        if enable_sighash_rangeproof and hashtype & SIGHASH_RANGEPROOF:
+            serialize_rangeproofs = bytes()
+            for wit in txTo.wit.vtxoutwit:
+                serialize_rangeproofs += ser_string(wit.vchRangeproof) + ser_string(wit.vchSurjectionproof)
+            hashRangeproofs = uint256_from_str(hash256(serialize_rangeproofs))
+
     elif ((hashtype & 0x1f) == SIGHASH_SINGLE and inIdx < len(txTo.vout)):
         serialize_outputs = txTo.vout[inIdx].serialize()
         hashOutputs = uint256_from_str(hash256(serialize_outputs))
+
+        if enable_sighash_rangeproof and hashtype & SIGHASH_RANGEPROOF:
+            serialize_rangeproofs = b'\x00'
+            if len(txTo.wit.vtxoutwit) > inIdx:
+                wit = txTo.wit.vtxoutwit[inIdx]
+                serialize_rangeproofs = ser_string(wit.vchRangeproof) + ser_string(wit.vchSurjectionproof)
+            hashRangeproofs = uint256_from_str(hash256(serialize_rangeproofs))
 
     ss = bytes()
     ss += struct.pack("<i", txTo.nVersion)
@@ -729,6 +758,8 @@ def SegwitV0SignatureHash(script, txTo, inIdx, hashtype, amount):
     ss += amount.serialize()
     ss += struct.pack("<I", txTo.vin[inIdx].nSequence)
     ss += ser_uint256(hashOutputs)
+    if enable_sighash_rangeproof and hashtype & SIGHASH_RANGEPROOF:
+        ss += ser_uint256(hashRangeproofs)
     ss += struct.pack("<i", txTo.nLockTime)
     ss += struct.pack("<I", hashtype)
 
