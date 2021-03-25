@@ -46,7 +46,7 @@ void ParsePrevouts(const UniValue& prevTxsUnival, FillableSigningProvider* keyst
 /** Create a transaction from univalue parameters. If (and only if)
     output_pubkeys_out is null, the "nonce hack" of storing Confidential
     Assets output pubkeys in nonces will be used. */
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, const UniValue& assets_in, std::vector<CPubKey>* output_pubkeys_out = nullptr, bool allow_peg_in = true, bool allow_issuance = true);
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, std::vector<CPubKey>* output_pubkeys_out = nullptr, bool allow_peg_in = true, bool allow_issuance = true);
 
 /** Create a peg-in input */
 void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, CTransactionRef& tx_btc, CMerkleBlock& merkle_block, const std::set<CScript>& claim_scripts, const std::vector<unsigned char>& txData, const std::vector<unsigned char>& txOutProofData);
