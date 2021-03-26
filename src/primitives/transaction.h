@@ -320,6 +320,11 @@ public:
     }
 
     std::string ToString() const;
+
+    friend bool operator<(const CTxOut& a, const CTxOut& b)
+    {
+        return a.scriptPubKey < b.scriptPubKey;
+    }
 };
 
 struct CMutableTransaction;

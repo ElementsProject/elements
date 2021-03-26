@@ -5072,7 +5072,8 @@ static RPCHelpMan walletcreatefundedpsbt()
     // It's hard to control the behavior of FundTransaction, so we will wait
     //   until after it's done, then extract the blinding keys from the output
     //   nonces.
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, nullptr /* output_pubkeys_out */, true /* allow_peg_in */, true /* allow_issuance */);
+    std::map<CTxOut, PSBTOutput> psbt_outs;
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
 
     // Make a blank psbt
     uint32_t psbt_version = 2;
@@ -5132,11 +5133,18 @@ static RPCHelpMan walletcreatefundedpsbt()
     assert(blinder_index < rawTx.vin.size()); // We added inputs, or existing inputs are ours, we should have a blinder index at this point.
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         PSBTOutput& output = psbtx.outputs[i];
-        if (!rawTx.vout[i].nNonce.IsNull()) {
-            psbtx.outputs[i].m_blinding_pubkey = CPubKey(rawTx.vout[i].nNonce.vchCommitment);
-            psbtx.outputs[i].m_ecdh_pubkey = CPubKey();
-            psbtx.outputs[i].m_blinder_index = blinder_index;
+        auto it = psbt_outs.find(rawTx.vout.at(i));
+        if (it != psbt_outs.end()) {
+            PSBTOutput& construct_psbt_out = it->second;
+
+            output.m_blinding_pubkey = construct_psbt_out.m_blinding_pubkey;
+            output.m_blinder_index = construct_psbt_out.m_blinder_index;
         }
+
+        if (output.m_blinder_index == nullopt) {
+            output.m_blinder_index = blinder_index;
+        }
+
         // Check the asset
         if (new_assets.count(output.m_asset) > 0) {
             new_assets.erase(output.m_asset);

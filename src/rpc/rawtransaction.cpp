@@ -2018,12 +2018,12 @@ static RPCHelpMan createpsbt()
         }, true
     );
 
-    std::vector<CPubKey> output_pubkeys;
     bool rbf = false;
     if (!request.params[3].isNull()) {
         rbf = request.params[3].isTrue();
     }
-    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, &output_pubkeys, true /* allow_peg_in */, true /* allow_issuance */);
+    std::map<CTxOut, PSBTOutput> psbt_outs;
+    CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf, &psbt_outs, true /* allow_peg_in */, true /* allow_issuance */);
 
     // Make a blank psbt
     uint32_t psbt_version = 2;
@@ -2066,9 +2066,14 @@ static RPCHelpMan createpsbt()
     PartiallySignedTransaction psbtx(rawTx, psbt_version);
     for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
         PSBTOutput& output = psbtx.outputs[i];
-        if (output_pubkeys[i].IsValid()) {
-            psbtx.outputs[i].m_blinding_pubkey = output_pubkeys[i];
+        auto it = psbt_outs.find(rawTx.vout.at(i));
+        if (it != psbt_outs.end()) {
+            PSBTOutput& construct_psbt_out = it->second;
+
+            output.m_blinding_pubkey = construct_psbt_out.m_blinding_pubkey;
+            output.m_blinder_index = construct_psbt_out.m_blinder_index;
         }
+
         // Check the asset
         if (new_assets.count(output.m_asset) > 0) {
             new_assets.erase(output.m_asset);

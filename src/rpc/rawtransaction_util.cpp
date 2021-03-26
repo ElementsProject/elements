@@ -143,7 +143,7 @@ void CreatePegInInput(CMutableTransaction& mtx, uint32_t input_idx, Sidechain::B
     CreatePegInInputInner(mtx, input_idx, tx_btc, merkle_block, claim_scripts, txData, txOutProofData);
 }
 
-CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, std::vector<CPubKey>* output_pubkeys_out, bool allow_peg_in, bool allow_issuance)
+CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniValue& outputs_in, const UniValue& locktime, bool rbf, std::map<CTxOut, PSBTOutput>* outputs_aux, bool allow_peg_in, bool allow_issuance)
 {
     if (outputs_in.isNull()) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, output argument must be non-null");
@@ -284,8 +284,11 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
     std::set<CTxDestination> destinations;
     bool has_data{false};
 
+    std::vector<PSBTOutput> psbt_outs;
     for (unsigned int i = 0; i < outputs.size(); ++i) {
         const UniValue& output = outputs[i].get_obj();
+        // New PSBTOutput with version 2
+        PSBTOutput psbt_out(2);
 
         // ELEMENTS:
         // Asset defaults to policyAsset
@@ -302,9 +305,6 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
                 out.nValue = 0;
                 out.scriptPubKey = CScript() << OP_RETURN << data;
-                if (output_pubkeys_out) {
-                    output_pubkeys_out->push_back(CPubKey());
-                }
             } else if (name_ == "vdata") {
                 // ELEMENTS: support multi-push OP_RETURN
                 UniValue vdata = output[name_].get_array();
@@ -316,9 +316,6 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
 
                 out.nValue = 0;
                 out.scriptPubKey = datascript;
-                if (output_pubkeys_out) {
-                    output_pubkeys_out->push_back(CPubKey());
-                }
             } else if (name_ == "fee") {
                 // ELEMENTS: explicit fee outputs
                 CAmount nAmount = AmountFromValue(output[name_]);
@@ -331,15 +328,12 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 CAmount nAmount = AmountFromValue(output[name_]);
                 out.nValue = nAmount;
                 out.scriptPubKey = datascript;
-                if (output_pubkeys_out) {
-                    output_pubkeys_out->push_back(CPubKey());
-                }
             } else if (name_ == "asset") {
                 // ELEMENTS: Assets are specified
                 out.nAsset = CAsset(ParseHashO(output, name_));
             } else if (name_ == "blinder_index") {
-                // For PSBT, we don't do anything here with it, just skip
-                continue;
+                // For PSET
+                psbt_out.m_blinder_index = find_value(output, name_).get_int();
             } else {
                 CTxDestination destination = DecodeDestination(name_);
                 if (!IsValidDestination(destination)) {
@@ -358,28 +352,32 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
                 CPubKey blind_pub;
                 if (IsBlindDestination(destination)) {
                     blind_pub = GetDestinationBlindingKey(destination);
-                    if (!output_pubkeys_out) {
+                    if (!outputs_aux) {
                         // Only use the pubkey-in-nonce hack if the caller is not getting the pubkeys the nice way.
                         out.nNonce.vchCommitment = std::vector<unsigned char>(blind_pub.begin(), blind_pub.end());
                     }
                 }
-                if (output_pubkeys_out) {
-                    output_pubkeys_out->push_back(blind_pub);
-                }
+                psbt_out.m_blinding_pubkey = blind_pub;
             }
         }
         if (is_fee) {
             fee_out = out;
         } else {
             rawTx.vout.push_back(out);
+            psbt_outs.push_back(psbt_out);
         }
     }
 
     // Add fee output in the end.
     if (!fee_out.nValue.IsNull() && fee_out.nValue.GetAmount() > 0) {
         rawTx.vout.push_back(fee_out);
-        if (output_pubkeys_out) {
-            output_pubkeys_out->push_back(CPubKey());
+        // New PSBTOutput with version 2
+        psbt_outs.emplace_back(2);
+    }
+
+    if (outputs_aux) {
+        for (unsigned int i = 0; i < rawTx.vout.size(); ++i) {
+            outputs_aux->insert(std::make_pair(rawTx.vout[i], psbt_outs[i]));
         }
     }
 
