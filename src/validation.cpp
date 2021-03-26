@@ -3741,49 +3741,56 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, BlockValidat
         return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "dynamic block header's current parameters do not match expected");
     }
 
-    // Lastly, enforce rules on proposals.
-    const DynaFedParamEntry& proposed = dynafed_params.m_proposed;
-    if (!proposed.IsNull()) {
+    // Lastly, enforce rules on proposals if they make changes.
+    if (!dynafed_params.m_proposed.IsNull()) {
+        // Compare the new proposed parameters with the current full parameters.
+        const DynaFedParamEntry current = ComputeNextBlockFullCurrentParameters(pindexPrev, params.GetConsensus());
+        const DynaFedParamEntry& proposed = dynafed_params.m_proposed;
 
-        // signblockscript proposals *must* be segwit versions
-        int block_version = 0;
-        std::vector<unsigned char> block_program;
-        if (!proposed.m_signblockscript.IsWitnessProgram(block_version, block_program)) {
-            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed signblockscript must be native segwit scriptPubkey");
-        }
-
-        int fedpeg_version = 0;
-        std::vector<unsigned char> fedpeg_program;
-        if (!proposed.m_fedpeg_program.IsWitnessProgram(fedpeg_version, fedpeg_program)) {
-            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed fedpegs program must be native segwit scriptPubkey");
-        }
-
-        // for v0, fedpegscript's scriptPubKey must match. v1+ is unencumbered.
-        if (fedpeg_version == 0) {
-            uint256 fedpeg_program;
-            CSHA256().Write(proposed.m_fedpegscript.data(), proposed.m_fedpegscript.size()).Finalize(fedpeg_program.begin());
-            CScript computed_program = CScript() << OP_0 << ToByteVector(fedpeg_program);
-            if (computed_program != proposed.m_fedpeg_program) {
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed v0 segwit fedpegscript must match proposed fedpeg witness program");
-            }
-
-            // fedpegscript proposals *must not* start with OP_DEPTH
-            // This forbids the first Liquid watchman script which is a hack.
-            // Use miniscript, which doesn't even have OP_DEPTH.
-            // We don't encumber future segwit versions as opcodes may change.
-            if (!proposed.m_fedpegscript.empty() &&
-                    proposed.m_fedpegscript.front() == OP_DEPTH) {
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "Proposed fedpegscript starts with OP_DEPTH, which is illegal");
+        if (proposed.m_signblockscript != current.m_signblockscript) {
+            // signblockscript proposals *must* be segwit versions
+            int block_version = 0;
+            std::vector<unsigned char> block_program;
+            if (!proposed.m_signblockscript.IsWitnessProgram(block_version, block_program)) {
+                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed signblockscript must be native segwit scriptPubkey");
             }
         }
 
-        // When enforcing PAK, extension_space must give non-empty PAK list when
-        // the vector itself is non-empty. Otherwise this means there were "junk"
-        // entries
-        if (params.GetEnforcePak()) {
-            if (!proposed.m_extension_space.empty() &&
-                    CreatePAKListFromExtensionSpace(proposed.m_extension_space).IsReject()) {
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "Extension space is not list of valid PAK entries");
+        if (proposed.m_fedpeg_program != current.m_fedpeg_program || proposed.m_fedpegscript != current.m_fedpegscript) {
+            int fedpeg_version = 0;
+            std::vector<unsigned char> fedpeg_program;
+            if (!proposed.m_fedpeg_program.IsWitnessProgram(fedpeg_version, fedpeg_program)) {
+                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed signblockscript must be native segwit scriptPubkey");
+            }
+
+            // for v0, fedpegscript's scriptPubKey must match. v1+ is unencumbered.
+            if (fedpeg_version == 0) {
+                uint256 fedpeg_program;
+                CSHA256().Write(proposed.m_fedpegscript.data(), proposed.m_fedpegscript.size()).Finalize(fedpeg_program.begin());
+                CScript computed_program = CScript() << OP_0 << ToByteVector(fedpeg_program);
+                if (computed_program != proposed.m_fedpeg_program) {
+                    return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed v0 segwit fedpegscript must match proposed fedpeg witness program");
+                }
+
+                // fedpegscript proposals *must not* start with OP_DEPTH
+                // This forbids the first Liquid watchman script which is a hack.
+                // Use miniscript, which doesn't even have OP_DEPTH.
+                // We don't encumber future segwit versions as opcodes may change.
+                if (!proposed.m_fedpegscript.empty() && proposed.m_fedpegscript.front() == OP_DEPTH) {
+                    return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "Proposed fedpegscript starts with OP_DEPTH, which is illegal");
+                }
+            }
+        }
+
+        if (proposed.m_extension_space != current.m_extension_space) {
+            // When enforcing PAK, extension_space must give non-empty PAK list when
+            // the vector itself is non-empty. Otherwise this means there were "junk"
+            // entries
+            if (params.GetEnforcePak()) {
+                if (!proposed.m_extension_space.empty() &&
+                        CreatePAKListFromExtensionSpace(proposed.m_extension_space).IsReject()) {
+                    return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "Extension space is not list of valid PAK entries");
+                }
             }
         }
     }
