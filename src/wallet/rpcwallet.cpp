@@ -4676,56 +4676,6 @@ static RPCHelpMan sethdseed()
     };
 }
 
-static RPCHelpMan walletfillpsbtdata()
-{
-    return RPCHelpMan{"walletfillpsbtdata",
-                "\nUpdate a PSBT with input information from our wallet\n" +
-        HELP_REQUIRING_PASSPHRASE,
-                {
-                    {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-                    {"bip32derivs", RPCArg::Type::BOOL, /* default */ "true", "Include BIP 32 derivation paths for public keys if we know them"},
-                },
-                RPCResult{
-                    RPCResult::Type::OBJ, "", "",
-                    {
-                        {RPCResult::Type::STR, "psbt", "The base64-encoded partially signed transaction"},
-                    }
-                },
-                RPCExamples{
-                    HelpExampleCli("walletfillpsbtdata", "\"psbt\"")
-                    + HelpExampleRpc("walletfillpsbtdata", "\"psbt\"")
-                },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    if (!g_con_elementsmode)
-        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    if (!wallet) return NullUniValue;
-    CWallet* const pwallet = wallet.get();
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL});
-
-    // Unserialize the transaction
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    bool bip32derivs = request.params[1].isNull() ? true : request.params[1].get_bool();
-    const TransactionError err = pwallet->FillPSBTData(psbtx, bip32derivs);
-    if (err != TransactionError::OK) {
-        throw JSONRPCTransactionError(err);
-    }
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("psbt", EncodePSBT(psbtx));
-    return result;
-},
-    };
-}
-
 static RPCHelpMan walletsignpsbt()
 {
     return RPCHelpMan{"walletsignpsbt",
@@ -7179,7 +7129,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
     { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
-    { "wallet",             "walletfillpsbtdata",               &walletfillpsbtdata,            {"psbt","bip32derivs"} },
     { "wallet",             "walletsignpsbt",                   &walletsignpsbt,                {"psbt","sighashtype","imbalance_ok"} },
     // ELEMENTS:
     { "wallet",             "getpeginaddress",                  &getpeginaddress,               {} },
