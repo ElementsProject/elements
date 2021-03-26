@@ -15,14 +15,9 @@ from test_framework.script import (
     LegacySignatureHash,
     SegwitV0SignatureHash,
     SIGHASH_ALL,
-    SIGHASH_SINGLE,
-    SIGHASH_NONE,
-    SIGHASH_ANYONECANPAY,
     SIGHASH_RANGEPROOF,
     CScript,
     CScriptOp,
-    FindAndDelete,
-    OP_CODESEPARATOR,
     OP_CHECKSIG,
     OP_DUP,
     OP_EQUALVERIFY,
@@ -33,10 +28,8 @@ from test_framework.key import ECKey
 from test_framework.messages import (
     CBlock,
     CTransaction,
-    CTxOut,
     FromHex,
-    WitToHex,
-    hash256, uint256_from_str, ser_uint256, ser_string, ser_vector
+    WitToHex
 )
 
 from test_framework import util
