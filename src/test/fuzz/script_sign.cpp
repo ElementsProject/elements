@@ -123,7 +123,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                 } else {
                     address = CKeyID{ConsumeUInt160(fuzzed_data_provider)};
                 }
-                (void)signature_creator.CreateSig(provider, vch_sig, address, ConsumeScript(fuzzed_data_provider), fuzzed_data_provider.PickValueInArray({SigVersion::BASE, SigVersion::WITNESS_V0}));
+                (void)signature_creator.CreateSig(provider, vch_sig, address, ConsumeScript(fuzzed_data_provider), fuzzed_data_provider.PickValueInArray({SigVersion::BASE, SigVersion::WITNESS_V0}), 0);
             }
             std::map<COutPoint, Coin> coins;
             while (fuzzed_data_provider.ConsumeBool()) {
