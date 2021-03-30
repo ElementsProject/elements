@@ -14,11 +14,12 @@ class CBlockHeader;
 class CBlockIndex;
 class CProof;
 class CScript;
+class CValidationState;
 
 // Elements signed chain functionality
 
 /** Check on header proof, depending on chain type, PoW or signed **/
-bool CheckProof(const CBlockHeader& block, const Consensus::Params&);
+bool CheckProof(const CBlockHeader& block, CValidationState& state, const Consensus::Params&);
 bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params&);
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params&);
 

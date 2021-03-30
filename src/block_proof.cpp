@@ -6,9 +6,12 @@
 #include <pow.h>
 
 #include <chain.h>
+#include <consensus/validation.h>
 #include <primitives/block.h>
 #include <script/interpreter.h>
 #include <script/generic.hpp>
+#include <util/system.h>
+#include <validation.h>
 
 bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, const Consensus::Params& params)
 {
@@ -19,7 +22,7 @@ bool CheckChallenge(const CBlockHeader& block, const CBlockIndex& indexLast, con
     }
 }
 
-static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_block_signature_size, const CScript& challenge, const CScript& scriptSig, const CScriptWitness& witness)
+static bool CheckProofGeneric(const CBlockHeader& block, CValidationState& state, const uint32_t max_block_signature_size, const CScript& challenge, const CScript& scriptSig, const CScriptWitness& witness)
 {
     // Legacy blocks have empty witness, dynafed blocks have empty scriptSig
     bool is_dyna = !witness.stack.empty();
@@ -27,10 +30,10 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
     // Check signature limits for blocks
     if (scriptSig.size() > max_block_signature_size) {
         assert(!is_dyna);
-        return false;
+        return state.DoS(50, false, REJECT_INVALID, "block-signature-too-large");
     } else if (witness.GetSerializedSize() > max_block_signature_size) {
         assert(is_dyna);
-        return false;
+        return state.DoS(50, false, REJECT_INVALID, "block-signature-too-large");
     }
 
     // Some anti-DoS flags, though max_block_signature_size caps the possible
@@ -44,28 +47,41 @@ static bool CheckProofGeneric(const CBlockHeader& block, const uint32_t max_bloc
         | SCRIPT_VERIFY_LOW_S // Stop easiest signature fiddling
         | SCRIPT_VERIFY_WITNESS // Witness and to enforce cleanstack
         | (is_dyna ? 0 : SCRIPT_NO_SIGHASH_BYTE); // Non-dynafed blocks do not have sighash byte
-    return GenericVerifyScript(scriptSig, witness, challenge, proof_flags, block);
+    if(!GenericVerifyScript(scriptSig, witness, challenge, proof_flags, block)) {
+        return state.DoS(50, false, REJECT_INVALID, "block-signature-verify-failed");
+    } else {
+        return true;
+    }
 }
 
-bool CheckProof(const CBlockHeader& block, const Consensus::Params& params)
+bool CheckProof(const CBlockHeader& block, CValidationState& state, const Consensus::Params& params)
 {
     if (g_signed_blocks) {
         const DynaFedParams& dynafed_params = block.m_dynafed_params;
         if (dynafed_params.IsNull()) {
-            return CheckProofGeneric(block, params.max_block_signature_size, params.signblockscript, block.proof.solution, CScriptWitness());
+            return CheckProofGeneric(block, state, params.max_block_signature_size, params.signblockscript, block.proof.solution, CScriptWitness());
         } else {
-            return CheckProofGeneric(block, dynafed_params.m_current.m_signblock_witness_limit, dynafed_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
+            return CheckProofGeneric(block, state, dynafed_params.m_current.m_signblock_witness_limit, dynafed_params.m_current.m_signblockscript, CScript(), block.m_signblock_witness);
         }
     } else {
-        return CheckProofOfWork(block.GetHash(), block.nBits, params);
+        if(!CheckProofOfWork(block.GetHash(), block.nBits, params)) {
+            return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
+        } else {
+            return true;
+        }
     }
 }
 
 bool CheckProofSignedParent(const CBlockHeader& block, const Consensus::Params& params)
 {
+    CValidationState state;
     const DynaFedParams& dynafed_params = block.m_dynafed_params;
     if (dynafed_params.IsNull()) {
-        return CheckProofGeneric(block, params.max_block_signature_size, params.parent_chain_signblockscript, block.proof.solution, CScriptWitness());
+        if(!CheckProofGeneric(block, state, params.max_block_signature_size, params.parent_chain_signblockscript, block.proof.solution, CScriptWitness())) {
+            return error("%s: CheckProofGeneric: %s", __func__, FormatStateMessage(state));
+        } else {
+            return true;
+        }
     } else {
         // Dynamic federations means we cannot validate the signer set
         // at least without tracking the parent chain more directly.
