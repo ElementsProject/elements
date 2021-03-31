@@ -91,6 +91,8 @@ BASE_SCRIPTS = [
     'feature_fedpeg.py --pre_transition',
     'feature_fedpeg.py --post_transition',
     'feature_mandatory_coinbase.py',
+    'feature_dynafed.py',
+    'feature_sighash_rangeproof.py',
     'feature_block_subsidy.py',
     'feature_connect_genesis_outputs.py',
     'feature_block_v4.py',
@@ -105,8 +107,6 @@ BASE_SCRIPTS = [
     'feature_assetsdir.py',
     'feature_initial_reissuance_token.py',
     'feature_progress.py',
-    'feature_dynafed.py',
-    'feature_sighash_rangeproof.py',
     # Longest test should go first, to favor running tests in parallel
     'wallet_hd.py',
     'wallet_hd.py --descriptors',

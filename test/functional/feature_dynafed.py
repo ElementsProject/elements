@@ -122,7 +122,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # Move chain forward to activation, any new blocks will be enforced
         blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
-        self.sync_all()
+        self.sync_blocks(timeout=240)
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 
         # Existing blocks should have null dynafed fields
