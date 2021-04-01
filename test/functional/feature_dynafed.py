@@ -500,6 +500,7 @@ class DynaFedTest(BitcoinTestFramework):
             self.assert_accepted(pegin_tx)
             self.assert_accepted(pegout_tx)
         assert_equal(self.nodes[0].getsidechaininfo()["current_fedpegscripts"], ["51", "51"])
+        self.sync_blocks()
 
         # Now have node 1 transition to new pak and fedpegscript
         pak_prop["fedpegscript"] = "52"
