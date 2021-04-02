@@ -103,6 +103,7 @@ task:
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
+    memory: 12G # ELEMENTS: need more memory
   env:
     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
 
