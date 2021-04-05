@@ -13,6 +13,8 @@
 
 bool g_con_elementsmode = false;
 
+const int32_t CTransaction::CURRENT_VERSION = 2;
+
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10), n);

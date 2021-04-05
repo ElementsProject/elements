@@ -19,6 +19,14 @@ PartiallySignedTransaction::PartiallySignedTransaction(const CMutableTransaction
     SetupFromTx(tx);
 }
 
+PartiallySignedTransaction::PartiallySignedTransaction(uint32_t version) :
+    m_version(version)
+{
+    if (GetVersion() >= 2) {
+        tx_version = CTransaction::CURRENT_VERSION;
+    }
+}
+
 bool PartiallySignedTransaction::IsNull() const
 {
     return !tx && inputs.empty() && outputs.empty() && unknown.empty();
