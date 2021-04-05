@@ -761,7 +761,7 @@ struct PartiallySignedTransaction
 
             // Write serialized tx to a stream
             OverrideStream<Stream> os(&s, s.GetType(), s.GetVersion() | SERIALIZE_TRANSACTION_NO_WITNESS);
-            SerializeToVector(os, *tx);
+            SerializeToVector(os, GetUnsignedTx());
         }
 
         // Write xpubs
