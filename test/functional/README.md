@@ -4,13 +4,13 @@
 
 #### Example test
 
-The [example_test.py](example_test.py) is a heavily commented example of a test case that uses both
-the RPC and P2P interfaces. If you are writing your first test, copy that file
-and modify to fit your needs.
+The file [test/functional/example_test.py](example_test.py) is a heavily commented example
+of a test case that uses both the RPC and P2P interfaces. If you are writing your first test, copy
+that file and modify to fit your needs.
 
 #### Coverage
 
-Running `test_runner.py` with the `--coverage` argument tracks which RPCs are
+Running `test/functional/test_runner.py` with the `--coverage` argument tracks which RPCs are
 called by the tests and prints a report of uncovered RPCs in the summary. This
 can be used (along with the `--extended` argument) to find out which RPCs we
 don't have test cases for.
@@ -26,10 +26,12 @@ don't have test cases for.
   The Travis linter also checks this, but [possibly not in all cases](https://github.com/bitcoin/bitcoin/pull/14884#discussion_r239585126).
 - See [the python lint script](/test/lint/lint-python.sh) that checks for violations that
   could lead to bugs and issues in the test code.
+- Use [type hints](https://docs.python.org/3/library/typing.html) in your code to improve code readability
+  and to detect possible bugs earlier.
 - Avoid wildcard imports
 - Use a module-level docstring to describe what the test is testing, and how it
   is testing it.
-- When subclassing the BitcoinTestFramwork, place overrides for the
+- When subclassing the BitcoinTestFramework, place overrides for the
   `set_test_params()`, `add_options()` and `setup_xxxx()` methods at the top of
   the subclass, then locally-defined helper methods, then the `run_test()` method.
 - Use `'{}'.format(x)` for string formatting, not `'%s' % x`.
@@ -45,16 +47,19 @@ don't have test cases for.
     - `rpc` for tests for individual RPC methods or features, eg `rpc_listtransactions.py`
     - `tool` for tests for tools, eg `tool_wallet.py`
     - `wallet` for tests for wallet features, eg `wallet_keypool.py`
-- use an underscore to separate words
+- Use an underscore to separate words
     - exception: for tests for specific RPCs or command line options which don't include underscores, name the test after the exact RPC or argument name, eg `rpc_decodescript.py`, not `rpc_decode_script.py`
 - Don't use the redundant word `test` in the name, eg `interface_zmq.py`, not `interface_zmq_test.py`
 
 #### General test-writing advice
 
+- Instead of inline comments or no test documentation at all, log the comments to the test log, e.g.
+  `self.log.info('Create enough transactions to fill a block')`. Logs make the test code easier to read and the test
+  logic easier [to debug](/test/README.md#test-logging).
 - Set `self.num_nodes` to the minimum number of nodes necessary for the test.
   Having additional unrequired nodes adds to the execution time of the test as
   well as memory/CPU/disk requirements (which is important when running tests in
-  parallel or on Travis).
+  parallel).
 - Avoid stop-starting the nodes multiple times during the test if possible. A
   stop-start takes several seconds, so doing it several times blows up the
   runtime of the test.
@@ -82,7 +87,9 @@ P2P messages. These can be found in the following source files:
 
 #### Using the P2P interface
 
-- `messages.py` contains all the definitions for objects that pass
+- `P2P`s can be used to test specific P2P protocol behavior.
+[p2p.py](test_framework/p2p.py) contains test framework p2p objects and
+[messages.py](test_framework/messages.py) contains all the definitions for objects passed
 over the network (`CBlock`, `CTransaction`, etc, along with the network-level
 wrappers for them, `msg_block`, `msg_tx`, etc).
 
@@ -95,33 +102,57 @@ contains the higher level logic for processing P2P payloads and connecting to
 the Bitcoin Core node application logic. For custom behaviour, subclass the
 P2PInterface object and override the callback methods.
 
-- Can be used to write tests where specific P2P protocol behavior is tested.
-Examples tests are `p2p_unrequested_blocks.py`, `p2p_compactblocks.py`.
+`P2PConnection`s can be used as such:
 
-### test-framework modules
+```python
+p2p_conn = node.add_p2p_connection(P2PInterface())
+p2p_conn.send_and_ping(msg)
+```
 
-#### [test_framework/authproxy.py](test_framework/authproxy.py)
+They can also be referenced by indexing into a `TestNode`'s `p2ps` list, which
+contains the list of test framework `p2p` objects connected to itself
+(it does not include any `TestNode`s):
+
+```python
+node.p2ps[0].sync_with_ping()
+```
+
+More examples can be found in [p2p_unrequested_blocks.py](p2p_unrequested_blocks.py),
+[p2p_compactblocks.py](p2p_compactblocks.py).
+
+#### Prototyping tests
+
+The [`TestShell`](test-shell.md) class exposes the BitcoinTestFramework
+functionality to interactive Python3 environments and can be used to prototype
+tests. This may be especially useful in a REPL environment with session logging
+utilities, such as
+[IPython](https://ipython.readthedocs.io/en/stable/interactive/reference.html#session-logging-and-restoring).
+The logs of such interactive sessions can later be adapted into permanent test
+cases.
+
+### Test framework modules
+The following are useful modules for test developers. They are located in
+[test/functional/test_framework/](test_framework).
+
+#### [authproxy.py](test_framework/authproxy.py)
 Taken from the [python-bitcoinrpc repository](https://github.com/jgarzik/python-bitcoinrpc).
 
-#### [test_framework/test_framework.py](test_framework/test_framework.py)
+#### [test_framework.py](test_framework/test_framework.py)
 Base class for functional tests.
 
-#### [test_framework/util.py](test_framework/util.py)
+#### [util.py](test_framework/util.py)
 Generally useful functions.
 
-#### [test_framework/mininode.py](test_framework/mininode.py)
-Basic code to support P2P connectivity to a bitcoind.
+#### [p2p.py](test_framework/p2p.py)
+Test objects for interacting with a bitcoind node over the p2p interface.
 
-#### [test_framework/script.py](test_framework/script.py)
+#### [script.py](test_framework/script.py)
 Utilities for manipulating transaction scripts (originally from python-bitcoinlib)
 
-#### [test_framework/key.py](test_framework/key.py)
-Wrapper around OpenSSL EC_Key (originally from python-bitcoinlib)
+#### [key.py](test_framework/key.py)
+Test-only secp256k1 elliptic curve implementation
 
-#### [test_framework/bignum.py](test_framework/bignum.py)
-Helpers for script.py
-
-#### [test_framework/blocktools.py](test_framework/blocktools.py)
+#### [blocktools.py](test_framework/blocktools.py)
 Helper functions for creating blocks and transactions.
 
 ### Benchmarking with perf
@@ -142,7 +173,7 @@ way is the use the `profile_with_perf` context manager, e.g.
 with node.profile_with_perf("send-big-msgs"):
     # Perform activity on the node you're interested in profiling, e.g.:
     for _ in range(10000):
-        node.p2p.send_message(some_large_message)
+        node.p2ps[0].send_message(some_large_message)
 ```
 
 To see useful textual output, run

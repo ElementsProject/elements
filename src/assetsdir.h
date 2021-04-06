@@ -59,5 +59,7 @@ class CAssetsDir;
 extern const CAssetsDir& gAssetsDir;
 
 void InitGlobalAssetDir(const std::vector<std::string>& assetsToInit, const std::string& pegged_asset_name);
+// Used in testing
+void ClearGlobalAssetDir(void);
 
 #endif // BITCOIN_ASSETSDIR_H

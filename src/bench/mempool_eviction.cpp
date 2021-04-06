@@ -1,13 +1,12 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
 #include <policy/policy.h>
+#include <test/util/setup_common.h>
 #include <txmempool.h>
 
-#include <list>
-#include <vector>
 #include <primitives/transaction.h>
 
 static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& pool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, pool.cs)
@@ -19,15 +18,24 @@ static void AddTx(const CTransactionRef& tx, const CAmount& nFee, CTxMemPool& po
     LockPoints lp;
     std::set<std::pair<uint256, COutPoint>> setPeginsSpent;
     pool.addUnchecked(CTxMemPoolEntry(
-                                         tx, nFee, nTime, nHeight,
-                                         spendsCoinbase, sigOpCost, lp, setPeginsSpent));
+        tx, nFee, nTime, nHeight,
+        spendsCoinbase, sigOpCost, lp, setPeginsSpent));
 }
 
 // Right now this is only testing eviction performance in an extremely small
 // mempool. Code needs to be written to generate a much wider variety of
 // unique transactions for a more meaningful performance measurement.
-static void MempoolEviction(benchmark::State& state)
+static void MempoolEviction(benchmark::Bench& bench)
 {
+    TestingSetup test_setup{
+        CBaseChainParams::REGTEST,
+        /* fedpegscript */ "",
+        /* extra_args */ {
+            "-nodebuglogfile",
+            "-nodebug",
+        },
+    };
+
     CMutableTransaction tx1 = CMutableTransaction();
     tx1.vin.resize(1);
     tx1.vin[0].scriptSig = CScript() << OP_1;
@@ -131,7 +139,7 @@ static void MempoolEviction(benchmark::State& state)
     const CTransactionRef tx6_r{MakeTransactionRef(tx6)};
     const CTransactionRef tx7_r{MakeTransactionRef(tx7)};
 
-    while (state.KeepRunning()) {
+    bench.run([&]() NO_THREAD_SAFETY_ANALYSIS {
         AddTx(tx1_r, 10000LL, pool);
         AddTx(tx2_r, 5000LL, pool);
         AddTx(tx3_r, 20000LL, pool);
@@ -141,7 +149,7 @@ static void MempoolEviction(benchmark::State& state)
         AddTx(tx7_r, 9000LL, pool);
         pool.TrimToSize(pool.DynamicMemoryUsage() * 3 / 4);
         pool.TrimToSize(GetVirtualTransactionSize(*tx1_r));
-    }
+    });
 }
 
-BENCHMARK(MempoolEviction, 41000);
+BENCHMARK(MempoolEviction);

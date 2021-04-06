@@ -6,9 +6,9 @@
 
 from test_framework.blocktools import create_coinbase, create_block, create_transaction
 from test_framework.messages import msg_block
-from test_framework.mininode import P2PInterface
+from test_framework.p2p import P2PInterface
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, get_bip9_status
+from test_framework.util import assert_equal, softfork_active
 
 from feature_cltv import cltv_validate
 
@@ -25,9 +25,9 @@ class BlockV4Test(BitcoinTestFramework):
 
         # First, quick check that CSV is ACTIVE at genesis
         assert_equal(self.nodes[0].getblockcount(), 0)
-        assert_equal(get_bip9_status(self.nodes[0], 'csv')['status'], 'active')
+        assert softfork_active(self.nodes[0], 'csv')
 
-        self.nodes[0].add_p2p_connection(P2PInterface())
+        peer = self.nodes[0].add_p2p_connection(P2PInterface())
 
         self.nodeaddress = self.nodes[0].getnewaddress()
 
@@ -46,7 +46,7 @@ class BlockV4Test(BitcoinTestFramework):
         # ... we rejected it because it is v3
         with self.nodes[0].assert_debug_log(expected_msgs=['{}, bad-version(0x00000003)'.format(block.hash)]):
             # Send it to the node
-            self.nodes[0].p2p.send_and_ping(msg_block(block))
+            peer.send_and_ping(msg_block(block))
 
         self.log.info("Test that a version 4 block with a valid-according-to-CLTV transaction is accepted")
 
@@ -73,7 +73,7 @@ class BlockV4Test(BitcoinTestFramework):
         block.solve()
 
         # Send block and check that it becomes new best block
-        self.nodes[0].p2p.send_and_ping(msg_block(block))
+        peer.send_and_ping(msg_block(block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.sha256)
 
 if __name__ == '__main__':

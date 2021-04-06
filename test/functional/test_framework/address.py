@@ -1,26 +1,41 @@
 #!/usr/bin/env python3
-# Copyright (c) 2016-2018 The Bitcoin Core developers
+# Copyright (c) 2016-2020 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
-"""Encode and decode BASE58, P2PKH and P2SH addresses."""
+"""Encode and decode Bitcoin addresses.
+
+- base58 P2PKH and P2SH addresses.
+- bech32 segwit v0 P2WPKH and P2WSH addresses."""
+
+import enum
+import unittest
 
 from .script import hash256, hash160, sha256, CScript, OP_0
-from .util import bytes_to_hex_str, hex_str_to_bytes, assert_equal
-
-from . import segwit_addr
+from .segwit_addr import encode_segwit_address
+from .util import assert_equal, hex_str_to_bytes
 
 ADDRESS_BCRT1_UNSPENDABLE = 'ert1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq458dk'
+ADDRESS_BCRT1_UNSPENDABLE_DESCRIPTOR = 'addr(ert1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq458dk)#446fqfj4'
+# Coins sent to this address can be spent with a witness stack of just OP_TRUE
+ADDRESS_BCRT1_P2WSH_OP_TRUE = 'ert1qft5p2uhsdcdc3l2ua4ap5qqfg4pjaqlp250x7us7a8qqhrxrxfsqp24xws'
+
+
+class AddressType(enum.Enum):
+    bech32 = 'bech32'
+    p2sh_segwit = 'p2sh-segwit'
+    legacy = 'legacy'  # P2PKH
+
 
 chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
 
 def byte_to_base58(b, version):
     result = ''
-    str = bytes_to_hex_str(b)
-    str = bytes_to_hex_str(chr(version).encode('latin-1')) + str
-    checksum = bytes_to_hex_str(hash256(hex_str_to_bytes(str)))
+    str = b.hex()
+    str = chr(version).encode('latin-1').hex() + str
+    checksum = hash256(hex_str_to_bytes(str)).hex()
     str += checksum[:8]
-    value = int('0x'+str,0)
+    value = int('0x' + str, 0)
     while value > 0:
         result = chars[value % 58] + result
         value //= 58
@@ -60,60 +75,79 @@ def base58_to_byte(s):
     return res[1:-4], int(res[0])
 
 
-def keyhash_to_p2pkh(hash, main = False):
-    assert (len(hash) == 20)
+def keyhash_to_p2pkh(hash, main=False):
+    assert len(hash) == 20
     version = 235
     return byte_to_base58(hash, version)
 
-def scripthash_to_p2sh(hash, main = False):
-    assert (len(hash) == 20)
-    version = 75
+def scripthash_to_p2sh(hash, main=False, prefix=75):
+    assert len(hash) == 20
+    version = prefix
     return byte_to_base58(hash, version)
 
-def key_to_p2pkh(key, main = False):
+def key_to_p2pkh(key, main=False):
     key = check_key(key)
     return keyhash_to_p2pkh(hash160(key), main)
 
-def script_to_p2sh(script, main = False):
+def script_to_p2sh(script, main=False, prefix=75):
     script = check_script(script)
-    return scripthash_to_p2sh(hash160(script), main)
+    return scripthash_to_p2sh(hash160(script), main, prefix)
 
-def key_to_p2sh_p2wpkh(key, main = False):
+def key_to_p2sh_p2wpkh(key, main=False):
     key = check_key(key)
     p2shscript = CScript([OP_0, hash160(key)])
     return script_to_p2sh(p2shscript, main)
 
-def program_to_witness(version, program, main = False):
+def program_to_witness(version, program, main=False):
     if (type(program) is str):
         program = hex_str_to_bytes(program)
     assert 0 <= version <= 16
     assert 2 <= len(program) <= 40
     assert version > 0 or len(program) in [20, 32]
-    return segwit_addr.encode("ert", version, program)
+    return encode_segwit_address("ert", version, program)
 
-def script_to_p2wsh(script, main = False):
+def script_to_p2wsh(script, main=False):
     script = check_script(script)
     return program_to_witness(0, sha256(script), main)
 
-def key_to_p2wpkh(key, main = False):
+def key_to_p2wpkh(key, main=False):
     key = check_key(key)
     return program_to_witness(0, hash160(key), main)
 
-def script_to_p2sh_p2wsh(script, main = False):
+def script_to_p2sh_p2wsh(script, main=False):
     script = check_script(script)
     p2shscript = CScript([OP_0, sha256(script)])
     return script_to_p2sh(p2shscript, main)
 
 def check_key(key):
     if (type(key) is str):
-        key = hex_str_to_bytes(key) # Assuming this is hex string
+        key = hex_str_to_bytes(key)  # Assuming this is hex string
     if (type(key) is bytes and (len(key) == 33 or len(key) == 65)):
         return key
-    assert(False)
+    assert False
 
 def check_script(script):
     if (type(script) is str):
-        script = hex_str_to_bytes(script) # Assuming this is hex string
+        script = hex_str_to_bytes(script)  # Assuming this is hex string
     if (type(script) is bytes or type(script) is CScript):
         return script
-    assert(False)
+    assert False
+
+
+class TestFrameworkScript(unittest.TestCase):
+    def test_base58encodedecode(self):
+        def check_base58(data, version):
+            self.assertEqual(base58_to_byte(byte_to_base58(data, version)), (data, version))
+
+        check_base58(bytes.fromhex('1f8ea1702a7bd4941bca0941b852c4bbfedb2e05'), 111)
+        check_base58(bytes.fromhex('3a0b05f4d7f66c3ba7009f453530296c845cc9cf'), 111)
+        check_base58(bytes.fromhex('41c1eaf111802559bad61b60d62b1f897c63928a'), 111)
+        check_base58(bytes.fromhex('0041c1eaf111802559bad61b60d62b1f897c63928a'), 111)
+        check_base58(bytes.fromhex('000041c1eaf111802559bad61b60d62b1f897c63928a'), 111)
+        check_base58(bytes.fromhex('00000041c1eaf111802559bad61b60d62b1f897c63928a'), 111)
+        check_base58(bytes.fromhex('1f8ea1702a7bd4941bca0941b852c4bbfedb2e05'), 0)
+        check_base58(bytes.fromhex('3a0b05f4d7f66c3ba7009f453530296c845cc9cf'), 0)
+        check_base58(bytes.fromhex('41c1eaf111802559bad61b60d62b1f897c63928a'), 0)
+        check_base58(bytes.fromhex('0041c1eaf111802559bad61b60d62b1f897c63928a'), 0)
+        check_base58(bytes.fromhex('000041c1eaf111802559bad61b60d62b1f897c63928a'), 0)
+        check_base58(bytes.fromhex('00000041c1eaf111802559bad61b60d62b1f897c63928a'), 0)

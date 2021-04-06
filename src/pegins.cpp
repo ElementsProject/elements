@@ -185,7 +185,7 @@ static bool CheckPeginTx(const std::vector<unsigned char>& tx_data, T& pegtx, co
         }
         CScript tweaked_fedpegscript = calculate_contract(scripts.second, claim_script);
         // TODO: Remove script/standard.h dep for GetScriptFor*
-        CScript expected_script(GetScriptForWitness(tweaked_fedpegscript));
+        CScript expected_script(GetScriptForDestination(WitnessV0ScriptHash(tweaked_fedpegscript)));
         if (scripts.first.IsPayToScriptHash()) {
             expected_script = GetScriptForDestination(ScriptHash(expected_script));
         }
@@ -378,15 +378,6 @@ bool IsValidPeginWitness(const CScriptWitness& pegin_witness, const std::vector<
     return true;
 }
 
-// Constructs unblinded "bitcoin" output to be used in amount and scriptpubkey checks during pegin validation.
-CTxOut GetPeginOutputFromWitness(const CScriptWitness& pegin_witness) {
-    CDataStream stream(pegin_witness.stack[0], SER_NETWORK, PROTOCOL_VERSION);
-    CAmount value;
-    stream >> value;
-
-    return CTxOut(CAsset(pegin_witness.stack[1]), CConfidentialValue(value), CScript(pegin_witness.stack[3].begin(), pegin_witness.stack[3].end()));
-}
-
 bool MatchLiquidWatchman(const CScript& script)
 {
     CScript::const_iterator it = script.begin();
@@ -465,7 +456,7 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
 
     std::vector<std::pair<CScript, CScript>> fedpegscripts;
 
-    const int32_t epoch_length = params.dynamic_epoch_length;
+    const int32_t epoch_length = (int32_t) params.dynamic_epoch_length;
     const int32_t epoch_age = pblockindex->nHeight % epoch_length;
     const int32_t epoch_start_height = pblockindex->nHeight - epoch_age;
 
@@ -477,7 +468,11 @@ std::vector<std::pair<CScript, CScript>> GetValidFedpegScripts(const CBlockIndex
     }
 
     // Next we walk backwards up to M epoch starts
-    for (size_t i = 0; i < params.total_valid_epochs; i++) {
+    for (int32_t i = 0; i < (int32_t) params.total_valid_epochs; i++) {
+        // We are within total_valid_epochs of the genesis
+        if (i * epoch_length > epoch_start_height) {
+            break;
+        }
 
         const CBlockIndex* p_epoch_start = pblockindex->GetAncestor(epoch_start_height-i*epoch_length);
 

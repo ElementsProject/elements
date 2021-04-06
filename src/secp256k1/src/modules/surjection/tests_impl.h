@@ -34,7 +34,7 @@ static void test_surjectionproof_api(void) {
     int32_t ecount = 0;
     size_t i;
 
-    secp256k1_rand256(seed);
+    secp256k1_testrand256(seed);
     secp256k1_context_set_error_callback(none, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_error_callback(sign, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_error_callback(vrfy, counting_illegal_callback_fn, &ecount);
@@ -45,11 +45,11 @@ static void test_surjectionproof_api(void) {
     secp256k1_context_set_illegal_callback(both, counting_illegal_callback_fn, &ecount);
 
     for (i = 0; i < n_inputs; i++) {
-        secp256k1_rand256(input_blinding_key[i]);
-        secp256k1_rand256(fixed_input_tags[i].data);
+        secp256k1_testrand256(input_blinding_key[i]);
+        secp256k1_testrand256(fixed_input_tags[i].data);
         CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_input_tags[i], fixed_input_tags[i].data, input_blinding_key[i]));
     }
-    secp256k1_rand256(output_blinding_key);
+    secp256k1_testrand256(output_blinding_key);
     memcpy(&fixed_output_tag, &fixed_input_tags[0], sizeof(fixed_input_tags[0]));
     CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_output_tag, fixed_output_tag.data, output_blinding_key));
 
@@ -213,10 +213,10 @@ static void test_input_selection(size_t n_inputs) {
     const size_t max_n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]) - 1;
 
     CHECK(n_inputs < max_n_inputs);
-    secp256k1_rand256(seed);
+    secp256k1_testrand256(seed);
 
     for (i = 0; i < n_inputs + 1; i++) {
-        secp256k1_rand256(fixed_input_tags[i].data);
+        secp256k1_testrand256(fixed_input_tags[i].data);
     }
 
     /* cannot match output when told to use zero keys */
@@ -281,7 +281,7 @@ static void test_input_selection_distribution_helper(const secp256k1_fixed_asset
         used_inputs[i] = 0;
     }
     for(j = 0; j < 10000; j++) {
-        secp256k1_rand256(seed);
+        secp256k1_testrand256(seed);
         result = secp256k1_surjectionproof_initialize(ctx, &proof, &input_index, fixed_input_tags, n_input_tags, n_input_tags_to_use, &fixed_input_tags[0], 64, seed);
         CHECK(result > 0);
 
@@ -304,7 +304,7 @@ static void test_input_selection_distribution(void) {
     size_t used_inputs[4];
 
     for (i = 0; i < n_inputs; i++) {
-        secp256k1_rand256(fixed_input_tags[i].data);
+        secp256k1_testrand256(fixed_input_tags[i].data);
     }
 
     /* If there is one input tag to use, initialize must choose the one equal to fixed_output_tag. */
@@ -387,16 +387,16 @@ static void test_gen_verify(size_t n_inputs, size_t n_used) {
     /* setup */
     CHECK(n_used <= n_inputs);
     CHECK(n_inputs < max_n_inputs);
-    secp256k1_rand256(seed);
+    secp256k1_testrand256(seed);
 
     key_index = (((size_t) seed[0] << 8) + seed[1]) % n_inputs;
 
     for (i = 0; i < n_inputs + 1; i++) {
         input_blinding_key[i] = malloc(32);
-        secp256k1_rand256(input_blinding_key[i]);
+        secp256k1_testrand256(input_blinding_key[i]);
         /* choose random fixed tag, except that for the output one copy from the key_index */
         if (i < n_inputs) {
-            secp256k1_rand256(fixed_input_tags[i].data);
+            secp256k1_testrand256(fixed_input_tags[i].data);
         } else {
             memcpy(&fixed_input_tags[i], &fixed_input_tags[key_index], sizeof(fixed_input_tags[i]));
         }
@@ -476,11 +476,11 @@ static void test_no_used_inputs_verify(void) {
     memset(proof.used_inputs, 0, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS / 8);
 
     /* create different fixed input and output tags */
-    secp256k1_rand256(fixed_input_tag.data);
-    secp256k1_rand256(fixed_output_tag.data);
+    secp256k1_testrand256(fixed_input_tag.data);
+    secp256k1_testrand256(fixed_output_tag.data);
 
     /* blind fixed output tags with random blinding key */
-    secp256k1_rand256(blinding_key);
+    secp256k1_testrand256(blinding_key);
     CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_input_tags[0], fixed_input_tag.data, blinding_key));
     CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_output_tag, fixed_output_tag.data, blinding_key));
 
@@ -667,10 +667,7 @@ void test_fixed_vectors(void) {
 }
 
 void run_surjection_tests(void) {
-    int i;
-    for (i = 0; i < count; i++) {
-        test_surjectionproof_api();
-    }
+    test_surjectionproof_api();
     test_fixed_vectors();
 
     test_input_selection(0);

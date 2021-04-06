@@ -20,7 +20,7 @@ previously ejected transactions are allowed back into the mempool when appropria
 
 """
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_raises_rpc_error, assert_equal, sync_blocks
+from test_framework.util import assert_raises_rpc_error, assert_equal
 
 # Hardcoded PAK that's in chainparams to make sure PAK is enforced even when dynafed is not
 initial_online = "02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f"
@@ -29,8 +29,8 @@ initial_offline = "03808355deeb0555203b53df7ef8f36edaf66ab0207ca1b11968a7ac42155
 initial_extension = [initial_online+initial_online]
 new_extension = [initial_offline+initial_online]
 
-ERR_MP_INVALID_PEGOUT = "64: invalid-pegout-proof"
-ERR_MP_INVALID_PEGIN = "16: pegin-no-witness"
+ERR_MP_INVALID_PEGOUT = "invalid-pegout-proof"
+ERR_MP_INVALID_PEGIN = "pegin-no-witness"
 
 def go_to_epoch_end(node):
     epoch_info = node.getblockchaininfo()
@@ -81,7 +81,7 @@ class DynaFedTest(BitcoinTestFramework):
             assert_equal(self.nodes[i].getblockcount(), 0)
 
             # Check deployment exists and is not active
-            dyna_activate = self.nodes[i].getblockchaininfo()["bip9_softforks"]["dynafed"]
+            dyna_activate = self.nodes[i].getblockchaininfo()["softforks"]["dynafed"]["bip9"]
             assert_equal(dyna_activate["status"], "defined")
 
             # fedpegscript is OP_TRUE
@@ -114,16 +114,16 @@ class DynaFedTest(BitcoinTestFramework):
         # at height 1008 which is evenly disible by 144(regtest bip9 window size)
         # Giving funds to node 1 to avoid a transaction size blowup when sweeping later
         blocks = self.nodes[0].generatetoaddress(1006, self.nodes[1].getnewaddress())
-        assert_equal(self.nodes[0].getblockchaininfo()["bip9_softforks"]["dynafed"]["status"], "defined")
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "defined")
         blocks += self.nodes[0].generatetoaddress(1, self.nodes[0].getnewaddress())
-        assert_equal(self.nodes[0].getblockchaininfo()["bip9_softforks"]["dynafed"]["status"], "started")
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "started")
         blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
-        assert_equal(self.nodes[0].getblockchaininfo()["bip9_softforks"]["dynafed"]["status"], "locked_in")
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "locked_in")
 
         # Move chain forward to activation, any new blocks will be enforced
         blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
-        self.sync_all()
-        assert_equal(self.nodes[0].getblockchaininfo()["bip9_softforks"]["dynafed"]["status"], "active")
+        self.sync_blocks(timeout=240)
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 
         # Existing blocks should have null dynafed fields
         for block in blocks:
@@ -355,7 +355,7 @@ class DynaFedTest(BitcoinTestFramework):
         # Now generate an epoch of blocks on node 1 to show that non-transitions don't dump
         # PAK or peg-in transactions from mempool
         self.nodes[1].generatetoaddress(10, self.nodes[1].getnewaddress())
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
         # Transactions are still in mempool
@@ -369,7 +369,7 @@ class DynaFedTest(BitcoinTestFramework):
             block = self.nodes[1].getnewblockhex(0, pak_prop)
             assert_equal(self.nodes[1].submitblock(block), None)
 
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
         # After the 10th block, nothing gets the boot
@@ -388,7 +388,7 @@ class DynaFedTest(BitcoinTestFramework):
             assert pegout_child_id in raw_pool
             block = self.nodes[1].getnewblockhex(0, pak_prop)
             assert_equal(self.nodes[1].submitblock(block), None)
-            sync_blocks(self.nodes)
+            self.sync_blocks()
 
         assert_equal(self.nodes[0].getblockchaininfo()["epoch_age"], 9)
 
@@ -404,7 +404,7 @@ class DynaFedTest(BitcoinTestFramework):
         for _ in range(10):
             assert claim_id in self.nodes[0].getrawmempool()
             self.nodes[1].submitblock(self.nodes[1].getnewblockhex())
-            sync_blocks(self.nodes)
+            self.sync_blocks()
 
         # After 10 blocks(no proposal), peg-in is finally dumped
         assert claim_id not in self.nodes[0].getrawmempool()
@@ -500,6 +500,7 @@ class DynaFedTest(BitcoinTestFramework):
             self.assert_accepted(pegin_tx)
             self.assert_accepted(pegout_tx)
         assert_equal(self.nodes[0].getsidechaininfo()["current_fedpegscripts"], ["51", "51"])
+        self.sync_blocks()
 
         # Now have node 1 transition to new pak and fedpegscript
         pak_prop["fedpegscript"] = "52"
@@ -508,7 +509,7 @@ class DynaFedTest(BitcoinTestFramework):
             self.assert_accepted(pegin_tx)
             self.assert_accepted(pegout_tx)
             self.nodes[1].submitblock(self.nodes[1].getnewblockhex(0, pak_prop))
-            sync_blocks(self.nodes)
+            self.sync_blocks()
 
         # so right before the next epoch, the new params are active and
         # the pegout is already invalid while the pegin is still valid
@@ -527,7 +528,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # and after the 10th block of course that is still the case
         self.nodes[1].submitblock(self.nodes[1].getnewblockhex(0, pak_prop))
-        sync_blocks(self.nodes)
+        self.sync_blocks()
         self.assert_accepted(pegin_tx)
         assert_equal(self.nodes[0].testmempoolaccept([pegout_tx])[0]["reject-reason"], ERR_MP_INVALID_PEGOUT)
 
@@ -537,7 +538,7 @@ class DynaFedTest(BitcoinTestFramework):
             self.assert_accepted(pegin_tx)
             assert_equal(self.nodes[0].testmempoolaccept([pegout_tx])[0]["reject-reason"], ERR_MP_INVALID_PEGOUT)
             self.nodes[1].generatetoaddress(1, self.nodes[1].getnewaddress())
-            sync_blocks(self.nodes)
+            self.sync_blocks()
 
         # so on the last block both should not be allowed
         assert_equal(self.nodes[1].getsidechaininfo()["current_fedpegscripts"], ["52", "52"])

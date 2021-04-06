@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import codecs
-import hashlib
-import random
 
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import (assert_raises_rpc_error, assert_equal, connect_nodes_bi)
+from test_framework.util import (assert_raises_rpc_error, assert_equal)
 from test_framework import (
     address,
     key,
@@ -26,7 +24,7 @@ def wif(pk):
 
 # The signblockscript is a Bitcoin Script k-of-n multisig script.
 def make_signblockscript(num_nodes, required_signers, keys):
-    assert(num_nodes >= required_signers)
+    assert num_nodes >= required_signers
     script = "{}".format(50 + required_signers)
     for i in range(num_nodes):
         k = keys[i]
@@ -67,9 +65,8 @@ class BlockSignTest(BitcoinTestFramework):
         self.wifs = []
         for i in range(num_keys):
             k = key.ECKey()
-            sk_bytes = hashlib.sha256(str(random.getrandbits(256)).encode('utf-8')).digest()
-            k.set(sk_bytes, True)
-            w = wif(sk_bytes)
+            k.generate()
+            w = wif(k.get_bytes())
             self.keys.append(k)
             self.wifs.append(w)
 
@@ -91,7 +88,7 @@ class BlockSignTest(BitcoinTestFramework):
     def setup_network(self):
         self.setup_nodes()
         # Connect non-signing node to a single signing one (to not pass blocks between signers)
-        connect_nodes_bi(self.nodes, 0, self.num_nodes-1)
+        self.connect_nodes(0, self.num_nodes-1)
 
     def check_height(self, expected_height):
         for n in self.nodes:
@@ -109,7 +106,7 @@ class BlockSignTest(BitcoinTestFramework):
 
         # If dynafed is enabled, this means signblockscript has been WSH-wrapped
         blockchain_info = self.nodes[0].getblockchaininfo()
-        is_dyna = blockchain_info['bip9_softforks']['dynafed']['status'] == "active"
+        is_dyna = blockchain_info['softforks']['dynafed']['bip9']['status'] == "active"
         if is_dyna:
             wsh_wrap = self.nodes[0].decodescript(self.witnessScript)['segwit']['hex']
             assert_equal(wsh_wrap, blockchain_info['current_signblock_hex'])
@@ -174,7 +171,7 @@ class BlockSignTest(BitcoinTestFramework):
             self.nodes[i].submitblock(result["hex"])
 
         # All nodes should be synced in blocks and transactions(mempool should be empty)
-        self.sync_all()
+        self.sync_all(expect_disconnected=True)
 
     def mine_blocks(self, num_blocks, transactions):
         for i in range(num_blocks):
@@ -204,16 +201,16 @@ class BlockSignTest(BitcoinTestFramework):
         block = self.nodes[0].getblock(tip)
         info = self.nodes[0].getblockchaininfo()
 
-        assert('signblock_witness_asm' in header)
-        assert('signblock_witness_hex' in header)
-        assert('signblock_witness_asm' in block)
-        assert('signblock_witness_hex' in block)
+        assert 'signblock_witness_asm' in header
+        assert 'signblock_witness_hex' in header
+        assert 'signblock_witness_asm' in block
+        assert 'signblock_witness_hex' in block
 
         signblockscript = make_signblockscript(self.num_keys, self.required_signers, self.keys)
         assert_equal(info['signblock_asm'], self.nodes[0].decodescript(signblockscript)['asm'])
         assert_equal(info['signblock_hex'], signblockscript)
 
-        assert_equal(info['bip9_softforks']['dynafed']['status'], "defined")
+        assert_equal(info['softforks']['dynafed']['bip9']['status'], "defined")
 
         # Next let's activate dynafed
         blocks_til_dynafed = 431 - self.nodes[0].getblockcount()
@@ -221,7 +218,7 @@ class BlockSignTest(BitcoinTestFramework):
         self.mine_blocks(blocks_til_dynafed, False)
         self.check_height(111+blocks_til_dynafed)
 
-        assert_equal(self.nodes[0].getblockchaininfo()['bip9_softforks']['dynafed']['status'], "active")
+        assert_equal(self.nodes[0].getblockchaininfo()['softforks']['dynafed']['bip9']['status'], "active")
 
         self.log.info("Mine some dynamic federation blocks without txns")
         self.mine_blocks(10, False)

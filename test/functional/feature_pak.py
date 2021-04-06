@@ -3,7 +3,7 @@
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 from test_framework.test_framework import BitcoinTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes_bi, sync_blocks, Decimal, assert_greater_than, sync_mempools
+from test_framework.util import assert_equal, assert_raises_rpc_error, Decimal, assert_greater_than
 
 '''
     This test focuses on enforcement of PAK, not on transitioning lists
@@ -20,7 +20,7 @@ class PAKTest (BitcoinTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [["-enforce_pak=1", "-con_dyna_deploy_start=-1", "-initialfreecoins=210000000000000", "-anyonecanspendaremine=1", "-parent_bech32_hrp=lol", "-pubkeyprefix=112", "-scriptprefix=197", "-con_connect_genesis_outputs=1"] for i in range(self.num_nodes)]
         # First node doesn't enforce PAK, a "HF" of the other two nodes
-        self.extra_args[0] = self.extra_args[0][1:]
+        self.extra_args[0] = ["-acceptnonstdtxn=1"] + self.extra_args[0][1:]   ## FIXME -acceptnonstdtxn=1 should not be needed
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
@@ -73,8 +73,8 @@ class PAKTest (BitcoinTestFramework):
         # Restart and connect peers to check wallet persistence
         self.stop_nodes()
         self.start_nodes()
-        connect_nodes_bi(self.nodes,0,1)
-        connect_nodes_bi(self.nodes,1,2)
+        self.connect_nodes(0,1)
+        self.connect_nodes(1,2)
 
         # Check PAK settings persistence in wallet across restart
         restarted_info = self.nodes[1].getwalletpakinfo()
@@ -108,6 +108,7 @@ class PAKTest (BitcoinTestFramework):
 
         # Node 1 will now make a PAK peg-out, accepted in all mempools and blocks
         pegout_info = self.nodes[1].sendtomainchain("", 1)
+        print(pegout_info)
         raw_node1_pegout = self.nodes[1].gettransaction(pegout_info["txid"])["hex"]
         self.sync_all() # mempool sync
         self.nodes[1].generatetoaddress(1, self.nodes[0].getnewaddress())
@@ -123,17 +124,17 @@ class PAKTest (BitcoinTestFramework):
         fork_hash = self.nodes[1].getblockhash(2)
         for i in range(self.num_nodes):
            self.nodes[i].invalidateblock(fork_hash)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         for _ in range(num_block_rollback):
             block = self.nodes[1].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":3, "fedpegscript":"51", "extension_space":extension_space_proposal})
             self.nodes[1].submitblock(block)
 
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # node 0 puts the peg-out back in its mempool, can't sync all
         self.nodes[0].sendrawtransaction(raw_node1_pegout)
-        sync_mempools(self.nodes[1:])
+        self.sync_mempools(self.nodes[1:])
 
         # rejected in mempool
         assert_raises_rpc_error(-26, "invalid-pegout-proof", self.nodes[1].sendrawtransaction, raw_node1_pegout)
@@ -151,14 +152,14 @@ class PAKTest (BitcoinTestFramework):
 
         # Use wrong network's extended pubkey
         mainnetxpub = "xpub6AATBi58516uxLogbuaG3jkom7x1qyDoZzMN2AePBuQnMFKUV9xC2BW9vXsFJ9rELsvbeGQcFWhtbyM4qDeijM22u3AaSiSYEvuMZkJqtLn"
-        assert_raises_rpc_error(-8, "bitcoin_descriptor is not a valid descriptor string.", self.nodes[1].initpegoutwallet, mainnetxpub)
+        assert_raises_rpc_error(-8, "%s is not a valid descriptor function" % mainnetxpub, self.nodes[1].initpegoutwallet, mainnetxpub)
 
         # Test fixed online pubkey
         init_info = self.nodes[1].initpegoutwallet(xpub)
         init_info2 = self.nodes[1].initpegoutwallet(xpub, 0, init_info['liquid_pak'])
         assert_equal(init_info, init_info2)
         init_info3 = self.nodes[1].initpegoutwallet(xpub)
-        assert(init_info != init_info3)
+        assert init_info != init_info3
 
         # Test Descriptor PAK Support
 
@@ -180,7 +181,7 @@ class PAKTest (BitcoinTestFramework):
         for _ in range(10):
             block = self.nodes[1].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":3, "fedpegscript":"51", "extension_space":wpkh_pak_prop})
             self.nodes[1].submitblock(block)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         # Get some block subsidy and send off
         self.nodes[1].generatetoaddress(101, self.nodes[1].getnewaddress())
@@ -190,10 +191,10 @@ class PAKTest (BitcoinTestFramework):
         # Also check some basic return fields of sendtomainchain with pak
         assert_equal(wpkh_stmc["bitcoin_address"], wpkh_info["address_lookahead"][0])
         validata = self.nodes[1].validateaddress(wpkh_stmc["bitcoin_address"])
-        assert(not validata["isvalid"])
-        assert(validata["isvalid_parent"])
-        assert(not validata["parent_address_info"]["isscript"])
-        assert(validata["parent_address_info"]["iswitness"])
+        assert not validata["isvalid"]
+        assert validata["isvalid_parent"]
+        assert not validata["parent_address_info"]["isscript"]
+        assert validata["parent_address_info"]["iswitness"]
         assert_equal(wpkh_pak_info["bip32_counter"], wpkh_stmc["bip32_counter"])
         assert_equal(wpkh_pak_info["bitcoin_descriptor"], wpkh_stmc["bitcoin_descriptor"])
 
@@ -201,10 +202,10 @@ class PAKTest (BitcoinTestFramework):
         sh_wpkh_info = self.nodes[1].initpegoutwallet(sh_wpkh_desc)
 
         validata = self.nodes[1].validateaddress(sh_wpkh_info["address_lookahead"][0])
-        assert(not validata["isvalid"])
-        assert(validata["isvalid_parent"])
-        assert(validata["parent_address_info"]["isscript"])
-        assert(not validata["parent_address_info"]["iswitness"])
+        assert not validata["isvalid"]
+        assert validata["isvalid_parent"]
+        assert validata["parent_address_info"]["isscript"]
+        assert not validata["parent_address_info"]["iswitness"]
 
         # Transition to sh_wpkh entry list
         sh_wpkh_pak_entry = sh_wpkh_info["pakentry"]
@@ -212,7 +213,7 @@ class PAKTest (BitcoinTestFramework):
         for _ in range(10):
             block = self.nodes[1].getnewblockhex(0, {"signblockscript":WSH_OP_TRUE, "max_block_witness":3, "fedpegscript":"51", "extension_space":sh_wpkh_pak_prop})
             self.nodes[1].submitblock(block)
-        sync_blocks(self.nodes)
+        self.sync_blocks()
 
         self.nodes[1].generatetoaddress(1, self.nodes[1].getnewaddress())
         sh_wpkh_txid = self.nodes[1].sendtomainchain("", 1)['txid']
@@ -230,7 +231,7 @@ class PAKTest (BitcoinTestFramework):
                     break
                 else:
                     raise Exception("Found unexpected peg-out output")
-        assert(peg_out_found)
+        assert peg_out_found
 
         peg_out_found = False
         for output in sh_wpkh_raw["vout"]:
@@ -241,7 +242,7 @@ class PAKTest (BitcoinTestFramework):
                     break
                 else:
                     raise Exception("Found unexpected peg-out output")
-        assert(peg_out_found)
+        assert peg_out_found
 
         # Make sure they all confirm
         self.nodes[1].generatetoaddress(1, self.nodes[0].getnewaddress())

@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,12 +6,20 @@
 #define BITCOIN_WALLET_COINCONTROL_H
 
 #include <asset.h>
+#include <chainparams.h>
+#include <optional.h>
+#include <outputtype.h>
 #include <policy/feerate.h>
 #include <policy/fees.h>
+#include <primitives/bitcoin/transaction.h>
 #include <primitives/transaction.h>
-#include <wallet/wallet.h>
+#include <script/standard.h>
 
-#include <boost/optional.hpp>
+const int DEFAULT_MIN_DEPTH = 0;
+const int DEFAULT_MAX_DEPTH = 9999999;
+
+//! Default for -avoidpartialspends
+static constexpr bool DEFAULT_AVOIDPARTIALSPENDS = false;
 
 /** Coin Control Features. */
 class CCoinControl
@@ -20,7 +28,9 @@ public:
     //! Custom change destination, if not set an address is generated
     std::map<CAsset, CTxDestination> destChange;
     //! Override the default change type if set, ignored if destChange is set
-    boost::optional<OutputType> m_change_type;
+    Optional<OutputType> m_change_type;
+    //! If false, only selected inputs are used
+    bool m_add_inputs;
     //! If false, allows unselected inputs, but requires all selected inputs be used
     bool fAllowOtherInputs;
     //! Includes watch only addresses which are solvable
@@ -28,17 +38,23 @@ public:
     //! Override automatic min/max checks on fee, m_feerate must be set if true
     bool fOverrideFeeRate;
     //! Override the wallet's m_pay_tx_fee if set
-    boost::optional<CFeeRate> m_feerate;
+    Optional<CFeeRate> m_feerate;
     //! Override the default confirmation target if set
-    boost::optional<unsigned int> m_confirm_target;
+    Optional<unsigned int> m_confirm_target;
     //! Override the wallet's m_signal_rbf if set
-    boost::optional<bool> m_signal_bip125_rbf;
+    Optional<bool> m_signal_bip125_rbf;
     //! Avoid partial use of funds sent to a given address
     bool m_avoid_partial_spends;
+    //! Forbids inclusion of dirty (previously used) addresses
+    bool m_avoid_address_reuse;
     //! Fee estimation mode to control arguments to estimateSmartFee
     FeeEstimateMode m_fee_mode;
     //! SigningProvider that has pubkeys and scripts to do spend size estimation for external inputs
     FlatSigningProvider m_external_provider;
+    //! Minimum chain depth value for coin availability
+    int m_min_depth = DEFAULT_MIN_DEPTH;
+    //! Maximum chain depth value for coin availability
+    int m_max_depth = DEFAULT_MAX_DEPTH;
 
     CCoinControl()
     {

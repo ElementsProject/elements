@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-2018 The Bitcoin Core developers
+# Copyright (c) 2017-2020 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test debug logging."""
@@ -36,7 +36,7 @@ class LoggingTest(BitcoinTestFramework):
         invdir = self.relative_log_path("foo")
         invalidname = os.path.join("foo", "foo.log")
         self.stop_node(0)
-        exp_stderr = "Error: Could not open debug log file \S+$"
+        exp_stderr = r"Error: Could not open debug log file \S+$"
         self.nodes[0].assert_start_raises_init_error(["-debuglogfile=%s" % (invalidname)], exp_stderr, match=ErrorMatch.FULL_REGEX)
         assert not os.path.isfile(os.path.join(invdir, "foo.log"))
 
@@ -67,8 +67,7 @@ class LoggingTest(BitcoinTestFramework):
         assert not os.path.isfile(default_log_path)
 
         # just sanity check no crash here
-        self.stop_node(0)
-        self.start_node(0, ["-debuglogfile=%s" % os.devnull])
+        self.restart_node(0, ["-debuglogfile=%s" % os.devnull])
 
 
 if __name__ == '__main__':

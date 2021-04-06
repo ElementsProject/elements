@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The Bitcoin Core developers
+// Copyright (c) 2018-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -10,9 +10,11 @@ void CCoinControl::SetNull()
 {
     destChange.clear();
     m_change_type.reset();
+    m_add_inputs = true;
     fAllowOtherInputs = false;
     fAllowWatchOnly = false;
     m_avoid_partial_spends = gArgs.GetBoolArg("-avoidpartialspends", DEFAULT_AVOIDPARTIALSPENDS);
+    m_avoid_address_reuse = false;
     setSelected.clear();
     m_feerate.reset();
     fOverrideFeeRate = false;
@@ -21,5 +23,6 @@ void CCoinControl::SetNull()
     m_fee_mode = FeeEstimateMode::UNSET;
     m_external_txouts.clear();
     m_external_provider = FlatSigningProvider();
+    m_min_depth = DEFAULT_MIN_DEPTH;
+    m_max_depth = DEFAULT_MAX_DEPTH;
 }
-

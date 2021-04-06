@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2017 The Bitcoin Core developers
+# Copyright (c) 2017-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -18,12 +18,12 @@ if test "x$1" = "x"; then
 fi
 
 RET=0
-PREV_BRANCH=`git name-rev --name-only HEAD`
-PREV_HEAD=`git rev-parse HEAD`
-for commit in `git rev-list --reverse $1`; do
+PREV_BRANCH=$(git name-rev --name-only HEAD)
+PREV_HEAD=$(git rev-parse HEAD)
+for commit in $(git rev-list --reverse $1); do
     if git rev-list -n 1 --pretty="%s" $commit | grep -q "^scripted-diff:"; then
         git checkout --quiet $commit^ || exit
-        SCRIPT="`git rev-list --format=%b -n1 $commit | sed '/^-BEGIN VERIFY SCRIPT-$/,/^-END VERIFY SCRIPT-$/{//!b};d'`"
+        SCRIPT="$(git rev-list --format=%b -n1 $commit | sed '/^-BEGIN VERIFY SCRIPT-$/,/^-END VERIFY SCRIPT-$/{//!b};d')"
         if test "x$SCRIPT" = "x"; then
             echo "Error: missing script for: $commit"
             echo "Failed"
@@ -35,9 +35,9 @@ for commit in `git rev-list --reverse $1`; do
             git --no-pager diff --exit-code $commit && echo "OK" || (echo "Failed"; false) || RET=1
         fi
         git reset --quiet --hard HEAD
-     else
+     elif [ "$commit" != "f471a3be00c2b6433b8c258b716982c0539da13f" ]; then
         if git rev-list "--format=%b" -n1 $commit | grep -q '^-\(BEGIN\|END\)[ a-zA-Z]*-$'; then
-            echo "Error: script block marker but no scripted-diff in title"
+            echo "Error: script block marker but no scripted-diff in title of commit $commit"
             echo "Failed"
             RET=1
         fi

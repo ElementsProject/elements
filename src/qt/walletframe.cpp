@@ -1,23 +1,29 @@
-// Copyright (c) 2011-2019 The Bitcoin Core developers
+// Copyright (c) 2011-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <qt/walletframe.h>
-#include <qt/walletmodel.h>
 
 #include <qt/bitcoingui.h>
+#include <qt/createwalletdialog.h>
+#include <qt/overviewpage.h>
+#include <qt/walletcontroller.h>
+#include <qt/walletmodel.h>
 #include <qt/walletview.h>
 
 #include <cassert>
-#include <cstdio>
 
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
 
-WalletFrame::WalletFrame(const PlatformStyle *_platformStyle, BitcoinGUI *_gui) :
-    QFrame(_gui),
-    gui(_gui),
-    platformStyle(_platformStyle)
+WalletFrame::WalletFrame(const PlatformStyle* _platformStyle, BitcoinGUI* _gui)
+    : QFrame(_gui),
+      gui(_gui),
+      platformStyle(_platformStyle),
+      m_size_hint(OverviewPage{platformStyle, nullptr}.sizeHint())
 {
     // Leave HBox hook for adding a list view later
     QHBoxLayout *walletFrameLayout = new QHBoxLayout(this);
@@ -26,9 +32,25 @@ WalletFrame::WalletFrame(const PlatformStyle *_platformStyle, BitcoinGUI *_gui) 
     walletFrameLayout->setContentsMargins(0,0,0,0);
     walletFrameLayout->addWidget(walletStack);
 
-    QLabel *noWallet = new QLabel(tr("No wallet has been loaded."));
+    // hbox for no wallet
+    QGroupBox* no_wallet_group = new QGroupBox(walletStack);
+    QVBoxLayout* no_wallet_layout = new QVBoxLayout(no_wallet_group);
+
+    QLabel *noWallet = new QLabel(tr("No wallet has been loaded.\nGo to File > Open Wallet to load a wallet.\n- OR -"));
     noWallet->setAlignment(Qt::AlignCenter);
-    walletStack->addWidget(noWallet);
+    no_wallet_layout->addWidget(noWallet, 0, Qt::AlignHCenter | Qt::AlignBottom);
+
+    // A button for create wallet dialog
+    QPushButton* create_wallet_button = new QPushButton(tr("Create a new wallet"), walletStack);
+    connect(create_wallet_button, &QPushButton::clicked, [this] {
+        auto activity = new CreateWalletActivity(gui->getWalletController(), this);
+        connect(activity, &CreateWalletActivity::finished, activity, &QObject::deleteLater);
+        activity->create();
+    });
+    no_wallet_layout->addWidget(create_wallet_button, 0, Qt::AlignHCenter | Qt::AlignTop);
+    no_wallet_group->setLayout(no_wallet_layout);
+
+    walletStack->addWidget(no_wallet_group);
 }
 
 WalletFrame::~WalletFrame()
@@ -38,23 +60,23 @@ WalletFrame::~WalletFrame()
 void WalletFrame::setClientModel(ClientModel *_clientModel)
 {
     this->clientModel = _clientModel;
+
+    for (auto i = mapWalletViews.constBegin(); i != mapWalletViews.constEnd(); ++i) {
+        i.value()->setClientModel(_clientModel);
+    }
 }
 
 bool WalletFrame::addWallet(WalletModel *walletModel)
 {
-    if (!gui || !clientModel || !walletModel) {
-        return false;
-    }
+    if (!gui || !clientModel || !walletModel) return false;
 
-    if (mapWalletViews.count(walletModel) > 0) {
-        return false;
-    }
+    if (mapWalletViews.count(walletModel) > 0) return false;
 
     WalletView *walletView = new WalletView(platformStyle, this);
-    walletView->setBitcoinGUI(gui);
     walletView->setClientModel(clientModel);
     walletView->setWalletModel(walletModel);
     walletView->showOutOfSyncWarning(bOutOfSync);
+    walletView->setPrivacy(gui->isPrivacyModeActivated());
 
     WalletView* current_wallet_view = currentWalletView();
     if (current_wallet_view) {
@@ -66,37 +88,37 @@ bool WalletFrame::addWallet(WalletModel *walletModel)
     walletStack->addWidget(walletView);
     mapWalletViews[walletModel] = walletView;
 
-    // Ensure a walletView is able to show the main window
-    connect(walletView, &WalletView::showNormalIfMinimized, [this]{
-      gui->showNormalIfMinimized();
-    });
-
     connect(walletView, &WalletView::outOfSyncWarningClicked, this, &WalletFrame::outOfSyncWarningClicked);
+    connect(walletView, &WalletView::transactionClicked, gui, &BitcoinGUI::gotoHistoryPage);
+    connect(walletView, &WalletView::coinsSent, gui, &BitcoinGUI::gotoHistoryPage);
+    connect(walletView, &WalletView::message, [this](const QString& title, const QString& message, unsigned int style) {
+        gui->message(title, message, style);
+    });
+    connect(walletView, &WalletView::encryptionStatusChanged, gui, &BitcoinGUI::updateWalletStatus);
+    connect(walletView, &WalletView::incomingTransaction, gui, &BitcoinGUI::incomingTransaction);
+    connect(walletView, &WalletView::hdEnabledStatusChanged, gui, &BitcoinGUI::updateWalletStatus);
+    connect(gui, &BitcoinGUI::setPrivacy, walletView, &WalletView::setPrivacy);
 
     return true;
 }
 
-bool WalletFrame::setCurrentWallet(WalletModel* wallet_model)
+void WalletFrame::setCurrentWallet(WalletModel* wallet_model)
 {
-    if (mapWalletViews.count(wallet_model) == 0)
-        return false;
+    if (mapWalletViews.count(wallet_model) == 0) return;
 
     WalletView *walletView = mapWalletViews.value(wallet_model);
     walletStack->setCurrentWidget(walletView);
     assert(walletView);
     walletView->updateEncryptionStatus();
-    return true;
 }
 
-bool WalletFrame::removeWallet(WalletModel* wallet_model)
+void WalletFrame::removeWallet(WalletModel* wallet_model)
 {
-    if (mapWalletViews.count(wallet_model) == 0)
-        return false;
+    if (mapWalletViews.count(wallet_model) == 0) return;
 
     WalletView *walletView = mapWalletViews.take(wallet_model);
     walletStack->removeWidget(walletView);
     delete walletView;
-    return true;
 }
 
 void WalletFrame::removeAllWallets()
@@ -164,6 +186,14 @@ void WalletFrame::gotoVerifyMessageTab(QString addr)
     WalletView *walletView = currentWalletView();
     if (walletView)
         walletView->gotoVerifyMessageTab(addr);
+}
+
+void WalletFrame::gotoLoadPSBT(bool from_clipboard)
+{
+    WalletView *walletView = currentWalletView();
+    if (walletView) {
+        walletView->gotoLoadPSBT(from_clipboard);
+    }
 }
 
 void WalletFrame::encryptWallet(bool status)

@@ -1,18 +1,17 @@
-// Copyright (c) 2012-2018 The Bitcoin Core developers
+// Copyright (c) 2012-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <rpc/server.h>
 #include <rpc/client.h>
+#include <rpc/server.h>
 #include <rpc/util.h>
 
 #include <core_io.h>
-#include <init.h>
 #include <interfaces/chain.h>
-#include <key_io.h>
-#include <netbase.h>
-
-#include <test/test_bitcoin.h>
+#include <node/context.h>
+#include <test/util/setup_common.h>
+#include <util/ref.h>
+#include <util/time.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/test/unit_test.hpp>
@@ -21,20 +20,26 @@
 
 #include <rpc/blockchain.h>
 
-UniValue CallRPC(std::string args)
+class RPCTestingSetup : public TestingSetup
+{
+public:
+    UniValue CallRPC(std::string args);
+};
+
+UniValue RPCTestingSetup::CallRPC(std::string args)
 {
     std::vector<std::string> vArgs;
     boost::split(vArgs, args, boost::is_any_of(" \t"));
     std::string strMethod = vArgs[0];
     vArgs.erase(vArgs.begin());
-    JSONRPCRequest request;
+    util::Ref context{m_node};
+    JSONRPCRequest request(context);
     request.strMethod = strMethod;
     request.params = RPCConvertValues(strMethod, vArgs);
     request.fHelp = false;
-    BOOST_CHECK(tableRPC[strMethod]);
-    rpcfn_type method = tableRPC[strMethod]->actor;
+    if (RPCIsInWarmup(nullptr)) SetRPCWarmupFinished();
     try {
-        UniValue result = (*method)(request);
+        UniValue result = tableRPC.execute(request);
         return result;
     }
     catch (const UniValue& objError) {
@@ -43,7 +48,7 @@ UniValue CallRPC(std::string args)
 }
 
 
-BOOST_FIXTURE_TEST_SUITE(rpc_tests, TestingSetup)
+BOOST_FIXTURE_TEST_SUITE(rpc_tests, RPCTestingSetup)
 
 BOOST_AUTO_TEST_CASE(rpc_rawparams)
 {
@@ -115,14 +120,10 @@ BOOST_AUTO_TEST_CASE(rpc_rawsign)
     std::string notsigned = r.get_str();
     std::string privkey1 = "\"KzsXybp9jX64P5ekX1KUxRQ79Jht9uzW7LorgwE65i5rWACL6LQe\"";
     std::string privkey2 = "\"Kyhdf5LuKTRx4ge69ybABsiUAWjVRK4XGxAKk2FQLp2HjGMy87Z4\"";
-    InitInterfaces interfaces;
-    interfaces.chain = interfaces::MakeChain();
-    g_rpc_interfaces = &interfaces;
     r = CallRPC(std::string("signrawtransactionwithkey ")+notsigned+" [] "+prevout);
     BOOST_CHECK(find_value(r.get_obj(), "complete").get_bool() == false);
     r = CallRPC(std::string("signrawtransactionwithkey ")+notsigned+" ["+privkey1+","+privkey2+"] "+prevout);
     BOOST_CHECK(find_value(r.get_obj(), "complete").get_bool() == true);
-    g_rpc_interfaces = nullptr;
 }
 
 BOOST_AUTO_TEST_CASE(rpc_createraw_op_return)

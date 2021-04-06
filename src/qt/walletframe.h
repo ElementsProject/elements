@@ -37,13 +37,15 @@ public:
     void setClientModel(ClientModel *clientModel);
 
     bool addWallet(WalletModel *walletModel);
-    bool setCurrentWallet(WalletModel* wallet_model);
-    bool removeWallet(WalletModel* wallet_model);
+    void setCurrentWallet(WalletModel* wallet_model);
+    void removeWallet(WalletModel* wallet_model);
     void removeAllWallets();
 
     bool handlePaymentRequest(const SendCoinsRecipient& recipient);
 
     void showOutOfSyncWarning(bool fShow);
+
+    QSize sizeHint() const override { return m_size_hint; }
 
 Q_SIGNALS:
     /** Notify that the user has requested more information about the out-of-sync warning */
@@ -58,6 +60,8 @@ private:
     bool bOutOfSync;
 
     const PlatformStyle *platformStyle;
+
+    const QSize m_size_hint;
 
 public:
     WalletView* currentWalletView() const;
@@ -77,6 +81,9 @@ public Q_SLOTS:
     void gotoSignMessageTab(QString addr = "");
     /** Show Sign/Verify Message dialog and switch to verify message tab */
     void gotoVerifyMessageTab(QString addr = "");
+
+    /** Load Partially Signed Bitcoin Transaction */
+    void gotoLoadPSBT(bool from_clipboard = false);
 
     /** Encrypt the wallet */
     void encryptWallet(bool status);

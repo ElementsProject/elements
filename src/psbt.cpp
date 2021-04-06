@@ -1,11 +1,13 @@
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <blind.h>
 #include <pegins.h>
 #include <psbt.h>
 #include <util/strencodings.h>
 #include <confidential_validation.h>
+
 
 PartiallySignedTransaction::PartiallySignedTransaction(const CMutableTransaction& tx) : tx(tx)
 {
@@ -36,14 +38,6 @@ bool PartiallySignedTransaction::Merge(const PartiallySignedTransaction& psbt)
     return true;
 }
 
-bool PartiallySignedTransaction::IsSane() const
-{
-    for (PSBTInput input : inputs) {
-        if (!input.IsSane()) return false;
-    }
-    return true;
-}
-
 bool PartiallySignedTransaction::AddInput(const CTxIn& txin, PSBTInput& psbtin)
 {
     if (std::find(tx->vin.begin(), tx->vin.end(), txin) != tx->vin.end()) {
@@ -67,8 +61,11 @@ bool PartiallySignedTransaction::AddOutput(const CTxOut& txout, const PSBTOutput
 bool PartiallySignedTransaction::GetInputUTXO(CTxOut& utxo, int input_index) const
 {
     PSBTInput input = inputs[input_index];
-    int prevout_index = tx->vin[input_index].prevout.n;
+    uint32_t prevout_index = tx->vin[input_index].prevout.n;
     if (input.non_witness_utxo) {
+        if (prevout_index >= input.non_witness_utxo->vout.size()) {
+            return false;
+        }
         utxo = input.non_witness_utxo->vout[prevout_index];
     } else if (!input.witness_utxo.IsNull()) {
         utxo = input.witness_utxo;
@@ -142,8 +139,8 @@ void PSBTInput::Merge(const PSBTInput& input)
 {
     if (!non_witness_utxo && input.non_witness_utxo) non_witness_utxo = input.non_witness_utxo;
     if (witness_utxo.IsNull() && !input.witness_utxo.IsNull()) {
+        // TODO: For segwit v1, we will want to clear out the non-witness utxo when setting a witness one. For v0 and non-segwit, this is not safe
         witness_utxo = input.witness_utxo;
-        non_witness_utxo = nullptr; // Clear out any non-witness utxo when we set a witness one.
     }
 
     partial_sigs.insert(input.partial_sigs.begin(), input.partial_sigs.end());
@@ -164,18 +161,6 @@ void PSBTInput::Merge(const PSBTInput& input)
     if (txout_proof.which() == 0 && peg_in_tx.which() > 0) txout_proof = input.txout_proof;
     if (claim_script.empty() && !input.claim_script.empty()) claim_script = input.claim_script;
     if (genesis_hash.IsNull() && !input.genesis_hash.IsNull()) genesis_hash = input.genesis_hash;
-}
-
-bool PSBTInput::IsSane() const
-{
-    // Cannot have both witness and non-witness utxos
-    if (!witness_utxo.IsNull() && non_witness_utxo) return false;
-
-    // If we have a witness_script or a scriptWitness, we must also have a witness utxo
-    if (!witness_script.empty() && witness_utxo.IsNull()) return false;
-    if (!final_script_witness.IsNull() && witness_utxo.IsNull()) return false;
-
-    return true;
 }
 
 void PSBTOutput::FillSignatureData(SignatureData& sigdata) const
@@ -226,9 +211,39 @@ void PSBTOutput::Merge(const PSBTOutput& output)
     if (range_proof.empty() && !output.range_proof.empty()) range_proof = output.range_proof;
     if (surjection_proof.empty() && !output.surjection_proof.empty()) surjection_proof = output.surjection_proof;
 }
-bool PSBTInputSigned(PSBTInput& input)
+bool PSBTInputSigned(const PSBTInput& input)
 {
     return !input.final_script_sig.empty() || !input.final_script_witness.IsNull();
+}
+
+size_t CountPSBTUnsignedInputs(const PartiallySignedTransaction& psbt) {
+    size_t count = 0;
+    for (const auto& input : psbt.inputs) {
+        if (!PSBTInputSigned(input)) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index)
+{
+    const CTxOut& out = psbt.tx->vout.at(index);
+    PSBTOutput& psbt_out = psbt.outputs.at(index);
+
+    // Fill a SignatureData with output info
+    SignatureData sigdata;
+    psbt_out.FillSignatureData(sigdata);
+
+    // Construct a would-be spend of this output, to update sigdata with.
+    // Note that ProduceSignature is used to fill in metadata (not actual signatures),
+    // so provider does not need to provide any private keys (it can be a HidingSigningProvider).
+    MutableTransactionSignatureCreator creator(psbt.tx.get_ptr(), /* index */ 0, out.nValue, SIGHASH_ALL);
+    ProduceSignature(provider, creator, out.scriptPubKey, sigdata);
+
+    // Put redeem_script, witness_script, key paths, into PSBTOutput.
+    psbt_out.FromSignatureData(sigdata);
 }
 
 bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, int sighash, SignatureData* out_sigdata, bool use_dummy)
@@ -248,14 +263,12 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     bool require_witness_sig = false;
     CTxOut utxo;
 
-    // Verify input sanity, which checks that at most one of witness or non-witness utxos is provided.
-    if (!input.IsSane()) {
-        return false;
-    }
-
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
         COutPoint prevout = tx.vin[index].prevout;
+        if (prevout.n >= input.non_witness_utxo->vout.size()) {
+            return false;
+        }
         if (input.non_witness_utxo->GetHash() != prevout.hash) {
             return false;
         }
@@ -283,10 +296,11 @@ bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& 
     if (require_witness_sig && !sigdata.witness) return false;
     input.FromSignatureData(sigdata);
 
-    // If we have a witness signature, use the smaller witness UTXO.
+    // If we have a witness signature, put a witness UTXO.
+    // TODO: For segwit v1, we should remove the non_witness_utxo
     if (sigdata.witness) {
         input.witness_utxo = utxo;
-        input.non_witness_utxo = nullptr;
+        // input.non_witness_utxo = nullptr;
     }
 
     // Fill in the missing info
@@ -381,18 +395,26 @@ TransactionError CombinePSBTs(PartiallySignedTransaction& out, const std::vector
             return TransactionError::PSBT_MISMATCH;
         }
     }
-    if (!out.IsSane()) {
-        return TransactionError::INVALID_PSBT;
-    }
-
     return TransactionError::OK;
+}
+
+std::string PSBTRoleName(PSBTRole role) {
+    switch (role) {
+    case PSBTRole::CREATOR: return "creator";
+    case PSBTRole::UPDATER: return "updater";
+    case PSBTRole::SIGNER: return "signer";
+    case PSBTRole::FINALIZER: return "finalizer";
+    case PSBTRole::EXTRACTOR: return "extractor";
+        // no default case, so the compiler can warn about missing cases
+    }
+    assert(false);
 }
 
 std::string EncodePSBT(const PartiallySignedTransaction& psbt)
 {
     CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
     ssTx << psbt;
-    return EncodeBase64((unsigned char*)ssTx.data(), ssTx.size());
+    return EncodeBase64(MakeUCharSpan(ssTx));
 }
 
 
@@ -422,3 +444,43 @@ bool DecodeRawPSBT(PartiallySignedTransaction& psbt, const std::string& tx_data,
     }
     return true;
 }
+
+bool CheckPSBTBlinding(const PartiallySignedTransaction& psbtx, std::string& error) {
+    // Plausibly, we may want a way to let the user continue anyway. However, we
+    //   want to fail by default, to make it as hard as possible to do something
+    //   really dangerous. And since this way of handling blinded PSBTs is going
+    //   away "real soon now" in favor of a better one, no sense in trying too
+    //   hard about it.
+
+    for (size_t i = 0; i < psbtx.outputs.size(); ++i) {
+        const PSBTOutput& output = psbtx.outputs[i];
+        const CTxOut& txo = psbtx.tx->vout[i];
+
+        if (txo.nValue.IsCommitment() || txo.nAsset.IsCommitment()) {
+            error = "PSBT's 'tx' field may not have pre-blinded outputs.";
+            return false;
+        }
+
+        if (!output.value_commitment.IsCommitment() &&
+            !output.asset_commitment.IsCommitment() &&
+            output.value_blinding_factor.IsNull() &&
+            output.asset_blinding_factor.IsNull()) {
+            // Nothing blinded, nothing to check.
+            continue;
+        } else if (!output.value_commitment.IsCommitment() ||
+            !output.asset_commitment.IsCommitment() ||
+            output.value_blinding_factor.IsNull() ||
+            output.asset_blinding_factor.IsNull()) {
+            // Something blinded, but not everything? That's not expected.
+            error = "PSBT has a partially-blinded output. Blinded outputs must be fully blinded.";
+            return false;
+        }
+
+        if (!VerifyConfidentialPair(output.value_commitment, output.asset_commitment, txo.nValue.GetAmount(), txo.nAsset.GetAsset(), output.value_blinding_factor, output.asset_blinding_factor)) {
+            error = "PSBT's 'tx' field output values do not match blinded output values (or are invalid in some way)! Either there is a bug, or the blinder is attacking you.";
+            return false;
+        }
+    }
+    return true;
+}
+

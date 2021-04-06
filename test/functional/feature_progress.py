@@ -15,7 +15,7 @@ from test_framework.util import (
 )
 
 def assert_close(f1, f2):
-    assert(abs(Decimal(f1)-f2) < 0.1)
+    assert abs(Decimal(f1)-f2) < 0.1
 
 class ProgressTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -47,7 +47,7 @@ class ProgressTest(BitcoinTestFramework):
         self.setmocktime(19)
         assert_close(0.5, node1.getblockchaininfo()["verificationprogress"])
 
-        assert(node2.getblockchaininfo()["initialblockdownload"])
+        assert node2.getblockchaininfo()["initialblockdownload"]
 
         self.setmocktime(10)
         for i in range(10):
@@ -55,7 +55,7 @@ class ProgressTest(BitcoinTestFramework):
             progress = node2.getblockchaininfo()["verificationprogress"]
             assert_close(i/10.0, progress)
 
-        assert(not node2.getblockchaininfo()["initialblockdownload"])
+        assert not node2.getblockchaininfo()["initialblockdownload"]
 
 if __name__ == '__main__':
     ProgressTest().main()

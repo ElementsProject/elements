@@ -66,10 +66,6 @@
         <translation>Þetta eru Bitcoin færslugildin sem senda greiðslur. Skoðið ævinlega vel upphæðina og færslugildin sem þiggja greiðslur áður en mynt er send.</translation>
     </message>
     <message>
-        <source>These are your Bitcoin addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
-        <translation>Þetta eru Bitcoin færslugildin sem þiggja greiðslur. Mælt er með að nota aldrei sama færslugildið til að þiggja fleiri en eina greiðslu.</translation>
-    </message>
-    <message>
         <source>&amp;Copy Address</source>
         <translation>&amp;Afrita færslugildi</translation>
     </message>
@@ -132,10 +128,6 @@
         <translation>Endurtaktu nýja lykilsetningu</translation>
     </message>
     <message>
-        <source>Enter the new passphrase to the wallet.&lt;br/&gt;Please use a passphrase of &lt;b&gt;ten or more random characters&lt;/b&gt;, or &lt;b&gt;eight or more words&lt;/b&gt;.</source>
-        <translation>Skráðu nýju lykilsetninguna í veskið. &lt;br/&gt;Vinsamlegast notaðu lykilsetningu með &lt;b&gt;tíu eða fleiri slembibókstöfum&lt;/b&gt;, eða &lt;b&gt;átta eða fleiri orðum&lt;/b&gt;.</translation>
-    </message>
-    <message>
         <source>Encrypt wallet</source>
         <translation>Dulkóða veski</translation>
     </message>
@@ -160,10 +152,6 @@
         <translation>Breyta lykilsetningu</translation>
     </message>
     <message>
-        <source>Enter the old passphrase and new passphrase to the wallet.</source>
-        <translation>Skráðu gömlu lykilsetninguna og þá nýju í veskið.</translation>
-    </message>
-    <message>
         <source>Confirm wallet encryption</source>
         <translation>Staðfesta dulkóðun veskis</translation>
     </message>
@@ -180,8 +168,8 @@
         <translation>Veski dulkóðað</translation>
     </message>
     <message>
-        <source>%1 will close now to finish the encryption process. Remember that encrypting your wallet cannot fully protect your bitcoins from being stolen by malware infecting your computer.</source>
-        <translation>%1 lokast núna til að dulkóðun klárist. Mundu að dulkóðun veskis kemur ekki að fullu í veg fyrir að mynt verði stolið úr tölvunni þinni með aðstoð smitforrita. </translation>
+        <source>Wallet to be encrypted</source>
+        <translation>Veski sem á að dulkóða</translation>
     </message>
     <message>
         <source>IMPORTANT: Any previous backups you have made of your wallet file should be replaced with the newly generated, encrypted wallet file. For security reasons, previous backups of the unencrypted wallet file will become useless as soon as you start using the new, encrypted wallet.</source>
@@ -246,10 +234,6 @@
         <translation>&amp;Yfirlit</translation>
     </message>
     <message>
-        <source>Node</source>
-        <translation>Hnútur</translation>
-    </message>
-    <message>
         <source>Show general overview of wallet</source>
         <translation>Sýna almennt yfirlit af veski</translation>
     </message>
@@ -306,14 +290,6 @@
         <translation>&amp;Breyta lykilsetningu</translation>
     </message>
     <message>
-        <source>&amp;Sending addresses...</source>
-        <translation>&amp;Sendi færslugildi...</translation>
-    </message>
-    <message>
-        <source>&amp;Receiving addresses...</source>
-        <translation>&amp;Tek við færslugildum...</translation>
-    </message>
-    <message>
         <source>Open &amp;URI...</source>
         <translation>Opna &amp;URL...</translation>
     </message>
@@ -350,24 +326,8 @@
         <translation>Breyta lykilsetningunni sem gildir um dulkóðun veskis</translation>
     </message>
     <message>
-        <source>&amp;Debug window</source>
-        <translation>&amp;Kembunargluggi</translation>
-    </message>
-    <message>
-        <source>Open debugging and diagnostic console</source>
-        <translation>Opna kembunar- og greiningarstjórnborð</translation>
-    </message>
-    <message>
         <source>&amp;Verify message...</source>
         <translation>&amp;Yfirfara skilaboð...</translation>
-    </message>
-    <message>
-        <source>Bitcoin</source>
-        <translation>Bitcoin</translation>
-    </message>
-    <message>
-        <source>Wallet</source>
-        <translation>Veski</translation>
     </message>
     <message>
         <source>&amp;Send</source>
@@ -426,8 +386,8 @@
         <translation>Sýna færslugildi sem notuð hafa verið til að taka við mynt og merkingar þeirra</translation>
     </message>
     <message>
-        <source>Open a bitcoin: URI or payment request</source>
-        <translation>Opna bitcoin: URI eða greiðslubeiðni</translation>
+        <source>&amp;Command-line options</source>
+        <translation>&amp;Valkostir skipanalínu</translation>
     </message>
     <message>
         <source>Indexing blocks on disk...</source>
@@ -535,11 +495,7 @@
         <source>Wallet is &lt;b&gt;encrypted&lt;/b&gt; and currently &lt;b&gt;locked&lt;/b&gt;</source>
         <translation>Veskið er &lt;b&gt;dulkóðað&lt;/b&gt; and currently &lt;b&gt;locked&lt;/b&gt;</translation>
     </message>
-    <message>
-        <source>A fatal error occurred. Bitcoin can no longer continue safely and will quit.</source>
-        <translation>Alvarleg villa átti sér stað. Bitcoin getur ekki haldið áfram með öruggum hætti og stoppar hér.</translation>
-    </message>
-</context>
+    </context>
 <context>
     <name>CoinControlDialog</name>
     <message>
@@ -616,6 +572,12 @@
     </message>
     </context>
 <context>
+    <name>CreateWalletActivity</name>
+    </context>
+<context>
+    <name>CreateWalletDialog</name>
+    </context>
+<context>
     <name>EditAddressDialog</name>
     <message>
         <source>Edit Address</source>
@@ -686,6 +648,9 @@
     <name>OpenURIDialog</name>
     </context>
 <context>
+    <name>OpenWalletActivity</name>
+    </context>
+<context>
     <name>OptionsDialog</name>
     <message>
         <source>IP address of the proxy (e.g. IPv4: 127.0.0.1 / IPv6: ::1)</source>
@@ -726,7 +691,10 @@
         <source>Current total balance in watch-only addresses</source>
         <translation>Innistæða á færslugildum sem eru einungis til skoðunar</translation>
     </message>
-</context>
+    </context>
+<context>
+    <name>PSBTOperationsDialog</name>
+    </context>
 <context>
     <name>PaymentServer</name>
     <message>
@@ -745,20 +713,17 @@
     </message>
     </context>
 <context>
-    <name>QObject::QObject</name>
-    </context>
-<context>
     <name>QRImageWidget</name>
+    <message>
+        <source>Resulting URI too long, try to reduce the text for label / message.</source>
+        <translation>URI varð of langt, reyndu að minnka texta í merki / skilaboðum.</translation>
+    </message>
     </context>
 <context>
     <name>RPCConsole</name>
     <message>
         <source>Block chain</source>
         <translation>Blokkarkeðja</translation>
-    </message>
-    <message>
-        <source>Current number of blocks</source>
-        <translation>Núverandi fjöldi blokka</translation>
     </message>
     <message>
         <source>Starting Block</source>
@@ -791,24 +756,8 @@
 <context>
     <name>ReceiveRequestDialog</name>
     <message>
-        <source>Address</source>
-        <translation>Vistfang</translation>
-    </message>
-    <message>
-        <source>Amount</source>
-        <translation>Upphæð</translation>
-    </message>
-    <message>
-        <source>Label</source>
-        <translation>Merki</translation>
-    </message>
-    <message>
-        <source>Wallet</source>
-        <translation>Veski</translation>
-    </message>
-    <message>
-        <source>Resulting URI too long, try to reduce the text for label / message.</source>
-        <translation>URI varð of langt, reyndu að minnka texta í merki / skilaboðum.</translation>
+        <source>Amount:</source>
+        <translation>Upphæð:</translation>
     </message>
     </context>
 <context>
@@ -849,10 +798,6 @@
         <translation>Skiptimynt:</translation>
     </message>
     <message>
-        <source>Paying only the minimum fee is just fine as long as there is less transaction volume than space in the blocks. But be aware that this can end up in a never confirming transaction once there is more demand for bitcoin transactions than the network can process.</source>
-        <translation>Það er í lagi að greiða einungis lágmarksupphæðina svo framarlega sem færslurúmtakið er minna en plássið í blokkunum. En gætið þess að þegar það er meiri eftirspurn eftir bitcoin færslum en netið getur unnið úr þá gæti svo farið að færslurnar verða aldrei samþykktar.</translation>
-    </message>
-    <message>
         <source>(Smart fee not initialized yet. This usually takes a few blocks...)</source>
         <translation>(Smart gjald er ekki gangsett ennþá. Þetta tekur venjulega nokkrar blokkir...)</translation>
     </message>
@@ -873,16 +818,10 @@
     </message>
     </context>
 <context>
-    <name>SendConfirmationDialog</name>
-    </context>
-<context>
     <name>ShutdownWindow</name>
     </context>
 <context>
     <name>SignVerifyMessageDialog</name>
-    </context>
-<context>
-    <name>SplashScreen</name>
     </context>
 <context>
     <name>TrafficGraphWidget</name>
@@ -951,6 +890,9 @@
     <name>UnitDisplayStatusBarControl</name>
     </context>
 <context>
+    <name>WalletController</name>
+    </context>
+<context>
     <name>WalletFrame</name>
     </context>
 <context>
@@ -966,6 +908,10 @@
         <source>Export the data in the current tab to a file</source>
         <translation>Flytja gögn í flipanum í skrá</translation>
     </message>
+    <message>
+        <source>Error</source>
+        <translation>Villa</translation>
+    </message>
     </context>
 <context>
     <name>bitcoin-core</name>
@@ -977,21 +923,5 @@
         <source>Warning: The network does not appear to fully agree! Some miners appear to be experiencing issues.</source>
         <translation>Viðvörun: Netið er ekki í fullu samræmi! Einhver námuvinnsla virðist í ólagi.</translation>
     </message>
-    <message>
-        <source>Information</source>
-        <translation>Upplýsingar</translation>
-    </message>
-    <message>
-        <source>Warning</source>
-        <translation>Viðvörun</translation>
-    </message>
-    <message>
-        <source>Warning: Unknown block versions being mined! It's possible unknown rules are in effect</source>
-        <translation>Viðvörun: Óþekkt blokkarútgáfa í námavinnslu! Það er mögulegt að óþekktum reglum sé fylgt</translation>
-    </message>
-    <message>
-        <source>Error</source>
-        <translation>Villa</translation>
-    </message>
-</context>
+    </context>
 </TS>

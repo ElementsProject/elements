@@ -1,4 +1,4 @@
-// Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2011-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -6,8 +6,8 @@
 
 #include <qt/bitcoinunits.h>
 #include <qt/guiconstants.h>
-#include <qt/qvaluecombobox.h>
 #include <qt/guiutil.h>
+#include <qt/qvaluecombobox.h>
 
 #include <assetsdir.h>
 #include <chainparams.h>
@@ -40,7 +40,7 @@ public:
         connect(lineEdit(), &QLineEdit::textEdited, this, &AmountSpinBox::valueChanged);
     }
 
-    QValidator::State validate(QString &text, int &pos) const
+    QValidator::State validate(QString &text, int &pos) const override
     {
         if(text.isEmpty())
             return QValidator::Intermediate;
@@ -50,7 +50,7 @@ public:
         return valid ? QValidator::Intermediate : QValidator::Invalid;
     }
 
-    void fixup(QString &input) const
+    void fixup(QString &input) const override
     {
         bool valid;
         CAmount val;
@@ -66,7 +66,7 @@ public:
         if(valid)
         {
             val = qBound(m_min_amount, val, m_max_amount);
-            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::separatorAlways, false);
+            input = GUIUtil::formatAssetAmount(current_asset, val, currentUnit, BitcoinUnits::SeparatorStyle::ALWAYS, false);
             lineEdit()->setText(input);
         }
     }
@@ -85,7 +85,7 @@ public:
     void setValue(const CAsset& asset, CAmount value)
     {
         current_asset = asset;
-        lineEdit()->setText(GUIUtil::formatAssetAmount(asset, value, currentUnit, BitcoinUnits::separatorAlways, false));
+        lineEdit()->setText(GUIUtil::formatAssetAmount(asset, value, currentUnit, BitcoinUnits::SeparatorStyle::ALWAYS, false));
         Q_EMIT valueChanged();
     }
 
@@ -109,7 +109,7 @@ public:
         m_max_amount = value;
     }
 
-    void stepBy(int steps)
+    void stepBy(int steps) override
     {
         bool valid = false;
         auto val = value(&valid);
@@ -154,6 +154,7 @@ public:
 
         current_asset = Params().GetConsensus().pegged_asset;
         currentUnit = unit;
+        lineEdit()->setPlaceholderText(BitcoinUnits::format(currentUnit, m_min_amount, false, BitcoinUnits::SeparatorStyle::ALWAYS));
 
         if (!was_pegged) {
             // Leave the text as-is, if it's valid
@@ -174,7 +175,7 @@ public:
         singleStep = step;
     }
 
-    QSize minimumSizeHint() const
+    QSize minimumSizeHint() const override
     {
         if(cachedMinimumSizeHint.isEmpty())
         {
@@ -182,7 +183,7 @@ public:
 
             const QFontMetrics fm(fontMetrics());
             int h = lineEdit()->minimumSizeHint().height();
-            int w = fm.width(BitcoinUnits::format(BitcoinUnits::BTC, BitcoinUnits::maxMoney(), false, BitcoinUnits::separatorAlways));
+            int w = GUIUtil::TextWidth(fm, BitcoinUnits::format(BitcoinUnits::BTC, BitcoinUnits::maxMoney(), false, BitcoinUnits::SeparatorStyle::ALWAYS));
             w += 2; // cursor blinking space
 
             QStyleOptionSpinBox opt;
@@ -238,7 +239,7 @@ private:
     }
 
 protected:
-    bool event(QEvent *event)
+    bool event(QEvent *event) override
     {
         if (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
         {
@@ -253,7 +254,7 @@ protected:
         return QAbstractSpinBox::event(event);
     }
 
-    StepEnabled stepEnabled() const
+    StepEnabled stepEnabled() const override
     {
         if (isReadOnly()) // Disable steps when AmountSpinBox is read-only
             return StepNone;

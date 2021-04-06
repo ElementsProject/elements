@@ -19,23 +19,24 @@ extern bool g_signed_blocks;
 class CProof
 {
 public:
-    CScript challenge;
-    CScript solution;
+    CScript challenge{};
+    CScript solution{};
 
-    CProof()
-    {
-        SetNull();
-    }
+    CProof() {}
     CProof(CScript challengeIn, CScript solutionIn) : challenge(challengeIn), solution(solutionIn) {}
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
-        READWRITE(*(CScriptBase*)(&challenge));
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
+        s << *(CScriptBase*)(&challenge);
         if (!(s.GetType() & SER_GETHASH))
-            READWRITE(*(CScriptBase*)(&solution));
+            s << *(CScriptBase*)(&solution);
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) const {
+        s >> *(CScriptBase*)(&challenge);
+        if (!(s.GetType() & SER_GETHASH))
+            s >> *(CScriptBase*)(&solution);
     }
 
     void SetNull()
@@ -63,42 +64,64 @@ public:
     // 1 -> Pruned. Doesn't have non-signblockscript data. That elided data
     // is committed to in m_elided_root, and validated against chainstate.
     // 2 -> Full. Typically only consensus-legal at epoch start.
-    unsigned char m_serialize_type;
+    unsigned char m_serialize_type{0};
 
-    CScript m_signblockscript;
-    uint32_t m_signblock_witness_limit; // Max block signature witness serialized size
-    CScript m_fedpeg_program; // The "scriptPubKey" of the fedpegscript
-    CScript m_fedpegscript; // The witnessScript for witness v0 or undefined otherwise.
+    CScript m_signblockscript{};
+    uint32_t m_signblock_witness_limit{0}; // Max block signature witness serialized size
+    CScript m_fedpeg_program{}; // The "scriptPubKey" of the fedpegscript
+    CScript m_fedpegscript{}; // The witnessScript for witness v0 or undefined otherwise.
     // No consensus meaning to the particular bytes, currently we interpret as PAK keys, details in pak.h
-    std::vector<std::vector<unsigned char>> m_extension_space;
-    uint256 m_elided_root; // non-zero only when m_serialize_type == 1
+    std::vector<std::vector<unsigned char>> m_extension_space{};
+    uint256 m_elided_root{}; // non-zero only when m_serialize_type == 1
 
     // Each constructor sets its own serialization type implicitly based on which
     // arguments are given
-    DynaFedParamEntry() { m_signblock_witness_limit = 0; m_serialize_type = 0; };
+    DynaFedParamEntry() {};
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const uint256 elided_root_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_elided_root(elided_root_in) { m_serialize_type = 1; };
     DynaFedParamEntry(const CScript& signblockscript_in, const uint32_t sbs_wit_limit_in, const CScript& fedpeg_program_in, const CScript& fedpegscript_in, const std::vector<std::vector<unsigned char>> extension_space_in) : m_signblockscript(signblockscript_in), m_signblock_witness_limit(sbs_wit_limit_in), m_fedpeg_program(fedpeg_program_in), m_fedpegscript(fedpegscript_in), m_extension_space(extension_space_in) { m_serialize_type = 2; };
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(m_serialize_type);
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
+        s << m_serialize_type;
         switch(m_serialize_type) {
             case 0:
                 /* Null entry, used to signal "no vote" proposal */
                 break;
             case 1:
-                READWRITE(m_signblockscript);
-                READWRITE(m_signblock_witness_limit);
-                READWRITE(m_elided_root);
+                s << m_signblockscript;
+                s << m_signblock_witness_limit;
+                s << m_elided_root;
                 break;
             case 2:
-                READWRITE(m_signblockscript);
-                READWRITE(m_signblock_witness_limit);
-                READWRITE(m_fedpeg_program);
-                READWRITE(m_fedpegscript);
-                READWRITE(m_extension_space);
+                s << m_signblockscript;
+                s << m_signblock_witness_limit;
+                s << m_fedpeg_program;
+                s << m_fedpegscript;
+                s << m_extension_space;
+                break;
+            default:
+                assert(false && "Invalid consensus parameter entry type");
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        s >> m_serialize_type;
+        switch(m_serialize_type) {
+            case 0:
+                /* Null entry, used to signal "no vote" proposal */
+                break;
+            case 1:
+                s >> m_signblockscript;
+                s >> m_signblock_witness_limit;
+                s >> m_elided_root;
+                break;
+            case 2:
+                s >> m_signblockscript;
+                s >> m_signblock_witness_limit;
+                s >> m_fedpeg_program;
+                s >> m_fedpegscript;
+                s >> m_extension_space;
                 break;
             default:
                 throw std::ios_base::failure("Invalid consensus parameter entry type");
@@ -153,20 +176,14 @@ class DynaFedParams
 public:
 
     // Currently enforced by network, not all fields may be known
-    DynaFedParamEntry m_current;
+    DynaFedParamEntry m_current{};
     // Proposed rules for next epoch
-    DynaFedParamEntry m_proposed;
+    DynaFedParamEntry m_proposed{};
 
     DynaFedParams() {};
     DynaFedParams(const DynaFedParamEntry& current, const DynaFedParamEntry& proposed)  : m_current(current), m_proposed(proposed) {};
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(m_current);
-        READWRITE(m_proposed);
-    }
+    SERIALIZE_METHODS(DynaFedParams, obj) { READWRITE(obj.m_current, obj.m_proposed); }
 
     uint256 CalculateRoot() const;
 
@@ -213,54 +230,86 @@ public:
         SetNull();
     }
 
+    // ELEMENTS: we give explicit serialization methods so that we can
+    //  mask in the dynafed bit and to selectively embed the blocktime
+
     // HF bit to detect dynamic federation blocks
     static const uint32_t DYNAFED_HF_MASK = 1 << 31;
 
-    ADD_SERIALIZE_METHODS;
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
+        const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+        // Detect dynamic federation block serialization using "HF bit",
+        // or the signed bit which is invalid in Bitcoin
+        bool is_dyna = false;
+        int32_t nVersion = this->nVersion;
+        if (!m_dynafed_params.IsNull()) {
+            nVersion |= DYNAFED_HF_MASK;
+            is_dyna = true;
+        }
+        s << (nVersion);
+
+        if (is_dyna) {
+            s << hashPrevBlock;
+            s << hashMerkleRoot;
+            s << nTime;
+            s << block_height;
+            s << m_dynafed_params;
+            // We do not serialize witness for hashes, or weight calculation
+            if (!(s.GetType() & SER_GETHASH) && fAllowWitness) {
+                s << m_signblock_witness.stack;
+            }
+        } else {
+            s << hashPrevBlock;
+            s << hashMerkleRoot;
+            s << nTime;
+            if (g_con_blockheightinheader) {
+                s << block_height;
+            }
+            if (g_signed_blocks) {
+                s << proof;
+            } else {
+                s << nBits;
+                s << nNonce;
+            }
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
         const bool fAllowWitness = !(s.GetVersion() & SERIALIZE_TRANSACTION_NO_WITNESS);
 
         // Detect dynamic federation block serialization using "HF bit",
         // or the signed bit which is invalid in Bitcoin
         bool is_dyna = false;
         int32_t nVersion;
-        if (ser_action.ForRead()) {
-            READWRITE(nVersion);
-            is_dyna = nVersion < 0;
-            this->nVersion = ~DYNAFED_HF_MASK & nVersion;
-        } else {
-            nVersion = this->nVersion;
-            if (!m_dynafed_params.IsNull()) {
-                nVersion |= DYNAFED_HF_MASK;
-                is_dyna = true;
-            }
-            READWRITE(nVersion);
-        }
+        s >> nVersion;
+        is_dyna = nVersion < 0;
+        this->nVersion = ~DYNAFED_HF_MASK & nVersion;
 
         if (is_dyna) {
-            READWRITE(hashPrevBlock);
-            READWRITE(hashMerkleRoot);
-            READWRITE(nTime);
-            READWRITE(block_height);
-            READWRITE(m_dynafed_params);
+            s >> hashPrevBlock;
+            s >> hashMerkleRoot;
+            s >> nTime;
+            s >> block_height;
+            s >> m_dynafed_params;
             // We do not serialize witness for hashes, or weight calculation
             if (!(s.GetType() & SER_GETHASH) && fAllowWitness) {
-                READWRITE(m_signblock_witness.stack);
+                s >> m_signblock_witness.stack;
             }
         } else {
-            READWRITE(hashPrevBlock);
-            READWRITE(hashMerkleRoot);
-            READWRITE(nTime);
+            s >> hashPrevBlock;
+            s >> hashMerkleRoot;
+            s >> nTime;
             if (g_con_blockheightinheader) {
-                READWRITE(block_height);
+                s >> block_height;
             }
             if (g_signed_blocks) {
-                READWRITE(proof);
+                s >> proof;
             } else {
-                READWRITE(nBits);
-                READWRITE(nNonce);
+                s >> nBits;
+                s >> nNonce;
             }
         }
     }
@@ -315,12 +364,10 @@ public:
         *(static_cast<CBlockHeader*>(this)) = header;
     }
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CBlockHeader, *this);
-        READWRITE(vtx);
+    SERIALIZE_METHODS(CBlock, obj)
+    {
+        READWRITEAS(CBlockHeader, obj);
+        READWRITE(obj.vtx);
     }
 
     void SetNull()
@@ -360,14 +407,12 @@ struct CBlockLocator
 
     explicit CBlockLocator(const std::vector<uint256>& vHaveIn) : vHave(vHaveIn) {}
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    SERIALIZE_METHODS(CBlockLocator, obj)
+    {
         int nVersion = s.GetVersion();
         if (!(s.GetType() & SER_GETHASH))
             READWRITE(nVersion);
-        READWRITE(vHave);
+        READWRITE(obj.vHave);
     }
 
     void SetNull()

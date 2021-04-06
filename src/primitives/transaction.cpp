@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,6 +8,8 @@
 #include <hash.h>
 #include <tinyformat.h>
 #include <util/strencodings.h>
+
+#include <assert.h>
 
 bool g_con_elementsmode = false;
 
@@ -128,11 +130,12 @@ CAmountMap CTransaction::GetValueOutMap() const {
         if (tx_out.nValue.IsExplicit() && tx_out.nAsset.IsExplicit()) {
             CAmountMap m;
             m[tx_out.nAsset.GetAsset()] = tx_out.nValue.GetAmount();
-            values += m;
-            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset.GetAsset()]))
+            if (!MoneyRange(tx_out.nValue.GetAmount()) || !MoneyRange(values[tx_out.nAsset.GetAsset()] + tx_out.nValue.GetAmount()))
                 throw std::runtime_error(std::string(__func__) + ": value out of range");
+            values += m;
         }
     }
+    assert(MoneyRange(values));
     return values;
 }
 

@@ -1,30 +1,29 @@
-// Copyright (c) 2012-2018 The Bitcoin Core developers
+// Copyright (c) 2012-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <checkqueue.h>
+#include <sync.h>
+#include <test/util/setup_common.h>
+#include <util/memory.h>
 #include <util/system.h>
 #include <util/time.h>
-#include <validation.h>
 
-#include <test/test_bitcoin.h>
-#include <checkqueue.h>
 #include <boost/test/unit_test.hpp>
-#include <boost/thread.hpp>
+#include <boost/thread/thread.hpp>
+
 #include <atomic>
-#include <thread>
-#include <vector>
-#include <mutex>
 #include <condition_variable>
-
+#include <mutex>
+#include <thread>
 #include <unordered_set>
-#include <memory>
-#include <random.h>
+#include <utility>
+#include <vector>
 
-// BasicTestingSetup not sufficient because nScriptCheckThreads is not set
-// otherwise.
 BOOST_FIXTURE_TEST_SUITE(checkqueue_tests, TestingSetup)
 
 static const unsigned int QUEUE_BATCH_SIZE = 128;
+static const int SCRIPT_CHECK_THREADS = 3;
 
 struct FakeCheck {
     bool operator()()
@@ -59,14 +58,14 @@ struct FailingCheck {
 };
 
 struct UniqueCheck {
-    static std::mutex m;
-    static std::unordered_multiset<size_t> results;
+    static Mutex m;
+    static std::unordered_multiset<size_t> results GUARDED_BY(m);
     size_t check_id;
     UniqueCheck(size_t check_id_in) : check_id(check_id_in){};
     UniqueCheck() : check_id(0){};
     bool operator()()
     {
-        std::lock_guard<std::mutex> l(m);
+        LOCK(m);
         results.insert(check_id);
         return true;
     }
@@ -129,7 +128,7 @@ struct FrozenCleanupCheck {
 std::mutex FrozenCleanupCheck::m{};
 std::atomic<uint64_t> FrozenCleanupCheck::nFrozen{0};
 std::condition_variable FrozenCleanupCheck::cv{};
-std::mutex UniqueCheck::m;
+Mutex UniqueCheck::m;
 std::unordered_multiset<size_t> UniqueCheck::results;
 std::atomic<size_t> FakeCheckCheckCompletion::n_calls{0};
 std::atomic<size_t> MemoryCheck::fake_allocated_memory{0};
@@ -150,7 +149,7 @@ static void Correct_Queue_range(std::vector<size_t> range)
 {
     auto small_queue = MakeUnique<Correct_Queue>(QUEUE_BATCH_SIZE);
     boost::thread_group tg;
-    for (auto x = 0; x < nScriptCheckThreads; ++x) {
+    for (auto x = 0; x < SCRIPT_CHECK_THREADS; ++x) {
        tg.create_thread([&]{small_queue->Thread();});
     }
     // Make vChecks here to save on malloc (this test can be slow...)
@@ -170,7 +169,6 @@ static void Correct_Queue_range(std::vector<size_t> range)
         BOOST_REQUIRE(control.Wait());
         if (FakeCheckCheckCompletion::n_calls != i) {
             BOOST_REQUIRE_EQUAL(FakeCheckCheckCompletion::n_calls, i);
-            BOOST_TEST_MESSAGE("Failure on trial " << i << " expected, got " << FakeCheckCheckCompletion::n_calls);
         }
     }
     tg.interrupt_all();
@@ -219,7 +217,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Catches_Failure)
     auto fail_queue = MakeUnique<Failing_Queue>(QUEUE_BATCH_SIZE);
 
     boost::thread_group tg;
-    for (auto x = 0; x < nScriptCheckThreads; ++x) {
+    for (auto x = 0; x < SCRIPT_CHECK_THREADS; ++x) {
        tg.create_thread([&]{fail_queue->Thread();});
     }
 
@@ -251,7 +249,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Recovers_From_Failure)
 {
     auto fail_queue = MakeUnique<Failing_Queue>(QUEUE_BATCH_SIZE);
     boost::thread_group tg;
-    for (auto x = 0; x < nScriptCheckThreads; ++x) {
+    for (auto x = 0; x < SCRIPT_CHECK_THREADS; ++x) {
        tg.create_thread([&]{fail_queue->Thread();});
     }
 
@@ -263,6 +261,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Recovers_From_Failure)
                 for (size_t i = 0; i < 100; i++) {
                     vChecks.push_back(new FailingCheck(false));
                 }
+                delete vChecks[99];
                 vChecks[99] = new FailingCheck(end_fails);
                 control.Add(vChecks);
             }
@@ -281,7 +280,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_UniqueCheck)
 {
     auto queue = MakeUnique<Unique_Queue>(QUEUE_BATCH_SIZE);
     boost::thread_group tg;
-    for (auto x = 0; x < nScriptCheckThreads; ++x) {
+    for (auto x = 0; x < SCRIPT_CHECK_THREADS; ++x) {
        tg.create_thread([&]{queue->Thread();});
 
     }
@@ -299,11 +298,15 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_UniqueCheck)
             control.Add(vChecks);
         }
     }
-    bool r = true;
-    BOOST_REQUIRE_EQUAL(UniqueCheck::results.size(), COUNT);
-    for (size_t i = 0; i < COUNT; ++i)
-        r = r && UniqueCheck::results.count(i) == 1;
-    BOOST_REQUIRE(r);
+    {
+        LOCK(UniqueCheck::m);
+        bool r = true;
+        BOOST_REQUIRE_EQUAL(UniqueCheck::results.size(), COUNT);
+        for (size_t i = 0; i < COUNT; ++i) {
+            r = r && UniqueCheck::results.count(i) == 1;
+        }
+        BOOST_REQUIRE(r);
+    }
     tg.interrupt_all();
     tg.join_all();
 }
@@ -318,7 +321,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_Memory)
 {
     auto queue = MakeUnique<Memory_Queue>(QUEUE_BATCH_SIZE);
     boost::thread_group tg;
-    for (auto x = 0; x < nScriptCheckThreads; ++x) {
+    for (auto x = 0; x < SCRIPT_CHECK_THREADS; ++x) {
        tg.create_thread([&]{queue->Thread();});
     }
     for (size_t i = 0; i < 1000; ++i) {
@@ -350,7 +353,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueue_FrozenCleanup)
     auto queue = MakeUnique<FrozenCleanup_Queue>(QUEUE_BATCH_SIZE);
     boost::thread_group tg;
     bool fails = false;
-    for (auto x = 0; x < nScriptCheckThreads; ++x) {
+    for (auto x = 0; x < SCRIPT_CHECK_THREADS; ++x) {
         tg.create_thread([&]{queue->Thread();});
     }
     std::thread t0([&]() {
@@ -403,7 +406,7 @@ BOOST_AUTO_TEST_CASE(test_CheckQueueControl_Locks)
                     CCheckQueueControl<FakeCheck> control(queue.get());
                     // While sleeping, no other thread should execute to this point
                     auto observed = ++nThreads;
-                    MilliSleep(10);
+                    UninterruptibleSleep(std::chrono::milliseconds{10});
                     fails += observed  != nThreads;
                     });
         }

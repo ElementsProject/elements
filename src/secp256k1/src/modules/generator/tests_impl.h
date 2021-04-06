@@ -33,8 +33,8 @@ void test_generator_api(void) {
     secp256k1_context_set_illegal_callback(none, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(sign, counting_illegal_callback_fn, &ecount);
     secp256k1_context_set_illegal_callback(vrfy, counting_illegal_callback_fn, &ecount);
-    secp256k1_rand256(key);
-    secp256k1_rand256(blind);
+    secp256k1_testrand256(key);
+    secp256k1_testrand256(blind);
 
     CHECK(secp256k1_generator_generate(none, &gen, key) == 1);
     CHECK(ecount == 0);

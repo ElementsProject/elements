@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2020 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef BITCOIN_POLICY_FEES_H
@@ -43,19 +43,7 @@ enum class FeeReason {
     PAYTXFEE,
     FALLBACK,
     REQUIRED,
-    MAXTXFEE,
 };
-
-std::string StringForFeeReason(FeeReason reason);
-
-/* Used to determine type of fee estimation requested */
-enum class FeeEstimateMode {
-    UNSET,        //!< Use default settings based on other criteria
-    ECONOMICAL,   //!< Force estimateSmartFee to use non-conservative estimates
-    CONSERVATIVE, //!< Force estimateSmartFee to use conservative estimates
-};
-
-bool FeeModeFromString(const std::string& mode_string, FeeEstimateMode& fee_estimate_mode);
 
 /* Used to return detailed information about a feerate bucket */
 struct EstimatorBucket
@@ -150,9 +138,9 @@ private:
 
     /** Decay of .962 is a half-life of 18 blocks or about 3 hours */
     static constexpr double SHORT_DECAY = .962;
-    /** Decay of .998 is a half-life of 144 blocks or about 1 day */
+    /** Decay of .9952 is a half-life of 144 blocks or about 1 day */
     static constexpr double MED_DECAY = .9952;
-    /** Decay of .9995 is a half-life of 1008 blocks or about 1 week */
+    /** Decay of .99931 is a half-life of 1008 blocks or about 1 week */
     static constexpr double LONG_DECAY = .99931;
 
     /** Require greater than 60% of X feerate transactions to be confirmed within Y/2 blocks*/
@@ -228,7 +216,7 @@ public:
     unsigned int HighestTargetTracked(FeeEstimateHorizon horizon) const;
 
 private:
-    mutable CCriticalSection m_cs_fee_estimator;
+    mutable RecursiveMutex m_cs_fee_estimator;
 
     unsigned int nBestSeenHeight GUARDED_BY(m_cs_fee_estimator);
     unsigned int firstRecordedHeight GUARDED_BY(m_cs_fee_estimator);
@@ -285,7 +273,7 @@ public:
     /** Create new FeeFilterRounder */
     explicit FeeFilterRounder(const CFeeRate& minIncrementalFee);
 
-    /** Quantize a minimum fee for privacy purpose before broadcast **/
+    /** Quantize a minimum fee for privacy purpose before broadcast. Not thread-safe due to use of FastRandomContext */
     CAmount round(CAmount currentMinFee);
 
 private:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2014-2018 The Bitcoin Core developers
+# Copyright (c) 2014-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Test running bitcoind with the -rpcbind and -rpcallowip options."""
@@ -15,6 +15,7 @@ class RPCBindTest(BitcoinTestFramework):
         self.setup_clean_chain = True
         self.bind_to_localhost_only = False
         self.num_nodes = 1
+        self.supports_cli = False
 
     def setup_network(self):
         self.add_nodes(self.num_nodes, None)

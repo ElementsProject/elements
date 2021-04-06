@@ -459,10 +459,10 @@
        <item>
         <widget class="QCheckBox" name="connectSocksTor">
          <property name="toolTip">
-          <string>Connect to the Liquid network through a separate SOCKS5 proxy for Tor hidden services.</string>
+          <string>Connect to the Liquid network through a separate SOCKS5 proxy for Tor onion services.</string>
          </property>
          <property name="text">
-          <string>Use separate SOCKS&amp;5 proxy to reach peers via Tor hidden services:</string>
+          <string>Use separate SOCKS&amp;5 proxy to reach peers via Tor onion services:</string>
          </property>
         </widget>
        </item>
@@ -684,6 +684,9 @@
           <widget class="QLineEdit" name="thirdPartyTxUrls">
            <property name="toolTip">
             <string>Third party URLs (e.g. a block explorer) that appear in the transactions tab as context menu items. %s in the URL is replaced by transaction hash. Multiple URLs are separated by vertical bar |.</string>
+           </property>
+           <property name="placeholderText">
+            <string notr="true">https://example.com/tx/%s</string>
            </property>
           </widget>
          </item>

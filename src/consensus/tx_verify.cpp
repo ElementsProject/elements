@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018 The Bitcoin Core developers
+// Copyright (c) 2017-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -9,6 +9,7 @@
 #include <pegins.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <script/pegins.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -28,9 +29,9 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
     return true;
 }
 
-std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags, std::vector<int>* prevHeights, const CBlockIndex& block)
+std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags, std::vector<int>& prevHeights, const CBlockIndex& block)
 {
-    assert(prevHeights->size() == tx.vin.size());
+    assert(prevHeights.size() == tx.vin.size());
 
     // Will be set to the equivalent height- and time-based nLockTime
     // values that would be necessary to satisfy all relative lock-
@@ -65,11 +66,11 @@ std::pair<int, int64_t> CalculateSequenceLocks(const CTransaction &tx, int flags
         // consensus-enforced meaning at this point.
         if (txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_DISABLE_FLAG) {
             // The height of this input is not relevant for sequence locks
-            (*prevHeights)[txinIndex] = 0;
+            prevHeights[txinIndex] = 0;
             continue;
         }
 
-        int nCoinHeight = (*prevHeights)[txinIndex];
+        int nCoinHeight = prevHeights[txinIndex];
 
         if (txin.nSequence & CTxIn::SEQUENCE_LOCKTIME_TYPE_FLAG) {
             int64_t nCoinTime = block.GetAncestor(std::max(nCoinHeight-1, 0))->GetMedianTimePast();
@@ -105,7 +106,7 @@ bool EvaluateSequenceLocks(const CBlockIndex& block, std::pair<int, int64_t> loc
     return true;
 }
 
-bool SequenceLocks(const CTransaction &tx, int flags, std::vector<int>* prevHeights, const CBlockIndex& block)
+bool SequenceLocks(const CTransaction &tx, int flags, std::vector<int>& prevHeights, const CBlockIndex& block)
 {
     return EvaluateSequenceLocks(block, CalculateSequenceLocks(tx, flags, prevHeights, block));
 }
@@ -183,71 +184,11 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
-bool CheckTransaction(const CTransaction& tx, CValidationState &state, bool fCheckDuplicateInputs)
-{
-    // Basic checks that don't depend on any context
-    if (tx.vin.empty())
-        return state.DoS(10, false, REJECT_INVALID, "bad-txns-vin-empty");
-    if (tx.vout.empty())
-        return state.DoS(10, false, REJECT_INVALID, "bad-txns-vout-empty");
-    // Size limits (this doesn't take the witness into account, as that hasn't been checked for malleability)
-    if (::GetSerializeSize(tx, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-oversize");
-
-    // Check for negative or overflow output values
-    CAmount nValueOutExplicit = 0;
-    for (const auto& txout : tx.vout)
-    {
-        if (!txout.nValue.IsValid())
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-amount-invalid");
-        if (!txout.nValue.IsExplicit())
-            continue;
-        if (txout.nValue.GetAmount() < 0)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue.GetAmount() > MAX_MONEY)
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-vout-toolarge");
-        nValueOutExplicit += txout.nValue.GetAmount();
-        if (!MoneyRange(nValueOutExplicit))
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-txouttotal-toolarge");
-    }
-
-    // Check for duplicate inputs - note that this check is slow so we skip it in CheckBlock
-    if (fCheckDuplicateInputs) {
-        std::set<COutPoint> vInOutPoints;
-        for (const auto& txin : tx.vin)
-        {
-            if (!vInOutPoints.insert(txin.prevout).second)
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputs-duplicate");
-        }
-    }
-
-    if (tx.IsCoinBase())
-    {
-        if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
-            return state.DoS(100, false, REJECT_INVALID, "bad-cb-length");
-
-        for (unsigned int i = 0; i < tx.vout.size(); i++) {
-            if (tx.vout[i].IsFee()) {
-                return state.DoS(100, false, REJECT_INVALID, "bad-cb-fee");
-            }
-        }
-    }
-    else
-    {
-        for (const auto& txin : tx.vin)
-            if (txin.prevout.IsNull())
-                return state.DoS(10, false, REJECT_INVALID, "bad-txns-prevout-null");
-    }
-
-    return true;
-}
-
-namespace Consensus {
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
+bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, CAmountMap& fee_map, std::set<std::pair<uint256, COutPoint>>& setPeginsSpent, std::vector<CCheck*> *pvChecks, const bool cacheStore, bool fScriptChecks, const std::vector<std::pair<CScript, CScript>>& fedpegscripts)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
-        return state.DoS(100, false, REJECT_INVALID, "bad-txns-inputs-missingorspent", false,
+        return state.Invalid(TxValidationResult::TX_MISSING_INPUTS, "bad-txns-inputs-missingorspent",
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
@@ -259,14 +200,14 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             // Check existence and validity of pegin witness
             std::string err;
             if (tx.witness.vtxinwit.size() <= i || !IsValidPeginWitness(tx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, prevout, err, true)) {
-                return state.DoS(0, false, REJECT_PEGIN, "bad-pegin-witness", false, err);
+                return state.Invalid(TxValidationResult::TX_WITNESS_MUTATED, "bad-pegin-witness", err);
             }
             std::pair<uint256, COutPoint> pegin = std::make_pair(uint256(tx.witness.vtxinwit[i].m_pegin_witness.stack[2]), prevout);
             if (inputs.IsPeginSpent(pegin)) {
-                return state.Invalid(false, REJECT_INVALID, "bad-txns-double-pegin", strprintf("Double-pegin of %s:%d", prevout.hash.ToString(), prevout.n));
+                return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-double-pegin", strprintf("Double-pegin of %s:%d", prevout.hash.ToString(), prevout.n));
             }
             if (setPeginsSpent.count(pegin)) {
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-double-pegin-in-obj", false,
+                return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-double-pegin-in-obj",
                     strprintf("Double-pegin of %s:%d in single tx/block", prevout.hash.ToString(), prevout.n));
             }
             setPeginsSpent.insert(pegin);
@@ -276,7 +217,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
             const CTxOut& out = spent_inputs.back();
             nValueIn += out.nValue.GetAmount(); // Non-explicit already filtered by IsValidPeginWitness
             if (!MoneyRange(out.nValue.GetAmount())) {
-                return state.DoS(100, false, REJECT_INVALID, "bad-txns-pegin-inputvalue-outofrange");
+                return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-inputvalues-outofrange");
             }
         } else {
             const Coin& coin = inputs.AccessCoin(prevout);
@@ -284,8 +225,7 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
             // If prev is coinbase, check that it's matured
             if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
-                return state.Invalid(false,
-                    REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
+                return state.Invalid(TxValidationResult::TX_PREMATURE_SPEND, "bad-txns-premature-spend-of-coinbase",
                     strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
             }
             spent_inputs.push_back(coin.out);
@@ -298,28 +238,28 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
     if (g_con_elementsmode) {
         // Tally transaction fees
         if (!HasValidFee(tx)) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-fee-outofrange");
         }
 
         // Verify that amounts add up.
         if (fScriptChecks && !VerifyAmounts(spent_inputs, tx, pvChecks, cacheStore)) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-ne-out", false, "value in != value out");
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-ne-out", "value in != value out");
         }
         fee_map += GetFeeMap(tx);
         if (!MoneyRange(fee_map)) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-block-total-fee-outofrange");
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-block-total-fee-outofrange");
         }
     } else {
         const CAmount value_out = tx.GetValueOutMap()[CAsset()];
         if (nValueIn < value_out) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-in-belowout", false,
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-belowout",
                 strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
         }
 
         // Tally transaction fees
         const CAmount txfee_aux = nValueIn - value_out;
         if (!MoneyRange(txfee_aux)) {
-            return state.DoS(100, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+            return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-fee-outofrange");
         }
 
         fee_map[CAsset()] += txfee_aux;
@@ -327,4 +267,4 @@ bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoins
 
     return true;
 }
-}// namespace Consensus
+

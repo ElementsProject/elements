@@ -30,6 +30,7 @@ class AssetdirTests(BitcoinTestFramework):
 
     def run_test(self):
         self.nodes[0].generate(101)
+        self.nodes[0].syncwithvalidationinterfacequeue()
 
         #Issue two assets that we will later label using the assetdir parameter
         issuance1 = self.nodes[0].issueasset(100, 1, False)

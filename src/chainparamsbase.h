@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 The Bitcoin Core developers
+// Copyright (c) 2014-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -7,7 +7,8 @@
 
 #include <memory>
 #include <string>
-#include <vector>
+
+class ArgsManager;
 
 /**
  * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
@@ -16,24 +17,30 @@
 class CBaseChainParams
 {
 public:
-    /** BIP70 chain name strings (main, test or regtest) */
+    ///@{
+    /** Chain name strings */
     static const std::string MAIN;
     static const std::string TESTNET;
+    static const std::string SIGNET;
     static const std::string REGTEST;
     static const std::string LIQUID1;
+    ///@}
 
     static const std::string DEFAULT;
 
     const std::string& DataDir() const { return strDataDir; }
-    int RPCPort() const { return nRPCPort; }
-    int MainchainRPCPort() const { return nMainchainRPCPort; }
+    uint16_t RPCPort() const { return m_rpc_port; }
+    uint16_t OnionServiceTargetPort() const { return m_onion_service_target_port; }
+    int MainchainRPCPort() const { return m_mainchain_rpc_port; }
 
     CBaseChainParams() = delete;
-    CBaseChainParams(const std::string& data_dir, int rpc_port, int mainchain_rpc_port) : nRPCPort(rpc_port), nMainchainRPCPort(mainchain_rpc_port), strDataDir(data_dir) {}
+    CBaseChainParams(const std::string& data_dir, uint16_t rpc_port, uint16_t mainchain_rpc_port, uint16_t onion_service_target_port)
+        : m_rpc_port(rpc_port), m_mainchain_rpc_port(mainchain_rpc_port), m_onion_service_target_port(onion_service_target_port), strDataDir(data_dir) {}
 
 private:
-    int nRPCPort;
-    int nMainchainRPCPort;
+    const uint16_t m_rpc_port;
+    const uint16_t m_mainchain_rpc_port;
+    const uint16_t m_onion_service_target_port;
     std::string strDataDir;
 };
 
@@ -47,7 +54,7 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
 /**
  *Set the arguments for chainparams
  */
-void SetupChainParamsBaseOptions();
+void SetupChainParamsBaseOptions(ArgsManager& argsman);
 
 /**
  * Return the currently selected parameters. This won't change after app

@@ -9,19 +9,15 @@ Test the post-dynafed elements-only SIGHASH_RANGEPROOF sighash flag.
 
 import struct
 from test_framework.test_framework import BitcoinTestFramework
+from test_framework.address import base58_to_byte
 from test_framework.script import (
     hash160,
-    SignatureHash,
-    SegwitVersion1SignatureHash,
+    LegacySignatureHash,
+    SegwitV0SignatureHash,
     SIGHASH_ALL,
-    SIGHASH_SINGLE,
-    SIGHASH_NONE,
-    SIGHASH_ANYONECANPAY,
     SIGHASH_RANGEPROOF,
     CScript,
     CScriptOp,
-    FindAndDelete,
-    OP_CODESEPARATOR,
     OP_CHECKSIG,
     OP_DUP,
     OP_EQUALVERIFY,
@@ -32,10 +28,8 @@ from test_framework.key import ECKey
 from test_framework.messages import (
     CBlock,
     CTransaction,
-    CTxOut,
     FromHex,
-    WitToHex,
-    hash256, uint256_from_str, ser_uint256, ser_string, ser_vector
+    WitToHex
 )
 
 from test_framework import util
@@ -50,122 +44,6 @@ from test_framework.blocktools import add_witness_commitment
 def get_p2pkh_script(pubkeyhash):
     """Get the script associated with a P2PKH."""
     return CScript([CScriptOp(OP_DUP), CScriptOp(OP_HASH160), pubkeyhash, CScriptOp(OP_EQUALVERIFY), CScriptOp(OP_CHECKSIG)])
-
-def SignatureHash_legacy(script, txTo, inIdx, hashtype):
-    """
-    This method is identical to the regular `SignatureHash` method,
-    but without support for SIGHASH_RANGEPROOF.
-    So basically it's the old version of the method from before the
-    new sighash flag was added.
-    """
-    HASH_ONE = b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-
-    if inIdx >= len(txTo.vin):
-        return (HASH_ONE, "inIdx %d out of range (%d)" % (inIdx, len(txTo.vin)))
-    txtmp = CTransaction(txTo)
-
-    for txin in txtmp.vin:
-        txin.scriptSig = b''
-    txtmp.vin[inIdx].scriptSig = FindAndDelete(script, CScript([OP_CODESEPARATOR]))
-
-    if (hashtype & 0x1f) == SIGHASH_NONE:
-        txtmp.vout = []
-
-        for i in range(len(txtmp.vin)):
-            if i != inIdx:
-                txtmp.vin[i].nSequence = 0
-
-    elif (hashtype & 0x1f) == SIGHASH_SINGLE:
-        outIdx = inIdx
-        if outIdx >= len(txtmp.vout):
-            return (HASH_ONE, "outIdx %d out of range (%d)" % (outIdx, len(txtmp.vout)))
-
-        tmp = txtmp.vout[outIdx]
-        txtmp.vout = []
-        for i in range(outIdx):
-            txtmp.vout.append(CTxOut(-1))
-        txtmp.vout.append(tmp)
-
-        for i in range(len(txtmp.vin)):
-            if i != inIdx:
-                txtmp.vin[i].nSequence = 0
-
-    if hashtype & SIGHASH_ANYONECANPAY:
-        tmp = txtmp.vin[inIdx]
-        txtmp.vin = []
-        txtmp.vin.append(tmp)
-
-    # sighash serialization is different from non-witness serialization
-    # do manual sighash serialization:
-    s = b""
-    s += struct.pack("<i", txtmp.nVersion)
-    s += ser_vector(txtmp.vin)
-    s += ser_vector(txtmp.vout)
-    s += struct.pack("<I", txtmp.nLockTime)
-
-    # add sighash type
-    s += struct.pack(b"<I", hashtype)
-
-    hash = hash256(s)
-
-    return (hash, None)
-
-def SegwitVersion1SignatureHash_legacy(script, txTo, inIdx, hashtype, amount):
-    """
-    This method is identical to the regular `SegwitVersion1SignatureHash`
-    method, but without support for SIGHASH_RANGEPROOF.
-    So basically it's the old version of the method from before the
-    new sighash flag was added.
-    """
-
-    hashPrevouts = 0
-    hashSequence = 0
-    hashIssuance = 0
-    hashOutputs = 0
-
-    if not (hashtype & SIGHASH_ANYONECANPAY):
-        serialize_prevouts = bytes()
-        for i in txTo.vin:
-            serialize_prevouts += i.prevout.serialize()
-        hashPrevouts = uint256_from_str(hash256(serialize_prevouts))
-
-    if (not (hashtype & SIGHASH_ANYONECANPAY) and (hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
-        serialize_sequence = bytes()
-        for i in txTo.vin:
-            serialize_sequence += struct.pack("<I", i.nSequence)
-        hashSequence = uint256_from_str(hash256(serialize_sequence))
-
-    if not (hashtype & SIGHASH_ANYONECANPAY):
-        serialize_issuance = bytes()
-        # TODO actually serialize issuances
-        for _ in txTo.vin:
-            serialize_issuance += b'\x00'
-        hashIssuance = uint256_from_str(hash256(serialize_issuance))
-
-    if ((hashtype & 0x1f) != SIGHASH_SINGLE and (hashtype & 0x1f) != SIGHASH_NONE):
-        serialize_outputs = bytes()
-        for o in txTo.vout:
-            serialize_outputs += o.serialize()
-        hashOutputs = uint256_from_str(hash256(serialize_outputs))
-    elif ((hashtype & 0x1f) == SIGHASH_SINGLE and inIdx < len(txTo.vout)):
-        serialize_outputs = txTo.vout[inIdx].serialize()
-        hashOutputs = uint256_from_str(hash256(serialize_outputs))
-
-    ss = bytes()
-    ss += struct.pack("<i", txTo.nVersion)
-    ss += ser_uint256(hashPrevouts)
-    ss += ser_uint256(hashSequence)
-    ss += ser_uint256(hashIssuance)
-    ss += txTo.vin[inIdx].prevout.serialize()
-    ss += ser_string(script)
-    ss += amount.serialize()
-    ss += struct.pack("<I", txTo.vin[inIdx].nSequence)
-    ss += ser_uint256(hashOutputs)
-    ss += struct.pack("<i", txTo.nLockTime)
-    ss += struct.pack("<I", hashtype)
-
-    return hash256(ss)
-
 
 class SighashRangeproofTest(BitcoinTestFramework):
     def set_test_params(self):
@@ -213,17 +91,18 @@ class SighashRangeproofTest(BitcoinTestFramework):
 
         # Prepare the keypair we need to re-sign the tx.
         wif = self.nodes[1].dumpprivkey(addr)
+        (b, v) = base58_to_byte(wif)
         privkey = ECKey()
-        privkey.set_wif(wif)
+        privkey.set(b[0:32], len(b) == 33)
         pubkey = privkey.get_pubkey()
 
         # Now we need to replace the signature with an equivalent one with the new sighash set.
         hashtype = SIGHASH_ALL | SIGHASH_RANGEPROOF
         if address_type == "legacy":
             if sighash_rangeproof_aware:
-                (sighash, _) = SignatureHash(utxo_spk, blinded_tx, 0, hashtype)
+                (sighash, _) = LegacySignatureHash(utxo_spk, blinded_tx, 0, hashtype)
             else:
-                (sighash, _) = SignatureHash_legacy(utxo_spk, blinded_tx, 0, hashtype)
+                (sighash, _) = LegacySignatureHash(utxo_spk, blinded_tx, 0, hashtype, enable_sighash_rangeproof=False)
             signature = privkey.sign_ecdsa(sighash) + chr(hashtype).encode('latin-1')
             assert len(signature) <= 0xfc
             assert len(pubkey.get_bytes()) <= 0xfc
@@ -236,9 +115,9 @@ class SighashRangeproofTest(BitcoinTestFramework):
             pubkeyhash = hash160(pubkey.get_bytes())
             script = get_p2pkh_script(pubkeyhash)
             if sighash_rangeproof_aware:
-                sighash = SegwitVersion1SignatureHash(script, blinded_tx, 0, hashtype, utxo_value)
+                sighash = SegwitV0SignatureHash(script, blinded_tx, 0, hashtype, utxo_value)
             else:
-                sighash = SegwitVersion1SignatureHash_legacy(script, blinded_tx, 0, hashtype, utxo_value)
+                sighash = SegwitV0SignatureHash(script, blinded_tx, 0, hashtype, utxo_value, enable_sighash_rangeproof=False)
             signature = privkey.sign_ecdsa(sighash) + chr(hashtype).encode('latin-1')
             signed_tx.wit.vtxinwit[0].scriptWitness.stack[0] = signature
         else:
@@ -309,8 +188,12 @@ class SighashRangeproofTest(BitcoinTestFramework):
             self.assert_tx_valid(tx, True)
 
         # Activate dynafed (nb of blocks taken from dynafed activation test)
-        self.nodes[0].generate(1006 + 1 + 144 + 144)
-        assert_equal(self.nodes[0].getblockchaininfo()["bip9_softforks"]["dynafed"]["status"], "active")
+        # Generate acress several calls to `generatetoaddress` to ensure no individual call times out
+        self.nodes[0].generate(503)
+        self.nodes[0].generate(503)
+        self.nodes[0].generate(1 + 144 + 144)
+        assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
+
         self.sync_all()
 
         # Test that the use of SIGHASH_RANGEPROOF is legal and standard

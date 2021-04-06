@@ -9,7 +9,8 @@
 #include <hash.h>
 #include <script/interpreter.h>
 #include <script/sign.h>
-#include <keystore.h>
+#include <script/signingprovider.h>
+
 
 class SimpleSignatureChecker : public BaseSignatureChecker
 {
@@ -18,7 +19,7 @@ public:
     bool sighash_byte;
 
     SimpleSignatureChecker(const uint256& hashIn, bool sighash_byte_in) : hash(hashIn), sighash_byte(sighash_byte_in) {};
-    bool CheckSig(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override
+    bool CheckECDSASignature(const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& vchPubKey, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override
     {
         std::vector<unsigned char> vchSigCopy(vchSig);
         CPubKey pubkey(vchPubKey);
@@ -46,7 +47,7 @@ class SimpleSignatureCreator : public BaseSignatureCreator
 
 public:
     SimpleSignatureCreator(const uint256& hashIn, bool sighash_byte_in) : checker(hashIn, sighash_byte_in), sighash_byte(sighash_byte_in) {};
-    const BaseSignatureChecker& Checker() const { return checker; }
+    const BaseSignatureChecker& Checker() const override { return checker; }
     bool CreateSig(const SigningProvider& provider, std::vector<unsigned char>& vchSig, const CKeyID& keyid, const CScript& scriptCode, SigVersion sigversion, unsigned int flags) const override
     {
         CKey key;
@@ -72,7 +73,7 @@ bool GenericVerifyScript(const CScript& scriptSig, const CScriptWitness& witness
 }
 
 template<typename T>
-bool GenericSignScript(const CKeyStore& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig, unsigned int additional_flags)
+bool GenericSignScript(const FillableSigningProvider& keystore, const T& data, const CScript& fromPubKey, SignatureData& scriptSig, unsigned int additional_flags)
 {
     bool sighash_byte = (additional_flags & SCRIPT_NO_SIGHASH_BYTE) ? false : true;
     // Note: Our hash doesn't commit to the sighash byte

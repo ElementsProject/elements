@@ -1,14 +1,14 @@
-// Copyright (c) 2017-2018 The Bitcoin Core developers
+// Copyright (c) 2017-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <wallet/coinselection.h>
 #include <wallet/wallet.h>
 
+#include <optional.h>
+#include <policy/feerate.h>
 #include <util/system.h>
 #include <util/moneystr.h>
-
-#include <boost/optional.hpp>
 
 CInputCoin::CInputCoin(const CWalletTx* wtx, unsigned int i) {
     if (!wtx || !wtx->tx)
@@ -123,6 +123,9 @@ bool SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& target_v
                 best_selection = curr_selection;
                 best_selection.resize(utxo_pool.size());
                 best_waste = curr_waste;
+                if (best_waste == 0) {
+                    break;
+                }
             }
             curr_waste -= (curr_value - actual_target); // Remove the excess value as we will be selecting different coins now
             backtrack = true;
@@ -291,7 +294,7 @@ bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& group
     nValueRet = 0;
 
     // List of values less than target
-    boost::optional<OutputGroup> lowest_larger;
+    Optional<OutputGroup> lowest_larger;
     std::vector<OutputGroup> applicable_groups;
     CAmount nTotalLower = 0;
 
@@ -372,7 +375,7 @@ bool KnapsackSolver(const CAmount& nTargetValue, std::vector<OutputGroup>& group
 void OutputGroup::Insert(const CInputCoin& output, int depth, bool from_me, size_t ancestors, size_t descendants) {
     m_outputs.push_back(output);
     m_from_me &= from_me;
-    m_value += output.effective_value;
+    m_value += output.value;
     m_depth = std::min(m_depth, depth);
     // ancestors here express the number of ancestors the new coin will end up having, which is
     // the sum, rather than the max; this will overestimate in the cases where multiple inputs
@@ -381,15 +384,19 @@ void OutputGroup::Insert(const CInputCoin& output, int depth, bool from_me, size
     // descendants is the count as seen from the top ancestor, not the descendants as seen from the
     // coin itself; thus, this value is counted as the max, not the sum
     m_descendants = std::max(m_descendants, descendants);
-    effective_value = m_value;
+    effective_value += output.effective_value;
+    fee += output.m_fee;
+    long_term_fee += output.m_long_term_fee;
 }
 
 std::vector<CInputCoin>::iterator OutputGroup::Discard(const CInputCoin& output) {
     auto it = m_outputs.begin();
     while (it != m_outputs.end() && it->outpoint != output.outpoint) ++it;
     if (it == m_outputs.end()) return it;
-    m_value -= output.effective_value;
+    m_value -= output.value;
     effective_value -= output.effective_value;
+    fee -= output.m_fee;
+    long_term_fee -= output.m_long_term_fee;
     return m_outputs.erase(it);
 }
 
@@ -398,4 +405,36 @@ bool OutputGroup::EligibleForSpending(const CoinEligibilityFilter& eligibility_f
     return m_depth >= (m_from_me ? eligibility_filter.conf_mine : eligibility_filter.conf_theirs)
         && m_ancestors <= eligibility_filter.max_ancestors
         && m_descendants <= eligibility_filter.max_descendants;
+}
+
+void OutputGroup::SetFees(const CFeeRate effective_feerate, const CFeeRate long_term_feerate)
+{
+    fee = 0;
+    long_term_fee = 0;
+    effective_value = 0;
+    for (CInputCoin& coin : m_outputs) {
+        coin.m_fee = coin.m_input_bytes < 0 ? 0 : effective_feerate.GetFee(coin.m_input_bytes);
+        fee += coin.m_fee;
+
+        coin.m_long_term_fee = coin.m_input_bytes < 0 ? 0 : long_term_feerate.GetFee(coin.m_input_bytes);
+        long_term_fee += coin.m_long_term_fee;
+
+        coin.effective_value = coin.value - coin.m_fee;
+        effective_value += coin.effective_value;
+    }
+}
+
+OutputGroup OutputGroup::GetPositiveOnlyGroup()
+{
+    OutputGroup group(*this);
+    for (auto it = group.m_outputs.begin(); it != group.m_outputs.end(); ) {
+        const CInputCoin& coin = *it;
+        // Only include outputs that are positive effective value (i.e. not dust)
+        if (coin.effective_value <= 0) {
+            it = group.Discard(coin);
+        } else {
+            ++it;
+        }
+    }
+    return group;
 }

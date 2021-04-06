@@ -1,14 +1,14 @@
-// Copyright (c) 2017-2018 The Bitcoin Core developers
+// Copyright (c) 2017-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <index/disktxpos.h>
 #include <index/txindex.h>
+#include <node/ui_interface.h>
 #include <shutdown.h>
-#include <ui_interface.h>
 #include <util/system.h>
+#include <util/translation.h>
 #include <validation.h>
-
-#include <boost/thread.hpp>
 
 constexpr char DB_BEST_BLOCK = 'B';
 constexpr char DB_TXINDEX = 't';
@@ -16,40 +16,9 @@ constexpr char DB_TXINDEX_BLOCK = 'T';
 
 std::unique_ptr<TxIndex> g_txindex;
 
-struct CDiskTxPos : public CDiskBlockPos
-{
-    unsigned int nTxOffset; // after header
 
-    ADD_SERIALIZE_METHODS;
 
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CDiskBlockPos, *this);
-        READWRITE(VARINT(nTxOffset));
-    }
-
-    CDiskTxPos(const CDiskBlockPos &blockIn, unsigned int nTxOffsetIn) : CDiskBlockPos(blockIn.nFile, blockIn.nPos), nTxOffset(nTxOffsetIn) {
-    }
-
-    CDiskTxPos() {
-        SetNull();
-    }
-
-    void SetNull() {
-        CDiskBlockPos::SetNull();
-        nTxOffset = 0;
-    }
-};
-
-/**
- * Access to the txindex database (indexes/txindex/)
- *
- * The database stores a block locator of the chain the database is synced to
- * so that the TxIndex can efficiently determine the point it last stopped at.
- * A locator is used instead of a simple hash of the chain tip because blocks
- * and block index entries may not be flushed to disk until after this database
- * is updated.
- */
+/** Access to the txindex database (indexes/txindex/) */
 class TxIndex::DB : public BaseIndex::DB
 {
 public:
@@ -137,7 +106,7 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
 
     int64_t count = 0;
     LogPrintf("Upgrading txindex database... [0%%]\n");
-    uiInterface.ShowProgress(_("Upgrading txindex database"), 0, true);
+    uiInterface.ShowProgress(_("Upgrading txindex database").translated, 0, true);
     int report_done = 0;
     const size_t batch_size = 1 << 24; // 16 MiB
 
@@ -151,7 +120,6 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
     bool interrupted = false;
     std::unique_ptr<CDBIterator> cursor(block_tree_db.NewIterator());
     for (cursor->Seek(begin_key); cursor->Valid(); cursor->Next()) {
-        boost::this_thread::interruption_point();
         if (ShutdownRequested()) {
             interrupted = true;
             break;
@@ -174,7 +142,7 @@ bool TxIndex::DB::MigrateData(CBlockTreeDB& block_tree_db, const CBlockLocator& 
                 (static_cast<uint32_t>(*(txid.begin() + 1)) << 0);
             int percentage_done = (int)(high_nibble * 100.0 / 65536.0 + 0.5);
 
-            uiInterface.ShowProgress(_("Upgrading txindex database"), percentage_done, true);
+            uiInterface.ShowProgress(_("Upgrading txindex database").translated, percentage_done, true);
             if (report_done < percentage_done/10) {
                 LogPrintf("Upgrading txindex database... [%d%%]\n", percentage_done);
                 report_done = percentage_done/10;
@@ -236,7 +204,7 @@ bool TxIndex::Init()
     // Attempt to migrate txindex from the old database to the new one. Even if
     // chain_tip is null, the node could be reindexing and we still want to
     // delete txindex records in the old database.
-    if (!m_db->MigrateData(*pblocktree, chainActive.GetLocator())) {
+    if (!m_db->MigrateData(*pblocktree, ::ChainActive().GetLocator())) {
         return false;
     }
 

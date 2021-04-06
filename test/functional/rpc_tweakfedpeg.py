@@ -51,7 +51,7 @@ class TweakFedpegTest(BitcoinTestFramework):
             assert_equal(len(nontweak), len(tweak)) # same opcodes/push sizes
             # All pubkeys must be different
             if len(nontweak) == 66:
-                assert(nontweak != tweak)
+                assert nontweak != tweak
             else:
                 assert_equal(tweak, nontweak)
 
@@ -72,7 +72,7 @@ class TweakFedpegTest(BitcoinTestFramework):
                 tweak_match = True
             # All pubkeys must be different
             if len(nontweak) == 66:
-                assert(tweak_match == (nontweak == tweak))
+                assert tweak_match == (nontweak == tweak)
             else:
                 assert_equal(tweak, nontweak)
 
@@ -86,7 +86,7 @@ class TweakFedpegTest(BitcoinTestFramework):
         # after OP_ELSE get tweaked except the exact liquidv1 template to
         # maintain compatibility
         self.nodes[2].generate(433)
-        assert_equal(self.nodes[2].getblockchaininfo()['bip9_softforks']['dynafed']['status'], 'active')
+        assert_equal(self.nodes[2].getblockchaininfo()['softforks']['dynafed']['bip9']['status'], 'active')
         assert_equal(self.nodes[2].tweakfedpegscript(claim_script)["script"], liquid_tweaked)
 
         WSH_OP_TRUE = self.nodes[2].decodescript("51")["segwit"]["hex"]

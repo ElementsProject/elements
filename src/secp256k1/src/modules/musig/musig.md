@@ -14,7 +14,7 @@ The resulting signatures are valid Schnorr signatures as described in [2].
 In MuSig all signers contribute key material to a single signing key,
 using the equation
 
-    P = sum_i µ_i - P_i
+    P = sum_i µ_i * P_i
 
 where `P_i` is the public key of the `i`th signer and `µ_i` is a so-called
 _MuSig coefficient_ computed according to the following equation
@@ -74,7 +74,7 @@ signature process, which is also a supported mode) acts as follows.
 
 ### Signing Participant
 
-1. The signer starts the session by calling `secp256k1_musig_session_initialize`.
+1. The signer starts the session by calling `secp256k1_musig_session_init`.
    This function outputs
    - an initialized session state in the out-pointer `session`
    - an array of initialized signer data in the out-pointer `signers`
@@ -91,6 +91,8 @@ signature process, which is also a supported mode) acts as follows.
    length-32 byte arrays which can be communicated however is communicated.
 3. Once all signers nonce commitments have been received, the signer records
    these commitments with the function `secp256k1_musig_session_get_public_nonce`.
+   If the signer did not provide a message to `secp256k1_musig_session_init`,
+   a message must be provided now.
    This function updates in place
    - the session state `session`
    - the array of signer data `signers`
@@ -111,9 +113,6 @@ signature process, which is also a supported mode) acts as follows.
    - the array of signer data `signers`
    It outputs an auxiliary integer `nonce_is_negated` and has an auxiliary input
    `adaptor`. Both of these may be set to NULL for ordinary signing purposes.
-   If the signer did not provide a message to `secp256k1_musig_session_initialize`,
-   a message must be provided now by calling `secp256k1_musig_session_set_msg` which
-   updates the session state in place.
 6. The signer computes a partial signature `s_i` using the function
    `secp256k1_musig_partial_sign` which takes the session state as input and
    partial signature as output.
@@ -134,8 +133,8 @@ A participant who wants to verify the signing process, i.e. check that nonce com
 are consistent and partial signatures are correct without contributing a partial signature,
 may do so using the above instructions except for the following changes:
 
-1. A signing session should be produced using `musig_session_initialize_verifier`
-   rather than `musig_session_initialize`; this function takes no secret data or
+1. A signing session should be produced using `musig_session_init_verifier`
+   rather than `musig_session_init`; this function takes no secret data or
    signer index.
 2. The participant receives nonce commitments, public nonces and partial signatures,
    but does not produce these values. Therefore `secp256k1_musig_session_get_public_nonce`

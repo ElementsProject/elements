@@ -8,7 +8,7 @@
 #include <uint256.h>
 #include <validation.h>
 
-#include <test/test_bitcoin.h>
+#include <test/util/setup_common.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -274,8 +274,9 @@ BOOST_AUTO_TEST_CASE(naive_blinding_test)
         BOOST_CHECK(secp256k1_rangeproof_info(ctx, &exp, &mantissa, &min_value, &max_value, tx4.witness.vtxoutwit[2].vchRangeproof.data(), proof_size) == 1);
         BOOST_CHECK_EQUAL(exp, 0);
         BOOST_CHECK_EQUAL(mantissa, 52); // 52 bit default
-        BOOST_CHECK_EQUAL(min_value, 1);
-        BOOST_CHECK_EQUAL(max_value, 4503599627370496);
+        BOOST_CHECK_EQUAL(min_value, 1ULL);
+        BOOST_CHECK_EQUAL(max_value, 4503599627370496ULL);
+        secp256k1_context_destroy(ctx);
     }
     {
         inputs.clear();

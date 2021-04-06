@@ -56,8 +56,8 @@ class ConnectGenesisTest(BitcoinTestFramework):
         self.nodes[0].getrawtransaction(issuance_tx, False)
 
         # Node 1 doesn't.
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, coinbase_tx)
-        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, issuance_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex or provide a block hash to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, coinbase_tx)
+        assert_raises_rpc_error(-5, "No such mempool transaction. Use -txindex or provide a block hash to enable blockchain transaction queries. Use gettransaction for wallet transactions.", self.nodes[1].getrawtransaction, issuance_tx)
         # But it can still access them by providing the genesis block hash.
         self.nodes[1].getrawtransaction(coinbase_tx, False, self.nodes[0].getblockhash(0))
         self.nodes[1].getrawtransaction(issuance_tx, False, self.nodes[0].getblockhash(0))

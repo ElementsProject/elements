@@ -16,7 +16,7 @@
 #include <util/strencodings.h>
 #include <validation.h>
 #include <streams.h>
-#include <test/test_bitcoin.h>
+#include <test/util/setup_common.h>
 #include <util/system.h>
 
 #include <boost/algorithm/string/classification.hpp>
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(witness_valid)
     CAmountMap fee_map;
 
     std::set<std::pair<uint256, COutPoint> > setPeginsSpent;
-    CValidationState state;
+    TxValidationState state;
     CCoinsView coinsDummy;
     CCoinsViewCache coins(&coinsDummy);
     // Get the latest block index to look up fedpegscripts

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-# Copyright (c) 2018 The Bitcoin Core developers
+# Copyright (c) 2018-2020 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """Useful util functions for testing the wallet"""
 from collections import namedtuple
 
 from test_framework.address import (
+    byte_to_base58,
     key_to_p2pkh,
     key_to_p2sh_p2wpkh,
     key_to_p2wpkh,
@@ -13,6 +14,7 @@ from test_framework.address import (
     script_to_p2sh_p2wsh,
     script_to_p2wsh,
 )
+from test_framework.key import ECKey
 from test_framework.script import (
     CScript,
     OP_0,
@@ -70,6 +72,30 @@ def get_key(node):
                blinding_privkey=node.dumpblindingkey(node.getaddressinfo(addr)["confidential"]),
                )
 
+def get_generate_key():
+    """Generate a fresh key
+
+    Returns a named tuple of privkey, pubkey and all address and scripts."""
+    blinding_eckey = ECKey()
+    blinding_eckey.generate()
+    blinding_privkey = bytes_to_wif(blinding_eckey.get_bytes())
+    eckey = ECKey()
+    eckey.generate()
+    privkey = bytes_to_wif(eckey.get_bytes())
+    pubkey = eckey.get_pubkey().get_bytes().hex()
+    pkh = hash160(hex_str_to_bytes(pubkey))
+    return Key(privkey=privkey,
+               pubkey=pubkey,
+               p2pkh_script=CScript([OP_DUP, OP_HASH160, pkh, OP_EQUALVERIFY, OP_CHECKSIG]).hex(),
+               p2pkh_addr=key_to_p2pkh(pubkey),
+               p2wpkh_script=CScript([OP_0, pkh]).hex(),
+               p2wpkh_addr=key_to_p2wpkh(pubkey),
+               p2sh_p2wpkh_script=CScript([OP_HASH160, hash160(CScript([OP_0, pkh])), OP_EQUAL]).hex(),
+               p2sh_p2wpkh_redeem_script=CScript([OP_0, pkh]).hex(),
+               p2sh_p2wpkh_addr=key_to_p2sh_p2wpkh(pubkey),
+               blinding_privkey=blinding_privkey,
+               )
+
 def get_multisig(node):
     """Generate a fresh 2-of-3 multisig on node
 
@@ -101,3 +127,14 @@ def test_address(node, address, **kwargs):
                 raise AssertionError("key {} unexpectedly returned in getaddressinfo.".format(key))
         elif addr_info[key] != value:
             raise AssertionError("key {} value {} did not match expected value {}".format(key, addr_info[key], value))
+
+def bytes_to_wif(b, compressed=True):
+    if compressed:
+        b += b'\x01'
+    return byte_to_base58(b, 239)
+
+def generate_wif_key():
+    # Makes a WIF privkey for imports
+    k = ECKey()
+    k.generate()
+    return bytes_to_wif(k.get_bytes(), k.is_compressed)

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 The Bitcoin Core developers
+// Copyright (c) 2014-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,7 +8,6 @@
 #include <bech32.h>
 #include <blech32.h>
 #include <chainparams.h>
-#include <script/script.h>
 #include <util/strencodings.h>
 
 #include <boost/variant/apply_visitor.hpp>
@@ -127,9 +126,9 @@ public:
 CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, const bool for_parent)
 {
     std::vector<unsigned char> data;
-    size_t pk_size = CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+    size_t pk_size = CPubKey::COMPRESSED_SIZE;
     uint160 hash;
-    if (DecodeBase58Check(str, data)) {
+    if (DecodeBase58Check(str, data, 55)) {
         // base58-encoded Bitcoin addresses.
         // Public-key-hash-addresses have version 0 (or 111 testnet).
         // The data vector contains RIPEMD160(SHA256(pubkey)), where pubkey is the serialized public key.
@@ -141,7 +140,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& pubkey_prefix = params.Base58Prefix(type_pkh);
         if (data.size() == hash.size() + pubkey_prefix.size() && std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin())) {
             std::copy(data.begin() + pubkey_prefix.size(), data.end(), hash.begin());
-            return PKHash(hash);
+            return PKHash(CKeyID(hash));
         } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size &&
                 std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) &&
                 std::equal(pubkey_prefix.begin(), pubkey_prefix.end(), data.begin() + blinded_prefix.size())) {
@@ -149,7 +148,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             CPubKey pubkey;
             pubkey.Set(payload_start, payload_start + pk_size);
             std::copy(payload_start + pk_size, data.end(), hash.begin());
-            return PKHash(hash, pubkey);
+            return PKHash(CKeyID(hash), pubkey);
         }
 
         // Script-hash-addresses have version 5 (or 196 testnet).
@@ -158,7 +157,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
         const std::vector<unsigned char>& script_prefix = params.Base58Prefix(type_sh);
         if (data.size() == hash.size() + script_prefix.size() && std::equal(script_prefix.begin(), script_prefix.end(), data.begin())) {
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
-            return ScriptHash(hash);
+            return ScriptHash(CScriptID(hash));
         } else if (data.size() == hash.size() + blinded_prefix.size() + pubkey_prefix.size() + pk_size &&
                 std::equal(blinded_prefix.begin(), blinded_prefix.end(), data.begin()) &&
                 std::equal(script_prefix.begin(), script_prefix.end(), data.begin() + blinded_prefix.size())) {
@@ -166,7 +165,7 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             CPubKey pubkey;
             pubkey.Set(payload_start, payload_start + pk_size);
             std::copy(payload_start + pk_size, data.end(), hash.begin());
-            return ScriptHash(hash, pubkey);
+            return ScriptHash(CScriptID(hash), pubkey);
         }
     }
     data.clear();
@@ -263,7 +262,7 @@ CKey DecodeSecret(const std::string& str)
 {
     CKey key;
     std::vector<unsigned char> data;
-    if (DecodeBase58Check(str, data)) {
+    if (DecodeBase58Check(str, data, 34)) {
         const std::vector<unsigned char>& privkey_prefix = Params().Base58Prefix(CChainParams::SECRET_KEY);
         if ((data.size() == 32 + privkey_prefix.size() || (data.size() == 33 + privkey_prefix.size() && data.back() == 1)) &&
             std::equal(privkey_prefix.begin(), privkey_prefix.end(), data.begin())) {
@@ -294,7 +293,7 @@ CExtPubKey DecodeExtPubKey(const std::string& str)
 {
     CExtPubKey key;
     std::vector<unsigned char> data;
-    if (DecodeBase58Check(str, data)) {
+    if (DecodeBase58Check(str, data, 78)) {
         const std::vector<unsigned char>& prefix = Params().Base58Prefix(CChainParams::EXT_PUBLIC_KEY);
         if (data.size() == BIP32_EXTKEY_SIZE + prefix.size() && std::equal(prefix.begin(), prefix.end(), data.begin())) {
             key.Decode(data.data() + prefix.size());
@@ -317,7 +316,7 @@ CExtKey DecodeExtKey(const std::string& str)
 {
     CExtKey key;
     std::vector<unsigned char> data;
-    if (DecodeBase58Check(str, data)) {
+    if (DecodeBase58Check(str, data, 78)) {
         const std::vector<unsigned char>& prefix = Params().Base58Prefix(CChainParams::EXT_SECRET_KEY);
         if (data.size() == BIP32_EXTKEY_SIZE + prefix.size() && std::equal(prefix.begin(), prefix.end(), data.begin())) {
             key.Decode(data.data() + prefix.size());

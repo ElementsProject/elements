@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2019 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -14,6 +14,14 @@
 #include <primitives/confidential.h>
 #include <primitives/txwitness.h>
 
+#include <tuple>
+
+/**
+ * A flag that is ORed into the protocol version to designate that a transaction
+ * should be (un)serialized without witness data.
+ * Make sure that this does not collide with any of the values in `version.h`
+ * or with `ADDRV2_FORMAT`.
+ */
 static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
 
 // ELEMENTS:
@@ -51,13 +59,7 @@ public:
     COutPoint(): n(NULL_INDEX) { }
     COutPoint(const uint256& hashIn, uint32_t nIn): hash(hashIn), n(nIn) { }
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(hash);
-        READWRITE(n);
-    }
+    SERIALIZE_METHODS(COutPoint, obj) { READWRITE(obj.hash, obj.n); }
 
     void SetNull() { hash.SetNull(); n = NULL_INDEX; }
     bool IsNull() const { return (hash.IsNull() && n == NULL_INDEX); }
@@ -139,83 +141,83 @@ public:
     explicit CTxIn(COutPoint prevoutIn, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=SEQUENCE_FINAL);
     CTxIn(uint256 hashPrevTx, uint32_t nOut, CScript scriptSigIn=CScript(), uint32_t nSequenceIn=SEQUENCE_FINAL);
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
-
-        //
-        // ELEMENTS:
-
+    // ELEMENTS: explicit serialization methods for selective asset/pegin encoding
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
         bool fHasAssetIssuance;
         COutPoint outpoint;
-        if (!ser_action.ForRead()) {
-            if (prevout.n == (uint32_t) -1) {
-                // Coinbase inputs do not have asset issuances attached
-                // to them.
-                fHasAssetIssuance = false;
-                outpoint = prevout;
-            } else {
-                // The issuance and pegin bits can't be set as it is used to indicate
-                // the presence of the asset issuance or pegin objects. They should
-                // never be set anyway as that would require a parent
-                // transaction with over one billion outputs.
-                assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
-                // The assetIssuance object is used to represent both new
-                // asset generation and reissuance of existing asset types.
-                fHasAssetIssuance = !assetIssuance.IsNull();
-                // The mode is placed in the upper bits of the outpoint's
-                // index field. The IssuanceMode enum values are chosen to
-                // make this as simple as a bitwise-OR.
-                outpoint.hash = prevout.hash;
-                outpoint.n = prevout.n & COutPoint::OUTPOINT_INDEX_MASK;
-                if (fHasAssetIssuance) {
-                    outpoint.n |= COutPoint::OUTPOINT_ISSUANCE_FLAG;
-                }
-                if (m_is_pegin) {
-                    outpoint.n |= COutPoint::OUTPOINT_PEGIN_FLAG;
-                }
+        if (prevout.n == (uint32_t) -1) {
+            // Coinbase inputs do not have asset issuances attached
+            // to them.
+            fHasAssetIssuance = false;
+            outpoint = prevout;
+        } else {
+            // The issuance and pegin bits can't be set as it is used to indicate
+            // the presence of the asset issuance or pegin objects. They should
+            // never be set anyway as that would require a parent
+            // transaction with over one billion outputs.
+            assert(!(prevout.n & ~COutPoint::OUTPOINT_INDEX_MASK));
+            // The assetIssuance object is used to represent both new
+            // asset generation and reissuance of existing asset types.
+            fHasAssetIssuance = !assetIssuance.IsNull();
+            // The mode is placed in the upper bits of the outpoint's
+            // index field. The IssuanceMode enum values are chosen to
+            // make this as simple as a bitwise-OR.
+            outpoint.hash = prevout.hash;
+            outpoint.n = prevout.n & COutPoint::OUTPOINT_INDEX_MASK;
+            if (fHasAssetIssuance) {
+                outpoint.n |= COutPoint::OUTPOINT_ISSUANCE_FLAG;
+            }
+            if (m_is_pegin) {
+                outpoint.n |= COutPoint::OUTPOINT_PEGIN_FLAG;
             }
         }
 
-        READWRITE(outpoint);
-
-        if (ser_action.ForRead()) {
-            if (outpoint.n == (uint32_t) -1) {
-                // No asset issuance for Coinbase inputs.
-                fHasAssetIssuance = false;
-                prevout = outpoint;
-                m_is_pegin = false;
-            } else {
-                // The presence of the asset issuance object is indicated by
-                // a bit set in the outpoint index field.
-                fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
-                // The interpretation of this input as a peg-in is indicated by
-                // a bit set in the outpoint index field.
-                m_is_pegin = !!(outpoint.n & COutPoint::OUTPOINT_PEGIN_FLAG);
-                // The mode, if set, must be masked out of the outpoint so
-                // that the in-memory index field retains its traditional
-                // meaning of identifying the index into the output array
-                // of the previous transaction.
-                prevout.hash = outpoint.hash;
-                prevout.n = outpoint.n & COutPoint::OUTPOINT_INDEX_MASK;
-            }
-        }
-
-        // END ELEMENTS
-        //
-
-        READWRITE(scriptSig);
-        READWRITE(nSequence);
-
-        // ELEMENTS:
-        // The asset fields are deserialized only if they are present.
+        // These are the same as bitcoin...
+        s << outpoint;
+        s << scriptSig;
+        s << nSequence;
+        // ...but then we add asset issuance data for issuances
         if (fHasAssetIssuance) {
-            READWRITE(assetIssuance);
+            s << assetIssuance;
+        }
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        bool fHasAssetIssuance;
+        COutPoint outpoint;
+        s >> outpoint;
+
+        if (outpoint.n == (uint32_t) -1) {
+            // No asset issuance for Coinbase inputs.
+            fHasAssetIssuance = false;
+            prevout = outpoint;
+            m_is_pegin = false;
+        } else {
+            // The presence of the asset issuance object is indicated by
+            // a bit set in the outpoint index field.
+            fHasAssetIssuance = !!(outpoint.n & COutPoint::OUTPOINT_ISSUANCE_FLAG);
+            // The interpretation of this input as a peg-in is indicated by
+            // a bit set in the outpoint index field.
+            m_is_pegin = !!(outpoint.n & COutPoint::OUTPOINT_PEGIN_FLAG);
+            // The mode, if set, must be masked out of the outpoint so
+            // that the in-memory index field retains its traditional
+            // meaning of identifying the index into the output array
+            // of the previous transaction.
+            prevout.hash = outpoint.hash;
+            prevout.n = outpoint.n & COutPoint::OUTPOINT_INDEX_MASK;
+        }
+
+        s >> scriptSig;
+        s >> nSequence;
+
+        if (fHasAssetIssuance) {
+            s >> assetIssuance;
             if (assetIssuance.IsNull()) {
                 throw std::ios_base::failure("Superfluous issuance record");
             }
-        } else if (ser_action.ForRead()) {
+        } else {
             assetIssuance.SetNull();
         }
     }
@@ -254,26 +256,31 @@ public:
 
     CTxOut(const CConfidentialAsset& nAssetIn, const CConfidentialValue& nValueIn, CScript scriptPubKeyIn);
 
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    // ELEMENTS: explicit serialization methods for different g_con_elementsmode serializations
+    template <typename Stream>
+    inline void Serialize(Stream& s) const {
         if (g_con_elementsmode) {
-            READWRITE(nAsset);
-            READWRITE(nValue);
-            READWRITE(nNonce);
-            READWRITE(scriptPubKey);
+            s << nAsset;
+            s << nValue;
+            s << nNonce;
+        } else {
+            s << nValue.GetAmount();
+        }
+        s << scriptPubKey;
+    }
+
+    template <typename Stream>
+    inline void Unserialize(Stream& s) {
+        if (g_con_elementsmode) {
+            s >> nAsset;
+            s >> nValue;
+            s >> nNonce;
         } else {
             CAmount value;
-            if (!ser_action.ForRead()) {
-                value = nValue.GetAmount();
-            }
-            READWRITE(value);
-            if (ser_action.ForRead()) {
-                nValue.SetToAmount(value);
-            }
-            READWRITE(scriptPubKey);
+            s >> value;
+            nValue.SetToAmount(value);
         }
+        s >> scriptPubKey;
     }
 
     void SetNull()
@@ -353,8 +360,8 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         if (flags & 1) {
             /* The witness flag is present. */
             flags ^= 1;
-            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
-            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            tx.witness.vtxinwit.resize(tx.vin.size());
+            tx.witness.vtxoutwit.resize(tx.vout.size());
             s >> tx.witness;
             if (!tx.HasWitness()) {
                 /* It's illegal to encode witnesses when all witness stacks are empty. */
@@ -381,14 +388,19 @@ inline void UnserializeTransaction(TxType& tx, Stream& s) {
         if ((flags & 1) && fAllowWitness) {
             /* The witness flag is present. */
             flags ^= 1;
-            const_cast<CTxWitness*>(&tx.witness)->vtxinwit.resize(tx.vin.size());
-            const_cast<CTxWitness*>(&tx.witness)->vtxoutwit.resize(tx.vout.size());
+            tx.witness.vtxinwit.resize(tx.vin.size());
+            tx.witness.vtxoutwit.resize(tx.vout.size());
             for (size_t i = 0; i < tx.vin.size(); i++) {
                 s >> tx.witness.vtxinwit[i].scriptWitness.stack;
                 // ELEMENTS:
                 if (tx.vin[i].m_is_pegin) {
                     s >> tx.witness.vtxinwit[i].m_pegin_witness.stack;
                 }
+            }
+
+            if (!tx.HasWitness()) {
+                /* It's illegal to encode witnesses when all witness stacks are empty. */
+                throw std::ios_base::failure("Superfluous witness record");
             }
         }
         s >> tx.nLockTime;
@@ -522,8 +534,6 @@ public:
 
     // Return sum of txouts.
     CAmountMap GetValueOutMap() const;
-    // GetValueIn() is a method on CCoinsViewCache, because
-    // inputs must be known to compute value in.
 
     /**
      * Get the total transaction size in bytes, including witness data.
@@ -598,5 +608,18 @@ struct CMutableTransaction
 typedef std::shared_ptr<const CTransaction> CTransactionRef;
 static inline CTransactionRef MakeTransactionRef() { return std::make_shared<const CTransaction>(); }
 template <typename Tx> static inline CTransactionRef MakeTransactionRef(Tx&& txIn) { return std::make_shared<const CTransaction>(std::forward<Tx>(txIn)); }
+
+/** A generic txid reference (txid or wtxid). */
+class GenTxid
+{
+    bool m_is_wtxid;
+    uint256 m_hash;
+public:
+    GenTxid(bool is_wtxid, const uint256& hash) : m_is_wtxid(is_wtxid), m_hash(hash) {}
+    bool IsWtxid() const { return m_is_wtxid; }
+    const uint256& GetHash() const { return m_hash; }
+    friend bool operator==(const GenTxid& a, const GenTxid& b) { return a.m_is_wtxid == b.m_is_wtxid && a.m_hash == b.m_hash; }
+    friend bool operator<(const GenTxid& a, const GenTxid& b) { return std::tie(a.m_is_wtxid, a.m_hash) < std::tie(b.m_is_wtxid, b.m_hash); }
+};
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

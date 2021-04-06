@@ -1,10 +1,11 @@
 #!/bin/sh
-# Copyright (c) 2015 The Bitcoin Core developers
+# Copyright (c) 2015-2019 The Bitcoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 export LC_ALL=C
-DIR="$1"
+# Strip trailing / from directory path (in case it was added by autocomplete)
+DIR="${1%/}"
 COMMIT="$2"
 if [ -z "$COMMIT" ]; then
     COMMIT=HEAD
@@ -80,7 +81,7 @@ fi
 
 # get the tree in the subtree commit referred to
 if [ "d$(git cat-file -t $rev 2>/dev/null)" != dcommit ]; then
-    echo "subtree commit $rev unavailable: cannot compare" >&2
+    echo "subtree commit $rev unavailable: cannot compare. Did you add and fetch the remote?" >&2
     exit
 fi
 tree_subtree=$(git show -s --format="%T" $rev)
