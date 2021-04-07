@@ -542,14 +542,14 @@ class CCustomParams : public CRegTestParams {
         // ELEMENTS fields
 
         // Determines type of genesis block
-        consensus.genesis_style = gArgs.GetArg("-con_genesis_style", "elements");
+        consensus.genesis_style = args.GetArg("-con_genesis_style", "elements");
 
         // Block signing encumberance script, default of 51 aka OP_TRUE
-        std::vector<unsigned char> sign_bytes = ParseHex(gArgs.GetArg("-signblockscript", "51"));
+        std::vector<unsigned char> sign_bytes = ParseHex(args.GetArg("-signblockscript", "51"));
         consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
         // Default signature size is the size of dummy push, and single 72 byte DER signature
-        consensus.max_block_signature_size = gArgs.GetArg("-con_max_block_sig_size", 74);
-        g_signed_blocks = gArgs.GetBoolArg("-con_signed_blocks", true);
+        consensus.max_block_signature_size = args.GetArg("-con_max_block_sig_size", 74);
+        g_signed_blocks = args.GetBoolArg("-con_signed_blocks", true);
 
         // Note: These globals are needed to avoid circular dependencies.
         // Default to true for custom chains.
@@ -567,7 +567,7 @@ class CCustomParams : public CRegTestParams {
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = args.GetArg("-con_connect_genesis_outputs", true);
 
-        initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
+        initialFreeCoins = args.GetArg("-initialfreecoins", 0);
 
         anyonecanspend_aremine = args.GetBoolArg("-anyonecanspendaremine", true);
 
@@ -609,8 +609,8 @@ class CCustomParams : public CRegTestParams {
 
         // Subsidy asset, like policyAsset, defaults to the pegged_asset
         consensus.subsidy_asset = consensus.pegged_asset;
-        if (gArgs.IsArgSet("-subsidyasset")) {
-            consensus.subsidy_asset = CAsset(uint256S(gArgs.GetArg("-subsidyasset", "0x00")));
+        if (args.IsArgSet("-subsidyasset")) {
+            consensus.subsidy_asset = CAsset(uint256S(args.GetArg("-subsidyasset", "0x00")));
         }
 
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
