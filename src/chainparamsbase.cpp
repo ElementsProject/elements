@@ -15,12 +15,13 @@ const std::string CBaseChainParams::MAIN = "main";
 const std::string CBaseChainParams::TESTNET = "test";
 const std::string CBaseChainParams::REGTEST = "regtest";
 const std::string CBaseChainParams::LIQUID1 = "liquidv1";
+const std::string CBaseChainParams::LIQUID1TEST = "liquidv1test";
 
 const std::string CBaseChainParams::DEFAULT = CBaseChainParams::LIQUID1;
 
 void SetupChainParamsBaseOptions()
 {
-    gArgs.AddArg("-chain=<chain>", "Use the chain <chain> (default: liquidv1). Reserved values: main, test, regtest, liquidv1", false, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-chain=<chain>", "Use the chain <chain> (default: liquidv1). Reserved values: main, test, regtest, liquidv1, liquidv1test", false, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-regtest", "Enter regression test mode, which uses a special chain in which blocks can be solved instantly. "
                                    "This is intended for regression testing tools and app development.", true, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-testnet", "Use the test chain", false, OptionsCategory::CHAINPARAMS);
@@ -74,6 +75,8 @@ std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain
         return MakeUnique<CBaseChainParams>("regtest", 18443, 18332);
     else if (chain == CBaseChainParams::LIQUID1)
         return MakeUnique<CBaseChainParams>("liquidv1", 7041, 8332);
+    else if (chain == CBaseChainParams::LIQUID1TEST)
+        return MakeUnique<CBaseChainParams>("liquidv1test", 7040, 18332);  // Use same ports as customparams
 
     // ELEMENTS:
     return MakeUnique<CBaseChainParams>(chain, 7040, 18332);
