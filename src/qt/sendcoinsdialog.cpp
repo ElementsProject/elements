@@ -424,7 +424,7 @@ void SendCoinsDialog::on_sendButton_clicked()
                     fileNameSuggestion.append(" - ");
                 }
                 QString labelOrAddress = rcp.label.isEmpty() ? rcp.address : rcp.label;
-                QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::BitcoinUnits::SeparatorStyle::STANDARD, true);
+                QString amount = GUIUtil::formatAssetAmount(rcp.asset, rcp.asset_amount, bitcoin_unit, BitcoinUnits::SeparatorStyle::STANDARD, true);
                 fileNameSuggestion.append(labelOrAddress + "-" + amount);
                 first = false;
             }
