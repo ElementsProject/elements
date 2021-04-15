@@ -103,7 +103,8 @@ task:
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
-    memory: 12G # ELEMENTS: need more memory
+    memory: 16G # ELEMENTS: need more memory
+    cpu: 4  # ELEMENTS: cirrus wants more CPUs if you want more memory
   env:
     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
 
@@ -112,6 +113,8 @@ task:
   << : *GLOBAL_TASK_TEMPLATE
   container:
     image: ubuntu:focal
+    memory: 16G # ELEMENTS: need more memory
+    cpu: 4  # ELEMENTS: cirrus wants more CPUs if you want more memory
   env:
     FILE_ENV: "./ci/test/00_setup_env_native_fuzz.sh"
 
