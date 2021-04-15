@@ -130,7 +130,7 @@ static bool GenerateBlock(ChainstateManager& chainman, CBlock& block, uint64_t& 
             ++block.nNonce;
             --max_tries;
         }
-        if (max_tries == 0) {
+        if (max_tries == 0 || ShutdownRequested()) {
             return false;
         }
         if (block.nNonce == std::numeric_limits<uint32_t>::max()) {
