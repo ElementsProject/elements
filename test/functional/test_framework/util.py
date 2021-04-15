@@ -502,12 +502,9 @@ def gen_return_txouts():
     txouts = []
     from .messages import CTxOut, CTxOutValue
     txout = CTxOut()
-    txout.nValue = 0
+    txout.nValue = CTxOutValue(0)
     txout.scriptPubKey = hex_str_to_bytes(script_pubkey)
     for _ in range(128):
-        txout = CTxOut()
-        txout.nValue = CTxOutValue(0)
-        txout.scriptPubKey = hex_str_to_bytes(script_pubkey)
         txouts.append(txout)
     return txouts
 
