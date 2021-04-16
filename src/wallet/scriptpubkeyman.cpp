@@ -2090,7 +2090,6 @@ TransactionError DescriptorScriptPubKeyMan::FillPSBT(PartiallySignedTransaction&
         *n_signed = 0;
     }
     for (unsigned int i = 0; i < psbtx.inputs.size(); ++i) {
-        const CTxIn& txin = psbtx.tx->vin[i];
         PSBTInput& input = psbtx.inputs.at(i);
 
         if (PSBTInputSigned(input)) {

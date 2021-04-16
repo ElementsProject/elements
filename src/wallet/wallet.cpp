@@ -2733,15 +2733,10 @@ TransactionError CWallet::FillPSBTData(PartiallySignedTransaction& psbtx, bool b
                 // We only need the non_witness_utxo, which is a superset of the witness_utxo.
                 //   The signing code will switch to the smaller witness_utxo if this is ok.
                 input.non_witness_utxo = wtx.tx;
-
-/*
-                // ELEMENTS: Grab the CA data
-                CAmount val_tmp;
-                wtx.GetNonIssuanceBlindingData(txin.prevout.n, nullptr, &val_tmp, &input.value_blinding_factor, &input.asset, &input.asset_blinding_factor);
-                if (val_tmp != -1) {
-                    input.value = val_tmp;
+                // Set the UTXO rangeproof separately, if it's there
+                if (*input.prev_out < wtx.tx->witness.vtxoutwit.size() && !wtx.tx->witness.vtxoutwit[*input.prev_out].vchRangeproof.empty()) {
+                    input.m_utxo_rangeproof = wtx.tx->witness.vtxoutwit[*input.prev_out].vchRangeproof;
                 }
-*/
             }
         }
     }
