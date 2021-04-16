@@ -904,7 +904,7 @@ struct PSBTOutput
     CScript witness_script;
     std::map<CPubKey, KeyOriginInfo> hd_keypaths;
     Optional<CAmount> amount;
-    CScript script;
+    Optional<CScript> script;
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
 
@@ -948,9 +948,9 @@ struct PSBTOutput
 
         if (m_psbt_version >= 2) {
             // Write spk
-            if (!script.empty()) {
+            if (script != nullopt) {
                 SerializeToVector(s, CompactSizeWriter(PSBT_OUT_SCRIPT));
-                s << script;
+                s << *script;
             }
 
             // Elements proprietary fields are v2 only
@@ -1090,7 +1090,9 @@ struct PSBTOutput
                     } else if (key.size() != 1) {
                         throw std::ios_base::failure("Output script key is more than one byte type");
                     }
-                    s >> script;
+                    CScript sc;
+                    s >> sc;
+                    script = sc;
                     break;
                 }
                 case PSBT_OUT_PROPRIETARY:
@@ -1224,7 +1226,7 @@ struct PSBTOutput
             if (amount == nullopt) {
                 throw std::ios_base::failure("Output amount is required in PSBTv2");
             }
-            if (script.empty()) {
+            if (script == nullopt) {
                 throw std::ios_base::failure("Output script is required in PSBTv2");
             }
         }

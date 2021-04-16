@@ -2150,7 +2150,7 @@ TransactionError DescriptorScriptPubKeyMan::FillPSBT(PartiallySignedTransaction&
 
     // Fill in the bip32 keypaths and redeemscripts for the outputs so that hardware wallets can identify change
     for (unsigned int i = 0; i < psbtx.outputs.size(); ++i) {
-        std::unique_ptr<SigningProvider> keys = GetSolvingProvider(psbtx.outputs.at(i).script);
+        std::unique_ptr<SigningProvider> keys = GetSolvingProvider(*psbtx.outputs.at(i).script);
         if (!keys) {
             continue;
         }

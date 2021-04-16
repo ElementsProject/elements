@@ -1719,9 +1719,9 @@ static RPCHelpMan decodepsbt()
             if (output.amount != nullopt) {
                 out.pushKV("amount", ValueFromAmount(*output.amount));
             }
-            if (!output.script.empty()) {
+            if (output.script != nullopt) {
                 UniValue spk(UniValue::VOBJ);
-                ScriptPubKeyToUniv(output.script, spk, true);
+                ScriptPubKeyToUniv(*output.script, spk, true);
                 out.pushKV("script", spk);
             }
         }

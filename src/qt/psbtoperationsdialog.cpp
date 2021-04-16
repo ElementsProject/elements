@@ -163,7 +163,7 @@ std::string PSBTOperationsDialog::renderTransaction(const PartiallySignedTransac
     int unit = m_client_model->getOptionsModel()->getDisplayUnit();
     for (const PSBTOutput& out : psbtx.outputs) {
         CTxDestination address;
-        ExtractDestination(out.script, address);
+        ExtractDestination(*out.script, address);
         totalAmount += *out.amount;
         tx_description.append(tr(" * Sends %1 to %2")
             .arg(BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, *out.amount))

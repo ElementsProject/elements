@@ -121,7 +121,7 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx() const
     for (const PSBTOutput& output : outputs) {
         CTxOut txout;
         txout.nValue = *output.amount;
-        txout.scriptPubKey = output.script;
+        txout.scriptPubKey = *output.script;
         mtx.vout.push_back(txout);
     }
     return mtx;
@@ -232,13 +232,13 @@ bool PartiallySignedTransaction::AddInput(PSBTInput& psbtin)
 
 bool PartiallySignedTransaction::AddOutput(const PSBTOutput& psbtout)
 {
-    if (psbtout.amount == nullopt || psbtout.script.empty()) {
+    if (psbtout.amount == nullopt || psbtout.script == nullopt) {
         return false;
     }
 
     if (tx != nullopt) {
         // This is a v0 psbt, do the v0 AddOutput
-        CTxOut txout(CAsset(), *psbtout.amount, psbtout.script);
+        CTxOut txout(CAsset(), *psbtout.amount, *psbtout.script);
         tx->vout.push_back(txout);
         outputs.push_back(psbtout);
         return true;

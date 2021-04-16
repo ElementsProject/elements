@@ -393,7 +393,7 @@ BlindingStatus BlindPSBT(PartiallySignedTransaction& psbt, std::map<uint32_t, st
         uint256 nonce = GenerateRangeproofECDHKey(ecdh_key, output.m_blinding_pubkey);
 
         // Generate rangeproof
-        bool rangeresult = CreateValueRangeProof(rangeproof, value_blinder, nonce, *output.amount, output.script, value_commit, asset_generator, asset, asset_blinder);
+        bool rangeresult = CreateValueRangeProof(rangeproof, value_blinder, nonce, *output.amount, *output.script, value_commit, asset_generator, asset, asset_blinder);
         assert(rangeresult);
 
         // Create surjection proof for this output
