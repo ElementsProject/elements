@@ -116,14 +116,32 @@ CMutableTransaction PartiallySignedTransaction::GetUnsignedTx() const
         txin.prevout.hash = input.prev_txid;
         txin.prevout.n = *input.prev_out;
         txin.nSequence = input.sequence.value_or(max_sequence);
+        txin.assetIssuance.assetBlindingNonce = input.m_issuance_blinding_nonce;
+        txin.assetIssuance.assetEntropy = input.m_issuance_asset_entropy;
+        if (input.m_issuance_value != nullopt && input.m_issuance_inflation_keys_amount != nullopt) {
+            txin.assetIssuance.nAmount.SetToAmount(*input.m_issuance_value);
+            txin.assetIssuance.nInflationKeys.SetToAmount(*input.m_issuance_inflation_keys_amount);
+        } else {
+            txin.assetIssuance.nAmount = input.m_issuance_value_commitment;
+            txin.assetIssuance.nInflationKeys = input.m_issuance_inflation_keys_commitment;
+        }
         mtx.vin.push_back(txin);
     }
     for (const PSBTOutput& output : outputs) {
         CTxOut txout;
-        txout.nValue = *output.amount;
         txout.scriptPubKey = *output.script;
+        if (output.IsFullyBlinded()) {
+            txout.nValue = output.m_value_commitment;
+            txout.nAsset = output.m_asset_commitment;
+            txout.nNonce.vchCommitment.insert(txout.nNonce.vchCommitment.end(), output.m_ecdh_pubkey.begin(), output.m_ecdh_pubkey.end());
+        } else {
+            txout.nValue.SetToAmount(*output.amount);
+            txout.nAsset.SetToAsset(CAsset(output.m_asset));
+        }
         mtx.vout.push_back(txout);
     }
+    mtx.witness.vtxinwit.resize(inputs.size());
+    mtx.witness.vtxoutwit.resize(outputs.size());
     return mtx;
 }
 
