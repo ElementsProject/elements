@@ -1223,7 +1223,7 @@ struct PSBTOutput
 
         // Make sure required PSBTv2 fields are present
         if (m_psbt_version >= 2) {
-            if (amount == nullopt) {
+            if (amount == nullopt && m_value_commitment.IsNull()) {
                 throw std::ios_base::failure("Output amount is required in PSBTv2");
             }
             if (script == nullopt) {
