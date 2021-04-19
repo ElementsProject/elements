@@ -652,8 +652,22 @@ bool FinalizeAndExtractPSBT(PartiallySignedTransaction& psbtx, CMutableTransacti
 
     result = psbtx.GetUnsignedTx();
     for (unsigned int i = 0; i < result.vin.size(); ++i) {
-        result.vin[i].scriptSig = psbtx.inputs[i].final_script_sig;
-        result.witness.vtxinwit[i].scriptWitness = psbtx.inputs[i].final_script_witness;
+        const PSBTInput& psbt_in = psbtx.inputs[i];
+        CTxIn& txin = result.vin[i];
+        CTxInWitness& txin_wit = result.witness.vtxinwit[i];
+
+        txin.scriptSig = psbt_in.final_script_sig;
+        txin_wit.scriptWitness = psbt_in.final_script_witness;
+        txin_wit.vchIssuanceAmountRangeproof = psbt_in.m_issuance_rangeproof;
+        txin_wit.vchInflationKeysRangeproof = psbt_in.m_issuance_inflation_keys_rangeproof;
+
+        txin.m_is_pegin = !psbt_in.m_peg_in_witness.IsNull();
+        txin_wit.m_pegin_witness = psbt_in.m_peg_in_witness;
+    }
+    for (unsigned int i = 0; i < result.vout.size(); ++i) {
+        const PSBTOutput& psbt_out = psbtx.outputs[i];
+        result.witness.vtxoutwit[i].vchSurjectionproof = psbt_out.m_asset_surjection_proof;
+        result.witness.vtxoutwit[i].vchRangeproof = psbt_out.m_value_rangeproof;
     }
     return true;
 }
