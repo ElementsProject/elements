@@ -5,6 +5,7 @@
 #include <psbt.h>
 
 #include <chainparams.h>
+#include <pegins.h>
 #include <primitives/transaction.h>
 #include <util/check.h>
 #include <util/strencodings.h>
@@ -561,6 +562,20 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
 bool SignPSBTInput(const SigningProvider& provider, PartiallySignedTransaction& psbt, int index, int sighash, SignatureData* out_sigdata, bool use_dummy)
 {
     PSBTInput& input = psbt.inputs.at(index);
+
+    // If this input is a peg-in, also make the peg-in witness
+    if (input.m_peg_in_tx.which() != 0
+        && input.m_peg_in_txout_proof.which() != 0
+        && !input.m_peg_in_claim_script.empty()
+        && !input.m_peg_in_genesis_hash.IsNull()
+        && input.m_peg_in_value != nullopt) {
+        if (Params().GetConsensus().ParentChainHasPow()) {
+            input.m_peg_in_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, boost::get<Sidechain::Bitcoin::CTransactionRef&>(input.m_peg_in_tx), boost::get<Sidechain::Bitcoin::CMerkleBlock>(input.m_peg_in_txout_proof));
+        } else {
+            input.m_peg_in_witness = CreatePeginWitness(*input.m_peg_in_value, Params().GetConsensus().pegged_asset, input.m_peg_in_genesis_hash, input.m_peg_in_claim_script, boost::get<CTransactionRef&>(input.m_peg_in_tx), boost::get<CMerkleBlock>(input.m_peg_in_txout_proof));
+        }
+    }
+
     const CMutableTransaction& tx = psbt.GetUnsignedTx();
 
     if (PSBTInputSigned(input)) {
