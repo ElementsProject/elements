@@ -45,8 +45,11 @@ class CreateTxWalletTest(BitcoinTestFramework):
 
     def test_tx_size_too_large(self):
         # More than 10kB of outputs, so that we hit -maxtxfee with a high feerate
-        outputs = {self.nodes[0].getnewaddress(address_type='bech32'): 0.000025 for _ in range(400)}
+        outputs = [{self.nodes[0].getnewaddress(address_type='bech32'): 0.000025} for _ in range(400)]
         raw_tx = self.nodes[0].createrawtransaction(inputs=[], outputs=outputs)
+        output_dict = {}
+        for output in outputs:
+            output_dict.update(output)
 
         for fee_setting in ['-minrelaytxfee=0.01', '-mintxfee=0.01', '-paytxfee=0.01']:
             self.log.info('Check maxtxfee in combination with {}'.format(fee_setting))
@@ -54,7 +57,7 @@ class CreateTxWalletTest(BitcoinTestFramework):
             assert_raises_rpc_error(
                 -6,
                 "Fee exceeds maximum configured by user (e.g. -maxtxfee, maxfeerate)",
-                lambda: self.nodes[0].sendmany(dummy="", amounts=outputs),
+                lambda: self.nodes[0].sendmany(dummy="", amounts=output_dict),
             )
             assert_raises_rpc_error(
                 -4,
@@ -68,7 +71,7 @@ class CreateTxWalletTest(BitcoinTestFramework):
         assert_raises_rpc_error(
             -6,
             "Fee exceeds maximum configured by user (e.g. -maxtxfee, maxfeerate)",
-            lambda: self.nodes[0].sendmany(dummy="", amounts=outputs),
+            lambda: self.nodes[0].sendmany(dummy="", amounts=output_dict),
         )
         assert_raises_rpc_error(
             -4,

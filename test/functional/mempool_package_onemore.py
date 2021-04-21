@@ -30,10 +30,10 @@ class MempoolPackagesTest(BitcoinTestFramework):
         inputs = []
         for (txid, vout) in zip(parent_txids, vouts):
             inputs.append({'txid' : txid, 'vout' : vout})
-        outputs = {}
+        outputs = []
         for _ in range(num_outputs):
-            outputs[node.getnewaddress()] = send_value
-        outputs["fee"] = value - send_value * num_outputs
+            outputs.append({node.getnewaddress(): send_value})
+        outputs.append({"fee": value - send_value * num_outputs})
         rawtx = node.createrawtransaction(inputs, outputs, 0, True)
         signedtx = node.signrawtransactionwithwallet(rawtx)
         txid = node.sendrawtransaction(signedtx['hex'])
@@ -81,7 +81,10 @@ class MempoolPackagesTest(BitcoinTestFramework):
         self.chain_transaction(self.nodes[0], [second_chain], [0], second_chain_value, fee, 1)
 
         # Make sure we can RBF the chain which used our carve-out rule
-        second_tx_outputs = {self.nodes[0].getrawtransaction(replacable_txid, True)["vout"][0]['scriptPubKey']['addresses'][0]: replacable_orig_value - (Decimal(1) / Decimal(100)),"fee": fee + Decimal(1) / Decimal(100)}
+        second_tx_outputs = [
+            {self.nodes[0].getrawtransaction(replacable_txid, True)["vout"][0]['scriptPubKey']['addresses'][0]: replacable_orig_value - (Decimal(1) / Decimal(100))},
+            {"fee": fee + Decimal(1) / Decimal(100)}
+        ]
         second_tx = self.nodes[0].createrawtransaction([{'txid': chain[0][0], 'vout': 1}], second_tx_outputs)
         signed_second_tx = self.nodes[0].signrawtransactionwithwallet(second_tx)
         self.nodes[0].sendrawtransaction(signed_second_tx['hex'])

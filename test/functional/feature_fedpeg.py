@@ -506,7 +506,7 @@ class FedPegTest(BitcoinTestFramework):
         pegout_chain = 'a' * 64
         pegout_hex = 'b' * 500
         inputs = [{"txid": prev_txid, "vout": 0}]
-        outputs = {"vdata": [pegout_chain, pegout_hex]}
+        outputs = [{"vdata": [pegout_chain, pegout_hex]}]
         rawtx = sidechain.createrawtransaction(inputs, outputs)
         raw_pegout = sidechain.decoderawtransaction(rawtx)
 
@@ -574,7 +574,7 @@ class FedPegTest(BitcoinTestFramework):
         assert sidechain.getwalletinfo()["balance"]["bitcoin"] == bal_1
 
         # Test superfluous peg-in witness data on regular spend before we have no funds
-        raw_spend = sidechain.createrawtransaction([], {sidechain.getnewaddress():1})
+        raw_spend = sidechain.createrawtransaction([], [{sidechain.getnewaddress():1}])
         fund_spend = sidechain.fundrawtransaction(raw_spend)
         sign_spend = sidechain.signrawtransactionwithwallet(fund_spend["hex"])
         signed_struct = FromHex(CTransaction(), sign_spend["hex"])

@@ -181,8 +181,8 @@ class CTTest (BitcoinTestFramework):
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
-                                                {unconfidential_address: value2, address2: value3,
-                                                change_address: unspent[0]["amount"] - value2 - value3 - fee, "fee":fee})
+                                                [{unconfidential_address: value2}, {address2: value3},
+                                                {change_address: unspent[0]["amount"] - value2 - value3 - fee}, {"fee":fee}])
         tx = self.nodes[0].blindrawtransaction(tx)
         tx_signed = self.nodes[0].signrawtransactionwithwallet(tx)
         raw_tx_id = self.nodes[0].sendrawtransaction(tx_signed['hex'])
@@ -248,7 +248,7 @@ class CTTest (BitcoinTestFramework):
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
-                                                  {unconfidential_address: unspent[0]["amount"] - fee, "fee":fee})
+                                                  [{unconfidential_address: unspent[0]["amount"] - fee}, {"fee":fee}])
 
         # Test that blindrawtransaction adds an OP_RETURN output to balance blinders
         temptx = self.nodes[0].blindrawtransaction(tx)
@@ -263,8 +263,8 @@ class CTTest (BitcoinTestFramework):
         tx = self.nodes[0].createrawtransaction([{"txid": unspent[0]["txid"],
                                                   "vout": unspent[0]["vout"],
                                                   "nValue": unspent[0]["amount"]}],
-                                                  {unconfidential_address: value4,
-                                                   change_address: unspent[0]["amount"] - value4 - fee, "fee":fee})
+                                                  [{unconfidential_address: value4},
+                                                   {change_address: unspent[0]["amount"] - value4 - fee}, {"fee":fee}])
         tx = self.nodes[0].blindrawtransaction(tx)
         tx_signed = self.nodes[0].signrawtransactionwithwallet(tx)
         txid = self.nodes[0].sendrawtransaction(tx_signed['hex'])
@@ -292,7 +292,7 @@ class CTTest (BitcoinTestFramework):
         addr2 = self.nodes[0].getnewaddress()
         # We add two to-blind outputs, fundraw adds an already-blinded change output
         # If we only add one, the newly blinded will be 0-blinded because input = -output
-        raw = self.nodes[0].createrawtransaction([], {addr:Decimal('1.1'), addr2:1})
+        raw = self.nodes[0].createrawtransaction([], [{addr:Decimal('1.1')}, {addr2:1}])
         funded = self.nodes[0].fundrawtransaction(raw)
         # fund again to make sure no blinded outputs were created (would fail)
         funded = self.nodes[0].fundrawtransaction(funded["hex"])
@@ -399,7 +399,19 @@ class CTTest (BitcoinTestFramework):
         rawaddrs = []
         for i in range(2):
             rawaddrs.append(self.nodes[1].getnewaddress())
-        raw_assets = self.nodes[2].createrawtransaction([{"txid":b_utxos[0]['txid'], "vout":b_utxos[0]['vout'], "nValue":b_utxos[0]['amount']}, {"txid":b_utxos[1]['txid'], "vout":b_utxos[1]['vout'], "nValue":b_utxos[1]['amount'], "asset":b_utxos[1]['asset']}, {"txid":t_utxos[0]['txid'], "vout":t_utxos[0]['vout'], "nValue":t_utxos[0]['amount'], "asset":t_utxos[0]['asset']}], {rawaddrs[1]:Decimal(t_utxos[0]['amount']), rawaddrs[0]:Decimal(b_utxos[0]['amount']+b_utxos[1]['amount']-Decimal("0.01")), "fee":Decimal("0.01")}, 0, False, {rawaddrs[0]:b_utxos[0]['asset'], rawaddrs[1]:t_utxos[0]['asset'], "fee":b_utxos[0]['asset']})
+        raw_assets = self.nodes[2].createrawtransaction(
+                [
+                    {"txid":b_utxos[0]['txid'], "vout":b_utxos[0]['vout'], "nValue":b_utxos[0]['amount']},
+                    {"txid":b_utxos[1]['txid'], "vout":b_utxos[1]['vout'], "nValue":b_utxos[1]['amount'], "asset":b_utxos[1]['asset']},
+                    {"txid":t_utxos[0]['txid'], "vout":t_utxos[0]['vout'], "nValue":t_utxos[0]['amount'], "asset":t_utxos[0]['asset']}
+                ],
+                [
+                    {rawaddrs[1]:Decimal(t_utxos[0]['amount']), "asset": t_utxos[0]["asset"]},
+                    {rawaddrs[0]:Decimal(b_utxos[0]['amount']+b_utxos[1]['amount']-Decimal("0.01")), "asset": b_utxos[0]["asset"]},
+                    {"fee":Decimal("0.01"), "asset": b_utxos[0]["asset"]}
+                ],
+                0,
+                False)
 
         # Sign unblinded, then blinded
         signed_assets = self.nodes[2].signrawtransactionwithwallet(raw_assets)
@@ -510,15 +522,14 @@ class CTTest (BitcoinTestFramework):
 
         # Create one part of the transaction to partially blind
         rawtx = self.nodes[0].createrawtransaction(
-            inputs[:1], {dst_addr2: Decimal("0.01")})
+            inputs[:1], [{dst_addr2: Decimal("0.01")}])
 
         # Create another part of the transaction to partially blind
         rawtx2 = self.nodes[0].createrawtransaction(
             inputs[1:],
-            {dst_addr: Decimal("0.1"), dst_addr3: Decimal("1.0")},
+            [{dst_addr: Decimal("0.1"), "asset": unspent[0]["asset"]}, {dst_addr3: Decimal("1.0"), "asset": unspent_asset[0]["asset"]}],
             0,
-            False,
-            {dst_addr: unspent[0]['asset'], dst_addr3: unspent_asset[0]['asset']})
+            False)
 
         sum_i = unspent2[0]["amount"] + unspent[0]["amount"]
         sum_o = 0.01 + 0.10 + 0.1
@@ -612,7 +623,15 @@ class CTTest (BitcoinTestFramework):
         self.nodes[0].sendtoaddress(blinded_addr, 1)
         self.nodes[0].sendtoaddress(blinded_addr, 3)
         unspent = self.nodes[0].listunspent(0, 0)
-        rawtx = self.nodes[0].createrawtransaction([{"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]}, {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}], {addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.2"), "fee":Decimal("0.2")})
+        rawtx = self.nodes[0].createrawtransaction(
+                [
+                    {"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]},
+                    {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}
+                ],
+                [
+                    {addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.2")},
+                    {"fee":Decimal("0.2")}
+                ])
         # Blinding will fail with 2 blinded inputs and 0 blinded outputs
         # since it has no notion of a wallet to fill in a 0-value OP_RETURN output
         try:
@@ -622,7 +641,15 @@ class CTTest (BitcoinTestFramework):
             pass
 
         # Blinded destination added, can blind, sign and send
-        rawtx = self.nodes[0].createrawtransaction([{"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]}, {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}], {blinded_addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.002"), "fee":Decimal("0.002")})
+        rawtx = self.nodes[0].createrawtransaction(
+                [
+                    {"txid":unspent[0]["txid"], "vout":unspent[0]["vout"]},
+                    {"txid":unspent[1]["txid"], "vout":unspent[1]["vout"]}
+                ],
+                [
+                    {blinded_addr:unspent[0]["amount"]+unspent[1]["amount"]-Decimal("0.002")},
+                    {"fee":Decimal("0.002")}
+                ])
         signtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
 
         try:
@@ -646,14 +673,14 @@ class CTTest (BitcoinTestFramework):
         # Test fundrawtransaction with multiple assets
         issue = self.nodes[0].issueasset(1, 0)
         assetaddr = self.nodes[0].getnewaddress()
-        rawtx = self.nodes[0].createrawtransaction([], {assetaddr:1, self.nodes[0].getnewaddress():2}, 0, False, {assetaddr:issue["asset"]})
+        rawtx = self.nodes[0].createrawtransaction([], [{assetaddr:1, "asset": issue["asset"]}, {self.nodes[0].getnewaddress():2}], 0, False)
         funded = self.nodes[0].fundrawtransaction(rawtx)
         blinded = self.nodes[0].blindrawtransaction(funded["hex"])
         signed = self.nodes[0].signrawtransactionwithwallet(blinded)
         txid = self.nodes[0].sendrawtransaction(signed["hex"])
 
         # Test fundrawtransaction with multiple inputs, creating > vout.size change
-        rawtx = self.nodes[0].createrawtransaction([{"txid":txid, "vout":0}, {"txid":txid, "vout":1}], {self.nodes[0].getnewaddress():5})
+        rawtx = self.nodes[0].createrawtransaction([{"txid":txid, "vout":0}, {"txid":txid, "vout":1}], [{self.nodes[0].getnewaddress():5}])
         funded = self.nodes[0].fundrawtransaction(rawtx)
         blinded = self.nodes[0].blindrawtransaction(funded["hex"])
         signed = self.nodes[0].signrawtransactionwithwallet(blinded)
@@ -674,7 +701,7 @@ class CTTest (BitcoinTestFramework):
         assert_equal(outputs[2]["scriptPubKey"]["type"], 'nulldata')
 
         # Test burn argument in createrawtransaction
-        raw_burn1 = self.nodes[0].createrawtransaction([], {self.nodes[0].getnewaddress():1, "burn":2})
+        raw_burn1 = self.nodes[0].createrawtransaction([], [{self.nodes[0].getnewaddress():1}, {"burn":2}])
         decode_burn1 = self.nodes[0].decoderawtransaction(raw_burn1)
         assert_equal(len(decode_burn1["vout"]), 2)
         found_pay = False
@@ -688,7 +715,7 @@ class CTTest (BitcoinTestFramework):
                 found_pay = True
         assert found_pay and found_burn
 
-        raw_burn2 = self.nodes[0].createrawtransaction([], {self.nodes[0].getnewaddress():1, "burn":2}, 101, False, {"burn":"deadbeef"*8})
+        raw_burn2 = self.nodes[0].createrawtransaction([], [{self.nodes[0].getnewaddress():1}, {"burn":2, "asset": "deadbeef"*8}], 101, False)
         decode_burn2 = self.nodes[0].decoderawtransaction(raw_burn2)
         assert_equal(len(decode_burn2["vout"]), 2)
         found_pay = False

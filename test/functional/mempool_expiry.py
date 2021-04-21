@@ -46,7 +46,7 @@ class MempoolExpiryTest(BitcoinTestFramework):
         # Create child transaction spending the parent transaction
         vout = find_vout_for_address(node, parent_txid, parent_address)
         inputs = [{'txid': parent_txid, 'vout': vout}]
-        outputs = {node.getnewaddress(): 0.99, "fee": 0.01}
+        outputs = [{node.getnewaddress(): 0.99}, {"fee": 0.01}]
         child_raw = node.createrawtransaction(inputs, outputs)
         child_signed = node.signrawtransactionwithwallet(child_raw)['hex']
 

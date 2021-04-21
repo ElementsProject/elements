@@ -45,7 +45,7 @@ class MempoolUnbroadcastTest(BitcoinTestFramework):
         # generate a txn using sendrawtransaction
         us0 = utxos.pop()
         inputs = [{"txid": us0["txid"], "vout": us0["vout"]}]
-        outputs = {addr: 0.0001}
+        outputs = [{addr: 0.0001}]
         tx = node.createrawtransaction(inputs, outputs)
         node.settxfee(min_relay_fee)
         txF = node.fundrawtransaction(tx)

@@ -121,19 +121,19 @@ class PSBTTest(BitcoinTestFramework):
     def run_basic_tests(self, confidential):
         starting_n_unspent = len(self.nodes[0].listlockunspent()) # ELEMENTS
         # Create and fund a raw tx for sending 10 BTC
-        psbtx1 = self.nodes[0].walletcreatefundedpsbt([], {self.get_address(confidential, 2):10})['psbt']
+        psbtx1 = self.nodes[0].walletcreatefundedpsbt([], [{self.get_address(confidential, 2):10}])['psbt']
 
         # If inputs are specified, do not automatically add more:
         utxo1 = self.nodes[0].listunspent()[0]
-        assert_raises_rpc_error(-4, "Insufficient funds", self.nodes[0].walletcreatefundedpsbt, [{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):90})
+        assert_raises_rpc_error(-4, "Insufficient funds", self.nodes[0].walletcreatefundedpsbt, [{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.get_address(confidential, 2):90}])
 
-        psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):90}, 0, {"add_inputs": True})['psbt']
+        psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.get_address(confidential, 2):90}], 0, {"add_inputs": True})['psbt']
         # ELEMENTS: we are on the edge between 2 and 3 inputs; don't check exact value,
         #  just make sure that we added at least one input
         assert len(self.nodes[0].decodepsbt(psbtx1)["inputs"]) > 1
 
         # Inputs argument can be null
-        self.nodes[0].walletcreatefundedpsbt(None, {self.nodes[2].getnewaddress():10})
+        self.nodes[0].walletcreatefundedpsbt(None, [{self.nodes[2].getnewaddress():10}])
 
         # Node 1 should not be able to add anything to it but still return the psbtx same as before
         psbtx = self.nodes[1].walletfillpsbtdata(psbtx1)['psbt']
@@ -152,11 +152,11 @@ class PSBTTest(BitcoinTestFramework):
         # Manually selected inputs can be locked:
         assert_equal(len(self.nodes[0].listlockunspent()), starting_n_unspent)
         utxo1 = self.nodes[0].listunspent()[0]
-        psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):1}, 0,{"lockUnspents": True})["psbt"]
+        psbtx1 = self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.get_address(confidential, 2):1}], 0,{"lockUnspents": True})["psbt"]
         assert_equal(len(self.nodes[0].listlockunspent()), starting_n_unspent + 1)
 
         # Locks are ignored for manually selected inputs
-        self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], {self.get_address(confidential, 2):1}, 0)
+        self.nodes[0].walletcreatefundedpsbt([{"txid": utxo1['txid'], "vout": utxo1['vout']}], [{self.get_address(confidential, 2):1}], 0)
 
         # Create p2sh, p2wpkh, and p2wsh addresses
         pubkey0 = self.nodes[0].getaddressinfo(self.get_address(confidential, 0))['pubkey']
@@ -190,7 +190,7 @@ class PSBTTest(BitcoinTestFramework):
         p2sh_p2wpkh_unconf = self.to_unconf_addr(1, p2sh_p2wpkh)
 
         # fund those addresses
-        rawtx = self.nodes[0].createrawtransaction([], {p2sh:10, p2wsh:10, p2wpkh:10, p2sh_p2wsh:10, p2sh_p2wpkh:10, p2pkh:10})
+        rawtx = self.nodes[0].createrawtransaction([], [{p2sh:10}, {p2wsh:10}, {p2wpkh:10}, {p2sh_p2wsh:10}, {p2sh_p2wpkh:10}, {p2pkh:10}])
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":3})
         rawtx = self.nodes[0].blindrawtransaction(rawtx['hex'])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx)['hex']
@@ -342,11 +342,11 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[2].sendrawtransaction(hex_tx)
 
         # check that walletprocesspsbt fails to decode a non-psbt
-        rawtx = self.nodes[1].createrawtransaction([{"txid":txid,"vout":p2wpkh_pos}], {self.get_address(confidential, 1):9.99})
+        rawtx = self.nodes[1].createrawtransaction([{"txid":txid,"vout":p2wpkh_pos}], [{self.get_address(confidential, 1):9.99}])
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[1].walletprocesspsbt, rawtx)
 
         # Convert a non-psbt to psbt and make sure we can decode it
-        rawtx = self.nodes[0].createrawtransaction([], {self.get_address(confidential, 1):10})
+        rawtx = self.nodes[0].createrawtransaction([], [{self.get_address(confidential, 1):10}])
         rawtx = self.nodes[0].fundrawtransaction(rawtx)
         new_psbt = self.nodes[0].converttopsbt(rawtx['hex'])
         self.nodes[0].decodepsbt(new_psbt)
@@ -373,14 +373,14 @@ class PSBTTest(BitcoinTestFramework):
         node1_unconf_addr = self.to_unconf_addr(1, node1_addr)
         node2_addr = self.get_address(confidential, 2)
         node2_unconf_addr = self.to_unconf_addr(2, node2_addr)
-        rt1 = self.nodes[0].createrawtransaction([], {node1_addr:13})
+        rt1 = self.nodes[0].createrawtransaction([], [{node1_addr:13}])
         rt1 = self.nodes[0].fundrawtransaction(rt1)
         rt1 = self.nodes[0].blindrawtransaction(rt1['hex'])
         rt1 = self.nodes[0].signrawtransactionwithwallet(rt1)
         txid1 = self.nodes[0].sendrawtransaction(rt1['hex'])
         rt1 = self.nodes[0].decoderawtransaction(rt1['hex'])
 
-        rt2 = self.nodes[0].createrawtransaction([], {node2_addr:13})
+        rt2 = self.nodes[0].createrawtransaction([], [{node2_addr:13}])
         rt2 = self.nodes[0].fundrawtransaction(rt2)
         rt2 = self.nodes[0].blindrawtransaction(rt2['hex'])
         rt2 = self.nodes[0].signrawtransactionwithwallet(rt2)
@@ -603,7 +603,7 @@ class PSBTTest(BitcoinTestFramework):
         unconf_addr_0 = self.get_address(False, 0)
         unconf_addr_1 = self.get_address(False, 0)
         unconf_addr_4 = self.get_address(False, 0)
-        rawtx = self.nodes[0].createrawtransaction([], {unconf_addr_0:50, unconf_addr_1:50, unconf_addr_4:50})
+        rawtx = self.nodes[0].createrawtransaction([], [{unconf_addr_0:50}, {unconf_addr_1:50}, {unconf_addr_4:50}])
         rawtx = self.nodes[0].fundrawtransaction(rawtx, {"changePosition":3})  # our outputs will be 0, 1, 2
         rawtx = self.nodes[0].blindrawtransaction(rawtx['hex'])
         signed_tx = self.nodes[0].signrawtransactionwithwallet(rawtx)['hex']
@@ -741,7 +741,7 @@ class PSBTTest(BitcoinTestFramework):
             assert_equal(set(keys), set(psbt_input.keys()))
 
         # Create a PSBT. None of the inputs are filled initially
-        psbt = self.nodes[1].createpsbt([{"txid":txid1, "vout":vout1},{"txid":txid2, "vout":vout2},{"txid":txid3, "vout":vout3}], {self.nodes[0].getnewaddress():32.999})
+        psbt = self.nodes[1].createpsbt([{"txid":txid1, "vout":vout1},{"txid":txid2, "vout":vout2},{"txid":txid3, "vout":vout3}], [{self.nodes[0].getnewaddress():32.999}])
         decoded = self.nodes[1].decodepsbt(psbt)
         test_psbt_input_keys(decoded['inputs'][0], psbt_v2_required_keys)
         test_psbt_input_keys(decoded['inputs'][1], psbt_v2_required_keys)
@@ -807,7 +807,7 @@ class PSBTTest(BitcoinTestFramework):
         blockhash = self.nodes[0].generate(6)[0]
         self.sync_all()
         vout = find_output(self.nodes[0], txid, 7, blockhash=blockhash)
-        psbt = self.nodes[1].createpsbt([{"txid":txid, "vout":vout}], {self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('6.999')})
+        psbt = self.nodes[1].createpsbt([{"txid":txid, "vout":vout}], [{self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('6.999')}])
         analyzed = self.nodes[0].analyzepsbt(psbt)
         assert not analyzed['inputs'][0]['has_utxo'] and not analyzed['inputs'][0]['is_final'] and analyzed['inputs'][0]['next'] == 'updater' and analyzed['next'] == 'updater'
 

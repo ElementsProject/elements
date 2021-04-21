@@ -85,7 +85,7 @@ class SighashRangeproofTest(BitcoinTestFramework):
         sink_addr = self.nodes[2].getnewaddress()
         unsigned_hex = self.nodes[1].createrawtransaction(
             [{"txid": utxo["txid"], "vout": utxo["vout"]}],
-            {sink_addr: 0.9, "fee": 0.1}
+            [{sink_addr: 0.9}, {"fee": 0.1}]
         )
         blinded_hex = self.nodes[1].blindrawtransaction(unsigned_hex)
         blinded_tx = FromHex(CTransaction(), blinded_hex)
