@@ -1037,131 +1037,6 @@ static RPCHelpMan testmempoolaccept()
     };
 }
 
-static RPCHelpMan blindpsbt()
-{
-    return RPCHelpMan{"blindpsbt",
-                "\nUses the blinding data from the PSBT inputs to generate the blinding data for the PSBT outputs.\n",
-                {
-                    {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The PSBT base64 string"},
-                    {"ignoreblindfail", RPCArg::Type::BOOL, /* default*/ "true", "Return a transaction even when a blinding attempt fails due to number of blinded inputs/outputs."},
-                },
-                RPCResult{
-                    RPCResult::Type::STR, "psbt", "base64-encoded partially signed transaction",
-                },
-                RPCExamples{
-                    HelpExampleCli("blindpsbt", "\"psbt\"")
-                    + HelpExampleRpc("blindpsbt", "\"psbt\"")
-                },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    throw std::runtime_error("RPC disabled");
-/*
-    if (!g_con_elementsmode)
-        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL}, true);
-
-    // Unserialize the transactions
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    bool fIgnoreBlindFail = true;
-    if (!request.params[1].isNull()) {
-        fIgnoreBlindFail = request.params[1].get_bool();
-    }
-
-    // TODO(gwillen): Refactor out significant duplicated code between here and rawblindrawtransaction.
-
-    std::vector<CAmount> input_amounts;
-    std::vector<uint256> input_blinds;
-    std::vector<uint256> input_asset_blinds;
-    std::vector<CAsset> input_assets;
-    std::vector<uint256> output_value_blinds;
-    std::vector<uint256> output_asset_blinds;
-    std::vector<CAsset> output_assets;
-    std::vector<CPubKey> output_pubkeys;
-
-    int n_blinded_ins = 0;
-
-    // TODO(gwillen): If blinding is not possible due to missing input data, we should bail here with a useful error message.
-    for (const auto& input : psbtx.inputs) {
-        input_blinds.push_back(input.value_blinding_factor);
-        input_asset_blinds.push_back(input.asset_blinding_factor);
-        input_assets.push_back(input.asset);
-        input_amounts.push_back(input.value ? *input.value : CAmount(-1));
-
-        if (!input_blinds.back().IsNull()) {
-            n_blinded_ins++;
-        }
-    }
-
-    for (auto& output : psbtx.outputs) {
-        output_pubkeys.push_back(output.blinding_pubkey);
-    }
-
-    // How many are we trying to blind?
-    int num_pubkeys = 0;
-    unsigned int keyIndex = (unsigned) -1;
-    for (unsigned int i = 0; i < output_pubkeys.size(); i++) {
-        const CPubKey& key = output_pubkeys[i];
-        if (key.IsValid()) {
-            num_pubkeys++;
-            keyIndex = i;
-        }
-    }
-
-    CMutableTransaction& tx = *psbtx.tx;
-
-    // TODO(gwillen): Replace all this with the 'bonus output' scheme to use an OP_RETURN to balance blinders, with a rangeproof exponent of -1 (public).
-    if (num_pubkeys == 0 && n_blinded_ins == 0) {
-        // Vacuous, just return the transaction
-        return EncodePSBT(psbtx);
-    } else if (n_blinded_ins > 0 && num_pubkeys == 0) {
-        // No notion of wallet, cannot complete this blinding without passed-in pubkey
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
-    } else if (n_blinded_ins == 0 && num_pubkeys == 1) {
-        if (fIgnoreBlindFail) {
-            // Remove the pubkey to signal that blinding is complete
-            psbtx.outputs[keyIndex].blinding_pubkey = CPubKey();
-            return EncodePSBT(psbtx);
-        } else {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Add another output to blind in order to complete the blinding.");
-        }
-    }
-
-    CMutableTransaction tx_tmp = tx;  // We don't want to mutate the transaction in the PSBT yet, just extract blinding data
-
-    // TODO(gwillen): Make this do something better than fail silently if there are any issuances, reissuances, pegins, etc.
-    int ret = BlindTransaction(input_blinds, input_asset_blinds, input_assets, input_amounts, output_value_blinds, output_asset_blinds, output_pubkeys, std::vector<CKey>(), std::vector<CKey>(), tx_tmp);
-    if (ret != num_pubkeys) {
-        // TODO Have more rich return values, communicating to user what has been blinded
-        // User may be ok not blinding something that for instance has no corresponding type on input
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Unable to blind transaction: Are you sure each asset type to blind is represented in the inputs?");
-    }
-
-    for (size_t i = 0; i < psbtx.outputs.size(); ++i) {
-        PSBTOutput& o = psbtx.outputs[i];
-
-        o.value_commitment = tx_tmp.vout[i].nValue;
-        o.asset_commitment = tx_tmp.vout[i].nAsset;
-        o.nonce_commitment = tx_tmp.vout[i].nNonce;
-        o.value_blinding_factor = output_value_blinds[i];
-        o.asset_blinding_factor = output_asset_blinds[i];
-        o.range_proof = tx_tmp.witness.vtxoutwit[i].vchRangeproof;
-        o.surjection_proof = tx_tmp.witness.vtxoutwit[i].vchSurjectionproof;
-
-        o.blinding_pubkey = CPubKey();  // Once we're done blinding, remove the pubkeys to signal that it's complete
-    }
-
-    return EncodePSBT(psbtx);
-*/
-},
-    };
-}
-
 static RPCHelpMan decodepsbt()
 {
     return RPCHelpMan{"decodepsbt",
@@ -3190,7 +3065,6 @@ static const CRPCCommand commands[] =
     { "rawtransactions",    "testmempoolaccept",            &testmempoolaccept,         {"rawtxs","maxfeerate"} },
     { "rawtransactions",    "decodepsbt",                   &decodepsbt,                {"psbt"} },
     { "rawtransactions",    "combinepsbt",                  &combinepsbt,               {"txs"} },
-    { "rawtransactions",    "blindpsbt",                    &blindpsbt,                 {"psbt","ignoreblindfail"} },
     { "rawtransactions",    "finalizepsbt",                 &finalizepsbt,              {"psbt","extract"} },
     { "rawtransactions",    "createpsbt",                   &createpsbt,                {"inputs","outputs","locktime","replaceable","psbt_version"} },
     { "rawtransactions",    "converttopsbt",                &converttopsbt,             {"hexstring","permitsigdata","iswitness"} },

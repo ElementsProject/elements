@@ -4676,70 +4676,6 @@ static RPCHelpMan sethdseed()
     };
 }
 
-static RPCHelpMan walletsignpsbt()
-{
-    return RPCHelpMan{"walletsignpsbt",
-                "\nSign all PSBT iputs that we can sign for.\n"
-                + HELP_REQUIRING_PASSPHRASE,
-                {
-                    {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-                    {"sighashtype", RPCArg::Type::STR, /* default */ "ALL", "The signature hash type to sign with if not specified by the PSBT. Must be one of\n"
-                        "       \"ALL\"\n"
-                        "       \"NONE\"\n"
-                        "       \"SINGLE\"\n"
-                        "       \"ALL|ANYONECANPAY\"\n"
-                        "       \"NONE|ANYONECANPAY\"\n"
-                        "       \"SINGLE|ANYONECANPAY\""},
-                    {"imbalance_ok", RPCArg::Type::BOOL, /* default */ "false", "Sign even if the transaction amounts do not balance"},
-                },
-                RPCResult{
-                    RPCResult::Type::OBJ, "", "",
-                    {
-                        {RPCResult::Type::STR, "psbt", "the base64-encoded partially signed transaction"},
-                        {RPCResult::Type::BOOL, "complete", "whether the transaction has a complete set of signatures"},
-                    },
-                },
-                RPCExamples{
-                    HelpExampleCli("walletsignpsbt", "\"psbt\"")
-                    + HelpExampleRpc("walletsignpsbt", "\"psbt\"")
-                },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    if (!g_con_elementsmode)
-        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    if (!wallet) return NullUniValue;
-    const CWallet* const pwallet = wallet.get();
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VBOOL});
-
-    // Unserialize the transaction
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    // Get the sighash type
-    int nHashType = ParseSighashString(request.params[1]);
-    bool imbalance_ok = request.params[2].isNull() ? false : request.params[2].get_bool();
-
-    bool complete;
-    const TransactionError err = pwallet->SignPSBT(psbtx, complete, nHashType, true, imbalance_ok);
-    if (err != TransactionError::OK) {
-        throw JSONRPCTransactionError(err);
-    }
-
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("psbt", EncodePSBT(psbtx));
-    result.pushKV("complete", complete);
-
-    return result;
-},
-    };
-}
-
 static RPCHelpMan walletprocesspsbt()
 {
     return RPCHelpMan{"walletprocesspsbt",
@@ -4750,8 +4686,7 @@ static RPCHelpMan walletprocesspsbt()
                 "it. This RPC will fail when working with such transaction. Instead of using\n"
                 "this RPC, use the following sequence:\n"
                 " - walletfillpsbtdata\n"
-                " - blindpsbt\n"
-                " - walletsignpsbt\n" +
+                " - blindpsbt\n" +
                     HELP_REQUIRING_PASSPHRASE,
                 {
                     {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
@@ -4835,56 +4770,6 @@ static RPCHelpMan walletprocesspsbt()
     ssTx << psbtx;
     result.pushKV("psbt", EncodeBase64(ssTx.str()));
     result.pushKV("complete", complete);
-
-    return result;
-},
-    };
-}
-
-static RPCHelpMan walletblindpsbt()
-{
-    return RPCHelpMan{"walletblindpsbt",
-            "\nUpdate a PSBT with input information from our wallet and then sign inputs\n"
-            "that we can sign for.\n\n" +
-            HELP_REQUIRING_PASSPHRASE,
-            {
-                {"psbt", RPCArg::Type::STR, RPCArg::Optional::NO, "The transaction base64 string"},
-            },
-            RPCResult{
-                RPCResult::Type::OBJ, "", "",
-                {
-                    {RPCResult::Type::STR, "psbt", "The resulting raw transaction (base64-encoded string)"},
-                }
-            },
-            RPCExamples{
-                HelpExampleCli("walletblindpsbt", "\"psbt\"")
-            },
-        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
-{
-    if (!g_con_elementsmode)
-        throw std::runtime_error("PSBT operations are disabled when not in elementsmode.\n");
-
-    std::shared_ptr<CWallet> const wallet = GetWalletForJSONRPCRequest(request);
-    CWallet* const pwallet = wallet.get();
-
-    RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VBOOL, UniValue::VSTR});
-
-    // Unserialize the transaction
-    PartiallySignedTransaction psbtx;
-    std::string error;
-    if (!DecodeBase64PSBT(psbtx, request.params[0].get_str(), error)) {
-        throw JSONRPCError(RPC_DESERIALIZATION_ERROR, strprintf("TX decode failed %s", error));
-    }
-
-    BlindingStatus status = pwallet->WalletBlindPSBT(psbtx);
-    if (status != BlindingStatus::OK) {
-        throw JSONRPCError(RPC_WALLET_ERROR, GetBlindingStatusError(status));
-    }
-
-    UniValue result(UniValue::VOBJ);
-    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
-    ssTx << psbtx;
-    result.pushKV("psbt", EncodeBase64(ssTx.str()));
 
     return result;
 },
@@ -7133,7 +7018,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
     { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
     { "wallet",             "walletprocesspsbt",                &walletprocesspsbt,             {"psbt","sign","sighashtype","bip32derivs"} },
-    { "wallet",             "walletsignpsbt",                   &walletsignpsbt,                {"psbt","sighashtype","imbalance_ok"} },
     // ELEMENTS:
     { "wallet",             "getpeginaddress",                  &getpeginaddress,               {} },
     { "wallet",             "claimpegin",                       &claimpegin,                    {"bitcoin_tx", "txoutproof", "claim_script"} },
@@ -7154,7 +7038,6 @@ static const CRPCCommand commands[] =
     { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
     { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment", "verbose"} },
-    { "wallet",             "walletblindpsbt",                  &walletblindpsbt,               {"psbt"} },
     { "hidden",             "generatepegoutproof",              &generatepegoutproof,           {"sumkey", "btcpubkey", "onlinepubkey"} },
     { "hidden",             "getpegoutkeys",                    &getpegoutkeys,                 {"btcprivkey", "offlinepubkey"} },
 };

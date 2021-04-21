@@ -331,8 +331,8 @@ class FedPegTest(BitcoinTestFramework):
         merged_pegin_psbt = sidechain.combinepsbt([pegin_psbt, merge_pegin_psbt])
         assert_equal(pegin_psbt, merged_pegin_psbt)
         # Now sign the psbt
-        signed_psbt = sidechain.walletsignpsbt(pegin_psbt)
-        signed_psbt2 = sidechain.walletsignpsbt(pegin_psbt2)
+        signed_psbt = sidechain.walletprocesspsbt(pegin_psbt)
+        signed_psbt2 = sidechain.walletprocesspsbt(pegin_psbt2)
         # Finalize and extract and compare
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
         fin_psbt2 = sidechain.finalizepsbt(signed_psbt2['psbt'])
@@ -348,7 +348,7 @@ class FedPegTest(BitcoinTestFramework):
                 out_bal += Decimal(val)
         assert_greater_than(out_bal, 50)
         pegin_psbt = sidechain.walletcreatefundedpsbt([{"txid":txid1, "vout": vout, "pegin_bitcoin_tx": raw, "pegin_txout_proof": proof, "pegin_claim_script": addrs["claim_script"]}], outputs, 0, {'add_inputs': True})
-        signed_psbt = sidechain.walletsignpsbt(pegin_psbt['psbt'])
+        signed_psbt = sidechain.walletprocesspsbt(pegin_psbt['psbt'])
         fin_psbt = sidechain.finalizepsbt(signed_psbt['psbt'])
         assert fin_psbt['complete']
 

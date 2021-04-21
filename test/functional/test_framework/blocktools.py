@@ -192,16 +192,10 @@ def create_raw_transaction(node, txid, to_address, *, amount, fee):
         for the output that is being spent.
     """
     psbt = node.createpsbt(inputs=[{"txid": txid, "vout": 0}], outputs=[{to_address: amount}, {"fee": fee}])
-    for _ in range(2):
+    for sign in [False, True]:
         for w in node.listwallets():
             wrpc = node.get_wallet_rpc(w)
-            filled_psbt = wrpc.walletfillpsbtdata(psbt)
-            blinded_psbt = wrpc.blindpsbt(filled_psbt['psbt'])
-            try: # ELEMENTS: if we are missing UTXOs we will refuse to sign as we cannot check tx balance. Post-#900 we should review this
-                signed_psbt = wrpc.walletsignpsbt(blinded_psbt)
-                psbt = signed_psbt['psbt']
-            except:
-                pass
+            psbt = wrpc.walletprocesspsbt(psbt, sign)["psbt"]
     final_psbt = node.finalizepsbt(psbt)
     assert_equal(final_psbt["complete"], True)
     return final_psbt['hex']

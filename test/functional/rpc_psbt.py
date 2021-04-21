@@ -136,14 +136,12 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[0].walletcreatefundedpsbt(None, [{self.nodes[2].getnewaddress():10}])
 
         # Node 1 should not be able to add anything to it but still return the psbtx same as before
-        psbtx = self.nodes[1].walletfillpsbtdata(psbtx1)['psbt']
+        psbtx = self.nodes[1].walletprocesspsbt(psbtx1)['psbt']
         assert_equal(psbtx1, psbtx)
 
         # Sign the transaction and send
-        filled_tx = self.nodes[0].walletfillpsbtdata(psbtx)['psbt']
-        blinded_tx = self.nodes[0].blindpsbt(filled_tx)
-        signed_tx = self.nodes[0].walletsignpsbt(blinded_tx)['psbt']
-        final_tx = self.nodes[0].finalizepsbt(signed_tx)['hex']
+        signed_psbt = self.nodes[0].walletprocesspsbt(psbtx)['psbt']
+        final_tx = self.nodes[0].finalizepsbt(signed_psbt)['hex']
         if confidential:
             # Can't use assert_equal because there may or may not be change
             assert(self.num_blinded_outputs(final_tx) > 0)
@@ -228,9 +226,7 @@ class PSBTTest(BitcoinTestFramework):
 
         # spend single key from node 1
         created_psbt = self.nodes[1].walletcreatefundedpsbt(inputs, outputs)
-        filled = self.nodes[1].walletfillpsbtdata(created_psbt['psbt'])['psbt']
-        blinded = self.nodes[1].blindpsbt(filled)
-        walletsignpsbt_out = self.nodes[1].walletsignpsbt(blinded)
+        walletsignpsbt_out = self.nodes[1].walletprocesspsbt(created_psbt["psbt"])
         # Make sure it has both types of UTXOs
         decoded = self.nodes[1].decodepsbt(walletsignpsbt_out['psbt'])
         assert 'non_witness_utxo' in decoded['inputs'][0]
@@ -320,12 +316,10 @@ class PSBTTest(BitcoinTestFramework):
 
         self.log.info("Test various PSBT operations")
         # partially sign multisig things with node 1
-        psbtx = wmulti.walletcreatefundedpsbt(inputs=[{"txid":txid,"vout":p2wsh_pos},{"txid":txid,"vout":p2sh_pos},{"txid":txid,"vout":p2sh_p2wsh_pos}], outputs={self.get_address(confidential, 1):29.99}, options={'changeAddress': self.nodes[1].getrawchangeaddress()})['psbt']
-        filled = self.nodes[1].walletfillpsbtdata(psbtx)['psbt']
+        psbtx = wmulti.walletcreatefundedpsbt(inputs=[{"txid":txid,"vout":p2wsh_pos},{"txid":txid,"vout":p2sh_pos},{"txid":txid,"vout":p2sh_p2wsh_pos}], outputs=[{self.get_address(confidential, 1):29.99}], options={'changeAddress': self.nodes[1].getrawchangeaddress()})['psbt']
+        filled = wmulti.walletprocesspsbt(psbtx)
         # have both nodes fill before we try to blind and sign
-        filled = wmulti.walletfillpsbtdata(filled)['psbt']
-        blinded = self.nodes[1].blindpsbt(filled)
-        walletprocesspsbt_out = self.nodes[1].walletsignpsbt(blinded)
+        walletprocesspsbt_out = self.nodes[1].walletprocesspsbt(filled["psbt"])
         psbtx = walletprocesspsbt_out['psbt']
         assert_equal(walletprocesspsbt_out['complete'], False)
 
@@ -333,7 +327,7 @@ class PSBTTest(BitcoinTestFramework):
         wmulti.unloadwallet()
 
         # partially sign with node 2. This should be complete and sendable
-        walletsignpsbt_out = self.nodes[2].walletsignpsbt(psbtx)
+        walletsignpsbt_out = self.nodes[2].walletprocesspsbt(psbtx)
         assert_equal(walletsignpsbt_out['complete'], True)
         hex_tx = self.nodes[2].finalizepsbt(walletsignpsbt_out['psbt'])['hex']
         if confidential:
@@ -490,45 +484,12 @@ class PSBTTest(BitcoinTestFramework):
         assert_raises_rpc_error(-8, "both change address and address type options", self.nodes[0].walletcreatefundedpsbt, [], [small_output], 0, invalid_options)
 
         # Regression test for 14473 (mishandling of already-signed witness transaction):
-        psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.nodes[2].getnewaddress():unspent["amount"]+1}], 0, {"add_inputs": True})
-        filled = self.nodes[0].walletfillpsbtdata(psbtx_info["psbt"])
-        blinded = self.nodes[0].blindpsbt(filled["psbt"])
-        signed = self.nodes[0].walletsignpsbt(blinded)
-        signed_again = self.nodes[0].walletsignpsbt(signed["psbt"])
+        psbtx_info = self.nodes[0].walletcreatefundedpsbt([{"txid":unspent["txid"], "vout":unspent["vout"]}], [{self.get_address(confidential, 2):unspent["amount"]+1}], 0, {"add_inputs": True})
+        signed = self.nodes[0].walletprocesspsbt(psbtx_info["psbt"])
+        signed_again = self.nodes[0].walletprocesspsbt(signed["psbt"])
         assert_equal(signed, signed_again)
         # We don't care about the decode result, but decoding must succeed.
         self.nodes[0].decodepsbt(signed["psbt"])
-
-        # Test the imbalance_ok argument of walletsignpsbt by manually constructing a psbt that doesn't balance.
-        node1_addr = self.get_address(confidential, 1)
-        node1_unconf_addr = self.to_unconf_addr(1, node1_addr)
-        rt1 = self.nodes[0].createrawtransaction([], {node1_addr:11.11})
-        rt1 = self.nodes[0].fundrawtransaction(rt1)
-        rt1 = self.nodes[0].blindrawtransaction(rt1['hex'])
-        rt1 = self.nodes[0].signrawtransactionwithwallet(rt1)
-        txid1 = self.nodes[0].sendrawtransaction(rt1['hex'])
-        rt1 = self.nodes[0].decoderawtransaction(rt1['hex'])
-
-        self.nodes[0].generate(6)
-        self.sync_all()
-
-        for out in rt1['vout']:
-            if out['scriptPubKey']['type'] == "fee":
-                pass
-            elif out['scriptPubKey']['addresses'][0] == node1_unconf_addr:
-                vout1 = out['n']
-
-        psbt = self.nodes[1].createpsbt([{"txid":txid1, "vout":vout1}], [{self.get_address(confidential, 2):1}, {"fee":0.001}])
-        psbt = self.nodes[1].walletfillpsbtdata(psbt)
-        psbt = self.nodes[1].blindpsbt(psbt["psbt"])
-        # If imbalance_ok is false, should fail
-        assert_raises_rpc_error(-25, "Transaction values or blinders are not balanced", self.nodes[1].walletsignpsbt, psbt, "ALL", False)
-        # If imbalance_ok is true, should succeed
-        psbt = self.nodes[1].walletsignpsbt(psbt, "ALL", True)
-        psbt = self.nodes[1].finalizepsbt(psbt["psbt"])
-        # ... but you still can't send it.
-        assert_raises_rpc_error(-26, "bad-txns-in-ne-out, value in != value out", self.nodes[1].sendrawtransaction, psbt['hex'])
-
 
     # BIP 174 tests are disabled because they don't work with CA yet. Comment the function so it doesn't flag lint as unused.
     """
@@ -614,8 +575,7 @@ class PSBTTest(BitcoinTestFramework):
         # Now use PSBT to send some coins nonconf->nonconf
         unconf_addr_2 = self.get_address(False, 1)
         psbt = self.nodes[0].createpsbt([{"txid": txid_nonconf, "vout": 0}], [{unconf_addr_2: 49.999}, {"fee": 0.001}])
-        psbt = self.nodes[0].walletfillpsbtdata(psbt)['psbt']
-        psbt = self.nodes[0].walletsignpsbt(psbt)['psbt']
+        psbt = self.nodes[0].walletprocesspsbt(psbt)["psbt"]
         tx_hex = self.nodes[0].finalizepsbt(psbt)['hex']
         txid_nonconf_2 = self.nodes[0].sendrawtransaction(tx_hex)
         self.nodes[0].generate(1)
@@ -640,10 +600,8 @@ class PSBTTest(BitcoinTestFramework):
         # Now send nonconf->conf (with two outputs, blinding succeeds)
         conf_addr_1 = self.get_address(True, 2)
         conf_addr_2 = self.get_address(True, 2)
-        psbt = self.nodes[0].createpsbt([{"txid": txid_nonconf, "vout": 1}], [{conf_addr_1: 24.999}, {conf_addr_2: 24.999}, {"fee": 0.002}])
-        psbt = self.nodes[0].walletfillpsbtdata(psbt)['psbt']
-        psbt = self.nodes[0].blindpsbt(psbt, False)
-        psbt = self.nodes[0].walletsignpsbt(psbt)['psbt']
+        psbt = self.nodes[0].createpsbt([{"txid": txid_nonconf, "vout": 1}], [{conf_addr_1: 24.999, "blinder_index": 0}, {conf_addr_2: 24.999, "blinder_index": 0}, {"fee": 0.002}])
+        psbt = self.nodes[0].walletprocesspsbt(psbt)['psbt']
         hex_tx = self.nodes[0].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 2)
         txid_conf_2 = self.nodes[0].sendrawtransaction(hex_tx)
@@ -653,15 +611,12 @@ class PSBTTest(BitcoinTestFramework):
         # Try to send conf->nonconf: This will fail because we can't balance the blinders
         unconf_addr_3 = self.get_address(False, 0)
         psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 0}], [{unconf_addr_3: 24.998}, {"fee": 0.001}])
-        psbt = self.nodes[2].walletfillpsbtdata(psbt)['psbt']
-        assert_raises_rpc_error(-8, "Unable to blind transaction: Add another output to blind in order to complete the blinding.", self.nodes[2].blindpsbt, psbt, False)
+        assert_raises_rpc_error(-25, "Transaction values or blinders are not balanced", self.nodes[2].walletprocesspsbt, psbt)
 
         # Try to send conf->(nonconf + conf), so we have a conf output to balance blinders
         conf_addr_3 = self.get_address(True, 0)
-        psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 0}], [{unconf_addr_3: 10}, {conf_addr_3: 14.998}, {"fee": 0.001}])
-        psbt = self.nodes[2].walletfillpsbtdata(psbt)['psbt']
-        psbt = self.nodes[2].blindpsbt(psbt, False)
-        psbt = self.nodes[2].walletsignpsbt(psbt)['psbt']
+        psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 0}], [{unconf_addr_3: 10}, {conf_addr_3: 14.998, "blinder_index": 0}, {"fee": 0.001}])
+        psbt = self.nodes[2].walletprocesspsbt(psbt)['psbt']
         hex_tx = self.nodes[2].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 1)
         self.nodes[2].sendrawtransaction(hex_tx)
@@ -670,10 +625,8 @@ class PSBTTest(BitcoinTestFramework):
 
         # Try to send conf->conf
         conf_addr_4 = self.get_address(True, 0)
-        psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 1}], [{conf_addr_4: 24.998}, {"fee": 0.001}])
-        psbt = self.nodes[2].walletfillpsbtdata(psbt)['psbt']
-        psbt = self.nodes[2].blindpsbt(psbt, False)
-        psbt = self.nodes[2].walletsignpsbt(psbt)['psbt']
+        psbt = self.nodes[2].createpsbt([{"txid": txid_conf_2, "vout": 1}], [{conf_addr_4: 24.998, "blinder_index": 0}, {"fee": 0.001}])
+        psbt = self.nodes[2].walletprocesspsbt(psbt)['psbt']
         hex_tx = self.nodes[2].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 1)
         self.nodes[2].sendrawtransaction(hex_tx)
@@ -684,10 +637,8 @@ class PSBTTest(BitcoinTestFramework):
         nonconf_addr_5 = self.get_address(False, 1)
         conf_addr_5 = self.get_address(True, 1)
         conf_addr_6 = self.get_address(True, 2)
-        psbt = self.nodes[0].createpsbt([{"txid": txid_nonconf, "vout": 2}], [{nonconf_addr_5: 24.999}, {conf_addr_5: 14.999}, {conf_addr_6: 10}, {"fee": 0.002}])
-        psbt = self.nodes[0].walletfillpsbtdata(psbt)['psbt']
-        psbt = self.nodes[0].blindpsbt(psbt, False)
-        psbt = self.nodes[0].walletsignpsbt(psbt)['psbt']
+        psbt = self.nodes[0].createpsbt([{"txid": txid_nonconf, "vout": 2}], [{nonconf_addr_5: 24.999}, {conf_addr_5: 14.999, "blinder_index": 0}, {conf_addr_6: 10, "blinder_index": 0}, {"fee": 0.002}])
+        psbt = self.nodes[0].walletprocesspsbt(psbt)['psbt']
         hex_tx = self.nodes[0].finalizepsbt(psbt)['hex']
         assert_equal(self.num_blinded_outputs(hex_tx), 2)
         self.nodes[0].sendrawtransaction(hex_tx)
