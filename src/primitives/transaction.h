@@ -146,7 +146,7 @@ public:
     inline void Serialize(Stream& s) const {
         bool fHasAssetIssuance;
         COutPoint outpoint;
-        if (prevout.n == (uint32_t) -1) {
+        if (!g_con_elementsmode || prevout.n == (uint32_t) -1) {
             // Coinbase inputs do not have asset issuances attached
             // to them.
             fHasAssetIssuance = false;
@@ -189,7 +189,7 @@ public:
         COutPoint outpoint;
         s >> outpoint;
 
-        if (outpoint.n == (uint32_t) -1) {
+        if (!g_con_elementsmode || outpoint.n == (uint32_t) -1) {
             // No asset issuance for Coinbase inputs.
             fHasAssetIssuance = false;
             prevout = outpoint;
