@@ -997,14 +997,14 @@ public:
  */
 class CLiquidV1TestParams : public CLiquidV1Params {
 public:
-    explicit CLiquidV1TestParams(ArgsManager& args)
+    explicit CLiquidV1TestParams(const ArgsManager& args)
     {
         // Our goal here is to override ONLY the things from liquidv1 that make no sense for a test chain / which are pointless and burdensome to require people to override manually.
 
         strNetworkID = "liquidv1test";
 
-        // required for some tests to consider this 'regtest'
-        fMineBlocksOnDemand = true;
+        m_is_test_chain = true;
+        m_is_mockable_chain = false;
 
         vSeeds.clear();  // No network seeds
         vFixedSeeds.clear();  // No network seeds
@@ -1069,7 +1069,7 @@ public:
     // - Allow overriding anything that can be overridden in CCustomParams;
     // - Leave everything alone unless an argument / config parameter was given.
     // This is unlike the CCustomParams UpdateFromArgs method, which has lots of defaults in it.
-    void UpdateFromArgs(ArgsManager& args)
+    void UpdateFromArgs(const ArgsManager& args)
     {
         // NOTE: We don't handle version bits, because I'm not sure we actually use them, and it would be messy to do so.
         // UpdateVersionBitsParametersFromArgs(args);
@@ -1113,8 +1113,7 @@ public:
 
         nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
         fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
-        fMineBlocksOnDemand = args.GetBoolArg("-fmineblocksondemand", fMineBlocksOnDemand);
-        m_fallback_fee_enabled = args.GetBoolArg("-fallback_fee_enabled", m_fallback_fee_enabled);
+        m_is_test_chain = args.GetBoolArg("-fmineblocksondemand", m_is_test_chain);
 
         bech32_hrp = args.GetArg("-bech32_hrp", bech32_hrp);
         blech32_hrp = args.GetArg("-blech32_hrp", blech32_hrp);
@@ -1247,13 +1246,6 @@ public:
         }
 
         // END ELEMENTS fields
-
-        // CSV always active by default, unlike regtest
-        if (args.IsArgSet("-con_csv_deploy_start")) {
-            consensus.vDeployments[Consensus::DEPLOYMENT_CSV].bit = 0;
-            consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = args.GetArg("-con_csv_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
-            consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-        }
     }
 
     // XXX: This is copy-and-pasted from CCustomParams; sharing it would be better, but is annoying.
@@ -1264,7 +1256,7 @@ public:
         } else if (consensus.genesis_style == "elements") {
             // Intended compatibility with Liquid v1 and elements-0.14.1
             std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
-            genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
+            genesis = CreateGenesisBlock(consensus, CScript() << commit, CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
             if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
                 AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
             }
