@@ -496,6 +496,17 @@ bool PSBTOutput::Merge(const PSBTOutput& output)
     return true;
 }
 
+CTxOut PSBTOutput::GetTxOut() const
+{
+    assert(script != nullopt);
+    if (!m_value_commitment.IsNull() && !m_asset_commitment.IsNull()) {
+        return CTxOut(m_asset_commitment, m_value_commitment, *script);
+    }
+    assert(amount != nullopt);
+    assert(!m_asset.IsNull());
+    return CTxOut(CConfidentialAsset(CAsset(m_asset)), CConfidentialValue(*amount), *script);
+}
+
 bool PSBTOutput::IsBlinded() const
 {
     return m_blinding_pubkey.IsValid();
