@@ -1902,11 +1902,11 @@ static RPCHelpMan createpsbt()
 
     // Make a blank psbt
     uint32_t psbt_version = 2;
-    if (!request.params[5].isNull()) {
+    if (!request.params[4].isNull()) {
         psbt_version = request.params[4].get_int();
     }
-    if (psbt_version != 2 && psbt_version != 0) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2 or 0");
+    if (psbt_version != 2) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "The PSBT version can only be 2");
     }
 
     // Make a blank psbt
