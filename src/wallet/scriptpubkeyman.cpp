@@ -193,7 +193,7 @@ IsMineResult IsMineInner(const LegacyScriptPubKeyMan& keystore, const CScript& s
         }
         break;
     }
-    case TxoutType::TRUE:
+    case TxoutType::OP_TRUE:
         if (Params().anyonecanspend_aremine) {
             return IsMineResult::SPENDABLE;
         }

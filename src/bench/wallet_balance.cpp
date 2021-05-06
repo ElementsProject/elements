@@ -17,6 +17,7 @@ static void WalletBalance(benchmark::Bench& bench, const bool set_dirty, const b
 {
     TestingSetup test_setup{
         CBaseChainParams::REGTEST,
+        /* fedpegscript */ "",
         /* extra_args */ {
             "-nodebuglogfile",
             "-nodebug",

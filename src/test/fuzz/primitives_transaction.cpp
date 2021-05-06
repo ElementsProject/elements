@@ -21,8 +21,8 @@ void test_one_input(const std::vector<uint8_t>& buffer)
         const CTxIn tx_in{*out_point, script, fuzzed_data_provider.ConsumeIntegral<uint32_t>()};
         (void)tx_in;
     }
-    const CTxOut tx_out_1{ConsumeMoney(fuzzed_data_provider), script};
-    const CTxOut tx_out_2{ConsumeMoney(fuzzed_data_provider), ConsumeScript(fuzzed_data_provider)};
+    const CTxOut tx_out_1{CAsset(), ConsumeMoney(fuzzed_data_provider), script};
+    const CTxOut tx_out_2{CAsset(), ConsumeMoney(fuzzed_data_provider), ConsumeScript(fuzzed_data_provider)};
     assert((tx_out_1 == tx_out_2) != (tx_out_1 != tx_out_2));
     const std::optional<CMutableTransaction> mutable_tx_1 = ConsumeDeserializable<CMutableTransaction>(fuzzed_data_provider);
     const std::optional<CMutableTransaction> mutable_tx_2 = ConsumeDeserializable<CMutableTransaction>(fuzzed_data_provider);

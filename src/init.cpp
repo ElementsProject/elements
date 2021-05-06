@@ -109,7 +109,11 @@ static const char* DEFAULT_ASMAP_FILENAME="ip_asn.map";
 /**
  * The PID file facilities.
  */
-static const char* BITCOIN_PID_FILENAME = "bitcoind.pid";
+#ifdef LIQUID
+const char * const BITCOIN_PID_FILENAME = "liquid.pid";
+#else
+const char * const BITCOIN_PID_FILENAME = "elementsd.pid";
+#endif
 
 static fs::path GetPidFile(const ArgsManager& args)
 {
@@ -2093,7 +2097,7 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
     CScheduler::Function reevaluationLoop = [&node]{ node.reverification_scheduler->serviceQueue(); };
     threadGroup.create_thread(std::bind(&TraceThread<CScheduler::Function>, "reevaluation_scheduler", reevaluationLoop));
 
-    CScheduler::Function f2 = boost::bind(&MainchainRPCCheck, false);
+    CScheduler::Function f2 = std::bind(&MainchainRPCCheck, false);
     unsigned int check_rpc_every = gArgs.GetArg("-recheckpeginblockinterval", 120);
     if (check_rpc_every) {
         node.reverification_scheduler->scheduleEvery(f2, std::chrono::seconds(check_rpc_every));

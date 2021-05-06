@@ -25,8 +25,6 @@ from test_framework.blocktools import (
     TIME_GENESIS_BLOCK,
 )
 from test_framework.messages import (
-    CBlockHeader,
-    FromHex,
     msg_block,
 )
 from test_framework.p2p import P2PInterface

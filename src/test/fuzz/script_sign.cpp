@@ -91,8 +91,10 @@ void test_one_input(const std::vector<uint8_t>& buffer)
         const unsigned int n_in = fuzzed_data_provider.ConsumeIntegral<unsigned int>();
         if (mutable_transaction && tx_out && mutable_transaction->vin.size() > n_in) {
             SignatureData signature_data_1 = DataFromTransaction(*mutable_transaction, n_in, *tx_out);
-            CTxIn input;
-            UpdateInput(input, signature_data_1);
+            CMutableTransaction mtx;
+            mtx.vin.resize(1);
+            mtx.witness.vtxinwit.resize(1);
+            UpdateTransaction(mtx, 0, signature_data_1);
             const CScript script = ConsumeScript(fuzzed_data_provider);
             SignatureData signature_data_2{script};
             signature_data_1.MergeSignatureData(signature_data_2);
@@ -121,7 +123,7 @@ void test_one_input(const std::vector<uint8_t>& buffer)
                 } else {
                     address = CKeyID{ConsumeUInt160(fuzzed_data_provider)};
                 }
-                (void)signature_creator.CreateSig(provider, vch_sig, address, ConsumeScript(fuzzed_data_provider), fuzzed_data_provider.PickValueInArray({SigVersion::BASE, SigVersion::WITNESS_V0}));
+                (void)signature_creator.CreateSig(provider, vch_sig, address, ConsumeScript(fuzzed_data_provider), fuzzed_data_provider.PickValueInArray({SigVersion::BASE, SigVersion::WITNESS_V0}), 0);
             }
             std::map<COutPoint, Coin> coins;
             while (fuzzed_data_provider.ConsumeBool()) {

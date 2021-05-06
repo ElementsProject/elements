@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import codecs
-import hashlib
-import random
 
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (assert_raises_rpc_error, assert_equal)
@@ -173,7 +171,7 @@ class BlockSignTest(BitcoinTestFramework):
             self.nodes[i].submitblock(result["hex"])
 
         # All nodes should be synced in blocks and transactions(mempool should be empty)
-        self.sync_all()
+        self.sync_all(expect_disconnected=True)
 
     def mine_blocks(self, num_blocks, transactions):
         for i in range(num_blocks):

@@ -27,7 +27,7 @@ BITCOIN_INCLUDES += $(UNIVALUE_CFLAGS)
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
-LIBBITCOIN_CONSENSUS=libbitcoin_consensus.a
+LIBBITCOIN_CONSENSUS=libelements_consensus.a
 LIBBITCOIN_CLI=libbitcoin_cli.a
 LIBBITCOIN_UTIL=libbitcoin_util.a
 LIBBITCOIN_CRYPTO_BASE=crypto/libbitcoin_crypto_base.a
@@ -189,6 +189,7 @@ BITCOIN_CORE_H = \
   policy/rbf.h \
   policy/settings.h \
   pow.h \
+  primitives/pak.h \
   protocol.h \
   psbt.h \
   random.h \
@@ -306,6 +307,7 @@ libbitcoin_server_a_SOURCES = \
   chain.cpp \
   confidential_validation.cpp \
   consensus/tx_verify.cpp \
+  dynafed.cpp \
   dbwrapper.cpp \
   flatfile.cpp \
   httprpc.cpp \
@@ -332,6 +334,7 @@ libbitcoin_server_a_SOURCES = \
   policy/rbf.cpp \
   policy/settings.cpp \
   pow.cpp \
+  primitives/pak.cpp \
   rest.cpp \
   rpc/blockchain.cpp \
   rpc/mining.cpp \
@@ -465,21 +468,18 @@ crypto_libbitcoin_crypto_shani_a_CPPFLAGS += -DENABLE_SHANI
 crypto_libbitcoin_crypto_shani_a_SOURCES = crypto/sha256_shani.cpp
 
 # consensus: shared between all executables that validate any consensus rules.
-libbitcoin_consensus_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
-libbitcoin_consensus_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_consensus_a_SOURCES = \
+libelements_consensus_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
+libelements_consensus_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+libelements_consensus_a_SOURCES = \
   amount.h \
   arith_uint256.cpp \
   arith_uint256.h \
   asset.cpp \
-  chain.h \
-  chain.cpp \
   consensus/merkle.cpp \
   consensus/merkle.h \
   consensus/params.h \
   consensus/tx_check.cpp \
   consensus/validation.h \
-  dynafed.cpp \
   hash.cpp \
   hash.h \
   prevector.h \
@@ -491,8 +491,6 @@ libbitcoin_consensus_a_SOURCES = \
   primitives/txwitness.h \
   primitives/transaction.cpp \
   primitives/transaction.h \
-  primitives/pak.cpp \
-  primitives/pak.h \
   primitives/bitcoin/block.cpp \
   primitives/bitcoin/block.h \
   primitives/bitcoin/merkleblock.cpp \
@@ -707,7 +705,7 @@ endif
 # bitcoinconsensus library #
 if BUILD_BITCOIN_LIBS
 include_HEADERS = script/bitcoinconsensus.h
-libelementsconsensus_la_SOURCES = support/cleanse.cpp $(crypto_libbitcoin_crypto_base_a_SOURCES) $(libbitcoin_consensus_a_SOURCES)
+libelementsconsensus_la_SOURCES = support/cleanse.cpp $(crypto_libbitcoin_crypto_base_a_SOURCES) $(libelements_consensus_a_SOURCES)
 
 if GLIBC_BACK_COMPAT
   libelementsconsensus_la_SOURCES += compat/glibc_compat.cpp
@@ -796,60 +794,6 @@ endif
 if EMBEDDED_LEVELDB
 include Makefile.crc32c.include
 include Makefile.leveldb.include
-endif
-
-# Rendered icons must be here, not in Makefile.qt.include, since they are distributed with the source tarball
-
-RES_RENDERED_ICON_SRC = qt/res/src/bitcoin.svg
-
-RES_RENDERED_ICONS = \
-  qt/res/rendered_icons/about.png \
-  qt/res/rendered_icons/bitcoin.ico \
-  qt/res/rendered_icons/bitcoin_testnet.ico \
-  qt/res/rendered_icons/bitcoin1024.png
-
-RES_ALL_RENDERED_ICONS = $(RES_RENDERED_ICONS) \
-  qt/res/rendered_icons/about.svg \
-  $(patsubst %,qt/res/rendered_icons/bitcoin%.png,16 32 48 256 512 1024) \
-  qt/res/rendered_icons/bitcoin.icns \
-  qt/res/rendered_icons/nsis-wizard.svg \
-  qt/res/rendered_icons/nsis-wizard.bmp
-
-EXTRA_DIST += $(RES_RENDERED_ICON_SRC) $(RES_ALL_RENDERED_ICONS)
-
-if CAN_RENDER_ICONS
-
-qt/res/rendered_icons/about.png: qt/res/rendered_icons/about.svg
-	$(RSVG_CONVERT) -f png -d 142 -p 142 < $< | $(IMAGEMAGICK_CONVERT) - -bordercolor transparent -colorspace Gray -strip $@
-
-qt/res/rendered_icons/about.svg: qt/res/src/bitcoin.svg
-	@$(MKDIR_P) $(@D)
-	sed '/fill="#000"/d;s/fill="[^"]*"//g' < $< > $@
-
-qt/res/rendered_icons/bitcoin%.png: qt/res/src/bitcoin.svg
-	@$(MKDIR_P) $(@D)
-	$(RSVG_CONVERT) -f png -d $* -p $* < $< > $@
-
-# NOTE: ImageMagick will never convert transparent PNGs to 8-bit ICOs, but GIF is fine
-qt/res/rendered_icons/bitcoin%d8.gif: qt/res/rendered_icons/bitcoin%.png
-	$(IMAGEMAGICK_CONVERT) $^ -colors 256 -channel A -threshold '50%' $@
-
-qt/res/rendered_icons/bitcoin.icns: $(patsubst %,qt/res/rendered_icons/bitcoin%.png,256 512 1024 32 16)
-	$(PNG2ICNS) $@ $^
-
-qt/res/rendered_icons/bitcoin.ico: qt/res/rendered_icons/bitcoin32d8.gif $(patsubst %,qt/res/rendered_icons/bitcoin%.png,256 64 48 32 20 16)
-	$(IMAGEMAGICK_CONVERT) $^ $@
-
-qt/res/rendered_icons/bitcoin_testnet.ico: qt/res/rendered_icons/bitcoin.ico
-	$(IMAGEMAGICK_CONVERT) $^ $@
-
-qt/res/rendered_icons/nsis-wizard.svg: qt/res/src/bitcoin.svg
-	@$(MKDIR_P) $(@D)
-	sed '/fill="#000"/d' < $< > $@
-
-qt/res/rendered_icons/nsis-wizard.bmp: qt/res/rendered_icons/nsis-wizard.svg
-	$(RSVG_CONVERT) -f png -d 360 -p 360 < $< | $(IMAGEMAGICK_CONVERT) - -strip BMP3:$@
-
 endif
 
 include Makefile.test_util.include

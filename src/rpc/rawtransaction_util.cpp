@@ -94,7 +94,7 @@ static void CreatePegInInputInner(CMutableTransaction& mtx, uint32_t input_idx, 
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Failed to find output in bitcoinTx to the mainchain_address from getpeginaddress");
         }
     }
-    assert(witness_script != CScript());
+    CHECK_NONFATAL(witness_script != CScript());
 
     int version = -1;
     std::vector<unsigned char> witness_program;
@@ -518,7 +518,7 @@ bool ValidateTransactionPeginInputs(const CMutableTransaction& mtx, std::map<int
         }
         // Report warning about immature peg-in though
         if(txin.m_is_pegin && !IsValidPeginWitness(mtx.witness.vtxinwit[i].m_pegin_witness, fedpegscripts, txin.prevout, err, true)) {
-            assert(err == "Needs more confirmations.");
+            CHECK_NONFATAL(err == "Needs more confirmations.");
             immature_pegin = true;
         }
     }

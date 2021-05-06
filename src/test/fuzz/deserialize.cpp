@@ -94,6 +94,7 @@ void AssertEqualAfterSerializeDeserialize(const T& obj, const int version = INIT
 
 void test_one_input(const std::vector<uint8_t>& buffer)
 {
+    SelectParams(CBaseChainParams::LIQUID1); // ELEMENTS
     try {
 #if BLOCK_FILTER_DESERIALIZE
         BlockFilter block_filter;

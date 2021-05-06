@@ -11,7 +11,7 @@ from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import BitcoinTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_fee_amount,
+#    assert_fee_amount,
     assert_greater_than,
     assert_raises_rpc_error,
 )
@@ -226,9 +226,11 @@ class WalletSendTest(BitcoinTestFramework):
         self.log.info("Create transaction that spends to address, but don't broadcast...")
         self.test_send(from_wallet=w0, to_wallet=w1, amount=1, add_to_wallet=False)
         # conf_target & estimate_mode can be set as argument or option
-        res1 = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, arg_conf_target=1, arg_estimate_mode="economical", add_to_wallet=False)
-        res2 = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, conf_target=1, estimate_mode="economical", add_to_wallet=False)
         # ELEMENTS: we do not have the "fee" field. After #900 we should uncomment all of this.
+        #res1 =
+        self.test_send(from_wallet=w0, to_wallet=w1, amount=1, arg_conf_target=1, arg_estimate_mode="economical", add_to_wallet=False)
+        #res2 =
+        self.test_send(from_wallet=w0, to_wallet=w1, amount=1, conf_target=1, estimate_mode="economical", add_to_wallet=False)
         #assert_equal(self.nodes[1].decodepsbt(res1["psbt"])["fee"],
         #             self.nodes[1].decodepsbt(res2["psbt"])["fee"])
         # but not at the same time
@@ -259,8 +261,8 @@ class WalletSendTest(BitcoinTestFramework):
         # ELEMENTS: we do not have the "fee" field, several lines are commented out here that should
         #  be revisited after #900
         self.log.info("Test setting explicit fee rate")
-        res1 = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, arg_fee_rate=1, add_to_wallet=False)
-        res2 = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, fee_rate=1, add_to_wallet=False)
+        #res1 = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, arg_fee_rate=1, add_to_wallet=False)
+        #res2 = self.test_send(from_wallet=w0, to_wallet=w1, amount=1, fee_rate=1, add_to_wallet=False)
         #assert_equal(self.nodes[1].decodepsbt(res1["psbt"])["fee"], self.nodes[1].decodepsbt(res2["psbt"])["fee"])
 
         # Passing conf_target 0, estimate_mode "" as placeholder arguments should allow fee_rate to apply.

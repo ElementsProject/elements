@@ -157,8 +157,9 @@ void Test(const std::string& str)
     bool final = test.exists("final") && test["final"].get_bool();
 
     if (test.exists("success")) {
+        tx.witness.vtxinwit.resize(tx.vin.size());
         tx.vin[idx].scriptSig = ScriptFromHex(test["success"]["scriptSig"].get_str());
-        tx.vin[idx].scriptWitness = ScriptWitnessFromJSON(test["success"]["witness"]);
+        tx.witness.vtxinwit[idx].scriptWitness = ScriptWitnessFromJSON(test["success"]["witness"]);
         PrecomputedTransactionData txdata;
         txdata.Init(tx, std::vector<CTxOut>(prevouts));
         MutableTransactionSignatureChecker txcheck(&tx, idx, prevouts[idx].nValue, txdata);
@@ -166,21 +167,22 @@ void Test(const std::string& str)
             // "final": true tests are valid for all flags. Others are only valid with flags that are
             // a subset of test_flags.
             if (final || ((flags & test_flags) == flags)) {
-                (void)VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.vin[idx].scriptWitness, flags, txcheck, nullptr);
+                (void)VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, nullptr);
             }
         }
     }
 
     if (test.exists("failure")) {
+        tx.witness.vtxinwit.resize(tx.vin.size());
         tx.vin[idx].scriptSig = ScriptFromHex(test["failure"]["scriptSig"].get_str());
-        tx.vin[idx].scriptWitness = ScriptWitnessFromJSON(test["failure"]["witness"]);
+        tx.witness.vtxinwit[idx].scriptWitness = ScriptWitnessFromJSON(test["failure"]["witness"]);
         PrecomputedTransactionData txdata;
         txdata.Init(tx, std::vector<CTxOut>(prevouts));
         MutableTransactionSignatureChecker txcheck(&tx, idx, prevouts[idx].nValue, txdata);
         for (const auto flags : ALL_FLAGS) {
             // If a test is supposed to fail with test_flags, it should also fail with any superset thereof.
             if ((flags & test_flags) == test_flags) {
-                (void)VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.vin[idx].scriptWitness, flags, txcheck, nullptr);
+                (void)VerifyScript(tx.vin[idx].scriptSig, prevouts[idx].scriptPubKey, &tx.witness.vtxinwit[idx].scriptWitness, flags, txcheck, nullptr);
             }
         }
     }

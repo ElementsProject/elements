@@ -34,8 +34,6 @@
 #include <utility>
 #include <vector>
 
-#include <atomic>
-
 #include <primitives/pak.h> // CPAKList
 
 class CChainState;

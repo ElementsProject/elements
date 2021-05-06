@@ -585,7 +585,7 @@ class SegWitTest(BitcoinTestFramework):
             else:
                 # For segwit-aware nodes, check the version bit and the witness
                 # commitment are correct.
-                assert 'default_witness_commitment' in gbt_results 
+                assert 'default_witness_commitment' in gbt_results
                 # ELEMENTS: disabled
                 #witness_commitment = gbt_results['default_witness_commitment']
 
@@ -969,7 +969,7 @@ class SegWitTest(BitcoinTestFramework):
         for _ in range(NUM_OUTPUTS):
             parent_tx.vout.append(CTxOut(child_value, script_pubkey))
         parent_tx.vout[0].nValue.setToAmount(parent_tx.vout[0].nValue.getAmount() - 50000)
-        assert parent_tx.vout[0].nValue.getAmount() > 0 
+        assert parent_tx.vout[0].nValue.getAmount() > 0
         fee = value - (NUM_OUTPUTS*child_value) + 50000
         if fee > 0:
             parent_tx.vout.append(CTxOut(fee))
@@ -1239,7 +1239,7 @@ class SegWitTest(BitcoinTestFramework):
         for _ in range(10):
             tx.vout.append(CTxOut(int(value / 10), script_pubkey))
         tx.vout[0].nValue.setToAmount(tx.vout[0].nValue.getAmount() - 1000)
-        assert tx.vout[0].nValue.getAmount() >= 0 
+        assert tx.vout[0].nValue.getAmount() >= 0
         tx.vout.append(CTxOut(1000 + value - 10 * int(value / 10))) # fee
 
         block = self.build_next_block()

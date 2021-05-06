@@ -161,9 +161,12 @@ BITCOIN_QT_H = \
   qt/walletview.h \
   qt/winshutdownmonitor.h
 
-RES_ICONS = $(RES_RENDERED_ICONS) \
+RES_ICONS = \
   qt/res/icons/add.png \
   qt/res/icons/address-book.png \
+  qt/res/icons/bitcoin.ico \
+  qt/res/icons/bitcoin_testnet.ico \
+  qt/res/icons/bitcoin.png \
   qt/res/icons/chevron.png \
   qt/res/icons/clock1.png \
   qt/res/icons/clock2.png \

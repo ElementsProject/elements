@@ -136,12 +136,14 @@ static void ValidateCheckInputsForAllFlags(const CTransaction &tx, uint32_t fail
             std::vector<CCheck*> scriptchecks;
             BOOST_CHECK(CheckInputScripts(tx, state, &::ChainstateActive().CoinsTip(), test_flags, true, add_to_cache, txdata, &scriptchecks));
             BOOST_CHECK(scriptchecks.empty());
+            for (auto check : scriptchecks) delete check;
         } else {
             // Check that we get script executions to check, if the transaction
             // was invalid, or we didn't add to cache.
             std::vector<CCheck*> scriptchecks;
             BOOST_CHECK(CheckInputScripts(tx, state, &::ChainstateActive().CoinsTip(), test_flags, true, add_to_cache, txdata, &scriptchecks));
             BOOST_CHECK_EQUAL(scriptchecks.size(), tx.vin.size());
+            for (auto check : scriptchecks) delete check;
         }
     }
 }
@@ -211,6 +213,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         std::vector<CCheck*> scriptchecks;
         BOOST_CHECK(CheckInputScripts(CTransaction(spend_tx), state, &::ChainstateActive().CoinsTip(), SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_DERSIG, true, true, ptd_spend_tx, &scriptchecks));
         BOOST_CHECK_EQUAL(scriptchecks.size(), 1U);
+        for (auto check : scriptchecks) delete check;
 
         // Test that CheckInputScripts returns true iff DERSIG-enforcing flags are
         // not present.  Don't add these checks to the cache, so that we can
@@ -371,6 +374,7 @@ BOOST_FIXTURE_TEST_CASE(checkinputs_test, TestChain100Setup)
         BOOST_CHECK(CheckInputScripts(CTransaction(tx), state, &::ChainstateActive().CoinsTip(), SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_WITNESS, true, true, txdata, &scriptchecks));
         // Should get 2 script checks back -- caching is on a whole-transaction basis.
         BOOST_CHECK_EQUAL(scriptchecks.size(), 2U);
+        for (auto check : scriptchecks) delete check;
     }
 }
 

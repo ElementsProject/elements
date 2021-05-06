@@ -179,7 +179,7 @@ static bool SignStep(const SigningProvider& provider, const BaseSignatureCreator
         sigdata.missing_witness_script = uint256(vSolutions[0]);
         return false;
 
-    case TxoutType::TRUE:
+    case TxoutType::OP_TRUE:
         return Params().anyonecanspend_aremine;
 
     default:
@@ -506,11 +506,11 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
             prevTxOut = GetPeginOutputFromWitness(mtx.witness.vtxinwit[i].m_pegin_witness);
         } else {
             auto coin = coins.find(txin.prevout);
-            prevTxOut = coin->second.out;
             if (coin == coins.end() || coin->second.IsSpent()) {
                 input_errors[i] = "Input not found or already spent";
                 continue;
             }
+            prevTxOut = coin->second.out;
         }
 
         const CScript& prevPubKey = prevTxOut.scriptPubKey;

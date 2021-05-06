@@ -15,14 +15,9 @@ from test_framework.script import (
     LegacySignatureHash,
     SegwitV0SignatureHash,
     SIGHASH_ALL,
-    SIGHASH_SINGLE,
-    SIGHASH_NONE,
-    SIGHASH_ANYONECANPAY,
     SIGHASH_RANGEPROOF,
     CScript,
     CScriptOp,
-    FindAndDelete,
-    OP_CODESEPARATOR,
     OP_CHECKSIG,
     OP_DUP,
     OP_EQUALVERIFY,
@@ -33,10 +28,8 @@ from test_framework.key import ECKey
 from test_framework.messages import (
     CBlock,
     CTransaction,
-    CTxOut,
     FromHex,
-    WitToHex,
-    hash256, uint256_from_str, ser_uint256, ser_string, ser_vector
+    WitToHex
 )
 
 from test_framework import util
@@ -195,7 +188,10 @@ class SighashRangeproofTest(BitcoinTestFramework):
             self.assert_tx_valid(tx, True)
 
         # Activate dynafed (nb of blocks taken from dynafed activation test)
-        self.nodes[0].generate(1006 + 1 + 144 + 144)
+        # Generate acress several calls to `generatetoaddress` to ensure no individual call times out
+        self.nodes[0].generate(503)
+        self.nodes[0].generate(503)
+        self.nodes[0].generate(1 + 144 + 144)
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 
         self.sync_all()

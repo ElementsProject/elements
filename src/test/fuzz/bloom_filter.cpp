@@ -18,6 +18,12 @@
 void test_one_input(const std::vector<uint8_t>& buffer)
 {
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
+    // ELEMENTS: needed as Solver depends on Params()
+    if (fuzzed_data_provider.ConsumeBool()) {
+        SelectParams(CBaseChainParams::LIQUID1);
+    } else {
+        SelectParams(CBaseChainParams::MAIN);
+    }
 
     CBloomFilter bloom_filter{
         fuzzed_data_provider.ConsumeIntegralInRange<unsigned int>(1, 10000000),

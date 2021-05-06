@@ -122,7 +122,7 @@ class DynaFedTest(BitcoinTestFramework):
 
         # Move chain forward to activation, any new blocks will be enforced
         blocks += self.nodes[0].generatetoaddress(144, self.nodes[0].getnewaddress())
-        self.sync_all()
+        self.sync_blocks(timeout=240)
         assert_equal(self.nodes[0].getblockchaininfo()["softforks"]["dynafed"]["bip9"]["status"], "active")
 
         # Existing blocks should have null dynafed fields
@@ -500,6 +500,7 @@ class DynaFedTest(BitcoinTestFramework):
             self.assert_accepted(pegin_tx)
             self.assert_accepted(pegout_tx)
         assert_equal(self.nodes[0].getsidechaininfo()["current_fedpegscripts"], ["51", "51"])
+        self.sync_blocks()
 
         # Now have node 1 transition to new pak and fedpegscript
         pak_prop["fedpegscript"] = "52"

@@ -16,6 +16,7 @@ static void DuplicateInputs(benchmark::Bench& bench)
 {
     TestingSetup test_setup{
         CBaseChainParams::REGTEST,
+        /* fedpegscript */ "",
         /* extra_args */ {
             "-nodebuglogfile",
             "-nodebug",

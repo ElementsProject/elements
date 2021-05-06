@@ -336,7 +336,11 @@ public:
 
     // memory only
     enum AmountType { DEBIT, CREDIT, IMMATURE_CREDIT, AVAILABLE_CREDIT, AMOUNTTYPE_ENUM_ELEMENTS };
-    CAmountMap GetCachableAmount(AmountType type, const isminefilter& filter, bool recalculate = false) const;
+    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
+    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
+    // annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
+    // having to resolve the issue of member access into incomplete type CWallet.
+    CAmountMap GetCachableAmount(AmountType type, const isminefilter& filter, bool recalculate = false) const NO_THREAD_SAFETY_ANALYSIS;
     mutable CachableAmountMap m_amounts[AMOUNTTYPE_ENUM_ELEMENTS];
     /**
      * This flag is true if all m_amounts caches are empty. This is particularly
@@ -485,7 +489,11 @@ public:
     // having to resolve the issue of member access into incomplete type CWallet.
     CAmountMap GetAvailableCredit(bool fUseCache=true, const isminefilter& filter=ISMINE_SPENDABLE) const NO_THREAD_SAFETY_ANALYSIS;
     CAmountMap GetImmatureWatchOnlyCredit(const bool fUseCache=true) const;
-    CAmountMap GetChange() const;
+    // TODO: Remove "NO_THREAD_SAFETY_ANALYSIS" and replace it with the correct
+    // annotation "EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)". The
+    // annotation "NO_THREAD_SAFETY_ANALYSIS" was temporarily added to avoid
+    // having to resolve the issue of member access into incomplete type CWallet.
+    CAmountMap GetChange() const NO_THREAD_SAFETY_ANALYSIS;
 
     // Get the marginal bytes if spending the specified output from this transaction
     int GetSpendSize(unsigned int out, bool use_max_sig = false) const
@@ -836,7 +844,7 @@ public:
      * if they are not ours
      */
     bool SelectCoins(const std::vector<COutput>& vAvailableCoins, const CAmountMap& mapTargetValue, std::set<CInputCoin>& setCoinsRet, CAmountMap& mapValueRet,
-                    const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const;
+                    const CCoinControl& coin_control, CoinSelectionParams& coin_selection_params, bool& bnb_used) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /** Get a name for this wallet for logging/debugging purposes.
      */
@@ -1183,8 +1191,8 @@ public:
     CAmountMap GetChange(const CTransaction& tx) const;
 
     // ELEMENTS:
-    CAmountMap GetCredit(const CWalletTx& wtx, const isminefilter& filter) const;
-    CAmountMap GetChange(const CWalletTx& wtx) const;
+    CAmountMap GetCredit(const CWalletTx& wtx, const isminefilter& filter) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    CAmountMap GetChange(const CWalletTx& wtx) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     void chainStateFlushed(const CBlockLocator& loc) override;
 
@@ -1416,9 +1424,9 @@ public:
     // Pubkey accessor for GetBlindingKey
     CPubKey GetBlindingPubKey(const CScript& script) const;
 
-    bool LoadSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
-    bool AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key);
-    bool SetMasterBlindingKey(const uint256& key);
+    bool LoadSpecificBlindingKey(const CScriptID& scriptid, const uint256& key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddSpecificBlindingKey(const CScriptID& scriptid, const uint256& key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool SetMasterBlindingKey(const uint256& key) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     /// Returns a map of entropy to the respective pair of reissuance token and issuance asset.
     std::map<uint256, std::pair<CAsset, CAsset> > GetReissuanceTokenTypes() const;
