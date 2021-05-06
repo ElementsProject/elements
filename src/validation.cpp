@@ -3760,7 +3760,7 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, BlockValidat
             int fedpeg_version = 0;
             std::vector<unsigned char> fedpeg_program;
             if (!proposed.m_fedpeg_program.IsWitnessProgram(fedpeg_version, fedpeg_program)) {
-                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed signblockscript must be native segwit scriptPubkey");
+                return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "invalid-dyna-fed", "proposed fedpeg program must be native segwit scriptPubkey");
             }
 
             // for v0, fedpegscript's scriptPubKey must match. v1+ is unencumbered.

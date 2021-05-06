@@ -3340,7 +3340,7 @@ void FundTransaction(CWallet* const pwallet, CMutableTransaction& tx, CAmount& f
                     destinations[asset] = dest;
                 }
             } else {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Change address must be a valid address");
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Change address must be either a map or a string");
             }
 
             coinControl.destChange = destinations;
