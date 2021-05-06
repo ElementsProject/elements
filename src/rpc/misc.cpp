@@ -654,8 +654,6 @@ static RPCHelpMan echo(const std::string& name)
                 RPCExamples{""},
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
-    if (request.fHelp) throw std::runtime_error(self.ToString());
-
     if (request.params[9].isStr()) {
         CHECK_NONFATAL(request.params[9].get_str() != "trigger_internal_bug");
     }
@@ -725,11 +723,9 @@ static RPCHelpMan getindexinfo()
 //
 // ELEMENTS CALLS
 
-UniValue tweakfedpegscript(const JSONRPCRequest& request)
+static RPCHelpMan tweakfedpegscript()
 {
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
-        throw std::runtime_error(
-            RPCHelpMan{"tweakfedpegscript",
+    return RPCHelpMan{"tweakfedpegscript",
                 "\nReturns a tweaked fedpegscript.\n",
                 {
                     {"claim_script", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Script to tweak the fedpegscript with. For example obtained as a result of getpeginaddress."},
@@ -743,8 +739,8 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
                     }
                 },
                 RPCExamples{""},
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     if (!IsHex(request.params[0].get_str())) {
         throw JSONRPCError(RPC_TYPE_ERROR, "the first argument must be a hex string");
     }
@@ -772,6 +768,8 @@ UniValue tweakfedpegscript(const JSONRPCRequest& request)
     ret.pushKV("address", EncodeParentDestination(parent_addr));
 
     return ret;
+},
+    };
 }
 
 UniValue FormatPAKList(CPAKList &paklist) {
@@ -793,11 +791,9 @@ UniValue FormatPAKList(CPAKList &paklist) {
     return paklist_value;
 }
 
-UniValue getpakinfo(const JSONRPCRequest& request)
+static RPCHelpMan getpakinfo()
 {
-    if (request.fHelp || request.params.size() != 0)
-        throw std::runtime_error(
-            RPCHelpMan{"getpakinfo",
+    return RPCHelpMan{"getpakinfo",
                 "\nReturns relevant pegout authorization key (PAK) information about this node, both from blockchain data.\n",
                 {},
                 RPCResult{
@@ -810,8 +806,8 @@ UniValue getpakinfo(const JSONRPCRequest& request)
                     }
                 },
                 RPCExamples{""},
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     LOCK(cs_main);
 
     UniValue ret(UniValue::VOBJ);
@@ -819,9 +815,27 @@ UniValue getpakinfo(const JSONRPCRequest& request)
     ret.pushKV("block_paklist", FormatPAKList(paklist));
 
     return ret;
+},
+    };
 }
 
-UniValue calcfastmerkleroot(const JSONRPCRequest& request)
+static RPCHelpMan calcfastmerkleroot()
+{
+    return RPCHelpMan{"calcfastmerkleroot",
+                "\nhidden utility RPC for computing sha2 midstates\n",
+                {
+                    {"leaves", RPCArg::Type::ARR, RPCArg::Optional::NO, "array of data to compute the fast merkle root of.",
+                        {
+                            {"data", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "hex-encoded data"},
+                        }},
+                },
+                RPCResult{
+                    RPCResult::Type::STR_HEX, "", "merkle root of provided data"
+                },
+                RPCExamples{
+                    HelpExampleCli("calcfastmerkleroot", "[\"a\", \"b\", \"c\"]")
+                },
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
 {
     std::vector<uint256> leaves;
     for (const UniValue& leaf : request.params[0].get_array().getValues()) {
@@ -835,13 +849,13 @@ UniValue calcfastmerkleroot(const JSONRPCRequest& request)
     UniValue ret(UniValue::VOBJ);
     ret.setStr(root.GetHex());
     return ret;
+},
+    };
 }
 
-UniValue dumpassetlabels(const JSONRPCRequest& request)
+static RPCHelpMan dumpassetlabels()
 {
-    if (request.fHelp || request.params.size() != 0)
-        throw std::runtime_error(
-            RPCHelpMan{"dumpassetlabels",
+    return RPCHelpMan{"dumpassetlabels",
                 "\nLists all known asset id/label pairs in this wallet. This list can be modified with `-assetdir` configuration argument.\n",
                 {},
                 RPCResults{},
@@ -849,13 +863,15 @@ UniValue dumpassetlabels(const JSONRPCRequest& request)
                     HelpExampleCli("dumpassetlabels", "" )
             + HelpExampleRpc("dumpassetlabels", "" )
                 },
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     UniValue obj(UniValue::VOBJ);
     for (const auto& as : gAssetsDir.GetKnownAssets()) {
         obj.pushKV(gAssetsDir.GetLabel(as), as.GetHex());
     }
     return obj;
+},
+    };
 }
 
 class BlindingPubkeyAdderVisitor : public boost::static_visitor<>
@@ -895,11 +911,9 @@ public:
 };
 
 
-UniValue createblindedaddress(const JSONRPCRequest& request)
+static RPCHelpMan createblindedaddress()
 {
-    if (request.fHelp || request.params.size() != 2)
-        throw std::runtime_error(
-            RPCHelpMan{"createblindedaddress",
+    return RPCHelpMan{"createblindedaddress",
                 "\nCreates a blinded address using the provided blinding key.\n",
                 {
                     {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "The unblinded address to be blinded."},
@@ -914,8 +928,8 @@ UniValue createblindedaddress(const JSONRPCRequest& request)
             "\nAs a json rpc call\n"
             + HelpExampleRpc("createblindedaddress", "HEZk3iQi1jC49bxUriTtynnXgWWWdAYx16, ec09811118b6febfa5ebe68642e5091c418fbace07e655da26b4a845a691fc2d")
                 },
-            }.ToString());
-
+                [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
     CTxDestination address = DecodeDestination(request.params[0].get_str());
     if (!IsValidDestination(address)) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address or script");
@@ -938,6 +952,8 @@ UniValue createblindedaddress(const JSONRPCRequest& request)
     // Append blinding key and return
     boost::apply_visitor(BlindingPubkeyAdderVisitor(key), address);
     return EncodeDestination(address);
+},
+    };
 }
 
 
