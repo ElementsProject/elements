@@ -24,6 +24,7 @@ public:
     static const std::string SIGNET;
     static const std::string REGTEST;
     static const std::string LIQUID1;
+    static const std::string LIQUID1TEST;
     ///@}
 
     static const std::string DEFAULT;
