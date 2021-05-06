@@ -542,14 +542,14 @@ class CCustomParams : public CRegTestParams {
         // ELEMENTS fields
 
         // Determines type of genesis block
-        consensus.genesis_style = gArgs.GetArg("-con_genesis_style", "elements");
+        consensus.genesis_style = args.GetArg("-con_genesis_style", "elements");
 
         // Block signing encumberance script, default of 51 aka OP_TRUE
-        std::vector<unsigned char> sign_bytes = ParseHex(gArgs.GetArg("-signblockscript", "51"));
+        std::vector<unsigned char> sign_bytes = ParseHex(args.GetArg("-signblockscript", "51"));
         consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
         // Default signature size is the size of dummy push, and single 72 byte DER signature
-        consensus.max_block_signature_size = gArgs.GetArg("-con_max_block_sig_size", 74);
-        g_signed_blocks = gArgs.GetBoolArg("-con_signed_blocks", true);
+        consensus.max_block_signature_size = args.GetArg("-con_max_block_sig_size", 74);
+        g_signed_blocks = args.GetBoolArg("-con_signed_blocks", true);
 
         // Note: These globals are needed to avoid circular dependencies.
         // Default to true for custom chains.
@@ -567,7 +567,7 @@ class CCustomParams : public CRegTestParams {
         // Custom chains connect coinbase outputs to db by default
         consensus.connect_genesis_outputs = args.GetArg("-con_connect_genesis_outputs", true);
 
-        initialFreeCoins = gArgs.GetArg("-initialfreecoins", 0);
+        initialFreeCoins = args.GetArg("-initialfreecoins", 0);
 
         anyonecanspend_aremine = args.GetBoolArg("-anyonecanspendaremine", true);
 
@@ -609,8 +609,8 @@ class CCustomParams : public CRegTestParams {
 
         // Subsidy asset, like policyAsset, defaults to the pegged_asset
         consensus.subsidy_asset = consensus.pegged_asset;
-        if (gArgs.IsArgSet("-subsidyasset")) {
-            consensus.subsidy_asset = CAsset(uint256S(gArgs.GetArg("-subsidyasset", "0x00")));
+        if (args.IsArgSet("-subsidyasset")) {
+            consensus.subsidy_asset = CAsset(uint256S(args.GetArg("-subsidyasset", "0x00")));
         }
 
         consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
@@ -894,7 +894,293 @@ public:
         consensus.hashGenesisBlock = genesis.GetHash();
         assert(consensus.hashGenesisBlock.GetHex() == "1466275836220db2944ca059a3a10ef6fd2ea684b0688d2c379296888a206003");
     }
+};
 
+/**
+ * New: Liquid v1 testing, as close to prod as possible while still being customizable.
+ */
+class CLiquidV1TestParams : public CLiquidV1Params {
+public:
+    explicit CLiquidV1TestParams(ArgsManager& args)
+    {
+        // Our goal here is to override ONLY the things from liquidv1 that make no sense for a test chain / which are pointless and burdensome to require people to override manually.
+
+        strNetworkID = "liquidv1test";
+
+        // required for some tests to consider this 'regtest'
+        fMineBlocksOnDemand = true;
+
+        vSeeds.clear();  // No network seeds
+        vFixedSeeds.clear();  // No network seeds
+
+        // 51 means OP_TRUE, this can be overridden on the commandline
+        std::vector<unsigned char> sign_bytes = ParseHex("51");
+        consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
+
+        // Do not mandate a specific destination for fees in testing
+        consensus.mandatory_coinbase_destination = CScript(); // Blank script allows any coinbase destination
+
+        // The bitcoin regtest genesis blockhash is the default, not the mainchain
+        parentGenesisBlockHash = uint256S("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206");
+        const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
+        assert(consensus.has_parent_chain != parent_genesis_is_null);
+
+        // This is the regtest limit, not the mainchain limit.
+        consensus.parentChainPowLimit = uint256S("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.parent_chain_signblockscript = CScript(); // It has PoW
+
+        // Default to 8, not 100, for expedited testing.
+        consensus.pegin_min_depth = DEFAULT_PEGIN_CONFIRMATION_DEPTH;
+
+        // Default fedpegscrit is OP_TRUE (tests should override it)
+        consensus.fedpegScript = CScript() << OP_TRUE;
+
+        // For testing purposes, default to the same junk keys that CustomParams uses (this can be overridden.)
+        consensus.first_extension_space = {ParseHex("02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f02fcba7ecf41bc7e1be4ee122d9d22e3333671eb0a3a87b5cdf099d59874e1940f")};
+
+        // Use all regtest rather than mainchain magic numbers:
+        bech32_hrp = args.GetArg("-bech32_hrp", "ert");
+        blech32_hrp = args.GetArg("-blech32_hrp", "el");
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", 235));
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", 75));
+        base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 4));
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, args.GetArg("-secretprefix", 239));
+        base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentpubkeyprefix", 111));
+        base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 196));
+        parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", "bcrt");
+        parent_blech32_hrp = args.GetArg("-parent_blech32_hrp", "bcrt");
+
+        std::string extpubprefix = args.GetArg("-extpubkeyprefix", "043587CF");
+        assert(IsHex(extpubprefix) && extpubprefix.size() == 8 && "-extpubkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_PUBLIC_KEY] = ParseHex(extpubprefix);
+
+        std::string extprvprefix = args.GetArg("-extprvkeyprefix", "04358394");
+        assert(IsHex(extprvprefix) && extprvprefix.size() == 8 && "-extprvkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
+
+        const std::string magic_str = args.GetArg("-pchmessagestart", "FABFB5DA");
+        assert(IsHex(magic_str) && magic_str.size() == 8 && "-pchmessagestart must be hex string of length 8");
+        const std::vector<unsigned char> magic_byte = ParseHex(magic_str);
+        std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
+        // END magic numbers
+
+        UpdateFromArgs(args);
+        SetGenesisBlock();
+        consensus.hashGenesisBlock = genesis.GetHash();
+    }
+
+    // As much as possible here, our goal is to:
+    // - Allow overriding anything that can be overridden in CCustomParams;
+    // - Leave everything alone unless an argument / config parameter was given.
+    // This is unlike the CCustomParams UpdateFromArgs method, which has lots of defaults in it.
+    void UpdateFromArgs(ArgsManager& args)
+    {
+        // NOTE: We don't handle version bits, because I'm not sure we actually use them, and it would be messy to do so.
+        // UpdateVersionBitsParametersFromArgs(args);
+
+        consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
+        if (args.IsArgSet("-con_bip16exception")) {
+            consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", ""));
+        }
+        consensus.BIP34Height = args.GetArg("-con_bip34height", consensus.BIP34Height);
+        if (args.IsArgSet("-con_bip34hash")) {
+            consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", ""));
+        }
+        consensus.BIP65Height = args.GetArg("-con_bip65height", consensus.BIP65Height);
+        consensus.BIP66Height = args.GetArg("-con_bip66height", consensus.BIP66Height);
+        if (args.IsArgSet("-con_powlimit")) {
+            consensus.powLimit = uint256S(args.GetArg("-con_powlimit", ""));
+        }
+        consensus.nPowTargetTimespan = args.GetArg("-con_npowtargettimespan", consensus.nPowTargetTimespan);
+        consensus.nPowTargetSpacing = args.GetArg("-con_npowtargetspacing", consensus.nPowTargetSpacing);
+        consensus.fPowAllowMinDifficultyBlocks = args.GetBoolArg("-con_fpowallowmindifficultyblocks", consensus.fPowAllowMinDifficultyBlocks);
+        consensus.fPowNoRetargeting = args.GetBoolArg("-con_fpownoretargeting", consensus.fPowNoRetargeting);
+        consensus.nRuleChangeActivationThreshold = (uint32_t)args.GetArg("-con_nrulechangeactivationthreshold", consensus.nRuleChangeActivationThreshold);
+        consensus.nMinerConfirmationWindow = (uint32_t)args.GetArg("-con_nminerconfirmationwindow", consensus.nMinerConfirmationWindow);
+
+        if (args.IsArgSet("-con_nminimumchainwork")) {
+            consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", ""));
+        }
+        if (args.IsArgSet("-con_defaultassumevalid")) {
+            consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", ""));
+        }
+        // TODO: Embed in genesis block in nTime field with new genesis block type
+        consensus.dynamic_epoch_length = args.GetArg("-dynamic_epoch_length", consensus.dynamic_epoch_length);
+
+        std::vector<std::string> pak_list_str = args.GetArgs("-pak");
+        if (!pak_list_str.empty()) {
+            consensus.first_extension_space.clear();
+            for (const auto& entry : pak_list_str) {
+                consensus.first_extension_space.push_back(ParseHex(entry));
+            }
+        }
+
+        nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
+        fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
+        fMineBlocksOnDemand = args.GetBoolArg("-fmineblocksondemand", fMineBlocksOnDemand);
+        m_fallback_fee_enabled = args.GetBoolArg("-fallback_fee_enabled", m_fallback_fee_enabled);
+
+        bech32_hrp = args.GetArg("-bech32_hrp", bech32_hrp);
+        blech32_hrp = args.GetArg("-blech32_hrp", blech32_hrp);
+
+        if (args.IsArgSet("-pubkeyprefix")) {
+            base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", 0));
+        }
+        if (args.IsArgSet("-scriptprefix")) {
+            base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", 0));
+        }
+        if (args.IsArgSet("-blindedprefix")) {
+            base58Prefixes[BLINDED_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-blindedprefix", 0));
+        }
+        if (args.IsArgSet("-secretprefix")) {
+            base58Prefixes[SECRET_KEY] = std::vector<unsigned char>(1, args.GetArg("-secretprefix", 0));
+        }
+        if (args.IsArgSet("-parentpubkeyprefix")) {
+            base58Prefixes[PARENT_PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentpubkeyprefix", 0));
+        }
+        if (args.IsArgSet("-parentscriptprefix")) {
+            base58Prefixes[PARENT_SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-parentscriptprefix", 0));
+        }
+        parent_bech32_hrp = args.GetArg("-parent_bech32_hrp", parent_bech32_hrp);
+        parent_blech32_hrp = args.GetArg("-parent_blech32_hrp", parent_blech32_hrp);
+
+        std::string extpubprefix = args.GetArg("-extpubkeyprefix", "043587CF");
+        assert(IsHex(extpubprefix) && extpubprefix.size() == 8 && "-extpubkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_PUBLIC_KEY] = ParseHex(extpubprefix);
+
+        std::string extprvprefix = args.GetArg("-extprvkeyprefix", "04358394");
+        assert(IsHex(extprvprefix) && extprvprefix.size() == 8 && "-extprvkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
+
+        const std::string magic_str = args.GetArg("-pchmessagestart", "FABFB5DA");
+        assert(IsHex(magic_str) && magic_str.size() == 8 && "-pchmessagestart must be hex string of length 8");
+        const std::vector<unsigned char> magic_byte = ParseHex(magic_str);
+        std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
+
+        vSeeds.clear();
+        if (args.IsArgSet("-seednode")) {
+            const auto seednodes = args.GetArgs("-seednode");
+            if (seednodes.size() != 1 || seednodes[0] != "0") {
+                vSeeds = seednodes;
+            }
+        }
+
+        //
+        // ELEMENTS fields
+
+        // Determines type of genesis block
+        consensus.genesis_style = args.GetArg("-con_genesis_style", consensus.genesis_style);
+
+        // Block signing encumberance script
+        if (args.IsArgSet("-signblockscript")) {
+            std::vector<unsigned char> sign_bytes = ParseHex(args.GetArg("-signblockscript", ""));
+            consensus.signblockscript = CScript(sign_bytes.begin(), sign_bytes.end());
+        }
+
+        consensus.max_block_signature_size = args.GetArg("-con_max_block_sig_size", consensus.max_block_signature_size);
+        g_signed_blocks = args.GetBoolArg("-con_signed_blocks", g_signed_blocks);
+
+        // Note: These globals are needed to avoid circular dependencies.
+        g_con_blockheightinheader = args.GetBoolArg("-con_blockheightinheader", g_con_blockheightinheader);
+
+        // Doesn't make any sense to use this chain in !elementsmode. Don't do it.
+        assert(args.GetBoolArg("-con_elementsmode", true));
+        g_con_elementsmode = true;
+        consensus.elements_mode = true;
+
+        consensus.genesis_subsidy = args.GetArg("-con_blocksubsidy", consensus.genesis_subsidy);
+
+        // All non-zero coinbase outputs must go to this scriptPubKey
+        if (args.IsArgSet("-con_mandatorycoinbase")) {
+            std::vector<unsigned char> man_bytes = ParseHex(args.GetArg("-con_mandatorycoinbase", ""));
+            consensus.mandatory_coinbase_destination = CScript(man_bytes.begin(), man_bytes.end()); // Blank script allows any coinbase destination
+        }
+
+        consensus.connect_genesis_outputs = args.GetArg("-con_connect_genesis_outputs", consensus.connect_genesis_outputs);
+
+        initialFreeCoins = args.GetArg("-initialfreecoins", initialFreeCoins);
+
+        anyonecanspend_aremine = args.GetBoolArg("-anyonecanspendaremine", anyonecanspend_aremine);
+
+        consensus.has_parent_chain = args.GetBoolArg("-con_has_parent_chain", consensus.has_parent_chain);
+
+        enforce_pak = args.GetBoolArg("-enforce_pak", enforce_pak);
+
+        multi_data_permitted = args.GetBoolArg("-multi_data_permitted", multi_data_permitted);
+
+        if (args.IsArgSet("-parentgenesisblockhash")) {
+            parentGenesisBlockHash = uint256S(args.GetArg("-parentgenesisblockhash", ""));
+        }
+        // Either it has a parent chain or not
+        const bool parent_genesis_is_null = parentGenesisBlockHash == uint256();
+        assert(consensus.has_parent_chain != parent_genesis_is_null);
+        if (args.IsArgSet("-con_parentpowlimit")) {
+            consensus.parentChainPowLimit = uint256S(args.GetArg("-con_parentpowlimit", ""));
+        }
+
+        if (args.IsArgSet("-con_parent_chain_signblockscript")) {
+            consensus.parent_chain_signblockscript = StrHexToScriptWithDefault(args.GetArg("-con_parent_chain_signblockscript", ""), CScript());
+        }
+        consensus.pegin_min_depth = args.GetArg("-peginconfirmationdepth", consensus.pegin_min_depth);
+
+        if (args.IsArgSet("-fedpegscript")) {
+            consensus.fedpegScript = StrHexToScriptWithDefault(args.GetArg("-fedpegscript", ""), CScript());
+        }
+
+        consensus.total_valid_epochs = args.GetArg("-total_valid_epochs", consensus.total_valid_epochs);
+
+        // Calculate pegged Bitcoin asset
+        std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
+        uint256 entropy;
+        GenerateAssetEntropy(entropy,  COutPoint(uint256(commit), 0), parentGenesisBlockHash);
+        CalculateAsset(consensus.pegged_asset, entropy);
+
+        if (args.IsArgSet("-con_parent_pegged_asset")) {
+            consensus.parent_pegged_asset.SetHex(args.GetArg("-con_parent_pegged_asset", ""));
+        }
+        initial_reissuance_tokens = args.GetArg("-initialreissuancetokens", initial_reissuance_tokens);
+
+        if (args.IsArgSet("-subsidyasset")) {
+            consensus.subsidy_asset = CAsset(uint256S(args.GetArg("-subsidyasset", "")));
+        }
+
+        if (args.IsArgSet("-con_dyna_deploy_start")) {
+            consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].bit = 25;
+            consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nStartTime = args.GetArg("-con_dyna_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+            consensus.vDeployments[Consensus::DEPLOYMENT_DYNA_FED].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        }
+
+        // END ELEMENTS fields
+
+        // CSV always active by default, unlike regtest
+        if (args.IsArgSet("-con_csv_deploy_start")) {
+            consensus.vDeployments[Consensus::DEPLOYMENT_CSV].bit = 0;
+            consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = args.GetArg("-con_csv_deploy_start", Consensus::BIP9Deployment::ALWAYS_ACTIVE);
+            consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
+        }
+    }
+
+    // XXX: This is copy-and-pasted from CCustomParams; sharing it would be better, but is annoying.
+    void SetGenesisBlock() {
+        if (consensus.genesis_style == "bitcoin") {
+            // For compatibility with bitcoin (regtest)
+            genesis = CreateGenesisBlock(1296688602, 2, 0x207fffff, 1, 50 * COIN, consensus);
+        } else if (consensus.genesis_style == "elements") {
+            // Intended compatibility with Liquid v1 and elements-0.14.1
+            std::vector<unsigned char> commit = CommitToArguments(consensus, strNetworkID);
+            genesis = CreateGenesisBlock(consensus, CScript(commit), CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 0);
+            if (initialFreeCoins != 0 || initial_reissuance_tokens != 0) {
+                AppendInitialIssuance(genesis, COutPoint(uint256(commit), 0), parentGenesisBlockHash, (initialFreeCoins > 0) ? 1 : 0, initialFreeCoins, (initial_reissuance_tokens > 0) ? 1 : 0, initial_reissuance_tokens, CScript() << OP_TRUE);
+            }
+        } else if (consensus.genesis_style == "dynamic") {
+            // Liquid v2 HF, from genesis. Upgrading networks still use "elements".
+            // TODO fill out genesis block with special commitments including epoch
+            // length in nTime
+            throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
+        } else {
+            throw std::runtime_error(strprintf("Invalid -genesis_style (%s)", consensus.genesis_style));
+        }
+    }
 };
 
 
@@ -916,6 +1202,8 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
         return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
     else if (chain == CBaseChainParams::LIQUID1)
         return std::unique_ptr<CChainParams>(new CLiquidV1Params());
+    else if (chain == CBaseChainParams::LIQUID1TEST)
+        return std::unique_ptr<CChainParams>(new CLiquidV1TestParams(gArgs));
 
     return std::unique_ptr<CChainParams>(new CCustomParams(chain, gArgs));
 }
