@@ -586,22 +586,6 @@ class PSBTTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         self.sync_all()
 
-        # Now send nonconf->conf
-        conf_addr = self.get_address(True, 2)
-        psbt = self.nodes[1].createpsbt([{"txid": txid_nonconf_2, "vout": 0}], [{conf_addr: 49.998}, {"fee": 0.001}])
-        psbt = self.nodes[1].walletfillpsbtdata(psbt)['psbt']
-        # Currently can't blind a transaction like this, so it fails
-        assert_raises_rpc_error(-8, "Unable to blind transaction: Add another output to blind in order to complete the blinding.", self.nodes[1].blindpsbt, psbt, False)
-        # Signing without blinding should not work either.
-        assert_raises_rpc_error(-25, "Transaction is not yet fully blinded", self.nodes[1].walletsignpsbt, psbt)
-        # If we pass "ignore_blind_fail", then it succeeds in this case without blinding.
-        psbt = self.nodes[1].blindpsbt(psbt, True)
-        psbt = self.nodes[1].walletsignpsbt(psbt)['psbt']
-        hex_tx = self.nodes[1].finalizepsbt(psbt)['hex']
-        self.nodes[1].sendrawtransaction(hex_tx)
-        self.nodes[0].generate(1)
-        self.sync_all()
-
         # Now send nonconf->conf (with two outputs, blinding succeeds)
         conf_addr_1 = self.get_address(True, 2)
         conf_addr_2 = self.get_address(True, 2)
