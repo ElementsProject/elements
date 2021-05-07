@@ -298,7 +298,6 @@ BITCOIN_TESTS =\
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \
-  wallet/test/db_tests.cpp \
   wallet/test/wallet_tests.cpp \
   wallet/test/walletdb_tests.cpp \
   wallet/test/wallet_crypto_tests.cpp \
@@ -308,6 +307,10 @@ BITCOIN_TESTS += \
   wallet/test/scriptpubkeyman_tests.cpp
 # ELEMENTS: disable PSBT test
 #  wallet/test/psbt_wallet_tests.cpp
+
+if USE_BDB
+BITCOIN_TESTS += wallet/test/db_tests.cpp
+endif
 
 BITCOIN_TEST_SUITE += \
   wallet/test/wallet_test_fixture.cpp \
