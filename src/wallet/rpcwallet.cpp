@@ -6412,12 +6412,12 @@ static RPCHelpMan issueasset()
 {
     return RPCHelpMan{"issueasset",
                 "\nCreate an asset. Must have funds in wallet to do so. Returns asset hex id.\n"
-                "For more fine-grained control such as non-empty contract-hashes to commit\n"
-                "to an issuance policy, see `rawissueasset` RPC call.\n",
+                "For more fine-grained control such as multiple issuances, see `rawissueasset` RPC call.\n",
                 {
                     {"assetamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of asset to generate. Note that the amount is BTC-like, with 8 decimal places."},
                     {"tokenamount", RPCArg::Type::AMOUNT, RPCArg::Optional::NO, "Amount of reissuance tokens to generate. Note that the amount is BTC-like, with 8 decimal places. These will allow you to reissue the asset if in wallet using `reissueasset`. These tokens are not consumed during reissuance."},
                     {"blind", RPCArg::Type::BOOL , /* default */ "true", "Whether to blind the issuances."},
+                    {"contract_hash", RPCArg::Type::STR_HEX, /* default */ "0000...0000", "Contract hash that is put into issuance definition. Must be 32 bytes worth in hex string form. This will affect the asset id."},
                 },
                 RPCResult{
                     RPCResult::Type::OBJ, "", "",
@@ -6453,6 +6453,12 @@ static RPCHelpMan issueasset()
 
     bool blind_issuances = request.params.size() < 3 || request.params[2].get_bool();
 
+    // Check for optional contract to hash into definition
+    uint256 contract_hash;
+    if (request.params.size() >= 4) {
+        contract_hash = ParseHashV(request.params[3], "contract_hash");
+    }
+
     if (!pwallet->IsLocked())
         pwallet->TopUpKeyPool();
 
@@ -6480,13 +6486,14 @@ static RPCHelpMan issueasset()
     CAsset dummyasset;
     IssuanceDetails issuance_details;
     issuance_details.blind_issuance = blind_issuances;
+    issuance_details.contract_hash = contract_hash;
     CTransactionRef tx_ref = SendGenerationTransaction(GetScriptForDestination(asset_dest), asset_dest_blindpub, GetScriptForDestination(token_dest), token_dest_blindpub, nAmount, nTokens, &issuance_details, pwallet);
 
     // Calculate asset type, assumes first vin is used for issuance
     CAsset asset;
     CAsset token;
     CHECK_NONFATAL(!tx_ref->vin.empty());
-    GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, uint256());
+    GenerateAssetEntropy(issuance_details.entropy, tx_ref->vin[0].prevout, issuance_details.contract_hash);
     CalculateAsset(asset, issuance_details.entropy);
     CalculateReissuanceToken(token, issuance_details.entropy, blind_issuances);
 
@@ -7036,7 +7043,7 @@ static const CRPCCommand commands[] =
     { "wallet",             "dumpissuanceblindingkey",          &dumpissuanceblindingkey,       {"txid", "vin"}},
     { "wallet",             "signblock",                        &signblock,                     {"blockhex", "witnessScript"}},
     { "wallet",             "listissuances",                    &listissuances,                 {"asset"}},
-    { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind"}},
+    { "wallet",             "issueasset",                       &issueasset,                    {"assetamount", "tokenamount", "blind", "contract_hash"}},
     { "wallet",             "reissueasset",                     &reissueasset,                  {"asset", "assetamount"}},
     { "wallet",             "destroyamount",                    &destroyamount,                 {"asset", "amount", "comment", "verbose"} },
     { "hidden",             "generatepegoutproof",              &generatepegoutproof,           {"sumkey", "btcpubkey", "onlinepubkey"} },
