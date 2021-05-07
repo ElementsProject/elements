@@ -1,5 +1,5 @@
 ---
-name: "elements-win-0.22"
+name: "elements-win-22"
 enable_cache: true
 distro: "ubuntu"
 suites:
