@@ -2695,6 +2695,18 @@ static void UpdateTip(CTxMemPool& mempool, const CBlockIndex* pindexNew, const C
     if (num_unexpected_version > 0) {
         LogPrint(BCLog::VALIDATION, "%d of last 100 blocks have unexpected version\n", num_unexpected_version);
     }
+
+    // Do some logging if dynafed parameters changed.
+    if (pindexNew->pprev && !pindexNew->dynafed_params.IsNull()) {
+        int height = pindexNew->nHeight;
+        uint256 hash = pindexNew->GetBlockHash();
+        uint256 root = pindexNew->dynafed_params.m_current.CalculateRoot();
+        if (pindexNew->pprev->dynafed_params.IsNull()) {
+            LogPrintf("Dynafed activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
+        } else if (root != pindexNew->pprev->dynafed_params.m_current.CalculateRoot()) {
+            LogPrintf("New dynafed parameters activated in block %d:%s: %s\n", height, hash.GetHex(), root.GetHex());
+        }
+    }
 }
 
 /** Disconnect m_chain's tip.
