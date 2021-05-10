@@ -3564,6 +3564,20 @@ static bool ContextualCheckDynaFedHeader(const CBlockHeader& block, CValidationS
             }
         }
     }
+
+    // Do some logging if parameters changed.
+    auto parent = pindexPrev->dynafed_params.m_current;
+    if (dynafed_params.m_current != parent) {
+        int height = pindexPrev->nHeight + 1;
+        std::string hash = block.GetHash().GetHex();
+        std::string root = dynafed_params.m_current.CalculateRoot().GetHex();
+        if (parent.IsNull()) {
+            LogPrintf("Dynafed activated in block %d:%s: %s\n", height, hash, root);
+        } else {
+            LogPrintf("New dynafed parameters activated in block %d:%s: %s\n", height, hash, root);
+        }
+    }
+
     return true;
 }
 
