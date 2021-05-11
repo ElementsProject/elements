@@ -5002,7 +5002,7 @@ static RPCHelpMan walletcreatefundedpsbt()
     }
 
     // Fill transaction with out data but don't sign
-    bool bip32derivs = request.params[4].isNull() ? false : request.params[4].get_bool();
+    bool bip32derivs = request.params[4].isNull() ? true : request.params[4].get_bool();
     bool complete = true;
     const TransactionError err = pwallet->FillPSBT(psbtx, complete, 1, false, bip32derivs, true);
     if (err != TransactionError::OK) {
