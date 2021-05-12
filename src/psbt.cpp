@@ -715,6 +715,7 @@ std::string PSBTRoleName(PSBTRole role) {
     switch (role) {
     case PSBTRole::CREATOR: return "creator";
     case PSBTRole::UPDATER: return "updater";
+    case PSBTRole::BLINDER: return "blinder";
     case PSBTRole::SIGNER: return "signer";
     case PSBTRole::FINALIZER: return "finalizer";
     case PSBTRole::EXTRACTOR: return "extractor";

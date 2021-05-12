@@ -744,8 +744,6 @@ class PSBTTest(BitcoinTestFramework):
         assert shuffled
         """
 
-        # TODO: Re-enable analyzepsbt
-"""
         # Newly created PSBT needs UTXOs and updating
         addr = self.nodes[1].getnewaddress("", "p2sh-segwit")
         txid = self.nodes[0].sendtoaddress(addr, 7)
@@ -753,7 +751,7 @@ class PSBTTest(BitcoinTestFramework):
         blockhash = self.nodes[0].generate(6)[0]
         self.sync_all()
         vout = find_output(self.nodes[0], txid, 7, blockhash=blockhash)
-        psbt = self.nodes[1].createpsbt([{"txid":txid, "vout":vout}], [{self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('6.999')}])
+        psbt = self.nodes[1].createpsbt([{"txid":txid, "vout":vout}], [{self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('6.999')}, {"fee": 0.001}])
         analyzed = self.nodes[0].analyzepsbt(psbt)
         assert not analyzed['inputs'][0]['has_utxo'] and not analyzed['inputs'][0]['is_final'] and analyzed['inputs'][0]['next'] == 'updater' and analyzed['next'] == 'updater'
 
@@ -763,9 +761,9 @@ class PSBTTest(BitcoinTestFramework):
         assert analyzed['inputs'][0]['has_utxo'] and not analyzed['inputs'][0]['is_final'] and analyzed['inputs'][0]['next'] == 'signer' and analyzed['next'] == 'signer' and analyzed['inputs'][0]['missing']['signatures'][0] == addrinfo['embedded']['witness_program']
 
         # Check fee and size things
-        assert_equal(analyzed['fee']['bitcoin'], Decimal('0.001'))
-        assert_equal(analyzed['estimated_vsize'], 170)
-        assert_equal(analyzed['estimated_feerate'], Decimal('0.00588235'))
+        assert_equal(analyzed['fee'], Decimal('0.001'))
+        assert_equal(analyzed['estimated_vsize'], 215)
+        assert_equal(analyzed['estimated_feerate'], Decimal('0.00465116'))
 
         # After signing and finalizing, needs extracting
         signed = self.nodes[1].walletprocesspsbt(updated)['psbt']
@@ -773,29 +771,28 @@ class PSBTTest(BitcoinTestFramework):
         assert analyzed['inputs'][0]['has_utxo'] and analyzed['inputs'][0]['is_final'] and analyzed['next'] == 'extractor'
 
         self.log.info("PSBT spending unspendable outputs should have error message and Creator as next")
-        analysis = self.nodes[0].analyzepsbt('cHNldP8BALsCAAAAAAJY6HohtW2vDCO+jnBwRWwzb3y6pch1eST1RYh7sqvddQAAAAAA/////4ONBCfQ7GUKaKpGuwsJiupEIsBxssp4NSoHeVnQfOodAQAAAAD/////AgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAACPCqcAADAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAF9eEAAAP/UQAAAAAAAAEBQwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAC+vCAAAXahS39fr0QuN5fadOh/59nXSX47ICiQMBBwkDAQcQAAEAAIAAAQFDAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAL68IAABdqFLf1+vRC43l9p06H/n2ddJfjsgKJAwEHCQMBBxDZDGpPAAAAAA==')
+        analysis = self.nodes[0].analyzepsbt("cHNldP8BAgQCAAAAAQMEAAAAAAEEAQIBBQEDAfsEAgAAAAABAUMBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAvrwgAAF2oUt/X69ELjeX2nTof+fZ10l+OyAokDAQ4gWOh6IbVtrwwjvo5wcEVsM298uqXIdXkk9UWIe7Kr3XUBDwQAAAAAARAE/////wABAUMBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAvrwgAAF2oUt/X69ELjeX2nTof+fZ10l+OyAokDAQ4gg40EJ9DsZQpoqka7CwmK6kQiwHGyyng1Kgd5WdB86h0BDwQBAAAAARAE/////wABBAMAAAABAwgA4fUFAAAAAAf8BHBzZXQCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAAEEA/9RAAEDCADh9QUAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIAAQQAAQMIAOH1BQAAAAAH/ARwc2V0AiAjD09dS3xvqEWAbuT2dxNFnhtp6OYPzuLklAx6DV3hsgA=")
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Input 0 spends unspendable output')
 
         self.log.info("PSBT with invalid values should have error message and Creator as next")
-        analysis = self.nodes[0].analyzepsbt('cHNldP8BALgCAAAAAAHwNNARYAJurafOkaMMB+gTCJkDS+c11HE0/e16Cxs9AQAAAAAA/////wIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUC+QAAFgAUKNw0x8HRctAgmvoevm4u1SbN7XIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUC7fwAFgAU9yTiAXuIvg0vjC19EAqBBuCGJNQAAAAAAAEBQgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAB9DjaoGAAAAWABSVA7cX9jx6OuNRxDgTgCLxTDU69gAAAA==')
+        analysis = self.nodes[0].analyzepsbt("cHNldP8BAgQCAAAAAQMEAAAAAAEEAQEBBQEDAfsEAgAAAAABAUIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAfQ42qBgAAAFgAUlQO3F/Y8ejrjUcQ4E4Ai8Uw1OvYBDiDwNNARYAJurafOkaMMB+gTCJkDS+c11HE0/e16Cxs9AQEPBAAAAAABEAT/////AAEEFgAUKNw0x8HRctAgmvoevm4u1SbN7XIBAwgA+QKVAAAAAAf8BHBzZXQCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAAEEFgAU9yTiAXuIvg0vjC19EAqBBuCGJNQBAwj87QKVAAAAAAf8BHBzZXQCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAAEEAAEDCBAnAAAAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIA")
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Input 0 has invalid value')
 
         self.log.info("PSBT with signed, but not finalized, inputs should have Finalizer as next")
-        analysis = self.nodes[0].analyzepsbt('cHNldP8BAKICAAAAAAHYbiiIXZVA0g5BCdsnj0s4KXCJx3pqo3Pryd+r3hnzyQAAAAAA/////wIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAASoEa2AAFgAU8emriaOLtUHQk5/pUpRdxCOHLgYBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAAABhqAAAAAAAAAAAQFCASMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAQAAAAEqBfIAABYAFPwVpav0Q0fyp8tYa1U5gdVojHjvC/wIZWxlbWVudHMACADyBSoBAAAAC/wIZWxlbWVudHMCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyIgICVqRGlkGH70G3mdLiflAxd0yjzpmR3jktvc8fdnAND3dHMEQCIAsdyIwp4Q8Yi6+KrlPYBd01pcAQqrGODarU5yquh3ifAiBN0s3pYaf5qLvMSDd+UdZ9mSnzVbvQZtEADf0ovkEHfAEAAAA=')
+        analysis = self.nodes[0].analyzepsbt("cHNldP8BAgQCAAAAAQMEAAAAAAEEAQEBBQECAfsEAgAAAAABAP1GAQIAAAAAAtpPG2HNaQ7g1RhD88FfUIfJC09s/JOG0O51k1yf+BOGAAAAAAD9////B3dy8WfLRW/bNMpUigt/fepavcJqGEcCLA5HiRruhoABAAAAAP3///8DASMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAQAAAAApuScAABepFI3c8Pl2L3+zDBFaVnU/fbC7u8YXhwrU7XTaIgX0Ui+O3yyCMz3qIu5eWWqhkpvPSTFUT4FBmQmTF2BnoPq5+0AfEsZypoPR7bm/U3+hxwcRJf4goV/3qwNo5VLiic5ce1dZCSUfff5XpRUYgb+WVEDRuomG9fTTbhYAFMThhARjTBZ+SqXAUJy8DC2ynay7ASMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAQAAAAAAAHFwAAC0AQAAAQFDASMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAQAAAAApuScAABepFI3c8Pl2L3+zDBFaVnU/fbC7u8YXhwEEFgAUNZYRdEGQwHLFV2omDyyxxA2RJjgiAgLAsYuL3ObwGidkudS4ZlEL0ZW84Xn7ht6BPnQ1aGrPGEcwRAIgDtAPQnVgJWk2NQfCjnZ4K1gJH82zWfJaPnMYxpBhU1wCIAMuStVULIORnPuLseJPLhBLNzczD72wqBzi7GjGMnqfAQEOINut3V3yAGie+x4icl/6hWw9TuDiUk5fuXQWHKy14+ARAQ8EAAAAAAEQBP////8AAQQXqRSEp5LBkVEYljQOEsxhElkADN7J+ocBAwhgoLcpAAAAAAf8BHBzZXQCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAAEEAAEDCKCGAQAAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIA")
         assert_equal(analysis['next'], 'finalizer')
 
-        analysis = self.nodes[0].analyzepsbt('cHNldP8BALgCAAAAAAHwNNARYAJurafOkaMMB+gTCJkDS+c11HE0/e16Cxs9AQAAAAAA/////wIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAfQ42qBgAAAFgAUKNw0x8HRctAgmvoevm4u1SbN7XIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUC7fwAFgAU9yTiAXuIvg0vjC19EAqBBuCGJNQAAAAAAAEBQgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABKgXyAAAWABSVA7cX9jx6OuNRxDgTgCLxTDU69gAAAA==')
+        analysis = self.nodes[0].analyzepsbt("cHNldP8BAgQCAAAAAQMEAAAAAAEEAQEBBQEDAfsEAgAAAAABDiDwNNARYAJurafOkaMMB+gTCJkDS+c11HE0/e16Cxs9AQEPBAAAAAABEAT/////AAEEFgAUKNw0x8HRctAgmvoevm4u1SbN7XIBAwgAgIFq49AHAAf8BHBzZXQCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAAEEFgAU9yTiAXuIvg0vjC19EAqBBuCGJNQBAwj87QKVAAAAAAf8BHBzZXQCICMPT11LfG+oRYBu5PZ3E0WeG2no5g/O4uSUDHoNXeGyAAEEAAEDCBAnAAAAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIA")
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Output amount invalid')
 
-        analysis = self.nodes[0].analyzepsbt('cHNldP8BAOECAAAAAAK2GUhaoOw0nV0BJhZg0a8G7vb9PQvlTds8GA/N+l+peAMAAAAA/////7YZSFqg7DSdXQEmFmDRrwbu9v09C+VN2zwYD836X6l4AQAAAAD/////AgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAlQK2wAAWABSNJKzjaUb3uOxixsvh1GGE3fW7zQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAlQL5AAAWABQo3DTHwdFy0CCa+h6+bi7VJs3tcgAAAAAAAQDhAgAAAAACczMa321tVHuN4GKWKRncycI22aX3uXgwSFUKM2orjRsBAAAAAP////9zMxrfbW1Ue43gYpYpGdzJwjbZpfe5eDBIVQozaiuNGwAAAAAA/////wIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUC+QAAFgAU/c11FQPC7OYlaspyx3uf70ntV8kBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUCzUAAFgAUZlkFHI0o4IUPP7h+AZ/85GpMC7QAAAAAAAEBQgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAlQLNQAAWABRmWQUcjSjghQ8/uH4Bn/zkakwLtAAAAA==')
+        analysis = self.nodes[0].analyzepsbt("cHNldP8BAgQCAAAAAQMEAAAAAAEEAQEBBQEDAfsEAgAAAAABAKICAAAAAAHH6k+xEgicvmA3NdivY741Mkb1NOcXWr0NNl6hrR/WbgAAAEAA/////wIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAlQLx/QAFgAUTwXL7rzz4++YOM52QVixAcDETlwBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAAAAHAwAAAAAAAABAUIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAlQLx/QAFgAUTwXL7rzz4++YOM52QVixAcDETlwBDiBzQYOL5jKoCOgksiRTvw0zfNZ+6QwsBsCZRoqc3PHoygEPBAIAAAABEAT9////ACICAt/pWo4sGJOHmHcQ8znTQCNWAZbCdkdGx3JaRfNNtbr6EAm9XegAAACAAQAAgEgAAIABBBYAFCuDv44MRC5Qj+VetbjoeiSUS5p3AQMIzLoIvwEAAAAH/ARwc2V0AiAjD09dS3xvqEWAbuT2dxNFnhtp6OYPzuLklAx6DV3hsgf8BHBzZXQIBAAAAAAAAQQWABSNJKzjaUb3uOxixsvh1GGE3fW7zQEDCAD5ApUAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIH/ARwc2V0CAQAAAAAAAEEAAEDCCgUAAAAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIH/ARwc2V0CAQAAAAAAA==")
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Input 0 specifies invalid prevout')
 
-        assert_raises_rpc_error(-25, 'Inputs missing or spent', self.nodes[0].walletprocesspsbt, 'cHNldP8BAOECAAAAAAK2GUhaoOw0nV0BJhZg0a8G7vb9PQvlTds8GA/N+l+peAMAAAAA/////7YZSFqg7DSdXQEmFmDRrwbu9v09C+VN2zwYD836X6l4AQAAAAD/////AgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAlQK2wAAWABSNJKzjaUb3uOxixsvh1GGE3fW7zQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAlQL5AAAWABQo3DTHwdFy0CCa+h6+bi7VJs3tcgAAAAAAAQDhAgAAAAACczMa321tVHuN4GKWKRncycI22aX3uXgwSFUKM2orjRsBAAAAAP////9zMxrfbW1Ue43gYpYpGdzJwjbZpfe5eDBIVQozaiuNGwAAAAAA/////wIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUC+QAAFgAU/c11FQPC7OYlaspyx3uf70ntV8kBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAJUCzUAAFgAUZlkFHI0o4IUPP7h+AZ/85GpMC7QAAAAAAAEBQgEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAlQLNQAAWABRmWQUcjSjghQ8/uH4Bn/zkakwLtAAAAA==')
-"""
+        assert_raises_rpc_error(-25, 'Inputs missing or spent', self.nodes[0].walletprocesspsbt, "cHNldP8BAgQCAAAAAQMEAAAAAAEEAQEBBQEDAfsEAgAAAAABAKICAAAAAAHH6k+xEgicvmA3NdivY741Mkb1NOcXWr0NNl6hrR/WbgAAAEAA/////wIBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAlQLx/QAFgAUTwXL7rzz4++YOM52QVixAcDETlwBIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIBAAAAAAAAHAwAAAAAAAABDiBzQYOL5jKoCOgksiRTvw0zfNZ+6QwsBsCZRoqc3PHoygEPBAIAAAABEAT9////ACICAt/pWo4sGJOHmHcQ8znTQCNWAZbCdkdGx3JaRfNNtbr6EAm9XegAAACAAQAAgEgAAIABBBYAFCuDv44MRC5Qj+VetbjoeiSUS5p3AQMIzLoIvwEAAAAH/ARwc2V0AiAjD09dS3xvqEWAbuT2dxNFnhtp6OYPzuLklAx6DV3hsgf8BHBzZXQIBAAAAAAAAQQWABSNJKzjaUb3uOxixsvh1GGE3fW7zQEDCAD5ApUAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIH/ARwc2V0CAQAAAAAAAEEAAEDCCgUAAAAAAAAB/wEcHNldAIgIw9PXUt8b6hFgG7k9ncTRZ4baejmD87i5JQMeg1d4bIH/ARwc2V0CAQAAAAAAA==")
 
 if __name__ == '__main__':
     PSBTTest().main()

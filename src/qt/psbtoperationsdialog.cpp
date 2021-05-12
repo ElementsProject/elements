@@ -179,7 +179,7 @@ std::string PSBTOperationsDialog::renderTransaction(const PartiallySignedTransac
     } else {
         // FIXME: should we display non-bitcoin fees?
         tx_description.append(tr("Pays transaction fee: "));
-        tx_description.append(BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, (*analysis.fee)[::policyAsset]));
+        tx_description.append(BitcoinUnits::formatWithUnit(BitcoinUnits::BTC, *analysis.fee));
 
         // add total amount in all subdivision units
         tx_description.append("<hr />");

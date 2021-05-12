@@ -1354,7 +1354,9 @@ static RPCHelpMan decodepsbt()
             in.pushKV("witness_utxo", out);
         }
         if (input.non_witness_utxo) {
-            txout = input.non_witness_utxo->vout[*input.prev_out];
+            if (*input.prev_out < input.non_witness_utxo->vout.size()) {
+                txout = input.non_witness_utxo->vout[*input.prev_out];
+            }
 
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
@@ -2353,7 +2355,7 @@ static RPCHelpMan analyzepsbt()
         result.pushKV("estimated_feerate", ValueFromAmount(psbta.estimated_feerate->GetFeePerK()));
     }
     if (psbta.fee != nullopt) {
-        result.pushKV("fee", AmountMapToUniv(*psbta.fee, ""));
+        result.pushKV("fee", ValueFromAmount(*psbta.fee));
     }
     result.pushKV("next", PSBTRoleName(psbta.next));
     if (!psbta.error.empty()) {
