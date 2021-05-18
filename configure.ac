@@ -667,6 +667,8 @@ case $host in
            PKG_CONFIG_PATH="$qt5_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
            export PKG_CONFIG_PATH
          fi
+         dnl On some versions of osx stack check is turned on by default and is broken
+         AX_CHECK_COMPILE_FLAG([-fno-stack-check],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fno-stack-check"])
        fi
      else
        case $build_os in
