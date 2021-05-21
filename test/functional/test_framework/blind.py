@@ -3,7 +3,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 """
-Interface for low level bindings from secp256k1(zkp) 
+Interface for low level bindings from secp256k1(zkp)
 to deal with python data structures
 """
 from .secp256k1_zkp_bind import (
@@ -18,7 +18,7 @@ import os
 import hashlib
 
 """
-Build with 
+Build with
 ~/secp256k1-zkp$ ./configure --enable-experimental \
                             --enable-module-generator \
                             --enable-module-rangeproof \
@@ -28,7 +28,7 @@ Build with
 and provide the location of the so file in LD_LIBRARY_PATH variable
 
 If secp256k1_zkp is built at home, that would be
-export LD_LIBRARY_PATH=$HOME/secp256k1-zkp/.libs/ 
+export LD_LIBRARY_PATH=$HOME/secp256k1-zkp/.libs/
 """
 
 """
@@ -44,11 +44,11 @@ def parse_raw_pk(pk):
     return raw_pub.raw
 
 """
-Blind an asset. 
+Blind an asset.
 asset: Either a CAsset or 32 bytes id
 assetblind: 32 byte
 
-Returns: confidential asset(CTxOutAsset) 
+Returns: confidential asset(CTxOutAsset)
 and the other blinded generator 'h' in generator form
 """
 def blind_asset(asset, assetblind):
@@ -114,9 +114,9 @@ key chosen by the wallet.
 Inputs:
 output_pubkey (ECPubkey): The receiver pubkey(called as output_pubkey in c++ code)
 
-Returns: 
-a) the ECDH nonce(32 bytes): 
-b) The chosen ephemeral pubkey(CTxOutNonce). 
+Returns:
+a) the ECDH nonce(32 bytes):
+b) The chosen ephemeral pubkey(CTxOutNonce).
 
 The ephemeral Pk is set as the nNonce in the txOut
 """
@@ -126,7 +126,7 @@ def generate_output_rangeproof_nonce(output_pubkey):
     key = ECKey()
     key.generate()
     ephemeral_pk = key.get_pubkey()
-    
+
     raw_key = parse_raw_pk(output_pubkey)
     # Generate nonce
     ecdh_res = ctypes.create_string_buffer(32)
@@ -134,17 +134,17 @@ def generate_output_rangeproof_nonce(output_pubkey):
     if ret != 1:
         raise Exception("secp256k1_ecdh failed")
     nonce = hashlib.sha256(ecdh_res.raw).digest()
-    
+
     ephemeral_pk = CTxOutNonce(vchCommitment=ephemeral_pk.get_bytes())
     return nonce, ephemeral_pk
 
 """
 Create a rangeproof.
 Inputs:
-amount: (int) the amount in satoshis 
+amount: (int) the amount in satoshis
 in_value_blind: (32 bytes)  The blinds corresponding to value.
 asset: (CAsset) The AssetId of the asset in this output
-in_asset_blind: (32 bytes) The blind corresponding to the asset. 
+in_asset_blind: (32 bytes) The blind corresponding to the asset.
 nonce: The rangeproof nonce to be used for encrypting the message inside the proof
 scriptPubkey: The scriptpubkey in the output
 value_commit: The commitment over which we are creating the rangeproof
@@ -167,7 +167,7 @@ def generate_rangeproof(amount, in_value_blind, asset, in_asset_blind, nonce, sc
     assert(isinstance(gen, (bytes, bytearray)))
     if len(gen) != SECP256K1_GENERATOR_SIZE:
         raise ValueError('len(gen) != SECP256K1_GENERATOR_SIZE')
-    assert(isinstance(in_value_blind, bytes) and len(in_value_blind) == 32) 
+    assert(isinstance(in_value_blind, bytes) and len(in_value_blind) == 32)
     assert(isinstance(in_asset_blind, bytes) and len(in_asset_blind) == 32)
 
     # Prep range proof
@@ -186,13 +186,13 @@ def generate_rangeproof(amount, in_value_blind, asset, in_asset_blind, nonce, sc
     else:
         # Can probably something better for min_value?
         min_value = 1
-    
+
     ret = _secp256k1.secp256k1_rangeproof_sign(secp256k1_blind_context,
         rangeproof, ctypes.byref(nRangeProofLen),
         min_value, value_commit, in_value_blind, nonce, ct_exponent, ct_bits,
         amount, assetsMessage, len(assetsMessage),
         None if len(scriptPubKey) == 0 else scriptPubKey, len(scriptPubKey), gen)
-    
+
     if ret != 1:
         raise RuntimeError('secp256k1_rangeproof_sign failed')
 
@@ -225,7 +225,7 @@ asset_blind: The blind corresponding to asset being blinded
 output_asset_gen: The generator corresponding to the asset being blinded
 asset: The asset being blinded
 
-Output: 
+Output:
 The surjection proof as bytes
 """
 def generate_surjectionproof(surjection_targets, target_asset_generators, target_asset_blinders, asset, output_asset_gen, asset_blind):
@@ -337,13 +337,13 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
 
     num_blind_attempts = 0
     num_blinded = 0
-    
+
     max_targets = len(tx.vin)*3
 
     if auxiliary_generators:
         assert(len(auxiliary_generators) > len(tx.vin))
         max_targets += (len(auxiliary_generators) - len(tx.vin))
-    
+
     target_asset_blinders = []
     total_targets = 0
     surjection_targets = [None for _ in range(max_targets)]
@@ -371,7 +371,7 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
                 input_asset_blinding_factors[i])
             if ret != 1:
                 raise Exception('secp256k1_generator_generate_blinded Failed')
-        
+
         target_asset_generators[total_targets] = asset_generator.raw
         surjection_targets[total_targets] = input_assets[i]
         target_asset_blinders.append(input_asset_blinding_factors[i])
@@ -392,9 +392,9 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
             surjection_targets[total_targets] = b"\x00"*32
             target_asset_blinders.append(b"\x00"*32)
             total_targets += 1
-    
+
     assert(total_targets == len(target_asset_blinders))
-    
+
     # Remove all None elements
     del surjection_targets[total_targets:]
     del target_asset_generators[total_targets:]
@@ -417,7 +417,7 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
 
         #TODO: issuances
         assert(tx.vin[i].assetIssuance.isNull())
-    
+
     # Checks about the transaction outputs
     for n_out, pk in enumerate(output_pubkeys):
         if pk is not None:
@@ -426,7 +426,7 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
                 tx.vout[n_out].is_fee():
                     raise Exception("TxOuts must have explicit asset/values while blinding and proofs must be empty")
             num_to_blind += 1
-    
+
     tx.wit.vtxoutwit = [CTxOutWitness() for _ in range(len(tx.vout))]
 
     for n_out in range(len(output_pubkeys)):
@@ -445,19 +445,19 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
             if num_blind_attempts == num_to_blind:
                 if num_blind_attempts == 1 and num_known_input_blinds == 0:
                     return (num_blinded, output_value_blinding_factors, output_asset_blinding_factors)
-            
+
 
                 blinded_amounts_ptr = (ctypes.c_uint64 * len(blinded_amounts))(*blinded_amounts)
                 asset_blind_ptrs = (ctypes.c_char_p* len(asset_blinds))()
                 for i, blind in enumerate(asset_blinds):
                     asset_blind_ptrs[i] = blind
-                
+
                 last_blind = ctypes.create_string_buffer(value_blinds[-1], len(value_blinds[-1]))
                 value_blind_ptrs = (ctypes.c_char_p*len(value_blinds))()
                 for i, blind in enumerate(value_blinds[:-1]):
                     value_blind_ptrs[i] = blind
                 value_blind_ptrs[-1] = ctypes.cast(last_blind, ctypes.c_char_p)
-                
+
                 assert(len(asset_blind_ptrs) == num_blind_attempts + num_known_input_blinds)
                 assert(len(blinded_amounts) == len(asset_blind_ptrs))
 
@@ -471,7 +471,7 @@ def blind_transaction(tx, input_value_blinding_factors, input_asset_blinding_fac
                     num_blind_attempts + num_known_input_blinds, 0 + num_known_input_blinds)
 
                 if ret != 1:
-        
+
                     raise RuntimeError('secp256k1_pedersen_blind_generator_blind_sum returned failure')
 
                 assert(_immutable_check_hash == hashlib.sha256(b''.join(b

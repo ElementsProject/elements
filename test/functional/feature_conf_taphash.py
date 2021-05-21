@@ -8,8 +8,9 @@
 # Test listissuances returns a list of all issuances or specific issuances based on asset hex or asset label.
 #
 
-from test_framework.key import ECKey, ECPubKey
-from test_framework.messages import CAsset, COIN, CTransaction, FromHex
+from test_framework.script import CScript, OP_CHECKSIG, SIGHASH_ALL, TaprootSignatureHash, taproot_construct
+from test_framework.key import ECKey, ECPubKey, compute_xonly_pubkey, generate_privkey, sign_schnorr, tweak_add_privkey, tweak_add_pubkey, verify_schnorr
+from test_framework.messages import CAsset, COIN, COutPoint, CTransaction, CTxIn, CTxInWitness, CTxOut, CTxOutNonce, FromHex, uint256_from_str
 from test_framework.test_framework import BitcoinTestFramework, SkipTest
 from test_framework.blind import blind_transaction
 
@@ -54,10 +55,21 @@ class BlindTest(BitcoinTestFramework):
 
         addr = self.nodes[0].getnewaddress()
 
+        sec = generate_privkey()
+        pub = compute_xonly_pubkey(sec)[0]
+        tap = taproot_construct(pub)
+        spk = tap.scriptPubKey
+        tweak = tap.tweak
+
         # unconf_addr = self.nodes[0].getaddressinfo(addr)['unconfidential']
 
         raw_tx = self.nodes[0].createrawtransaction([], [{addr: 1.2}])
-        fund_tx = self.nodes[0].fundrawtransaction(raw_tx)["hex"]
+        # edit spk directly, no way to get new address.
+        # would need to implement bech32m in python
+        tx = FromHex(CTransaction(), raw_tx)
+        tx.vout[0].scriptPubKey = spk
+        raw_hex = tx.serialize().hex()
+        fund_tx = self.nodes[0].fundrawtransaction(raw_hex)["hex"]
 
         spent = self.nodes[0].listunspent()[0]
 
@@ -76,6 +88,14 @@ class BlindTest(BitcoinTestFramework):
         in_amount = int(spent['amount']*COIN)
         in_asset = CAsset(bytes.fromhex(spent["asset"])[::-1])
 
+        # Createrawtransaction might rearrage txouts
+        prev_vout = None
+        spent_value = None
+        for i, out in enumerate(tx.vout):
+            if spk == out.scriptPubKey:
+                prev_vout = i
+                spent_value = out.nValue.getAmount()
+
         # Must have 1 input now.
         (res, v_blind, a_blind) = blind_transaction(tx, input_value_blinding_factors=[in_v_blind], \
             input_asset_blinding_factors = [in_a_blind], \
@@ -93,6 +113,36 @@ class BlindTest(BitcoinTestFramework):
         self.nodes[0].generate(1)
         last_blk = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
         assert(tx.hash in last_blk['tx'])
+
+        # Create a new transaction spending from this transaction
+        # Find vout which has the taproot spk
+        assert(prev_vout is not None)
+        spent_tx = CTransaction()
+        nonce = ECKey()
+        nonce.generate()
+        prevout = COutPoint(tx.sha256, prev_vout)
+        spent_tx.vin.append(CTxIn(prevout))
+        spent_tx.vout.append(CTxOut(spent_value - 10000, spk))
+        spent_tx.vout.append(CTxOut(10000)) # ELEMENTS: and fee
+
+        (res, _v_blind, _a_blind) = blind_transaction(spent_tx, input_value_blinding_factors=[v_blind[prev_vout]], \
+            input_asset_blinding_factors = [a_blind[prev_vout]], \
+            input_assets = [in_asset], \
+            input_amounts = [spent_value], \
+            output_pubkeys =  [nonce.get_pubkey()]
+            )
+        assert(res == 1)
+        genesis_hash = uint256_from_str(bytes.fromhex(self.nodes[0].getblockhash(0))[::-1])
+        spent_tx.wit.vtxinwit = [CTxInWitness()]
+        msg = TaprootSignatureHash(spent_tx, [tx.vout[prev_vout]], 0, genesis_hash, 0)
+
+        # compute the tweak
+        tweak_sk = tweak_add_privkey(sec, tweak)
+        sig = sign_schnorr(tweak_sk, msg)
+        spent_tx.wit.vtxinwit[0].scriptWitness.stack = [sig]
+        pub_tweak = tweak_add_pubkey(pub, tweak)[0]
+        assert(verify_schnorr(pub_tweak, sig, msg))
+        self.nodes[0].sendrawtransaction(spent_tx.serialize().hex())
 
 if __name__ == '__main__':
     BlindTest().main()
