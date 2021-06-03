@@ -24,7 +24,10 @@ bool CCoinsView::HaveCoin(const COutPoint &outpoint) const
 }
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
-bool CCoinsViewBacked::GetCoin(const COutPoint &outpoint, Coin &coin) const { return base->GetCoin(outpoint, coin); }
+bool CCoinsViewBacked::GetCoin(const COutPoint &outpoint, Coin &coin) const {
+    assert(coin.out.nNonce.IsNull());
+    return base->GetCoin(outpoint, coin);
+}
 bool CCoinsViewBacked::HaveCoin(const COutPoint &outpoint) const { return base->HaveCoin(outpoint); }
 uint256 CCoinsViewBacked::GetBestBlock() const { return base->GetBestBlock(); }
 std::vector<uint256> CCoinsViewBacked::GetHeadBlocks() const { return base->GetHeadBlocks(); }
@@ -51,8 +54,10 @@ static inline CCoinsMapKey native_key(const COutPoint& outpoint) {
 
 CCoinsMap::iterator CCoinsViewCache::FetchCoin(const COutPoint &outpoint) const {
     CCoinsMap::iterator it = cacheCoins.find(native_key(outpoint));
-    if (it != cacheCoins.end())
+    if (it != cacheCoins.end()) {
+        assert(it->second.coin.out.nNonce.IsNull());
         return it;
+    }
     Coin tmp;
     if (!base->GetCoin(outpoint, tmp))
         return cacheCoins.end();
@@ -79,6 +84,7 @@ bool CCoinsViewCache::GetCoin(const COutPoint &outpoint, Coin &coin) const {
 
 void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possible_overwrite) {
     assert(!coin.IsSpent());
+    coin.out.nNonce = CConfidentialNonce();
     if (coin.out.scriptPubKey.IsUnspendable()) return;
     CCoinsMap::iterator it;
     bool inserted;
