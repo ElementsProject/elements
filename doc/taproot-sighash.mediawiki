@@ -34,7 +34,6 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** '''''NEW''''' ''sha_outpoint_flags'' (32): the SHA256 of the serialization of the concatenation of one byte per input of the input's outpoint flags shifted right by 24 bits. (The byte for an pegin input would be 0x40. The byte for an issuance input would be 0x80. The byte for both a pegin and issuance would be 0xc0.)
 *** ''sha_prevouts'' (32): the SHA256 of the serialization of all input outpoints. Each prevout output index is the masked version containing outpoint flags
 *** '''''NEW''''' ''sha_asset_amounts'' (32): the SHA256 of the serialization of ''nAsset||nValue'' for each output
-*** '''''NEW''''' ''sha_nonces'' (32): the SHA256 of the serialization of all output ''nNonce'' fields.
 *** ''sha_scriptpubkeys'' (32): the SHA256 of the serialization of all spent output ''scriptPubKey''s.
 *** ''sha_sequences'' (32): the SHA256 of the serialization of all input ''nSequence''.
 *** '''''NEW''''' ''sha_issuances'' (32): the SHA256 of the serialization of the concatenation of all input ''assetIssuance'' or 130 '0x00' bytes for inputs with no issuance
@@ -48,7 +47,6 @@ If the parameters take acceptable values, the message is the concatenation of th
 *** ''outpoint'' (36): the <code>COutPoint</code> of this input (32-byte hash + 4-byte little-endian) where the output index includes the outpoint flags.
 *** '''''NEW''''' ''nAsset'' (33): (possibly confidential) assetID of the previous output spent by this input, in fixed-length format
 *** '''''NEW''''' ''nValue'' (33): (possibly confidential) amount of the previous output spent by this input, in fixed-length format
-*** '''''NEW''''' ''nNonce'' (33): (possibly confidential) nonce of the previous output spent by this input, in fixed-length format
 *** ''scriptPubKey'' (35): ''scriptPubKey'' of the previous output spent by this input, serialized as script inside <code>CTxOut</code>. Its size is always 35 bytes.
 *** ''nSequence'' (4): ''nSequence'' of this input.
 *** '''''NEW''''' ''asset_issuance'' (130): if ''outpoint_flag & 0x80 == 0x80'': asset issuance(fields for ''nInflationKeys'' and ''nAmount'' are serialized in fixed-length format) data of this input; otherwise 130 zero bytes
